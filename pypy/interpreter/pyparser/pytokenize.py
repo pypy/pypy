@@ -13,7 +13,17 @@ basil.util.automata module.
 # ______________________________________________________________________
 
 from pypy.interpreter.pyparser import automata
-from pypy.interpreter.pyparser.dfa_generated import *
+from pypy.interpreter.pyparser.dfa_generated import (
+    singleDFA,
+    singlefDFA,
+    doubleDFA,
+    doublefDFA,
+    single3DFA,
+    singlef3DFA,
+    double3DFA,
+    doublef3DFA,
+    pseudoDFA,
+)
 
 __all__ = [ "tokenize" ]
 
@@ -28,7 +38,7 @@ endDFAs = {"'" : singleDFA,
            'b' : None,
            'B' : None}
 
-for uniPrefix in ("", "b", "B", "f", "F"):
+for uniPrefix in ("", "b", "B"):
     for rawPrefix in ("", "r", "R"):
         prefix_1 = uniPrefix + rawPrefix
         prefix_2 = rawPrefix + uniPrefix
@@ -37,6 +47,14 @@ for uniPrefix in ("", "b", "B", "f", "F"):
         endDFAs[prefix_1 + '"""'] = double3DFA
         endDFAs[prefix_2 + "'''"] = single3DFA
         endDFAs[prefix_2 + '"""'] = double3DFA
+
+for rawPrefix in ("", "r", "R"):
+    for fPrefix in "fF":
+        for prefix in (rawPrefix + fPrefix, fPrefix + rawPrefix):
+            endDFAs[prefix + "'"] = singlefDFA
+            endDFAs[prefix + '"'] = doublefDFA
+            endDFAs[prefix + "'''"] = singlef3DFA
+            endDFAs[prefix + '"""'] = doublef3DFA
 
 for uniPrefix in ("u", "U"):
     endDFAs[uniPrefix + "'''"] = single3DFA
@@ -83,3 +101,9 @@ for t in ("'", '"',
 
 tabsize = 8
 alttabsize = 1
+
+# ______________________________________________________________________
+
+fstring_starts = {
+    t: t for quotes in (single_quoted, triple_quoted) for t in quotes if "f" in t.lower()
+}

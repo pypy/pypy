@@ -4,13 +4,16 @@ import io
 import os
 import sys
 
+from pypy.interpreter import unicodehelper
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser import pytokenizer as tokenize, pytoken
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.interpreter.pyparser.parsestring import decode_unicode_str, parsestr
 
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.astbuilder import parse_number
+from pypy.interpreter.astcompiler.fstring import build, concatenate_strings
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter.astcompiler import consts, misc
 
@@ -258,7 +261,7 @@ class Parser:
         self._verbose = verbose
         self._level = 0
         self._cache = {}
-        # Integer tracking wether we are in a left recursive rule or not. Can be useful
+        # Integer tracking whether we are in a left recursive rule or not. Can be useful
         # for error reporting.
         self.in_recursive_rule = 0
 
@@ -294,13 +297,6 @@ class Parser:
         for tok in self._warnings:
             self.deprecation_warn(tok.value, tok)
         return res
-
-    def recursive_parse_to_ast(self, str, info):
-        from pypy.interpreter.pyparser import pytokenizer as tokenize
-        from pypy.interpreter.pyparser import rpypegparse
-        tokenlist = tokenize.generate_tokens(str.splitlines(True), 0)
-        parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
-        return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
         from pypy.interpreter import error
@@ -440,6 +436,24 @@ class Parser:
     def string(self):
         tok = self.peek()
         if tok.token_type == tokens.STRING:
+            return self.getnext()
+        return None
+
+    def FSTRING_START(self):
+        tok = self.peek()
+        if tok.token_type == tokens.FSTRING_START:
+            return self.getnext()
+        return None
+
+    def FSTRING_MIDDLE(self):
+        tok = self.peek()
+        if tok.token_type == tokens.FSTRING_MIDDLE:
+            return self.getnext()
+        return None
+
+    def FSTRING_END(self):
+        tok = self.peek()
+        if tok.token_type == tokens.FSTRING_END:
             return self.getnext()
         return None
 
@@ -629,10 +643,176 @@ class Parser:
             self.raise_syntax_error("imaginary  number required in complex literal")
         return w_number
 
-    def generate_ast_for_string(self, tokens):
-        """Generate AST nodes for strings."""
-        from pypy.interpreter.astcompiler.fstring import string_parse_literal
-        return string_parse_literal(self, tokens)
+    def string_constant(self, tok):
+        from pypy.interpreter import error
+        space = self.space
+        encoding = self.compile_info.encoding
+        # u'' prefix can not be combined with
+        # any other specifier, so it's safe to
+        # check the initial letter for determining.
+        kind = "u" if tok.value[0] == "u" else None
+        try:
+            w_string = parsestr(space, encoding, tok.value, tok, self)
+        except error.OperationError as e:
+            # FIXME: Put this logic in more places?
+            if e.match(space, space.w_UnicodeError):
+                kind = '(unicode error) '
+            elif e.match(space, space.w_ValueError):
+                kind = '(value error) '
+            elif e.match(space, space.w_SyntaxError):
+                kind = ''
+            else:
+                raise
+            # Unicode/ValueError/SyntaxError (without position information) in
+            # literal: turn into SyntaxError with position information
+            # XXX: parsestr gets the token, so it should have position info?
+            e.normalize_exception(space)
+            errmsg = space.text_w(space.str(e.get_w_value(space)))
+            raise self.raise_syntax_error_known_location('%s%s' % (kind, errmsg), tok)
+        else:
+            return ast.Constant(
+                w_string,
+                kind=space.newtext_or_none(kind),
+                lineno=tok.lineno,
+                col_offset=tok.column,
+                end_lineno=tok.end_lineno,
+                end_col_offset=tok.end_column,
+            )
+
+    concatenate_strings = concatenate_strings
+
+    def fstring_check_conversion(self, conv_token, conv):
+        # Corresponds to CPython's _PyPegen_check_fstring_conversion
+        if conv_token.lineno != conv.lineno or \
+           conv_token.end_column != conv.col_offset:
+            self.raise_syntax_error_known_range(
+                "f-string: conversion type must come "
+                "right after the exclamation mark",
+                conv_token, conv)
+
+        return conv
+
+    def fstring_formatted_value(self, lbrace, expr, debug_expr, conversion, format, rbrace):
+        # Corresponds to CPython's _PyPegen_formatted_value
+        if conversion is not None:
+            first = conversion.id[0]
+            if len(conversion.id) > 1 or first not in "sra":
+                self.raise_syntax_error_known_location(
+                    "f-string: invalid conversion character '%s': expected 's', 'r', or 'a'" % (conversion.id,),
+                    conversion)
+            conv = ord(first)
+        elif debug_expr is not None and format is None:
+            conv = ord('r')
+        else:
+            conv = -1
+
+        fv = ast.FormattedValue(expr, conversion=conv, format_spec=format,
+            lineno=lbrace.lineno, col_offset=lbrace.column,
+            end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column)
+        if debug_expr is None:
+            return fv
+
+        end_lineno, end_col_offset = rbrace.lineno, rbrace.column
+        if conversion is not None:
+            end_lineno, end_col_offset = conversion.lineno, conversion.col_offset-1
+        elif format is not None:
+            end_lineno, end_col_offset = format.lineno, format.col_offset
+
+        # help the annotator
+        lbrace_end_column = lbrace.end_column
+        assert lbrace_end_column >= 0 and end_col_offset >= 0
+        if lbrace.lineno == end_lineno:
+            debug_text = self._lines.get(lbrace.lineno, "")[lbrace_end_column:end_col_offset]
+        else:
+            lines = [self._lines.get(n, "\n") for n in range(lbrace.lineno, end_lineno + 1)]
+            lines[0] = lines[0][lbrace_end_column:]
+            lines[-1] = lines[-1][:end_col_offset]
+            debug_text = "".join(lines)
+
+        # TODO: Returns lists instead?
+        space = self.space
+        length = unicodehelper.check_utf8_or_raise(space, debug_text)
+        return ast.JoinedStr(
+            [
+                ast.Constant(space.newutf8(debug_text, length), kind=None,
+                    lineno=lbrace.lineno, col_offset=lbrace.column+1,
+                    end_lineno=end_lineno, end_col_offset=end_col_offset),
+                fv,
+            ],
+            # TODO: Do these matter?
+            lineno=lbrace.lineno, col_offset=lbrace.column,
+            end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column,
+        )
+
+    def fstring_format_spec_constant(self, t):
+        # Corresponds to CPython's _PyPegen_decoded_constant_from_token
+        # In CPython, this ends up calling decode_unicode_with_escapes on the
+        # token value. It doesn't matter if the f-string is raw,
+        # escape sequences are always decoded in the format specifier.
+        return build(
+            ast.Constant,
+            self._decode_unicode(False, t),
+            None,
+            t,
+        )
+
+    def _decode_unicode(self, rawmode, token):
+        encoding = self.compile_info.encoding
+        return decode_unicode_str(self.space, encoding, token.value, rawmode, self, token)
+
+    def generate_ast_for_fstring(self, start, middles, end):
+        # Corresponds to CPython's _PyPegen_joined_str
+        space = self.space
+        items = []
+        rawmode = "r" in start.value or "R" in start.value
+        for item in middles:
+            if isinstance(item, Token):
+                item = build(
+                    ast.Constant,
+                    self._decode_unicode(rawmode or "\\" not in item.value, item),
+                    None,
+                    item,
+                )
+                if not space.is_true(item.value):
+                    # empty string, can happen for FSTRING_MIDDLE token w. '\\\n'
+                    continue
+            else:
+                if isinstance(item, ast.JoinedStr):
+                    # formatted value with debug expr
+                    assert len(item.values) == 2
+                    debug, item = item.values
+                    assert isinstance(debug, ast.Constant)
+                    items.append(debug)
+
+                assert isinstance(item, ast.FormattedValue)
+
+            items.append(item)
+
+        return ast.JoinedStr(
+            items,
+            lineno=start.lineno,
+            col_offset=start.column,
+            end_lineno=end.end_lineno,
+            end_col_offset=end.end_column,
+        )
+
+    def fstring_format_spec_full(self, colon, specs):
+        # Corresponds to CPython's _PyPegen_setup_full_format_spec
+        # CPython compatibility: return an empty JoinedStr node if the format spec is empty
+        if len(specs) == 1:
+            fst = specs[0]
+            if isinstance(fst, ast.Constant) and not self.space.is_true(fst.value):
+                specs = []
+
+        # CPython compatibility: always return a JoinedStr node
+        end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
+        return ast.JoinedStr(
+            specs,
+            lineno=colon.lineno,
+            col_offset=colon.column,
+            end_lineno=end_lineno,
+            end_col_offset=end_col_offset,
+        )
 
     def extract_import_level(self, tokens):
         """Extract the relative import level from the tokens preceding the module name.
@@ -816,11 +996,12 @@ class Parser:
         cls=SyntaxError,
     ):
         line_from_token = start_lineno == -1 and end_lineno == -1
-        tok = self.diagnose()
         if start_lineno == -1:
+            tok = self.diagnose()
             start_lineno = tok.lineno
             start_col_offset = tok.column
         if end_lineno == -1:
+            tok = self.diagnose()
             if tok.end_lineno != -1:
                 end_lineno = tok.end_lineno
                 end_col_offset = tok.end_column
@@ -829,6 +1010,7 @@ class Parser:
                 end_col_offset = start_col_offset
 
         if line_from_token:
+            tok = self.diagnose()
             line = tok.line
         else:
             # End is used only to get the proper text
@@ -886,10 +1068,13 @@ class Parser:
             message,
             node_or_tok,
         ):
-        """Raise a syntax error that occured at a given AST node or Token."""
+        """Raise a syntax error that occurred at a given AST node or Token."""
         start_lineno, start_col_offset = self.extract_pos_start(node_or_tok)
         end_lineno, end_col_offset = self.extract_pos_end(node_or_tok)
         self._raise_syntax_error(message, start_lineno, start_col_offset, end_lineno, end_col_offset)
+
+    def raise_syntax_error_on_next_token(self, message):
+        self.raise_syntax_error_known_location(message, self.peek())
 
     def make_type_ignores(self):
         type_ignores = []
@@ -947,6 +1132,6 @@ class Parser:
 
     def revdbmetavar(self, num, lineno, col_offset, end_lineno, end_col_offset):
         if not self.space.config.translation.reverse_debugger:
-            self._raise_syntax_error("Unkown character", lineno, col_offset, end_lineno, end_col_offset)
+            self._raise_syntax_error("Unknown character", lineno, col_offset, end_lineno, end_col_offset)
         return ast.RevDBMetaVar(num, lineno, col_offset, end_lineno, end_col_offset)
 

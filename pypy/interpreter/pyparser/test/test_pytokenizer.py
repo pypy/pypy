@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -* -
+import re
 import pytest
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.pyparser import pytokenizer
@@ -332,3 +333,486 @@ class TestTokenizer310Changes(object):
         levels = [token.level for token in tks]
         assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]
 
+
+def _fstring_test_from_tokenize_output(tk_output):
+    # Parses the output of 'python3 -m tokenize -e' to the format used
+    # in the tests below.
+    pat = re.compile(r'^(\d+),(\d+)-(\d+),(\d+):\s+(\w+)\s+(.*)$')
+    result = []
+    for line in tk_output.splitlines():
+        if not line.startswith("#"):
+            groups = pat.match(line).groups()
+            result.append((getattr(tokens, groups[-2]), groups[-1][1:-1]) + tuple(map(int, groups[:4])))
+    return result
+
+# FIXME: Putting the tests inside a class sets up a testspace that
+# loads the _bootstrap_external module, which uses f-strings, which
+# cannot be parsed by the old parser yet.
+# class TestTokenizer312Changes(object):
+_fstring_tests = [
+    (
+        "empty",
+        'f""\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_END, '"', 1, 2, 1, 3),
+        ],
+    ),
+    (
+        "empty triple",
+        'f""""""\n',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_END, '"""', 1, 4, 1, 7),
+        ],
+    ),
+    (
+        "simple",
+        'f"abc"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "abc", 1, 2, 1, 5),
+            (tokens.FSTRING_END, '"', 1, 5, 1, 6),
+        ],
+    ),
+    (
+        "simple with continuation",
+        """f"abc\\
+def"
+""",
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "abc\\\ndef", 1, 2, 2, 3),
+            (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+        ],
+    ),
+    (
+        "triple multi-line",
+        '''f"""\\
+abc
+def"""
+''',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, "\\\nabc\ndef", 1, 4, 3, 3),
+            (tokens.FSTRING_END, '"""', 3, 3, 3, 6),
+        ],
+    ),
+    (
+        "double brace",
+        'f"{{abc}}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "{", 1, 2, 1, 3),
+            (tokens.FSTRING_MIDDLE, "abc}", 1, 4, 1, 8),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "simple interpolation",
+        'f"x{y}z"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
+            (tokens.LBRACE, "{", 1, 3, 1, 4),
+            (tokens.NAME, "y", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_MIDDLE, "z", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
+    ),
+    (
+        "quote reuse in interpolation",
+        'f"{"x"}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.STRING, '"x"', 1, 3, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
+    ),
+    (
+        "nested interpolation",
+        'f"x{f"y{z}"}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
+            (tokens.LBRACE, "{", 1, 3, 1, 4),
+            (tokens.FSTRING_START, 'f"', 1, 4, 1, 6),
+            (tokens.FSTRING_MIDDLE, "y", 1, 6, 1, 7),
+            (tokens.LBRACE, "{", 1, 7, 1, 8),
+            (tokens.NAME, "z", 1, 8, 1, 9),
+            (tokens.RBRACE, "}", 1, 9, 1, 10),
+            (tokens.FSTRING_END, '"', 1, 10, 1, 11),
+            (tokens.RBRACE, "}", 1, 11, 1, 12),
+            (tokens.FSTRING_END, '"', 1, 12, 1, 13),
+        ],
+    ),
+    (
+        "escaped brace",
+        "f'a\\{}'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.WARNING, "invalid escape sequence '{'", 1, 3, 1, 5),
+            (tokens.FSTRING_MIDDLE, "a\\", 1, 2, 1, 4),
+            (tokens.LBRACE, "{", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_END, "'", 1, 6, 1, 7),
+        ],
+    ),
+    (
+        "format specifier: date + debug",
+        'f"{today=:%B %d, %Y}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "today", 1, 3, 1, 8),
+            (tokens.EQUAL, "=", 1, 8, 1, 9),
+            (tokens.COLON, ":", 1, 9, 1, 10),
+            (tokens.FSTRING_MIDDLE, "%B %d, %Y", 1, 10, 1, 19),
+            (tokens.RBRACE, "}", 1, 19, 1, 20),
+            (tokens.FSTRING_END, '"', 1, 20, 1, 21),
+        ],
+    ),
+    (
+        "format specifier: interpolation",
+        'f"result: {value:{width}.{precision}}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "result: ", 1, 2, 1, 10),
+            (tokens.LBRACE, "{", 1, 10, 1, 11),
+            (tokens.NAME, "value", 1, 11, 1, 16),
+            (tokens.COLON, ":", 1, 16, 1, 17),
+            (tokens.LBRACE, "{", 1, 17, 1, 18),
+            (tokens.NAME, "width", 1, 18, 1, 23),
+            (tokens.RBRACE, "}", 1, 23, 1, 24),
+            (tokens.FSTRING_MIDDLE, ".", 1, 24, 1, 25),
+            (tokens.LBRACE, "{", 1, 25, 1, 26),
+            (tokens.NAME, "precision", 1, 26, 1, 35),
+            (tokens.RBRACE, "}", 1, 35, 1, 36),
+            (tokens.RBRACE, "}", 1, 36, 1, 37),
+            (tokens.FSTRING_END, '"', 1, 37, 1, 38),
+        ],
+    ),
+    (
+        "format specifier: funky ending",
+        'f"{:x"}\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.COLON, ":", 1, 3, 1, 4),
+            (tokens.FSTRING_MIDDLE, "x", 1, 4, 1, 5),
+            (tokens.FSTRING_END, '"', 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+        ],
+    ),
+    (
+        "format specifier: double braces",
+        'f"{x:{{}}b"}\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.LBRACE, "{", 1, 5, 1, 6),
+            (tokens.LBRACE, "{", 1, 6, 1, 7),
+            (tokens.RBRACE, "}", 1, 7, 1, 8),
+            (tokens.RBRACE, "}", 1, 8, 1, 9),
+            (tokens.FSTRING_MIDDLE, "b", 1, 9, 1, 10),
+            (tokens.FSTRING_END, '"', 1, 10, 1, 11),
+            (tokens.RBRACE, "}", 1, 11, 1, 12),
+        ],
+    ),
+    (
+        "format specifier: newline",
+        'f"{x:y\nz}w"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.NAME, "z", 2, 0, 2, 1),
+            (tokens.RBRACE, "}", 2, 1, 2, 2),
+            (tokens.FSTRING_MIDDLE, "w", 2, 2, 2, 3),
+            (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+        ],
+    ),
+    (
+        "format specifier: continuation",
+        'f"{x:y\\\nz}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y\\\nz", 1, 5, 2, 1),
+            (tokens.RBRACE, "}", 2, 1, 2, 2),
+            (tokens.FSTRING_END, '"', 2, 2, 2, 3),
+        ],
+    ),
+    (
+        "format specifier: colon",
+        'f"{x:y:z}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y:z", 1, 5, 1, 8),
+            (tokens.RBRACE, "}", 1, 8, 1, 9),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "format specifier: trailing text",
+        "f'{x:y}z'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_MIDDLE, "z", 1, 7, 1, 8),
+            (tokens.FSTRING_END, "'", 1, 8, 1, 9),
+        ],
+    ),
+    (
+        "equal sign in interpolation",
+        'f"{x=}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.EQUAL, "=", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_END, '"', 1, 6, 1, 7),
+        ],
+    ),
+    (
+        "conversion in interpolation",
+        'f"{x!r}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.EXCLAMATION, "!", 1, 4, 1, 5),
+            (tokens.NAME, "r", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
+    ),
+    (
+        "tricky triple quoted",
+        '''f"""
+"{x}
+"{{""{{
+"""
+''',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, '\n"', 1, 4, 2, 1),
+            (tokens.LBRACE, "{", 2, 1, 2, 2),
+            (tokens.NAME, "x", 2, 2, 2, 3),
+            (tokens.RBRACE, "}", 2, 3, 2, 4),
+            (tokens.FSTRING_MIDDLE, '\n"{', 2, 4, 3, 2),
+            (tokens.FSTRING_MIDDLE, '""{', 3, 3, 3, 6),
+            (tokens.FSTRING_MIDDLE, "\n", 3, 7, 4, 0),
+            (tokens.FSTRING_END, '"""', 4, 0, 4, 3),
+        ],
+    ),
+    (
+        "named unicode escape sequence",
+        (
+            'f"\\N{DOG}"\n',
+            [
+                (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                (tokens.FSTRING_MIDDLE, "\\N{DOG}", 1, 2, 1, 9),
+                (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+            ],
+        ),
+    ),
+    (
+        "incomplete named unicode escape sequence",
+        (
+            'f"\\N{DOG"\n',
+            [
+                (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                (tokens.FSTRING_MIDDLE, "\\N{DOG", 1, 2, 1, 8),
+                (tokens.FSTRING_END, '"', 1, 8, 1, 9),
+            ],
+        ),
+    ),
+    (
+        # This is a bit annoying...
+        "multiline named unicode escape sequence",
+        '''f"""\\N{DOG
+}"""
+''',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, "\\N{DOG\n}", 1, 4, 2, 1),
+            (tokens.FSTRING_END, '"""', 2, 1, 2, 4),
+        ],
+    ),
+    (
+        "format specifier bug",
+        "f'{x:y}}}'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_MIDDLE, "}", 1, 7, 1, 8),
+            (tokens.FSTRING_END, "'", 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "format specifier bug 2",
+        "f'result: {value:{width:0}.{precision:1}}'\n",
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  "f'"
+1,2-1,10:           FSTRING_MIDDLE 'result: '
+1,10-1,11:          LBRACE         '{'
+1,11-1,16:          NAME           'value'
+1,16-1,17:          COLON          ':'
+1,17-1,18:          LBRACE         '{'
+1,18-1,23:          NAME           'width'
+1,23-1,24:          COLON          ':'
+1,24-1,25:          FSTRING_MIDDLE '0'
+1,25-1,26:          RBRACE         '}'
+1,26-1,27:          FSTRING_MIDDLE '.'
+1,27-1,28:          LBRACE         '{'
+1,28-1,37:          NAME           'precision'
+1,37-1,38:          COLON          ':'
+1,38-1,39:          FSTRING_MIDDLE '1'
+1,39-1,40:          RBRACE         '}'
+#1,40-1,40:          FSTRING_MIDDLE ''
+1,40-1,41:          RBRACE         '}'
+1,41-1,42:          FSTRING_END    "'"
+"""),
+    ),
+    (
+        "format specifier walrus confusion",
+        'f"{x:=10}"\n',
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  'f"'
+1,2-1,3:            LBRACE         '{'
+1,3-1,4:            NAME           'x'
+1,4-1,5:            COLON          ':'
+1,5-1,8:            FSTRING_MIDDLE '=10'
+1,8-1,9:            RBRACE         '}'
+1,9-1,10:           FSTRING_END    '"'
+"""),
+    ),
+    (
+        "walrus in interpolation",
+        'f"{(x := 10)}"\n',
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  'f"'
+1,2-1,3:            LBRACE         '{'
+1,3-1,4:            LPAR           '('
+1,4-1,5:            NAME           'x'
+1,6-1,8:            COLONEQUAL     ':='
+1,9-1,11:           NUMBER         '10'
+1,11-1,12:          RPAR           ')'
+1,12-1,13:          RBRACE         '}'
+1,13-1,14:          FSTRING_END    '"'
+"""),
+    ),
+    (
+        "multiple interpolations",
+        'f"{x} {y}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.RBRACE, "}", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, " ", 1, 5, 1, 6),
+            (tokens.LBRACE, "{", 1, 6, 1, 7),
+            (tokens.NAME, "y", 1, 7, 1, 8),
+            (tokens.RBRACE, "}", 1, 8, 1, 9),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
+    ),
+]
+
+def _parametrize(argnames, tests):
+    return pytest.mark.parametrize(
+        argnames,
+        [t[1] if len(t) == 2 else t[1:] for t in tests],
+        ids=[t[0] for t in tests],
+    )
+
+@_parametrize("source, expected", _fstring_tests)
+def test_f_string(source, expected):
+    lines = source.splitlines(True)
+    tks = tokenize(source)
+    assert tks[: len(expected)] == [
+        Token(
+            tk_type,
+            value,
+            lineno,
+            col_offset,
+            lines[end_lineno - 1],
+            end_lineno,
+            end_col_offset,
+        )
+        for tk_type, value, lineno, col_offset, end_lineno, end_col_offset in expected
+    ]
+
+_fstring_error_tests = [
+    (
+        "single closing brace",
+        'f"abc}def"\n',
+        "f-string: single '}' is not allowed",
+        6,
+        1,
+    ),
+    (
+        "unterminated f-string",
+        'f"abc\n',
+        "unterminated f-string literal (detected at line 1)",
+        1,
+        1,
+    ),
+    (
+        "unterminated f-string after continuation",
+        """f"abc\\
+def
+""",
+        "unterminated f-string literal (detected at line 2)",
+        1,
+        1,
+    ),
+    (
+        "unterminated f-string triple",
+        '''f"""abc\n''',
+        "unterminated triple-quoted f-string literal (detected at line 1)",
+        1,
+        1,
+    ),
+    (
+        "lonely f-string quote in interpolation",
+        'f" {"\n',
+        "f-string: expecting '}'",
+        5,
+        1,
+    ),
+    (
+        "lonely f-string quote on new line in format specifier",
+        'f" {x:\n"\n',
+        "f-string: expecting '}'",
+        1,
+        2,
+    ),
+]
+
+
+@_parametrize("source, msg, pos, line", _fstring_error_tests)
+def test_f_string_errors(source, msg, pos, line):
+    check_token_error(source, msg, pos, line)

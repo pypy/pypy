@@ -4,9 +4,9 @@ from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
-    triple_quoted, endDFAs, single_quoted, pseudoDFA
+    triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, objectmodel
 
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
@@ -16,8 +16,7 @@ WHITESPACES = ' \t\n\r\v\f'
 TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
-TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
-SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
+UNTERMINATED_STRING_ERROR = "unterminated %s%sstring literal (detected at line %s)"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
@@ -131,13 +130,15 @@ def raise_invalid_unicode_char(code, line, lnum, start, token_list):
             rutf8.unichr_as_utf8(code), h)
     raise TokenError(msg, line, lnum, start + 1, token_list)
 
-def raise_unterminated_string(is_triple_quoted, line, lineno, column, tokens,
-        end_lineno, end_offset=0):
+def raise_unterminated_string(
+    is_triple_quoted, line, lineno, column, tokens, end_lineno, end_offset, f_string=False
+):
     # same arguments as TokenError, ie 1-based offsets
-    if is_triple_quoted:
-        msg = TRIPLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
-    else:
-        msg = SINGLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
+    msg = UNTERMINATED_STRING_ERROR % (
+        "triple-quoted " if is_triple_quoted else "",
+        "f-" if f_string else "",
+        end_lineno,
+    )
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -145,7 +146,6 @@ def potential_identifier_char(ch):
             ord(ch) >= 0x80)    # unicode
 
 def raise_unknown_character(line, start, lnum, token_list, flags):
-    from pypy.module.unicodedata.interp_ucd import unicodedb
     code = ord(line[start])
     if code < 128:
         try:
@@ -157,6 +157,609 @@ def raise_unknown_character(line, start, lnum, token_list, flags):
     raise_invalid_unicode_char(code, line, lnum, start, token_list)
 
 DUMMY_DFA = automata.DFA([], [])
+
+class Finish(Exception):
+    pass
+
+
+# TODO: Describe state machine & transitions
+class TokenizerMode(object): pass
+
+NormalMode = TokenizerMode()
+
+class FStringMode(TokenizerMode):
+    def __init__(self, middle_linenumber, middle_offset, raw):
+        self.middle_linenumber = middle_linenumber
+        self.middle_offset = middle_offset
+        self.raw = raw
+        # True if we are in a format specifier part of the f-string (after a ':')
+        self.format_specifier = False
+        # True if we are tokenizing a named unicode escape sequence: \N{NAME}
+        self.named_unicode_escape = False
+
+
+class TokenizerState(object):
+    """Contains the tokenizer state that needs to be saved and restored
+    when tokenizing f-strings."""
+
+    def __init__(self, mode, level=0):
+        self.mode = mode
+        self.level = level
+
+        # attributes for dealing with contiuations of string literals
+        # (triple-quoted or with \\)
+        self.string_end_dfa = None # for matching the end of the string
+        self.contstrs = []
+        self.strstart_linenumber = 0
+        self.strstart_offset = 0
+        self.strstart_starting_line = ""
+        self.strstart_is_triple_quoted = False
+
+class Tokenizer(object):
+    def __init__(self, flags):
+        self.flags = flags
+
+        self.token_list = []
+        self.lnum = 0
+        self.continued = False
+        self.indents = [0]
+        self.altindents = [0]
+        self.last_comment = ''
+
+        # contains the tokens of the opening parens
+        self.parenstack = []
+        self.async_hacks = flags & consts.PyCF_ASYNC_HACKS
+        self.async_def = False
+        self.async_def_nl = False
+        self.async_def_indent = 0
+
+        self.line = ''
+
+        self.cont_line_col = 0
+
+        self.state_stack = [TokenizerState(NormalMode)]
+
+    @property
+    def state(self):
+        return self.state_stack[-1]
+
+    def tokenize_lines(self, lines):
+        self.lines = lines
+        lines.append("")
+        for lines_index, line in enumerate(lines):
+            self.lines_index = lines_index
+            try:
+                self.tokenize_line(line)
+            except Finish:
+                break
+        else:
+            if not objectmodel.we_are_translated():
+                import pdb;pdb.set_trace()
+            assert 0
+        return self.finish()
+
+    def tokenize_line(self, line):
+        self.lnum += 1
+        line = universal_newline(line)
+        self.line = line
+        self.pos, self.max = 0, len(line)
+        self.switch_indents = 0
+        if self.state.string_end_dfa: # in the middle of parsing a string literal
+            if not line:
+                self._contstr_raise_unterminated(self.lnum - 1, len(line))
+
+            if self.state.mode is NormalMode:
+                done = self._tokenize_string_continuation(line)
+                if done:
+                    return
+            # else: fall through to regular (f-string) tokenization
+        elif not self.parenstack and not self.continued:  # new statement
+            done = self._tokenize_new_statement(line)
+            if done:
+                return
+        else:
+            # continued statement, either due to \ at end of line
+            # or due to being inside parenthesis
+            self._tokenize_continued_statement(line)
+        self._tokenize_regular(line)
+
+    def finish(self):
+        line = self.line
+        self.lnum -= 1
+        if not (self.flags & consts.PyCF_DONT_IMPLY_DEDENT):
+            if self.token_list and self.token_list[-1].token_type != tokens.NEWLINE:
+                self._add_token(tokens.NEWLINE, '', self.lnum, 0, '\n')
+            for indent in self.indents[1:]:                # pop remaining indent levels
+                self._add_token(tokens.DEDENT, '', self.lnum, self.pos, line)
+        self._add_token(tokens.NEWLINE, '', self.lnum, 0, '\n')
+        self._add_token(tokens.ENDMARKER, '', self.lnum, self.pos, line)
+        return self.token_list
+
+    def _add_token(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1, level_adjustment=0):
+        tok = Token(token_type, value, lineno, column, line, end_lineno, end_column, len(self.parenstack) + level_adjustment)
+        self.token_list.append(tok)
+        return tok
+
+    def _raise_token_error(self, msg, line, lineno, column, end_lineno=0, end_offset=0):
+        raise TokenError(msg, line, lineno, column, self.token_list, end_lineno, end_offset)
+
+    def _contstr_start(self, string_end_dfa, offset, starting_line, is_triple_quoted, strstart):
+        state = self.state
+        assert state.string_end_dfa is None
+        state.string_end_dfa = string_end_dfa
+        state.strstart_linenumber = self.lnum
+        state.strstart_offset = offset
+        state.strstart_starting_line = starting_line
+        state.strstart_is_triple_quoted = is_triple_quoted
+        state.contstrs = [strstart]
+
+    def _contstr_finish(self, rest):
+        state = self.state
+        state.contstrs.append(rest)
+        res = "".join(state.contstrs)
+        state.string_end_dfa = None
+        state.contstrs = []
+        return res
+
+    def _contstr_raise_unterminated(self, end_lineno, end_col_offset):
+        state = self.state
+        raise_unterminated_string(state.strstart_is_triple_quoted, state.strstart_starting_line, state.strstart_linenumber,
+                                  state.strstart_offset + 1, self.token_list,
+                                  end_lineno, end_col_offset, state.mode is not NormalMode)
+
+    def _invalid_unterminated_string(self, line):
+        return not self.state.strstart_is_triple_quoted and not \
+            line.endswith("\\\n") and not line.endswith("\\\r\n")
+
+    def _tokenize_string_continuation(self, line):
+        state = self.state
+        endmatch = state.string_end_dfa.recognize(line)
+        if endmatch >= 0:
+            self.pos = end = endmatch
+            content = self._contstr_finish(line[:end])
+            self._add_token(tokens.STRING, content, state.strstart_linenumber,
+                   state.strstart_offset, line, self.lnum, end)
+            self.last_comment = ''
+        elif self._invalid_unterminated_string(line):
+            self._contstr_raise_unterminated(self.lnum, len(line))
+            assert 0, 'unreachable'
+        else:
+            state.contstrs.append(line)
+            return True # done with this line
+        return False
+
+    def _tokenize_new_statement(self, line):
+        if not line:
+            raise Finish
+        column = self.cont_line_col
+        altcolumn = self.cont_line_col
+        while self.pos < self.max:                   # measure leading whitespace
+            if line[self.pos] == ' ':
+                column = column + 1
+                altcolumn = altcolumn + 1
+            elif line[self.pos] == '\t':
+                column = (column/tabsize + 1)*tabsize
+                altcolumn = (altcolumn/alttabsize + 1)*alttabsize
+            elif line[self.pos] == '\f':
+                column = 0
+            else:
+                break
+            self.pos += 1
+        if self.pos == self.max:
+            raise Finish
+
+        if line[self.pos] in '#\r\n':
+            # skip blank lines
+            if line[self.pos] == '#':
+                # skip full-line comment, but still check that it is valid utf-8
+                if not verify_utf8(line):
+                    raise bad_utf8("comment",
+                                   line, self.lnum, self.pos, self.token_list, self.flags)
+                type_comment_tok = handle_type_comment(line.lstrip(),
+                                                      self.flags, self.lnum, self.pos, line)
+                if type_comment_tok is None:
+                    return True
+                else:
+                    self.switch_indents += 1
+            else:
+                return True
+        if line[self.pos] == '\\' and line[self.pos + 1] in '\r\n':
+            # first non-whitespace char and last char in line is \
+            if self.lines[self.lines_index + 1] not in ("\r\n", "\n", "\x0C\n"):
+                # continuation marker after spaces increase the
+                # indentation level if column > 0
+                if column == 0:
+                    pass
+                elif self.pos != self.cont_line_col:
+                    self.indents.append(self.pos)
+                    self.altindents.append(self.pos)
+                    self._add_token(tokens.INDENT, line[:self.pos], self.lnum, 0, line[:self.pos] + self.lines[self.lines_index + 1], self.lnum, self.pos)
+                    self.cont_line_col = self.pos
+                    self.continued = True
+                    return True
+            if self.lines[self.lines_index + 1] != "":
+                # skip lines that are only a line continuation char
+                # followed by an empty line (not last line)
+                return True
+        else:
+            self.cont_line_col = 0
+        if column == self.indents[-1]:
+            if altcolumn != self.altindents[-1]:
+                raise TabError(self.lnum, self.pos, line)
+        elif column > self.indents[-1]:           # count indents or dedents
+            if altcolumn <= self.altindents[-1]:
+                raise TabError(self.lnum, self.pos, line)
+            self.indents.append(column)
+            self.altindents.append(altcolumn)
+            self._add_token(tokens.INDENT, line[:self.pos], self.lnum, 0, line, self.lnum, self.pos)
+            self.last_comment = ''
+        else:
+            while column < self.indents[-1]:
+                self.indents.pop()
+                self.altindents.pop()
+                self._add_token(tokens.DEDENT, '', self.lnum, self.pos, line)
+                self.last_comment = ''
+            if column != self.indents[-1]:
+                err = "unindent does not match any outer indentation level"
+                raise TokenIndentationError(err, line, self.lnum, column+1, self.token_list)
+            if altcolumn != self.altindents[-1]:
+                raise TabError(self.lnum, self.pos, line)
+        if self.async_def_nl and self.async_def_indent >= self.indents[-1]:
+            self.async_def = False
+            self.async_def_nl = False
+            self.async_def_indent = 0
+        return False
+
+    def _tokenize_continued_statement(self, line):
+        if not line:
+            if self.parenstack:
+                openparen = self.parenstack[0]
+                parenkind = openparen.value[0]
+                lnum1 = openparen.lineno
+                start1 = openparen.column
+                line1 = openparen.line
+                self._raise_token_error("'%s' was never closed" % (parenkind, ), line1,
+                                 lnum1, start1 + 1, self.lnum)
+            prevline = self.lines[self.lines_index - 1]
+            self._raise_token_error(EOF_MULTI_LINE_STATEMENT_ERROR , prevline,
+                             self.lnum - 1, len(prevline) - 1) # XXX why is the offset 0 here?
+        self.continued = False
+
+    def _tokenize_regular(self, line):
+        done = False
+        while self.pos < self.max and not done:
+            mode = self.state.mode
+            if isinstance(mode, FStringMode):
+                done = self._tokenize_fstring(mode, line)
+            else:
+                done = self._tokenize_regular_normal(line)
+
+    def _tokenize_regular_normal(self, line):
+        pseudomatch = pseudoDFA.recognize(line, self.pos)
+        start = whiteSpaceDFA.recognize(line, self.pos)
+        if pseudomatch >= 0:                            # scan for tokens
+            done = self._classify_token(line, start, pseudomatch)
+            return done
+
+        if start < 0:
+            start = self.pos
+        if start<self.max and line[start] in single_quoted:
+            if self._in_fstring_interpolation():
+                prev_state = self.state_stack[-2]
+                fmode = prev_state.mode
+                assert isinstance(fmode, FStringMode)
+                # Check if the quote is the same as the one used to start the f-string
+                sline = prev_state.strstart_starting_line
+                col = prev_state.strstart_offset + 1  # +1 to skip the f/F
+                while sline[col] not in "'\"":
+                    col += 1
+
+                if line[start] == sline[col]:
+                    self._raise_token_error("f-string: expecting '}'", line, self.lnum, start+1)
+
+            raise_unterminated_string(False, line, self.lnum, start+1,
+                                        self.token_list, self.lnum, len(line))
+        if line[self.pos] == "0":
+            self._raise_token_error("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                    line, self.lnum, self.pos+1)
+        self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
+        self.last_comment = ''
+        self.pos += 1
+        return False
+
+    def _classify_token(self, line, start, pseudomatch):
+        if start < 0:
+            start = self.pos
+        end = pseudomatch
+
+        if start == end:
+            if line[start] == "\\":
+                self._raise_token_error("unexpected character after line continuation character", line,
+                                 self.lnum, start + 2)
+
+            raise_unknown_character(line, start, self.lnum, self.token_list, self.flags)
+
+        self.pos = end
+        token, initial = line[start:end], line[start]
+        if (initial in NUMCHARS or \
+           (initial == '.' and token != '.' and token != '...')):
+            # ordinary number
+            self._add_token(tokens.NUMBER, token, self.lnum, start, line, self.lnum, end)
+            _maybe_raise_number_error(token, line, self.lnum, start, end, self.token_list)
+            self.last_comment = ''
+        elif initial in '\r\n':
+            if not self.parenstack:
+                if self.async_def:
+                    self.async_def_nl = True
+                self._add_token(tokens.NEWLINE, self.last_comment, self.lnum, start, line)
+
+                # Shift the indent token to the next line
+                # when it is followed by a type_comment.
+                if (
+                    self.switch_indents == 2
+                    and len(self.token_list) >= 3
+                    and self.token_list[-3].token_type == tokens.INDENT
+                ):
+                    indent = self.token_list.pop(-3)
+                    self.token_list.append(indent)
+                self.switch_indents = 0
+            self.last_comment = ''
+        elif initial == '#':
+            # skip comment, but still check that it is valid utf-8
+            if not verify_utf8(token):
+                raise bad_utf8("comment",
+                               line, self.lnum, start, self.token_list, self.flags)
+            type_comment_tok = handle_type_comment(token, self.flags, self.lnum, start, line)
+            if type_comment_tok is not None:
+                self.switch_indents += 1
+                self.token_list.append(type_comment_tok)
+            else:
+                self.last_comment = token
+        elif token in fstring_starts:
+            self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
+            raw = "r" in token or "R" in token
+            self.state_stack.append(TokenizerState(FStringMode(self.lnum, end, raw)))
+            self._contstr_start(endDFAs[token], start, line, len(token) >= 4, "")
+        elif token in triple_quoted:
+            string_end_dfa = endDFAs[token]
+            endmatch = string_end_dfa.recognize(line, self.pos)
+            if endmatch >= 0:                     # all on one line
+                self.pos = endmatch
+                token = line[start:self.pos]
+                self._add_token(tokens.STRING, token, self.lnum, start, line, self.lnum, self.pos)
+                self.last_comment = ''
+            else:
+                self._contstr_start(string_end_dfa, start, line, True, line[start:])
+                return True
+        elif initial in single_quoted or \
+            token[:2] in single_quoted or \
+            token[:3] in single_quoted:
+            if token[-1] == '\n':                  # continued string
+                string_end_dfa = (endDFAs[initial] or endDFAs[token[1]] or
+                           endDFAs[token[2]])
+                self._contstr_start(string_end_dfa, start, line, False, line[start:])
+                return True
+            else:                                  # ordinary string
+                self._add_token(tokens.STRING, token, self.lnum, start, line, self.lnum, self.pos)
+                self.last_comment = ''
+        elif potential_identifier_char(initial): # unicode identifier
+            verify_identifier(token, line, self.lnum, start, self.token_list, self.flags)
+            # inside 'async def' function or no async_hacks
+            # so recognize them unconditionally.
+            if not self.async_hacks or self.async_def:
+                if token == 'async':
+                    self._add_token(tokens.ASYNC, token, self.lnum, start, line, self.lnum, end)
+                elif token == 'await':
+                    self._add_token(tokens.AWAIT, token, self.lnum, start, line, self.lnum, end)
+                else:
+                    self._add_token(tokens.NAME, token, self.lnum, start, line, self.lnum, end)
+            elif token == 'async':                 # async token, look ahead
+                #ahead token
+                if self.pos < self.max:
+                    async_end = pseudoDFA.recognize(line, self.pos)
+                    assert async_end >= 3
+                    async_start = async_end - 3
+                    assert async_start >= 0
+                    ahead_token = line[async_start:async_end]
+                    if ahead_token == 'def':
+                        self.async_def = True
+                        self.async_def_indent = self.indents[-1]
+                        self._add_token(tokens.ASYNC, token, self.lnum, start, line, self.lnum, end)
+                    else:
+                        self._add_token(tokens.NAME, token, self.lnum, start, line, self.lnum, end)
+                else:
+                    self._add_token(tokens.NAME, token, self.lnum, start, line, self.lnum, end)
+            else:
+                self._add_token(tokens.NAME, token, self.lnum, start, line, self.lnum, end)
+            self.last_comment = ''
+        elif initial == '\\':                      # continued stmt
+            self.continued = True
+        elif initial == '$':
+            self._add_token(tokens.REVDBMETAVAR, token,
+                               self.lnum, start, line, self.lnum, self.pos)
+            self.last_comment = ''
+        else:
+            if token == ':=' and self._in_fstring_interpolation() and len(self.parenstack) == self.state.level:
+                # Special case for := inside f-string interpolation
+                punct = tokens.COLON
+                token = ':'
+                self.pos = end = start + 1
+            elif token in python_opmap:
+                punct = python_opmap[token]
+            else:
+                punct = tokens.OP
+
+            level_adjustment = 0
+            if initial in '([{':
+                level_adjustment = 1
+            elif initial in ')]}':
+                level_adjustment = -1
+
+            tok = self._add_token(punct, token, self.lnum, start, line, self.lnum, end, level_adjustment=level_adjustment)
+            if level_adjustment == 1:
+                self.parenstack.append(tok)
+            if level_adjustment == -1:
+                if not self.parenstack:
+                    self._raise_token_error("unmatched '%s'" % initial, line,
+                                     self.lnum, start + 1)
+                openparen = self.parenstack.pop()
+                opening = openparen.value[0]
+                lnum1 = openparen.lineno
+                start1 = openparen.column
+                line1 = openparen.line
+
+                if not ((opening == "(" and initial == ")") or
+                        (opening == "[" and initial == "]") or
+                        (opening == "{" and initial == "}")):
+                    msg = "closing parenthesis '%s' does not match opening parenthesis '%s'" % (
+                                initial, opening)
+
+                    if lnum1 != self.lnum:
+                        msg += " on line " + str(lnum1)
+                    self._raise_token_error(
+                            msg, line, self.lnum, start + 1)
+
+            if self._in_fstring_interpolation() and (
+                (initial == "}" and len(self.parenstack) + 1 == self.state.level)
+                or (initial == ":" and len(self.parenstack) == self.state.level)
+            ):
+                # exit f-string interpolation
+                self.state_stack.pop()
+                nmode = self.state.mode
+                assert isinstance(nmode, FStringMode)
+                nmode.middle_linenumber = self.lnum
+                nmode.middle_offset = start + 1
+                if initial == ":":
+                    nmode.format_specifier = True
+
+            self.last_comment = ''
+        return False
+
+    def _in_fstring_interpolation(self):
+        return len(self.state_stack) > 1 and self.state.mode is NormalMode
+
+    def _tokenize_fstring(self, mode, line):
+        start = self.pos
+        state = self.state
+        match = state.string_end_dfa.recognize(line, start)
+        if match >= 0:
+            last_c, next_c = line[match - 1], line[match]
+            if last_c in "{}":
+                match_m2 = match - 2  # help the annotator
+                if not mode.raw and match_m2 >= 0 and _odd_backslash_prefix(line, match_m2):
+                    msg = "invalid escape sequence '%s'" % last_c
+                    self._add_token(tokens.WARNING, msg, self.lnum, match_m2, line, self.lnum, match)
+
+                if mode.named_unicode_escape:
+                    # We are done with the named unicode escape sequence
+                    mode.named_unicode_escape = False
+                    match -= last_c == "{"
+                    assert match >= 0  # help the annotator
+                    self._flush_fstring_middle(mode, match)
+                    mode.middle_offset = self.pos = match
+                    mode.middle_linenumber = self.lnum
+                elif (
+                    not mode.raw
+                    and match_m2 >= 1
+                    and line[match_m2:match] == "N{"
+                    and _odd_backslash_prefix(line, match - 3)
+                ):
+                    # Named unicode escape sequence: \N{NAME}
+                    mode.named_unicode_escape = True
+                    state.contstrs.append(line[start:match])
+                    self.pos = match
+                elif not mode.format_specifier and last_c == next_c:
+                    # Could just be:
+                    # state.contstrs.append(line[start:match])
+                    # but for CPython compatibility we do:
+                    self._flush_fstring_middle(mode, match)
+                    mode.middle_offset = self.pos = match + 1  # Skip the second brace
+                    mode.middle_linenumber = self.lnum
+                elif last_c == "{":
+                    self._flush_fstring_middle(mode, match - 1)
+
+                    t = self._add_token(
+                        tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
+                    )
+                    self.parenstack.append(t)
+                    self.pos = match
+                    self.state_stack.append(
+                        TokenizerState(NormalMode, level=len(self.parenstack))
+                    )
+                elif mode.format_specifier: # last_c == "}"
+                    # end of f-string interpolation
+                    self._flush_fstring_middle(mode, match - 1)
+
+                    self._add_token(
+                        tokens.RBRACE, "}", self.lnum, match - 1, line, self.lnum, match, level_adjustment=-1
+                    )
+                    opening = self.parenstack.pop()
+                    assert opening.value == "{"
+                    mode.middle_linenumber = self.lnum
+                    mode.middle_offset = self.pos = match
+                    if len(self.parenstack) == state.level:
+                        mode.format_specifier = False
+                else:
+                    self._raise_token_error("f-string: single '}' is not allowed",
+                                            line, self.lnum, match)
+            else:
+                # end of f-string
+                eos = match - (3 if state.strstart_is_triple_quoted else 1)
+                self._flush_fstring_middle(mode, eos)
+
+                assert eos >= start  # help the annotator
+                self._add_token(tokens.FSTRING_END, line[eos:match],
+                                self.lnum, eos, line, self.lnum, match)
+
+                self.state_stack.pop()
+                self.pos = match
+
+            # no end match, check for unterminated string
+        elif self._invalid_unterminated_string(line):
+            if mode.format_specifier:
+                # This is a semi-degenerate case where a newline is encountered inside
+                # the format specifier (without the continuation character):
+                # f"{x:y
+                # <...> }"
+                # Note that this became an error in CPython 3.13.4:
+                # https://docs.python.org/release/3.13.4/whatsnew/changelog.html#core-and-builtins
+                nl_pos = len(line) - 1
+                assert line[nl_pos] == "\n"
+                self._flush_fstring_middle(mode, nl_pos)
+                # self._add_token(tokens.NL, "\n", self.lnum, nl_pos, line)
+
+                # Return to the normal tokenization mode
+                mode.format_specifier = False
+                self.state_stack.append(TokenizerState(NormalMode, level=len(self.parenstack)))
+                return True  # done with this line
+
+            self._contstr_raise_unterminated(self.lnum, len(line))
+            assert 0, "unreachable"
+        else:
+            state.contstrs.append(line[start:])
+            return True  # done with this line
+
+        return False
+
+    def _flush_fstring_middle(self, mode, end_offset):
+        assert end_offset >= self.pos  # help the annotator
+        contstrs = self.state.contstrs
+        contstrs.append(self.line[self.pos:end_offset])
+        content = "".join(contstrs)
+        if content:
+            self._add_token(tokens.FSTRING_MIDDLE, content,
+                            mode.middle_linenumber, mode.middle_offset,
+                            self.line, self.lnum, end_offset)
+        del contstrs[:]
+
+
+def _odd_backslash_prefix(line, first_pos):
+    "Returns True if the number of backslashes counting backwards from first_pos is odd."
+    i = first_pos
+    while i >= 0 and line[i] == "\\":
+        i -= 1
+    return (first_pos - i) % 2
+
 
 def generate_tokens(lines, flags):
     """
@@ -172,7 +775,7 @@ def generate_tokens(lines, flags):
 
     Original docstring ::
 
-        The generate_tokens() generator requires one argment, readline, which
+        The generate_tokens() generator requires one argument, readline, which
         must be a callable object which provides the same interface as the
         readline() method of built-in file objects. Each call to the function
         should return one line of input as a string.
@@ -184,7 +787,35 @@ def generate_tokens(lines, flags):
         and the line on which the token was found. The line passed is the
         logical line; continuation lines are included.
     """
+    orig_lines = lines
+    err1 = None
+    try:
+        token_list = _generate_tokens(lines, flags)
+    except TokenError as e:
+        err1 = e
 
+    t = Tokenizer(flags)
+    try:
+        token_list2 = t.tokenize_lines(orig_lines[:])
+    except TokenError as err2:
+        if not objectmodel.we_are_translated() and all(
+            t.token_type != tokens.FSTRING_START for t in err2.tokens
+        ):
+            assert err1 is not None
+            assert err1.msg == err2.msg
+            assert err1.offset == err2.offset
+            assert err1.lineno == err2.lineno
+            assert err1.text == err2.text
+        raise
+    #assert len(token_list) == len(token_list2)
+    if not objectmodel.we_are_translated() and all(
+        t.token_type != tokens.FSTRING_START for t in token_list2
+    ):
+        for index, tok1, tok2 in zip(range(len(token_list)), token_list, token_list2):
+            assert tok1 == tok2
+    return token_list2
+
+def _generate_tokens(lines, flags):
     token_list = []
     lnum = 0
     continued = False
@@ -337,7 +968,6 @@ def generate_tokens(lines, flags):
             pseudomatch = pseudoDFA.recognize(line, pos)
             start = whiteSpaceDFA.recognize(line, pos)
             if pseudomatch >= 0:                            # scan for tokens
-                # JDR: Modified
                 if start < 0:
                     start = pos
                 end = pseudomatch
@@ -510,6 +1140,7 @@ def generate_tokens(lines, flags):
 
     token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line, level=len(parenstack)))
     return token_list
+
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
     ch = _get_next_or_nul(line, end)

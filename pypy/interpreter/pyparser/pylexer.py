@@ -46,6 +46,7 @@ def notChainStr (states, str):
     for crntStart, crntFinish in arcs[1:]:
         states[lastFinish].append((EMPTY, crntStart))
         states[crntStart].append((EMPTY, finish))
+        lastFinish = crntFinish
     return start, finish
 
 # ______________________________________________________________________
