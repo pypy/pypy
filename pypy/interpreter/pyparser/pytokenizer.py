@@ -182,7 +182,7 @@ class TokenizerState(object):
     """Contains the tokenizer state that needs to be saved and restored
     when tokenizing f-strings."""
 
-    def __init__(self, mode, level=0):
+    def __init__(self, mode, level):
         self.mode = mode
         self.level = level
 
@@ -217,11 +217,15 @@ class Tokenizer(object):
 
         self.cont_line_col = 0
 
-        self.state_stack = [TokenizerState(NormalMode)]
+        self.state_stack = []
+        self._push_state(NormalMode)
 
     @property
     def state(self):
         return self.state_stack[-1]
+
+    def _push_state(self, mode):
+        self.state_stack.append(TokenizerState(mode, len(self.parenstack)))
 
     def tokenize_lines(self, lines):
         self.lines = lines
@@ -518,7 +522,7 @@ class Tokenizer(object):
         elif token in fstring_starts:
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
             raw = "r" in token or "R" in token
-            self.state_stack.append(TokenizerState(FStringMode(self.lnum, end, raw)))
+            self._push_state(FStringMode(self.lnum, end, raw))
             self._contstr_start(endDFAs[token], start, line, len(token) >= 4, "")
         elif token in triple_quoted:
             string_end_dfa = endDFAs[token]
@@ -683,9 +687,7 @@ class Tokenizer(object):
                     )
                     self.parenstack.append(t)
                     self.pos = match
-                    self.state_stack.append(
-                        TokenizerState(NormalMode, level=len(self.parenstack))
-                    )
+                    self._push_state(NormalMode)
                 elif mode.format_specifier: # last_c == "}"
                     # end of f-string interpolation
                     self._flush_fstring_middle(mode, match - 1)
@@ -730,7 +732,7 @@ class Tokenizer(object):
 
                 # Return to the normal tokenization mode
                 mode.format_specifier = False
-                self.state_stack.append(TokenizerState(NormalMode, level=len(self.parenstack)))
+                self._push_state(NormalMode)
                 return True  # done with this line
 
             self._contstr_raise_unterminated(self.lnum, len(line))

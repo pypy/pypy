@@ -580,6 +580,21 @@ def"""
         ],
     ),
     (
+        "format specifier: crash from format_spec_greedy_matching",
+        '(f"{1:}}}")\n',
+        _fstring_test_from_tokenize_output("""\
+1,0-1,1:            LPAR           '('
+1,1-1,3:            FSTRING_START  'f"'
+1,3-1,4:            LBRACE         '{'
+1,4-1,5:            NUMBER         '1'
+1,5-1,6:            COLON          ':'
+1,6-1,7:            RBRACE         '}'
+1,7-1,8:            FSTRING_MIDDLE '}'
+1,9-1,10:           FSTRING_END    '"'
+1,10-1,11:          RPAR           ')'
+"""),
+    ),
+    (
         "equal sign in interpolation",
         'f"{x=}"\n',
         [
