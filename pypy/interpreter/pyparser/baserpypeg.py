@@ -731,7 +731,7 @@ class Parser:
         # far is even (i.e. not inside a string literal).
         for i, line in enumerate(lines):
             j = line.find("#")
-            if j != -1:
+            if j >= 0:
                 lines[i] = line[:j] + ("\n" if line[-1] == "\n" else "")
         debug_text = "".join(lines)
 
