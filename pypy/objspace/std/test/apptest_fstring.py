@@ -198,6 +198,17 @@ def test_debug_conversion():
 3
 =}''' =='\n3\n=3'
 
+    assert f'''{
+  3  =  # hello
+
+# another comment
+ }''' == '\n  3  =  \n\n\n 3'
+
+    # hash in string literal
+    assert f'{'#'=}' == "''#'"  # Bug parity with CPython 3.12
+    # In CPython 3.13+, the following is the expected behavior:
+    # assert f'{'#'=}' == "'#'='#'"
+
     # keyword arguments
     def f(a):
         nonlocal x

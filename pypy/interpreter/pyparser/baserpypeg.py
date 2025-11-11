@@ -721,13 +721,19 @@ class Parser:
         # help the annotator
         lbrace_end_column = lbrace.end_column
         assert lbrace_end_column >= 0 and end_col_offset >= 0
-        if lbrace.lineno == end_lineno:
-            debug_text = self._lines.get(lbrace.lineno, "")[lbrace_end_column:end_col_offset]
-        else:
-            lines = [self._lines.get(n, "\n") for n in range(lbrace.lineno, end_lineno + 1)]
-            lines[0] = lines[0][lbrace_end_column:]
-            lines[-1] = lines[-1][:end_col_offset]
-            debug_text = "".join(lines)
+        lines = [self._lines.get(n, "\n") for n in range(lbrace.lineno, end_lineno + 1)]
+        lines[-1] = lines[-1][:end_col_offset]
+        lines[0] = lines[0][lbrace_end_column:]
+        # strip comments in debug text
+        # XXX: This will incorrectly strip '#' characters inside string literals
+        # which CPython 3.12 also does. CPython 3.13 has a fix for this where
+        # the stripping only happens if the number of quotes encountered so
+        # far is even (i.e. not inside a string literal).
+        for i, line in enumerate(lines):
+            j = line.find("#")
+            if j != -1:
+                lines[i] = line[:j] + ("\n" if line[-1] == "\n" else "")
+        debug_text = "".join(lines)
 
         # TODO: Returns lists instead?
         space = self.space
