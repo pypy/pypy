@@ -735,7 +735,6 @@ class Parser:
                 lines[i] = line[:j] + ("\n" if line[-1] == "\n" else "")
         debug_text = "".join(lines)
 
-        # TODO: Returns lists instead?
         space = self.space
         length = unicodehelper.check_utf8_or_raise(space, debug_text)
         return ast.JoinedStr(
@@ -745,7 +744,6 @@ class Parser:
                     end_lineno=end_lineno, end_col_offset=end_col_offset),
                 fv,
             ],
-            # TODO: Do these matter?
             lineno=lbrace.lineno, col_offset=lbrace.column,
             end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column,
         )
@@ -810,7 +808,7 @@ class Parser:
             if isinstance(fst, ast.Constant) and not self.space.is_true(fst.value):
                 specs = []
 
-        # CPython compatibility: always return a JoinedStr node
+        # CPython compatibility: always return a JoinedStr node (even if len(specs) == 1)
         end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
         return ast.JoinedStr(
             specs,
