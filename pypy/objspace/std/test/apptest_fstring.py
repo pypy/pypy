@@ -403,3 +403,12 @@ def test_backslash_char():
     assert f'\
 ' == ''
     assert eval('f"\\\n"') == ''
+
+def test_lambda_in_fstring():
+    assert f'{(lambda x: x + 1)(2)}' == '3'
+
+    for format_spec in ('', '10', '{10}'):
+        with raises(SyntaxError) as info:
+            eval(f"f'{{lambda x:{format_spec}}}'")
+
+        assert info.value.msg == "f-string: lambda expressions are not allowed without parentheses"

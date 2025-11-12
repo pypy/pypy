@@ -748,7 +748,10 @@ class Tokenizer(object):
         contstrs = self.state.contstrs
         contstrs.append(self.line[self.pos:end_offset])
         content = "".join(contstrs)
-        if content:
+        if content or self.token_list[-1].token_type == tokens.COLON:
+            # We want to emit an empty FSTRING_MIDDLE token after a colon
+            # to enable matching of the 'invalid_expression' grammar rule
+            # for lambdas in f-strings.
             self._add_token(tokens.FSTRING_MIDDLE, content,
                             mode.middle_linenumber, mode.middle_offset,
                             self.line, self.lnum, end_offset)
