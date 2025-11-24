@@ -191,54 +191,76 @@ class PegParser(object):
         if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
 
+        mode = compile_info.mode
+        token_exc = None
         try:
             # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
             # which is expected to work independently of them.  It's
             # certainly the case for all futures in Python <= 2.7.
             tokens = pytokenizer.generate_tokens(source_lines, flags)
-        except error.TokenError as e:
-            if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
+        except (error.TokenError, error.TokenIndentationError) as e:
+            e.filename = compile_info.filename
+            if (isinstance(e, error.TokenError) and
+                    compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
                     ((e.msg.startswith("unterminated ") and "string literal " in e.msg) or
                      'was never closed' in e.msg or
                      pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg)):
                 e.msg = "incomplete input"
-            e.filename = compile_info.filename
-            raise
-        except error.TokenIndentationError as e:
-            e.filename = compile_info.filename
-            raise
+                raise
+            token_exc, tokens = e, e.tokens
+            tokens.append(
+                parser.Token(
+                    pygram.tokens.ERRORTOKEN,
+                    e.msg,
+                    e.lineno, e.offset,
+                    e.text,
+                    e.end_lineno, e.end_offset,
+                )
+            )
+        else:
+            newflags, last_future_import = (
+                future.add_future_flags(self.future_flags, tokens))
+            compile_info.last_future_import = last_future_import
+            compile_info.flags |= newflags
 
+            if mode != "single":
+                assert tokens[-2].token_type == pytoken.python_tokens['NEWLINE']
+                del tokens[-2]
 
-        newflags, last_future_import = (
-            future.add_future_flags(self.future_flags, tokens))
-        compile_info.last_future_import = last_future_import
-        compile_info.flags |= newflags
-
-        mode = compile_info.mode
-        if mode != "single":
-            assert tokens[-2].token_type == pytoken.python_tokens['NEWLINE']
-            del tokens[-2]
         pp = PythonParser(self.space, tokens, compile_info)
+        for token in tokens:
+            # XXX: These look unused?
+            # Special handling for TYPE_IGNOREs
+            if token.token_type == pygram.tokens.TYPE_IGNORE:
+                self.type_ignores.append(token)
+        if mode == "exec":
+            meth = PythonParser.file
+        elif mode == "single":
+            meth = PythonParser.interactive
+        elif mode == "eval":
+            meth = PythonParser.eval
+        elif mode == "func_type":
+            meth = PythonParser.func_type
+        else:
+            assert 0, "unknown mode"
         try:
-            for token in tokens:
-                # Special handling for TYPE_IGNOREs
-                if token.token_type == pygram.tokens.TYPE_IGNORE:
-                    self.type_ignores.append(token)
-            if mode == "exec":
-                meth = PythonParser.file
-            elif mode == "single":
-                meth = PythonParser.interactive
-            elif mode == "eval":
-                meth = PythonParser.eval
-            elif mode == "func_type":
-                meth = PythonParser.func_type
-            else:
-                assert 0, "unknown mode"
-            return pp.parse_meth_or_raise(meth)
-        except (error.TokenError, error.TokenIndentationError): # as e:
-            # XXX: This shouldn't be possible
-            assert False
-            # e.filename = compile_info.filename
-            # raise
+            return pp.parse_meth_or_raise(meth, token_exc)
+        except error.SyntaxError as syntax_exc:
+            if token_exc is not None:
+                # prefer token_exc unless it's inside an f-string or it's
+                # a parenthesis error on the same line as the syntax error
+                fstring_level = 0
+                for tok in tokens:
+                    if tok.token_type == pygram.tokens.FSTRING_START:
+                        fstring_level += 1
+                    elif tok.token_type == pygram.tokens.FSTRING_END:
+                        fstring_level -= 1
+                if fstring_level == 0 and not (
+                    token_exc.lineno == syntax_exc.lineno
+                    and "was never closed" in token_exc.msg
+                ):
+                    raise token_exc
+
+            raise
 
 

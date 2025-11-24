@@ -98,6 +98,10 @@ stuff = "nothing"
         exc = pytest.raises(SyntaxError, parse, "\\").value
         assert exc.msg == "unexpected end of file (EOF) in multi-line statement"
         assert exc.lineno == 1
+        exc = pytest.raises(SyntaxError, parse, "(x||x").value
+        assert exc.msg == "invalid syntax"
+        exc = pytest.raises(SyntaxError, parse, "(\nx||x").value
+        assert exc.msg == "'(' was never closed"
 
     def test_is(self):
         self.parse("x is y")
@@ -540,7 +544,6 @@ class TestFString(BaseTestPythonParser):
         self.parse('f"{x:{10}}"')
         self.parse('f"{x:{10}.2f}"')
 
-    @pytest.mark.xfail(reason="TODO")
     def test_exception_precedence(self):
         # Tests for f-string-related error messages even under tokenization errors
         with pytest.raises(SyntaxError) as excinfo:
@@ -556,6 +559,10 @@ class TestFString(BaseTestPythonParser):
             self.parse("f'{\n3!:")
         assert excinfo.value.msg == "f-string: missing conversion character"
 
+        exc = pytest.raises(SyntaxError, self.parse, '\n\nf"{$}"').value
+        assert exc.msg == "f-string: expecting a valid expression after '{'"
+        assert exc.lineno == 3
+        assert exc.offset == 5
 
 
 class TestIncompleteInput(object):

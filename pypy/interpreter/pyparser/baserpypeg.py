@@ -270,9 +270,15 @@ class Parser:
         self.py_version = (3, compile_info.feature_version)
         self.space = space
 
-    def parse_meth_or_raise(self, meth):
-        res = meth(self)
-        if res is None:
+    def parse_meth_or_raise(self, meth, token_exc):
+        if token_exc is None:
+            res = meth(self)
+            if res is not None:
+                # now raise all warnings from the tokenizer
+                for tok in self._warnings:
+                    self.deprecation_warn(tok.value, tok)
+                return res
+
             tok = self.diagnose()
             if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
                 # XXX: This comment is out of sync with the implementation
@@ -287,17 +293,19 @@ class Parser:
                 else:
                     self.raise_syntax_error_known_location("incomplete input", tok)
             self.reset()
-            self.call_invalid_rules = True
-            meth(self) # often raises
-            # we're still here, so no specific error message
-            if tok.token_type == tokens.INDENT:
-                self.raise_indentation_error("unexpected indent")
-            self.raise_syntax_error_known_location("invalid syntax", tok)
-        assert res
-        # now raise all warnings from the tokenizer
-        for tok in self._warnings:
-            self.deprecation_warn(tok.value, tok)
-        return res
+        else:
+            tok = None
+
+        self.call_invalid_rules = True
+        meth(self) # often raises
+        # we're still here, so no specific error message
+        if tok is None:
+            tok = self.diagnose()
+        if token_exc is not None and tok.token_type == tokens.ERRORTOKEN:
+            raise token_exc
+        if tok.token_type == tokens.INDENT:
+            self.raise_indentation_error("unexpected indent")
+        self.raise_syntax_error_known_location("invalid syntax", tok)
 
     def deprecation_warn(self, msg, tok):
         from pypy.interpreter import error
