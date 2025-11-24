@@ -235,11 +235,10 @@ class PegParser(object):
             else:
                 assert 0, "unknown mode"
             return pp.parse_meth_or_raise(meth)
-        except error.TokenError as e:
-            e.filename = compile_info.filename
-            raise
-        except error.TokenIndentationError as e:
-            e.filename = compile_info.filename
-            raise
+        except (error.TokenError, error.TokenIndentationError): # as e:
+            # XXX: This shouldn't be possible
+            assert False
+            # e.filename = compile_info.filename
+            # raise
 
 

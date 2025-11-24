@@ -275,6 +275,7 @@ class Parser:
         if res is None:
             tok = self.diagnose()
             if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
+                # XXX: This comment is out of sync with the implementation
                 # bit of a heuristic: if the remaining tokens are ENDMARKER,
                 # NEWLINE, DEDENT then more input could fix things, so we raise
                 # "incomplete input"

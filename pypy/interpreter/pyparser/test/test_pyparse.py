@@ -540,6 +540,23 @@ class TestFString(BaseTestPythonParser):
         self.parse('f"{x:{10}}"')
         self.parse('f"{x:{10}.2f}"')
 
+    @pytest.mark.xfail(reason="TODO")
+    def test_exception_precedence(self):
+        # Tests for f-string-related error messages even under tokenization errors
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parse("f'{3!:'")
+        assert excinfo.value.msg == "f-string: missing conversion character"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parse("f'{\n3!:'")
+        assert excinfo.value.msg == "'{' was never closed"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parse("f'{3!:")
+        assert excinfo.value.msg == "f-string: missing conversion character"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parse("f'{\n3!:")
+        assert excinfo.value.msg == "f-string: missing conversion character"
+
+
 
 class TestIncompleteInput(object):
     def setup_class(self):
