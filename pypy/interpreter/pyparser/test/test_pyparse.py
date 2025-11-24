@@ -561,8 +561,14 @@ class TestFString(BaseTestPythonParser):
 
         exc = pytest.raises(SyntaxError, self.parse, '\n\nf"{$}"').value
         assert exc.msg == "f-string: expecting a valid expression after '{'"
-        assert exc.lineno == 3
-        assert exc.offset == 5
+        assert exc.text == 'f"{$}"\n'
+        assert (exc.lineno, exc.offset) == (3, 4)
+
+        input = "f'{\xa0}'"
+        exc = pytest.raises(SyntaxError, self.parse, input).value
+        assert exc.msg == "invalid non-printable character U+00A0"
+        assert exc.text == input + '\n'
+        assert (exc.lineno, exc.offset) == (1, 4)
 
 
 class TestIncompleteInput(object):

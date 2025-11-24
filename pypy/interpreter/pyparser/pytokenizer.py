@@ -578,7 +578,7 @@ class Tokenizer(object):
             self.last_comment = ''
         elif initial == '\\':                      # continued stmt
             self.continued = True
-        elif initial == '$':
+        elif initial == '$' and len(token) > 1:
             self._add_token(tokens.REVDBMETAVAR, token,
                                self.lnum, start, line, self.lnum, self.pos)
             self.last_comment = ''
@@ -813,8 +813,10 @@ def generate_tokens(lines, flags):
             assert err1.text == err2.text
         raise
     #assert len(token_list) == len(token_list2)
-    if not objectmodel.we_are_translated() and all(
-        t.token_type != tokens.FSTRING_START for t in token_list2
+    if (
+        not objectmodel.we_are_translated()
+        and all(t.token_type != tokens.FSTRING_START for t in token_list2)
+        and all(t.token_type != tokens.REVDBMETAVAR for t in token_list)
     ):
         for index, tok1, tok2 in zip(range(len(token_list)), token_list, token_list2):
             assert tok1 == tok2

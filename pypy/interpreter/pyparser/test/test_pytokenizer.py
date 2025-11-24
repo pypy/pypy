@@ -60,11 +60,14 @@ class TestTokenizer(object):
                         pos=2, line=1)
 
 
-    def test_unknown_char(self):
-        check_token_error("?", "invalid character '?' (U+003F)", 1)
-        check_token_error("$", "invalid character '$' (U+0024)", 1)
-        check_token_error("⫛", "invalid character '⫛' (U+2ADB)", 1)
+    def test_nonprintable_char(self):
         check_token_error("\x17", "invalid non-printable character U+0017", 1)
+
+    @pytest.mark.parametrize("symbol", "`?$")
+    def test_unused_ascii_symbol(self, symbol):
+        line = symbol + "\n"
+        tks = tokenize(line)
+        assert tks[:-3] == [Token(tokens.OP, symbol, 1, 0, line, 1, 1)]
 
     def test_eol_string(self):
         check_token_error("x = 'a", pos=5, line=1)

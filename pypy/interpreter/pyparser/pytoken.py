@@ -71,7 +71,7 @@ _add_tok('RARROW', "->")
 _add_tok('ELLIPSIS', "...")
 _add_tok('COLONEQUAL', ':=')
 _add_tok('EXCLAMATION', '!')
-_add_tok('OP')
+_add_tok('OP', *'?$`')
 _add_tok('TYPE_IGNORE')
 _add_tok('TYPE_COMMENT')
 _add_tok('ASYNC') # unused, just keywords now
