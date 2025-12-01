@@ -1,5 +1,7 @@
 """Generic iterator implementations"""
 
+from rpython.rlib.debug import check_nonneg
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, interpindirect2app
 from pypy.interpreter.error import OperationError
@@ -11,6 +13,7 @@ class W_AbstractSeqIterObject(W_Root):
         if index < 0:
             index = 0
         self.w_seq = w_seq
+        check_nonneg(index)
         self.index = index
 
     def getlength(self, space):
