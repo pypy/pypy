@@ -328,8 +328,8 @@ class ArrayDescr(ArrayOrFieldDescr):
         # compute the maximum length of arrays of this itemsize
         if LONG_BIT == 32:
             return maxint
-        # we make some conservative assumptions here. let's assume we have a
-        # page tables of at most 57 bits (which some Intel architectures
+        # we make some conservative assumptions here. let's assume we have a at
+        # most 57 bits of physical addresses (which some Intel architectures
         # support). if we have a single array that fills all of that (128
         # petabyte), what's the itemsize? this is still very useful, because it
         # means we can remove the overflow checks a lot of the time when we
