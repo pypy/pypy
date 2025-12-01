@@ -428,8 +428,6 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == [0.] * N
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i4 = int_lt(i91, 0)
-            guard_false(i4, descr=...)
             i92 = int_ge(i91, i37)
             guard_false(i92, descr=...)
             i93 = int_add(i91, 1)
