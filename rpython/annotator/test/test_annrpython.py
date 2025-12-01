@@ -4112,6 +4112,22 @@ class TestAnnotateTestCase:
         assert len(a.translator.graphs) == 2 # fn, __setitem__
         assert isinstance(s, annmodel.SomeInteger)
 
+    def test_instance_delitem(self):
+        class A(object):
+            def __delitem__(self, i):
+                self.value = i
+
+        def fn(i):
+            a = A()
+            del a[i]
+            return a.value
+
+        a = self.RPythonAnnotator()
+        s = a.build_types(fn, [int])
+        assert len(a.translator.graphs) == 2 # fn, __delitem__
+        assert isinstance(s, annmodel.SomeInteger)
+
+
     def test_instance_contains(self):
         class A(object):
             def __contains__(self, i):
@@ -4786,6 +4802,23 @@ class TestAnnotateTestCase:
             return 12
         ann = self.RPythonAnnotator()
         s = ann.build_types(f, [])
+
+    def test_len_const_str(self):
+        def f():
+            return len('abc') # easy case, the flowspace does it
+        ann = self.RPythonAnnotator()
+        s = ann.build_types(f, [])
+        assert s.is_constant()
+        assert s.const == 3
+
+        def g(s):
+            return len(s)
+        g._annspecialcase_ = "specialize:arg(0)"
+        def f():
+            return g('abc') # harder, need annotation support
+        s = ann.build_types(f, [])
+        assert s.is_constant()
+        assert s.const == 3
 
 
 def g(n):

@@ -268,3 +268,7 @@ class AppTestPyexpat2:
             pass
         else:
             raise Exception("should raise DTDForbidden")
+
+    def test_ErrorString_crash(self):
+        import pyexpat
+        assert pyexpat.ErrorString(-1) is None

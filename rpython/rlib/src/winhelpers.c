@@ -1,7 +1,9 @@
 // #define WIN32_LEAN_AND_MEAN // FSCTL_GET_REPARSE_POINT is not defined in LEAN_AND_MEAN
 #include <windows.h>
-#include <winreparse.h>
+#include <winhelpers.h>
 #include <stdio.h>
+#include <aclapi.h>             // SetEntriesInAcl
+#include <sddl.h>               // SDDL_REVISION_1
 
 #ifndef RPY_EXPORTED
 #ifdef __GNUC__
@@ -235,3 +237,43 @@ os_unlink_impl(wchar_t *lpFileName)
 
     return (int)DeleteFileW(lpFileName);
 }
+
+int
+os_createdirectory_impl(wchar_t *path, int mode){
+    int result = 0;
+    int error = 0;
+    SECURITY_ATTRIBUTES secAttr = { sizeof(secAttr) };
+    SECURITY_ATTRIBUTES *pSecAttr = NULL;
+    if (mode == 0700 /* 0o700 */) {
+        ULONG sdSize;
+        pSecAttr = &secAttr;
+        // Set a discretionary ACL (D) that is protected (P) and includes
+        // inheritable (OICI) entries that allow (A) full control (FA) to
+        // SYSTEM (SY), Administrators (BA), and the owner (OW).
+        if (!ConvertStringSecurityDescriptorToSecurityDescriptorW(
+            L"D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;OW)",
+            SDDL_REVISION_1,
+            &secAttr.lpSecurityDescriptor,
+            &sdSize
+        )) {
+            error = GetLastError();
+        }
+    }
+    if (!error) {
+        result = CreateDirectoryW(path, pSecAttr);
+        if (secAttr.lpSecurityDescriptor &&
+            // uncommonly, LocalFree returns non-zero on error, but still uses
+            // GetLastError() to see what the error code is
+            LocalFree(secAttr.lpSecurityDescriptor)) {
+            error = GetLastError();
+        }
+    }
+    if (error) {
+        return -1;
+    }
+    if (!result) {
+        return -2;
+    }
+    return 0;
+}
+

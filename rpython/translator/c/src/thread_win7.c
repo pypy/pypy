@@ -138,7 +138,7 @@ win_perf_counter_frequency(LONGLONG *pfrequency)
 }
 
 static _RPyTime_t
-_PyTime_MulDiv(_RPyTime_t ticks, _RPyTime_t mul, _RPyTime_t div)
+RPyTime_MulDiv(_RPyTime_t ticks, _RPyTime_t mul, _RPyTime_t div)
 {
     _RPyTime_t intpart, remaining;
     /* Compute (ticks * mul / div) in two parts to prevent integer overflow:
@@ -174,13 +174,13 @@ py_get_win_perf_counter(_RPyTime_t *tp)
     assert(sizeof(ticksll) <= sizeof(ticks));
     ticks = (_RPyTime_t)ticksll;
 
-    *tp = _PyTime_MulDiv(ticks, SEC_TO_NS, (_RPyTime_t)frequency);
+    *tp = RPyTime_MulDiv(ticks, SEC_TO_NS, (_RPyTime_t)frequency);
     return 0;
 }
 
 
 static _RPyTime_t
-_PyTime_GetPerfCounter(void)
+RPyTime_GetPerfCounter(void)
 {
     _RPyTime_t t;
     int res;
@@ -328,10 +328,9 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
         }
     } else if (microseconds != 0) {
         /* wait at least until the target */
-        _RPyTime_t now_ns = _PyTime_GetPerfCounter();
-        int line = __LINE__;
+        _RPyTime_t now_ns = RPyTime_GetPerfCounter();
         if (now_ns <= 0) {
-            gil_fatal("_PyTime_GetPerfCounter() <= 0", (int)now_ns);
+            gil_fatal("RPyTime_GetPerfCounter() <= 0", (int)now_ns);
         }
         /* This can fail to timeout if microseconds is too big */
         _RPyTime_t target_ns = now_ns + (microseconds * 1000);
@@ -344,7 +343,7 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
                     break;
                 }
             }
-            now_ns = _PyTime_GetPerfCounter();
+            now_ns = RPyTime_GetPerfCounter();
             if (target_ns <= now_ns)
                 break;
             microseconds = _RPyTime_AsMicroseconds(target_ns - now_ns, _RPyTime_ROUND_TIMEOUT);

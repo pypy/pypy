@@ -406,7 +406,7 @@ class CallOpAssembler(object):
                 break
         else:
             callee_only = True
-        if regalloc.fprm.reg_bindings:
+        if len(regalloc.fprm.reg_bindings):
             floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.load_imm(r.r14, cond_call_adr)
@@ -530,14 +530,14 @@ class AllocOpAssembler(object):
         helper_num = (card_marking_mask != 0)
         if is_frame:
             helper_num = 4
-        elif regalloc.fprm.reg_bindings:
+        elif len(regalloc.fprm.reg_bindings):
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
             assert not is_frame
             self.cpu.gc_ll_descr.write_barrier_descr = descr
             self._build_wb_slowpath(card_marking_mask != 0,
-                                    bool(regalloc.fprm.reg_bindings))
+                                    bool(len(regalloc.fprm.reg_bindings)))
             assert self.wb_slowpath[helper_num] != 0
         #
         if not is_frame:

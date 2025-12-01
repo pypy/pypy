@@ -554,6 +554,14 @@ def ll_clear_indexes(d, n):
     else:
         assert False
 
+@objectmodel.always_inline
+def _ll_write_indexes(d, i, value, T):
+    INDEXES = _ll_ptr_to_array_of(T)
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    cast_value = rffi.cast(T, value)
+    ll_assert(intmask(cast_value) == value, "indexes are a too small type of array")
+    indexes[i] = cast_value
+
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
     assert i >= 0
@@ -768,19 +776,7 @@ def ll_dict_grow(d):
     # full, so we know that 'd.num_live_items' should be at most 2/3 * 256
     # (or 65536 or etc.) so after the ll_dict_remove_deleted_items() below
     # at least 1/3rd items in 'd.entries' are free.
-    fun = d.lookup_function_no & FUNC_MASK
-    toobig = False
-    if fun == FUNC_BYTE:
-        assert d.num_live_items < ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
-        toobig = new_allocated > ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
-    elif fun == FUNC_SHORT:
-        assert d.num_live_items < ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
-        toobig = new_allocated > ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
-    elif IS_64BIT and fun == FUNC_INT:
-        assert d.num_live_items < ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
-        toobig = new_allocated > ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
-    #
-    if toobig:
+    if _ll_dict_entries_size_too_big(d, new_allocated):
         ll_dict_remove_deleted_items(d)
         assert d.num_live_items == d.num_ever_used_items
         return True
@@ -788,6 +784,19 @@ def ll_dict_grow(d):
     newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
     rgc.ll_arraycopy(d.entries, newitems, 0, 0, len(d.entries))
     d.entries = newitems
+    return False
+
+def _ll_dict_entries_size_too_big(d, new_allocated):
+    fun = d.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
+        assert d.num_live_items < ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+        return new_allocated > ((1 << 8) - MIN_INDEXES_MINUS_ENTRIES)
+    elif fun == FUNC_SHORT:
+        assert d.num_live_items < ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+        return new_allocated > ((1 << 16) - MIN_INDEXES_MINUS_ENTRIES)
+    elif IS_64BIT and fun == FUNC_INT:
+        assert d.num_live_items < ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
+        return new_allocated > ((1 << 32) - MIN_INDEXES_MINUS_ENTRIES)
     return False
 
 @jit.dont_look_inside
@@ -1059,7 +1068,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     else:
         # pristine entry -- lookup failed
         if store_flag == FLAG_STORE:
-            indexes[i] = rffi.cast(T, d.num_ever_used_items + VALID_OFFSET)
+            _ll_write_indexes(d, i, d.num_ever_used_items + VALID_OFFSET, T)
         return -1
 
     # In the loop, a deleted entry (everused and not valid) is by far
@@ -1074,8 +1083,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
             if store_flag == FLAG_STORE:
                 if deletedslot == -1:
                     deletedslot = intmask(i)
-                indexes[deletedslot] = rffi.cast(T, d.num_ever_used_items +
-                                                 VALID_OFFSET)
+                _ll_write_indexes(d, deletedslot, d.num_ever_used_items + VALID_OFFSET, T)
             return -1
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
@@ -1110,7 +1118,7 @@ def ll_dict_store_clean(d, hash, index, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, index + VALID_OFFSET)
+    _ll_write_indexes(d, i, index + VALID_OFFSET, T)
 
 # the following function is only called from _ll_dict_del, whose
 # @jit.look_inside_iff condition should control when we get inside
@@ -1133,7 +1141,7 @@ def ll_dict_delete_by_entry_index(d, hash, locate_index, replace_with, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, replace_with)
+    _ll_write_indexes(d, i, replace_with, T)
 
 # ____________________________________________________________
 #
@@ -1291,14 +1299,19 @@ def ll_dict_setdefault(dict, key, default):
 
 @jit.look_inside_iff(lambda dict: jit.isvirtual(dict))
 def ll_dict_copy(dict):
-    # we never have to reindex while jitting, because dict is virtual
+    DICT = lltype.typeOf(dict).TO
+    if dict.num_live_items == 0:
+        return ll_newdict(DICT)
+
+    # the only dicts without index are either: empty, or prebuilt. we checked
+    # for empty in the if above. therefore, we never have to reindex while
+    # jitting, because dict is virtual and thus not prebuilt
     if not jit.we_are_jitted():
         ll_ensure_indexes(dict)
     else:
         num = dict.lookup_function_no
         assert (num & FUNC_MASK) != FUNC_MUST_REINDEX
 
-    DICT = lltype.typeOf(dict).TO
     newdict = DICT.allocate()
     newdict.entries = DICT.entries.TO.allocate(len(dict.entries))
 
@@ -1550,6 +1563,7 @@ def ll_dict_move_to_first(d, key):
         if old_index < 0:
             raise KeyError
         else:
+            # already at the beginning
             return
 
     # the goal of the following is to set 'idst' to the number of
@@ -1557,20 +1571,33 @@ def ll_dict_move_to_first(d, key):
     must_reindex = False
     if d.entries.valid(0):
         # the first entry is valid, so we need to make room before.
-        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
-        idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
-        ll_assert(idst > 0, "overallocate did not do enough")
-        newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
-        rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
-        d.entries = newitems
-        i = 0
-        while i < idst:
-            d.entries.mark_deleted(i)
-            i += 1
-        d.num_ever_used_items += idst
-        old_index += idst
+        # to get the complexity right if move_to_first is called a lot, we want
+        # to overallocate
         must_reindex = True
-        idst -= 1
+        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
+        if not _ll_dict_entries_size_too_big(d, new_allocated):
+            # use 75% of the new space at the beginning
+            idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
+            ll_assert(idst > 0, "overallocate did not do enough")
+            newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
+            rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
+            d.entries = newitems
+            i = 0
+            while i < idst:
+                d.entries.mark_deleted(i)
+                i += 1
+            d.num_ever_used_items += idst
+            old_index += idst
+            idst -= 1
+            # XXX we could set lookup_function_no with idst here
+        else:
+            # see comment in ll_dict_grow: we have lots of deleted entries
+            # towards the end of the dict, but not enough in the front. rescue
+            # this by compacting the live items towards the end
+            ll_assert(d.num_live_items < d.num_ever_used_items, "deleted entries exist, but num_live_items == num_ever_used_items?!")
+            old_index = _ll_dict_move_to_first_shift_items(d, old_index)
+            idst = d.lookup_function_no >> FUNC_SHIFT
+            idst -= 1
     else:
         idst = d.lookup_function_no >> FUNC_SHIFT
         # All entries in range(0, idst) are deleted.  Check if more are
@@ -1614,3 +1641,43 @@ def ll_dict_move_to_first(d, key):
     else:
         ll_call_delete_by_entry_index(d, hash, old_index,
                 replace_with = VALID_OFFSET + idst)
+
+def _ll_dict_move_to_first_shift_items(d, old_index):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    # situation: lots of deleted keys somewhere in the dict (not at the front).
+    # compact the dict towards the end. num_ever_used_items does not change,
+    # the items are just compacted (leaving free space at the end free).
+    # returns the new index of the entry that used to be at old_index
+    entries = d.entries
+    llop.gc_writebarrier(lltype.Void, entries)
+    #
+    ENTRIES = lltype.typeOf(d).TO.entries.TO
+    ENTRY = ENTRIES.OF
+    idst = isrc = d.num_ever_used_items - 1
+    new_index = -1
+    while isrc >= 0:
+        if entries.valid(isrc):
+            if isrc == old_index:
+                new_index = idst
+            src = entries[isrc]
+            dst = entries[idst]
+            dst.key = src.key
+            dst.value = src.value
+            if hasattr(ENTRY, 'f_hash'):
+                dst.f_hash = src.f_hash
+            if hasattr(ENTRY, 'f_valid'):
+                assert src.f_valid
+                dst.f_valid = True
+            idst -= 1
+        isrc -= 1
+    idst += 1 # range(0, idst) is empty now
+    assert d.num_ever_used_items - d.num_live_items == idst
+    assert new_index >= 0
+    # set the first idst items to be invalid
+    i = 0
+    while i < idst:
+        d.entries.mark_deleted(i)
+        i += 1
+    d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                            (idst << FUNC_SHIFT))
+    return new_index

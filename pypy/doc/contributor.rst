@@ -5,9 +5,9 @@ Contributors
 ::
 
   Armin Rigo
-  Maciej Fijałkowski
   Matti Picus
   Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
@@ -34,28 +34,28 @@ Contributors
   Aurelien Campeas
   Edd Barrett
   Niklaus Haldimann
-  Seo Sanghyeon
   Yusuke Izawa
+  Seo Sanghyeon
   Laura Creighton
   Leonardo Santagada
   Alexander Schremmer
   David Edelsohn
   Raffael Tfirst
-  Lawrence Oluyede
   Stefano Rivera
+  Lawrence Oluyede
   Gregor Wegberg
   Jakub Gustak
   Romain Guillebert
   Batuhan Taskaya
   Guido Wesdorp
   Ronny Pfannschmidt
+  Nico Rittinghaus
   Alexander Hesse
   Justin Peel
   Niko Matsakis
   Toon Verwaest
   Ludovic Aubry
   stian
-  Nico Rittinghaus
   Alex Martelli
   Adrien Di Mascio
   Anders Hammarquist
@@ -93,6 +93,7 @@ Contributors
   Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
+  Michał Górny
   Simon Cross
   Laurence Tratt
   Greg Price
@@ -104,7 +105,6 @@ Contributors
   olliemath
   Wenzhu Man
   Guido van Rossum
-  Michał Górny
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
@@ -123,6 +123,7 @@ Contributors
   Tobias Oberstein
   Stefan H. Muller
   Jan de Mooij
+  Christoph Jung
   Dodan Mihai
   Rami Chowdhury
   Colin Valliant
@@ -149,6 +150,7 @@ Contributors
   Jason Chu
   Michael Twomey
   Rocco Moretti
+  da-woods
   Andrews Medina
   Tim Matussek
   Pieter Zieschang
@@ -201,6 +203,7 @@ Contributors
   Christopher Pope
   Mike Pavone
   Alan McIntyre
+  Thomas Grainger
   Caleb Burns
   Sebastian Berg
   Matt Billenstein
@@ -234,6 +237,8 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Pierre Augier
+  Ilya Egorov
   Paul Gey
   Alessandro Ogier
   Chris Burr
@@ -258,6 +263,9 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Julian Waters
+  Sam James
+  Christian Clauss
   Benjamin Moody
   Renaud Blanch
   h-vertini
@@ -308,8 +316,11 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Ariel Volovik
+  Martin Teichmann
   diath
   robinverduijn
+  obafgkmdh
   Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
@@ -328,7 +339,6 @@ Contributors
   kotus9
   Ihar Shabes
   Sam Edwards
-  paugier
   Jesdi
   Ivan
   Yasen Kiprov

@@ -15,75 +15,39 @@ if sys.platform == 'win32':
     from rpython.rlib import rwin32
 
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'wincrypt.h'],
-        libraries = ['advapi32'],
+        includes = ['windows.h', 'bcrypt.h'],
+        libraries = ['Bcrypt'],
         )
 
     class CConfig:
         _compilation_info_ = eci
-        PROV_RSA_FULL = rffi_platform.ConstantInteger(
-            "PROV_RSA_FULL")
-        CRYPT_VERIFYCONTEXT = rffi_platform.ConstantInteger(
-            "CRYPT_VERIFYCONTEXT")
 
     globals().update(rffi_platform.configure(CConfig))
 
-    HCRYPTPROV = rwin32.ULONG_PTR
-
-    CryptAcquireContext = rffi.llexternal(
-        'CryptAcquireContextA',
-        [rffi.CArrayPtr(HCRYPTPROV),
-         rwin32.LPCSTR, rwin32.LPCSTR, rwin32.DWORD, rwin32.DWORD],
+    BCryptGenRandom = rffi.llexternal(
+        'BCryptGenRandom',
+        [rffi.VOIDP , rffi.CArrayPtr(rwin32.BYTE), rffi.ULONG, rffi.ULONG],
         rwin32.BOOL,
         calling_conv='win',
         compilation_info=eci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    CryptGenRandom = rffi.llexternal(
-        'CryptGenRandom',
-        [HCRYPTPROV, rwin32.DWORD, rffi.CArrayPtr(rwin32.BYTE)],
-        rwin32.BOOL,
-        calling_conv='win',
-        compilation_info=eci,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
-
-    @not_rpython
-    def init_urandom():
-        """
-        Return an array of one HCRYPTPROV, initialized to NULL.
-        It is filled automatically the first time urandom() is called.
-        """
-        ret = lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
-                             immortal=True, zero=True)
-        ret[0] = rffi.cast(HCRYPTPROV, 0)
-        return ret
-
-    def urandom(context, n, signal_checker=None):
+    def urandom(n, signal_checker=None):
         # NOTE: no dictionaries here: rsiphash24 calls this to
         # initialize the random seed of string hashes
-        provider = context[0]
-        if not provider:
-            # This handle is never explicitly released. The operating
-            # system will release it when the process terminates.
-            if not CryptAcquireContext(
-                context, None, None,
-                PROV_RSA_FULL, CRYPT_VERIFYCONTEXT):
-                raise rwin32.lastSavedWindowsError("CryptAcquireContext")
-            provider = context[0]
-        # TODO(win64) This is limited to 2**31
+        
+        BCRYPT_USE_SYSTEM_PREFERRED_RNG = 0x00000002
+
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,
                                  zero=True, # zero seed
                                  ) as buf:
-            if not CryptGenRandom(provider, n, buf):
-                raise rwin32.lastSavedWindowsError("CryptGenRandom")
+            result = BCryptGenRandom(None, buf, n, BCRYPT_USE_SYSTEM_PREFERRED_RNG)
+            if result != 0:
+                raise rwin32.lastSavedWindowsError("BCryptGenRandom")
 
             return rffi.charpsize2str(rffi.cast(rffi.CCHARP, buf), n)
 
 else:  # Posix implementation
-    @not_rpython
-    def init_urandom():
-        return None
-
     SYS_getrandom = None
 
     if sys.platform.startswith('linux'):
@@ -144,7 +108,7 @@ else:  # Posix implementation
                 raise AssertionError("unreachable")
             return n
 
-    def urandom(context, n, signal_checker=None):
+    def urandom(n, signal_checker=None):
         "Read n bytes from /dev/urandom."
         # NOTE: no dictionaries here: rsiphash24 calls this to
         # initialize the random seed of string hashes

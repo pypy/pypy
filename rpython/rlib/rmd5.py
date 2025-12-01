@@ -25,6 +25,8 @@ Long history:
     Converted to RPython by arigo.
 """
 
+from rpython.rlib import jit
+from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 
 
@@ -110,7 +112,7 @@ def H(x, y, z):
 def I(x, y, z):
     return y ^ (x | (~z))
 
-
+@specialize.arg(0)
 def XX(func, a, b, c, d, x, s, ac):
     """Wrapper for call distribution to functions F, G, H and I.
 
@@ -126,7 +128,6 @@ def XX(func, a, b, c, d, x, s, ac):
     res = res + b
 
     return res
-XX._annspecialcase_ = 'specialize:arg(0)'     # performance hint
 
 
 class RMD5(object):
@@ -151,6 +152,7 @@ class RMD5(object):
         self.D = r_uint(0x10325476L)
 
 
+    @jit.dont_look_inside
     def _transform(self, inp):
         """Basic MD5 step transforming the digest based on the input.
 
@@ -254,6 +256,7 @@ class RMD5(object):
         self.A, self.B, self.C, self.D = A, B, C, D
 
 
+    @jit.dont_look_inside
     def _finalize(self, digestfunc):
         """Logic to add the final padding and extract the digest.
         """

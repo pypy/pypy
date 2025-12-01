@@ -703,8 +703,8 @@ class VectorRegallocMixin(object):
             if reg:
                 xrm.free_regs.append(reg)
                 self.assembler.mov(reg, selected_reg)
-            xrm.reg_bindings[arg] = selected_reg
             xrm.reg_bindings[variable] = loc
+            xrm.reg_bindings[arg] = selected_reg
 
             return selected_reg
         return self.make_sure_var_in_reg(arg, forbidden_vars, selected_reg=selected_reg)

@@ -876,5 +876,8 @@ Return a new XML parser object."""
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
-    return space.newtext(rffi.constcharp2str(XML_ErrorString(code)))
+    cstr = XML_ErrorString(code)
+    if not cstr:
+        return space.w_None
+    return space.newtext(rffi.constcharp2str(cstr))
 

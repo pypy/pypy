@@ -96,7 +96,7 @@ def _init_posix():
             arch = platform.machine()
         g['LDSHARED'] += ' -undefined dynamic_lookup'
         g['CC'] += ' -arch %s' % (arch,)
-        g['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
+        g['MACOSX_DEPLOYMENT_TARGET'] = '10.13'
 
     # pypy only: give us control over the ABI tag in a wheel name
     if '__pypy__' in sys.builtin_module_names:

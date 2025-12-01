@@ -189,6 +189,14 @@ class Optimization(object):
         if self.optimizer.optpure:
             self.optimizer.optpure.pure_from_args(opnum, args, op, descr)
 
+    def pure_from_args2(self, opnum, arg0, arg1, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args2(opnum, arg0, arg1, op)
+
+    def pure_from_args1(self, opnum, arg0, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args1(opnum, arg0, op)
+
     def get_pure_result(self, key):
         if self.optimizer.optpure:
             return self.optimizer.optpure.get_pure_result(key)
@@ -405,11 +413,17 @@ class Optimizer(Optimization):
         # safety-check: if the constant is outside the bounds for the
         # box, then it is an invalid loop
         if (box.get_forwarded() is not None and
-            isinstance(constbox, ConstInt) and
-            not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
-            if not box.get_forwarded().contains(constbox.getint()):
-                raise InvalidLoop("a box is turned into constant that is "
-                                  "outside the range allowed for that box")
+                isinstance(constbox, ConstInt)):
+            info = box.get_forwarded()
+            if isinstance(info, IntBound):
+                if not info.contains(constbox.getint()):
+                    raise InvalidLoop("a box is turned into constant that is "
+                                      "outside the range allowed for that box")
+                else:
+                    value = constbox.getint()
+                    if isinstance(value, int):
+                        # make the range constant, it could be shared with e.g. an arrayinfo's length
+                        info.make_eq_const(value)
         if box.is_constant():
             return
         if box.type == 'r' and box.get_forwarded() is not None:

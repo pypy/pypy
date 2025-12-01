@@ -394,6 +394,31 @@ class ListTests:
         res = self.meta_interp(f, [10])
         self.check_resops(int_lt=2)
 
+    def test_reverse_unrolling(self):
+        jitdriver = JitDriver(greens = ['constsize'], reds = 'auto')
+
+        def f(n, constsize):
+            l = range(n)
+            l.append(constsize * 100)
+            while n > 0:
+                jitdriver.jit_merge_point(constsize=constsize)
+                if constsize:
+                    promote(len(l))
+                l2 = list(l)
+                l2.reverse()
+                n -= l2[-2]
+                l2.append(constsize * 100) # make resizable
+            return len(l)
+
+        # we know the size, let's unroll reverse
+        res = self.meta_interp(f, [10, True])
+        assert res == 11
+        self.check_resops(getarrayitem_gc_i=20)
+
+        # size unknown, mustn't unroll
+        res = self.meta_interp(f, [10, False])
+        assert res == 11
+        self.check_resops(getarrayitem_gc_i=2, call_n=4)
 
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):

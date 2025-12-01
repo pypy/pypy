@@ -205,8 +205,12 @@ def listrepr(space, w_currently_in_repr, w_list):
             listrepr_jitdriver.jit_merge_point(
                 typ=typ,
                 strategy_type=type(w_list.strategy))
+            try:
+                w_item = w_list.getitem(i)
+            except IndexError:
+                # repr changed the length, stop
+                break
             builder.append(', ')
-            w_item = w_list.getitem(i)
             builder.append(space.text_w(space.repr(w_item)))
         builder.append(']')
         return space.newtext(builder.build())
@@ -220,6 +224,68 @@ def listrepr(space, w_currently_in_repr, w_list):
 
 def list_unroll_condition(w_list1, space, w_list2):
     return (w_list1._unrolling_heuristic() or w_list2._unrolling_heuristic())
+
+
+def _get_printable_location(strategy_type1, strategy_type2, typ):
+    return 'list.eq [%s, %s, %s]' % (
+        strategy_type1,
+        strategy_type2,
+        typ)
+
+
+listeq_jitdriver = jit.JitDriver(
+    name='list.eq',
+    greens=['strategy_type1', 'strategy_type2', 'typ'],
+    reds='auto',
+    get_printable_location=_get_printable_location)
+
+def _make_list_eq(withjitdriver):
+    def list_eq(w_list, space, w_other):
+        # needs to be safe against eq_w() mutating the w_lists behind our back
+        length = w_list.length()
+        if length != w_other.length():
+            return space.w_False
+        if not length:
+            return space.w_True
+        if withjitdriver:
+            typ = type(w_list.getitem(0))
+
+        i = 0
+        while True:
+            if withjitdriver:
+                listeq_jitdriver.jit_merge_point(
+                        strategy_type1=type(w_list.strategy),
+                        strategy_type2=type(w_other.strategy),
+                        typ=typ,
+                        )
+            try:
+                w_item1 = w_list.getitem(i)
+                w_item2 = w_other.getitem(i)
+            except IndexError:
+                break
+            if not space.eq_w(w_item1, w_item2):
+                return space.w_False
+
+            i += 1
+
+        # if the list length is different now, the list was modified by eq_w with
+        l1 = w_list.length()
+        l2 = w_other.length()
+        if l1 != l2:
+            return space.w_False
+        return space.w_True
+    return list_eq
+_list_eq_withjitdriver = _make_list_eq(True)
+_list_eq_unroll = jit.unroll_safe(_make_list_eq(False))
+
+
+def list_eq(w_list, space, w_other):
+    # we can't use look_inside_iff because the jitdriver will be found in two
+    # different graphs then
+    if jit.we_are_jitted() and list_unroll_condition(w_list, space, w_other):
+        return _list_eq_unroll(w_list, space, w_other)
+    else:
+        return _list_eq_withjitdriver(w_list, space, w_other)
 
 
 class W_ListObject(W_Root):
@@ -503,22 +569,7 @@ class W_ListObject(W_Root):
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_ListObject):
             return space.w_NotImplemented
-        return self._descr_eq(space, w_other)
-
-    @jit.look_inside_iff(list_unroll_condition)
-    def _descr_eq(self, space, w_other):
-        # needs to be safe against eq_w() mutating the w_lists behind our back
-        if self.length() != w_other.length():
-            return space.w_False
-
-        # XXX in theory, this can be implemented more efficiently as well.
-        # let's not care for now
-        i = 0
-        while i < self.length() and i < w_other.length():
-            if not space.eq_w(self.getitem(i), w_other.getitem(i)):
-                return space.w_False
-            i += 1
-        return space.w_True
+        return list_eq(self, space, w_other)
 
     descr_ne = negate(descr_eq)
 

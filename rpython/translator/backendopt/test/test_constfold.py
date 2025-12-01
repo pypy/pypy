@@ -494,3 +494,22 @@ def test_same_constant():
     c1 = Constant(lltype.nullptr(T.TO), T)
     c2 = Constant(lltype.nullptr(T.TO), T)
     assert same_constant(c1, c2)
+
+
+def test_ptr_eq_x_x():
+    S1 = lltype.GcStruct('S1', ('x', lltype.Signed), hints={'immutable': True})
+    s1 = lltype.malloc(S1)
+    s1.x = 123
+    def fn(x):
+        if x:
+            s = s1
+        else:
+            s = lltype.malloc(S1)
+            s.x = 60
+        return (s == s) + (s != s)
+
+    graph, t = get_graph(fn, [int])
+    constant_fold_graph(graph)
+    s = summary(graph)
+    assert s.get('ptr_eq', 0) == 0
+    assert s.get('ptr_ne', 0) == 0

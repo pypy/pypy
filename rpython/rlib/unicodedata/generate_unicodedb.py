@@ -802,6 +802,14 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x2B740 <= code <= 0x2CEA1 or"
                         " 0x2CEB0 <= code <= 0x2EBE0) or"
                         " 0x30000 <= code <= 0x3134A")
+    elif version_tuple == (14, 0, 0):
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FFD or"
+                        " 0x20000 <= code <= 0x2A6DF or"
+                        " 0x2A700 <= code <= 0x2B738 or"
+                        " 0x2B740 <= code <= 0x2CEA1 or"
+                        " 0x2CEB0 <= code <= 0x2EBE0) or"
+                        " 0x30000 <= code <= 0x3134A")
     else:
         raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://www.unicode.org/reports/tr38/tr38-29.html#BlockListing")
 
@@ -874,7 +882,7 @@ def name(code):
         while 1:
             try:
                 char_list_data.append(base_mod._char_list_data(i))
-            except IndexError:
+            except KeyError:
                 break
             i += 1
         for length in range(1, 20):

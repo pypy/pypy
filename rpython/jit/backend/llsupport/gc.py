@@ -107,7 +107,7 @@ class GcLLDescription(GcCache):
         return self._bh_malloc_array(num_elem, self.unicode_descr)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
-        rewriter = GcRewriterAssembler(self, cpu)
+        rewriter = GcRewriterAssembler(self, cpu, len(operations))
         newops = rewriter.rewrite(operations, gcrefs_output_list)
         return newops
 

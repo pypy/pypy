@@ -5,10 +5,10 @@ from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rtime
-from rpython.rlib.rtime import HAS_CLOCK_GETTIME
+from rpython.rlib.rtime import HAS_CLOCK_GETTIME_RUNTIME
 
 
-if HAS_CLOCK_GETTIME:
+if HAS_CLOCK_GETTIME_RUNTIME:
 
     @unwrap_spec(clk_id="c_int")
     def clock_gettime(space, clk_id):

@@ -124,6 +124,7 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 				      boehm_gc_finalizer_notifier())
 #define OP_GC__DISABLE(r)             /* nothing */
 #define OP_GC__ENABLE(r)              /* nothing */
+#define OP_GC__ISENABLED(r)           r = 1
 
 #define OP_BOEHM_FQ_REGISTER(tagindex, obj, r)                          \
     boehm_fq_register(boehm_fq_queues + tagindex, obj)

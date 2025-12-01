@@ -1,6 +1,6 @@
-=====================================================
-PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
-=====================================================
+==========================================================================
+PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta, released 2021-10-17
+==========================================================================
 
 The PyPy team is proud to release version 7.3.6 of PyPy, which includes
 three different interpreters:

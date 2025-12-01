@@ -11,7 +11,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import instantiate
 from rpython.rlib.rarithmetic import (
     LONG_BIT, is_valid_int, ovfcheck, r_longlong, r_uint, string_to_int)
-from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rbigint import rbigint, bit_length_int
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     ParseStringError, ParseStringOverflowError)
@@ -28,6 +28,7 @@ from pypy.objspace.std.util import (
 
 SENTINEL = object()
 
+MININT = -sys.maxint-1
 
 class W_AbstractIntObject(W_Root):
     __slots__ = ()
@@ -344,17 +345,6 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
-@jit.elidable
-def _bit_length(val):
-    bits = 0
-    if val < 0:
-        # warning, "-val" overflows here
-        val = -((val + 1) >> 1)
-        bits = 1
-    while val:
-        bits += 1
-        val >>= 1
-    return bits
 
 class W_IntObject(W_AbstractIntObject):
 
@@ -445,17 +435,22 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_neg(self, space):
         a = self.intval
-        try:
-            b = ovfcheck(-a)
-        except OverflowError:
+        if a == MININT:
             if _recover_with_smalllong(space):
                 from pypy.objspace.std.smalllongobject import W_SmallLongObject
                 x = r_longlong(a)
                 return W_SmallLongObject(-x)
             return self.descr_long(space).descr_neg(space)
-        return wrapint(space, b)
+        return wrapint(space, -a)
 
     def descr_abs(self, space):
+        if type(self) is W_IntObject:
+            if self.intval == MININT:
+                return self.descr_neg(space)
+            # branchless version
+            x = self.intval
+            mask = x >> (LONG_BIT - 1)
+            return space.newint((x ^ mask) - mask)
         pos = self.intval >= 0
         return self.int(space) if pos else self.descr_neg(space)
 
@@ -474,7 +469,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        return space.newint(_bit_length(self.intval))
+        return space.newint(bit_length_int(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)

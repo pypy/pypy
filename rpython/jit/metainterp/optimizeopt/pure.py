@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
-     ResOperation
+     ResOperation, opclasses
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
@@ -289,6 +289,21 @@ class OptPure(Optimization):
         newop = ResOperation(opnum,
                              [get_box_replacement(arg) for arg in args],
                              descr=descr)
+        newop.set_forwarded(op)
+        self.pure(opnum, newop)
+
+    def pure_from_args2(self, opnum, arg0, arg1, op):
+        cls = opclasses[opnum]
+        newop = cls()
+        newop.setarg(0, get_box_replacement(arg0))
+        newop.setarg(1, get_box_replacement(arg1))
+        newop.set_forwarded(op)
+        self.pure(opnum, newop)
+
+    def pure_from_args1(self, opnum, arg0, op):
+        cls = opclasses[opnum]
+        newop = cls()
+        newop.setarg(0, get_box_replacement(arg0))
         newop.set_forwarded(op)
         self.pure(opnum, newop)
 

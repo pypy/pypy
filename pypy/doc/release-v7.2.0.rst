@@ -1,6 +1,6 @@
-====================================
-PyPy v7.2.0: release of 2.7, and 3.6
-====================================
+=========================================================
+PyPy v7.2.0: release of 2.7, and 3.6, released 2019-10-14
+=========================================================
 
 The PyPy team is proud to release the version 7.2.0 of PyPy, which includes
 two different interpreters:

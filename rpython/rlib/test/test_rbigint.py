@@ -17,14 +17,17 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, L
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
-    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
+    _format_lowest_level_divmod_int_results, _format_int10_18digits,
+    bit_length_int, _bitcount64)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rtyper.tool.rfficache import platform
+from rpython.rlib.rstring import StringBuilder
 
-from hypothesis import given, strategies, example, settings
+from hypothesis import given, strategies, example, settings, assume
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -296,6 +299,17 @@ class TestRLong(object):
                 r1 = op1.int_mod_int_result(y)
                 r2 = x % y
                 assert r1 == r2
+
+    def test_int_divmod_int_result(self):
+        for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
+            for y in signed_int_vals:
+                if not y:
+                    continue
+                r1 = op1.int_mod_int_result(y)
+                r2 = x % y
+                assert r1 == r2
+
 
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
@@ -993,6 +1007,12 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-4).bit_length() == 3
         assert rbigint.fromlong(1<<40).bit_length() == 41
 
+    def test_bit_length_int(self):
+        assert bit_length_int(0) == 0
+        assert bit_length_int(1) == 1
+        assert bit_length_int(sys.maxint) in (31, 63)
+        assert bit_length_int(-sys.maxint-1) in (32, 64)
+
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                   sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
@@ -1426,7 +1446,6 @@ class TestTranslatable(object):
         res = interpret(fn, [sys.maxint, sys.maxint])
 
 
-
 class TestTranslated(StandaloneTests):
 
     def test_gcc_4_9(self):
@@ -1738,8 +1757,11 @@ class TestHypothesis(object):
         r1 = rx.rshift(shift)
         assert r1.tolong() == x >> shift
 
-    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
-    def test_abs_rshift_and_mask(self, x, shift, mask):
+    @given(longs, strategies.integers(0, 2000), strategies.data())
+    def test_abs_rshift_and_mask(self, x, shift, data):
+        mask = data.draw(
+            strategies.sampled_from(
+                [int((1 << i) - 1) for i in range(1, min(SHIFT, r_uint.BITS - 1))]))
         rx = rbigint.fromlong(x)
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
@@ -1782,6 +1804,12 @@ class TestHypothesis(object):
     @given(biglongs)
     def test_bit_count(self, val):
         assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
+    @given(strategies.integers(0, 2**64-1))
+    @example(1)
+    @example(0b110001010111)
+    def test_bitcount64(self, val):
+        assert _bitcount64(r_ulonglong(val)) == bin(val).count("1")
 
     @given(strategies.binary(), strategies.booleans(), strategies.booleans())
     def test_frombytes_tobytes_hypothesis(self, s, big, signed):
@@ -1851,6 +1879,40 @@ class TestHypothesis(object):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
 
+    @given(strategies.data())
+    def test_format_lowest_level_divmod_int_results(self, data):
+        b = data.draw(strategies.integers(1, MASK))
+        a = data.draw(strategies.integers(0, b-1))
+        c = data.draw(strategies.integers(0, b-1))
+        assume(bool(b))
+        atimesbplusb = rbigint.mul_int_int_bigint_result(a, b).int_add(c)
+        div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
+        print a, b, c, atimesbplusb, div, mod
+        assert (div, mod) == divmod(atimesbplusb.tolong(), b)
+
+    @given(strategies.integers(0, 10**18-1))
+    def test_format_int10_18digits(self, val):
+        builder = StringBuilder()
+        _format_int10_18digits(val, builder)
+        s = builder.build()
+        assert len(s) == 18
+        assert s.lstrip('0') == str(val).lstrip('0')
+
+    @given(longs)
+    def test_bit_length(self, val):
+        rval = rbigint.fromlong(val)
+        assert val.bit_length() == rval.bit_length()
+
+    @given(ints)
+    def test_bit_length_int(self, val):
+        res = bit_length_int(val)
+        assert res == val.bit_length()
+        if val > 0:
+            assert 2 ** (res - 1) <= val < 2 ** res
+        if not val:
+            assert res == 0
+        if val < 0:
+            assert res == (-val).bit_length()
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
@@ -1900,6 +1962,7 @@ def run():
             info = sys.exc_info()
             print(traceback.format_exc())
             pdb.post_mortem(info[2], pdb.Pdb)
+        raise
 
 
 if __name__ == '__main__':

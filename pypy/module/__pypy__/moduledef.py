@@ -18,7 +18,7 @@ class BuildersModule(MixedModule):
 class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
-    if rtime.HAS_CLOCK_GETTIME:
+    if rtime.HAS_CLOCK_GETTIME_RUNTIME:
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
         for name in rtime.ALL_DEFINED_CLOCKS:
@@ -79,6 +79,7 @@ class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
     subject to change, many are internal. """
     appleveldefs = {
+        'remote_exec': 'app_debug.remote_exec',
     }
 
     interpleveldefs = {
@@ -122,6 +123,7 @@ class Module(MixedModule):
         'newmemoryview'             : 'interp_buffer.newmemoryview',
         'utf8content'               : 'interp_magic.utf8content',
         'list_get_physical_size'    : 'interp_magic.list_get_physical_size',
+        '_pypy_disable_remote_debugger': 'space.w_False'
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
