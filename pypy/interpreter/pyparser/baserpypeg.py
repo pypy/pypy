@@ -309,10 +309,14 @@ class Parser:
         from pypy.interpreter import error
         from pypy.module._warnings.interp_warnings import warn_explicit
         space = self.space
+        if self.compile_info.feature_version >= 12:
+            w_category = space.w_SyntaxWarning
+        else:
+            w_category = space.w_DeprecationWarning
         try:
             warn_explicit(
                 space, space.newtext(msg),
-                space.w_DeprecationWarning,
+                w_category,
                 space.newtext(self.compile_info.filename),
                 tok.lineno,
                 space.w_None,
@@ -321,7 +325,7 @@ class Parser:
                 space.w_None,
                 )
         except error.OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
+            if e.match(space, w_category):
                 self.raise_syntax_error_known_location(msg, tok)
             else:
                 raise
