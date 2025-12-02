@@ -301,8 +301,6 @@ class Parser:
         # we're still here, so no specific error message
         if tok is None:
             tok = self.diagnose()
-        if token_exc is not None and tok.token_type == tokens.ERRORTOKEN:
-            raise token_exc
         if tok.token_type == tokens.INDENT:
             self.raise_indentation_error("unexpected indent")
         self.raise_syntax_error_known_location("invalid syntax", tok)

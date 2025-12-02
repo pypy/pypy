@@ -247,6 +247,10 @@ class PegParser(object):
             return pp.parse_meth_or_raise(meth, token_exc)
         except error.SyntaxError as syntax_exc:
             if token_exc is not None:
+                if pp.diagnose().token_type == pygram.tokens.ERRORTOKEN:
+                    raise token_exc
+
+                # tokenizer error happens later than parser error:
                 # prefer token_exc unless it's inside an f-string or it's
                 # a parenthesis error on the same line as the syntax error
                 fstring_level = 0

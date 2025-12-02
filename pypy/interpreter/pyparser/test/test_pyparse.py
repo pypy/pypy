@@ -565,10 +565,10 @@ class TestFString(BaseTestPythonParser):
         assert (exc.lineno, exc.offset) == (3, 4)
 
         input = "f'{\xa0}'"
-        exc = pytest.raises(SyntaxError, self.parse, input).value
-        assert exc.msg == "invalid non-printable character U+00A0"
+        exc = pytest.raises(SyntaxError, self.parse, "# coding: utf-8\n" + input).value
+        assert exc.msg == "Non-UTF-8 code in identifier"
         assert exc.text == input + '\n'
-        assert (exc.lineno, exc.offset) == (1, 4)
+        assert (exc.lineno, exc.offset) == (2, 4)
 
 
 class TestIncompleteInput(object):
