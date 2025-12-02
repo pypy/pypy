@@ -596,6 +596,7 @@ x = (
         )
         self.assertRaises(SyntaxError, eval, "f'{" + "(" * 500 + "}'")
 
+    @cpython_only  # No stack limit on PyPy (FIXME?)
     @unittest.skipIf(support.is_wasi, "exhausts limited stack on WASI")
     def test_fstring_nested_too_deeply(self):
         self.assertAllRaise(
@@ -1423,8 +1424,7 @@ x = (
             "f-string: missing conversion character",
             [
                 "f'{3!}'",
-                # TODO: CPython parses even if a token error occurs
-                # "f'{3!:'",
+                "f'{3!:'",
                 "f'{3!:}'",
             ],
         )
@@ -1483,7 +1483,6 @@ x = (
             ],
         )
 
-    @cpython_only # CPython parses even if a token error occurs
     def test_mismatched_braces_fail(self):
         self.assertAllRaise(
             SyntaxError,
@@ -1786,7 +1785,6 @@ x = (
         self.assertEqual(f"{(x:=10)}", "10")
         self.assertEqual(x, 10)
 
-    @cpython_only # FIXME?
     def test_invalid_syntax_error_message(self):
         with self.assertRaisesRegex(
             SyntaxError, "f-string: expecting '=', or '!', or ':', or '}'"
@@ -1844,7 +1842,6 @@ sdfsdfs{1+
             self.assertEqual(e.text, 'z = f"""\n')
             self.assertEqual(e.lineno, 3)
 
-    @cpython_only # TODO: CPython parses even when a token error occurs
     def test_syntax_error_after_debug(self):
         self.assertAllRaise(
             SyntaxError,
@@ -1880,7 +1877,6 @@ print(f'''{{
             "3\n=3",
         )
 
-    @cpython_only # FIXME
     def test_syntax_warning_infinite_recursion_in_file(self):
         with temp_cwd():
             script = "script.py"
