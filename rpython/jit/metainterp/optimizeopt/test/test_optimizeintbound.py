@@ -4340,6 +4340,28 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_and_or_and2(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16)
+        i6 = int_or(i5, i4)
+        i7 = int_and(i6, 65535)
+        jump(i7, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16) # dead
+        i6 = int_or(i5, i4) # dead
+        jump(i4, i4) # equal
+        """
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
