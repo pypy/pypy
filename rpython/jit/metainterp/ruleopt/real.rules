@@ -117,6 +117,10 @@ and_idempotent: int_and(x, y)
     check y.ones | x.zeros == -1
     => x
 
+and_or: int_and(int_or(x, y), z)
+    check y.and_bound(z).known_eq_const(0)
+    => int_and(x, z)
+
 and_known_result: int_and(a, b)
     bound = a.and_bound(b)
     check bound.is_constant()
