@@ -148,6 +148,9 @@ or_and_two_parts: int_or(int_and(x, C1), int_and(x, C2))
     C = C1 | C2
     => int_and(x, C)
 
+or_reassoc_consts: int_or(int_or(x, C1), C2)
+    C = C1 | C2
+    => int_or(x, C)
 
 xor_x_x: int_xor(a, a)
     => 0

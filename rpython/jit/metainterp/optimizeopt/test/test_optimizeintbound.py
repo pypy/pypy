@@ -4292,6 +4292,35 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_two_ors_with_constants(self):
+        # tests or_reassoc_consts
+        ops = """
+        [i1]
+        i2 = int_or(i1, 57)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(i1, 57) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_or(57, i1)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(57, i1) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
