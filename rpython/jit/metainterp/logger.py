@@ -31,7 +31,7 @@ class Logger(object):
         return i.inputargs, ops
 
     def log_loop(self, inputargs, operations, number=0, type=None,
-                 ops_offset=None, name='', memo=None):
+                 ops_offset=None, name='', memo=None, dce=False):
         if type is None:
             # XXX this case not normally used any more, I think
             debug_start("jit-log-noopt-loop")
@@ -52,6 +52,13 @@ class Logger(object):
             logops = self._log_operations(inputargs, operations, ops_offset,
                                           memo)
             debug_stop("jit-log-compiling-loop")
+        elif dce and ops_offset:
+            debug_start("jit-log-dce-loop")
+            debug_print("# Loop", number, '(%s)' % name, ":", type,
+                        "with", len(operations), "ops")
+            logops = self._log_operations(inputargs, operations, ops_offset,
+                                          memo, dce=True)
+            debug_stop("jit-log-dce-loop")
         else:
             debug_start("jit-log-opt-loop")
             debug_print("# Loop", number, '(%s)' % name, ":", type,
@@ -62,7 +69,7 @@ class Logger(object):
         return logops
 
     def log_bridge(self, inputargs, operations, extra=None,
-                   descr=None, ops_offset=None, memo=None):
+                   descr=None, ops_offset=None, memo=None, dce=False):
         if extra == "noopt":
             # XXX this case no longer used
             debug_start("jit-log-noopt-bridge")
@@ -85,10 +92,19 @@ class Logger(object):
             logops = self._log_operations(inputargs, operations, ops_offset,
                                           memo)
             debug_stop("jit-log-compiling-bridge")
+        elif dce and ops_offset:
+            debug_start("jit-log-dce-bridge")
+            debug_print("# bridge out of Guard",
+                        hexdescr,
+                        "with", len(operations), "ops")
+            logops = self._log_operations(inputargs, operations, ops_offset,
+                                          memo, dce=True)
+            debug_stop("jit-log-dce-bridge")
         else:
+            hexdescr = "0x%x" % r_uint(compute_unique_id(descr))
             debug_start("jit-log-opt-bridge")
             debug_print("# bridge out of Guard",
-                        "0x%x" % r_uint(compute_unique_id(descr)),
+                        hexdescr,
                         "with", len(operations), "ops")
             logops = self._log_operations(inputargs, operations, ops_offset,
                                           memo)
@@ -113,11 +129,11 @@ class Logger(object):
         debug_stop("jit-abort-log")
         return logops
 
-    def _log_operations(self, inputargs, operations, ops_offset, memo=None):
+    def _log_operations(self, inputargs, operations, ops_offset, memo=None, dce=False):
         if not have_debug_prints():
             return None
         logops = self._make_log_operations(memo)
-        logops._log_operations(inputargs, operations, ops_offset, memo)
+        logops._log_operations(inputargs, operations, ops_offset, memo, dce=dce)
         return logops
 
     def _make_log_operations(self, memo):
@@ -235,7 +251,7 @@ class LogOperations(object):
 
 
     def _log_operations(self, inputargs, operations, ops_offset=None,
-                        memo=None):
+                        memo=None, dce=False):
         if not have_debug_prints():
             return
         if ops_offset is None:
@@ -243,9 +259,23 @@ class LogOperations(object):
         if inputargs is not None:
             args = ", ".join([self.repr_of_arg(arg) for arg in inputargs])
             debug_print('[' + args + ']')
+        prevop_offset = -2
         for i in range(len(operations)):
-            #op = operations[i]
-            debug_print(self.repr_of_resop(operations[i], ops_offset))
+            op = operations[i]
+            if dce:
+                final_op = op.get_box_replacement()
+                offset = ops_offset.get(final_op, -1)
+                if (offset == prevop_offset
+                        and offset != -1
+                        and prevop_offset >= 0
+                        and len(operations) - 1 != i):
+                    # the operation is at the same place as the previous one.
+                    # thus it did not turn into machine code. therefore we
+                    # don't print it at all
+                    continue
+                else:
+                    prevop_offset = offset
+            debug_print(self.repr_of_resop(op, ops_offset))
             #if op.getopnum() == rop.LABEL:
             #    self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:

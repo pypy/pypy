@@ -554,6 +554,9 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type,
     #
     if asminfo is not None:
         ops_offset = asminfo.ops_offset
+        metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
+                                          type, ops_offset,
+                                          name=loopname, dce=True)
     else:
         ops_offset = None
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n,
@@ -603,6 +606,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     #
     if asminfo is not None:
         ops_offset = asminfo.ops_offset
+        metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,
+                                            ops_offset, memo=memo, dce=True)
     else:
         ops_offset = None
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, None, faildescr,

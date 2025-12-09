@@ -32,11 +32,11 @@ def capturing(func, *args, **kwds):
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
-    def log_loop(self, loop, namespace={}, ops_offset=None, name=''):
+    def log_loop(self, loop, namespace={}, ops_offset=None, name='', type=None, dce=False):
         self.namespace = namespace
         return capturing(logger.Logger.log_loop, self,
                          loop.inputargs, loop.operations, ops_offset=ops_offset,
-                         name=name)
+                         name=name, type=type, dce=dce)
 
     def _make_log_operations(self1, memo):
         class LogOperations(logger.LogOperations):
@@ -238,6 +238,34 @@ i4 = int_mul(i2, 2)
 +30: jump(i4)
 +40: --end of the loop--
 """.strip()
+
+    def test_ops_offset_show_dce(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_mul(i1, 2)
+        i3 = int_sub(i2, i1)
+        jump(i2)
+        '''
+        loop = pure_parse(inp)
+        ops = loop.operations
+        ops_offset = {
+            ops[0]: 10,
+            ops[1]: 30,
+            ops[2]: 30,
+            None: 40
+            }
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, type='foo', ops_offset=ops_offset, name="foo", dce=True)
+        assert output.strip() == """
+# Loop 0 (foo) : foo with 4 ops
+[i0]
++10: i2 = int_add(i0, 1)
++30: i4 = int_mul(i2, 2)
+jump(i4)
++40: --end of the loop--
+""".strip()
+
 
     def test_ops_offset_with_forward(self):
         inp = '''
