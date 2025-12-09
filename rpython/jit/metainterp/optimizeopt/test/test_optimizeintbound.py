@@ -4362,6 +4362,20 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_and_add(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 8589934591)
+        i3 = int_add(8589934591, i2)
+        i4 = int_and(i3, 8589934591)
+        i5 = int_add(1, i4)
+        i6 = int_and(i5, 8589934591)
+        jump(i6, i2) # equal
+        """
+        # tricky: this is (x - 1) + 1, but for 33 bit ints
+        expected = ops
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
