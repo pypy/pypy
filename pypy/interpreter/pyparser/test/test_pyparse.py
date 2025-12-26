@@ -571,6 +571,61 @@ class TestFString(BaseTestPythonParser):
         assert (exc.lineno, exc.offset) == (2, 4)
 
 
+@pytest.mark.xfail(reason="TODO")
+class TestPy312TypeFeatures(BaseTestPythonParser):
+    def test_type_alias(self):
+        self.parse("type alias = int | str")
+        self.parse("type Point = tuple[float, float]")
+
+    def test_generic_type_alias(self):
+        self.parse("""
+type IntFunc[**P] = Callable[P, int]  # ParamSpec
+type LabeledTuple[*Ts] = tuple[str, *Ts]  # TypeVarTuple
+type HashableSequence[T: Hashable] = Sequence[T]  # TypeVar with bound
+type IntOrStrSequence[T: (int, str)] = Sequence[T]  # TypeVar with constraints
+""")
+
+    def test_generic_function(self):
+        self.parse("def identity[T](arg: T) -> T: ...")
+
+    def test_generic_class(self):
+        self.parse("class Bag[T]: ...")
+
+    def test_documentation_examples(self):
+        self.parse("""
+def max[T](args: list[T]) -> T:
+    ...
+
+async def amax[T](args: list[T]) -> T:
+    ...
+
+class Bag[T]:
+    def __iter__(self) -> Iterator[T]:
+        ...
+
+    def add(self, arg: T) -> None:
+        ...
+
+type ListOrSet[T] = list[T] | set[T]
+""")
+        self.parse("""
+def overly_generic[
+   SimpleTypeVar,
+   TypeVarWithDefault = int,
+   TypeVarWithBound: int,
+   TypeVarWithConstraints: (str, bytes),
+   *SimpleTypeVarTuple = (int, float),
+   **SimpleParamSpec = (str, bytearray),
+](
+   a: SimpleTypeVar,
+   b: TypeVarWithDefault,
+   c: TypeVarWithBound,
+   d: Callable[SimpleParamSpec, TypeVarWithConstraints],
+   *e: SimpleTypeVarTuple,
+): ...
+""")
+
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
