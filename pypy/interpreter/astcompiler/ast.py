@@ -421,13 +421,14 @@ State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_
 
 class FunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, returns, type_comment, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
         self.returns = returns
         self.type_comment = type_comment
+        self.type_params = type_params  # TODO: currently ignored
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
@@ -525,13 +526,14 @@ State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list',
 
 class AsyncFunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, returns, type_comment, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
         self.returns = returns
         self.type_comment = type_comment
+        self.type_params = type_params  # TODO: currently ignored
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
@@ -629,12 +631,13 @@ State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_l
 
 class ClassDef(stmt):
 
-    def __init__(self, name, bases, keywords, body, decorator_list, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.bases = bases
         self.keywords = keywords
         self.body = body
         self.decorator_list = decorator_list
+        self.type_params = type_params  # TODO: currently ignored
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
