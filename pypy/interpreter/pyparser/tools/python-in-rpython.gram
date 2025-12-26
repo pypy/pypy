@@ -72,7 +72,6 @@ file[ast.Module]: a=[statements] ENDMARKER { ast.Module(body=a, type_ignores=sel
 interactive[ast.Interactive]: a=statement_newline { ast.Interactive(body=a) }
 eval[ast.Expression]: a=expressions NEWLINE* ENDMARKER { ast.Expression(body=a) }
 func_type[ast.FunctionType]: '(' a=[type_expressions] ')' '->' b=expression NEWLINE* ENDMARKER { ast.FunctionType(argtypes=a, returns=b) }
-fstring[ast.Expr]: star_expressions
 
 # GENERAL STATEMENTS
 # ==================
