@@ -736,11 +736,18 @@ keyword_pattern:
 # Type statement
 # ---------------
 
-type_alias[stmt_ty]:
+type_alias[ast.TypeAlias]:
     | "type" n=NAME t=[type_params] '=' b=expression {
-        #CHECK_VERSION(stmt_ty, 12, "Type statement is",
-        #_PyAST_TypeAlias(CHECK(expr_ty, _PyPegen_set_expr_context(p, n, Store)), t, b, EXTRA)) }
-        raise NotImplementedError("Type aliases are not supported in PyPy yet") }
+        self.check_version(
+            (3, 12),
+            "Type statement is",
+            ast.TypeAlias(
+                self.set_expr_context(n, Store),
+                type_params=t,
+                value=b,
+                LOCATIONS,
+            )
+        ) }
 
 # Type parameter declaration
 # --------------------------
