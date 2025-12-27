@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git checkout:*)",
+      "Bash(python2:*)",
+      "Bash(../../rpython/bin/rpython:*)"
+    ]
+  }
+}

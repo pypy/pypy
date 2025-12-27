@@ -65,6 +65,11 @@ class CBuilder(object):
 
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
                  gchooks=None, secondary_entrypoints=()):
+        #
+        if config.translation.sandbox:
+            assert not config.translation.thread
+            gchooks = None     # no custom gc hooks
+        #
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)
@@ -845,6 +850,10 @@ def gen_source(database, modulename, targetdir,
                eci, defines={}, split=False):
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
+
+    if database.sandbox:
+        from rpython.translator.sandbox import rsandbox
+        eci = eci.merge(rsandbox.extra_eci(database.translator.rtyper))
 
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')

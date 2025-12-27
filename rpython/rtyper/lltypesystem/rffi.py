@@ -9,6 +9,7 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import Symbolic, specialize, not_rpython
 from rpython.rlib.objectmodel import keepalive_until_here, enforceargs
+from rpython.rlib.objectmodel import sandbox_review
 from rpython.rlib import rarithmetic, rgc
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.unroll import unrolling_iterable
@@ -229,6 +230,8 @@ def llexternal(name, args, result, _callable=None,
         #
         call_external_function = func_with_new_name(call_external_function,
                                                     'ccall_' + name)
+        call_external_function = sandbox_review(check_caller=True)(
+            call_external_function)
         # don't inline, as a hack to guarantee that no GC pointer is alive
         # anywhere in call_external_function
     else:

@@ -11,7 +11,8 @@ from rpython.rlib._os_support import (
     POSIX_SIZE_T, POSIX_SSIZE_T,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
-    specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
+    specialize, enforceargs, register_replacement_for, NOT_CONSTANT,
+    sandbox_review)
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
