@@ -67,7 +67,8 @@ class CBuilder(object):
                  gchooks=None, secondary_entrypoints=()):
         #
         if config.translation.sandbox:
-            assert not config.translation.thread
+            # Note: we now allow thread=True with sandbox (Pyodide-style)
+            # Thread creation will raise at runtime, but locks work normally
             gchooks = None     # no custom gc hooks
         #
         self.translator = translator

@@ -575,6 +575,9 @@ class ActionFlag(AbstractActionFlag):
                 self._ticker = value
         return value
 
+    def rearm_ticker(self):
+        pass  # no-op in non-signal mode; SignalActionFlag overrides this
+
 
 class AsyncAction(object):
     """Abstract base class for actions that must be performed
