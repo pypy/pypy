@@ -3,14 +3,11 @@
 PyPy's sandboxing features
 ==========================
 
-.. warning:: This describes the old, unmaintained version.  A new version
-   is in progress in the ``sandbox-2`` and ``py3.6-sandbox-2`` branches and in
-   the sandboxlib_ repo.
-   Please see its description here:
-   https://mail.python.org/pipermail/pypy-dev/2019-August/015797.html
+.. warning:: This is the sandbox implementation ported from ``py3.6-sandbox-2``.
+   It requires the sandboxlib_ external package to be installed.
 
-   Also note that python 3.7+ requires the _thread module, which may be
-   a consideration in escaping the sandbox.
+   Note that Python 3.7+ requires the _thread module, which may be
+   a consideration when designing sandbox policies.
 
 Introduction
 ------------
@@ -54,24 +51,19 @@ that are normally only present in debugging versions.
    use this sandboxed PyPy from a regular Python interpreter (CPython, or
    an unsandboxed PyPy).  Contributions welcome.
 
-.. warning::
-  
-  Tested with PyPy2.  May not work out of the box with PyPy3.
-
-
 Overview
 --------
 
 One of PyPy's translation aspects is a sandboxing feature. It's "sandboxing" as
 in "full virtualization", but done in normal C with no OS support at all.  It's
-a two-processes model: we can translate PyPy to a special "pypy-c-sandbox"
+a two-processes model: we can translate PyPy to a special "pypy3-c-sandbox"
 executable, which is safe in the sense that it doesn't do any library or
 system calls - instead, whenever it would like to perform such an operation, it
 marshals the operation name and the arguments to its stdout and it waits for
-the marshalled result on its stdin.  This pypy-c-sandbox process is meant to be
+the marshalled result on its stdin.  This pypy3-c-sandbox process is meant to be
 run by an outer "controller" program that answers these operation requests.
 
-The pypy-c-sandbox program is obtained by adding a transformation during
+The pypy3-c-sandbox program is obtained by adding a transformation during
 translation, which turns all RPython-level external function calls into
 stubs that do the marshalling/waiting/unmarshalling.  An attacker that
 tries to escape the sandbox is stuck within a C program that contains no
@@ -104,10 +96,10 @@ By the way, as you should have realized, it's really independent from
 the fact that it's PyPy that we are translating.  Any RPython program
 should do.  I've successfully tried it on the JS interpreter.  The
 controller is only called "pypy_interact" because it emulates a file
-hierarchy that makes pypy-c-sandbox happy - it contains (read-only)
-virtual directories like /bin/lib/pypy1.2/lib-python and
-/bin/lib/pypy1.2/lib_pypy and it
-pretends that the executable is /bin/pypy-c.
+hierarchy that makes pypy3-c-sandbox happy - it contains (read-only)
+virtual directories like /bin/lib-python and
+/bin/lib_pypy and it
+pretends that the executable is /bin/pypy3-c.
 
 
 Howto
@@ -126,9 +118,9 @@ in front.
 
 To run it, use the tools in the pypy/sandbox directory::
 
-   ./pypy_interact.py /some/path/pypy-c-sandbox [args...]
+   ./pypy_interact.py /some/path/pypy3-c-sandbox [args...]
 
-Just like with pypy-c, if you pass no argument you get the interactive
+Just like with pypy3-c, if you pass no argument you get the interactive
 prompt.  In theory it's impossible to do anything bad or read a random
 file on the machine from this prompt. To pass a script as an argument you need
 to put it in a directory along with all its dependencies, and ask
@@ -137,7 +129,7 @@ virtual /tmp directory with the ``--tmp=DIR`` option.  Example::
 
    mkdir myexported
    cp script.py myexported/
-   ./pypy_interact.py --tmp=myexported /some/path/pypy-c-sandbox /tmp/script.py
+   ./pypy_interact.py --tmp=myexported /some/path/pypy3-c-sandbox /tmp/script.py
 
 This is safe to do even if script.py comes from some random
 untrusted source, e.g. if it is done by an HTTP server.
