@@ -227,7 +227,8 @@ def test_oserror():
 
     exe = compile(entry_point)
     sandio = run_in_subprocess(exe)
-    expect(sandio, "stat64(pp)i", ("somewhere", ANY), -1, errno=6321)
+    stat_fn = "stat64(pp)i" if sys.platform.startswith('linux') else "stat(pp)i"
+    expect(sandio, stat_fn, ("somewhere", ANY), -1, errno=6321)
     expect(sandio, "close(i)i", (6321,), 0)
     expect_done(sandio)
 
@@ -335,7 +336,8 @@ def test_environ_items():
 
     exe = compile(entry_point)
     sandio = run_in_subprocess(exe)
-    expect(sandio, "get_environ()p", (), EMPTY_ENVIRON)
+    environ_fn = "_NSGetEnviron()p" if sys.platform.startswith('darwin') else "get_environ()p"
+    expect(sandio, environ_fn, (), EMPTY_ENVIRON)
     expect(sandio, "write(ipi)i", (1, RAW("[]\n"), 3), 3)
     expect_done(sandio)
 
