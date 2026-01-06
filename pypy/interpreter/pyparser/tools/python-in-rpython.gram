@@ -94,7 +94,8 @@ simple_stmts[list]:
 # will throw a SyntaxError.
 simple_stmt (memo):
     | assignment
-    | &"type" type_alias
+    # pypy change: removed &"type" to avoid type error in positive_lookahead *args
+    | type_alias
     | e=star_expressions { ast.Expr(value=e, LOCATIONS) }
     | &'return' return_stmt
     | &('import' | 'from') import_stmt
@@ -752,8 +753,8 @@ type_alias[ast.TypeAlias]:
 # Type parameter declaration
 # --------------------------
 
-type_params[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: '[' t=type_param_seq  ']' {
-        self.check_version((3, 8), "Type parameter lists are", t) }
+type_params[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: p='[' t=type_param_seq  ']' {
+        self.check_version((3, 12), "Type parameter lists are", p) and t }
 
 type_param_seq[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: a=','.type_param+ [','] { a }
 

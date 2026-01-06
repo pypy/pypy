@@ -154,7 +154,7 @@ class PythonParser(Parser):
 
     @memoize
     def simple_stmt(self): # type Optional[Any]
-        # simple_stmt: assignment | &"type" type_alias | star_expressions | &'return' return_stmt | &('import' | 'from') import_stmt | &'raise' raise_stmt | 'pass' | &'del' del_stmt | &'yield' yield_stmt | &'assert' assert_stmt | 'break' | 'continue' | &'global' global_stmt | &'nonlocal' nonlocal_stmt
+        # simple_stmt: assignment | type_alias | star_expressions | &'return' return_stmt | &('import' | 'from') import_stmt | &'raise' raise_stmt | 'pass' | &'del' del_stmt | &'yield' yield_stmt | &'assert' assert_stmt | 'break' | 'continue' | &'global' global_stmt | &'nonlocal' nonlocal_stmt
         mark = self._index
         if self._verbose: log_start(self, 'simple_stmt')
         tok = self.peek()
@@ -163,10 +163,9 @@ class PythonParser(Parser):
         if assignment:
             return assignment
         self._index = mark
-        if self.positive_lookahead(PythonParser.expect, "type"):
-            type_alias = self.type_alias()
-            if type_alias:
-                return type_alias
+        type_alias = self.type_alias()
+        if type_alias:
+            return type_alias
         self._index = mark
         e = self.star_expressions()
         if e:
@@ -2441,13 +2440,13 @@ class PythonParser(Parser):
         # type_params: '[' type_param_seq ']'
         mark = self._index
         if self._verbose: log_start(self, 'type_params')
-        literal = self.expect_type(12)
-        if literal:
+        p = self.expect_type(12)
+        if p:
             t = self.type_param_seq()
             if t:
-                literal_1 = self.expect_type(13)
-                if literal_1:
-                    return self . check_version ( ( 3 , 8 ) , "Type parameter lists are" , t )
+                literal = self.expect_type(13)
+                if literal:
+                    return self . check_version ( ( 3 , 12 ) , "Type parameter lists are" , p ) and t
         self._index = mark
         return None
 
