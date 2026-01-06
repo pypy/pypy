@@ -752,11 +752,10 @@ type_alias[ast.TypeAlias]:
 # Type parameter declaration
 # --------------------------
 
-type_params[TODO*]: '[' t=type_param_seq  ']' {
+type_params[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: '[' t=type_param_seq  ']' {
         self.check_version((3, 8), "Type parameter lists are", t) }
 
-# TODO
-# type_param_seq[TODO*]: a[asdl_type_param_seq*]=','.type_param+ [','] { a }
+type_param_seq[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: a=','.type_param+ [','] { a }
 
 type_param[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec] (memo):
     | a=NAME b=[type_param_bound] { ast.TypeVar(a.id, bound=b, LOCATIONS) }
