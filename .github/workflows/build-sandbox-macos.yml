@@ -1,0 +1,64 @@
+name: Build PyPy3.8 Sandbox (macOS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g., pypy3.8-sandbox-7.3.17). Leave empty to skip release.'
+        required: false
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-13
+          - arch: arm64
+            runner: macos-14
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install pypy openssl pkg-config
+          pypy -m pip install cffi
+
+      - name: Build sandbox
+        run: bash scripts/build-sandbox.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pypy3.8-sandbox-darwin-${{ matrix.arch }}
+          path: |
+            pypy/goal/pypy3-c
+            pypy/goal/libpypy3-c.dylib
+
+  release:
+    needs: build
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create tarballs
+        run: |
+          tar -czvf pypy3.8-sandbox-darwin-amd64.tar.gz -C pypy3.8-sandbox-darwin-amd64 .
+          tar -czvf pypy3.8-sandbox-darwin-arm64.tar.gz -C pypy3.8-sandbox-darwin-arm64 .
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_tag }}
+          files: |
+            pypy3.8-sandbox-darwin-amd64.tar.gz
+            pypy3.8-sandbox-darwin-arm64.tar.gz
