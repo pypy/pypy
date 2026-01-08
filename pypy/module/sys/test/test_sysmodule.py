@@ -243,6 +243,48 @@ class AppTestAppSysTests:
         import sys
         assert sys.platlibdir == "lib" # default
 
+    def test_getframemodulename(self):
+        import sys
+        assert sys._getframemodulename() == __name__
+        assert sys._getframemodulename(0) == __name__
+        if self.appdirect:
+            assert sys._getframemodulename(1) == "__main__"
+            assert sys._getframemodulename(2) is None
+        else:
+            assert sys._getframemodulename(1) is None
+
+    def test_getframemodulename___name___set_before_function_definition(self):
+        import sys
+        global __name__
+        __name__ = "module_name"
+        if sys.implementation.name == "pypy":
+            assert sys._getframemodulename(0) == "module_name"
+        else:
+            assert self.appdirect
+            assert sys._getframemodulename(0) == "__main__"
+        def f():
+            assert sys._getframemodulename(0) == "module_name"
+            if sys.implementation.name == "pypy":
+                assert sys._getframemodulename(1) == "module_name"
+            else:
+                assert self.appdirect
+                assert sys._getframemodulename(1) == "__main__"
+        f()
+
+    def test_getframemodulename___name___set_after_function_definition(self):
+        import sys
+        def f():
+            if sys.implementation.name == "pypy":
+                assert sys._getframemodulename(0) == "module_name"
+                assert sys._getframemodulename(1) == "module_name"
+            else:
+                assert self.appdirect
+                assert sys._getframemodulename(0) == "__main__"
+                assert sys._getframemodulename(1) == "__main__"
+        global __name__
+        __name__ = "module_name"
+        f()
+
 
 @pytest.mark.skipif(sys.platform=="win32", reason="platlibdir is posix only")
 class AppTestPlatlibdirNotDefault:
