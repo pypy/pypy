@@ -39,7 +39,7 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
-POSIX_EXE = 'pypy3.11'
+POSIX_EXE = 'pypy3.12'
 
 
 from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
@@ -215,7 +215,7 @@ def create_package(basedir, options, _fake=False):
     builddir = py.path.local(options.builddir)
     pypydir = builddir.ensure(name, dir=True)
     if _fake:
-        python_ver = '3.11'
+        python_ver = '3.12'
     else:
         python_ver = get_python_ver(pypy_c)
     IMPLEMENTATION = 'pypy{}'.format(python_ver)
