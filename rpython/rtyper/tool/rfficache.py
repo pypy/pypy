@@ -12,9 +12,8 @@ from rpython.tool.gcc_cache import build_executable_cache
 
 def ask_gcc(question, add_source="", ignore_errors=False):
     from rpython.translator.platform import platform
-    includes = ['stdlib.h', 'stdio.h', 'sys/types.h']
-    if platform.name != 'msvc':
-        includes += ['inttypes.h', 'stddef.h']
+    includes = ['stdlib.h', 'stdio.h', 'sys/types.h',
+                'inttypes.h', 'stddef.h']
     include_string = "\n".join(["#include <%s>" % i for i in includes])
     c_source = py.code.Source('''
     // includes
@@ -77,17 +76,23 @@ class Platform:
             return self._make_type(name, signed, size)
 
     def _make_type(self, name, signed, size):
-        inttype = rarithmetic.build_int('r_' + name, signed, size*8)
+        # Is there already a rarithmetic.r_*?
+        # Skip r_int, r_uint since they are a long :(
+        rtype = 'r_' + name.lower()
+        if name.lower() in ('int', 'uint') or rtype not in dir(rarithmetic):
+            inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=False)
+        else:
+            inttype = getattr(rarithmetic, 'r_' + name.lower())
         tp = lltype.build_number(name, inttype)
         self.numbertype_to_rclass[tp] = inttype
         self.types[name] = tp
         return tp
 
-    def populate_inttypes(self, list, **kwds):
+    def populate_inttypes(self, int_list, **kwds):
         """'list' is a list of (name, c_name, signed)."""
         missing = []
         names_c = []
-        for name, c_name, signed in list:
+        for name, c_name, signed in int_list:
             if name not in self.types:
                 missing.append((name, signed))
                 names_c.append(c_name)

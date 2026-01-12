@@ -506,7 +506,7 @@ for _name in 'short int long'.split():
         TYPES.append(name)
 TYPES += ['signed char', 'unsigned char',
           'long long', 'unsigned long long',
-          'size_t', 'time_t', 'wchar_t',
+          'size_t', 'time_t', 'wchar_t', 'uint64_t',
           'uintptr_t', 'intptr_t',    # C note: these two are _integer_ types
           'void*']    # generic pointer type
 
@@ -742,7 +742,7 @@ LONGDOUBLE = lltype.LongFloat
 FLOAT = lltype.SingleFloat
 r_singlefloat = rarithmetic.r_singlefloat
 
-# void *   - for now, represented as char *
+# void *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
 CONST_VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True, 'render_as_const': True}))
 NULL = None
@@ -1473,6 +1473,7 @@ class scoped_alloc_buffer:
         return self
     def __exit__(self, *args):
         keep_buffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    @enforceargs(length=int)
     def str(self, length):
         return str_from_buffer(self.raw, self.gc_buf, self.case_num,
                                self.size, length)

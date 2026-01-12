@@ -9,10 +9,11 @@ from rpython.rtyper.lltypesystem.llmemory import (Address, AddressOffset,
     ArrayLengthOffset, GCHeaderOffset, GCREF, AddressAsInt)
 from rpython.rtyper.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned,
     UnsignedLongLong, Float, SingleFloat, LongFloat, Char, UniChar, Bool, Void,
-    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf, _uninitialized)
+    FixedSizeArray, Ptr, cast_opaque_ptr, typeOf, _uninitialized, Size_T, SSize_T)
 from rpython.rtyper.lltypesystem.llarena import RoundedUpForAllocation
 from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.translator.c.support import cdecl, barebonearray
+from rpython.rtyper.tool.rfficache import platform as cached_platform
 
 
 SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
@@ -219,12 +220,15 @@ PrimitiveName = {
     Void:     name_void,
     Address:  name_address,
     GCREF:    name_gcref,
+    Size_T: name_unsigned,
+    SSize_T: name_signed,
     }
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
     Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
+    Unsigned: 'Unsigned @',
     Unsigned: 'size_t @',
     Float:    'double @',
     SingleFloat: 'float @',
@@ -235,6 +239,8 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     GCREF:    'void* @',
+    Size_T: 'size_t @',
+    SSize_T: 'ssize_t @'
     }
 
 def define_c_primitive(ll_type, c_name, suffix=''):
