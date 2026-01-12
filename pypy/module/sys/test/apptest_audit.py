@@ -99,6 +99,12 @@ def test_sys_getframe():
         f = sys._getframe()
     assert hook.seen == [("sys._getframe", (f,))]
 
+def test_sys_getframemodulename():
+    with TestHook() as hook:
+        f = sys._getframemodulename()
+        f = sys._getframemodulename(42)
+    assert hook.seen == [("sys._getframemodulename", (0,)), ("sys._getframemodulename", (42,))]
+
 def test_donttrace():
     trace_events = []
     audit_events = []

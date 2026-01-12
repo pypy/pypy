@@ -53,6 +53,40 @@ def getframe(space, depth):
         depth -= 1
         f = ec.getnextframe_nohidden(f)
 
+@unwrap_spec(w_depth=WrappedDefault(0))
+def _getframemodulename(space, w_depth):
+    """Return the name of the module for a calling frame.
+
+The default depth returns the module containing the call to this API.
+A more typical use in a library will pass a depth of 1 to get the user's
+module rather than the library module.
+
+If no frame, module, or name can be found, returns None.
+
+Note that on PyPy, the __name__ global variable of the module where the
+function was defined is returned, while on CPython, the __module__
+attribute of the function executed in the frame is returned. The latter
+is initialized with the former, but they can diverge when either of them
+is changed after function definition.
+"""
+    audit(space, "sys._getframemodulename", [w_depth])
+    depth = space.int_w(w_depth)
+    if depth < 0:
+        raise oefmt(space.w_ValueError, "frame index must not be negative")
+    return getframemodulename(space, depth)
+
+
+@jit.look_inside_iff(lambda space, depth: jit.isconstant(depth))
+def getframemodulename(space, depth):
+    ec = space.getexecutioncontext()
+    f = ec.gettopframe_nohidden()
+    while f is not None:
+        if depth == 0:
+            return f.get_w_globals().getitem_str("__name__")
+        depth -= 1
+        f = ec.getnextframe_nohidden(f)
+    return None
+
 
 def _stack_check_noinline():
     from rpython.rlib.rstack import stack_check
