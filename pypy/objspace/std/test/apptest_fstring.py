@@ -143,9 +143,9 @@ def test_backslashes_in_string_part():
     assert f'\x203' == ' 3'
 
     with warnings.catch_warnings(record=True) as w:  # invalid escape sequence
-        warnings.simplefilter("always", DeprecationWarning)
+        warnings.simplefilter("always", SyntaxWarning)
         value = eval(r"f'\{6*7}'")
-        assert len(w) == 1 and w[0].category == DeprecationWarning
+        assert len(w) == 1 and w[0].category == SyntaxWarning
     assert value == '\\42'
     assert f'\\{6*7}' == '\\42'
     assert fr'\{6*7}' == '\\42'
