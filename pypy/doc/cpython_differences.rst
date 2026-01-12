@@ -275,7 +275,8 @@ integers ``x``. The rule applies for the following types:
 This change requires some changes to ``id`` as well. ``id`` fulfills the
 following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
 above types will return a value that is computed from the argument, and can
-thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
+thus be arbitrarily large; larger than ``sys.maxsize`` (or ``sys.maxint`` on
+PyPy2).
 
 Note that strings of length 2 or greater can be equal without being
 identical.  Similarly, ``x is (2,)`` is not necessarily true even if
