@@ -3,13 +3,11 @@
 
 name: pre-commit
 
-# Controls when the action will run.
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ "main", "py3.11" ]
+    branches: [ "main", "py3.[0-9]+" ]
   pull_request:
-    branches: [ "main", "py3.11" ]
+    branches: [ "main", "py3.[0-9]+" ]
 
 jobs:
   pre-commit:
