@@ -5,9 +5,9 @@ name: pre-commit
 
 on:
   push:
-    branches: [ "main", "py3.11" ]
+    branches: [ "main", "py3.[0-9]+" ]
   pull_request:
-    branches: [ "main", "py3.11" ]
+    branches: [ "main", "py3.[0-9]+" ]
 
 jobs:
   pre-commit:
