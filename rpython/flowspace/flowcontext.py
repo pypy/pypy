@@ -8,9 +8,10 @@ import __builtin__
 
 from rpython.tool.error import source_lines
 from rpython.rlib import rstackovf
+from rpython.rtyper.lltypesystem import lltype
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
-    c_last_exception, const, FSException)
+    c_last_exception, const, FSException, SpaceOperation)
 from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
     rpython_print_newline, rpython_print_end)
@@ -153,12 +154,18 @@ class Replayer(Recorder):
 
     def __init__(self, block, booloutcome, nextreplayer):
         self.crnt_block = block
-        self.listtoreplay = block.operations
+        # We don't care about comments when replaying; they
+        # are likely to be emitted at different times:
+        self.listtoreplay = [op for op in block.operations
+                             if op.opname != 'comment']
         self.booloutcome = booloutcome
         self.nextreplayer = nextreplayer
         self.index = 0
 
     def append(self, operation):
+        # Ignore comments when verifying the replay:
+        if operation.opname == 'comment':
+            return
         operation.result = self.listtoreplay[self.index].result
         assert operation == self.listtoreplay[self.index], (
             '\n'.join(["Not generating the same operation sequence:"] +
@@ -374,6 +381,28 @@ class FlowContext(object):
 
     def record(self, spaceop):
         spaceop.offset = self.last_offset
+
+        # Add a comment giving the source-code location of this operation
+        # e.g. 'is_perfect_number:35 :     return n == sum'
+        try:
+            code = self.pycode
+            linenum = self.last_offset
+            src = self.graph.source.split('\n')[linenum]
+            text = '%s:%d : %s' % (code.co_name, linenum, src)
+            comment = SpaceOperation('comment',
+                                     [Constant(text, concretetype=lltype.Void)],
+                                     Variable())
+            self.recorder.append(comment)
+        except IOError:
+            # can't read source file.  This could be due to code built
+            # on-the-fly at translation time using exec (e.g. by
+            # look_inside_iff)
+            pass
+        except Exception as e:
+            print(e)
+            import pdb;pdb.set_trace()
+            raise
+        # Add the operation itself:
         self.recorder.append(spaceop)
 
     def do_op(self, op):

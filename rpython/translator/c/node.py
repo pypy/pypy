@@ -848,7 +848,8 @@ class FuncNode(FuncNodeBase):
         for line in bodyiter:
             # performs some formatting on the generated body:
             # indent normal lines with tabs; indent labels less than the rest
-            if line.endswith(':'):
+            if line.endswith(':') and not (line.startswith('case') or \
+                   line.startswith('default')):
                 if line.startswith('err'):
                     try:
                         nextline = bodyiter.next()

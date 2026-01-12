@@ -629,6 +629,69 @@ def get_generated_c_source(fn, types):
     return t.driver.cbuilder.c_source_filename.join('..',
                               'rpython_translator_c_test.c').read()
 
+def extract_c_function(c_src, fname):
+    # Extract the source for a given C function out of a the given src string
+    # Makes assumptions about the layout of the source
+    pattern = '^(.+) \**%s\(.*\) {$' % fname
+    within_fn = False
+    result = ''
+    for line in c_src.splitlines():
+        if within_fn:
+            result += line + '\n'
+            if line.startswith('}'):
+                return result
+        else:
+            m = re.match(pattern, line)
+            if m:
+                within_fn = True
+                result += line + '\n'
+    return result
+
+def test_generated_c_source():
+    # Verify that the generated C source "looks good"
+    # We'll use is_perfect_number, as it contains a loop and a conditional
+
+    # Generate C source code
+    from pypy.translator.test.snippet import is_perfect_number
+    c_fn, c_src, c_filename_path = get_generated_c_source(is_perfect_number,
+                                                          [int])
+
+    # Locate the C source for the type-specialized function:
+    c_fn_src = extract_c_function(c_src, 'pypy_g_is_perfect_number')
+    
+    # Verify that the C source contains embedded comments containing the lines
+    # of the python source:
+    expected_comment_lines = [
+        '/* is_perfect_number:31 :     while div < n: */',
+        '/* is_perfect_number:32 :         if n % div == 0: */',
+        '/* is_perfect_number:33 :             sum += div */',
+        '/* is_perfect_number:34 :         div += 1 */',
+        '/* is_perfect_number:35 :     return n == sum */']
+    for exp_line in expected_comment_lines:
+        # Each line should appear exactly once:
+        assert c_fn_src.count(exp_line) == 1
+
+    # Ensure that the generated C function does the right thing:
+    assert c_fn(5) == False
+    assert c_fn(6) == True
+    assert c_fn(7) == False
+
+    assert c_fn(5.0) == False
+    assert c_fn(6.0) == True
+    assert c_fn(7.0) == False
+
+    assert c_fn(5L) == False
+    assert c_fn(6L) == True
+    assert c_fn(7L) == False
+
+    try:
+        c_fn('hello world')
+    except:
+        pass
+    else:
+        raise 'Was expected exception'
+
+
 def test_generated_c_source_no_gotos():
     # We want simple functions to have no indirection/goto.
     # Instead, PyPy can inline blocks when they aren't reused.
@@ -639,3 +702,90 @@ def test_generated_c_source_no_gotos():
     c_src = get_generated_c_source(main, [int])
     assert 'goto' not in c_src
     assert not re.search(r'block\w*:(?! \(inlined\))', c_src)
+
+def test_generated_switch():
+    # Verify that "switch" statements look sane in the generated C source:
+    def f(op, a, b):
+        if op == 0:
+            res = a + b
+        elif op == 1:
+            res = a - b
+        elif op == 2:
+            res = a * b
+        elif op == 3:
+            res = a / b
+        else:
+            raise ValueError('unknown operation')
+        return res
+            
+    c_fn, c_src, c_filename_path = get_generated_c_source(f,
+                                                          [int, int, int])
+    c_fn_src = extract_c_function(c_src, 'pypy_g_f')
+
+    # The generated code should use a switch statement:
+    assert 'switch' in c_fn_src
+    assert 'case' in c_fn_src
+    assert 'default' in c_fn_src
+    
+    # The generated code for "a / b" should have used "ll_correct_int_floordiv"
+    # and should thus have inlined references to the source code for that
+    # function:
+    assert 'll_correct_int_floordiv' in c_fn_src
+    assert 'if y < 0: u = p - x' in c_fn_src
+
+def test_inlining_c_source():
+    def f(a, b):
+        return g(a * 2, b - 2)
+    def g(c, d):
+        return h(c + 1, d - 1)
+    def h(p, q):
+        return p * q
+    c_fn, c_src, c_filename_path = get_generated_c_source(f,
+                                                          [int, int])
+    c_fn_src = extract_c_function(c_src, 'pypy_g_f')
+
+    # The generated code should have references to the source code of
+    # f and both inlined functions:
+    assert 'return g(a * 2, b - 2)' in c_fn_src # body of f
+    assert 'return h(c + 1, d - 1)' in c_fn_src # inlined body of g
+    assert 'return p * q' in c_fn_src # inlined body of h
+    
+def test_escaping_c_comments():
+    # Ensure that c comments within RPython code get escaped when we generate
+    # our .c code (to avoid generating bogus C)
+    # See e.g. pypy.module.cpyext.dictobject's PyDict_Next, which has a
+    # docstring embedding a C comment
+    def c_style_comment(a, b):
+        '''Here is a C-style comment within an RPython docstring:
+                /* hello world */
+        '''
+        # and here's one in a string literal:
+        return '/* hello world a:%s b:%s */' % (a, b)
+
+    def cplusplus_style_comment(a, b):
+        '''Here is a C++-style comment within an RPython docstring:
+                // hello world
+        '''
+        # and here are some in string literals, and one as the floor division
+        # operator:
+        return '// hello world: a // b = %s' % (a // b)
+
+    for fn_name, exp_output in [('c_style_comment',
+                                 '/* hello world a:6 b:3 */'),
+                                ('cplusplus_style_comment',
+                                 '// hello world: a // b = 2')]:
+        fn = locals()[fn_name]
+
+        c_fn, c_src, c_filename_path = get_generated_c_source(fn, [int, int])
+        # If the above survived, then the C compiler managed to handle
+        # the generated C code
+
+        # Verify that the generated code works (i.e. that we didn't
+        # accidentally change the meaning):
+        assert c_fn(6, 3) == exp_output
+
+        # Ensure that at least part of the docstrings made it into the C
+        # code:
+        c_fn_src = extract_c_function(c_src, 'pypy_g_' + fn_name)
+        assert 'Here is a ' in c_fn_src
+        assert 'style comment within an RPython docstring' in c_fn_src
