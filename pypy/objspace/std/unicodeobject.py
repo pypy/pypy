@@ -1401,7 +1401,6 @@ class W_UnicodeObject(W_Root):
     def _strip_none(self, space, left, right):
         "internal function called by str_xstrip methods"
         value = self._utf8
-        lgt = self._len()
         if self.is_ascii():
             # in the ascii case we can do even better and do the allocation in
             # the trace
@@ -1412,6 +1411,7 @@ class W_UnicodeObject(W_Root):
             if right:
                 rpos = self._strip_none_bytes_unboxed_right(value, lpos, rpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
+        lgt = self._len()
         return self._strip_none_unboxed(value, lgt, left, right)
 
     @staticmethod
@@ -1436,14 +1436,18 @@ class W_UnicodeObject(W_Root):
         rpos = len(value)
 
         if left:
-            while lpos < rpos and rutf8.isspace(value, lpos):
+            while lpos < rpos:
+                codepoint = rutf8.codepoint_at_pos(value, lpos)
+                if not unicodedb.isspace(codepoint):
+                    break
                 lpos = rutf8.next_codepoint_pos(value, lpos)
                 lgt -= 1
 
         if right:
             while rpos > lpos:
                 prev = rutf8.prev_codepoint_pos(value, rpos)
-                if not rutf8.isspace(value, prev):
+                codepoint = rutf8.codepoint_at_pos(value, prev)
+                if not unicodedb.isspace(codepoint):
                     break
                 rpos = prev
                 lgt -= 1

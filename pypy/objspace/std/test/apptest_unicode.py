@@ -360,6 +360,11 @@ def test_rstrip_bug():
     assert u"aaaaaaaaaaaaaaaaaaa".rstrip(u"a") == u""
     assert u"äääääääääääääääääääääääää".rstrip(u"ä") == u""
 
+
+def test_strip_space_bug():
+    assert u'\u180ea\u180e'.strip() == u'\u180ea\u180e'
+
+
 def test_long_from_unicode():
     assert int('12345678901234567890') == 12345678901234567890
     assert int('123', 7) == 66
