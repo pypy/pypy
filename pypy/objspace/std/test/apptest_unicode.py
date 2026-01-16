@@ -82,8 +82,6 @@ def test_split():
     assert "a b c".split() == ['a','b','c']
     assert 'this is the split function'.split() == ['this', 'is', 'the', 'split', 'function']
     assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
-    assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
-    assert 'a|b|c|d'.split('|') == ['a', 'b', 'c', 'd']
     assert 'a|b|c|d'.split('|', 2) == ['a', 'b', 'c|d']
     assert 'a b c d'.split(None, 1) == ['a', 'b c d']
     assert 'a b c d'.split(None, 2) == ['a', 'b', 'c d']
@@ -99,6 +97,33 @@ def test_split():
     raises(ValueError, 'abc'.split, '')
     assert '   a b c d'.split(None, 0) == ['a b c d']
     assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
+
+def test_split_nonascii():
+    assert "\u2029".split() == []
+    assert "ä".split() == ['ä']
+    assert "ä".split("ä", 1) == ['', '']
+    assert "\u2029".split("\u2029", 1) == ['', '']
+    assert "ää".split("ä", 2) == ['', '', '']
+    assert "\u2029äöú\u2029".split() == ['äöú']
+    assert "a b c".split() == ['a','b','c']
+    assert 'thús ús the splút fúnction'.split() == ['thús', 'ús', 'the', 'splút', 'fúnction']
+    assert 'äö|ö|ß|ë'.split('|') == ['äö', 'ö', 'ß', 'ë']
+    assert 'äö|ö|ß|ë'.split('|', 2) == ['äö', 'ö', 'ß|ë']
+    assert 'a\u2029b\u2029c\u2029d'.split(None, 1) == ['a', 'b\u2029c\u2029d']
+    assert 'a\u2029b\u2029c\u2029d'.split(None, 2) == ['a', 'b', 'c\u2029d']
+    assert 'a\u2029b\u2029c\u2029d'.split(None, 3) == ['a', 'b', 'c', 'd']
+    assert 'a\u2029b\u2029c\u2029d'.split(None, 4) == ['a', 'b', 'c', 'd']
+    assert 'a\u2029b\u2029c\u2029d'.split(None, 0) == ['a\u2029b\u2029c\u2029d']
+    assert 'a\u2029 b \u2029c \u2029d'.split(None, 2) == ['a', 'b', 'c \u2029d']
+    assert '   ä ú c d'.split(None, 0) == ['ä ú c d']
+    assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
+
+def test_split_nonascii_mongolian_vowel_separator_bug():
+    s = u'\u180eä\u180e'
+    assert s.split() == [s]
+    assert s.rsplit() == [s]
+    assert s.rsplit(maxsplit=1) == [s]
+
 
 def test_rsplit():
     assert u"".rsplit() == []
@@ -362,6 +387,7 @@ def test_rstrip_bug():
 
 
 def test_strip_space_bug():
+    # mongolian vowel separator is not a space
     assert u'\u180ea\u180e'.strip() == u'\u180ea\u180e'
 
 

@@ -6,7 +6,7 @@ from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
 from rpython.rlib.nonconst import NonConstant
-from rpython.rlib.rarithmetic import ovfcheck, r_uint
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, replace_count, startswith, endswith)
 from rpython.rlib import rutf8, runicode, jit
@@ -1003,7 +1003,7 @@ class W_UnicodeObject(W_Root):
             if is_ascii:
                 res = split(value, maxsplit=maxsplit, isutf8=False)
             else:
-                res = split(value, maxsplit=maxsplit, isutf8=True)
+                return space.newlist(unicode_split_none_wrapped(space, value, self._len(), maxsplit=maxsplit))
             return space.newlist_utf8(res, is_ascii)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
@@ -1017,8 +1017,12 @@ class W_UnicodeObject(W_Root):
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._utf8
+        is_ascii = self.is_ascii()
         if space.is_none(w_sep):
-            res = rsplit(value, maxsplit=maxsplit, isutf8=True)
+            if is_ascii:
+                res = rsplit(value, maxsplit=maxsplit, isutf8=False)
+            else:
+                res = unicode_rsplit_none(value, maxsplit=maxsplit)
             return space.newlist_utf8(res, self.is_ascii())
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
@@ -1536,6 +1540,96 @@ class W_UnicodeObject(W_Root):
             return self
         return W_UnicodeObject(selfval, self._length)
 
+
+def unicode_split_none_wrapped(space, value, length_codepoints, maxsplit=-1):
+    # we can use the rstring versions, because they use unicode version 5.2
+    length = len(value)
+    i = 0
+    res = []
+    length_left = length_codepoints
+    while True:
+        # find the beginning of the next word
+        while i < length:
+            codepoint = rutf8.codepoint_at_pos(value, i)
+            if not unicodedb.isspace(codepoint):
+                break   # found
+            i = rutf8.next_codepoint_pos(value, i)
+            length_left -= 1
+        else:
+            break  # end of string, finished
+
+        # find the end of the word
+        if maxsplit == 0:
+            j = length   # take all the rest of the string
+            length_substring = length_left
+        else:
+            length_substring = 1
+            j = rutf8.next_codepoint_pos(value, i)
+            length_left -= 1
+            while j < length:
+                codepoint = rutf8.codepoint_at_pos(value, j)
+                if unicodedb.isspace(codepoint):
+                    break
+                j = rutf8.next_codepoint_pos(value, j)
+                length_substring += 1
+                length_left -= 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[i:j]
+        res.append(space.newutf8(value[i:j], length_substring))
+
+        # continue to look from the character following the space after the word
+        if j < length:
+            i = rutf8.next_codepoint_pos(value, j)
+            length_left -= 1
+        else:
+            break
+    return res
+
+def unicode_rsplit_none(value, maxsplit=-1):
+    # we can use the rstring versions, because they use unicode version 5.2
+    def prev(value, pos):
+        if pos <= 0:
+            return -1
+        return intmask(rutf8.prev_codepoint_pos(value, pos))
+
+    res = []
+
+    i = prev(value, len(value))
+    while True:
+        # starting from the end, find the end of the next word
+        while i >= 0:
+            codepoint = rutf8.codepoint_at_pos(value, i)
+            if not unicodedb.isspace(codepoint):
+                break # found
+            i = prev(value, i)
+        else:
+            break  # end of string, finished
+
+        # find the start of the word as 'j1'
+        if maxsplit == 0:
+            j1 = 0   # take all the rest of the string
+            j = -1
+        else:
+            j1 = i
+            while True:
+                j = prev(value, j1)
+                codepoint = rutf8.codepoint_at_pos(value, j)
+                if j < 0 or unicodedb.isspace(codepoint):
+                    break
+                j1 = j
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        # the word is value[j1:i+1]
+        assert j1 >= 0
+        i1 = rutf8.next_codepoint_pos(value, i)
+        res.append(value[j1:i1])
+
+        # continue to look from the character before the space before the word
+        i = prev(value, j)
+
+    res.reverse()
+    return res
 
 def _isidentifier(u):
     if not u:
