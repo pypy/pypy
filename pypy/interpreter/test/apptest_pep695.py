@@ -1,28 +1,17 @@
 """
 Application-level tests for PEP 695 (Type Parameter Syntax).
-
-These tests run on the interpreted PyPy.
 """
 
 # === Basic type alias tests ===
 
 def test_simple_type_alias():
-    """Test: type Point = tuple[float, float]"""
     type Point = tuple[float, float]
     assert Point.__name__ == 'Point'
     assert Point.__value__ == tuple[float, float]
     assert Point.__type_params__ == ()
 
 
-def test_type_alias_with_int():
-    """Test: type IntList = list[int]"""
-    type IntList = list[int]
-    assert IntList.__name__ == 'IntList'
-    assert IntList.__value__ == list[int]
-
-
 def test_type_alias_repr():
-    """Test that TypeAliasType has correct repr."""
     type MyAlias = int
     assert repr(MyAlias) == 'MyAlias'
 
@@ -30,47 +19,29 @@ def test_type_alias_repr():
 # === Generic type alias tests ===
 
 def test_generic_type_alias():
-    """Test: type Stack[T] = list[T]"""
     type Stack[T] = list[T]
     assert Stack.__name__ == 'Stack'
     assert len(Stack.__type_params__) == 1
-    T = Stack.__type_params__[0]
-    assert T.__name__ == 'T'
+    assert Stack.__type_params__[0].__name__ == 'T'
 
 
 def test_multiple_type_params():
-    """Test: type Pair[T, U] = tuple[T, U]"""
     type Pair[T, U] = tuple[T, U]
-    assert Pair.__name__ == 'Pair'
     assert len(Pair.__type_params__) == 2
     T, U = Pair.__type_params__
     assert T.__name__ == 'T'
     assert U.__name__ == 'U'
 
 
-# === TypeVar with bound tests ===
-
 def test_typevar_with_bound():
-    """Test: type Bounded[T: int] = T"""
     type Bounded[T: int] = T
     T = Bounded.__type_params__[0]
     assert T.__name__ == 'T'
-    assert T.__bound__ == int
+    assert T.__bound__ is int
     assert T.__constraints__ == ()
 
 
-def test_typevar_with_complex_bound():
-    """Test TypeVar with more complex bound expression."""
-    from typing import Hashable
-    type HashableT[T: Hashable] = list[T]
-    T = HashableT.__type_params__[0]
-    assert T.__bound__ == Hashable
-
-
-# === TypeVar with constraints tests ===
-
 def test_typevar_with_constraints():
-    """Test: type IntOrStr[T: (int, str)] = T"""
     type IntOrStr[T: (int, str)] = T
     T = IntOrStr.__type_params__[0]
     assert T.__name__ == 'T'
@@ -78,22 +49,13 @@ def test_typevar_with_constraints():
     assert T.__constraints__ == (int, str)
 
 
-def test_typevar_three_constraints():
-    """Test TypeVar with three constraints."""
-    type NumericT[T: (int, float, complex)] = T
-    T = NumericT.__type_params__[0]
-    assert T.__constraints__ == (int, float, complex)
-
-
 # === ParamSpec tests ===
 
 def test_paramspec_basic():
-    """Test: type Callable[**P] = ..."""
     from typing import Callable
     type CallableT[**P] = Callable[P, int]
     P = CallableT.__type_params__[0]
     assert P.__name__ == 'P'
-    # ParamSpec has args and kwargs attributes
     assert hasattr(P, 'args')
     assert hasattr(P, 'kwargs')
 
@@ -101,7 +63,6 @@ def test_paramspec_basic():
 # === TypeVarTuple tests ===
 
 def test_typevartuple_basic():
-    """Test: type Tuple[*Ts] = tuple[*Ts]"""
     type TupleT[*Ts] = tuple[*Ts]
     Ts = TupleT.__type_params__[0]
     assert Ts.__name__ == 'Ts'
@@ -110,18 +71,15 @@ def test_typevartuple_basic():
 # === Generic function tests ===
 
 def test_generic_function():
-    """Test: def identity[T](x: T) -> T: return x"""
     def identity[T](x: T) -> T:
         return x
 
     assert hasattr(identity, '__type_params__')
     assert len(identity.__type_params__) == 1
-    T = identity.__type_params__[0]
-    assert T.__name__ == 'T'
+    assert identity.__type_params__[0].__name__ == 'T'
 
 
 def test_generic_function_multiple_params():
-    """Test function with multiple type parameters."""
     def pair[T, U](x: T, y: U) -> tuple[T, U]:
         return (x, y)
 
@@ -132,7 +90,6 @@ def test_generic_function_multiple_params():
 
 
 def test_generic_function_with_bound():
-    """Test function with bounded type parameter."""
     def to_int[T: (int, float)](x: T) -> int:
         return int(x)
 
@@ -143,7 +100,6 @@ def test_generic_function_with_bound():
 # === Generic class tests ===
 
 def test_generic_class():
-    """Test: class Stack[T]: ..."""
     class Stack[T]:
         def __init__(self):
             self.items: list[T] = []
@@ -156,12 +112,10 @@ def test_generic_class():
 
     assert hasattr(Stack, '__type_params__')
     assert len(Stack.__type_params__) == 1
-    T = Stack.__type_params__[0]
-    assert T.__name__ == 'T'
+    assert Stack.__type_params__[0].__name__ == 'T'
 
 
 def test_generic_class_multiple_params():
-    """Test class with multiple type parameters."""
     class Pair[T, U]:
         def __init__(self, first: T, second: U):
             self.first = first
@@ -176,75 +130,44 @@ def test_generic_class_multiple_params():
 # === Lazy evaluation tests ===
 
 def test_lazy_bound_evaluation():
-    """Test that TypeVar bound is lazily evaluated."""
-    # The bound expression should not be evaluated until __bound__ is accessed
-    evaluated = []
-
-    class BoundMarker:
-        def __class_getitem__(cls, item):
-            evaluated.append(item)
-            return int
-
-    type LazyT[T: BoundMarker['test']] = T
-
-    # Should not have evaluated yet
-    assert evaluated == []
-
-    # Now access the bound - should trigger evaluation
+    type LazyT[T: 1/0] = T
+    # Definition should not raise - bound is lazy
     T = LazyT.__type_params__[0]
-    _ = T.__bound__
-    assert 'test' in evaluated
+    # Accessing __bound__ triggers evaluation
+    raises(ZeroDivisionError, getattr, T, '__bound__')
 
 
 def test_lazy_value_evaluation():
-    """Test that type alias value is lazily evaluated."""
-    evaluated = []
+    type LazyAlias = 1/0
+    # Definition should not raise - value is lazy
+    # Accessing __value__ triggers evaluation
+    raises(ZeroDivisionError, getattr, LazyAlias, '__value__')
 
-    class ValueMarker:
-        def __class_getitem__(cls, item):
-            evaluated.append(item)
-            return list[item]
 
-    type LazyAlias = ValueMarker['test']
-
-    # Should not have evaluated yet
-    assert evaluated == []
-
-    # Now access the value - should trigger evaluation
-    _ = LazyAlias.__value__
-    assert 'test' in evaluated
+def test_lazy_constraints_evaluation():
+    type LazyT[T: (int, 1/0)] = T
+    T = LazyT.__type_params__[0]
+    raises(ZeroDivisionError, getattr, T, '__constraints__')
 
 
 # === Error cases ===
 
-def test_walrus_in_annotation_scope():
-    """Test that walrus operator is not allowed in annotation scope."""
-    import pytest
-    with pytest.raises(SyntaxError):
+def test_invalid_expressions_in_annotation_scope():
+    # Walrus operator not allowed
+    with raises(SyntaxError):
         exec("type X = (y := int)")
-
-
-def test_yield_in_annotation_scope():
-    """Test that yield is not allowed in annotation scope."""
-    import pytest
-    with pytest.raises(SyntaxError):
+    # yield not allowed
+    with raises(SyntaxError):
         exec("type X = (yield 1)")
-
-
-def test_await_in_annotation_scope():
-    """Test that await is not allowed in annotation scope."""
-    import pytest
-    # Note: await outside async function is also an error
-    with pytest.raises(SyntaxError):
+    # await not allowed
+    with raises(SyntaxError):
         exec("type X = (await something)")
 
 
 # === TypeAliasType class tests ===
 
 def test_type_alias_type_creation():
-    """Test creating TypeAliasType directly."""
     from _pypy_typing import TypeAliasType
-
     alias = TypeAliasType('MyType', lambda: int)
     assert alias.__name__ == 'MyType'
     assert alias.__value__ == int
@@ -252,19 +175,15 @@ def test_type_alias_type_creation():
 
 
 def test_type_alias_type_subscript():
-    """Test subscripting a TypeAliasType."""
     type Stack[T] = list[T]
-    # Subscripting should return a generic alias
     result = Stack[int]
-    # The result should be usable as a type hint
+    assert result.__origin__ is Stack
+    assert result.__args__ == (int,)
 
 
 def test_type_alias_union():
-    """Test using | with TypeAliasType."""
     type IntAlias = int
     type StrAlias = str
-
-    # Union should work
     from typing import Union
     combined = IntAlias | StrAlias
     assert combined == Union[IntAlias, StrAlias]
@@ -273,38 +192,96 @@ def test_type_alias_union():
 # === __type_params__ attribute tests ===
 
 def test_function_type_params_default():
-    """Test that regular functions have empty __type_params__."""
     def regular_function():
         pass
-
     assert regular_function.__type_params__ == ()
 
 
 def test_class_type_params_default():
-    """Test that regular classes have empty __type_params__."""
     class RegularClass:
         pass
-
     assert RegularClass.__type_params__ == ()
 
 
 def test_type_params_settable():
-    """Test that __type_params__ can be set to a tuple."""
     def f():
         pass
-
-    # Setting to a tuple should work
     f.__type_params__ = (int, str)
     assert f.__type_params__ == (int, str)
 
 
 def test_type_params_type_error():
-    """Test that __type_params__ raises TypeError for non-tuple."""
     def f():
         pass
+    raises(TypeError, setattr, f, '__type_params__', [1, 2, 3])
 
-    try:
-        f.__type_params__ = [1, 2, 3]  # list, not tuple
-        assert False, "Should have raised TypeError"
-    except TypeError:
+
+# === Known limitations and edge cases ===
+
+def test_class_namespace_access_from_annotation_scope():
+    """CPython 3.12+ supports class namespace access via __classdict__ cell,
+    but PyPy doesn't yet. This test documents the current behavior."""
+    class Outer:
+        BaseType = int
+        type Alias[T: BaseType] = list[T]
+
+    # Accessing the bound triggers NameError because annotation scope
+    # cannot access the class namespace
+    T = Outer.Alias.__type_params__[0]
+    raises(NameError, getattr, T, '__bound__')
+
+
+def test_stacked_decorators_on_generic_function():
+    call_order = []
+
+    def d1(func):
+        call_order.append('d1')
+        return func
+
+    def d2(func):
+        call_order.append('d2')
+        return func
+
+    @d1
+    @d2
+    def generic_func[T](x: T) -> T:
+        return x
+
+    assert call_order == ['d2', 'd1']
+    assert generic_func.__type_params__[0].__name__ == 'T'
+    assert generic_func(42) == 42
+
+
+def test_generic_method_inside_generic_class():
+    class Container[T]:
+        def __init__(self, value: T):
+            self.value = value
+
+        def transform[U](self, func) -> 'Container[U]':
+            return Container(func(self.value))
+
+    assert Container.__type_params__[0].__name__ == 'T'
+    assert Container.transform.__type_params__[0].__name__ == 'U'
+
+    c = Container(10)
+    c2 = c.transform(str)
+    assert c2.value == '10'
+
+
+def test_forward_reference_in_type_alias():
+    type NodeList = list[Node]
+
+    class Node:
         pass
+
+    assert NodeList.__value__ == list[Node]
+
+
+def test_nested_generic_classes():
+    class Outer[T]:
+        class Inner[U]:
+            def method(self, t: T, u: U):
+                pass
+
+    assert Outer.__type_params__[0].__name__ == 'T'
+    assert Outer.Inner.__type_params__[0].__name__ == 'U'

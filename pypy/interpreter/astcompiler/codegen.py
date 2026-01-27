@@ -2678,8 +2678,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # 3. Returns the TypeAliasType
             type_params_node = getattr(type_alias, '_type_params_node', None)
             if type_params_node is None:
-                # Fallback: use first type param as scope key
-                type_params_node = type_alias.type_params[0]
+                raise AssertionError("Generic type alias missing _type_params_node")
 
             code, qualname = self.sub_scope(TypeParamBlockCodeGenerator,
                                             alias_name, type_params_node,
@@ -2861,6 +2860,14 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
         if args.kwonlyargs:
             self.kwonlyargcount = len(args.kwonlyargs)
 
+    def _visit_type_params_and_collect_names(self, type_params):
+        names = []
+        for type_param in type_params:
+            type_param.walkabout(self)
+            assert isinstance(type_param, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple))
+            names.append(type_param.name)
+        return names
+
 
 class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
@@ -2929,15 +2936,7 @@ class TypeParamBlockCodeGenerator(AbstractFunctionCodeGenerator):
         alias_name = target.id
 
         # 1. Create type params and store them
-        type_param_names = []
-        for type_param in type_alias.type_params:
-            type_param.walkabout(self)
-            if isinstance(type_param, ast.TypeVar):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.ParamSpec):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.TypeVarTuple):
-                type_param_names.append(type_param.name)
+        type_param_names = self._visit_type_params_and_collect_names(type_alias.type_params)
 
         # 2. Load TypeAliasType
         self._load_pypy_typing_attr('TypeAliasType', type_alias)
@@ -2962,15 +2961,6 @@ class TypeParamBlockCodeGenerator(AbstractFunctionCodeGenerator):
 
         # Return the TypeAliasType
         self.emit_op(ops.RETURN_VALUE)
-
-    def _load_pypy_typing_attr(self, attr_name, node):
-        """Load an attribute from the _pypy_typing module."""
-        self.load_const(self.space.newint(0))  # level = 0
-        self.load_const(self.space.newtuple([self.space.newtext(attr_name)]))  # fromlist
-        self.emit_op_name(ops.IMPORT_NAME, self.names, '_pypy_typing')
-        self.emit_op_name(ops.IMPORT_FROM, self.names, attr_name)
-        self.emit_op(ops.ROT_TWO)
-        self.emit_op(ops.POP_TOP)
 
 
 class TypeAliasValueCodeGenerator(AbstractFunctionCodeGenerator):
@@ -3031,15 +3021,7 @@ class GenericFunctionTypeParamsCodeGenerator(AbstractFunctionCodeGenerator):
         self.add_const(self.space.w_None)
 
         # 1. Create type params and store them
-        type_param_names = []
-        for type_param in func.type_params:
-            type_param.walkabout(self)
-            if isinstance(type_param, ast.TypeVar):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.ParamSpec):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.TypeVarTuple):
-                type_param_names.append(type_param.name)
+        type_param_names = self._visit_type_params_and_collect_names(func.type_params)
 
         # 2. Build type_params tuple
         for name in type_param_names:
@@ -3084,15 +3066,7 @@ class GenericClassTypeParamsCodeGenerator(AbstractFunctionCodeGenerator):
         self.add_const(self.space.w_None)
 
         # 1. Create type params and store them
-        type_param_names = []
-        for type_param in cls.type_params:
-            type_param.walkabout(self)
-            if isinstance(type_param, ast.TypeVar):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.ParamSpec):
-                type_param_names.append(type_param.name)
-            elif isinstance(type_param, ast.TypeVarTuple):
-                type_param_names.append(type_param.name)
+        type_param_names = self._visit_type_params_and_collect_names(cls.type_params)
 
         # 2. Build type_params tuple
         for name in type_param_names:

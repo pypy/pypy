@@ -460,7 +460,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 role |= self.globs[mangled]
             self.globs[mangled] = role
 
-    def visit_FunctionDef(self, func):
+    def _visit_function(self, func, scope_class):
         self.note_symbol(func.name, SYM_ASSIGNED)
         # Function defaults and decorators happen in the outer scope.
         args = func.args
@@ -475,11 +475,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
             type_params_node = TypeParamsNode(func)
             func._type_params_node = type_params_node  # Store for codegen to find
             self.push_scope(params_scope, type_params_node)
-            self._visit_type_params(func.type_params)
+            self.visit_sequence(func.type_params)
         # Visit annotations after entering type param scope (can reference type params)
         self._visit_annotations(func)
         # Create the function scope
-        new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
+        new_scope = scope_class(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
         self.visit_sequence(func.body)
@@ -488,33 +488,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if func.type_params:
             self.pop_scope()
 
+    def visit_FunctionDef(self, func):
+        self._visit_function(func, FunctionScope)
+
     def visit_AsyncFunctionDef(self, func):
-        self.note_symbol(func.name, SYM_ASSIGNED)
-        # Function defaults and decorators happen in the outer scope.
-        args = func.args
-        assert isinstance(args, ast.arguments)
-        self.visit_sequence(args.defaults)
-        self.visit_kwonlydefaults(args.kw_defaults)
-        self.visit_sequence(func.decorator_list)
-        # PEP 695: if type_params, create outer TypeParamBlock scope
-        if func.type_params:
-            params_scope = AnnotationScope(func.name + ".<type_params>",
-                                           func.lineno, func.col_offset)
-            type_params_node = TypeParamsNode(func)
-            func._type_params_node = type_params_node  # Store for codegen to find
-            self.push_scope(params_scope, type_params_node)
-            self._visit_type_params(func.type_params)
-        # Visit annotations after entering type param scope (can reference type params)
-        self._visit_annotations(func)
-        # Create the function scope
-        new_scope = AsyncFunctionScope(func.name, func.lineno, func.col_offset)
-        self.push_scope(new_scope, func)
-        func.args.walkabout(self)
-        self.visit_sequence(func.body)
-        self.pop_scope()
-        # Pop type params scope if we created one
-        if func.type_params:
-            self.pop_scope()
+        self._visit_function(func, AsyncFunctionScope)
 
     def visit_Await(self, aw):
         self.scope.note_await(aw)
@@ -566,7 +544,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             type_params_node = TypeParamsNode(clsdef)
             clsdef._type_params_node = type_params_node  # Store for codegen to find
             self.push_scope(params_scope, type_params_node)
-            self._visit_type_params(clsdef.type_params)
+            self.visit_sequence(clsdef.type_params)
         # Bases and keywords are visited in type param scope (can reference type params)
         self.visit_sequence(clsdef.bases)
         self.visit_sequence(clsdef.keywords)
@@ -888,11 +866,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     # PEP 695 type parameter support
 
-    def _visit_type_params(self, type_params):
-        """Visit type parameters, creating TypeVar/ParamSpec/TypeVarTuple bindings."""
-        for type_param in type_params:
-            type_param.walkabout(self)
-
     def visit_TypeAlias(self, type_alias):
         """Visit a type alias statement: type X[T] = ..."""
         # The alias name is assigned in the enclosing scope
@@ -913,7 +886,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             type_alias._type_params_node = type_params_node  # Store for codegen to find
             self.push_scope(params_scope, type_params_node)
             # Visit type parameters (they become local to this scope)
-            self._visit_type_params(type_alias.type_params)
+            self.visit_sequence(type_alias.type_params)
 
         # Create a scope for the value expression (TypeAliasBlock in CPython)
         value_scope = AnnotationScope(target.id,
