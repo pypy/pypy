@@ -37,9 +37,11 @@ class Function(W_Root):
                           'defs_w?[*]',
                           'name?',
                           'qualname?',
-                          'w_kw_defs?']
+                          'w_kw_defs?',
+                          'w_type_params?']
 
     w_kw_defs = None
+    w_type_params = None  # PEP 695: type parameters tuple
     _empty_defs = []
 
     def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
@@ -538,6 +540,19 @@ class Function(W_Root):
     def fdel_func_annotations(self, space):
         self._check_code_mutable("__annotations__")
         self.w_ann = None
+
+    # PEP 695: __type_params__ support
+
+    def fget_func_type_params(self, space):
+        if self.w_type_params is None:
+            return space.newtuple([])
+        return self.w_type_params
+
+    def fset_func_type_params(self, space, w_new):
+        if not space.isinstance_w(w_new, space.w_tuple):
+            raise oefmt(space.w_TypeError,
+                        "__type_params__ must be set to a tuple")
+        self.w_type_params = w_new
 
 
 class _Method(W_Root):
