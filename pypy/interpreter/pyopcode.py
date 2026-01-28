@@ -592,7 +592,7 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_value)
             return
 
-        raise oefmt_name_error(space, w_varname)
+        raise oefmt_name_error(space, w_varname, "name %R is not defined")
 
     def LOAD_FROM_DICT_OR_DEREF(self, varindex, next_instr):
         # Pop a dict from the stack, lookup name in dict, else in cell var

@@ -365,6 +365,7 @@ class AnnotationScope(FunctionScope):
 
     def __init__(self, name, lineno, col_offset):
         FunctionScope.__init__(self, name, lineno, col_offset)
+        self.needs_classdict = False  # Set to True when nested in class
 
     def note_yield(self, yield_node):
         self.error("'yield' not allowed in annotation scope", yield_node)
@@ -389,12 +390,17 @@ class ClassScope(Scope):
     def _pass_special_names(self, local, new_bound):
         #assert '__class__' in local
         new_bound['__class__'] = None
+        new_bound['__classdict__'] = None
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
-            if role == SCOPE_LOCAL and name in free and name == '__class__':
-                self.symbols[name] = SCOPE_CELL_CLASS
-                del free[name]
+            if role == SCOPE_LOCAL and name in free:
+                if name == '__class__':
+                    self.symbols[name] = SCOPE_CELL_CLASS
+                    del free[name]
+                elif name == '__classdict__':
+                    self.symbols[name] = SCOPE_CELL
+                    del free[name]
 
 
 class SymtableBuilder(ast.GenericASTVisitor):
@@ -447,6 +453,21 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Lookup the scope for a given AST node."""
         return self.scopes[scope_node]
 
+    def _find_enclosing_class_scope(self):
+        """Return the nearest enclosing ClassScope, or None.
+
+        Regular functions break the chain - only annotation scopes can see
+        through to enclosing class scopes. This matches CPython behavior.
+        """
+        for i in range(len(self.stack) - 1, -1, -1):
+            scope = self.stack[i]
+            if isinstance(scope, ClassScope):
+                return scope
+            # Functions (except annotation scopes) break the chain
+            if isinstance(scope, FunctionScope) and not scope.is_annotation_scope:
+                return None
+        return None
+
     def implicit_arg(self, pos):
         """Note a implicit arg for implicit tuple unpacking."""
         name = ".%d" % (pos,)
@@ -472,6 +493,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if func.type_params:
             params_scope = AnnotationScope(func.name + ".<type_params>",
                                            func.lineno, func.col_offset)
+            # Check for enclosing class scope to enable __classdict__ access
+            if self._find_enclosing_class_scope() is not None:
+                params_scope.needs_classdict = True
+                params_scope.note_symbol('__classdict__', SYM_USED)
             type_params_node = TypeParamsNode(func)
             func._type_params_node = type_params_node  # Store for codegen to find
             self.push_scope(params_scope, type_params_node)
@@ -541,6 +566,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if clsdef.type_params:
             params_scope = AnnotationScope(clsdef.name + ".<type_params>",
                                            clsdef.lineno, clsdef.col_offset)
+            # Check for enclosing class scope to enable __classdict__ access
+            if self._find_enclosing_class_scope() is not None:
+                params_scope.needs_classdict = True
+                params_scope.note_symbol('__classdict__', SYM_USED)
             type_params_node = TypeParamsNode(clsdef)
             clsdef._type_params_node = type_params_node  # Store for codegen to find
             self.push_scope(params_scope, type_params_node)
@@ -551,6 +580,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # Create the class scope
         self.push_scope(ClassScope(clsdef), clsdef)
         self.note_symbol('__class__', SYM_ASSIGNED)
+        self.note_symbol('__classdict__', SYM_ASSIGNED)
         self.note_symbol('__locals__', SYM_PARAM)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
@@ -878,9 +908,16 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # 2. TypeAliasBlock for the value expression
         #
         # We use a wrapper TypeParamsNode object as a hashable key for the params scope.
+        # Check for enclosing class scope to enable __classdict__ access
+        enclosing_class = self._find_enclosing_class_scope()
+
         if type_alias.type_params:
             params_scope = AnnotationScope(target.id + ".<type_params>",
                                            type_alias.lineno, type_alias.col_offset)
+            # Enable class namespace access if nested in class
+            if enclosing_class is not None:
+                params_scope.needs_classdict = True
+                params_scope.note_symbol('__classdict__', SYM_USED)
             # Use a TypeParamsNode wrapper as the scope key
             type_params_node = TypeParamsNode(type_alias)
             type_alias._type_params_node = type_params_node  # Store for codegen to find
@@ -891,6 +928,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # Create a scope for the value expression (TypeAliasBlock in CPython)
         value_scope = AnnotationScope(target.id,
                                       type_alias.lineno, type_alias.col_offset)
+        # Enable class namespace access if nested in class
+        if enclosing_class is not None:
+            value_scope.needs_classdict = True
+            value_scope.note_symbol('__classdict__', SYM_USED)
         self.push_scope(value_scope, type_alias)
 
         # Visit the value expression
@@ -912,6 +953,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             # Create an annotation scope for the bound evaluation function
             bound_scope = AnnotationScope(type_var.name + ".<bound>",
                                           type_var.lineno, type_var.col_offset)
+            # Check for enclosing class scope to enable __classdict__ access
+            if self._find_enclosing_class_scope() is not None:
+                bound_scope.needs_classdict = True
+                bound_scope.note_symbol('__classdict__', SYM_USED)
             self.push_scope(bound_scope, type_var)
             type_var.bound.walkabout(self)
             self.pop_scope()

@@ -2924,7 +2924,51 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class TypeParamBlockCodeGenerator(AbstractFunctionCodeGenerator):
+class AnnotationScopeCodeGenerator(AbstractFunctionCodeGenerator):
+    """Base class for annotation scope code generators with class dict access.
+
+    This provides the overridden name_op method that uses LOAD_FROM_DICT_OR_*
+    opcodes when inside a class context (i.e., when __classdict__ is a free var).
+    """
+
+    def _needs_classdict_lookup(self):
+        """Check if this scope needs __classdict__ access."""
+        return '__classdict__' in self.free_vars
+
+    def name_op(self, identifier, ctx, node):
+        """Override to use LOAD_FROM_DICT_OR_* when in class context.
+
+        This implements CPython's class namespace access for annotation scopes:
+        - SCOPE_GLOBAL_IMPLICIT: check class dict first, then globals
+        - SCOPE_FREE: check class dict first, then cell
+
+        Note: This means class-level names shadow type parameters when they
+        have the same name, matching CPython's behavior.
+        """
+        if ctx != ast.Load or not self._needs_classdict_lookup():
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+        # Skip __classdict__ itself - use normal resolution
+        if identifier == '__classdict__':
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+        scope = self.scope.lookup(identifier)
+
+        # For implicit globals, check class dict first, then globals
+        if scope == symtable.SCOPE_GLOBAL_IMPLICIT:
+            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_op_name(ops.LOAD_FROM_DICT_OR_GLOBALS, self.names, identifier)
+        # For free vars, check class dict first, then cell
+        elif scope == symtable.SCOPE_FREE:
+            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_op_arg(ops.LOAD_FROM_DICT_OR_DEREF,
+                            self.add_name(self.free_vars, identifier))
+        else:
+            # Local, cell, or explicit global - use normal resolution
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+
+class TypeParamBlockCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the TypeParamBlock scope for type aliases.
 
     This generates code that:
@@ -2956,7 +3000,7 @@ class TypeParamBlockCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class TypeAliasValueCodeGenerator(AbstractFunctionCodeGenerator):
+class TypeAliasValueCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the lazy evaluation function of a type alias value."""
 
     def _compile(self, type_alias):
@@ -2967,7 +3011,7 @@ class TypeAliasValueCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class TypeVarBoundCodeGenerator(AbstractFunctionCodeGenerator):
+class TypeVarBoundCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the lazy evaluation function of a TypeVar bound."""
 
     def _compile(self, type_var):
@@ -2979,7 +3023,7 @@ class TypeVarBoundCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class TypeVarConstraintsCodeGenerator(AbstractFunctionCodeGenerator):
+class TypeVarConstraintsCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the lazy evaluation function of TypeVar constraints."""
 
     def _compile(self, type_var):
@@ -2994,7 +3038,7 @@ class TypeVarConstraintsCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class GenericFunctionTypeParamsCodeGenerator(AbstractFunctionCodeGenerator):
+class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the TypeParamBlock scope for generic functions.
 
     This generates code that:
@@ -3039,7 +3083,7 @@ class GenericFunctionTypeParamsCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
-class GenericClassTypeParamsCodeGenerator(AbstractFunctionCodeGenerator):
+class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     """Code generator for the TypeParamBlock scope for generic classes.
 
     This generates code that:
@@ -3123,6 +3167,12 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # first instructions is that of the first decorator
         self.update_position((self.first_lineno, -1, -1, -1))
         self.argcount = 1
+        # Initialize __classdict__ with locals() if any annotation scope needs it
+        # This must be done at the very start, before any names are stored
+        classdict_scope = self.scope.lookup("__classdict__")
+        if classdict_scope == symtable.SCOPE_CELL:
+            self.emit_op(ops.LOAD_LOCALS)  # Push locals() dict
+            self.emit_op_arg(ops.STORE_DEREF, self.cell_vars["__classdict__"])
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)
         # ... and store it as __module__
