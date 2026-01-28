@@ -545,3 +545,145 @@ def f(x):
     def test_named_expr_list_comprehension(self):
         fscp = self.func_scope("def f(): [(y := x) for x in range(5)]")
         assert fscp.lookup("y") == symtable.SCOPE_CELL
+
+    # ==================== PEP 695 Type Parameter Tests ====================
+
+    def test_pep695_type_params_basic(self):
+        """Type params create AnnotationScope with params as locals."""
+        # Function with type params
+        scp = self.mod_scope("def f[T](): pass")
+        assert scp.lookup("f") == symtable.SCOPE_LOCAL
+        tp_scope = scp.children[0]
+        assert isinstance(tp_scope, symtable.AnnotationScope)
+        assert tp_scope.lookup("T") == symtable.SCOPE_LOCAL
+        func_scope = tp_scope.children[0]
+        assert isinstance(func_scope, symtable.FunctionScope)
+
+        # Class with type params
+        scp = self.mod_scope("class C[T]: pass")
+        assert scp.lookup("C") == symtable.SCOPE_LOCAL
+        tp_scope = scp.children[0]
+        assert isinstance(tp_scope, symtable.AnnotationScope)
+        assert tp_scope.lookup("T") == symtable.SCOPE_LOCAL
+        assert isinstance(tp_scope.children[0], symtable.ClassScope)
+
+        # Multiple type params including ParamSpec and TypeVarTuple
+        scp = self.mod_scope("def f[T, U, *Ts, **P](): pass")
+        tp_scope = scp.children[0]
+        for name in ("T", "U", "Ts", "P"):
+            assert tp_scope.lookup(name) == symtable.SCOPE_LOCAL
+
+    def test_pep695_type_alias(self):
+        """Type alias creates annotation scopes."""
+        # Simple type alias (no params) - just value scope
+        scp = self.mod_scope("type Alias = int")
+        assert scp.lookup("Alias") == symtable.SCOPE_LOCAL
+        value_scope = scp.children[0]
+        assert isinstance(value_scope, symtable.AnnotationScope)
+
+        # Type alias with params - params scope contains value scope
+        scp = self.mod_scope("type Alias[T] = list[T]")
+        assert scp.lookup("Alias") == symtable.SCOPE_LOCAL
+        tp_scope = scp.children[0]
+        assert isinstance(tp_scope, symtable.AnnotationScope)
+        assert tp_scope.lookup("T") == symtable.SCOPE_CELL  # referenced by value
+        value_scope = tp_scope.children[0]
+        assert isinstance(value_scope, symtable.AnnotationScope)
+        assert value_scope.lookup("T") == symtable.SCOPE_FREE
+
+    def test_pep695_typevar_bound(self):
+        """TypeVar bounds create their own annotation scope."""
+        scp = self.mod_scope("def f[T: int](): pass")
+        tp_scope = scp.children[0]
+        assert tp_scope.lookup("T") == symtable.SCOPE_LOCAL
+        # Bound scope is child of type params scope
+        bound_scope = [c for c in tp_scope.children
+                       if isinstance(c, symtable.AnnotationScope)][0]
+        assert bound_scope.lookup("int") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+    def test_pep695_type_param_visibility(self):
+        """Type params visible in annotations, class bases, and function body."""
+        # Annotations are visited in type params scope, so T is LOCAL there
+        scp = self.mod_scope("def f[T](x: T) -> T: pass")
+        tp_scope = scp.children[0]
+        assert tp_scope.lookup("T") == symtable.SCOPE_LOCAL
+
+        # When T is used in function body, it becomes CELL (closure)
+        scp = self.mod_scope("def f[T](x: T) -> T: return T")
+        tp_scope = scp.children[0]
+        assert tp_scope.lookup("T") == symtable.SCOPE_CELL
+        func_scope = [c for c in tp_scope.children
+                      if isinstance(c, symtable.FunctionScope)][0]
+        assert func_scope.lookup("T") == symtable.SCOPE_FREE
+
+        # Visible in class bases (bases visited in type params scope)
+        scp = self.mod_scope("class C[T](list[T]): pass")
+        tp_scope = scp.children[0]
+        assert tp_scope.lookup("T") == symtable.SCOPE_LOCAL
+        assert tp_scope.lookup("list") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+    def test_pep695_annotation_scope_restrictions(self):
+        """yield, yield from, await, walrus not allowed in annotation scopes."""
+        for src, keyword in [
+            ("type Alias = (yield 1)", "yield"),
+            ("type Alias = (yield from x)", "yield"),
+            ("type Alias = await x", "await"),
+            ("type Alias = (x := 1)", "assignment expression"),
+            ("def f[T: (x := int)](): pass", "assignment expression"),
+        ]:
+            exc = py.test.raises(SyntaxError, self.mod_scope, src).value
+            assert keyword in exc.msg.lower(), "Expected %r in: %s" % (keyword, exc.msg)
+
+    # ==================== PEP 695 Issues (Expected to Fail) ====================
+
+    @py.test.mark.xfail(reason="Missing duplicate type parameter detection")
+    def test_pep695_duplicate_type_param(self):
+        """Duplicate type parameters should raise SyntaxError."""
+        for src in ("def f[T, T](): pass",
+                    "class C[T, T]: pass",
+                    "type Alias[T, T] = T"):
+            exc = py.test.raises(SyntaxError, self.mod_scope, src).value
+            assert "duplicate" in exc.msg.lower()
+
+    @py.test.mark.xfail(reason="Missing nonlocal restriction for type parameters")
+    def test_pep695_nonlocal_type_param(self):
+        """nonlocal binding of type parameters should raise SyntaxError."""
+        src = """
+def outer[T]():
+    def inner():
+        nonlocal T
+        T = int
+"""
+        exc = py.test.raises(SyntaxError, self.mod_scope, src).value
+        assert "nonlocal" in exc.msg.lower() and "type parameter" in exc.msg.lower()
+
+    @py.test.mark.xfail(reason="Missing lambda/comprehension restriction in class annotation scope (gh-109118)")
+    def test_pep695_lambda_comprehension_in_class_annotation_scope(self):
+        """Lambda and comprehension in class annotation scope should error."""
+        for src in (
+            "class C:\n    type Alias = lambda: C",
+            "class C:\n    def f[T: (lambda: C)](): pass",
+            "class C:\n    type Alias = [x for x in [int]]",
+        ):
+            exc = py.test.raises(SyntaxError, self.mod_scope, src).value
+            assert "lambda" in exc.msg.lower() or "comprehension" in exc.msg.lower()
+
+    @py.test.mark.xfail(reason="Missing class_entry handling in name resolution")
+    def test_pep695_class_scope_name_resolution(self):
+        """Names bound in class should resolve to global in annotation scopes.
+
+        Class-bound names are not visible via closure to annotation scopes.
+        They should resolve to GLOBAL_IMPLICIT (or GLOBAL_EXPLICIT if declared).
+        """
+        # Class-bound name should be GLOBAL_IMPLICIT, not FREE
+        scp = self.mod_scope("x = 1\nclass C:\n    x = 2\n    type Alias = x")
+        class_scope = scp.children[0]
+        value_scope = class_scope.children[0]
+        assert isinstance(value_scope, symtable.AnnotationScope)
+        assert value_scope.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
+
+        # If class has 'global x', should be GLOBAL_EXPLICIT
+        scp = self.mod_scope("x = 1\nclass C:\n    global x\n    type Alias = x")
+        class_scope = scp.children[0]
+        value_scope = class_scope.children[0]
+        assert value_scope.lookup("x") == symtable.SCOPE_GLOBAL_EXPLICIT
