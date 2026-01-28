@@ -1,22 +1,25 @@
 """
 PyPy-specific typing support for PEP 695 (Type Parameter Syntax).
 
-This module provides TypeVar, ParamSpec, TypeVarTuple, and TypeAliasType
+This module provides TypeVar, ParamSpec, TypeVarTuple, TypeAliasType and Generic
 implementations with support for lazy evaluation of bounds, constraints,
 and type alias values.
 
 These are moved here from typing.py to mirror CPython's approach where
 these classes are implemented in C.
+
+This module is intended as a hacky replacement for the relevant parts of typing.py
+that were rewritten in C in the CPython support for PEP 695, to allow us to start
+implementing PEP 695 support in PyPy without having to rewrite large parts of
+the typing module in RPython.
+A lot of this code must be rewritten in RPython later to establish proper
+parity with CPython's implementation around introspection, immutability, etc.
 """
 
 __all__ = [
     'TypeVar', 'ParamSpec', 'TypeVarTuple', 'TypeAliasType',
-    '_make_typevar', '_make_typevar_with_bound', '_make_typevar_with_constraints',
-    '_make_paramspec', '_make_typevartuple',
+    'ParamSpecArgs', 'ParamSpecKwargs', 'Generic',
 ]
-
-# Sentinel for lazy evaluation - internal use only
-_LAZY_EVALUATION_SENTINEL = object()
 
 
 def _caller(depth=2):
@@ -46,7 +49,65 @@ class _PickleUsingNameMixin:
         return self.__name__
 
 
-class TypeVar(_Immutable, _PickleUsingNameMixin):
+class _BoundVarianceMixin:
+    """Mixin giving __init__ bound and variance arguments.
+
+    This is used by TypeVar and ParamSpec, which both employ the notions of
+    a type 'bound' (restricting type arguments to be a subtype of some
+    specified type) and type 'variance' (determining subtype relations between
+    generic types).
+    """
+    def __init__(self, bound, covariant, contravariant, infer_variance):
+        """Used to setup TypeVars and ParamSpec's bound, covariant,
+        contravariant and infer_variance attributes.
+        """
+        if covariant and contravariant:
+            raise ValueError("Bivariant types are not supported.")
+        self.__covariant__ = bool(covariant)
+        self.__contravariant__ = bool(contravariant)
+        self.__infer_variance__ = bool(infer_variance)
+        if bound:
+            from typing import _type_check
+            self.__bound__ = _type_check(bound, "Bound must be a type.")
+        else:
+            self.__bound__ = None
+
+    def __or__(self, right):
+        import typing
+        return typing._make_union(self, right)
+
+    def __ror__(self, left):
+        import typing
+        return typing._make_union(left, self)
+
+    def __repr__(self):
+        if self.__infer_variance__:
+            prefix = ''
+        elif self.__covariant__:
+            prefix = '+'
+        elif self.__contravariant__:
+            prefix = '-'
+        else:
+            prefix = '~'
+        return prefix + self.__name__
+
+
+class _LazyEvaluator:
+    __slots__ = ('_name',)
+
+    def __set_name__(self, owner, name):
+        assert name.startswith("__") and name.endswith("__")
+        self._name = name[2:-2]
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        value = getattr(instance, f"__evaluate_{self._name}__")()
+        setattr(instance, f"__{self._name}__", value)
+        return value
+
+
+class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     """Type variable with support for lazy bound/constraints evaluation.
 
     Usage::
@@ -59,166 +120,120 @@ class TypeVar(_Immutable, _PickleUsingNameMixin):
     as for generic function definitions.
     """
 
-    __slots__ = ('__name__', '__covariant__', '__contravariant__',
-                 '__infer_variance__', '_bound', '_constraints',
-                 '__evaluate_bound__', '__evaluate_constraints__')
-
     def __init__(self, name, *constraints, bound=None, covariant=False,
                  contravariant=False, infer_variance=False):
         self.__name__ = name
-        self.__covariant__ = covariant
-        self.__contravariant__ = contravariant
-        self.__infer_variance__ = infer_variance
-
-        # Handle lazy evaluation sentinel for bound
-        self.__evaluate_bound__ = None
-        if bound is not None and isinstance(bound, tuple) and len(bound) == 2:
-            if bound[0] is _LAZY_EVALUATION_SENTINEL:
-                self.__evaluate_bound__ = bound[1]
-                self._bound = None
-            else:
-                self._bound = bound
-        else:
-            self._bound = bound
-
-        # Handle lazy evaluation sentinel for constraints
-        self.__evaluate_constraints__ = None
-        if constraints and constraints[0] is _LAZY_EVALUATION_SENTINEL:
-            self.__evaluate_constraints__ = constraints[1]
-            self._constraints = ()
-        else:
+        super().__init__(bound, covariant, contravariant, infer_variance)
+        if constraints:
             if len(constraints) == 1:
                 raise TypeError("A single constraint is not allowed")
-            self._constraints = constraints
-
-        # Used for pickling
-        # __module__ is automatically set by Python to the defining module
-
-    @property
-    def __bound__(self):
-        """Return the bound, evaluating lazily if needed."""
-        if self.__evaluate_bound__ is not None:
-            self._bound = self.__evaluate_bound__()
-            self.__evaluate_bound__ = None  # Cache result
-        return self._bound
-
-    @property
-    def __constraints__(self):
-        """Return the constraints, evaluating lazily if needed."""
-        if self.__evaluate_constraints__ is not None:
-            self._constraints = self.__evaluate_constraints__()
-            self.__evaluate_constraints__ = None  # Cache result
-        return self._constraints
-
-    def has_default(self):
-        """Return False - PEP 696 defaults not implemented yet."""
-        return False
-
-    def __repr__(self):
-        if self.__infer_variance__:
-            prefix = ''
-        elif self.__covariant__:
-            prefix = '+'
-        elif self.__contravariant__:
-            prefix = '-'
+            if bound is not None:
+                raise TypeError("Constraints cannot be combined with bound=...")
+            from typing import _type_check
+            msg = "TypeVar(name, constraint, ...): constraints must be types."
+            self.__constraints__ = tuple(_type_check(t, msg) for t in constraints)
         else:
-            prefix = '~'
-        return prefix + self.__name__
+            self.__constraints__ = ()
+
+        # TODO: Fix __module__
+
+    __bound__ = _LazyEvaluator()
+    __constraints__ = _LazyEvaluator()
 
     def __hash__(self):
-        return hash((self.__name__,))
+        return hash((type(self), self.__name__,))
 
     def __eq__(self, other):
         # TypeVars are only equal if they are the same object
         return self is other
 
-    def __or__(self, other):
-        from typing import Union
-        return Union[self, other]
-
-    def __ror__(self, other):
-        from typing import Union
-        return Union[other, self]
-
     def __typing_subst__(self, arg):
         """Used for generic type substitution."""
-        return arg
+        import typing
+        return typing._typevar_subst(self, arg)
 
-    def __reduce__(self):
-        return self.__name__
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of TypeVar")
 
 
-class ParamSpec(_Immutable, _PickleUsingNameMixin):
+class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     """Parameter specification variable.
 
-    Usage::
+    The preferred way to construct a parameter specification is via the
+    dedicated syntax for generic functions, classes, and type aliases,
+    where the use of '**' creates a parameter specification::
 
-      P = ParamSpec('P')
+        type IntFunc[**P] = Callable[P, int]
+
+    For compatibility with Python 3.11 and earlier, ParamSpec objects
+    can also be created as follows::
+
+        P = ParamSpec('P')
 
     Parameter specification variables exist primarily for the benefit of
-    static type checkers. They are used to specify the type parameters
-    of generic callables.
+    static type checkers.  They are used to forward the parameter types of
+    one callable to another callable, a pattern commonly found in
+    higher-order functions and decorators.  They are only valid when used
+    in ``Concatenate``, or as the first argument to ``Callable``, or as
+    parameters for user-defined Generics. See class Generic for more
+    information on generic types.
+
+    An example for annotating a decorator::
+
+        def add_logging[**P, T](f: Callable[P, T]) -> Callable[P, T]:
+            '''A type-safe decorator to add logging to a function.'''
+            def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+                logging.info(f'{f.__name__} was called')
+                return f(*args, **kwargs)
+            return inner
+
+        @add_logging
+        def add_two(x: float, y: float) -> float:
+            '''Add two numbers together.'''
+            return x + y
+
+    Parameter specification variables can be introspected. e.g.::
+
+        >>> P = ParamSpec("P")
+        >>> P.__name__
+        'P'
+
+    Note that only parameter specification variables defined in the global
+    scope can be pickled.
     """
 
-    __slots__ = ('__name__', '__covariant__', '__contravariant__',
-                 '__infer_variance__', 'args', 'kwargs')
-
-    def __init__(self, name, *, covariant=False, contravariant=False,
-                 infer_variance=False):
+    def __init__(self, name, *, bound=None, covariant=False, contravariant=False, infer_variance=False):
         self.__name__ = name
-        self.__covariant__ = covariant
-        self.__contravariant__ = contravariant
-        self.__infer_variance__ = infer_variance
-        # __module__ is automatically set by Python to the defining module
+        super().__init__(bound, covariant, contravariant, infer_variance)
+
+        # TODO: __module__ is automatically set by Python to the defining module
 
         # Create args and kwargs attributes
-        self.args = _ParamSpecArgs(self)
-        self.kwargs = _ParamSpecKwargs(self)
-
-    @property
-    def __bound__(self):
-        return None
-
-    @property
-    def __constraints__(self):
-        return ()
-
-    def has_default(self):
-        return False
-
-    def __repr__(self):
-        if self.__infer_variance__:
-            prefix = ''
-        elif self.__covariant__:
-            prefix = '+'
-        elif self.__contravariant__:
-            prefix = '-'
-        else:
-            prefix = '~'
-        return prefix + self.__name__
+        self.args = ParamSpecArgs(self)
+        self.kwargs = ParamSpecKwargs(self)
 
     def __hash__(self):
-        return hash((self.__name__,))
+        return hash((type(self), self.__name__,))
 
     def __eq__(self, other):
         return self is other
 
-    def __or__(self, other):
-        from typing import Union
-        return Union[self, other]
+    def __typing_subst__(self, arg):
+        import typing
+        return typing._paramspec_subst(self, arg)
 
-    def __ror__(self, other):
-        from typing import Union
-        return Union[other, self]
+    def __typing_prepare_subst__(self, alias, args):
+        import typing
+        return typing._paramspec_prepare_subst(self, alias, args)
 
-    def __reduce__(self):
-        return self.__name__
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of ParamSpec")
 
 
-class _ParamSpecArgs:
+class ParamSpecArgs:
     """The args for a ParamSpec object.
 
-    Given P = ParamSpec('P'), P.args is an instance of _ParamSpecArgs.
+    Given P = ParamSpec('P'), P.args is an instance of ParamSpecArgs.
     """
     __slots__ = ('__origin__',)
 
@@ -232,15 +247,18 @@ class _ParamSpecArgs:
         return hash((self.__origin__, "args"))
 
     def __eq__(self, other):
-        if isinstance(other, _ParamSpecArgs):
+        if isinstance(other, ParamSpecArgs):
             return self.__origin__ == other.__origin__
         return NotImplemented
 
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of ParamSpecArgs")
 
-class _ParamSpecKwargs:
+
+class ParamSpecKwargs:
     """The kwargs for a ParamSpec object.
 
-    Given P = ParamSpec('P'), P.kwargs is an instance of _ParamSpecKwargs.
+    Given P = ParamSpec('P'), P.kwargs is an instance of ParamSpecKwargs.
     """
     __slots__ = ('__origin__',)
 
@@ -254,9 +272,12 @@ class _ParamSpecKwargs:
         return hash((self.__origin__, "kwargs"))
 
     def __eq__(self, other):
-        if isinstance(other, _ParamSpecKwargs):
+        if isinstance(other, ParamSpecKwargs):
             return self.__origin__ == other.__origin__
         return NotImplemented
+
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of ParamSpecKwargs")
 
 
 class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
@@ -275,14 +296,11 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
         self.__name__ = name
         # __module__ is automatically set by Python to the defining module
 
-    def has_default(self):
-        return False
-
     def __repr__(self):
         return self.__name__
 
     def __hash__(self):
-        return hash((self.__name__,))
+        return hash((type(self), self.__name__,))
 
     def __eq__(self, other):
         return self is other
@@ -291,11 +309,18 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
         from typing import Unpack
         yield Unpack[self]
 
-    def __reduce__(self):
-        return self.__name__
+    def __typing_subst__(self, arg):
+        raise TypeError("Substitution of bare TypeVarTuple is not supported")
+
+    def __typing_prepare_subst__(self, alias, args):
+        import typing
+        return typing._typevartuple_prepare_subst(self, alias, args)
+
+    def __mro_entries__(self, bases):
+        raise TypeError("Cannot subclass an instance of TypeVarTuple")
 
 
-class TypeAliasType:
+class TypeAliasType(_PickleUsingNameMixin):
     """Runtime representation of a type alias created with PEP 695 syntax.
 
     The __value__ is lazily evaluated - the evaluate_func is called
@@ -308,46 +333,47 @@ class TypeAliasType:
         # and __value__ = tuple[float, float]
     """
 
-    __slots__ = ('_name', '_type_params', '_evaluate', '_value', '_evaluated')
-
-    def __init__(self, name, evaluate_func, *, type_params=()):
+    def __init__(self, name, value, *, type_params=()):
         """Initialize a TypeAliasType.
 
         Args:
             name: The name of the type alias.
-            evaluate_func: A callable that returns the type alias value when called.
+            value: The value of the type alias.
             type_params: The type parameters of the alias (for generic aliases).
         """
         self._name = name
         self._type_params = tuple(type_params) if type_params else ()
-        self._evaluate = evaluate_func
-        self._value = None
-        self._evaluated = False
+        self.__value__ = value
         # __module__ is automatically set by Python to the defining module
 
     @property
     def __name__(self):
-        """Return the name of the type alias."""
         return self._name
 
     @property
     def __type_params__(self):
-        """Return the type parameters of the type alias."""
         return self._type_params
 
     @property
-    def __value__(self):
-        """Lazily evaluate and return the type alias value."""
-        if not self._evaluated:
-            self._value = self._evaluate()
-            self._evaluated = True
-        return self._value
+    def __parameters__(self):
+        """Return the type parameters, unpacking any TypeVarTuples."""
+        if not self._type_params:
+            return ()
+        result = []
+        for param in self._type_params:
+            if isinstance(param, TypeVarTuple):
+                result.extend(param)
+            else:
+                result.append(param)
+        return tuple(result)
+
+    __value__ = _LazyEvaluator()
 
     def __repr__(self):
         return self._name
 
     def __hash__(self):
-        return hash(self._name)
+        return hash((type(self), self._name))
 
     def __eq__(self, other):
         # TypeAliasTypes are only equal if they are the same object
@@ -355,6 +381,8 @@ class TypeAliasType:
 
     def __getitem__(self, parameters):
         """Support generic type alias subscripting: Alias[T]."""
+        if not self._type_params:
+            raise TypeError("Only generic type aliases are subscriptable")
         from typing import _GenericAlias
         if not isinstance(parameters, tuple):
             parameters = (parameters,)
@@ -370,54 +398,71 @@ class TypeAliasType:
         from typing import Union
         return Union[other, self]
 
-    def __reduce__(self):
-        return self._name
-
 
 # Factory functions for the compiler
 # These are called from generated bytecode to create type parameters
 # with lazy evaluation support.
 
-def _make_typevar(name, *, covariant=False, contravariant=False,
-                  infer_variance=False):
-    """Create a TypeVar without bound or constraints."""
-    return TypeVar(name, covariant=covariant, contravariant=contravariant,
-                   infer_variance=infer_variance)
+def _make_typevar(name):
+    return TypeVar(name, infer_variance=True)
 
 
-def _make_typevar_with_bound(name, evaluate_bound, *, covariant=False,
-                             contravariant=False, infer_variance=False):
-    """Create a TypeVar with lazy bound evaluation.
-
-    Args:
-        name: The name of the TypeVar.
-        evaluate_bound: A callable that returns the bound when called.
-    """
-    return TypeVar(name, bound=(_LAZY_EVALUATION_SENTINEL, evaluate_bound),
-                   covariant=covariant, contravariant=contravariant,
-                   infer_variance=infer_variance)
+def _make_typevar_with_bound(name, evaluate_bound):
+    t = TypeVar(name, infer_variance=True)
+    del t.__bound__
+    t.__evaluate_bound__ = evaluate_bound
+    return t
 
 
-def _make_typevar_with_constraints(name, evaluate_constraints, *, covariant=False,
-                                   contravariant=False, infer_variance=False):
-    """Create a TypeVar with lazy constraints evaluation.
-
-    Args:
-        name: The name of the TypeVar.
-        evaluate_constraints: A callable that returns a tuple of constraints.
-    """
-    return TypeVar(name, _LAZY_EVALUATION_SENTINEL, evaluate_constraints,
-                   covariant=covariant, contravariant=contravariant,
-                   infer_variance=infer_variance)
+def _make_typevar_with_constraints(name, evaluate_constraints):
+    t = TypeVar(name, infer_variance=True)
+    del t.__constraints__
+    t.__evaluate_constraints__ = evaluate_constraints
+    return t
 
 
-def _make_paramspec(name, *, covariant=False, contravariant=False,
-                    infer_variance=False):
-    """Create a ParamSpec."""
-    return ParamSpec(name, covariant=covariant, contravariant=contravariant,
-                     infer_variance=infer_variance)
+def _make_paramspec(name):
+    return ParamSpec(name, infer_variance=True)
 
 
 def _make_typevartuple(name):
-    """Create a TypeVarTuple."""
     return TypeVarTuple(name)
+
+
+def _make_typealiastype(name, evaluate_value, type_params):
+    t = TypeAliasType(name, None, type_params=type_params)
+    del t.__value__
+    t.__evaluate_value__ = evaluate_value
+    return t
+
+
+class Generic:
+    """Abstract base class for generic types.
+
+    A generic type is typically declared by inheriting from
+    this class parameterized with one or more type variables.
+    For example, a generic mapping type might be defined as::
+
+      class Mapping(Generic[KT, VT]):
+          def __getitem__(self, key: KT) -> VT:
+              ...
+          # Etc.
+
+    This class can then be used as follows::
+
+      def lookup_name(mapping: Mapping[KT, VT], key: KT, default: VT) -> VT:
+          try:
+              return mapping[key]
+          except KeyError:
+              return default
+    """
+    __slots__ = ()
+    _is_protocol = False
+
+    def __class_getitem__(cls, params):
+        import typing
+        return typing._generic_class_getitem(cls, params)
+
+    def __init_subclass__(cls, *args, **kwargs):
+        import typing
+        return typing._generic_init_subclass(cls, *args, **kwargs)

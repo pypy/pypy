@@ -167,8 +167,8 @@ def test_invalid_expressions_in_annotation_scope():
 # === TypeAliasType class tests ===
 
 def test_type_alias_type_creation():
-    from _pypy_typing import TypeAliasType
-    alias = TypeAliasType('MyType', lambda: int)
+    from typing import TypeAliasType
+    alias = TypeAliasType('MyType', int)
     assert alias.__name__ == 'MyType'
     assert alias.__value__ == int
     assert alias.__type_params__ == ()

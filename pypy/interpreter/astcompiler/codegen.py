@@ -2660,6 +2660,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.ROT_TWO)
         self.emit_op(ops.POP_TOP)  # Pop the module, keep the attribute
 
+    def _emit_type_alias_type_call(self, type_alias, alias_name, type_param_names):
+        """Emit code to create a TypeAliasType.
+
+        This is shared between visit_TypeAlias (for simple type aliases)
+        and TypeParamBlockCodeGenerator._compile (for generic type aliases).
+
+        Args:
+            type_alias: The TypeAlias AST node
+            alias_name: The name of the type alias
+            type_param_names: List of type parameter names (empty for simple aliases)
+        """
+        # 1. Load TypeAliasType & name
+        self._load_pypy_typing_attr('_make_typealiastype', type_alias)
+        self.load_const(self.space.newtext(alias_name))
+
+        # 3. Create evaluate function for lazy value evaluation
+        code, qualname = self.sub_scope(TypeAliasValueCodeGenerator,
+                                        alias_name, type_alias, type_alias.lineno)
+        self._make_function(code, qualname=qualname)
+
+        # 4. Build type_params tuple
+        for name in type_param_names:
+            self.name_op(name, ast.Load, type_alias)
+        self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
+
+        # 5. Call _make_typealiastype(name, evaluate_func, type_params)
+        self.emit_op_arg(ops.CALL_FUNCTION, 3)
+
     def visit_TypeAlias(self, type_alias):
         """Generate code for: type X[T, ...] = value
 
@@ -2687,24 +2715,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.CALL_FUNCTION, 0)  # Call the function to get the TypeAliasType
         else:
             # For simple type aliases (no type params), create the TypeAliasType directly
-            # 1. Load TypeAliasType
-            self._load_pypy_typing_attr('TypeAliasType', type_alias)
-
-            # 2. Load name string
-            self.load_const(self.space.newtext(alias_name))
-
-            # 3. Create evaluate function for lazy value evaluation
-            code, qualname = self.sub_scope(TypeAliasValueCodeGenerator,
-                                            alias_name, type_alias, type_alias.lineno)
-            self._make_function(code, qualname=qualname)
-
-            # 4. Empty type_params tuple
-            self.emit_op_arg(ops.BUILD_TUPLE, 0)
-
-            # 5. Call TypeAliasType(name, evaluate_func, type_params=type_params)
-            w_keys = self.space.newtuple([self.space.newtext('type_params')])
-            self.load_const(w_keys)
-            self.emit_op_arg(ops.CALL_FUNCTION_KW, 3)
+            self._emit_type_alias_type_call(type_alias, alias_name, [])
 
         # Store result to alias name
         self.name_op(alias_name, ast.Store, type_alias)
@@ -2938,26 +2949,8 @@ class TypeParamBlockCodeGenerator(AbstractFunctionCodeGenerator):
         # 1. Create type params and store them
         type_param_names = self._visit_type_params_and_collect_names(type_alias.type_params)
 
-        # 2. Load TypeAliasType
-        self._load_pypy_typing_attr('TypeAliasType', type_alias)
-
-        # 3. Load name string
-        self.load_const(self.space.newtext(alias_name))
-
-        # 4. Create evaluate function for lazy value evaluation
-        code, qualname = self.sub_scope(TypeAliasValueCodeGenerator,
-                                        alias_name, type_alias, type_alias.lineno)
-        self._make_function(code, qualname=qualname)
-
-        # 5. Build type_params tuple
-        for name in type_param_names:
-            self.name_op(name, ast.Load, type_alias)
-        self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
-
-        # 6. Call TypeAliasType(name, evaluate_func, type_params=type_params)
-        w_keys = self.space.newtuple([self.space.newtext('type_params')])
-        self.load_const(w_keys)
-        self.emit_op_arg(ops.CALL_FUNCTION_KW, 3)
+        # 2. Create and call TypeAliasType
+        self._emit_type_alias_type_call(type_alias, alias_name, type_param_names)
 
         # Return the TypeAliasType
         self.emit_op(ops.RETURN_VALUE)
