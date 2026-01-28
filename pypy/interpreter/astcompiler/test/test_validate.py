@@ -90,16 +90,16 @@ class TestASTValidator:
 
     def test_funcdef(self):
         a = ast.arguments(None, [], None, [], [], None, [])
-        f = ast.FunctionDef("x", a, [], [], None, None, *POS)
+        f = ast.FunctionDef("x", a, [], [], None, None, [], *POS)
         self.stmt(f, "empty body on FunctionDef")
         f = ast.FunctionDef("x", a, [ast.Pass(*POS)], [ast.Name("x", ast.Store, *POS)],
-                            None, None, *POS)
+                            None, None, [], *POS)
         self.stmt(f, "must have Load context")
         f = ast.FunctionDef("x", a, [ast.Pass(*POS)], [],
-                            ast.Name("x", ast.Store, *POS), None, *POS)
+                            ast.Name("x", ast.Store, *POS), None, [], *POS)
         self.stmt(f, "must have Load context")
         def fac(args):
-            return ast.FunctionDef("x", args, [ast.Pass(*POS)], [], None, None, *POS)
+            return ast.FunctionDef("x", args, [ast.Pass(*POS)], [], None, None, [], *POS)
         self._check_arguments(fac, self.stmt)
 
     def test_classdef(self):
@@ -113,7 +113,7 @@ class TestASTValidator:
             if decorator_list is None:
                 decorator_list = []
             return ast.ClassDef("myclass", bases, keywords,
-                                body, decorator_list, *POS)
+                                body, decorator_list, [], *POS)
         self.stmt(cls(bases=[ast.Name("x", ast.Store, *POS)]),
                   "must have Load context")
         self.stmt(cls(keywords=[ast.keyword("x", ast.Name("x", ast.Store, *POS), *POS)]),
