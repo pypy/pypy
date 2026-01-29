@@ -41,7 +41,6 @@ class Scope(object):
 
     can_be_optimized = False
     is_coroutine = False
-    is_annotation_scope = False
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -361,7 +360,6 @@ class AnnotationScope(FunctionScope):
     - Disallows yield, yield from, await, walrus operator
     """
     can_be_optimized = True
-    is_annotation_scope = True
 
     def __init__(self, name, lineno, col_offset):
         FunctionScope.__init__(self, name, lineno, col_offset)
@@ -464,9 +462,39 @@ class SymtableBuilder(ast.GenericASTVisitor):
             if isinstance(scope, ClassScope):
                 return scope
             # Functions (except annotation scopes) break the chain
-            if isinstance(scope, FunctionScope) and not scope.is_annotation_scope:
-                return None
+            if isinstance(scope, FunctionScope) and not isinstance(scope, AnnotationScope):
+                break
         return None
+
+    def _push_annotation_scope(self, name, node, scope_node=None):
+        """Create and push an annotation scope with classdict handling.
+
+        Args:
+            name: The scope name
+            node: The AST node (for lineno/col_offset)
+            scope_node: The node to use as key in the scopes dictionary
+        """
+        scope = AnnotationScope(name, node.lineno, node.col_offset)
+        if self._find_enclosing_class_scope() is not None:
+            scope.needs_classdict = True
+            scope.note_symbol('__classdict__', SYM_USED)
+        self.push_scope(scope, scope_node or node)
+
+    def _enter_typeparam_scope(self, node, name):
+        """Enter a type parameter scope for generic definitions.
+
+        Creates an AnnotationScope for the type parameters of a generic function,
+        class, or type alias. This is the PyPy equivalent of CPython's
+        symtable_enter_typeparam_block.
+
+        Args:
+            node: The AST node (FunctionDef, AsyncFunctionDef, ClassDef, or TypeAlias)
+            name: The name to use for the scope (e.g., function/class/alias name)
+        """
+        type_params_node = TypeParamsNode(node)
+        node._type_params_node = type_params_node  # Store for codegen to find
+        self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
+        self.visit_sequence(node.type_params)
 
     def implicit_arg(self, pos):
         """Note a implicit arg for implicit tuple unpacking."""
@@ -474,7 +502,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.note_symbol(name, SYM_PARAM)
 
     def note_symbol(self, identifier, role, ast_node=None):
-        """Note the identifer on the current scope."""
+        """Note the identifier on the current scope."""
         mangled = self.scope.note_symbol(identifier, role, ast_node)
         if role & SYM_GLOBAL:
             if mangled in self.globs:
@@ -491,16 +519,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_sequence(func.decorator_list)
         # PEP 695: if type_params, create outer TypeParamBlock scope
         if func.type_params:
-            params_scope = AnnotationScope(func.name + ".<type_params>",
-                                           func.lineno, func.col_offset)
-            # Check for enclosing class scope to enable __classdict__ access
-            if self._find_enclosing_class_scope() is not None:
-                params_scope.needs_classdict = True
-                params_scope.note_symbol('__classdict__', SYM_USED)
-            type_params_node = TypeParamsNode(func)
-            func._type_params_node = type_params_node  # Store for codegen to find
-            self.push_scope(params_scope, type_params_node)
-            self.visit_sequence(func.type_params)
+            self._enter_typeparam_scope(func, func.name)
         # Visit annotations after entering type param scope (can reference type params)
         self._visit_annotations(func)
         # Create the function scope
@@ -564,16 +583,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_sequence(clsdef.decorator_list)
         # PEP 695: if type_params, create outer TypeParamBlock scope
         if clsdef.type_params:
-            params_scope = AnnotationScope(clsdef.name + ".<type_params>",
-                                           clsdef.lineno, clsdef.col_offset)
-            # Check for enclosing class scope to enable __classdict__ access
-            if self._find_enclosing_class_scope() is not None:
-                params_scope.needs_classdict = True
-                params_scope.note_symbol('__classdict__', SYM_USED)
-            type_params_node = TypeParamsNode(clsdef)
-            clsdef._type_params_node = type_params_node  # Store for codegen to find
-            self.push_scope(params_scope, type_params_node)
-            self.visit_sequence(clsdef.type_params)
+            self._enter_typeparam_scope(clsdef, clsdef.name)
         # Bases and keywords are visited in type param scope (can reference type params)
         self.visit_sequence(clsdef.bases)
         self.visit_sequence(clsdef.keywords)
@@ -851,7 +861,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 "assignment expression cannot be used in a comprehension iterable expression",
                 node)
         # PEP 695: walrus operator not allowed in annotation scopes
-        if scope.is_annotation_scope:
+        if isinstance(scope, AnnotationScope):
             self.error(
                 "assignment expression cannot be used in a type parameter scope",
                 node)
@@ -906,58 +916,26 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # Following CPython's design with two scopes:
         # 1. TypeParamBlock for type params (if any)
         # 2. TypeAliasBlock for the value expression
-        #
-        # We use a wrapper TypeParamsNode object as a hashable key for the params scope.
-        # Check for enclosing class scope to enable __classdict__ access
-        enclosing_class = self._find_enclosing_class_scope()
-
         if type_alias.type_params:
-            params_scope = AnnotationScope(target.id + ".<type_params>",
-                                           type_alias.lineno, type_alias.col_offset)
-            # Enable class namespace access if nested in class
-            if enclosing_class is not None:
-                params_scope.needs_classdict = True
-                params_scope.note_symbol('__classdict__', SYM_USED)
-            # Use a TypeParamsNode wrapper as the scope key
-            type_params_node = TypeParamsNode(type_alias)
-            type_alias._type_params_node = type_params_node  # Store for codegen to find
-            self.push_scope(params_scope, type_params_node)
-            # Visit type parameters (they become local to this scope)
-            self.visit_sequence(type_alias.type_params)
+            self._enter_typeparam_scope(type_alias, target.id)
 
         # Create a scope for the value expression (TypeAliasBlock in CPython)
-        value_scope = AnnotationScope(target.id,
-                                      type_alias.lineno, type_alias.col_offset)
-        # Enable class namespace access if nested in class
-        if enclosing_class is not None:
-            value_scope.needs_classdict = True
-            value_scope.note_symbol('__classdict__', SYM_USED)
-        self.push_scope(value_scope, type_alias)
+        self._push_annotation_scope(target.id, type_alias)
 
-        # Visit the value expression
         type_alias.value.walkabout(self)
 
         self.pop_scope()  # Pop value scope
 
-        # Pop type params scope if we created one
         if type_alias.type_params:
             self.pop_scope()
 
     def visit_TypeVar(self, type_var):
         """Visit a TypeVar in a type parameter list."""
-        # The TypeVar name is assigned in the current scope
         self.note_symbol(type_var.name, SYM_ASSIGNED)
 
         # If there's a bound, create a sub-scope for lazy evaluation
         if type_var.bound is not None:
-            # Create an annotation scope for the bound evaluation function
-            bound_scope = AnnotationScope(type_var.name + ".<bound>",
-                                          type_var.lineno, type_var.col_offset)
-            # Check for enclosing class scope to enable __classdict__ access
-            if self._find_enclosing_class_scope() is not None:
-                bound_scope.needs_classdict = True
-                bound_scope.note_symbol('__classdict__', SYM_USED)
-            self.push_scope(bound_scope, type_var)
+            self._push_annotation_scope(type_var.name + ".<bound>", type_var)
             type_var.bound.walkabout(self)
             self.pop_scope()
 
