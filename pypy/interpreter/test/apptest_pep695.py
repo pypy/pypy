@@ -510,3 +510,36 @@ def test_mixed_type_params_in_class():
     assert T.__bound__ is int
     assert P.__name__ == 'P'
     assert Ts.__name__ == 'Ts'
+
+
+def test_class_conditionally_bound_name_with_enclosing_function():
+    """Class-bound names resolve to global in annotation scopes, not via closure.
+
+    When a name is conditionally defined in a class (e.g., inside an if block),
+    the symtable sees it as bound in the class. However, annotation scopes
+    cannot see class-bound names via normal closure - they resolve to module globals.
+
+    This test would fail if the name was incorrectly classified as FREE
+    (would get "function" from closure) instead of GLOBAL_IMPLICIT (gets module global).
+
+    See gh-109118.
+    """
+    globs = {"__name__": __name__}
+    exec("""
+x = "global"
+
+def outer():
+    x = "function"  # Variable in enclosing function (shadows global)
+
+    class C:
+        if False:
+            x = "class"  # Conditionally bound - never assigned at runtime
+        type Alias = x
+
+    return C
+
+C = outer()
+# With correct classification (GLOBAL_IMPLICIT): resolves to module-level "global"
+# With incorrect classification (FREE): would resolve to "function" from closure
+assert C.Alias.__value__ == "global", f"Expected 'global', got {C.Alias.__value__!r}"
+""", globs)

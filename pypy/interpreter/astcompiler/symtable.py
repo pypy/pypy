@@ -42,6 +42,7 @@ class Scope(object):
 
     can_be_optimized = False
     is_coroutine = False
+    class_entry = None  # Set by AnnotationScope for class scope visibility
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -191,17 +192,35 @@ class Scope(object):
                 del globs[name]
             except KeyError:
                 pass
-        elif bound and name in bound:
-            self.symbols[name] = SCOPE_FREE
-            self.free_vars.append(name)
-            free[name] = None
-            self.has_free = True
-        elif name in globs:
-            self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
         else:
-            if self.nested:
+            # If a name is bound in the enclosing class, we want runtime resolution
+            # to check the class namespace (__classdict__) then globals, NOT the
+            # enclosing function's closure. Setting GLOBAL_IMPLICIT (instead of FREE)
+            # achieves this: both use LOAD_FROM_DICT_OR_* which checks __classdict__
+            # first, but GLOBAL_IMPLICIT falls back to globals while FREE falls back
+            # to the closure cell. This is required to maintain the principle that name
+            # resolution within an annotation scope is exactly as if the code was
+            # directly within the enclosing class body.
+            # Exclude __class__/__classdict__ - they need FREE.
+            if self.class_entry is not None and name not in ('__class__', '__classdict__'):
+                class_flags = self.class_entry.roles.get(name, SYM_BLANK)
+                if class_flags & SYM_GLOBAL:
+                    self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
+                    return
+                if class_flags & SYM_BOUND and not (class_flags & SYM_NONLOCAL):
+                    self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+                    return
+            if bound and name in bound:
+                self.symbols[name] = SCOPE_FREE
+                self.free_vars.append(name)
+                free[name] = None
                 self.has_free = True
-            self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+            elif name in globs:
+                self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+            else:
+                if self.nested:
+                    self.has_free = True
+                self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
 
     def _pass_on_bindings(self, local, bound, globs, new_bound, new_globs):
         """Allow child scopes to see names bound here and in outer scopes."""
@@ -488,8 +507,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             scope_node: The node to use as key in the scopes dictionary
         """
         scope = AnnotationScope(name, node.lineno, node.col_offset)
-        if self._find_enclosing_class_scope() is not None:
+        class_scope = self._find_enclosing_class_scope()
+        if class_scope is not None:
             scope.needs_classdict = True
+            scope.class_entry = class_scope
             scope.note_symbol('__classdict__', SYM_USED)
         self.push_scope(scope, scope_node or node)
 
@@ -709,6 +730,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 self.scope.nonlocal_directives[name] = nonl
 
     def visit_Lambda(self, lamb):
+        # gh-109118: Lambda not allowed in annotation scope within class scope
+        if isinstance(self.scope, AnnotationScope) and self.scope.needs_classdict:
+            self.error("Cannot use lambda in annotation scope within class scope",
+                       lamb)
         args = lamb.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
@@ -731,6 +756,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.note_await(comp)
 
     def _visit_comprehension(self, node, kind, comps, *consider):
+        # gh-109118: Comprehension not allowed in annotation scope within class scope
+        if isinstance(self.scope, AnnotationScope) and self.scope.needs_classdict:
+            self.error("Cannot use comprehension in annotation scope within class scope",
+                       node)
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         self.scope.comp_iter_expr += 1

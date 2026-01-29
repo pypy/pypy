@@ -662,9 +662,6 @@ def outer[T]():
 """
         self.mod_scope(src_shadowed)
 
-    # ==================== PEP 695 Issues (Expected to Fail) ====================
-
-    @py.test.mark.xfail(reason="Missing lambda/comprehension restriction in class annotation scope (gh-109118)")
     def test_pep695_lambda_comprehension_in_class_annotation_scope(self):
         """Lambda and comprehension in class annotation scope should error."""
         for src in (
@@ -675,7 +672,6 @@ def outer[T]():
             exc = py.test.raises(SyntaxError, self.mod_scope, src).value
             assert "lambda" in exc.msg.lower() or "comprehension" in exc.msg.lower()
 
-    @py.test.mark.xfail(reason="Missing class_entry handling in name resolution")
     def test_pep695_class_scope_name_resolution(self):
         """Names bound in class should resolve to global in annotation scopes.
 
