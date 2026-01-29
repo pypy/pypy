@@ -14,6 +14,7 @@ SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
 SYM_ANNOTATED = 2 << 4
 SYM_COMP_ITER = 2 << 5
+SYM_TYPE_PARAM = 2 << 6
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -103,6 +104,9 @@ class Scope(object):
                 err = "duplicate argument '%s' in function definition" % \
                     (identifier,)
                 self.error(err, ast_node)
+            if old_role & SYM_TYPE_PARAM and role & SYM_TYPE_PARAM:
+                err = "duplicate type parameter '%s'" % (identifier,)
+                self.error(err, ast_node)
             new_role |= old_role
         if self.comp_iter_target:
             if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
@@ -158,7 +162,7 @@ class Scope(object):
         # comprehension or a lambda expression.
         child_scope.comp_iter_expr = self.comp_iter_expr
 
-    def _finalize_name(self, name, flags, local, bound, free, globs):
+    def _finalize_name(self, name, flags, local, bound, free, globs, typeparams):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
@@ -169,6 +173,9 @@ class Scope(object):
                 except KeyError:
                     pass
         elif flags & SYM_NONLOCAL:
+            if name in typeparams:
+                err = "nonlocal binding not allowed for type parameter '%s'" % (name,)
+                self.error(err, self.nonlocal_directives.get(name, None))
             if name not in bound:
                 err = "no binding for nonlocal '%s' found" % (name,)
                 self.error(err, self.nonlocal_directives.get(name, None))
@@ -211,17 +218,23 @@ class Scope(object):
 
     _hide_bound_from_nested_scopes = False
 
-    def finalize(self, bound, free, globs):
+    def finalize(self, bound, free, globs, typeparams):
         """Enter final bookeeping data in to self.symbols."""
         self.symbols = {}
         local = {}
         new_globs = {}
         new_bound = {}
         new_free = {}
+        new_typeparams = typeparams.copy()
         if self._hide_bound_from_nested_scopes:
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
         for name, flags in self.roles.iteritems():
-            self._finalize_name(name, flags, local, bound, free, globs)
+            self._finalize_name(name, flags, local, bound, free, globs, typeparams)
+            # Track type parameters for nested scopes
+            if flags & SYM_TYPE_PARAM:
+                new_typeparams[name] = None
+            else:
+                new_typeparams.pop(name, None)
         if not self._hide_bound_from_nested_scopes:
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
         else:
@@ -231,7 +244,7 @@ class Scope(object):
             # Symbol dictionaries are copied to avoid having child scopes
             # pollute each other's.
             child_free = new_free.copy()
-            child.finalize(new_bound.copy(), child_free, new_globs.copy())
+            child.finalize(new_bound.copy(), child_free, new_globs.copy(), new_typeparams)
             child_frees.update(child_free)
             if child.has_free or child.child_has_free:
                 self.child_has_free = True
@@ -417,7 +430,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.push_scope(top, module)
         try:
             module.walkabout(self)
-            top.finalize(None, {}, {})
+            top.finalize(None, {}, {}, {})
         except SyntaxError as e:
             e.filename = compile_info.filename
             raise
@@ -931,7 +944,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_TypeVar(self, type_var):
         """Visit a TypeVar in a type parameter list."""
-        self.note_symbol(type_var.name, SYM_ASSIGNED)
+        self.note_symbol(type_var.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var)
 
         # If there's a bound, create a sub-scope for lazy evaluation
         if type_var.bound is not None:
@@ -941,8 +954,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ParamSpec(self, param_spec):
         """Visit a ParamSpec in a type parameter list."""
-        self.note_symbol(param_spec.name, SYM_ASSIGNED)
+        self.note_symbol(param_spec.name, SYM_TYPE_PARAM | SYM_ASSIGNED, param_spec)
 
     def visit_TypeVarTuple(self, type_var_tuple):
         """Visit a TypeVarTuple in a type parameter list."""
-        self.note_symbol(type_var_tuple.name, SYM_ASSIGNED)
+        self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)

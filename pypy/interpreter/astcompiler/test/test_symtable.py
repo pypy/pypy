@@ -634,9 +634,6 @@ def f(x):
             exc = py.test.raises(SyntaxError, self.mod_scope, src).value
             assert keyword in exc.msg.lower(), "Expected %r in: %s" % (keyword, exc.msg)
 
-    # ==================== PEP 695 Issues (Expected to Fail) ====================
-
-    @py.test.mark.xfail(reason="Missing duplicate type parameter detection")
     def test_pep695_duplicate_type_param(self):
         """Duplicate type parameters should raise SyntaxError."""
         for src in ("def f[T, T](): pass",
@@ -645,7 +642,6 @@ def f(x):
             exc = py.test.raises(SyntaxError, self.mod_scope, src).value
             assert "duplicate" in exc.msg.lower()
 
-    @py.test.mark.xfail(reason="Missing nonlocal restriction for type parameters")
     def test_pep695_nonlocal_type_param(self):
         """nonlocal binding of type parameters should raise SyntaxError."""
         src = """
@@ -656,6 +652,17 @@ def outer[T]():
 """
         exc = py.test.raises(SyntaxError, self.mod_scope, src).value
         assert "nonlocal" in exc.msg.lower() and "type parameter" in exc.msg.lower()
+
+        # But if the type param is shadowed by a regular variable, nonlocal is allowed
+        src_shadowed = """
+def outer[T]():
+    def middle(T): # Shadows the type parameter with a regular variable
+        def inner():
+            nonlocal T  # This should be allowed - refers to middle's T
+"""
+        self.mod_scope(src_shadowed)
+
+    # ==================== PEP 695 Issues (Expected to Fail) ====================
 
     @py.test.mark.xfail(reason="Missing lambda/comprehension restriction in class annotation scope (gh-109118)")
     def test_pep695_lambda_comprehension_in_class_annotation_scope(self):
