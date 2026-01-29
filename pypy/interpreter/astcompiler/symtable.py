@@ -395,7 +395,10 @@ class AnnotationScope(FunctionScope):
 
     def __init__(self, name, lineno, col_offset):
         FunctionScope.__init__(self, name, lineno, col_offset)
-        self.needs_classdict = False  # Set to True when nested in class
+
+    @property
+    def needs_classdict(self):
+        return self.class_entry is not None
 
     def note_yield(self, yield_node):
         self.error("'yield' not allowed in annotation scope", yield_node)
@@ -489,14 +492,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         Regular functions break the chain - only annotation scopes can see
         through to enclosing class scopes. This matches CPython behavior.
         """
-        for i in range(len(self.stack) - 1, -1, -1):
-            scope = self.stack[i]
-            if isinstance(scope, ClassScope):
-                return scope
-            # Functions (except annotation scopes) break the chain
-            if isinstance(scope, FunctionScope) and not isinstance(scope, AnnotationScope):
-                break
-        return None
+        if isinstance(self.scope, ClassScope):
+            return self.scope
+        # For AnnotationScope, class_entry is already set; for others it's None
+        return self.scope.class_entry
 
     def _push_annotation_scope(self, name, node, scope_node=None):
         """Create and push an annotation scope with classdict handling.
@@ -509,7 +508,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
         scope = AnnotationScope(name, node.lineno, node.col_offset)
         class_scope = self._find_enclosing_class_scope()
         if class_scope is not None:
-            scope.needs_classdict = True
             scope.class_entry = class_scope
             scope.note_symbol('__classdict__', SYM_USED)
         self.push_scope(scope, scope_node or node)
