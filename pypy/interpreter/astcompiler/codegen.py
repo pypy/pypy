@@ -588,9 +588,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         if is_generic:
             # Get the TypeParamsNode stored by symtable
-            type_params_node = getattr(func, '_type_params_node', None)
-            if type_params_node is None:
-                raise AssertionError("Generic function missing _type_params_node")
+            type_params_node = func._type_params_node
             # Compile the type params wrapper which handles annotations and function body
             code, qualname = self.sub_scope(GenericFunctionTypeParamsCodeGenerator,
                                             func.name, type_params_node, func.lineno)
@@ -660,9 +658,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         if is_generic:
             # Get the TypeParamsNode stored by symtable
-            type_params_node = getattr(cls, '_type_params_node', None)
-            if type_params_node is None:
-                raise AssertionError("Generic class missing _type_params_node")
+            type_params_node = cls._type_params_node
             # Compile the type params wrapper which creates the inner class
             code, qualname = self.sub_scope(GenericClassTypeParamsCodeGenerator,
                                             cls.name, type_params_node, cls.lineno)
@@ -2703,10 +2699,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if type_alias.type_params:
             # For generic type aliases (with type params), use the TypeParamBlockCodeGenerator
             # which handles the nested scope structure properly.
-            type_params_node = getattr(type_alias, '_type_params_node', None)
-            if type_params_node is None:
-                raise AssertionError("Generic type alias missing _type_params_node")
-
+            type_params_node = type_alias._type_params_node
             code, qualname = self.sub_scope(TypeParamBlockCodeGenerator,
                                             alias_name, type_params_node,
                                             type_alias.lineno)
