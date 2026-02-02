@@ -48,6 +48,10 @@ def test_typevar_with_constraints():
     assert T.__bound__ is None
     assert T.__constraints__ == (int, str)
 
+    type Starred[U: (*T.__constraints__, float)] = U
+    U = Starred.__type_params__[0]
+    assert U.__constraints__ == (int, str, float)
+
 
 # === ParamSpec tests ===
 

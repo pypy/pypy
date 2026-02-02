@@ -2649,7 +2649,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     # PEP 695 type parameter support
 
-    def _load_pypy_typing_attr(self, attr_name, node):
+    def _load_pypy_typing_attr(self, attr_name):
         """Load an attribute from the _pypy_typing module."""
         # Import _pypy_typing and get attribute
         # Use IMPORT_NAME to import the module
@@ -2672,20 +2672,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             type_param_names: List of type parameter names (empty for simple aliases)
         """
         # 1. Load TypeAliasType & name
-        self._load_pypy_typing_attr('_make_typealiastype', type_alias)
+        self._load_pypy_typing_attr('_make_typealiastype')
         self.load_const(self.space.newtext(alias_name))
 
-        # 3. Create evaluate function for lazy value evaluation
+        # 2. Create evaluate function for lazy value evaluation
         code, qualname = self.sub_scope(TypeAliasValueCodeGenerator,
                                         alias_name, type_alias, type_alias.lineno)
         self._make_function(code, qualname=qualname)
 
-        # 4. Build type_params tuple
+        # 3. Build type_params tuple
         for name in type_param_names:
             self.name_op(name, ast.Load, type_alias)
         self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
 
-        # 5. Call _make_typealiastype(name, evaluate_func, type_params)
+        # 4. Call _make_typealiastype(name, evaluate_func, type_params)
         self.emit_op_arg(ops.CALL_FUNCTION, 3)
 
     def visit_TypeAlias(self, type_alias):
@@ -2700,10 +2700,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if type_alias.type_params:
             # For generic type aliases (with type params), use the TypeParamBlockCodeGenerator
             # which handles the nested scope structure properly.
-            # The code generator creates a function that:
-            # 1. Creates the type params
-            # 2. Creates the value evaluation function
-            # 3. Returns the TypeAliasType
             type_params_node = getattr(type_alias, '_type_params_node', None)
             if type_params_node is None:
                 raise AssertionError("Generic type alias missing _type_params_node")
@@ -2728,62 +2724,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         name = type_var.name
 
         if type_var.bound is not None:
+            # Call _pypy_typing._make_typevar_with_bound(name, evaluate_bound)
+            # or _pypy_typing._make_typevar_with_constraints(name, evaluate_constraints).
             # Check if bound is a Tuple (constraints) or single expression (bound)
-            if isinstance(type_var.bound, ast.Tuple):
-                # TypeVar with constraints
-                # Create lazy evaluation function for constraints
-                self._emit_typevar_with_constraints(type_var)
-            else:
-                # TypeVar with bound
-                self._emit_typevar_with_bound(type_var)
+            self._load_pypy_typing_attr('_make_typevar_with_constraints' if isinstance(type_var.bound, ast.Tuple) else '_make_typevar_with_bound')
+
+            # Load name
+            self.load_const(self.space.newtext(type_var.name))
+
+            # Create lambda for lazy bound evaluation
+            code, qualname = self.sub_scope(TypeVarBoundCodeGenerator,
+                                            type_var.name, type_var, type_var.lineno)
+            self._make_function(code, qualname=qualname)
+
+            self.emit_op_arg(ops.CALL_FUNCTION, 2)
         else:
             # Simple TypeVar without bound or constraints
-            self._emit_simple_typevar(type_var)
+            # Call _pypy_typing._make_typevar(name)
+            self._load_pypy_typing_attr('_make_typevar')
+            self.load_const(self.space.newtext(type_var.name))
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
 
         # Store to the name
         self.name_op(name, ast.Store, type_var)
 
-    def _emit_simple_typevar(self, type_var):
-        """Emit code for TypeVar without bound/constraints."""
-        # Call _pypy_typing._make_typevar(name)
-        self._load_pypy_typing_attr('_make_typevar', type_var)
-        self.load_const(self.space.newtext(type_var.name))
-        self.emit_op_arg(ops.CALL_FUNCTION, 1)
-
-    def _emit_typevar_with_bound(self, type_var):
-        """Emit code for TypeVar with lazy bound evaluation."""
-        # Call _pypy_typing._make_typevar_with_bound(name, evaluate_bound)
-        self._load_pypy_typing_attr('_make_typevar_with_bound', type_var)
-
-        # Load name
-        self.load_const(self.space.newtext(type_var.name))
-
-        # Create lambda for lazy bound evaluation
-        code, qualname = self.sub_scope(TypeVarBoundCodeGenerator,
-                                        type_var.name, type_var, type_var.lineno)
-        self._make_function(code, qualname=qualname)
-
-        self.emit_op_arg(ops.CALL_FUNCTION, 2)
-
-    def _emit_typevar_with_constraints(self, type_var):
-        """Emit code for TypeVar with lazy constraints evaluation."""
-        # Call _pypy_typing._make_typevar_with_constraints(name, evaluate_constraints)
-        self._load_pypy_typing_attr('_make_typevar_with_constraints', type_var)
-
-        # Load name
-        self.load_const(self.space.newtext(type_var.name))
-
-        # Create lambda for lazy constraints evaluation
-        code, qualname = self.sub_scope(TypeVarConstraintsCodeGenerator,
-                                        type_var.name, type_var, type_var.lineno)
-        self._make_function(code, qualname=qualname)
-
-        self.emit_op_arg(ops.CALL_FUNCTION, 2)
-
     def visit_ParamSpec(self, param_spec):
         """Generate code to create a ParamSpec."""
         # Call _pypy_typing._make_paramspec(name)
-        self._load_pypy_typing_attr('_make_paramspec', param_spec)
+        self._load_pypy_typing_attr('_make_paramspec')
         self.load_const(self.space.newtext(param_spec.name))
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
 
@@ -2793,7 +2761,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_TypeVarTuple(self, type_var_tuple):
         """Generate code to create a TypeVarTuple."""
         # Call _pypy_typing._make_typevartuple(name)
-        self._load_pypy_typing_attr('_make_typevartuple', type_var_tuple)
+        self._load_pypy_typing_attr('_make_typevartuple')
         self.load_const(self.space.newtext(type_var_tuple.name))
         self.emit_op_arg(ops.CALL_FUNCTION, 1)
 
@@ -2978,7 +2946,6 @@ class TypeParamBlockCodeGenerator(AnnotationScopeCodeGenerator):
     """
 
     def _compile(self, type_params_node):
-        from pypy.interpreter.astcompiler import symtable
         # type_params_node is a TypeParamsNode wrapper
         assert isinstance(type_params_node, symtable.TypeParamsNode)
         type_alias = type_params_node.node
@@ -3020,21 +2987,6 @@ class TypeVarBoundCodeGenerator(AnnotationScopeCodeGenerator):
         self.add_const(self.space.w_None)
         assert type_var.bound is not None
         type_var.bound.walkabout(self)
-        self.emit_op(ops.RETURN_VALUE)
-
-
-class TypeVarConstraintsCodeGenerator(AnnotationScopeCodeGenerator):
-    """Code generator for the lazy evaluation function of TypeVar constraints."""
-
-    def _compile(self, type_var):
-        assert isinstance(type_var, ast.TypeVar)
-        self.first_lineno = type_var.lineno
-        self.add_const(self.space.w_None)
-        assert type_var.bound is not None
-        assert isinstance(type_var.bound, ast.Tuple)
-        for elt in type_var.bound.elts:
-            elt.walkabout(self)
-        self.emit_op_arg(ops.BUILD_TUPLE, len(type_var.bound.elts))
         self.emit_op(ops.RETURN_VALUE)
 
 
