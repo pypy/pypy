@@ -81,6 +81,7 @@ def test_generic_function():
     assert hasattr(identity, '__type_params__')
     assert len(identity.__type_params__) == 1
     assert identity.__type_params__[0].__name__ == 'T'
+    assert identity.__qualname__ == 'test_generic_function.<locals>.identity'
 
 
 def test_generic_function_multiple_params():
@@ -117,6 +118,7 @@ def test_generic_class():
     assert hasattr(Stack, '__type_params__')
     assert len(Stack.__type_params__) == 1
     assert Stack.__type_params__[0].__name__ == 'T'
+    assert Stack.__qualname__ == 'test_generic_class.<locals>.Stack'
 
 
 def test_generic_class_multiple_params():
@@ -253,6 +255,8 @@ def test_generic_method_inside_generic_class():
 
     assert Container.__type_params__[0].__name__ == 'T'
     assert Container.transform.__type_params__[0].__name__ == 'U'
+    assert Container.__qualname__ == 'test_generic_method_inside_generic_class.<locals>.Container'
+    assert Container.transform.__qualname__ == 'test_generic_method_inside_generic_class.<locals>.Container.transform'
 
     c = Container(10)
     c2 = c.transform(str)
@@ -276,6 +280,8 @@ def test_nested_generic_classes():
 
     assert Outer.__type_params__[0].__name__ == 'T'
     assert Outer.Inner.__type_params__[0].__name__ == 'U'
+    assert Outer.__qualname__ == 'test_nested_generic_classes.<locals>.Outer'
+    assert Outer.Inner.__qualname__ == 'test_nested_generic_classes.<locals>.Outer.Inner'
 
 
 # === Class namespace access tests (__classdict__) ===

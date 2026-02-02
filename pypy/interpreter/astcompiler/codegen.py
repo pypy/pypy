@@ -260,7 +260,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
             qualname = name
         elif self.qualname:
-            if isinstance(self.scope, symtable.FunctionScope):
+            if isinstance(self.scope, symtable.AnnotationScope):
+                # PEP 695: annotation scopes are "invisible" in qualnames
+                qualname = self.qualname
+            elif isinstance(self.scope, symtable.FunctionScope):
                 qualname = '%s.<locals>.%s' % (self.qualname, name)
             else:
                 qualname = '%s.%s' % (self.qualname, name)
