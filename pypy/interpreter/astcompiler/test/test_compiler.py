@@ -3506,3 +3506,9 @@ class TestHugeStackDepths:
         source = '(type("A", (), {"f": lambda self, *args: len(args)}))().f(%s)' % args
         w_res = self.run_and_check_stacksize(source)
         assert self.space.int_w(w_res) == 217
+
+
+class TestPep695TypeSyntax(BaseTestCompiler):
+    def test_defaults_scope(self):
+        yield self.st, "T=1\ndef f[T](x=T): return x", "f()", 1
+        yield self.st, "T=1\ndef f[T](*, x=T): return x", "f()", 1

@@ -589,15 +589,40 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if is_generic:
             # Get the TypeParamsNode stored by symtable
             type_params_node = func._type_params_node
-            # Compile the type params wrapper which handles annotations and function body
+
+            # 1. Compile defaults in OUTER scope. This ensures defaults are evaluated
+            # BEFORE entering the type params scope, so they cannot see type parameters
+            # (e.g., T=1; def f[T](x=T): pass -> x should be 1)
+            num_typeparam_args = 0
+            if args.defaults is not None and len(args.defaults):
+                num_typeparam_args += 1
+                self._visit_defaults(args.defaults)
+            if args.kwonlyargs:
+                kw_default_count = self._visit_kwonlydefaults(args)
+                num_typeparam_args += kw_default_count > 0
+
+            # 2. Create the type params wrapper function
             code, qualname = self.sub_scope(GenericFunctionTypeParamsCodeGenerator,
                                             func.name, type_params_node, func.lineno)
             self._make_function(code, qualname=qualname)
-            # Call to get the function with __type_params__ set
-            self.emit_op_arg(ops.CALL_FUNCTION, 0)
+
+            # 3. Rotate wrapper under the defaults for the call
+            if num_typeparam_args:
+                self.emit_op(ops.ROT_THREE if num_typeparam_args == 2 else ops.ROT_TWO)
+
+            # 4. Call wrapper with defaults as args
+            self.emit_op_arg(ops.CALL_FUNCTION, num_typeparam_args)
         else:
-            # Non-generic: compile function directly using shared helper
-            self._make_function_body(func, function_code_generator)
+            # Non-generic: compile defaults here, then use shared helper
+            funcflags = 0
+            if args.defaults is not None and len(args.defaults):
+                self._visit_defaults(args.defaults)
+                funcflags |= 0x01
+            if args.kwonlyargs:
+                kw_default_count = self._visit_kwonlydefaults(args)
+                if kw_default_count:
+                    funcflags |= 0x02
+            self._make_function_body(func, function_code_generator, funcflags)
 
         # Apply decorators (same for both generic and non-generic)
         if func.decorator_list:
@@ -605,26 +630,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store, func)
 
-    def _make_function_body(self, func, function_code_generator):
-        """Compile defaults, annotations, and function body. Shared by generic and non-generic paths."""
+    @specialize.arg(2)
+    def _make_function_body(self, func, function_code_generator, funcflags):
+        """Compile annotations and function body.
+
+        Args:
+            func: The FunctionDef or AsyncFunctionDef AST node
+            function_code_generator: The code generator class to use
+            funcflags: Flags for defaults (0x01 for positional, 0x02 for kw-only).
+                       The caller is responsible for compiling/loading defaults
+                       onto the stack before calling this method.
+        """
         args = func.args
         assert isinstance(args, ast.arguments)
 
-        oparg = 0
-        if args.defaults is not None and len(args.defaults):
-            oparg = oparg | 0x01
-            self._visit_defaults(args.defaults)
-        if args.kwonlyargs:
-            kw_default_count = self._visit_kwonlydefaults(args)
-            if kw_default_count:
-                oparg = oparg | 0x02
         num_annotations = self._visit_annotations(func, args, func.returns)
         if num_annotations:
-            oparg = oparg | 0x04
+            funcflags |= 0x04
 
         code, qualname = self.sub_scope(function_code_generator, func.name,
                                         func, func.lineno)
-        self._make_function(code, oparg, qualname=qualname)
+        self._make_function(code, funcflags, qualname=qualname)
 
     def visit_FunctionDef(self, func):
         self._visit_function(func, FunctionCodeGenerator)
@@ -2992,9 +3018,10 @@ class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     This generates code that:
     1. Creates type params (TypeVar, ParamSpec, TypeVarTuple)
     2. Builds a tuple of type params
-    3. Creates the inner function (with defaults, annotations, body)
-    4. Sets __type_params__ on the function
-    5. Returns the function
+    3. Loads defaults from args (passed from outer scope)
+    4. Creates the inner function (with annotations, body)
+    5. Sets __type_params__ on the function
+    6. Returns the function
     """
 
     def _compile(self, type_params_node):
@@ -3013,21 +3040,32 @@ class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
             self.name_op(name, ast.Load, func)
         self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
 
-        # 3. Create the inner function (defaults, annotations, body)
-        if isinstance(func, ast.AsyncFunctionDef):
-            self._make_function_body(func, AsyncFunctionCodeGenerator)
-        else:
-            self._make_function_body(func, FunctionCodeGenerator)
+        # 3. Load defaults from args
+        args = func.args
+        funcflags = 0
+        if args.defaults is not None and len(args.defaults) > 0:
+            self.emit_op_arg(ops.LOAD_FAST, 0)
+            funcflags |= 0x01
+            self.argcount += 1
+        if symtable.has_kw_defaults(args.kw_defaults):
+            self.emit_op_arg(ops.LOAD_FAST, self.argcount)
+            funcflags |= 0x02
+            self.argcount += 1
 
-        # 4. Set __type_params__ on the function
+        # 4. Create the inner function (annotations handled by _make_function_body)
+        if isinstance(func, ast.AsyncFunctionDef):
+            self._make_function_body(func, AsyncFunctionCodeGenerator, funcflags)
+        else:
+            self._make_function_body(func, FunctionCodeGenerator, funcflags)
+
+        # 5. Set __type_params__ on the function
         # Stack: [type_params_tuple, function]
         # STORE_ATTR does TOS.name = TOS1, so we need [value, object] = [type_params_tuple, function]
         self.emit_op(ops.DUP_TOP)  # [type_params_tuple, function, function]
         self.emit_op(ops.ROT_THREE)  # [function, type_params_tuple, function]
-        # Now TOS=function (object), TOS1=type_params_tuple (value)
         self.emit_op_name(ops.STORE_ATTR, self.names, '__type_params__')  # [function]
 
-        # 5. Return the function
+        # 6. Return the function
         self.emit_op(ops.RETURN_VALUE)
 
 

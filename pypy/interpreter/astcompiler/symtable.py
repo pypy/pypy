@@ -526,6 +526,18 @@ class SymtableBuilder(ast.GenericASTVisitor):
         type_params_node = TypeParamsNode(node)
         node._type_params_node = type_params_node  # Store for codegen to find
         self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
+
+        # For functions with defaults, register implicit args so LOAD_FAST works.
+        # Defaults are evaluated in the outer scope, then passed as args to the
+        # type params wrapper function. Use .defaults/.kwdefaults names like CPython.
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            args = node.args
+            has_defaults = args.defaults is not None and len(args.defaults) > 0
+            if has_defaults:
+                self.note_symbol('.defaults', SYM_PARAM)
+            if has_kw_defaults(args.kw_defaults):
+                self.note_symbol('.kwdefaults', SYM_PARAM)
+
         self.visit_sequence(node.type_params)
 
     def implicit_arg(self, pos):
@@ -986,3 +998,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_TypeVarTuple(self, type_var_tuple):
         """Visit a TypeVarTuple in a type parameter list."""
         self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)
+
+
+def has_kw_defaults(kw_defaults):
+    """Check if there are any keyword-only defaults."""
+    if kw_defaults:
+        for d in kw_defaults:
+            if d is not None:
+                return True
+    return False
