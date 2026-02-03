@@ -568,8 +568,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(defaults)
             self.emit_op_arg(ops.BUILD_TUPLE, len(defaults))
 
-    @specialize.arg(2)
-    def _visit_function(self, func, function_code_generator):
+    @specialize.argtype(1)
+    def _visit_function(self, func):
         # Load decorators first, but apply them after the function is created.
         if func.decorator_list:
             for dec in func.decorator_list:
@@ -622,7 +622,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 kw_default_count = self._visit_kwonlydefaults(args)
                 if kw_default_count:
                     funcflags |= 0x02
-            self._make_function_body(func, function_code_generator, funcflags)
+            self._make_function_body(func, funcflags)
 
         # Apply decorators (same for both generic and non-generic)
         if func.decorator_list:
@@ -630,8 +630,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store, func)
 
-    @specialize.arg(2)
-    def _make_function_body(self, func, function_code_generator, funcflags):
+    @specialize.argtype(1)
+    def _make_function_body(self, func, funcflags):
         """Compile annotations and function body.
 
         Args:
@@ -641,22 +641,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                        The caller is responsible for compiling/loading defaults
                        onto the stack before calling this method.
         """
-        args = func.args
-        assert isinstance(args, ast.arguments)
-
-        num_annotations = self._visit_annotations(func, args, func.returns)
+        num_annotations = self._visit_annotations(func, func.args, func.returns)
         if num_annotations:
             funcflags |= 0x04
 
-        code, qualname = self.sub_scope(function_code_generator, func.name,
-                                        func, func.lineno)
+        code_generator = FunctionCodeGenerator if isinstance(func, ast.FunctionDef) else AsyncFunctionCodeGenerator
+        code, qualname = self.sub_scope(code_generator, func.name, func, func.lineno)
         self._make_function(code, funcflags, qualname=qualname)
 
-    def visit_FunctionDef(self, func):
-        self._visit_function(func, FunctionCodeGenerator)
-
-    def visit_AsyncFunctionDef(self, func):
-        self._visit_function(func, AsyncFunctionCodeGenerator)
+    visit_FunctionDef = _visit_function
+    visit_AsyncFunctionDef = _visit_function
 
     @update_pos_expr
     def visit_Lambda(self, lam):
@@ -2867,7 +2861,11 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
         names = []
         for type_param in type_params:
             type_param.walkabout(self)
-            assert isinstance(type_param, (ast.TypeVar, ast.ParamSpec, ast.TypeVarTuple))
+            assert (
+                isinstance(type_param, ast.TypeVar)
+                or isinstance(type_param, ast.ParamSpec)
+                or isinstance(type_param, ast.TypeVarTuple)
+            )
             names.append(type_param.name)
         return names
 
@@ -3027,10 +3025,9 @@ class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     """
 
     def _compile(self, type_params_node):
-        from pypy.interpreter.astcompiler import symtable
         assert isinstance(type_params_node, symtable.TypeParamsNode)
         func = type_params_node.node
-        assert isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef))
+        assert isinstance(func, ast.FunctionDef) or isinstance(func, ast.AsyncFunctionDef)
         self.first_lineno = func.lineno
         self.add_const(self.space.w_None)
 
@@ -3056,9 +3053,10 @@ class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
 
         # 4. Create the inner function (annotations handled by _make_function_body)
         if isinstance(func, ast.AsyncFunctionDef):
-            self._make_function_body(func, AsyncFunctionCodeGenerator, funcflags)
+            self._make_function_body(func, funcflags)
         else:
-            self._make_function_body(func, FunctionCodeGenerator, funcflags)
+            assert isinstance(func, ast.FunctionDef)
+            self._make_function_body(func, funcflags)
 
         # 5. Set __type_params__ on the function
         # Stack: [type_params_tuple, function]
@@ -3084,7 +3082,6 @@ class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     """
 
     def _compile(self, type_params_node):
-        from pypy.interpreter.astcompiler import symtable
         assert isinstance(type_params_node, symtable.TypeParamsNode)
         cls = type_params_node.node
         assert isinstance(cls, ast.ClassDef)

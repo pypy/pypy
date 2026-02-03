@@ -2,6 +2,7 @@
 Symbol tabling building.
 """
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.pyparser.error import SyntaxError
 
@@ -27,7 +28,7 @@ SCOPE_CELL = 5
 SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
 
-class TypeParamsNode(object):
+class TypeParamsNode(ast.AST):
     """A wrapper node for the type params scope key.
 
     This is needed because node.type_params is a list which isn't hashable.
@@ -392,13 +393,16 @@ class AnnotationScope(FunctionScope):
     - Disallows yield, yield from, await, walrus operator
     """
     can_be_optimized = True
+    needs_classdict = False
 
     def __init__(self, name, lineno, col_offset):
         FunctionScope.__init__(self, name, lineno, col_offset)
 
-    @property
-    def needs_classdict(self):
-        return self.class_entry is not None
+    # Causes translation error???
+    # https://gist.github.com/BarrensZeppelin/30fe57eed1e88c81d0c1c324910a167c
+    # @property
+    # def needs_classdict(self):
+    #     return self.class_entry is not None
 
     def note_yield(self, yield_node):
         self.error("'yield' not allowed in annotation scope", yield_node)
@@ -486,17 +490,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Lookup the scope for a given AST node."""
         return self.scopes[scope_node]
 
-    def _find_enclosing_class_scope(self):
-        """Return the nearest enclosing ClassScope, or None.
-
-        Regular functions break the chain - only annotation scopes can see
-        through to enclosing class scopes. This matches CPython behavior.
-        """
-        if isinstance(self.scope, ClassScope):
-            return self.scope
-        # For AnnotationScope, class_entry is already set; for others it's None
-        return self.scope.class_entry
-
     def _push_annotation_scope(self, name, node, scope_node=None):
         """Create and push an annotation scope with classdict handling.
 
@@ -505,13 +498,22 @@ class SymtableBuilder(ast.GenericASTVisitor):
             node: The AST node (for lineno/col_offset)
             scope_node: The node to use as key in the scopes dictionary
         """
+        # Find the nearest enclosing ClassScope.
+        # Regular functions break the chain - only annotation scopes can see
+        # through to enclosing class scopes. This matches CPython behavior.
+        if isinstance(self.scope, ClassScope):
+            class_scope = self.scope
+        else:
+            class_scope = self.scope.class_entry
+
         scope = AnnotationScope(name, node.lineno, node.col_offset)
-        class_scope = self._find_enclosing_class_scope()
         if class_scope is not None:
             scope.class_entry = class_scope
+            scope.needs_classdict = True
             scope.note_symbol('__classdict__', SYM_USED)
         self.push_scope(scope, scope_node or node)
 
+    @specialize.argtype(1)
     def _enter_typeparam_scope(self, node, name):
         """Enter a type parameter scope for generic definitions.
 
@@ -530,7 +532,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         # For functions with defaults, register implicit args so LOAD_FAST works.
         # Defaults are evaluated in the outer scope, then passed as args to the
         # type params wrapper function. Use .defaults/.kwdefaults names like CPython.
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
             args = node.args
             has_defaults = args.defaults is not None and len(args.defaults) > 0
             if has_defaults:
@@ -557,6 +559,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 role |= self.globs[mangled]
             self.globs[mangled] = role
 
+    @specialize.argtype(1)
     def _visit_function(self, func, scope_class):
         self.note_symbol(func.name, SYM_ASSIGNED)
         # Function defaults and decorators happen in the outer scope.
