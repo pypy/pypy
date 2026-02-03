@@ -634,12 +634,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _make_function_body(self, func, funcflags):
         """Compile annotations and function body.
 
-        Args:
-            func: The FunctionDef or AsyncFunctionDef AST node
-            function_code_generator: The code generator class to use
-            funcflags: Flags for defaults (0x01 for positional, 0x02 for kw-only).
-                       The caller is responsible for compiling/loading defaults
-                       onto the stack before calling this method.
+        Takes funcflags for defaults (0x01 for positional, 0x02 for kw-only).
+        The caller is responsible for compiling/loading defaults
+        onto the stack before calling this method.
         """
         num_annotations = self._visit_annotations(func, func.args, func.returns)
         if num_annotations:
