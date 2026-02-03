@@ -702,8 +702,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Store into <name>
         self.name_op(cls.name, ast.Store, cls)
 
-    def _make_class_body(self, cls):
-        """Compile class body and call __build_class__. Shared by generic and non-generic paths."""
+    def _make_class_body(self, cls, bases=None):
+        """Compile class body and call __build_class__. Shared by generic and non-generic paths.
+        Takes an optional list of base class nodes. If None, uses cls.bases.
+        """
         # 1. compile the class body into a code object
         code, qualname = self.sub_scope(
             ClassCodeGenerator, cls.name, cls, cls.lineno)
@@ -714,7 +716,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 4. load class name
         self.load_const(self.space.newtext(cls.name))
         # 5. generate the rest of the code for the call
-        self._make_call(2, cls.bases, cls.keywords)
+        self._make_call(2, bases or cls.bases, cls.keywords)
 
     def visit_AugAssign(self, assign):
         target = assign.target
@@ -3075,9 +3077,10 @@ class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
     This generates code that:
     1. Creates type params (TypeVar, ParamSpec, TypeVarTuple)
     2. Builds a tuple of type params
-    3. Creates the inner class
-    4. Sets __type_params__ on the class
-    5. Returns the class
+    3. Creates Generic[T, ...] base and stores to .generic_base
+    4. Creates the inner class with Generic[T, ...] appended to bases
+    5. Sets __type_params__ on the class
+    6. Returns the class
     """
 
     def _compile(self, type_params_node):
@@ -3096,10 +3099,25 @@ class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
             self.name_op(name, ast.Load, cls)
         self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
 
-        # 3. Create the inner class (shared helper)
-        self._make_class_body(cls)
+        # 3. Create Generic[T, ...] base (mirrors CPython's INTRINSIC_SUBSCRIPT_GENERIC)
+        # Stack: [type_params_tuple]
+        self.emit_op(ops.DUP_TOP)                       # [tuple, tuple]
+        self._load_pypy_typing_attr('Generic')          # [tuple, tuple, Generic]
+        self.emit_op(ops.ROT_TWO)                       # [tuple, Generic, tuple]
+        self.emit_op(ops.BINARY_SUBSCR)                 # [tuple, Generic[T, ...]]
+        self.name_op('.generic_base', ast.Store, cls)   # [tuple]
 
-        # 4. Set __type_params__ on the class
+        # 4. Create the inner class with .generic_base appended to bases
+        # Create synthetic AST Name node for .generic_base (like CPython)
+        generic_base_node = ast.Name('.generic_base', ast.Load,
+                                           cls.lineno, cls.col_offset,
+                                           cls.end_lineno, cls.end_col_offset)
+        # Build modified bases list
+        bases = list(cls.bases) if cls.bases else []
+        bases.append(generic_base_node)
+        self._make_class_body(cls, bases=bases)
+
+        # 5. Set __type_params__ on the class
         # Stack: [type_params_tuple, class]
         # STORE_ATTR does TOS.name = TOS1, so we need [value, object] = [type_params_tuple, class]
         self.emit_op(ops.DUP_TOP)  # [type_params_tuple, class, class]
@@ -3107,7 +3125,7 @@ class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
         # Now TOS=class (object), TOS1=type_params_tuple (value)
         self.emit_op_name(ops.STORE_ATTR, self.names, '__type_params__')  # [class]
 
-        # 5. Return the class
+        # 6. Return the class
         self.emit_op(ops.RETURN_VALUE)
 
 

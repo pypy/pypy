@@ -438,3 +438,36 @@ C = outer()
 # With incorrect classification (FREE): would resolve to "function" from closure
 assert C.Alias.__value__ == "global", f"Expected 'global', got {C.Alias.__value__!r}"
 """, globs)
+
+
+# === Generic class base tests ===
+
+def test_generic_class_bases():
+    """PEP 695 generic classes automatically inherit from typing.Generic."""
+    from typing import Generic
+
+    # Basic case: no explicit bases
+    class C[T]: pass
+    assert C.__bases__ == (Generic,)
+    T, = C.__type_params__
+    assert C.__orig_bases__ == (Generic[T],)
+
+    # With explicit base
+    class Base: pass
+    class D[T](Base): pass
+    assert D.__bases__ == (Base, Generic)
+    T, = D.__type_params__
+    assert D.__orig_bases__ == (Base, Generic[T])
+
+    # Multiple type params
+    class Multi[T, U, V]: pass
+    T, U, V = Multi.__type_params__
+    assert Multi.__orig_bases__ == (Generic[T, U, V],)
+
+
+def test_generic_class_duplicate_generic_error():
+    """Explicit Generic[T] with PEP 695 syntax raises TypeError."""
+    from typing import Generic
+    with raises(TypeError) as excinfo:
+        class ClassA[T](Generic[T]): ...
+    assert str(excinfo.value) == "Cannot inherit from Generic[...] multiple times."

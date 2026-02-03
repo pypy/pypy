@@ -537,6 +537,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 self.note_symbol('.defaults', SYM_PARAM)
             if has_kw_defaults(args.kw_defaults):
                 self.note_symbol('.kwdefaults', SYM_PARAM)
+        elif isinstance(node, ast.ClassDef):
+            # For classes, register .generic_base which holds Generic[T, ...]
+            # This is used to automatically add Generic to bases like CPython does
+            self.note_symbol('.generic_base', SYM_ASSIGNED | SYM_USED)
 
         self.visit_sequence(node.type_params)
 
