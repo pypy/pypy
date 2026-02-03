@@ -22,15 +22,6 @@ __all__ = [
 ]
 
 
-def _caller(depth=2):
-    """Get the module name of the caller at the specified depth."""
-    import sys
-    try:
-        return sys._getframe(depth).f_globals.get('__name__', '__main__')
-    except (AttributeError, ValueError):
-        return None
-
-
 class _Immutable:
     """Mixin that makes instances immutable (no __dict__)."""
     __slots__ = ()
@@ -140,13 +131,6 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     __bound__ = _LazyEvaluator()
     __constraints__ = _LazyEvaluator()
 
-    def __hash__(self):
-        return hash((type(self), self.__name__,))
-
-    def __eq__(self, other):
-        # TypeVars are only equal if they are the same object
-        return self is other
-
     def __typing_subst__(self, arg):
         """Used for generic type substitution."""
         import typing
@@ -211,12 +195,6 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
         # Create args and kwargs attributes
         self.args = ParamSpecArgs(self)
         self.kwargs = ParamSpecKwargs(self)
-
-    def __hash__(self):
-        return hash((type(self), self.__name__,))
-
-    def __eq__(self, other):
-        return self is other
 
     def __typing_subst__(self, arg):
         import typing
@@ -299,12 +277,6 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
     def __repr__(self):
         return self.__name__
 
-    def __hash__(self):
-        return hash((type(self), self.__name__,))
-
-    def __eq__(self, other):
-        return self is other
-
     def __iter__(self):
         from typing import Unpack
         yield Unpack[self]
@@ -371,13 +343,6 @@ class TypeAliasType(_PickleUsingNameMixin):
 
     def __repr__(self):
         return self._name
-
-    def __hash__(self):
-        return hash((type(self), self._name))
-
-    def __eq__(self, other):
-        # TypeAliasTypes are only equal if they are the same object
-        return self is other
 
     def __getitem__(self, parameters):
         """Support generic type alias subscripting: Alias[T]."""
