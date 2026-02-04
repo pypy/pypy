@@ -308,6 +308,27 @@ class PyCode(eval.Code):
     def fget_co_freevars(self, space):
         return space.newtuple([space.newtext(name) for name in self.co_freevars])
 
+    @unwrap_spec(index=int)
+    def descr__varname_from_oparg(self, space, index):
+        """Return the local variable name for the given oparg index.
+
+        The index maps into co_varnames + co_cellvars + co_freevars.
+        """
+        nlocals = self.co_nlocals
+        ncellvars = len(self.co_cellvars)
+        nfreevars = len(self.co_freevars)
+
+        if index >= 0:
+            if index < nlocals:
+                return space.newtext(self.co_varnames[index])
+            index -= nlocals
+            if index < ncellvars:
+                return space.newtext(self.co_cellvars[index])
+            index -= ncellvars
+            if index < nfreevars:
+                return space.newtext(self.co_freevars[index])
+        raise oefmt(space.w_IndexError, "tuple index out of range")
+
     def descr_code__eq__(self, w_other):
         space = self.space
         if not isinstance(w_other, PyCode):

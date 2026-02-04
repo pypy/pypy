@@ -709,6 +709,7 @@ PyCode.typedef = TypeDef('code',
     co_lnotab = GetSetProperty(PyCode.fget_co_lnotab),
     co_lines = interp2app(PyCode.co_lines),
     replace = interp2app(PyCode.descr_replace),
+    _varname_from_oparg = interp2app(PyCode.descr__varname_from_oparg),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
