@@ -182,8 +182,7 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 self.error(err, self.nonlocal_directives.get(name, None))
             self.symbols[name] = SCOPE_FREE
-            if not self._hide_bound_from_nested_scopes:
-                self.free_vars.append(name)
+            self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif flags & (SYM_BOUND | SYM_ANNOTATED):
