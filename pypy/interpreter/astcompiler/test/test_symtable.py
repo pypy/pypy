@@ -630,6 +630,7 @@ def f(x):
             ("type Alias = await x", "await"),
             ("type Alias = (x := 1)", "assignment expression"),
             ("def f[T: (x := int)](): pass", "assignment expression"),
+            ("def f[T: [(x := int) for _ in [0]]](): pass", "assignment expression within a comprehension"),
         ]:
             exc = py.test.raises(SyntaxError, self.mod_scope, src).value
             assert keyword in exc.msg.lower(), "Expected %r in: %s" % (keyword, exc.msg)

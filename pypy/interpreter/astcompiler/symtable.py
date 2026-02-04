@@ -934,7 +934,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
                             node)
                     continue
 
-                if isinstance(parent, FunctionScope):
+                if isinstance(parent, AnnotationScope):
+                    self.error(
+                        "assignment expression within a comprehension cannot be used in an annotation scope",
+                        node)
+                elif isinstance(parent, FunctionScope):
                     parent.note_symbol(name, SYM_ASSIGNED, node)
                     if parent.lookup_role(name) & SYM_GLOBAL:
                         flag = SYM_GLOBAL
