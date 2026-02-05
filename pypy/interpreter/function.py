@@ -37,8 +37,7 @@ class Function(W_Root):
                           'defs_w?[*]',
                           'name?',
                           'qualname?',
-                          'w_kw_defs?',
-                          'w_type_params?']
+                          'w_kw_defs?']
 
     w_kw_defs = None
     w_type_params = None  # PEP 695: type parameters tuple
