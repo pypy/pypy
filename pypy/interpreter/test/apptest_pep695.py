@@ -24,6 +24,15 @@ def test_generic_type_alias():
     assert len(Stack.__type_params__) == 1
     assert Stack.__type_params__[0].__name__ == 'T'
 
+    type CallableT[**P] = Callable[P, int]
+    P = CallableT.__type_params__[0]
+    assert P.__name__ == 'P'
+    assert hasattr(P, 'args')
+    assert hasattr(P, 'kwargs')
+
+    type TupleT[*Ts] = tuple[*Ts]
+    Ts = TupleT.__type_params__[0]
+    assert Ts.__name__ == 'Ts'
 
 def test_multiple_type_params():
     type Pair[T, U] = tuple[T, U]
@@ -51,26 +60,6 @@ def test_typevar_with_constraints():
     type Starred[U: (*T.__constraints__, float)] = U
     U = Starred.__type_params__[0]
     assert U.__constraints__ == (int, str, float)
-
-
-# === ParamSpec tests ===
-
-def test_paramspec_basic():
-    from typing import Callable
-    type CallableT[**P] = Callable[P, int]
-    P = CallableT.__type_params__[0]
-    assert P.__name__ == 'P'
-    assert hasattr(P, 'args')
-    assert hasattr(P, 'kwargs')
-
-
-# === TypeVarTuple tests ===
-
-def test_typevartuple_basic():
-    type TupleT[*Ts] = tuple[*Ts]
-    Ts = TupleT.__type_params__[0]
-    assert Ts.__name__ == 'Ts'
-
 
 # === Generic function tests ===
 
@@ -159,15 +148,16 @@ def test_lazy_constraints_evaluation():
 # === Error cases ===
 
 def test_invalid_expressions_in_annotation_scope():
+    # TODO: Fix error messages to be specific to annotation scope kinds
     # Walrus operator not allowed
-    with raises(SyntaxError):
-        exec("type X = (y := int)")
-    # yield not allowed
-    with raises(SyntaxError):
-        exec("type X = (yield 1)")
-    # await not allowed
-    with raises(SyntaxError):
-        exec("type X = (await something)")
+    exc = raises(SyntaxError, exec, "type X = (y := 1)")
+    assert str(exc.value).startswith("named expression cannot be used within")
+
+    exc = raises(SyntaxError, exec, "type X = (yield 1)")
+    assert str(exc.value).startswith("yield expression cannot be used within")
+
+    exc = raises(SyntaxError, exec, "type X = (await 1)")
+    assert str(exc.value).startswith("await expression cannot be used within")
 
 
 # === TypeAliasType class tests ===
@@ -176,7 +166,7 @@ def test_type_alias_type_creation():
     from typing import TypeAliasType
     alias = TypeAliasType('MyType', int)
     assert alias.__name__ == 'MyType'
-    assert alias.__value__ == int
+    assert alias.__value__ is int
     assert alias.__type_params__ == ()
 
 
@@ -197,32 +187,24 @@ def test_type_alias_union():
 
 # === __type_params__ attribute tests ===
 
-def test_function_type_params_default():
-    def regular_function():
+def test_function_type_params():
+    def f():
         pass
-    assert regular_function.__type_params__ == ()
+    assert f.__type_params__ == ()
+
+    f.__type_params__ = (int, str)
+    assert f.__type_params__ == (int, str)
+
+    raises(TypeError, setattr, f, '__type_params__', [1, 2, 3])
 
 
-def test_class_type_params_default():
+def test_class_type_params():
     class RegularClass:
         pass
     assert RegularClass.__type_params__ == ()
 
 
-def test_type_params_settable():
-    def f():
-        pass
-    f.__type_params__ = (int, str)
-    assert f.__type_params__ == (int, str)
-
-
-def test_type_params_type_error():
-    def f():
-        pass
-    raises(TypeError, setattr, f, '__type_params__', [1, 2, 3])
-
-
-# === Known limitations and edge cases ===
+# === Edge cases ===
 
 def test_stacked_decorators_on_generic_function():
     call_order = []
@@ -345,7 +327,7 @@ def test_nested_class_namespace_isolation():
     class Outer:
         OuterOnly = int
         class Inner:
-            type Alias[T: OuterOnly] = T  # noqa: F821
+            type Alias[T: OuterOnly] = T
     T = Outer.Inner.Alias.__type_params__[0]
     raises(NameError, getattr, T, '__bound__')
 
@@ -401,7 +383,7 @@ def test_function_scope_and_class_namespace():
     class Outer:
         X = int
         def method(self):
-            type InnerAlias[T: X] = T  # noqa: F821
+            type InnerAlias[T: X] = T
             return InnerAlias
     alias = Outer().method()
     raises(NameError, getattr, alias.__type_params__[0], '__bound__')

@@ -404,13 +404,13 @@ class AnnotationScope(FunctionScope):
     #     return self.class_entry is not None
 
     def note_yield(self, yield_node):
-        self.error("'yield' not allowed in annotation scope", yield_node)
+        self.error("yield expression cannot be used within an annotation scope", yield_node)
 
     def note_yieldFrom(self, yieldFrom_node):
-        self.error("'yield from' not allowed in annotation scope", yieldFrom_node)
+        self.error("yield expression cannot be used within an annotation scope", yieldFrom_node)
 
     def note_await(self, await_node):
-        self.error("'await' not allowed in annotation scope", await_node)
+        self.error("await expression cannot be used within an annotation scope", await_node)
 
 
 class ClassScope(Scope):
@@ -918,10 +918,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.error(
                 "assignment expression cannot be used in a comprehension iterable expression",
                 node)
-        # PEP 695: walrus operator not allowed in annotation scopes
         if isinstance(scope, AnnotationScope):
             self.error(
-                "assignment expression cannot be used in a type parameter scope",
+                "named expression cannot be used within an annotation scope",
                 node)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
