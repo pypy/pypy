@@ -447,6 +447,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.module = module
         self.compile_info = compile_info
         self.scopes = {}
+        self.type_params_nodes = {}
         self.scope = None
         self.stack = []
         allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
@@ -525,7 +526,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             name: The name to use for the scope (e.g., function/class/alias name)
         """
         type_params_node = TypeParamsNode(node)
-        node._type_params_node = type_params_node  # Store for codegen to find
+        self.type_params_nodes[node] = type_params_node
         self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
 
         # For functions with defaults, register implicit args so LOAD_FAST works.

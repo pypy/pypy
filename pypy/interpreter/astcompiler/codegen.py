@@ -588,7 +588,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         if is_generic:
             # Get the TypeParamsNode stored by symtable
-            type_params_node = func._type_params_node
+            type_params_node = self.symbols.type_params_nodes[func]
 
             # 1. Compile defaults in OUTER scope. This ensures defaults are evaluated
             # BEFORE entering the type params scope, so they cannot see type parameters
@@ -675,7 +675,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         if is_generic:
             # Get the TypeParamsNode stored by symtable
-            type_params_node = cls._type_params_node
+            type_params_node = self.symbols.type_params_nodes[cls]
             # Compile the type params wrapper which creates the inner class
             code, qualname = self.sub_scope(GenericClassTypeParamsCodeGenerator,
                                             cls.name, type_params_node, cls.lineno)
@@ -2718,7 +2718,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if type_alias.type_params:
             # For generic type aliases (with type params), use the TypeParamBlockCodeGenerator
             # which handles the nested scope structure properly.
-            type_params_node = type_alias._type_params_node
+            type_params_node = self.symbols.type_params_nodes[type_alias]
             code, qualname = self.sub_scope(TypeParamBlockCodeGenerator,
                                             alias_name, type_params_node,
                                             type_alias.lineno)
