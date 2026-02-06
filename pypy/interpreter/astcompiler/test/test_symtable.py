@@ -625,11 +625,11 @@ def f(x):
     def test_pep695_annotation_scope_restrictions(self):
         """yield, yield from, await, walrus not allowed in annotation scopes."""
         for src, keyword in [
-            ("type Alias = (yield 1)", "yield"),
-            ("type Alias = (yield from x)", "yield"),
-            ("type Alias = await x", "await"),
-            ("type Alias = (x := 1)", "assignment expression"),
-            ("def f[T: (x := int)](): pass", "assignment expression"),
+            ("type Alias = (yield 1)", "yield expression"),
+            ("type Alias = (yield from x)", "yield expression"),
+            ("type Alias = await x", "await expression"),
+            ("type Alias = (x := 1)", "named expression"),
+            ("def f[T: (x := int)](): pass", "named expression"),
             ("def f[T: [(x := int) for _ in [0]]](): pass", "assignment expression within a comprehension"),
         ]:
             exc = py.test.raises(SyntaxError, self.mod_scope, src).value
