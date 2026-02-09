@@ -1066,6 +1066,26 @@ def descr_get__mro__(space, w_type):
     else:
         return space.w_None
 
+# PEP 695: __type_params__ support
+
+def descr_get__type_params__(space, w_type):
+    w_type = _check(space, w_type)
+    # Look up __type_params__ in the type's dict
+    w_result = w_type.dict_w.get('__type_params__', None)
+    if w_result is None:
+        return space.newtuple([])  # Default is empty tuple
+    return w_result
+
+def descr_set__type_params__(space, w_type, w_value):
+    w_type = _check(space, w_type)
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError,
+                    "can't set %N.__type_params__", w_type)
+    if not space.isinstance_w(w_value, space.w_tuple):
+        raise oefmt(space.w_TypeError,
+                    "__type_params__ must be set to a tuple")
+    w_type.dict_w['__type_params__'] = w_value
+
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
     w_type = _check(space, w_type, "expected type")
@@ -1290,6 +1310,8 @@ W_TypeObject.typedef = TypeDef("type",
     __bases__ = GetSetProperty(descr_get__bases__, descr_set__bases__),
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
+    __type_params__ = GetSetProperty(descr_get__type_params__,
+                                     descr_set__type_params__),
     __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc, descr_set__doc, cls=W_TypeObject, name='__doc__'),
     __text_signature__=GetSetProperty(type_get_text_signature),

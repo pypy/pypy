@@ -94,6 +94,8 @@ simple_stmts[list]:
 # will throw a SyntaxError.
 simple_stmt (memo):
     | assignment
+    # pypy change: removed &"type" to avoid type error in positive_lookahead *args
+    | type_alias
     | e=star_expressions { ast.Expr(value=e, LOCATIONS) }
     | &'return' return_stmt
     | &('import' | 'from') import_stmt
@@ -198,7 +200,10 @@ assert_stmt[ast.Assert]: 'assert' a=expression b=[',' z=expression { z }] {
     ast.Assert(test=a, msg=b, LOCATIONS)
 }
 
-import_stmt[ast.Import]: import_name | import_from
+import_stmt[ast.Import]:
+    | invalid_import
+    | import_name
+    | import_from
 
 # Import statements
 # -----------------
@@ -266,13 +271,14 @@ class_def[ast.ClassDef]:
 
 class_def_raw[ast.ClassDef]:
     | invalid_class_def_raw
-    | 'class' a=NAME b=['(' z=[arguments] ')' { z }] ':' c=block {
+    | 'class' a=NAME t=[type_params] b=['(' z=[arguments] ')' { z }] ':' c=block {
         ast.ClassDef(
             self.extract_id(a),
             bases=b.args if b else None,
             keywords=b.keywords if b else None,
             body=c,
             decorator_list=None,
+            type_params=t,
             LOCATIONS,
         )
      }
@@ -286,7 +292,7 @@ function_def[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
 
 function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     | invalid_def_raw
-    | 'def' n=NAME &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | 'def' n=NAME t=[type_params] &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         ast.FunctionDef(
             name=self.extract_id(n),
             args=params or self.make_arguments(None, None, None, [], None),
@@ -294,10 +300,11 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             body=b,
             decorator_list=None,
             type_comment=tc,
+            type_params=t,
             LOCATIONS,
         )
      }
-    | ASYNC 'def' n=NAME &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | ASYNC 'def' n=NAME t=[type_params] &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
        self.check_version(
             (3, 5),
             "Async functions are",
@@ -308,6 +315,7 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
                 body=b,
                 decorator_list=None,
                 type_comment=tc,
+                type_params=t,
                 LOCATIONS,
             )
         )
@@ -725,6 +733,51 @@ keyword_patterns:
 
 keyword_pattern:
     | arg=NAME '=' value=pattern { self.key_pattern_pair(arg, value) }
+
+# Type statement
+# ---------------
+
+type_alias[ast.TypeAlias]:
+    | "type" n=NAME t=[type_params] '=' b=expression {
+        self.check_version(
+            (3, 12),
+            "Type statement is",
+            ast.TypeAlias(
+                self.set_expr_context(n, Store),
+                type_params=t,
+                value=b,
+                LOCATIONS,
+            )
+        ) }
+
+# Type parameter declaration
+# --------------------------
+
+type_params[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: p='[' t=type_param_seq  ']' {
+        self.check_version((3, 12), "Type parameter lists are", p) and t }
+
+type_param_seq[list[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec]]: a=','.type_param+ [','] { a }
+
+type_param[ast.TypeVar | ast.TypeVarTuple | ast.ParamSpec] (memo):
+    | a=NAME b=[type_param_bound] { ast.TypeVar(a.id, bound=b, LOCATIONS) }
+    | '*' a=NAME colon=':' e=expression {
+            self.raise_syntax_error_starting_from(
+                "cannot use constraints with TypeVarTuple"
+                if isinstance(e, ast.Tuple) else
+                "cannot use bound with TypeVarTuple",
+                colon)
+        }
+    | '*' a=NAME { ast.TypeVarTuple(a.id, LOCATIONS) }
+    | '**' a=NAME colon=':' e=expression {
+            self.raise_syntax_error_starting_from(
+                "cannot use constraints with ParamSpec"
+                if isinstance(e, ast.Tuple) else
+                "cannot use bound with ParamSpec",
+                colon)
+        }
+    | '**' a=NAME { ast.ParamSpec(a.id, LOCATIONS) }
+
+type_param_bound[ast.Expression]: ':' e=expression { e }
 
 # EXPRESSIONS
 # -----------
@@ -1483,6 +1536,10 @@ invalid_group[NoReturn]:
     | '(' a='**' expression ')' {
         self.raise_syntax_error_known_location("cannot use double starred expression here", a)
      }
+invalid_import:
+    | a='import' ','.dotted_name+ 'from' dotted_name {
+        self.raise_syntax_error_starting_from("Did you mean to use 'from ... import ...' instead?", a) }
+
 invalid_import_from_targets[NoReturn]:
     | import_from_as_names a=',' NEWLINE {
         self.raise_syntax_error_known_location("trailing comma not allowed without surrounding parentheses", a)

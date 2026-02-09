@@ -83,7 +83,7 @@ def pytest_configure(config):
         config.pluginmanager.register(LeakFinder())
         # pypy.interpreter.astcompiler and pypy.module._cppyy need this,
         # as well as a few others
-        sys.setrecursionlimit(2000)
+        sys.setrecursionlimit(2500)
     if mode_A:
         from pypy.tool.pytest.apptest import PythonInterpreter
         config.applevel = PythonInterpreter(config.option.python)

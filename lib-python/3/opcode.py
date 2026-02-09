@@ -218,6 +218,12 @@ def_op('SET_UPDATE', 165)
 def_op('DICT_MERGE', 166)
 def_op('DICT_UPDATE', 167)
 
+# PEP 695 opcodes for annotation scopes
+def_op('LOAD_LOCALS', 168)                # Push locals() dict onto stack
+name_op('LOAD_FROM_DICT_OR_GLOBALS', 169) # Pop dict, lookup name in dict else globals
+def_op('LOAD_FROM_DICT_OR_DEREF', 170)    # Pop dict, lookup name in dict else cell var
+hasfree.append(170)
+
 # pypy modification, experimental bytecode
 def_op('BUILD_LIST_FROM_ARG', 203)
 def_op('CALL_METHOD_KW', 204)

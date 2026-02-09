@@ -2,6 +2,7 @@
 Symbol tabling building.
 """
 
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.pyparser.error import SyntaxError
 
@@ -14,6 +15,7 @@ SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
 SYM_ANNOTATED = 2 << 4
 SYM_COMP_ITER = 2 << 5
+SYM_TYPE_PARAM = 2 << 6
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -26,10 +28,22 @@ SCOPE_CELL = 5
 SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
 
+class TypeParamsNode(ast.AST):
+    """A wrapper node for the type params scope key.
+
+    This is needed because node.type_params is a list which isn't hashable.
+    We use this wrapper as the scope key for the TypeParamBlock scope.
+    Works with TypeAlias, FunctionDef, AsyncFunctionDef, and ClassDef nodes.
+    """
+    def __init__(self, node):
+        self.node = node  # TypeAlias, FunctionDef, AsyncFunctionDef, or ClassDef
+
+
 class Scope(object):
 
     can_be_optimized = False
     is_coroutine = False
+    class_entry = None  # Set by AnnotationScope for class scope visibility
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -92,6 +106,9 @@ class Scope(object):
                 err = "duplicate argument '%s' in function definition" % \
                     (identifier,)
                 self.error(err, ast_node)
+            if old_role & SYM_TYPE_PARAM and role & SYM_TYPE_PARAM:
+                err = "duplicate type parameter '%s'" % (identifier,)
+                self.error(err, ast_node)
             new_role |= old_role
         if self.comp_iter_target:
             if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
@@ -147,7 +164,7 @@ class Scope(object):
         # comprehension or a lambda expression.
         child_scope.comp_iter_expr = self.comp_iter_expr
 
-    def _finalize_name(self, name, flags, local, bound, free, globs):
+    def _finalize_name(self, name, flags, local, bound, free, globs, typeparams):
         """Decide on the scope of a name."""
         if flags & SYM_GLOBAL:
             self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
@@ -158,12 +175,14 @@ class Scope(object):
                 except KeyError:
                     pass
         elif flags & SYM_NONLOCAL:
+            if name in typeparams:
+                err = "nonlocal binding not allowed for type parameter '%s'" % (name,)
+                self.error(err, self.nonlocal_directives.get(name, None))
             if name not in bound:
                 err = "no binding for nonlocal '%s' found" % (name,)
                 self.error(err, self.nonlocal_directives.get(name, None))
             self.symbols[name] = SCOPE_FREE
-            if not self._hide_bound_from_nested_scopes:
-                self.free_vars.append(name)
+            self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif flags & (SYM_BOUND | SYM_ANNOTATED):
@@ -173,17 +192,35 @@ class Scope(object):
                 del globs[name]
             except KeyError:
                 pass
-        elif bound and name in bound:
-            self.symbols[name] = SCOPE_FREE
-            self.free_vars.append(name)
-            free[name] = None
-            self.has_free = True
-        elif name in globs:
-            self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
         else:
-            if self.nested:
+            # If a name is bound in the enclosing class, we want runtime resolution
+            # to check the class namespace (__classdict__) then globals, NOT the
+            # enclosing function's closure. Setting GLOBAL_IMPLICIT (instead of FREE)
+            # achieves this: both use LOAD_FROM_DICT_OR_* which checks __classdict__
+            # first, but GLOBAL_IMPLICIT falls back to globals while FREE falls back
+            # to the closure cell. This is required to maintain the principle that name
+            # resolution within an annotation scope is exactly as if the code was
+            # directly within the enclosing class body.
+            # Exclude __class__/__classdict__ - they need FREE.
+            if self.class_entry is not None and name not in ('__class__', '__classdict__'):
+                class_flags = self.class_entry.roles.get(name, SYM_BLANK)
+                if class_flags & SYM_GLOBAL:
+                    self.symbols[name] = SCOPE_GLOBAL_EXPLICIT
+                    return
+                if class_flags & SYM_BOUND and not (class_flags & SYM_NONLOCAL):
+                    self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+                    return
+            if bound and name in bound:
+                self.symbols[name] = SCOPE_FREE
+                self.free_vars.append(name)
+                free[name] = None
                 self.has_free = True
-            self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+            elif name in globs:
+                self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
+            else:
+                if self.nested:
+                    self.has_free = True
+                self.symbols[name] = SCOPE_GLOBAL_IMPLICIT
 
     def _pass_on_bindings(self, local, bound, globs, new_bound, new_globs):
         """Allow child scopes to see names bound here and in outer scopes."""
@@ -200,17 +237,23 @@ class Scope(object):
 
     _hide_bound_from_nested_scopes = False
 
-    def finalize(self, bound, free, globs):
+    def finalize(self, bound, free, globs, typeparams):
         """Enter final bookeeping data in to self.symbols."""
         self.symbols = {}
         local = {}
         new_globs = {}
         new_bound = {}
         new_free = {}
+        new_typeparams = typeparams.copy()
         if self._hide_bound_from_nested_scopes:
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
         for name, flags in self.roles.iteritems():
-            self._finalize_name(name, flags, local, bound, free, globs)
+            self._finalize_name(name, flags, local, bound, free, globs, typeparams)
+            # Track type parameters for nested scopes
+            if flags & SYM_TYPE_PARAM:
+                new_typeparams[name] = None
+            else:
+                new_typeparams.pop(name, None)
         if not self._hide_bound_from_nested_scopes:
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
         else:
@@ -220,7 +263,7 @@ class Scope(object):
             # Symbol dictionaries are copied to avoid having child scopes
             # pollute each other's.
             child_free = new_free.copy()
-            child.finalize(new_bound.copy(), child_free, new_globs.copy())
+            child.finalize(new_bound.copy(), child_free, new_globs.copy(), new_typeparams)
             child_frees.update(child_free)
             if child.has_free or child.child_has_free:
                 self.child_has_free = True
@@ -340,6 +383,36 @@ class AsyncFunctionScope(FunctionScope):
 class ComprehensionScope(FunctionScope):
     pass
 
+
+class AnnotationScope(FunctionScope):
+    """Special scope for PEP 695 annotation scopes (type params, type alias values).
+
+    Key differences from FunctionScope:
+    - Can access enclosing class namespace via LOAD_FROM_DICT_OR_* opcodes
+    - Disallows yield, yield from, await, walrus operator
+    """
+    can_be_optimized = True
+    needs_classdict = False
+
+    def __init__(self, name, lineno, col_offset):
+        FunctionScope.__init__(self, name, lineno, col_offset)
+
+    # Causes translation error???
+    # https://gist.github.com/BarrensZeppelin/30fe57eed1e88c81d0c1c324910a167c
+    # @property
+    # def needs_classdict(self):
+    #     return self.class_entry is not None
+
+    def note_yield(self, yield_node):
+        self.error("yield expression cannot be used within an annotation scope", yield_node)
+
+    def note_yieldFrom(self, yieldFrom_node):
+        self.error("yield expression cannot be used within an annotation scope", yieldFrom_node)
+
+    def note_await(self, await_node):
+        self.error("await expression cannot be used within an annotation scope", await_node)
+
+
 class ClassScope(Scope):
 
     _hide_bound_from_nested_scopes = True
@@ -353,12 +426,17 @@ class ClassScope(Scope):
     def _pass_special_names(self, local, new_bound):
         #assert '__class__' in local
         new_bound['__class__'] = None
+        new_bound['__classdict__'] = None
 
     def _finalize_cells(self, free):
         for name, role in self.symbols.iteritems():
-            if role == SCOPE_LOCAL and name in free and name == '__class__':
-                self.symbols[name] = SCOPE_CELL_CLASS
-                del free[name]
+            if role == SCOPE_LOCAL and name in free:
+                if name == '__class__':
+                    self.symbols[name] = SCOPE_CELL_CLASS
+                    del free[name]
+                elif name == '__classdict__':
+                    self.symbols[name] = SCOPE_CELL
+                    del free[name]
 
 
 class SymtableBuilder(ast.GenericASTVisitor):
@@ -369,6 +447,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.module = module
         self.compile_info = compile_info
         self.scopes = {}
+        self.type_params_nodes = {}
         self.scope = None
         self.stack = []
         allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
@@ -377,7 +456,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.push_scope(top, module)
         try:
             module.walkabout(self)
-            top.finalize(None, {}, {})
+            top.finalize(None, {}, {}, {})
         except SyntaxError as e:
             e.filename = compile_info.filename
             raise
@@ -411,48 +490,104 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Lookup the scope for a given AST node."""
         return self.scopes[scope_node]
 
+    def _push_annotation_scope(self, name, node, scope_node=None):
+        """Create and push an annotation scope with classdict handling.
+
+        Args:
+            name: The scope name
+            node: The AST node (for lineno/col_offset)
+            scope_node: The node to use as key in the scopes dictionary
+        """
+        # Find the nearest enclosing ClassScope.
+        # Regular functions break the chain - only annotation scopes can see
+        # through to enclosing class scopes. This matches CPython behavior.
+        if isinstance(self.scope, ClassScope):
+            class_scope = self.scope
+        else:
+            class_scope = self.scope.class_entry
+
+        scope = AnnotationScope(name, node.lineno, node.col_offset)
+        if class_scope is not None:
+            scope.class_entry = class_scope
+            scope.needs_classdict = True
+            scope.note_symbol('__classdict__', SYM_USED)
+        self.push_scope(scope, scope_node or node)
+
+    @specialize.argtype(1)
+    def _enter_typeparam_scope(self, node, name):
+        """Enter a type parameter scope for generic definitions.
+
+        Creates an AnnotationScope for the type parameters of a generic function,
+        class, or type alias. This is the PyPy equivalent of CPython's
+        symtable_enter_typeparam_block.
+
+        Args:
+            node: The AST node (FunctionDef, AsyncFunctionDef, ClassDef, or TypeAlias)
+            name: The name to use for the scope (e.g., function/class/alias name)
+        """
+        type_params_node = TypeParamsNode(node)
+        self.type_params_nodes[node] = type_params_node
+        self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
+
+        # For functions with defaults, register implicit args so LOAD_FAST works.
+        # Defaults are evaluated in the outer scope, then passed as args to the
+        # type params wrapper function. Use .defaults/.kwdefaults names like CPython.
+        if isinstance(node, ast.FunctionDef) or isinstance(node, ast.AsyncFunctionDef):
+            args = node.args
+            has_defaults = args.defaults is not None and len(args.defaults) > 0
+            if has_defaults:
+                self.note_symbol('.defaults', SYM_PARAM)
+            if has_kw_defaults(args.kw_defaults):
+                self.note_symbol('.kwdefaults', SYM_PARAM)
+        elif isinstance(node, ast.ClassDef):
+            # For classes, register .generic_base which holds Generic[T, ...]
+            # This is used to automatically add Generic to bases like CPython does
+            self.note_symbol('.generic_base', SYM_ASSIGNED | SYM_USED)
+
+        self.visit_sequence(node.type_params)
+
     def implicit_arg(self, pos):
         """Note a implicit arg for implicit tuple unpacking."""
         name = ".%d" % (pos,)
         self.note_symbol(name, SYM_PARAM)
 
     def note_symbol(self, identifier, role, ast_node=None):
-        """Note the identifer on the current scope."""
+        """Note the identifier on the current scope."""
         mangled = self.scope.note_symbol(identifier, role, ast_node)
         if role & SYM_GLOBAL:
             if mangled in self.globs:
                 role |= self.globs[mangled]
             self.globs[mangled] = role
 
-    def visit_FunctionDef(self, func):
+    @specialize.argtype(1)
+    def _visit_function(self, func, scope_class):
         self.note_symbol(func.name, SYM_ASSIGNED)
         # Function defaults and decorators happen in the outer scope.
         args = func.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
         self.visit_kwonlydefaults(args.kw_defaults)
-        self._visit_annotations(func)
         self.visit_sequence(func.decorator_list)
-        new_scope = FunctionScope(func.name, func.lineno, func.col_offset)
+        # PEP 695: if type_params, create outer TypeParamBlock scope
+        if func.type_params:
+            self._enter_typeparam_scope(func, func.name)
+        # Visit annotations after entering type param scope (can reference type params)
+        self._visit_annotations(func)
+        # Create the function scope
+        new_scope = scope_class(func.name, func.lineno, func.col_offset)
         self.push_scope(new_scope, func)
         func.args.walkabout(self)
         self.visit_sequence(func.body)
         self.pop_scope()
+        # Pop type params scope if we created one
+        if func.type_params:
+            self.pop_scope()
+
+    def visit_FunctionDef(self, func):
+        self._visit_function(func, FunctionScope)
 
     def visit_AsyncFunctionDef(self, func):
-        self.note_symbol(func.name, SYM_ASSIGNED)
-        # Function defaults and decorators happen in the outer scope.
-        args = func.args
-        assert isinstance(args, ast.arguments)
-        self.visit_sequence(args.defaults)
-        self.visit_kwonlydefaults(args.kw_defaults)
-        self._visit_annotations(func)
-        self.visit_sequence(func.decorator_list)
-        new_scope = AsyncFunctionScope(func.name, func.lineno, func.col_offset)
-        self.push_scope(new_scope, func)
-        func.args.walkabout(self)
-        self.visit_sequence(func.body)
-        self.pop_scope()
+        self._visit_function(func, AsyncFunctionScope)
 
     def visit_Await(self, aw):
         self.scope.note_await(aw)
@@ -495,14 +630,24 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ClassDef(self, clsdef):
         self.note_symbol(clsdef.name, SYM_ASSIGNED)
+        # Decorators are visited in the enclosing scope
+        self.visit_sequence(clsdef.decorator_list)
+        # PEP 695: if type_params, create outer TypeParamBlock scope
+        if clsdef.type_params:
+            self._enter_typeparam_scope(clsdef, clsdef.name)
+        # Bases and keywords are visited in type param scope (can reference type params)
         self.visit_sequence(clsdef.bases)
         self.visit_sequence(clsdef.keywords)
-        self.visit_sequence(clsdef.decorator_list)
+        # Create the class scope
         self.push_scope(ClassScope(clsdef), clsdef)
         self.note_symbol('__class__', SYM_ASSIGNED)
+        self.note_symbol('__classdict__', SYM_ASSIGNED)
         self.note_symbol('__locals__', SYM_PARAM)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
+        # Pop type params scope if we created one
+        if clsdef.type_params:
+            self.pop_scope()
 
     def visit_ImportFrom(self, imp):
         for alias in imp.names:
@@ -602,6 +747,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 self.scope.nonlocal_directives[name] = nonl
 
     def visit_Lambda(self, lamb):
+        # gh-109118: Lambda not allowed in annotation scope within class scope
+        if isinstance(self.scope, AnnotationScope) and self.scope.needs_classdict:
+            self.error("Cannot use lambda in annotation scope within class scope",
+                       lamb)
         args = lamb.args
         assert isinstance(args, ast.arguments)
         self.visit_sequence(args.defaults)
@@ -624,6 +773,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.note_await(comp)
 
     def _visit_comprehension(self, node, kind, comps, *consider):
+        # gh-109118: Comprehension not allowed in annotation scope within class scope
+        if isinstance(self.scope, AnnotationScope) and self.scope.needs_classdict:
+            self.error("Cannot use comprehension in annotation scope within class scope",
+                       node)
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         self.scope.comp_iter_expr += 1
@@ -766,6 +919,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.error(
                 "assignment expression cannot be used in a comprehension iterable expression",
                 node)
+        if isinstance(scope, AnnotationScope):
+            self.error(
+                "named expression cannot be used within an annotation scope",
+                node)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
@@ -776,7 +933,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
                             node)
                     continue
 
-                if isinstance(parent, FunctionScope):
+                if isinstance(parent, AnnotationScope):
+                    self.error(
+                        "assignment expression within a comprehension cannot be used in an annotation scope",
+                        node)
+                elif isinstance(parent, FunctionScope):
                     parent.note_symbol(name, SYM_ASSIGNED, node)
                     if parent.lookup_role(name) & SYM_GLOBAL:
                         flag = SYM_GLOBAL
@@ -804,3 +965,55 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_MatchStar(self, match_star):
         if match_star.name:
             self.note_symbol(match_star.name, SYM_ASSIGNED, match_star)
+
+    # PEP 695 type parameter support
+
+    def visit_TypeAlias(self, type_alias):
+        """Visit a type alias statement: type X[T] = ..."""
+        # The alias name is assigned in the enclosing scope
+        target = type_alias.name
+        assert isinstance(target, ast.Name)
+        self.note_symbol(target.id, SYM_ASSIGNED)
+
+        # Following CPython's design with two scopes:
+        # 1. TypeParamBlock for type params (if any)
+        # 2. TypeAliasBlock for the value expression
+        if type_alias.type_params:
+            self._enter_typeparam_scope(type_alias, target.id)
+
+        # Create a scope for the value expression (TypeAliasBlock in CPython)
+        self._push_annotation_scope(target.id, type_alias)
+
+        type_alias.value.walkabout(self)
+
+        self.pop_scope()  # Pop value scope
+
+        if type_alias.type_params:
+            self.pop_scope()
+
+    def visit_TypeVar(self, type_var):
+        """Visit a TypeVar in a type parameter list."""
+        self.note_symbol(type_var.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var)
+
+        # If there's a bound, create a sub-scope for lazy evaluation
+        if type_var.bound is not None:
+            self._push_annotation_scope(type_var.name + ".<bound>", type_var)
+            type_var.bound.walkabout(self)
+            self.pop_scope()
+
+    def visit_ParamSpec(self, param_spec):
+        """Visit a ParamSpec in a type parameter list."""
+        self.note_symbol(param_spec.name, SYM_TYPE_PARAM | SYM_ASSIGNED, param_spec)
+
+    def visit_TypeVarTuple(self, type_var_tuple):
+        """Visit a TypeVarTuple in a type parameter list."""
+        self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)
+
+
+def has_kw_defaults(kw_defaults):
+    """Check if there are any keyword-only defaults."""
+    if kw_defaults:
+        for d in kw_defaults:
+            if d is not None:
+                return True
+    return False

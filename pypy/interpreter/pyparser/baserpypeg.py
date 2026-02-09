@@ -857,6 +857,7 @@ class Parser:
                 decorators,
                 target.returns,
                 target.type_comment,
+                target.type_params,
                 *target.location())
         elif isinstance(target, ast.AsyncFunctionDef):
             return ast.AsyncFunctionDef(
@@ -866,6 +867,7 @@ class Parser:
                 decorators,
                 target.returns,
                 target.type_comment,
+                target.type_params,
                 *target.location())
         else:
             assert isinstance(target, ast.ClassDef)
@@ -875,6 +877,7 @@ class Parser:
                 target.keywords,
                 target.body,
                 decorators,
+                target.type_params,
                 *target.location())
         return target
 

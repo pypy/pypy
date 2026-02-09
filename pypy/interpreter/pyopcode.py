@@ -360,6 +360,12 @@ class __extend__(pyframe.PyFrame):
                 self.DICT_MERGE(oparg, next_instr)
             elif opcode == opcodedesc.DICT_UPDATE.index:
                 self.DICT_UPDATE(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_LOCALS.index:
+                self.LOAD_LOCALS(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_FROM_DICT_OR_GLOBALS.index:
+                self.LOAD_FROM_DICT_OR_GLOBALS(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_FROM_DICT_OR_DEREF.index:
+                self.LOAD_FROM_DICT_OR_DEREF(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
             elif opcode == opcodedesc.POP_BLOCK.index:
@@ -551,6 +557,63 @@ class __extend__(pyframe.PyFrame):
         w_value = space.finditem(self.debugdata.w_locals, space.newtext(name))
         if w_value is None:
             self.LOAD_DEREF(varindex, next_instr)
+        else:
+            self.pushvalue(w_value)
+
+    # PEP 695 opcodes for annotation scopes
+
+    def LOAD_LOCALS(self, oparg, next_instr):
+        # Push the locals dict onto the stack
+        w_locals = self.getorcreatedebug().w_locals
+        self.pushvalue(w_locals)
+
+    def LOAD_FROM_DICT_OR_GLOBALS(self, nameindex, next_instr):
+        # Pop a dict from the stack, lookup name in dict, else in globals
+        space = self.space
+        w_dict = self.popvalue()
+        w_varname = self.getname_w(nameindex)
+        varname = space.text_w(w_varname)
+
+        # First try the dict
+        w_value = space.finditem_str(w_dict, varname)
+        if w_value is not None:
+            self.pushvalue(w_value)
+            return
+
+        # Then try globals
+        w_value = space.finditem_str(self.get_w_globals(), varname)
+        if w_value is not None:
+            self.pushvalue(w_value)
+            return
+
+        # Then try builtins
+        w_value = self.get_builtin().getdictvalue(space, varname)
+        if w_value is not None:
+            self.pushvalue(w_value)
+            return
+
+        raise oefmt_name_error(space, w_varname, "name %R is not defined")
+
+    def LOAD_FROM_DICT_OR_DEREF(self, varindex, next_instr):
+        # Pop a dict from the stack, lookup name in dict, else in cell var
+        space = self.space
+        w_dict = self.popvalue()
+
+        # Get the variable name from the freevar/cellvar
+        varname = self.getfreevarname(varindex)
+
+        # First try the dict
+        w_value = space.finditem_str(w_dict, varname)
+        if w_value is not None:
+            self.pushvalue(w_value)
+            return
+
+        # Fall back to deref
+        cell = self._getcell(varindex)
+        try:
+            w_value = cell.get()
+        except ValueError:
+            self.raise_exc_unbound(varindex)
         else:
             self.pushvalue(w_value)
 

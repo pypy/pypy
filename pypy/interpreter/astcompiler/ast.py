@@ -373,6 +373,8 @@ class stmt(AST):
             return Delete.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Assign):
             return Assign.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_TypeAlias):
+            return TypeAlias.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_AugAssign):
             return AugAssign.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_AnnAssign):
@@ -417,17 +419,18 @@ class stmt(AST):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "expected some sort of stmt, but got %R", w_node)
-State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | TryStar(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
+State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list, type_param* type_params)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | TypeAlias(expr name, type_param* type_params, expr value)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | TryStar(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
 
 class FunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, returns, type_comment, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
         self.returns = returns
         self.type_comment = type_comment
+        self.type_params = type_params
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
@@ -445,6 +448,10 @@ class FunctionDef(stmt):
                     self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         if self.returns:
             self.returns = self.returns.mutate_over(visitor)
+        if self.type_params:
+            for i in range(len(self.type_params)):
+                if self.type_params[i] is not None:
+                    self.type_params[i] = self.type_params[i].mutate_over(visitor)
         return visitor.visit_FunctionDef(self)
 
     def to_object(self, space):
@@ -476,6 +483,13 @@ class FunctionDef(stmt):
         assert w_type_comment is not None
         if self.type_comment:
             space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
+        if self.type_params is None:
+            type_params_w = []
+        else:
+            type_params_w = [node.to_object(space) for node in self.type_params] # type_param
+        w_type_params = space.newlist(type_params_w)
+        assert w_type_params is not None
+        space.setattr(w_node, space.newtext('type_params'), w_type_params)
         w_lineno = space.newint(self.lineno)  # int
         assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -498,6 +512,7 @@ class FunctionDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_returns = get_field(space, w_node, 'returns', True)
         w_type_comment = get_field(space, w_node, 'type_comment', True)
+        w_type_params = get_field(space, w_node, 'type_params', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
@@ -514,24 +529,27 @@ class FunctionDef(stmt):
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
         _type_comment = check_string(space, w_type_comment, 1)
+        type_params_w = space.unpackiterable(w_type_params)
+        _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, True)
         _end_col_offset = obj_to_int(space, w_end_col_offset, True)
-        return FunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
+        return FunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'], default_none_fields=['returns', 'type_comment'], doc='FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)')
+State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment', 'type_params'], default_none_fields=['returns', 'type_comment'], doc='FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)')
 
 
 class AsyncFunctionDef(stmt):
 
-    def __init__(self, name, args, body, decorator_list, returns, type_comment, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, args, body, decorator_list, returns, type_comment, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.args = args
         self.body = body
         self.decorator_list = decorator_list
         self.returns = returns
         self.type_comment = type_comment
+        self.type_params = type_params
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
@@ -549,6 +567,10 @@ class AsyncFunctionDef(stmt):
                     self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
         if self.returns:
             self.returns = self.returns.mutate_over(visitor)
+        if self.type_params:
+            for i in range(len(self.type_params)):
+                if self.type_params[i] is not None:
+                    self.type_params[i] = self.type_params[i].mutate_over(visitor)
         return visitor.visit_AsyncFunctionDef(self)
 
     def to_object(self, space):
@@ -580,6 +602,13 @@ class AsyncFunctionDef(stmt):
         assert w_type_comment is not None
         if self.type_comment:
             space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
+        if self.type_params is None:
+            type_params_w = []
+        else:
+            type_params_w = [node.to_object(space) for node in self.type_params] # type_param
+        w_type_params = space.newlist(type_params_w)
+        assert w_type_params is not None
+        space.setattr(w_node, space.newtext('type_params'), w_type_params)
         w_lineno = space.newint(self.lineno)  # int
         assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -602,6 +631,7 @@ class AsyncFunctionDef(stmt):
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
         w_returns = get_field(space, w_node, 'returns', True)
         w_type_comment = get_field(space, w_node, 'type_comment', True)
+        w_type_params = get_field(space, w_node, 'type_params', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
@@ -618,23 +648,26 @@ class AsyncFunctionDef(stmt):
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
         _type_comment = check_string(space, w_type_comment, 1)
+        type_params_w = space.unpackiterable(w_type_params)
+        _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, True)
         _end_col_offset = obj_to_int(space, w_end_col_offset, True)
-        return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
+        return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment'], default_none_fields=['returns', 'type_comment'], doc='AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)')
+State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment', 'type_params'], default_none_fields=['returns', 'type_comment'], doc='AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)')
 
 
 class ClassDef(stmt):
 
-    def __init__(self, name, bases, keywords, body, decorator_list, lineno, col_offset, end_lineno, end_col_offset):
+    def __init__(self, name, bases, keywords, body, decorator_list, type_params, lineno, col_offset, end_lineno, end_col_offset):
         self.name = name
         self.bases = bases
         self.keywords = keywords
         self.body = body
         self.decorator_list = decorator_list
+        self.type_params = type_params
         stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
 
     def walkabout(self, visitor):
@@ -657,6 +690,10 @@ class ClassDef(stmt):
             for i in range(len(self.decorator_list)):
                 if self.decorator_list[i] is not None:
                     self.decorator_list[i] = self.decorator_list[i].mutate_over(visitor)
+        if self.type_params:
+            for i in range(len(self.type_params)):
+                if self.type_params[i] is not None:
+                    self.type_params[i] = self.type_params[i].mutate_over(visitor)
         return visitor.visit_ClassDef(self)
 
     def to_object(self, space):
@@ -692,6 +729,13 @@ class ClassDef(stmt):
         w_decorator_list = space.newlist(decorator_list_w)
         assert w_decorator_list is not None
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
+        if self.type_params is None:
+            type_params_w = []
+        else:
+            type_params_w = [node.to_object(space) for node in self.type_params] # type_param
+        w_type_params = space.newlist(type_params_w)
+        assert w_type_params is not None
+        space.setattr(w_node, space.newtext('type_params'), w_type_params)
         w_lineno = space.newint(self.lineno)  # int
         assert w_lineno is not None
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -713,6 +757,7 @@ class ClassDef(stmt):
         w_keywords = get_field(space, w_node, 'keywords', False)
         w_body = get_field(space, w_node, 'body', False)
         w_decorator_list = get_field(space, w_node, 'decorator_list', False)
+        w_type_params = get_field(space, w_node, 'type_params', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
@@ -728,13 +773,15 @@ class ClassDef(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
+        type_params_w = space.unpackiterable(w_type_params)
+        _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, True)
         _end_col_offset = obj_to_int(space, w_end_col_offset, True)
-        return ClassDef(_name, _bases, _keywords, _body, _decorator_list, _lineno, _col_offset, _end_lineno, _end_col_offset)
+        return ClassDef(_name, _bases, _keywords, _body, _decorator_list, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'keywords', 'body', 'decorator_list'], default_none_fields=[], doc='ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)')
+State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'], default_none_fields=[], doc='ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list, type_param* type_params)')
 
 
 class Return(stmt):
@@ -915,6 +962,81 @@ class Assign(stmt):
         return Assign(_targets, _value, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Assign', 'stmt', ['targets', 'value', 'type_comment'], default_none_fields=['type_comment'], doc='Assign(expr* targets, expr value, string? type_comment)')
+
+
+class TypeAlias(stmt):
+
+    def __init__(self, name, type_params, value, lineno, col_offset, end_lineno, end_col_offset):
+        self.name = name
+        self.type_params = type_params
+        self.value = value
+        stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_TypeAlias(self)
+
+    def mutate_over(self, visitor):
+        self.name = self.name.mutate_over(visitor)
+        if self.type_params:
+            for i in range(len(self.type_params)):
+                if self.type_params[i] is not None:
+                    self.type_params[i] = self.type_params[i].mutate_over(visitor)
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_TypeAlias(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_TypeAlias)
+        w_name = self.name.to_object(space)  # expr
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        if self.type_params is None:
+            type_params_w = []
+        else:
+            type_params_w = [node.to_object(space) for node in self.type_params] # type_param
+        w_type_params = space.newlist(type_params_w)
+        assert w_type_params is not None
+        space.setattr(w_node, space.newtext('type_params'), w_type_params)
+        w_value = self.value.to_object(space)  # expr
+        assert w_value is not None
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', False)
+        w_type_params = get_field(space, w_node, 'type_params', False)
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        _name = expr.from_object(space, w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
+        type_params_w = space.unpackiterable(w_type_params)
+        _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
+        _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return TypeAlias(_name, _type_params, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('TypeAlias', 'stmt', ['name', 'type_params', 'value'], default_none_fields=[], doc='TypeAlias(expr name, type_param* type_params, expr value)')
 
 
 class AugAssign(stmt):
@@ -5651,6 +5773,186 @@ class TypeIgnore(type_ignore):
 State.ast_type('TypeIgnore', 'type_ignore', ['lineno', 'tag'], default_none_fields=[], doc='TypeIgnore(int lineno, string tag)')
 
 
+class type_param(AST):
+
+    def __init__(self, lineno, col_offset, end_lineno, end_col_offset):
+        self.lineno = lineno
+        self.col_offset = col_offset
+        self.end_lineno = end_lineno
+        self.end_col_offset = end_col_offset
+
+    @staticmethod
+    def from_object(space, w_node):
+        if space.is_w(w_node, space.w_None):
+            return None
+        if space.isinstance_w(w_node, get(space).w_TypeVar):
+            return TypeVar.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_ParamSpec):
+            return ParamSpec.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_TypeVarTuple):
+            return TypeVarTuple.from_object(space, w_node)
+        raise oefmt(space.w_TypeError,
+                "expected some sort of type_param, but got %R", w_node)
+State.ast_type('type_param', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=[], doc='type_param = TypeVar(identifier name, expr? bound)\n           | ParamSpec(identifier name)\n           | TypeVarTuple(identifier name)')
+
+class TypeVar(type_param):
+
+    def __init__(self, name, bound, lineno, col_offset, end_lineno, end_col_offset):
+        self.name = name
+        self.bound = bound
+        type_param.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_TypeVar(self)
+
+    def mutate_over(self, visitor):
+        if self.bound:
+            self.bound = self.bound.mutate_over(visitor)
+        return visitor.visit_TypeVar(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_TypeVar)
+        w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        w_bound = self.bound.to_object(space) if self.bound is not None else space.w_None  # expr
+        assert w_bound is not None
+        space.setattr(w_node, space.newtext('bound'), w_bound)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', False)
+        w_bound = get_field(space, w_node, 'bound', True)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _name = space.text_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
+        _bound = expr.from_object(space, w_bound)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return TypeVar(_name, _bound, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('TypeVar', 'type_param', ['name', 'bound'], default_none_fields=['bound'], doc='TypeVar(identifier name, expr? bound)')
+
+
+class ParamSpec(type_param):
+
+    def __init__(self, name, lineno, col_offset, end_lineno, end_col_offset):
+        self.name = name
+        type_param.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_ParamSpec(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_ParamSpec(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_ParamSpec)
+        w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _name = space.text_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return ParamSpec(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('ParamSpec', 'type_param', ['name'], default_none_fields=[], doc='ParamSpec(identifier name)')
+
+
+class TypeVarTuple(type_param):
+
+    def __init__(self, name, lineno, col_offset, end_lineno, end_col_offset):
+        self.name = name
+        type_param.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_TypeVarTuple(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_TypeVarTuple(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_TypeVarTuple)
+        w_name = space.newtext(self.name)  # identifier
+        assert w_name is not None
+        space.setattr(w_node, space.newtext('name'), w_name)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_name = get_field(space, w_node, 'name', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        _name = space.text_w(w_name)
+        if _name is None:
+            raise_required_value(space, w_node, 'name')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, False)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        return TypeVarTuple(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('TypeVarTuple', 'type_param', ['name'], default_none_fields=[], doc='TypeVarTuple(identifier name)')
+
+
 class ASTVisitor(object):
 
     def visit_sequence(self, seq):
@@ -5687,6 +5989,8 @@ class ASTVisitor(object):
     def visit_Delete(self, node):
         return self.default_visitor(node)
     def visit_Assign(self, node):
+        return self.default_visitor(node)
+    def visit_TypeAlias(self, node):
         return self.default_visitor(node)
     def visit_AugAssign(self, node):
         return self.default_visitor(node)
@@ -5820,6 +6124,12 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_TypeIgnore(self, node):
         return self.default_visitor(node)
+    def visit_TypeVar(self, node):
+        return self.default_visitor(node)
+    def visit_ParamSpec(self, node):
+        return self.default_visitor(node)
+    def visit_TypeVarTuple(self, node):
+        return self.default_visitor(node)
 
 class GenericASTVisitor(ASTVisitor):
 
@@ -5851,6 +6161,7 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.decorator_list)
         if node.returns:
             node.returns.walkabout(self)
+        self.visit_sequence(node.type_params)
 
     def visit_AsyncFunctionDef(self, node):
         self.visited(node)
@@ -5859,6 +6170,7 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.decorator_list)
         if node.returns:
             node.returns.walkabout(self)
+        self.visit_sequence(node.type_params)
 
     def visit_ClassDef(self, node):
         self.visited(node)
@@ -5866,6 +6178,7 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.keywords)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
+        self.visit_sequence(node.type_params)
 
     def visit_Return(self, node):
         self.visited(node)
@@ -5879,6 +6192,12 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Assign(self, node):
         self.visited(node)
         self.visit_sequence(node.targets)
+        node.value.walkabout(self)
+
+    def visit_TypeAlias(self, node):
+        self.visited(node)
+        node.name.walkabout(self)
+        self.visit_sequence(node.type_params)
         node.value.walkabout(self)
 
     def visit_AugAssign(self, node):
@@ -6215,6 +6534,19 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.patterns)
 
     def visit_TypeIgnore(self, node):
+        self.visited(node)
+        pass
+
+    def visit_TypeVar(self, node):
+        self.visited(node)
+        if node.bound:
+            node.bound.walkabout(self)
+
+    def visit_ParamSpec(self, node):
+        self.visited(node)
+        pass
+
+    def visit_TypeVarTuple(self, node):
         self.visited(node)
         pass
 

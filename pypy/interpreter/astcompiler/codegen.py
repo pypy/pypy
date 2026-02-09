@@ -260,7 +260,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
             qualname = name
         elif self.qualname:
-            if isinstance(self.scope, symtable.FunctionScope):
+            if isinstance(self.scope, symtable.AnnotationScope):
+                # PEP 695: annotation scopes are "invisible" in qualnames
+                qualname = self.qualname
+            elif isinstance(self.scope, symtable.FunctionScope):
                 qualname = '%s.<locals>.%s' % (self.qualname, name)
             else:
                 qualname = '%s.%s' % (self.qualname, name)
@@ -565,8 +568,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.visit_sequence(defaults)
             self.emit_op_arg(ops.BUILD_TUPLE, len(defaults))
 
-    @specialize.arg(2)
-    def _visit_function(self, func, function_code_generator):
+    @specialize.argtype(1)
+    def _visit_function(self, func):
         # Load decorators first, but apply them after the function is created.
         if func.decorator_list:
             for dec in func.decorator_list:
@@ -578,38 +581,73 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.update_position(func)
 
         args = func.args
-
         assert isinstance(args, ast.arguments)
 
-        oparg = 0
+        # PEP 695: check if this is a generic function
+        is_generic = bool(func.type_params)
 
-        if args.defaults is not None and len(args.defaults):
-            oparg = oparg | 0x01
-            self._visit_defaults(args.defaults)
+        if is_generic:
+            # Get the TypeParamsNode stored by symtable
+            type_params_node = self.symbols.type_params_nodes[func]
 
-        if args.kwonlyargs:
-            kw_default_count = self._visit_kwonlydefaults(args)
-            if kw_default_count:
-                oparg = oparg | 0x02
+            # 1. Compile defaults in OUTER scope. This ensures defaults are evaluated
+            # BEFORE entering the type params scope, so they cannot see type parameters
+            # (e.g., T=1; def f[T](x=T): pass -> x should be 1)
+            num_typeparam_args = 0
+            if args.defaults is not None and len(args.defaults):
+                num_typeparam_args += 1
+                self._visit_defaults(args.defaults)
+            if args.kwonlyargs:
+                kw_default_count = self._visit_kwonlydefaults(args)
+                num_typeparam_args += kw_default_count > 0
 
-        num_annotations = self._visit_annotations(func, args, func.returns)
-        if num_annotations:
-            oparg = oparg | 0x04
+            # 2. Create the type params wrapper function
+            code, qualname = self.sub_scope(GenericFunctionTypeParamsCodeGenerator,
+                                            func.name, type_params_node, func.lineno)
+            self._make_function(code, qualname=qualname)
 
-        code, qualname = self.sub_scope(function_code_generator, func.name,
-                                        func, func.lineno)
-        self._make_function(code, oparg, qualname=qualname)
-        # Apply decorators.
+            # 3. Rotate wrapper under the defaults for the call
+            if num_typeparam_args:
+                self.emit_op(ops.ROT_THREE if num_typeparam_args == 2 else ops.ROT_TWO)
+
+            # 4. Call wrapper with defaults as args
+            self.emit_op_arg(ops.CALL_FUNCTION, num_typeparam_args)
+        else:
+            # Non-generic: compile defaults here, then use shared helper
+            funcflags = 0
+            if args.defaults is not None and len(args.defaults):
+                self._visit_defaults(args.defaults)
+                funcflags |= 0x01
+            if args.kwonlyargs:
+                kw_default_count = self._visit_kwonlydefaults(args)
+                if kw_default_count:
+                    funcflags |= 0x02
+            self._make_function_body(func, funcflags)
+
+        # Apply decorators (same for both generic and non-generic)
         if func.decorator_list:
             for i in range(len(func.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store, func)
 
-    def visit_FunctionDef(self, func):
-        self._visit_function(func, FunctionCodeGenerator)
+    @specialize.argtype(1)
+    def _make_function_body(self, func, funcflags):
+        """Compile annotations and function body.
 
-    def visit_AsyncFunctionDef(self, func):
-        self._visit_function(func, AsyncFunctionCodeGenerator)
+        Takes funcflags for defaults (0x01 for positional, 0x02 for kw-only).
+        The caller is responsible for compiling/loading defaults
+        onto the stack before calling this method.
+        """
+        num_annotations = self._visit_annotations(func, func.args, func.returns)
+        if num_annotations:
+            funcflags |= 0x04
+
+        code_generator = FunctionCodeGenerator if isinstance(func, ast.FunctionDef) else AsyncFunctionCodeGenerator
+        code, qualname = self.sub_scope(code_generator, func.name, func, func.lineno)
+        self._make_function(code, funcflags, qualname=qualname)
+
+    visit_FunctionDef = _visit_function
+    visit_AsyncFunctionDef = _visit_function
 
     @update_pos_expr
     def visit_Lambda(self, lam):
@@ -631,6 +669,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_ClassDef(self, cls):
         self.visit_sequence(cls.decorator_list)
+
+        # PEP 695: check if this is a generic class
+        is_generic = bool(cls.type_params)
+
+        if is_generic:
+            # Get the TypeParamsNode stored by symtable
+            type_params_node = self.symbols.type_params_nodes[cls]
+            # Compile the type params wrapper which creates the inner class
+            code, qualname = self.sub_scope(GenericClassTypeParamsCodeGenerator,
+                                            cls.name, type_params_node, cls.lineno)
+            self._make_function(code, qualname=qualname)
+            # Call to get the class with __type_params__ set
+            self.emit_op_arg(ops.CALL_FUNCTION, 0)
+        else:
+            # Non-generic: compile class directly using shared helper
+            self._make_class_body(cls)
+
+        # Apply decorators (same for both)
+        if cls.decorator_list:
+            for i in range(len(cls.decorator_list)):
+                self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        # Store into <name>
+        self.name_op(cls.name, ast.Store, cls)
+
+    def _make_class_body(self, cls, bases=None):
+        """Compile class body and call __build_class__. Shared by generic and non-generic paths.
+        Takes an optional list of base class nodes. If None, uses cls.bases.
+        """
         # 1. compile the class body into a code object
         code, qualname = self.sub_scope(
             ClassCodeGenerator, cls.name, cls, cls.lineno)
@@ -641,13 +707,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # 4. load class name
         self.load_const(self.space.newtext(cls.name))
         # 5. generate the rest of the code for the call
-        self._make_call(2, cls.bases, cls.keywords)
-        # 6. apply decorators
-        if cls.decorator_list:
-            for i in range(len(cls.decorator_list)):
-                self.emit_op_arg(ops.CALL_FUNCTION, 1)
-        # 7. store into <name>
-        self.name_op(cls.name, ast.Store, cls)
+        self._make_call(2, bases or cls.bases, cls.keywords)
 
     def visit_AugAssign(self, assign):
         target = assign.target
@@ -2605,6 +2665,124 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.on_top -= 1 # pop the tuple
         self.emit_op(ops.POP_TOP)
 
+    # PEP 695 type parameter support
+
+    def _load_pypy_typing_attr(self, attr_name):
+        """Load an attribute from the _pypy_typing module."""
+        # Import _pypy_typing and get attribute
+        # Use IMPORT_NAME to import the module
+        self.load_const(self.space.newint(0))  # level = 0
+        self.load_const(self.space.newtuple([self.space.newtext(attr_name)]))  # fromlist
+        self.emit_op_name(ops.IMPORT_NAME, self.names, '_pypy_typing')
+        self.emit_op_name(ops.IMPORT_FROM, self.names, attr_name)
+        self.emit_op(ops.ROT_TWO)
+        self.emit_op(ops.POP_TOP)  # Pop the module, keep the attribute
+
+    def _emit_type_alias_type_call(self, type_alias, alias_name, type_param_names):
+        """Emit code to create a TypeAliasType.
+
+        This is shared between visit_TypeAlias (for simple type aliases)
+        and TypeParamBlockCodeGenerator._compile (for generic type aliases).
+
+        Args:
+            type_alias: The TypeAlias AST node
+            alias_name: The name of the type alias
+            type_param_names: List of type parameter names (empty for simple aliases)
+        """
+        # 1. Load TypeAliasType & name
+        self._load_pypy_typing_attr('_make_typealiastype')
+        self.load_const(self.space.newtext(alias_name))
+
+        # 2. Create evaluate function for lazy value evaluation
+        code, qualname = self.sub_scope(TypeAliasValueCodeGenerator,
+                                        alias_name, type_alias, type_alias.lineno)
+        self._make_function(code, qualname=qualname)
+
+        # 3. Build type_params tuple
+        for name in type_param_names:
+            self.name_op(name, ast.Load, type_alias)
+        self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
+
+        # 4. Call _make_typealiastype(name, evaluate_func, type_params)
+        self.emit_op_arg(ops.CALL_FUNCTION, 3)
+
+    def visit_TypeAlias(self, type_alias):
+        """Generate code for: type X[T, ...] = value
+
+        Creates a TypeAliasType with lazy value evaluation.
+        """
+        target = type_alias.name
+        assert isinstance(target, ast.Name)
+        alias_name = target.id
+
+        if type_alias.type_params:
+            # For generic type aliases (with type params), use the TypeParamBlockCodeGenerator
+            # which handles the nested scope structure properly.
+            type_params_node = self.symbols.type_params_nodes[type_alias]
+            code, qualname = self.sub_scope(TypeParamBlockCodeGenerator,
+                                            alias_name, type_params_node,
+                                            type_alias.lineno)
+            self._make_function(code, qualname=qualname)
+            self.emit_op_arg(ops.CALL_FUNCTION, 0)  # Call the function to get the TypeAliasType
+        else:
+            # For simple type aliases (no type params), create the TypeAliasType directly
+            self._emit_type_alias_type_call(type_alias, alias_name, [])
+
+        # Store result to alias name
+        self.name_op(alias_name, ast.Store, type_alias)
+
+    def visit_TypeVar(self, type_var):
+        """Generate code to create a TypeVar.
+
+        For bounds/constraints, creates lazy evaluation functions.
+        """
+        name = type_var.name
+
+        if type_var.bound is not None:
+            # Call _pypy_typing._make_typevar_with_bound(name, evaluate_bound)
+            # or _pypy_typing._make_typevar_with_constraints(name, evaluate_constraints).
+            # Check if bound is a Tuple (constraints) or single expression (bound)
+            self._load_pypy_typing_attr('_make_typevar_with_constraints' if isinstance(type_var.bound, ast.Tuple) else '_make_typevar_with_bound')
+
+            # Load name
+            self.load_const(self.space.newtext(type_var.name))
+
+            # Create lambda for lazy bound evaluation
+            code, qualname = self.sub_scope(TypeVarBoundCodeGenerator,
+                                            type_var.name, type_var, type_var.lineno)
+            self._make_function(code, qualname=qualname)
+
+            self.emit_op_arg(ops.CALL_FUNCTION, 2)
+        else:
+            # Simple TypeVar without bound or constraints
+            # Call _pypy_typing._make_typevar(name)
+            self._load_pypy_typing_attr('_make_typevar')
+            self.load_const(self.space.newtext(type_var.name))
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+
+        # Store to the name
+        self.name_op(name, ast.Store, type_var)
+
+    def visit_ParamSpec(self, param_spec):
+        """Generate code to create a ParamSpec."""
+        # Call _pypy_typing._make_paramspec(name)
+        self._load_pypy_typing_attr('_make_paramspec')
+        self.load_const(self.space.newtext(param_spec.name))
+        self.emit_op_arg(ops.CALL_FUNCTION, 1)
+
+        # Store to the name
+        self.name_op(param_spec.name, ast.Store, param_spec)
+
+    def visit_TypeVarTuple(self, type_var_tuple):
+        """Generate code to create a TypeVarTuple."""
+        # Call _pypy_typing._make_typevartuple(name)
+        self._load_pypy_typing_attr('_make_typevartuple')
+        self.load_const(self.space.newtext(type_var_tuple.name))
+        self.emit_op_arg(ops.CALL_FUNCTION, 1)
+
+        # Store to the name
+        self.name_op(type_var_tuple.name, ast.Store, type_var_tuple)
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
@@ -2676,6 +2854,18 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
         if args.kwonlyargs:
             self.kwonlyargcount = len(args.kwonlyargs)
 
+    def _visit_type_params_and_collect_names(self, type_params):
+        names = []
+        for type_param in type_params:
+            type_param.walkabout(self)
+            assert (
+                isinstance(type_param, ast.TypeVar)
+                or isinstance(type_param, ast.ParamSpec)
+                or isinstance(type_param, ast.TypeVarTuple)
+            )
+            names.append(type_param.name)
+        return names
+
 
 class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
@@ -2721,6 +2911,218 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         self.emit_op(ops.RETURN_VALUE)
 
 
+class AnnotationScopeCodeGenerator(AbstractFunctionCodeGenerator):
+    """Base class for annotation scope code generators with class dict access.
+
+    This provides the overridden name_op method that uses LOAD_FROM_DICT_OR_*
+    opcodes when inside a class context (i.e., when __classdict__ is a free var).
+    """
+
+    def _needs_classdict_lookup(self):
+        """Check if this scope needs __classdict__ access."""
+        return '__classdict__' in self.free_vars
+
+    def name_op(self, identifier, ctx, node):
+        """Override to use LOAD_FROM_DICT_OR_* when in class context.
+
+        This implements CPython's class namespace access for annotation scopes:
+        - SCOPE_GLOBAL_IMPLICIT: check class dict first, then globals
+        - SCOPE_FREE: check class dict first, then cell
+
+        Note: This means class-level names shadow type parameters when they
+        have the same name, matching CPython's behavior.
+        """
+        if ctx != ast.Load or not self._needs_classdict_lookup():
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+        # Skip __classdict__ itself - use normal resolution
+        if identifier == '__classdict__':
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+        scope = self.scope.lookup(identifier)
+
+        # For implicit globals, check class dict first, then globals
+        if scope == symtable.SCOPE_GLOBAL_IMPLICIT:
+            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_op_name(ops.LOAD_FROM_DICT_OR_GLOBALS, self.names, identifier)
+        # For free vars, check class dict first, then cell
+        elif scope == symtable.SCOPE_FREE:
+            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_op_arg(ops.LOAD_FROM_DICT_OR_DEREF,
+                            self.add_name(self.free_vars, identifier))
+        else:
+            # Local, cell, or explicit global - use normal resolution
+            return PythonCodeGenerator.name_op(self, identifier, ctx, node)
+
+
+class TypeParamBlockCodeGenerator(AnnotationScopeCodeGenerator):
+    """Code generator for the TypeParamBlock scope for type aliases.
+
+    This generates code that:
+    1. Creates type params (TypeVar, ParamSpec, TypeVarTuple)
+    2. Creates the value evaluation function
+    3. Creates and returns the TypeAliasType
+    """
+
+    def _compile(self, type_params_node):
+        # type_params_node is a TypeParamsNode wrapper
+        assert isinstance(type_params_node, symtable.TypeParamsNode)
+        type_alias = type_params_node.node
+        assert isinstance(type_alias, ast.TypeAlias)
+        self.first_lineno = type_alias.lineno
+        self.add_const(self.space.w_None)
+
+        target = type_alias.name
+        assert isinstance(target, ast.Name)
+        alias_name = target.id
+
+        # 1. Create type params and store them
+        type_param_names = self._visit_type_params_and_collect_names(type_alias.type_params)
+
+        # 2. Create and call TypeAliasType
+        self._emit_type_alias_type_call(type_alias, alias_name, type_param_names)
+
+        # Return the TypeAliasType
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class TypeAliasValueCodeGenerator(AnnotationScopeCodeGenerator):
+    """Code generator for the lazy evaluation function of a type alias value."""
+
+    def _compile(self, type_alias):
+        assert isinstance(type_alias, ast.TypeAlias)
+        self.first_lineno = type_alias.lineno
+        self.add_const(self.space.w_None)
+        type_alias.value.walkabout(self)
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class TypeVarBoundCodeGenerator(AnnotationScopeCodeGenerator):
+    """Code generator for the lazy evaluation function of a TypeVar bound."""
+
+    def _compile(self, type_var):
+        assert isinstance(type_var, ast.TypeVar)
+        self.first_lineno = type_var.lineno
+        self.add_const(self.space.w_None)
+        assert type_var.bound is not None
+        type_var.bound.walkabout(self)
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class GenericFunctionTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
+    """Code generator for the TypeParamBlock scope for generic functions.
+
+    This generates code that:
+    1. Creates type params (TypeVar, ParamSpec, TypeVarTuple)
+    2. Builds a tuple of type params
+    3. Loads defaults from args (passed from outer scope)
+    4. Creates the inner function (with annotations, body)
+    5. Sets __type_params__ on the function
+    6. Returns the function
+    """
+
+    def _compile(self, type_params_node):
+        assert isinstance(type_params_node, symtable.TypeParamsNode)
+        func = type_params_node.node
+        assert isinstance(func, ast.FunctionDef) or isinstance(func, ast.AsyncFunctionDef)
+        self.first_lineno = func.lineno
+        self.add_const(self.space.w_None)
+
+        # 1. Create type params and store them
+        type_param_names = self._visit_type_params_and_collect_names(func.type_params)
+
+        # 2. Build type_params tuple
+        for name in type_param_names:
+            self.name_op(name, ast.Load, func)
+        self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
+
+        # 3. Load defaults from args
+        args = func.args
+        funcflags = 0
+        if args.defaults is not None and len(args.defaults) > 0:
+            self.emit_op_arg(ops.LOAD_FAST, 0)
+            funcflags |= 0x01
+            self.argcount += 1
+        if symtable.has_kw_defaults(args.kw_defaults):
+            self.emit_op_arg(ops.LOAD_FAST, self.argcount)
+            funcflags |= 0x02
+            self.argcount += 1
+
+        # 4. Create the inner function (annotations handled by _make_function_body)
+        if isinstance(func, ast.AsyncFunctionDef):
+            self._make_function_body(func, funcflags)
+        else:
+            assert isinstance(func, ast.FunctionDef)
+            self._make_function_body(func, funcflags)
+
+        # 5. Set __type_params__ on the function
+        # Stack: [type_params_tuple, function]
+        # STORE_ATTR does TOS.name = TOS1, so we need [value, object] = [type_params_tuple, function]
+        self.emit_op(ops.DUP_TOP)  # [type_params_tuple, function, function]
+        self.emit_op(ops.ROT_THREE)  # [function, type_params_tuple, function]
+        self.emit_op_name(ops.STORE_ATTR, self.names, '__type_params__')  # [function]
+
+        # 6. Return the function
+        self.emit_op(ops.RETURN_VALUE)
+
+
+class GenericClassTypeParamsCodeGenerator(AnnotationScopeCodeGenerator):
+    """Code generator for the TypeParamBlock scope for generic classes.
+
+    This generates code that:
+    1. Creates type params (TypeVar, ParamSpec, TypeVarTuple)
+    2. Builds a tuple of type params
+    3. Creates Generic[T, ...] base and stores to .generic_base
+    4. Creates the inner class with Generic[T, ...] appended to bases
+    5. Sets __type_params__ on the class
+    6. Returns the class
+    """
+
+    def _compile(self, type_params_node):
+        assert isinstance(type_params_node, symtable.TypeParamsNode)
+        cls = type_params_node.node
+        assert isinstance(cls, ast.ClassDef)
+        self.first_lineno = cls.lineno
+        self.add_const(self.space.w_None)
+
+        # 1. Create type params and store them
+        type_param_names = self._visit_type_params_and_collect_names(cls.type_params)
+
+        # 2. Build type_params tuple
+        for name in type_param_names:
+            self.name_op(name, ast.Load, cls)
+        self.emit_op_arg(ops.BUILD_TUPLE, len(type_param_names))
+
+        # 3. Create Generic[T, ...] base (mirrors CPython's INTRINSIC_SUBSCRIPT_GENERIC)
+        # Stack: [type_params_tuple]
+        self.emit_op(ops.DUP_TOP)                       # [tuple, tuple]
+        self._load_pypy_typing_attr('Generic')          # [tuple, tuple, Generic]
+        self.emit_op(ops.ROT_TWO)                       # [tuple, Generic, tuple]
+        self.emit_op(ops.BINARY_SUBSCR)                 # [tuple, Generic[T, ...]]
+        self.name_op('.generic_base', ast.Store, cls)   # [tuple]
+
+        # 4. Create the inner class with .generic_base appended to bases
+        # Create synthetic AST Name node for .generic_base (like CPython)
+        generic_base_node = ast.Name('.generic_base', ast.Load,
+                                           cls.lineno, cls.col_offset,
+                                           cls.end_lineno, cls.end_col_offset)
+        # Build modified bases list
+        bases = list(cls.bases) if cls.bases else []
+        bases.append(generic_base_node)
+        self._make_class_body(cls, bases=bases)
+
+        # 5. Set __type_params__ on the class
+        # Stack: [type_params_tuple, class]
+        # STORE_ATTR does TOS.name = TOS1, so we need [value, object] = [type_params_tuple, class]
+        self.emit_op(ops.DUP_TOP)  # [type_params_tuple, class, class]
+        self.emit_op(ops.ROT_THREE)  # [class, type_params_tuple, class]
+        # Now TOS=class (object), TOS1=type_params_tuple (value)
+        self.emit_op_name(ops.STORE_ATTR, self.names, '__type_params__')  # [class]
+
+        # 6. Return the class
+        self.emit_op(ops.RETURN_VALUE)
+
+
 class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, node):
@@ -2763,6 +3165,12 @@ class ClassCodeGenerator(PythonCodeGenerator):
         # first instructions is that of the first decorator
         self.update_position((self.first_lineno, -1, -1, -1))
         self.argcount = 1
+        # Initialize __classdict__ with locals() if any annotation scope needs it
+        # This must be done at the very start, before any names are stored
+        classdict_scope = self.scope.lookup("__classdict__")
+        if classdict_scope == symtable.SCOPE_CELL:
+            self.emit_op(ops.LOAD_LOCALS)  # Push locals() dict
+            self.emit_op_arg(ops.STORE_DEREF, self.cell_vars["__classdict__"])
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)
         # ... and store it as __module__

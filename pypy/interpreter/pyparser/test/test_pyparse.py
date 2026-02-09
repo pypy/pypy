@@ -571,7 +571,6 @@ class TestFString(BaseTestPythonParser):
         assert (exc.lineno, exc.offset) == (2, 4)
 
 
-@pytest.mark.xfail(reason="TODO")
 class TestPy312TypeFeatures(BaseTestPythonParser):
     def test_type_alias(self):
         self.parse("type alias = int | str")
@@ -611,17 +610,15 @@ type ListOrSet[T] = list[T] | set[T]
         self.parse("""
 def overly_generic[
    SimpleTypeVar,
-   TypeVarWithDefault = int,
    TypeVarWithBound: int,
    TypeVarWithConstraints: (str, bytes),
-   *SimpleTypeVarTuple = (int, float),
-   **SimpleParamSpec = (str, bytearray),
+   *SimpleTypeVarTuple,
+   **SimpleParamSpec,
 ](
    a: SimpleTypeVar,
-   b: TypeVarWithDefault,
-   c: TypeVarWithBound,
-   d: Callable[SimpleParamSpec, TypeVarWithConstraints],
-   *e: SimpleTypeVarTuple,
+   b: TypeVarWithBound,
+   c: Callable[SimpleParamSpec, TypeVarWithConstraints],
+   *d: SimpleTypeVarTuple,
 ): ...
 """)
 

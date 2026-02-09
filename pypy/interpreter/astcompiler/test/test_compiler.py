@@ -1072,7 +1072,6 @@ a = A()
             return c().get(), x"""
         yield self.st, test, "f(3)", (4, 4)
 
-    @pytest.mark.xfail
     def test_nonlocal_class_nesting_bug(self):
         test = """\
 def foo():
@@ -2398,7 +2397,6 @@ match x:
     def test_type_with_star_311(self):
         self.st("def func1(*args: *(1, )): pass", "func1.__annotations__['args']", 1)
 
-    @pytest.mark.xfail
     def test_if_call_or_call_bug(self):
         # used to crash
         compile_with_astcompiler("""
@@ -3506,3 +3504,26 @@ class TestHugeStackDepths:
         source = '(type("A", (), {"f": lambda self, *args: len(args)}))().f(%s)' % args
         w_res = self.run_and_check_stacksize(source)
         assert self.space.int_w(w_res) == 217
+
+
+class TestPep695TypeSyntax(BaseTestCompiler):
+    def test_defaults_scope(self):
+        yield self.st, "T=1\ndef f[T](x=T): return x", "f()", 1
+        yield self.st, "T=1\ndef f[T](*, x=T): return x", "f()", 1
+
+    def test_nonlocal_in_class(self):
+        yield (self.st, """
+            def f(x):
+                class C:
+                    nonlocal x
+                    type A = x
+                return C.A.__value__
+            """, "f(42)", 42)
+        yield (self.st, """
+            def f(x):
+                class C:
+                    nonlocal x
+                    x = 41
+                    type A = x
+                return C.A.__value__
+            """, "f(42)", 41)

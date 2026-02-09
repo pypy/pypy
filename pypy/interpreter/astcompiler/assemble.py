@@ -1110,6 +1110,10 @@ _static_opcode_stack_effects = {
     ops.STORE_DEREF: -1,
     ops.DELETE_DEREF: 0,
 
+    ops.LOAD_LOCALS: 1,
+    ops.LOAD_FROM_DICT_OR_GLOBALS: 0,  # pops dict, pushes value
+    ops.LOAD_FROM_DICT_OR_DEREF: 0,    # pops dict, pushes value
+
     ops.GET_AWAITABLE: 0,
     ops.SETUP_ASYNC_WITH: 0,
     ops.BEFORE_ASYNC_WITH: 1,
