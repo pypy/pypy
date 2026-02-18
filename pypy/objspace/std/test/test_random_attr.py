@@ -1,12 +1,6 @@
 import pytest
 import sys
 try:
-    import __pypy__
-except ImportError:
-    pass
-else:
-    pytest.skip("makes no sense under pypy!")
-try:
     from hypothesis import given, strategies, settings
 except ImportError:
     pytest.skip("requires hypothesis")
@@ -20,7 +14,7 @@ base_initargs = strategies.sampled_from([
     ("type(sys), OldBase", ("fake", ), True),
     ])
 
-attrnames = strategies.sampled_from(["a", "b", "c"])
+attrnames = strategies.sampled_from(["a", "b", "c"] + ["attr%s" % i for i in range(10)])
 
 def make_value_attr(val):
     return val, str(val)
@@ -68,10 +62,10 @@ def make_code(draw):
     inst = cls(*initargs)
     code.append("    pass")
     code.append("a = A(*%s)" % (initargs, ))
-    for attr in draw(strategies.lists(attrnames, min_size=1)):
+    for attr in draw(strategies.lists(attrnames, min_size=10)):
         op = draw(strategies.sampled_from(["read", "read", "read",
-                      "write", "writemeth", "writeclass", "writebase",
-                      "del", "delclass"]))
+                      "write", "write", "write", "del", "del", "writemeth",
+                      "writeclass", "writebase", "delclass"]))
         if op == "read":
             try:
                 res = getattr(inst, attr)
