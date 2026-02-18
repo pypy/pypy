@@ -802,6 +802,27 @@ def test_unbox_reorder_bug3():
     obj2.setdictvalue(space, "_task_id", 6.0) # reorder
     assert obj2.getdictvalue(space, "blocked") == "blocked2"
 
+def test_boxed_reorder_bug():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    class objectcls(W_ObjectObject):
+        objectmodel.import_from_mixin(BaseUserClassMapdict)
+        objectmodel.import_from_mixin(MapdictDictSupport)
+        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+    cls = Class(allow_unboxing=True)
+    obj = objectcls()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "a0", 'a')
+    obj.setdictvalue(space, "a1", False)
+    obj.setdictvalue(space, "a2", False)
+    obj.setdictvalue(space, "a3", True)
+    obj.setdictvalue(space, "a4", "Nope")
+    obj.setdictvalue(space, "a5", ())
+    obj.setdictvalue(space, "a6", 'x')
+    obj.deldictvalue(space, "a5")
+    obj.setdictvalue(space, "a7", "y")
+    obj.setdictvalue(space, "a6", "z")
+    obj.setdictvalue(space, "a5", (int, str))
 
 def test_unboxed_insert_different_orders_perm():
     from itertools import permutations
@@ -978,7 +999,6 @@ def test_specialized_class():
 def test_specialized_class_overflow():
     from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
     from pypy.objspace.std.objectobject import W_ObjectObject
-    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
     w1 = W_Root()
     w2 = W_Root()
     w3 = W_Root()
@@ -1836,6 +1856,22 @@ class AppTestWithMapDictAndCounters(object):
             return a.attrinita + 30
         res = self.check(f, 'attrinita')
         assert res == (2, 2, 0)
+
+    def test_bug_jit_hint_on_reordering(self):
+        class A(object):
+            pass
+        a = A()
+        a.a0 = 'a'
+        a.a1 = False
+        a.a2 = False
+        a.a3 = True
+        a.a4 = None
+        a.a5 = ()
+        a.a6 = 'x'
+        del a.a5
+        a.a7 = 'y'
+        a.a6 = 'z'
+        a.a5 = (int, str)
 
 
 class AppTestGlobalCaching(AppTestWithMapDict):

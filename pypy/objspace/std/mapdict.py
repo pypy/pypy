@@ -911,8 +911,8 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                         return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
-                return
-            setattr(self, valnmin1, value)
+            else:
+                setattr(self, valnmin1, value)
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -947,17 +947,18 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 erased = erase_list(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
 
+        @jit.unroll_safe
         def _set_mapdict_increase_storage(self, map, value):
             storage_needed = map.storage_needed()
-            if self.map.storage_needed() == n:
+            prev_storage_size = self.map.storage_needed()
+            if prev_storage_size == n:
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
             else:
-                prev_storage_size = self._get_mapdict_map().storage_needed()
-                new_storage = [erase_item(None)] * (storage_needed - prev_storage_size)
+                new_storage = [erase_item(None)] * (storage_needed - nmin1)
                 curr_storage = self._mapdict_get_storage_list()
-                jit.record_exact_value(len(curr_storage), prev_storage_size - nmin1)
-                new_storage = curr_storage + new_storage
+                for i in range(prev_storage_size - nmin1):
+                    new_storage[i] = curr_storage[i]
                 new_storage[storage_needed - n] = value
             self._set_mapdict_map(map)
             erased = erase_list(new_storage)
