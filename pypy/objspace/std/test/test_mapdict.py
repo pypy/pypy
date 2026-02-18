@@ -824,6 +824,26 @@ def test_boxed_reorder_bug():
     obj.setdictvalue(space, "a6", "z")
     obj.setdictvalue(space, "a5", (int, str))
 
+    class objectcls(W_ObjectObject):
+        objectmodel.import_from_mixin(BaseUserClassMapdict)
+        objectmodel.import_from_mixin(MapdictDictSupport)
+        objectmodel.import_from_mixin(MapdictStorageMixin)
+    cls = Class(allow_unboxing=True)
+    obj = objectcls()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "a0", 'a')
+    obj.setdictvalue(space, "a1", False)
+    obj.setdictvalue(space, "a2", False)
+    obj.setdictvalue(space, "a3", True)
+    obj.setdictvalue(space, "a4", "Nope")
+    obj.setdictvalue(space, "a5", ())
+    obj.setdictvalue(space, "a6", 'x')
+    obj.deldictvalue(space, "a5")
+    obj.setdictvalue(space, "a7", "y")
+    obj.setdictvalue(space, "a6", "z")
+    obj.setdictvalue(space, "a5", (int, str))
+    assert obj.map.storage_needed() == len(obj.storage)
+
 def test_unboxed_insert_different_orders_perm():
     from itertools import permutations
     cls = Class(allow_unboxing=True)

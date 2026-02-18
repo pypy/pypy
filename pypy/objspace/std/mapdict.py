@@ -821,6 +821,7 @@ class MapdictStorageMixin(object):
         # we don't overallocate since a while any more
         return self.map.storage_needed()
 
+    @jit.unroll_safe
     def _set_mapdict_increase_storage(self, map, value):
         """ increase storage size, adding value """
         len_storage = self._get_mapdict_map().storage_needed()
@@ -828,7 +829,10 @@ class MapdictStorageMixin(object):
             assert map.storage_needed() == 1
             new_storage = [value]
         else:
-            new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
+            new_storage = [erase_item(None)] * map.storage_needed()
+            old_storage = self.storage
+            for i in range(len_storage):
+                new_storage[i] = old_storage[i]
             new_storage[len_storage] = value
         self._set_mapdict_map(map)
         self.storage = new_storage
