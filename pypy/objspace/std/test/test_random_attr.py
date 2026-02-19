@@ -196,8 +196,6 @@ def run_test(objcls, sequence):
     print sequence
     model = {}
     for i, (what, attr, value) in enumerate(sequence):
-        if i == 52:
-            import pdb;pdb.set_trace()
         if what == "set":
             obj.setdictvalue(space, attr, value)
             model[attr] = value
@@ -211,3 +209,23 @@ def run_test(objcls, sequence):
             if obj.map.storage_needed():
                 assert obj.map.storage_needed() == len(obj.storage)
 
+def test_bug1():
+    run_test(genericstoragecls,
+             [('set', 's2', 'a'), ('set', 's0', 'a'), ('del', 's0', None),
+              ('del', 's2', None), ('set', 's2', 'a'), ('set', 's0', 'a'),
+              ('set', 's1', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('set', 's0', 'a'), ('del', 's1', None),
+              ('del', 's2', None), ('del', 's0', None), ('set', 's1', 0),
+              ('set', 's0', 'a'), ('del', 's1', None), ('set', 's1', 0),
+              ('del', 's0', None), ('set', 's0', 'a'), ('set', 's2', 'a'),
+              ('del', 's0', None), ('del', 's1', None), ('del', 's2', None),
+              ('set', 's0', 'a'), ('set', 's0', 'a'), ('del', 's0', None),
+              ('set', 's0', 'a'), ('set', 's1', 0), ('del', 's0', None),
+              ('set', 's0', 'a'), ('del', 's0', None), ('del', 's1', None),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's1', 0), ('del', 's0', None), ('set', 's0', 'a'),
+              ('del', 's0', None), ('del', 's1', None), ('set', 's4', 0),
+              ('set', 's3', 'a'), ('set', 's0', 'a'), ('set', 's3', 0),
+              ('set', 's0', 'a'), ('set', 's1', 0)])

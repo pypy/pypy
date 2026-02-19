@@ -150,7 +150,18 @@ class AbstractAttribute(object):
 
     def add_attr(self, obj, name, attrkind, w_value):
         space = self.space
-        self._reorder_and_add(obj, name, attrkind, w_value)
+        unbox_type = self._pick_unbox_type(w_value)
+        number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
+        attr = holder.pick_attr(unbox_type)
+        if not number_to_readd:
+            attr._switch_map_and_write_increase_storage1(obj, w_value)
+        else:
+            # we found the attributes further up, need to save the previous
+            # values of the attributes we passed. this is the complicated case,
+            # use _reorder_and_add for it.
+            # TODO: right now some extra work is happening, find a way to undo
+            # that
+            self._reorder_and_add(obj, name, attrkind, w_value)
 
     @jit.elidable
     def _find_branch_to_move_into(self, name, attrkind, unbox_type):
@@ -176,6 +187,14 @@ class AbstractAttribute(object):
             number_to_readd += 1
             current_order = current.order
             current = current.back
+
+    def _pick_unbox_type(self, w_value):
+        if self.terminator.allow_unboxing:
+            if ALLOW_UNBOXING_INTS and type(w_value) is self.space.IntObjectCls:
+                return self.space.IntObjectCls
+            elif type(w_value) is self.space.FloatObjectCls:
+                return self.space.FloatObjectCls
+        return None
 
     @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
             jit.isconstant(self) and
@@ -203,14 +222,10 @@ class AbstractAttribute(object):
         # enough to store all current attributes
         stack = None
         stack_index = 0
+        storage_size = obj._mapdict_storage_length()
         while True:
             current = self
-            unbox_type = None
-            if self.terminator.allow_unboxing:
-                if ALLOW_UNBOXING_INTS and type(w_value) is self.space.IntObjectCls:
-                    unbox_type = self.space.IntObjectCls
-                elif type(w_value) is self.space.FloatObjectCls:
-                    unbox_type = self.space.FloatObjectCls
+            unbox_type = self._pick_unbox_type(w_value)
             number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
             attr = holder.pick_attr(unbox_type)
             # we found the attributes further up, need to save the
@@ -226,9 +241,10 @@ class AbstractAttribute(object):
                     stack[stack_index + 1] = erase_item(w_self_value)
                     stack_index += 2
                     current = current.back
-            attr._switch_map_and_write_storage(obj, w_value)
+            attr._switch_map_and_write_storage_reordering(obj, w_value, storage_size)
 
             if not stack_index:
+                attr._finalize_storage_after_reordering(obj, storage_size)
                 return
 
             # readd the current top of the stack
@@ -394,15 +410,33 @@ class PlainAttribute(AbstractAttribute):
     def _direct_write(self, obj, w_value):
         obj._mapdict_write_storage(self.storageindex, erase_item(w_value))
 
-    def _switch_map_and_write_storage(self, obj, w_value):
+    def _switch_map_and_write_increase_storage1(self, obj, w_value):
+        """ switches map and writes w_value as the newest attribute value to
+        obj. this is the "regular" case, were storage can only increase by at
+        most one, not decrease or any other funny nonsense. """
         if self.storage_needed() > obj._mapdict_storage_length():
-            obj._set_mapdict_increase_storage(self, erase_item(w_value))
+            obj._set_mapdict_increase_storage1(self, erase_item(w_value))
             return
-
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(self)
         self._direct_write(obj, w_value)
+
+    def _switch_map_and_write_storage_reordering(self, obj, w_value, storage_size):
+        """ switches map and writes w_value as the newest attribute value to
+        obj. this is the reordering case, where the storage is often large
+        enough and we don't want to shrink it, because further attributes will
+        be re-added. """
+        if self.storage_needed() > storage_size:
+            assert self.storage_needed() == storage_size + 1
+            obj._set_mapdict_increase_storage1(self, erase_item(w_value))
+            return
+
+        obj._set_mapdict_map(self)
+        obj._mapdict_write_storage_reordering(self.storageindex, erase_item(w_value), storage_size)
+
+    def _finalize_storage_after_reordering(self, obj, original_storage_size):
+        obj._mapdict_reduce_storage_length(self.storage_needed(), original_storage_size)
 
     def delete(self, obj, name, attrkind):
         if attrkind == self.attrkind and name == self.name:
@@ -563,30 +597,48 @@ class UnboxedPlainAttribute(PlainAttribute):
         # more, because allow_unboxing is False
         map.write(obj, self.name, self.attrkind, w_value)
 
-    def _switch_map_and_write_storage(self, obj, w_value):
-        from rpython.rlib.debug import make_sure_not_resized
+    def _switch_map_and_write_increase_storage1(self, obj, w_value):
         val = self._unbox(w_value)
         if self.firstunwrapped:
-            unboxed = erase_unboxed(make_sure_not_resized([val]))
+            unboxed = erase_unboxed(debug.make_sure_not_resized([val]))
             if self.storage_needed() > obj._mapdict_storage_length():
-                obj._set_mapdict_increase_storage(self, unboxed)
+                obj._set_mapdict_increase_storage1(self, unboxed)
                 return
 
             obj._set_mapdict_map(self)
             obj._mapdict_write_storage(self.storageindex, unboxed)
         else:
             unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
+            obj._set_mapdict_map(self)
+            assert len(unboxed) == self.listindex
+            jit.record_exact_value(len(unboxed), self.listindex)
+            assert len(unboxed) == self.listindex
+            unboxed = unboxed + [val]
+            obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
 
+    def _switch_map_and_write_storage_reordering(self, obj, w_value, storage_size):
+        val = self._unbox(w_value)
+        if self.firstunwrapped:
+            unboxed = erase_unboxed(debug.make_sure_not_resized([val]))
+            if self.storage_needed() > storage_size:
+                assert self.storage_needed() == storage_size + 1
+                obj._set_mapdict_increase_storage1(self, unboxed)
+                return
+
+            obj._set_mapdict_map(self)
+            obj._mapdict_write_storage_reordering(self.storageindex, unboxed, storage_size)
+        else:
+            unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
             obj._set_mapdict_map(self)
             if len(unboxed) <= self.listindex:
                 # size can only increase by 1
-                jit.record_exact_value(len(unboxed), self.listindex)
                 assert len(unboxed) == self.listindex
                 unboxed = unboxed + [val]
-                obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
+                obj._mapdict_write_storage_reordering(self.storageindex, erase_unboxed(unboxed), storage_size)
             else:
                 # the unboxed list is already large enough, due to reordering
                 unboxed[self.listindex] = val
+
 
     def repr(self):
         return "<UnboxedPlainAttribute %s %s %s %s%s %s>" % (
@@ -805,7 +857,6 @@ class MapdictStorageMixin(object):
         self.map = map
 
     def _mapdict_init_empty(self, map):
-        from rpython.rlib.debug import make_sure_not_resized
         self._set_mapdict_map(map)
         self.storage = None
 
@@ -816,24 +867,36 @@ class MapdictStorageMixin(object):
     def _mapdict_write_storage(self, storageindex, value):
         self.storage[storageindex] = value
 
+    def _mapdict_write_storage_reordering(self, storageindex, value, storage_size):
+        return self._mapdict_write_storage(storageindex, value)
+
     def _mapdict_storage_length(self):
         """ return the size of the storage. """
         # we don't overallocate since a while any more
         return self.map.storage_needed()
 
+    def _mapdict_reduce_storage_length(self, storage_size, original_storage_size):
+        if len(self.storage) > storage_size:
+            self.storage = self.storage[:storage_size]
+        assert len(self.storage) == storage_size
+
     @jit.unroll_safe
-    def _set_mapdict_increase_storage(self, map, value):
-        """ increase storage size, adding value """
-        len_storage = self._get_mapdict_map().storage_needed()
+    def _set_mapdict_increase_storage1(self, map, value):
+        """ increase storage size by 1, adding value """
+        current_map = self._get_mapdict_map()
+        len_storage = current_map.storage_needed()
         if not len_storage:
             assert map.storage_needed() == 1
             new_storage = [value]
         else:
             new_storage = [erase_item(None)] * map.storage_needed()
             old_storage = self.storage
+            assert len(old_storage) == len_storage
+            assert map.storage_needed() == len_storage + 1
             for i in range(len_storage):
                 new_storage[i] = old_storage[i]
             new_storage[len_storage] = value
+        new_storage = debug.make_sure_not_resized(new_storage)
         self._set_mapdict_map(map)
         self.storage = new_storage
 
@@ -878,10 +941,6 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
         def _get_mapdict_map(self):
             return jit.promote(self.map)
         def _set_mapdict_map(self, map):
-            if self._has_storage_list() and map.storage_needed() <= n:
-                # weird corner case interacting with unboxing, see test_unbox_reorder_bug3
-                if map.storage_needed() == n:
-                    setattr(self, valnmin1, self._mapdict_get_storage_list()[0])
             self.map = map
         def _mapdict_init_empty(self, map):
             self.map = map
@@ -918,10 +977,28 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             else:
                 setattr(self, valnmin1, value)
 
+        def _mapdict_write_storage_reordering(self, storageindex, value, storage_size):
+            assert storageindex >= 0
+            if storageindex < nmin1:
+                for i in rangenmin1:
+                    if storageindex == i:
+                        setattr(self, "_value%s" % i, value)
+                        return
+            if storage_size > n:
+                self._mapdict_get_storage_list()[storageindex - nmin1] = value
+            else:
+                setattr(self, valnmin1, value)
+
         def _mapdict_storage_length(self):
             if self._has_storage_list():
                 return self.map.storage_needed()
             return n
+
+        def _mapdict_reduce_storage_length(self, storage_size, original_storage_size):
+            if storage_size < original_storage_size and original_storage_size > n:
+                import pdb;pdb.set_trace()
+            if storage_size > n:
+                assert len(self._mapdict_get_storage_list()) + nmin1 == storage_size
 
         def _set_mapdict_storage_and_map(self, storage, map):
             self._set_mapdict_map(map)
@@ -952,7 +1029,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             setattr(self, "_value%s" % nmin1, erased)
 
         @jit.unroll_safe
-        def _set_mapdict_increase_storage(self, map, value):
+        def _set_mapdict_increase_storage1(self, map, value):
             storage_needed = map.storage_needed()
             prev_storage_size = self.map.storage_needed()
             if prev_storage_size == n:
@@ -1435,7 +1512,7 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
                 if typsafe:
                     if space.config.objspace.std.withmethodcachecounter:
                         entry.success_counter += 1
-                    attr_to_add._switch_map_and_write_storage(w_obj, w_value)
+                    attr_to_add._switch_map_and_write_increase_storage1(w_obj, w_value)
                     return
         w_descr = w_type.setattr_if_not_from_object()
         if w_descr:

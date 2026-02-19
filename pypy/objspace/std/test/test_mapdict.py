@@ -1,6 +1,8 @@
 import pytest
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.mapdict import *
+from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
 
 skip_if_no_int_unboxing = pytest.mark.skipif(not ALLOW_UNBOXING_INTS, reason="int unboxing disabled on 32bit")
 
@@ -65,6 +67,11 @@ class Object(Object):
                 return
             curr = curr.back
         assert len(unerase_unboxed(self._mapdict_read_storage(curr.storageindex))) == curr.listindex + 1
+
+class ObjectInlinedStorage(W_ObjectObject):
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictDictSupport)
+    objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
 
 
 def test_plain_attribute():
@@ -774,14 +781,8 @@ def test_unboxed_reorder_add_bug2():
     assert obj.map is obj2.map
 
 def test_unbox_reorder_bug3():
-    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
-    from pypy.objspace.std.objectobject import W_ObjectObject
-    class objectcls(W_ObjectObject):
-        objectmodel.import_from_mixin(BaseUserClassMapdict)
-        objectmodel.import_from_mixin(MapdictDictSupport)
-        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
     cls = Class(allow_unboxing=True)
-    obj = objectcls()
+    obj = ObjectInlinedStorage()
     obj.user_setup(space, cls)
     obj.setdictvalue(space, "_frame", "frame") # plain 0
     obj.setdictvalue(space, "_is_started", 0.0) # unboxed 1 0
@@ -791,7 +792,7 @@ def test_unbox_reorder_bug3():
     obj.setdictvalue(space, "_task_id", 1.0) # unboxed 1 1
     obj.setdictvalue(space, "label", "label") # plain 5
 
-    obj2 = objectcls()
+    obj2 = ObjectInlinedStorage()
     obj2.user_setup(space, cls)
     obj2.setdictvalue(space, "_frame", "frame2") # plain 0
     obj2.setdictvalue(space, "_is_started", 5.0) # unboxed 1 0
@@ -802,15 +803,25 @@ def test_unbox_reorder_bug3():
     obj2.setdictvalue(space, "_task_id", 6.0) # reorder
     assert obj2.getdictvalue(space, "blocked") == "blocked2"
 
-def test_boxed_reorder_bug():
-    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
-    from pypy.objspace.std.objectobject import W_ObjectObject
-    class objectcls(W_ObjectObject):
-        objectmodel.import_from_mixin(BaseUserClassMapdict)
-        objectmodel.import_from_mixin(MapdictDictSupport)
-        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+def test_unbox_reorder_bug4():
     cls = Class(allow_unboxing=True)
-    obj = objectcls()
+    obj = Object()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "a", 0) # unboxed
+    obj.setdictvalue(space, "b", 1) # unboxed
+    obj.setdictvalue(space, "c", 2) # unboxed
+    obj.setdictvalue(space, "d", 3) # unboxed
+    obj = Object()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "b", "b") # plain 0
+    obj.setdictvalue(space, "b", 1) # stays boxed, type stability not checked in this case
+    obj.setdictvalue(space, "c", "c")
+    obj.setdictvalue(space, "c", 2)
+    obj.setdictvalue(space, "a", 1) # reorder, turns everything into unboxed
+
+def test_boxed_reorder_bug():
+    cls = Class(allow_unboxing=True)
+    obj = ObjectInlinedStorage()
     obj.user_setup(space, cls)
     obj.setdictvalue(space, "a0", 'a')
     obj.setdictvalue(space, "a1", False)
@@ -824,12 +835,8 @@ def test_boxed_reorder_bug():
     obj.setdictvalue(space, "a6", "z")
     obj.setdictvalue(space, "a5", (int, str))
 
-    class objectcls(W_ObjectObject):
-        objectmodel.import_from_mixin(BaseUserClassMapdict)
-        objectmodel.import_from_mixin(MapdictDictSupport)
-        objectmodel.import_from_mixin(MapdictStorageMixin)
     cls = Class(allow_unboxing=True)
-    obj = objectcls()
+    obj = Object()
     obj.user_setup(space, cls)
     obj.setdictvalue(space, "a0", 'a')
     obj.setdictvalue(space, "a1", False)
@@ -1017,8 +1024,6 @@ def test_specialized_class():
 
 
 def test_specialized_class_overflow():
-    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
-    from pypy.objspace.std.objectobject import W_ObjectObject
     w1 = W_Root()
     w2 = W_Root()
     w3 = W_Root()
@@ -1026,12 +1031,8 @@ def test_specialized_class_overflow():
     w5 = W_Root()
     w6 = W_Root()
     objs = [w1, w2, 4, w3, w4, w5, w6, 6, 12.6]
-    class objectcls(W_ObjectObject):
-        objectmodel.import_from_mixin(BaseUserClassMapdict)
-        objectmodel.import_from_mixin(MapdictDictSupport)
-        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
     cls = Class()
-    obj = objectcls()
+    obj = ObjectInlinedStorage()
     obj.user_setup(space, cls)
     for i in range(20):
         obj.setdictvalue(space, str(i), objs[i % len(objs)])
