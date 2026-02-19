@@ -819,6 +819,20 @@ def test_unbox_reorder_bug4():
     obj.setdictvalue(space, "c", 2)
     obj.setdictvalue(space, "a", 1) # reorder, turns everything into unboxed
 
+def test_unbox_reorder_bug5():
+    cls = Class(allow_unboxing=True)
+    obj = Object()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "a", 0) # unboxed
+    obj.setdictvalue(space, "b", 1) # unboxed
+    obj.setdictvalue(space, "c", 2) # unboxed
+    obj.setdictvalue(space, "d", 3) # unboxed
+    obj = Object()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "b", 1)
+    obj.setdictvalue(space, "c", 2)
+    obj.setdictvalue(space, "a", "a") # not type-stable, forbid unboxing, more storage needed
+
 def test_boxed_reorder_bug():
     cls = Class(allow_unboxing=True)
     obj = ObjectInlinedStorage()

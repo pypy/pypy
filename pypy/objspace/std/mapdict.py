@@ -463,7 +463,6 @@ class PlainAttribute(AbstractAttribute):
         enough and we don't want to shrink it, because further attributes will
         be re-added. """
         if self.storage_needed() > storage_size:
-            assert self.storage_needed() == storage_size + 1
             obj._set_mapdict_increase_storage1(self, erase_item(w_value))
             return
 

@@ -229,3 +229,17 @@ def test_bug1():
               ('del', 's0', None), ('del', 's1', None), ('set', 's4', 0),
               ('set', 's3', 'a'), ('set', 's0', 'a'), ('set', 's3', 0),
               ('set', 's0', 'a'), ('set', 's1', 0)])
+
+def test_bug2():
+    run_test(genericstoragecls,
+             [('set', 's30', 0),
+              ('set', 's0', 'a'),
+              ('set', 's1', 0),
+              ('set', 's3', 'a'),
+              ('set', 's0', 'a'),
+              ('del', 's0', None),
+              ('del', 's30', None),
+              ('set', 's0', 'a'),
+              ('set', 's2', 0),
+              ('del', 's0', None),
+              ('set', 's30', 'a')])
