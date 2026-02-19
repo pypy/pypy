@@ -856,7 +856,7 @@ class ObjectWithoutDict(W_Root):
 
 class Object(W_Root):
     # used for tests, and to have a fake object that can be used to back
-    # instance dictionaries
+    # instance dictionaries. also for the result of delete, copy, etc
     objectmodel.import_from_mixin(MapdictStorageMixin)
 
 _share_methods(BaseUserClassMapdict, Object)
