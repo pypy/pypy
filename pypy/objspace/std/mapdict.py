@@ -270,6 +270,35 @@ class AbstractAttribute(object):
     def __repr__(self):
         return self.repr()
 
+    def view(self):
+        from dotviewer import graphclient
+        import pytest
+        from rpython.translator.tool.make_dot import DotGen
+        dotgen = DotGen('resop')
+        seen = set()
+        self._dot(dotgen, seen, color="green")
+        p = pytest.ensuretemp("mapdict").join("temp.dot")
+        p.write(dotgen.generate(target=None))
+        graphclient.display_dot_file(str(p))
+
+    def _dotlabel(self):
+        return [self.__class__.__name__]
+
+    def _dot(self, dotgen, seen, color="white"):
+        if self in seen:
+            return
+        seen.add(self)
+        dotgen.emit_node(str(id(self)), shape="box", label="\\l".join(self._dotlabel() + ['']), fillcolor=color)
+        if hasattr(self, 'back'):
+            dotgen.emit_edge(str(id(self)), str(id(self.back)), "back")
+            self.back._dot(dotgen, seen)
+        if self.cache_attrs is None:
+            return
+        for (attrname, kind), holder in self.cache_attrs.iteritems():
+            label = [attrname, attrkind_name(kind), str(holder.typ)]
+            dotgen.emit_edge(str(id(self)), str(id(holder.attr)), " ".join(label))
+            holder.attr._dot(dotgen, seen)
+
 
 class Terminator(AbstractAttribute):
     _immutable_fields_ = ['w_cls', 'allow_unboxing?']
@@ -313,6 +342,12 @@ class Terminator(AbstractAttribute):
 
     def remove_dict_entries(self, obj):
         return self.copy(obj)
+
+    def _dotlabel(self):
+        res = [self.__class__.__name__, str(self.w_cls)]
+        if self.allow_unboxing:
+            res.append("allow unboxing")
+        return res
 
     def repr(self):
         return "<%s w_cls=%s>" % (self.__class__.__name__, self.w_cls)
@@ -493,6 +528,14 @@ class PlainAttribute(AbstractAttribute):
             self._copy_attr(obj, new_obj)
         return new_obj
 
+    def _dotlabel(self):
+        res = [self.name, attrkind_name(self.attrkind),
+               "order: %s" % self.order,
+               "storage index: %s" % self.storageindex]
+        if not self.ever_mutated:
+            res.append("immutable")
+        return res
+
     def repr(self):
         return "<PlainAttribute %s %s %s%s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
@@ -639,6 +682,17 @@ class UnboxedPlainAttribute(PlainAttribute):
                 # the unboxed list is already large enough, due to reordering
                 unboxed[self.listindex] = val
 
+    def _dotlabel(self):
+        res = ["unboxed",
+               self.name, attrkind_name(self.attrkind),
+               "order: %s" % self.order,
+               "storage index: %s" % self.storageindex,
+               "list index: %s" % self.listindex]
+        if not self.ever_mutated:
+            res.append("immutable")
+        if self.firstunwrapped:
+            res.append("first unwrapped")
+        return res
 
     def repr(self):
         return "<UnboxedPlainAttribute %s %s %s %s%s %s>" % (
