@@ -222,7 +222,6 @@ class AbstractAttribute(object):
         # enough to store all current attributes
         stack = None
         stack_index = 0
-        storage_size = obj._mapdict_storage_length()
         while True:
             current = self
             unbox_type = self._pick_unbox_type(w_value)
@@ -241,10 +240,10 @@ class AbstractAttribute(object):
                     stack[stack_index + 1] = erase_item(w_self_value)
                     stack_index += 2
                     current = current.back
-            attr._switch_map_and_write_storage_reordering(obj, w_value, storage_size)
+                    obj._mapdict_pop_attribute(current)
+            attr._switch_map_and_write_increase_storage1(obj, w_value)
 
             if not stack_index:
-                attr._finalize_storage_after_reordering(obj, storage_size)
                 return
 
             # readd the current top of the stack
@@ -457,21 +456,6 @@ class PlainAttribute(AbstractAttribute):
         obj._set_mapdict_map(self)
         self._direct_write(obj, w_value)
 
-    def _switch_map_and_write_storage_reordering(self, obj, w_value, storage_size):
-        """ switches map and writes w_value as the newest attribute value to
-        obj. this is the reordering case, where the storage is often large
-        enough and we don't want to shrink it, because further attributes will
-        be re-added. """
-        if self.storage_needed() > storage_size:
-            obj._set_mapdict_increase_storage1(self, erase_item(w_value))
-            return
-
-        obj._set_mapdict_map(self)
-        obj._mapdict_write_storage_reordering(self.storageindex, erase_item(w_value), storage_size)
-
-    def _finalize_storage_after_reordering(self, obj, original_storage_size):
-        obj._mapdict_reduce_storage_length(self.storage_needed(), original_storage_size)
-
     def delete(self, obj, name, attrkind):
         if attrkind == self.attrkind and name == self.name:
             # ok, attribute is deleted
@@ -657,29 +641,6 @@ class UnboxedPlainAttribute(PlainAttribute):
             assert len(unboxed) == self.listindex
             unboxed = unboxed + [val]
             obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
-
-    def _switch_map_and_write_storage_reordering(self, obj, w_value, storage_size):
-        val = self._unbox(w_value)
-        if self.firstunwrapped:
-            unboxed = erase_unboxed(debug.make_sure_not_resized([val]))
-            if self.storage_needed() > storage_size:
-                assert self.storage_needed() == storage_size + 1
-                obj._set_mapdict_increase_storage1(self, unboxed)
-                return
-
-            obj._set_mapdict_map(self)
-            obj._mapdict_write_storage_reordering(self.storageindex, unboxed, storage_size)
-        else:
-            unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
-            obj._set_mapdict_map(self)
-            if len(unboxed) <= self.listindex:
-                # size can only increase by 1
-                assert len(unboxed) == self.listindex
-                unboxed = unboxed + [val]
-                obj._mapdict_write_storage_reordering(self.storageindex, erase_unboxed(unboxed), storage_size)
-            else:
-                # the unboxed list is already large enough, due to reordering
-                unboxed[self.listindex] = val
 
     def _dotlabel(self):
         res = ["unboxed",
@@ -920,18 +881,25 @@ class MapdictStorageMixin(object):
     def _mapdict_write_storage(self, storageindex, value):
         self.storage[storageindex] = value
 
-    def _mapdict_write_storage_reordering(self, storageindex, value, storage_size):
-        return self._mapdict_write_storage(storageindex, value)
-
     def _mapdict_storage_length(self):
         """ return the size of the storage. """
         # we don't overallocate since a while any more
         return self.map.storage_needed()
 
-    def _mapdict_reduce_storage_length(self, storage_size, original_storage_size):
-        if len(self.storage) > storage_size:
-            self.storage = self.storage[:storage_size]
-        assert len(self.storage) == storage_size
+    def _mapdict_pop_attribute(self, map):
+        current_map = self.map
+        assert isinstance(current_map, PlainAttribute)
+        assert current_map.back is map
+        if isinstance(current_map, UnboxedPlainAttribute) and not current_map.firstunwrapped:
+            unboxed_list = unerase_unboxed(self._mapdict_read_storage(current_map.storageindex))
+            assert len(unboxed_list) == current_map.listindex + 1
+            unboxed_list = unboxed_list[:current_map.listindex]
+            self._mapdict_write_storage(current_map.storageindex, erase_unboxed(unboxed_list))
+        else:
+            storage_needed = map.storage_needed()
+            assert storage_needed == len(self.storage) - 1
+            self.storage = self.storage[:storage_needed]
+        self._set_mapdict_map(map)
 
     @jit.unroll_safe
     def _set_mapdict_increase_storage1(self, map, value):
@@ -1030,28 +998,10 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             else:
                 setattr(self, valnmin1, value)
 
-        def _mapdict_write_storage_reordering(self, storageindex, value, storage_size):
-            assert storageindex >= 0
-            if storageindex < nmin1:
-                for i in rangenmin1:
-                    if storageindex == i:
-                        setattr(self, "_value%s" % i, value)
-                        return
-            if storage_size > n:
-                self._mapdict_get_storage_list()[storageindex - nmin1] = value
-            else:
-                setattr(self, valnmin1, value)
-
         def _mapdict_storage_length(self):
             if self._has_storage_list():
                 return self.map.storage_needed()
             return n
-
-        def _mapdict_reduce_storage_length(self, storage_size, original_storage_size):
-            if storage_size < original_storage_size and original_storage_size > n:
-                import pdb;pdb.set_trace()
-            if storage_size > n:
-                assert len(self._mapdict_get_storage_list()) + nmin1 == storage_size
 
         def _set_mapdict_storage_and_map(self, storage, map):
             self._set_mapdict_map(map)
@@ -1080,6 +1030,32 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 storage_list = storage[nmin1:]
                 erased = erase_list(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
+
+        def _mapdict_pop_attribute(self, map):
+            current_map = self.map
+            assert isinstance(current_map, PlainAttribute)
+            assert current_map.back is map
+            if isinstance(current_map, UnboxedPlainAttribute) and not current_map.firstunwrapped:
+                unboxed_list = unerase_unboxed(self._mapdict_read_storage(current_map.storageindex))
+                assert len(unboxed_list) == current_map.listindex + 1
+                unboxed_list = unboxed_list[:current_map.listindex]
+                self._mapdict_write_storage(current_map.storageindex, erase_unboxed(unboxed_list))
+            else:
+                storage_needed = map.storage_needed()
+                if storage_needed < n:
+                    for i in rangen:
+                        if i == storage_needed:
+                            erased = erase_item(None)
+                            setattr(self, "_value%s" % i, erased)
+                            break
+                elif storage_needed == n:
+                    storage_list = self._mapdict_get_storage_list()
+                    setattr(self, "_value%s" % nmin1, storage_list[0])
+                else:
+                    assert storage_needed > n
+                    storage_list = self._mapdict_get_storage_list()
+                    setattr(self, "_value%s" % nmin1, erase_list(storage_list[:-1]))
+            self._set_mapdict_map(map)
 
         @jit.unroll_safe
         def _set_mapdict_increase_storage1(self, map, value):
