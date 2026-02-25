@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 
@@ -286,8 +288,8 @@ def enable_translationmodules(config):
 
 if __name__ == '__main__':
     config = get_pypy_config()
-    print config.getpaths()
+    print(config.getpaths())
     parser = to_optparse(config) #, useoptions=["translation.*"])
     option, args = parser.parse_args()
-    print config
-    print working_modules
+    print(config)
+    print(working_modules)
