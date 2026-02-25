@@ -664,19 +664,39 @@ class W_UnicodeObject(W_Root):
     def descr_splitlines(self, space, keepends=False):
         value = self._utf8
         length = len(value)
-        strs_w = []
+
+        # Fast path for empty strings
+        if length == 0:
+            return space.newlist([])
+
+        # Pre-calculate an upper bound on the number of lines to avoid resizing
+        # Each newline character will create at most one split
+        max_lines = 1  # At least one line even without newlines
+        for i in range(length):
+            if value[i] == '\n' or value[i] == '\r':
+                max_lines += 1
+
+        # Pre-allocate the result list
+        strs_w = newlist_hint(max_lines)
+
         pos = 0
+        line_count = 0
+
+        # Main loop to find and process each line
         while pos < length:
             sol = pos
             lgt = 0
+            # Find end of current line
             while pos < length and not self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
                 pos = rutf8.next_codepoint_pos(value, pos)
                 lgt += 1
             eol = pos
+
+            # Handle line breaks (including CRLF sequence)
             if pos < length:
                 # read CRLF as one line break
                 if (value[pos] == '\r' and pos + 1 < length
-                                       and value[pos + 1] == '\n'):
+                        and value[pos + 1] == '\n'):
                     pos += 2
                     line_end_chars = 2
                 else:
@@ -685,9 +705,14 @@ class W_UnicodeObject(W_Root):
                 if keepends:
                     eol = pos
                     lgt += line_end_chars
+
+            # Add the line to result list
             assert eol >= 0
             assert sol >= 0
             strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+            line_count += 1
+
+        # If we didn't use all pre-allocated slots, the list will be automatically trimmed
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
