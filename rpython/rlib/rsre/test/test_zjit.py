@@ -201,4 +201,4 @@ class TestJitRSre(support.LLJitMixin):
         text = "a" + "bB2b2bB1" * 2000 + "c"
         res = self.meta_interp_match(pattern, text)
         self.check_enter_count(1)
-        self.check_history(int_is_true=0)
+        self.check_resops(int_is_true=0)
