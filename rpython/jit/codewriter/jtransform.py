@@ -86,7 +86,10 @@ class Transformer(object):
             renamings[var] = var_or_const
             if isinstance(var_or_const, Constant):
                 value = var_or_const.value
-                value = lltype._cast_whatever(var.concretetype, value)
+                try:
+                    value = lltype._cast_whatever(var.concretetype, value)
+                except RuntimeError:
+                    return # can happen for unreachable code
                 renamings_constants[var] = Constant(value, var.concretetype)
         #
         for op in block.operations:

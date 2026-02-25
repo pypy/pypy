@@ -715,6 +715,24 @@ def test_rename_on_links():
     assert block.exits[0].target is block2
     assert block.exits[0].args == [v1]
 
+def test_cast_pointer_trash():
+    from rpython.rtyper.lltypesystem import lltype
+    S2 = lltype.GcStruct("s2", ('a', lltype.Signed))
+    S1 = lltype.GcStruct("s1", ('sub1', S2))
+    p2 = lltype.malloc(S2)
+    p2.a = 12
+    def f():
+        return lltype.cast_pointer(lltype.Ptr(S1), p2)
+    block = Block([])
+    const_p2 = const(p2)
+    v2 = Variable()
+    v3 = Variable()
+    v2.concretetype = lltype.Ptr(S1)
+    block.operations = [SpaceOperation('cast_pointer', [const_p2], v2)]
+    block2 = Block([v3])
+    block.closeblock(Link([v2], block2))
+    Transformer().optimize_block(block)
+
 def test_cast_ptr_to_adr():
     t = Transformer(FakeCPU(), None)
     v = varoftype(lltype.Ptr(lltype.Array()))
