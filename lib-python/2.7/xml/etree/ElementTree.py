@@ -1202,7 +1202,7 @@ def iterparse(source, events=None, parser=None):
         if not parser:
             parser = XMLParser(target=TreeBuilder())
         return _IterParseIterator(source, events, parser, close_source)
-    except:
+    except Exception:
         if close_source:
             source.close()
         raise
@@ -1283,7 +1283,7 @@ class _IterParseIterator(object):
                 else:
                     self._root = self._parser.close()
                     self._parser = None
-        except:
+        except Exception:
             if self._close_file:
                 self._file.close()
             raise

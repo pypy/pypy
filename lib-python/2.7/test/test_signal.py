@@ -132,7 +132,7 @@ class InterProcessSignalTests(unittest.TestCase):
         except KeyboardInterrupt:
             if test_support.verbose:
                 print "KeyboardInterrupt (the alarm() went off)"
-        except:
+        except Exception:
             self.fail("Some other exception woke us from pause: %s" %
                       traceback.format_exc())
         else:
@@ -165,11 +165,11 @@ class InterProcessSignalTests(unittest.TestCase):
                     with closing(done_w):
                         try:
                             self.run_test()
-                        except:
+                        except Exception:
                             pickle.dump(traceback.format_exc(), done_w)
                         else:
                             pickle.dump(None, done_w)
-                except:
+                except Exception:
                     print 'Uh oh, raised from pickle.'
                     traceback.print_exc()
                 finally:

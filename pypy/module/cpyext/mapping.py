@@ -62,7 +62,7 @@ def PyMapping_HasKey(space, w_obj, w_key):
     try:
         space.getitem(w_obj, w_key)
         return 1
-    except:
+    except Exception:
         return 0
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
@@ -74,5 +74,5 @@ def PyMapping_HasKeyString(space, w_obj, key):
         w_key = space.newtext(rffi.charp2str(key))
         space.getitem(w_obj, w_key)
         return 1
-    except:
+    except Exception:
         return 0

@@ -289,7 +289,7 @@ class TranslationDriver(SimpleTaskEngine):
                 self.timer.end_event(goal)
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except:
+            except Exception:
                 pass
         #import gc; gc.dump_rpy_heap('rpyheap-after-%s.dump' % goal)
         return res

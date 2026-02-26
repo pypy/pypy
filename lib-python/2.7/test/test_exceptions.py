@@ -147,7 +147,7 @@ class ExceptionTests(unittest.TestCase):
         s = '''if 1:
         try:
             continue
-        except:
+        except Exception:
             pass'''
 
         ckmsg(s, "'continue' not properly in loop")
@@ -386,7 +386,7 @@ class ExceptionTests(unittest.TestCase):
                 g()
             except RuntimeError:
                 pass
-            except:
+            except Exception:
                 self.fail("Should have raised KeyError")
             else:
                 self.fail("Should have raised KeyError")
@@ -461,7 +461,7 @@ class ExceptionTests(unittest.TestCase):
                 self.fail("exception should not be a MyException")
             except KeyError:
                 pass
-            except:
+            except Exception:
                 self.fail("Should have raised KeyError")
             else:
                 self.fail("Should have raised KeyError")

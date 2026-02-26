@@ -101,7 +101,7 @@ class greenlet(_continulet):
                 except GreenletExit, e:
                     methodname = 'switch'
                     baseargs = (((e,), {}),)
-                except:
+                except Exception:
                     baseargs = sys.exc_info()[:2] + baseargs[2:]
         else:
             if target.__thread_id is not _tls.thread_id:
@@ -113,7 +113,7 @@ class greenlet(_continulet):
             _tls.leaving = current
             args, kwds = unbound_method(current, *baseargs, to=target)
             _tls.current = current
-        except:
+        except Exception:
             _tls.current = current
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('throw')
@@ -175,7 +175,7 @@ def settrace(callback):
 def _run_trace_callback(event):
     try:
         _tls.trace(event, (_tls.leaving, _tls.current))
-    except:
+    except Exception:
         # In case of exceptions trace function is removed
         if hasattr(_tls, 'trace'):
             del _tls.trace

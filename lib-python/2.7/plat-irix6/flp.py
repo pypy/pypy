@@ -243,7 +243,7 @@ def _parse_string(str):
         s = '\'' + str + '\''
         try:
             return eval(s)
-        except:
+        except Exception:
             pass
     return str
 

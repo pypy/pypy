@@ -173,7 +173,7 @@ class Timer:
             t = Timer(...)       # outside the try/except
             try:
                 t.timeit(...)    # or t.repeat(...)
-            except:
+            except Exception:
                 t.print_exc()
 
         The advantage over the standard traceback is that source lines
@@ -329,7 +329,7 @@ def main(args=None, _wrap_timer=None):
             number = 10**i
             try:
                 x = t.timeit(number)
-            except:
+            except Exception:
                 t.print_exc()
                 return 1
             if verbose:
@@ -338,7 +338,7 @@ def main(args=None, _wrap_timer=None):
                 break
     try:
         timings = t.repeat(repeat, number)
-    except:
+    except Exception:
         t.print_exc()
         return 1
     if verbose:

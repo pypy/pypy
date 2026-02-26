@@ -274,7 +274,7 @@ tryexcepts = [
     """try:
     a
     b
-except:
+except Exception:
     pass
 """,
     """try:

@@ -78,7 +78,7 @@ class BaseRotatingHandler(logging.FileHandler):
             logging.FileHandler.emit(self, record)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
 class RotatingFileHandler(BaseRotatingHandler):
@@ -579,7 +579,7 @@ class SocketHandler(logging.Handler):
             self.send(s)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
     def close(self):
@@ -881,7 +881,7 @@ class SysLogHandler(logging.Handler):
                 self.socket.sendall(msg)
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
 class SMTPHandler(logging.Handler):
@@ -959,7 +959,7 @@ class SMTPHandler(logging.Handler):
             smtp.quit()
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
 class NTEventLogHandler(logging.Handler):
@@ -1046,7 +1046,7 @@ class NTEventLogHandler(logging.Handler):
                 self._welu.ReportEvent(self.appname, id, cat, type, [msg])
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except:
+            except Exception:
                 self.handleError(record)
 
     def close(self):
@@ -1121,7 +1121,7 @@ class HTTPHandler(logging.Handler):
             h.getreply()    #can't do anything with the result
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
 class BufferingHandler(logging.Handler):

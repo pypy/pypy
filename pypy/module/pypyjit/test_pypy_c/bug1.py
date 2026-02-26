@@ -43,7 +43,7 @@ def submain():
     try:
         runme()
         err = None
-    except:
+    except Exception:
         err = sys.exc_info()
     done.append(err)
 

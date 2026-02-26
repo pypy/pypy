@@ -244,7 +244,7 @@ def _readmodule(module, path, inpackage=None):
                                 _readmodule(mod, path, inpackage)
                             except ImportError:
                                 _readmodule(mod, [])
-                    except:
+                    except Exception:
                         # If we can't find or parse the imported module,
                         # too bad -- don't die here.
                         pass
@@ -256,7 +256,7 @@ def _readmodule(module, path, inpackage=None):
                 try:
                     # Recursively read the imported module
                     d = _readmodule(mod, path, inpackage)
-                except:
+                except Exception:
                     # If we can't find or parse the imported module,
                     # too bad -- don't die here.
                     continue

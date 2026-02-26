@@ -362,7 +362,7 @@ class UncompressedZipImportTestCase(ImportHooksBaseTestCase):
     def doTraceback(self, module):
         try:
             module.do_raise()
-        except:
+        except Exception:
             tb = sys.exc_info()[2].tb_next
 
             f,lno,n,line = extract_tb(tb, 1)[0]

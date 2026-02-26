@@ -294,7 +294,7 @@ else:
 
 try:
     print yo
-except:
+except Exception:
     yo = 3
 else:
     yo += 3

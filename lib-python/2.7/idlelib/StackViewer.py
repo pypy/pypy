@@ -65,7 +65,7 @@ class FrameTreeItem(TreeItem):
         frame, lineno = self.info
         try:
             modname = frame.f_globals["__name__"]
-        except:
+        except Exception:
             modname = "?"
         code = frame.f_code
         filename = code.co_filename

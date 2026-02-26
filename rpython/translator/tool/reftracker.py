@@ -130,7 +130,7 @@ class RefTrackerPage(BaseRefTrackerPage):
                         type(value) is AttributeType):
                         try:
                             o1value = value.__get__(o1)
-                        except:
+                        except Exception:
                             pass
                         else:
                             if o1value is o2:

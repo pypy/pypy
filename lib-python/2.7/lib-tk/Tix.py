@@ -357,7 +357,7 @@ class TixWidget(Tkinter.Widget):
             name = name[len(self._w)+1:]
             try:
                 retlist.append(self._nametowidget(name))
-            except:
+            except Exception:
                 # some of the widgets are unknown e.g. border in LabelFrame
                 pass
         return retlist
@@ -426,7 +426,7 @@ class TixSubWidget(TixWidget):
             try:
                 path = path[len(master._w)+1:]
                 plist = path.split('.')
-            except:
+            except Exception:
                 plist = []
 
         if not check_intermediate:

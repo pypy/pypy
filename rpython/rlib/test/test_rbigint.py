@@ -1956,7 +1956,7 @@ def run():
     t = TestHypothesis()
     try:
         getattr(t, sys.argv[1])()
-    except:
+    except Exception:
         if "--pdb" in sys.argv:
             import traceback, pdb
             info = sys.exc_info()

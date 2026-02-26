@@ -152,7 +152,7 @@ class AutoFileTests(unittest.TestCase):
         # it must also return None if an exception was given
         try:
             1 // 0
-        except:
+        except Exception:
             self.assertEqual(self.f.__exit__(*sys.exc_info()), None)
 
     def testReadWhenWriting(self):

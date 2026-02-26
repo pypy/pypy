@@ -144,7 +144,7 @@ def _slotnames(cls):
     # Cache the outcome in the class if at all possible
     try:
         cls.__slotnames__ = names
-    except:
+    except Exception:
         pass # But don't die if we can't
 
     return names

@@ -16,7 +16,7 @@ def _retry_thrice(func, exc, *args, **kwargs):
             return func(*args, **kwargs)
         except exc, last_exc:
             continue
-        except:
+        except Exception:
             raise
     raise last_exc
 
@@ -334,7 +334,7 @@ class TimeoutTest(unittest.TestCase):
         with test_support.transient_internet(self.FTP_HOST):
             try:
                 u = _urlopen_with_retry(self.FTP_HOST, timeout=60)
-            except:
+            except Exception:
                 raise
             self.assertEqual(u.fp.fp._sock.gettimeout(), 60)
             u.close()

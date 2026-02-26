@@ -528,14 +528,14 @@ class PosixTester(unittest.TestCase):
         try:
             os.mkdir(base_path)
             os.chdir(base_path)
-        except:
+        except Exception:
             self.skipTest("cannot create directory for testing")
 
         try:
             def _create_and_do_getcwd(dirname, current_path_length = 0):
                 try:
                     os.mkdir(dirname)
-                except:
+                except Exception:
                     self.skipTest("mkdir cannot create directory sufficiently "
                                   "deep for getcwd test")
 

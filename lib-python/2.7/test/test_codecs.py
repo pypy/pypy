@@ -591,7 +591,7 @@ class UTF16LETest(ReadTest):
                 with self.assertRaises(UnicodeDecodeError):
                     codecs.utf_16_le_decode(raw, 'strict', True)
                 self.assertEqual(raw.decode('utf-16le', 'replace'), expected)
-            except:
+            except Exception:
                 print 'raw=%r' % raw
                 raise
 
@@ -632,7 +632,7 @@ class UTF16BETest(ReadTest):
                 with self.assertRaises(UnicodeDecodeError):
                     codecs.utf_16_be_decode(raw, 'strict', True)
                 self.assertEqual(raw.decode('utf-16be', 'replace'), expected)
-            except:
+            except Exception:
                 print 'raw=%r' % raw
                 raise
 
@@ -730,7 +730,7 @@ class UTF7Test(ReadTest):
                 with self.assertRaises(UnicodeDecodeError):
                     codecs.utf_7_decode(raw, 'strict', True)
                 self.assertEqual(raw.decode('utf-7', 'replace'), expected)
-            except:
+            except Exception:
                 print 'raw=%r' % raw
                 raise
 
@@ -768,7 +768,7 @@ class UTF7Test(ReadTest):
         for raw, expected in tests:
             try:
                 self.assertEqual(raw.decode('utf-7', 'replace'), expected)
-            except:
+            except Exception:
                 print 'raw=%r' % raw
                 raise
 

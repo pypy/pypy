@@ -285,7 +285,7 @@ class Bdb:
     def clear_bpbynumber(self, arg):
         try:
             number = int(arg)
-        except:
+        except Exception:
             return 'Non-numeric breakpoint number (%s)' % arg
         try:
             bp = Breakpoint.bpbynumber[number]
@@ -600,7 +600,7 @@ def effective(file, line, frame):
                         return (b,1)
                 # else:
                 #   continue
-            except:
+            except Exception:
                 # if eval fails, most conservative
                 # thing is to stop on breakpoint
                 # regardless of ignore count.

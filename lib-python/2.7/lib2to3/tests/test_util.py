@@ -377,14 +377,14 @@ class Test_find_binding(support.TestCase):
         s = """
             try:
                 a = 6
-            except:
+            except Exception:
                 b = 8"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 a = 6"""
         self.assertTrue(self.find_binding("a", s))
 
@@ -393,14 +393,14 @@ class Test_find_binding(support.TestCase):
                 b = 8
             except KeyError:
                 pass
-            except:
+            except Exception:
                 a = 6"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 b = 6"""
         self.assertFalse(self.find_binding("a", s))
 
@@ -409,29 +409,29 @@ class Test_find_binding(support.TestCase):
             try:
                 try:
                     a = 6
-                except:
+                except Exception:
                     pass
-            except:
+            except Exception:
                 b = 8"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 try:
                     a = 6
-                except:
+                except Exception:
                     pass"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 try:
                     pass
-                except:
+                except Exception:
                     a = 6"""
         self.assertTrue(self.find_binding("a", s))
 
@@ -441,28 +441,28 @@ class Test_find_binding(support.TestCase):
                     b = 8
                 except KeyError:
                     pass
-                except:
+                except Exception:
                     a = 6
-            except:
+            except Exception:
                 pass"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 pass
-            except:
+            except Exception:
                 try:
                     b = 8
                 except KeyError:
                     pass
-                except:
+                except Exception:
                     a = 6"""
         self.assertTrue(self.find_binding("a", s))
 
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 b = 6"""
         self.assertFalse(self.find_binding("a", s))
 
@@ -470,14 +470,14 @@ class Test_find_binding(support.TestCase):
             try:
                 try:
                     b = 8
-                except:
+                except Exception:
                     c = d
-            except:
+            except Exception:
                 try:
                     b = 6
-                except:
+                except Exception:
                     t = 8
-                except:
+                except Exception:
                     o = y"""
         self.assertFalse(self.find_binding("a", s))
 
@@ -485,7 +485,7 @@ class Test_find_binding(support.TestCase):
         s = """
             try:
                 c = 6
-            except:
+            except Exception:
                 b = 8
             finally:
                 a = 9"""
@@ -508,7 +508,7 @@ class Test_find_binding(support.TestCase):
         s = """
             try:
                 b = 8
-            except:
+            except Exception:
                 b = 9
             finally:
                 b = 6"""
@@ -518,12 +518,12 @@ class Test_find_binding(support.TestCase):
         s = """
             try:
                 c = 6
-            except:
+            except Exception:
                 b = 8
             finally:
                 try:
                     a = 9
-                except:
+                except Exception:
                     b = 9
                 finally:
                     c = 9"""

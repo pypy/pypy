@@ -37,7 +37,7 @@ class TempFileGreedy(threading.Thread):
             try:
                 f = tempfile.TemporaryFile("w+b")
                 f.close()
-            except:
+            except Exception:
                 self.error_count += 1
                 print_exc(file=self.errors)
             else:

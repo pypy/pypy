@@ -366,7 +366,7 @@ class AssociateBTreeTxnTestCase(AssociateBTreeTestCase):
             self.getDB().associate(self.secDB, self.getGenre, txn=txn)
 
             self.addDataToDB(self.getDB(), txn=txn)
-        except:
+        except Exception:
             txn.abort()
             raise
 

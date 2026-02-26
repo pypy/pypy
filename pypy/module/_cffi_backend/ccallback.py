@@ -117,7 +117,7 @@ class W_ExternPython(W_CData):
                 os.write(STDERR, "SystemError: callback raised ")
                 os.write(STDERR, str(e))
                 os.write(STDERR, "\n")
-            except:
+            except Exception:
                 pass
             self.write_error_return_value(ll_res)
         if must_leave:
@@ -327,7 +327,7 @@ def invoke_callback(ffi_cif, ll_res, ll_args, ll_userdata):
         try:
             os.write(STDERR, "SystemError: invoking a callback "
                              "that was already freed\n")
-        except:
+        except Exception:
             pass
         # In this case, we don't even know how big ll_res is.  Let's assume
         # it is just a 'ffi_arg', and store 0 there.

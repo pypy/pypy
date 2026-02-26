@@ -677,7 +677,7 @@ class LocalPath(FSBase):
                 sys.modules[modname] = mod
                 try:
                     py.builtin.execfile(str(self), mod.__dict__)
-                except:
+                except Exception:
                     del sys.modules[modname]
                     raise
                 return mod

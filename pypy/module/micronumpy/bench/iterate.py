@@ -1,7 +1,7 @@
 
 try:
     import numpypy as numpy
-except:
+except Exception:
     import numpy
 
 def f():

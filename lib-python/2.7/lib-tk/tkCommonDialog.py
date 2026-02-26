@@ -54,7 +54,7 @@ class Dialog:
             try:
                 # get rid of the widget
                 w.destroy()
-            except:
+            except Exception:
                 pass
 
         return s

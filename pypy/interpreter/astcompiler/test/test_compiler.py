@@ -774,7 +774,7 @@ class TestCompiler(BaseTestCompiler):
         source = """if 1:
         try:
            pass
-        except:
+        except Exception:
             pass
         except ValueError:
             pass

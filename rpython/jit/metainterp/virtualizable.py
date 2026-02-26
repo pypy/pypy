@@ -314,7 +314,7 @@ class VirtualizableInfo(object):
 #
 #   1. NULL (TOKEN_NONE) if not in the JIT at all, except as described below.
 #
-#   2. NULL when tracing is in progress; except:
+#   2. NULL when tracing is in progress; except Exception:
 #
 #   3. equal to TOKEN_TRACING_RESCALL during tracing when we do a
 #      residual call, calling random unknown other parts of the interpreter;

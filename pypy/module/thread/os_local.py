@@ -54,7 +54,7 @@ class Local(W_Root):
             w_type = space.type(self)
             w_init = space.getattr(w_type, space.newtext("__init__"))
             space.call_obj_args(w_init, self, self.initargs)
-        except:
+        except Exception:
             # failed, forget w_dict and propagate the exception
             del self.dicts[ec]
             raise

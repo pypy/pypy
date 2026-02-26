@@ -993,7 +993,7 @@ class TestBasicOps(unittest.TestCase):
         try:
             any(forward)  # exhaust the iterator
             del backward
-        except:
+        except Exception:
             del forward, backward
             raise
 

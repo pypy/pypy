@@ -109,7 +109,7 @@ class ExpatParser(xmlreader.IncrementalParser, xmlreader.Locator):
             self.reset()
             self._cont_handler.setDocumentLocator(ExpatLocator(self))
             xmlreader.IncrementalParser.parse(self, source)
-        except:
+        except Exception:
             # bpo-30264: Close the source on error to not leak resources:
             # xml.sax.parse() doesn't give access to the underlying parser
             # to the caller
@@ -421,7 +421,7 @@ class ExpatParser(xmlreader.IncrementalParser, xmlreader.Locator):
 
         try:
             xmlreader.IncrementalParser.parse(self, source)
-        except:
+        except Exception:
             return 0  # FIXME: save error info here?
 
         (self._parser, self._source) = self._entity_stack[-1]

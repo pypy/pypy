@@ -160,7 +160,7 @@ class Test_TestResult(unittest.TestCase):
         test = Foo('test_1')
         try:
             test.fail("foo")
-        except:
+        except Exception:
             exc_info_tuple = sys.exc_info()
 
         result = unittest.TestResult()
@@ -208,7 +208,7 @@ class Test_TestResult(unittest.TestCase):
         test = Foo('test_1')
         try:
             raise TypeError()
-        except:
+        except Exception:
             exc_info_tuple = sys.exc_info()
 
         result = unittest.TestResult()

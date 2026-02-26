@@ -103,7 +103,7 @@ class SimpleHTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
             self.end_headers()
             return f
-        except:
+        except Exception:
             f.close()
             raise
 

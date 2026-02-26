@@ -2095,7 +2095,7 @@ def _print_locale():
 
     try:
         setlocale(LC_ALL, "")
-    except:
+    except Exception:
         print 'NOTE:'
         print 'setlocale(LC_ALL, "") does not support the default locale'
         print 'given in the OS environment variables.'

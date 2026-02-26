@@ -127,13 +127,13 @@ def test_f_exc_xxx():
         assert f.f_exc_traceback is None
         try:
             raise InnerException
-        except:
+        except Exception:
             assert f.f_exc_type is exc_info[0]
             assert f.f_exc_value is exc_info[1]
             assert f.f_exc_traceback is exc_info[2]
     try:
         raise OuterException
-    except:
+    except Exception:
         g(sys.exc_info())
 
 def test_virtualref_through_traceback():
@@ -141,7 +141,7 @@ def test_virtualref_through_traceback():
     def g():
         try:
             raise ValueError
-        except:
+        except Exception:
             _, _, tb = sys.exc_info()
         return tb
     def f():
@@ -209,7 +209,7 @@ def test_trace_exc():
     def f():
         try:
             raise Exception
-        except:
+        except Exception:
             pass
     sys.settrace(trace)
     f()
@@ -276,7 +276,7 @@ def test_trace_return_exc():
     def f():
         try:
             g()
-        except:
+        except Exception:
             pass
     sys.settrace(trace)
     f()
@@ -323,7 +323,7 @@ def test_trace_try_finally():
     def f():
         try:
             g()
-        except:
+        except Exception:
             pass
 
     sys.settrace(trace)
@@ -351,7 +351,7 @@ def test_trace_raise_three_arg():
     def f():
         try:
             g()
-        except:
+        except Exception:
             pass
 
     sys.settrace(trace)
@@ -384,7 +384,7 @@ def test_trace_generator_finalisation():
             gen = g()
             gen.next()
             gen.close()
-        except:
+        except Exception:
             pass
     """ in d
     f = d['f']
@@ -420,10 +420,10 @@ def test_dont_trace_on_reraise():
     def f():
         try:
             1/0
-        except:
+        except Exception:
             try:
                 raise
-            except:
+            except Exception:
                 pass
     sys.settrace(trace)
     f()
@@ -442,13 +442,13 @@ def test_dont_trace_on_raise_with_tb():
     def f():
         try:
             raise Exception
-        except:
+        except Exception:
             return sys.exc_info()
     def g():
         exc, val, tb = f()
         try:
             raise exc, val, tb
-        except:
+        except Exception:
             pass
     sys.settrace(trace)
     g()

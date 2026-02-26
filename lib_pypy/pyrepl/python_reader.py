@@ -103,7 +103,7 @@ class PythonicReader(CompletingReader, HistoricalReader):
         else:
             try:
                 self.history = pickle.load(file)
-            except:
+            except Exception:
                 self.history = []
             self.historyi = len(self.history)
             file.close()
@@ -165,7 +165,7 @@ class ReaderConsole(code.InteractiveInterpreter):
             return
         try:
             execfile(initfile, self.locals, self.locals)
-        except:
+        except Exception:
             etype, value, tb = sys.exc_info()
             traceback.print_exception(etype, value, tb.tb_next)
 
@@ -232,7 +232,7 @@ class ReaderConsole(code.InteractiveInterpreter):
     def tkfilehandler(self, file, mask):
         try:
             self.handle1(block=0)
-        except:
+        except Exception:
             self.exc_info = sys.exc_info()
 
     # how the <expletive> do you get this to work on Windows (without

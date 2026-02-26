@@ -117,7 +117,7 @@ class AppTestBOOSTVARIANT:
 
         try:
             cpp   = cppyy.gbl
-        except:
+        except Exception:
             pass
 
         cpp   = cppyy.gbl

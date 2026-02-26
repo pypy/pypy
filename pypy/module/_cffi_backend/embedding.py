@@ -85,7 +85,7 @@ def pypy_init_embedded_cffi_module(version, init_struct):
             os.write(STDERR, "':\n")
             os.write(STDERR, str(e))
             os.write(STDERR, "\n")
-        except:
+        except Exception:
             pass
         res = -1
     return rffi.cast(rffi.INT, res)

@@ -113,7 +113,7 @@ class Interpretable(View):
             result = frame.eval(co)
         except passthroughex:
             raise
-        except:
+        except Exception:
             raise Failure(self)
         self.result = result
         self.explanation = self.explanation or frame.repr(self.result)
@@ -127,7 +127,7 @@ class Interpretable(View):
             frame.exec_(co)
         except passthroughex:
             raise
-        except:
+        except Exception:
             raise Failure(self)
 
     def nice_explanation(self):
@@ -143,7 +143,7 @@ class Name(Interpretable):
             return frame.is_true(frame.eval(source))
         except passthroughex:
             raise
-        except:
+        except Exception:
             return False
 
     def is_global(self, frame):
@@ -152,7 +152,7 @@ class Name(Interpretable):
             return frame.is_true(frame.eval(source))
         except passthroughex:
             raise
-        except:
+        except Exception:
             return False
 
     def is_builtin(self, frame):
@@ -162,7 +162,7 @@ class Name(Interpretable):
             return frame.is_true(frame.eval(source))
         except passthroughex:
             raise
-        except:
+        except Exception:
             return False
 
     def eval(self, frame):
@@ -192,7 +192,7 @@ class Compare(Interpretable):
                                          __exprinfo_right=expr2.result)
             except passthroughex:
                 raise
-            except:
+            except Exception:
                 raise Failure(self)
             expr = expr2
 
@@ -245,7 +245,7 @@ for astclass, astpattern in {
                                          __exprinfo_expr=expr.result)
             except passthroughex:
                 raise
-            except:
+            except Exception:
                 raise Failure(self)
 
     keepalive.append(UnaryArith)
@@ -277,7 +277,7 @@ for astclass, astpattern in {
                                          __exprinfo_right=right.result)
             except passthroughex:
                 raise
-            except:
+            except Exception:
                 raise Failure(self)
 
     keepalive.append(BinaryArith)
@@ -293,7 +293,7 @@ class CallFunc(Interpretable):
                                             __exprinfo_value=self.result))
         except passthroughex:
             raise
-        except:
+        except Exception:
             return False
 
     def eval(self, frame):
@@ -341,7 +341,7 @@ class CallFunc(Interpretable):
             self.result = frame.eval(source, **vars)
         except passthroughex:
             raise
-        except:
+        except Exception:
             raise Failure(self)
         if not node.is_builtin(frame) or not self.is_bool(frame):
             r = frame.repr(self.result)
@@ -358,7 +358,7 @@ class Getattr(Interpretable):
             self.result = frame.eval(source, __exprinfo_expr=expr.result)
         except passthroughex:
             raise
-        except:
+        except Exception:
             raise Failure(self)
         self.explanation = '%s.%s' % (expr.explanation, self.attrname)
         # if the attribute comes from the instance, its value is interesting
@@ -369,7 +369,7 @@ class Getattr(Interpretable):
                 frame.eval(source, __exprinfo_expr=expr.result))
         except passthroughex:
             raise
-        except:
+        except Exception:
             from_instance = True
         if from_instance:
             r = frame.repr(self.result)
@@ -395,7 +395,7 @@ class Assert(Interpretable):
                 raise BuiltinAssertionError
             except passthroughex:
                 raise
-            except:
+            except Exception:
                 raise Failure(self)
 
 class Assign(Interpretable):
@@ -415,7 +415,7 @@ class Assign(Interpretable):
             frame.exec_(co, __exprinfo_expr=expr.result)
         except passthroughex:
             raise
-        except:
+        except Exception:
             raise Failure(self)
 
 class Discard(Interpretable):
@@ -479,7 +479,7 @@ def interpret(source, frame, should_fail=False):
         return getfailure(e)
     except passthroughex:
         raise
-    except:
+    except Exception:
         import traceback
         traceback.print_exc()
     if should_fail:

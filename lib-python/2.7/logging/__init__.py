@@ -64,7 +64,7 @@ def currentframe():
     """Return the frame object for the caller's stack frame."""
     try:
         raise Exception
-    except:
+    except Exception:
         return sys.exc_info()[2].tb_frame.f_back
 
 if hasattr(sys, '_getframe'): currentframe = lambda: sys._getframe(3)
@@ -905,7 +905,7 @@ class StreamHandler(Handler):
             self.flush()
         except (KeyboardInterrupt, SystemExit):
             raise
-        except:
+        except Exception:
             self.handleError(record)
 
 class FileHandler(StreamHandler):
@@ -1695,7 +1695,7 @@ def shutdown(handlerList=_handlerList):
                     pass
                 finally:
                     h.release()
-        except:
+        except Exception:
             if raiseExceptions:
                 raise
             #else, swallow

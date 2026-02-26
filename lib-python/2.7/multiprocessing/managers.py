@@ -364,7 +364,7 @@ class Server(object):
 
                 util._run_finalizers()
                 util.info('manager exiting with exitcode 0')
-            except:
+            except Exception:
                 import traceback
                 traceback.print_exc()
         finally:

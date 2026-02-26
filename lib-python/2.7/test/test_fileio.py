@@ -462,7 +462,7 @@ class OtherFileTests(unittest.TestCase):
         finally:
             try:
                 os.unlink(TESTFN)
-            except:
+            except Exception:
                 pass
 
     def testInvalidInit(self):

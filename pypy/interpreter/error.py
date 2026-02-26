@@ -576,7 +576,7 @@ def get_converted_unexpected_exception(space, e):
                      "maximum recursion depth exceeded")
     except RuntimeError:   # not on top of py.py
         return OperationError(space.w_RuntimeError, space.w_None)
-    except:
+    except Exception:
         if we_are_translated():
             from rpython.rlib.debug import debug_print_traceback
             debug_print_traceback()

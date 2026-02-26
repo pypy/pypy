@@ -36,7 +36,7 @@ def get_terminal_width():
         height, width = _getdimensions()
     except py.builtin._sysex:
         raise
-    except:
+    except Exception:
         # pass to fallback below
         pass
 

@@ -51,7 +51,7 @@ def make_server():
         serv.register_function(add)
         serv.register_function(lambda x, y: x-y)
         return serv
-    except:
+    except Exception:
         serv.server_close()
         raise
 

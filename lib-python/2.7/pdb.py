@@ -236,7 +236,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                 sys.stdout = save_stdout
                 sys.stdin = save_stdin
                 sys.displayhook = save_displayhook
-        except:
+        except Exception:
             t, v = sys.exc_info()[:2]
             if type(t) == type(''):
                 exc_type_name = t
@@ -324,7 +324,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         else:
             try:
                 bnum = int(arg)
-            except:
+            except Exception:
                 print >>self.stdout, "Usage : commands [bnum]\n        ..." \
                                      "\n        end"
                 return
@@ -387,7 +387,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                     func = eval(arg,
                                 self.curframe.f_globals,
                                 self.curframe_locals)
-                except:
+                except Exception:
                     func = arg
                 try:
                     if hasattr(func, 'im_func'):
@@ -398,7 +398,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                     funcname = code.co_name
                     lineno = code.co_firstlineno
                     filename = code.co_filename
-                except:
+                except Exception:
                     # last thing to try
                     (ok, filename, ln) = self.lineinfo(arg)
                     if not ok:
@@ -536,7 +536,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return
         try:
             cond = args[1]
-        except:
+        except Exception:
             cond = None
         try:
             bp = bdb.Breakpoint.bpbynumber[bpnum]
@@ -561,7 +561,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
             return
         try:
             count = int(args[1].strip())
-        except:
+        except Exception:
             count = 0
         try:
             bp = bdb.Breakpoint.bpbynumber[bpnum]
@@ -759,7 +759,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         try:
             return eval(arg, self.curframe.f_globals,
                         self.curframe_locals)
-        except:
+        except Exception:
             t, v = sys.exc_info()[:2]
             if isinstance(t, str):
                 exc_type_name = t
@@ -770,13 +770,13 @@ class Pdb(bdb.Bdb, cmd.Cmd):
     def do_p(self, arg):
         try:
             print >>self.stdout, repr(self._getval(arg))
-        except:
+        except Exception:
             pass
 
     def do_pp(self, arg):
         try:
             pprint.pprint(self._getval(arg), self.stdout)
-        except:
+        except Exception:
             pass
 
     def do_list(self, arg):
@@ -794,7 +794,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
                         last = first + last
                 else:
                     first = max(1, int(x) - 5)
-            except:
+            except Exception:
                 print >>self.stdout, '*** Error in argument:', repr(arg)
                 return
         elif self.lineno is None:
@@ -829,7 +829,7 @@ class Pdb(bdb.Bdb, cmd.Cmd):
         try:
             value = eval(arg, self.curframe.f_globals,
                             self.curframe_locals)
-        except:
+        except Exception:
             t, v = sys.exc_info()[:2]
             if type(t) == type(''):
                 exc_type_name = t
@@ -1325,7 +1325,7 @@ def main():
         except SyntaxError:
             traceback.print_exc()
             sys.exit(1)
-        except:
+        except Exception:
             traceback.print_exc()
             print "Uncaught exception. Entering post mortem debugging"
             print "Running 'cont' or 'step' will restart the program"

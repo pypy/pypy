@@ -142,7 +142,7 @@ class W_File(W_AbstractStream):
         fd = stream.try_to_find_file_descriptor()
         try:
             self.check_not_dir(fd)
-        except:
+        except Exception:
             stream.close()
             raise
         self.fdopenstream(stream, fd, mode)

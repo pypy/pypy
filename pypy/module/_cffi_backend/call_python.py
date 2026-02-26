@@ -56,7 +56,7 @@ def _cffi_call_python(ll_externpy, ll_args):
                    "attached to it yet with @ffi.def_extern().  "
                    "Returning 0.\n" % (funcname,))
             os.write(STDERR, msg)
-        except:
+        except Exception:
             pass
         for i in range(intmask(ll_externpy.c_size_of_result)):
             ll_args[i] = '\x00'

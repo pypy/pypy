@@ -43,7 +43,7 @@ def analyze(graphs, translator):
                     ca.verbose = True
                     ca.analyze_direct_call(graph)  # print the "traceback" here
                     sys.stdout = prev
-                except:
+                except Exception:
                     sys.stdout = prev
                 # ^^^ for the dump of which operation in which graph actually
                 # causes it to return True

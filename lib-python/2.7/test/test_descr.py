@@ -2973,7 +2973,7 @@ order (MRO) for bases """
         finally:
             try:
                 f.close()
-            except:
+            except Exception:
                 pass
             test_support.unlink(test_support.TESTFN)
 
@@ -3077,7 +3077,7 @@ order (MRO) for bases """
             def __eq__(self, other):
                 try:
                     return abs(self - other) <= 1e-6
-                except:
+                except Exception:
                     return NotImplemented
             __hash__ = None # Silence Py3k warning
         zz = ZZ(1.0000003)
@@ -4937,7 +4937,7 @@ class PTypesLongInitTest(unittest.TestCase):
                 pass
         try:
             pow(0L, UserLong(), 0L)
-        except:
+        except Exception:
             pass
 
         # Another segfault only when run early

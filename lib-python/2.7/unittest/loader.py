@@ -252,7 +252,7 @@ class TestLoader(object):
                 name = self._get_name_from_path(full_path)
                 try:
                     module = self._get_module_from_name(name)
-                except:
+                except Exception:
                     yield _make_failed_import_test(name, self.suiteClass)
                 else:
                     mod_file = os.path.abspath(getattr(module, '__file__', full_path))

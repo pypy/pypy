@@ -76,7 +76,7 @@ class RPythonTyper(object):
             self.seed = int(os.getenv('RTYPERSEED'))
             s = 'Using %d as seed for block shuffling' % self.seed
             self.log.info(s)
-        except:
+        except Exception:
             self.seed = 0
 
     def getconfig(self):

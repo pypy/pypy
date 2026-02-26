@@ -47,7 +47,7 @@ def start_new_thread(function, args, kwargs={}):
         function(*args, **kwargs)
     except SystemExit:
         pass
-    except:
+    except Exception:
         _traceback.print_exc()
     _main = True
     global _interrupt

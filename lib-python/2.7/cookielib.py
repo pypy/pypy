@@ -1778,7 +1778,7 @@ class FileCookieJar(CookieJar):
         if filename is not None:
             try:
                 filename+""
-            except:
+            except Exception:
                 raise ValueError("filename must be string-like")
         self.filename = filename
         self.delayload = bool(delayload)

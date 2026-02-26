@@ -136,7 +136,7 @@ def assign_members(target, attrlist, exclist, prefix):
                     exec stmt + '\n'
                 except KeyboardInterrupt: # Don't catch this!
                     raise KeyboardInterrupt
-                except:
+                except Exception:
                     print 'assign failed:', stmt
 
 

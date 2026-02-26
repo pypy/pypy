@@ -1273,7 +1273,7 @@ class OtherTests(unittest.TestCase):
         try:
             zipf = zipfile.ZipFile(TESTFN, mode="r")
             zipf.close()
-        except:
+        except Exception:
             self.fail("Unable to create empty ZIP file in 'a' mode")
 
     def test_open_empty_file(self):

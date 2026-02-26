@@ -405,7 +405,7 @@ class AppTestSupport(BaseNumpyAppTest):
                     # Determine when we should have a column array
                     try:
                         n = len(index)
-                    except:
+                    except Exception:
                         n = 0
                     if n > 1 and isscalar(index[1]):
                         out.shape = (sh, 1)

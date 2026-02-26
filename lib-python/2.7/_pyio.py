@@ -229,7 +229,7 @@ def open(file, mode="r", buffering=-1,
         result = text
         text.mode = mode
         return result
-    except:
+    except Exception:
         result.close()
         raise
 
@@ -363,7 +363,7 @@ class IOBase:
         # the end users, we suppress the traceback.
         try:
             self.close()
-        except:
+        except Exception:
             pass
 
     ### Inquiries ###

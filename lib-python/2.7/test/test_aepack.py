@@ -58,7 +58,7 @@ class TestAepack(unittest.TestCase):
     def test_roundtrip_FSSpec(self):
         try:
             import Carbon.File
-        except:
+        except Exception:
             self.skipTest('Carbon.File not available')
 
         if not hasattr(Carbon.File, "FSSpec"):
@@ -71,7 +71,7 @@ class TestAepack(unittest.TestCase):
     def test_roundtrip_Alias(self):
         try:
             import Carbon.File
-        except:
+        except Exception:
             self.skipTest('Carbon.File not available')
         if not hasattr(Carbon.File, "FSSpec"):
             self.skipTest('Carbon.File.FSSpec not available')

@@ -610,7 +610,7 @@ class SvnWCCommandPath(common.PathBase):
         # XXX should be fixed properly!!!
         try:
             self.unlock()
-        except:
+        except Exception:
             pass
 
     def status(self, updates=0, rec=0, externals=0):

@@ -222,7 +222,7 @@ def xfail(method):
     def new_method(self, *args, **kwds):
         try:
             method(self, *args, **kwds)
-        except:
+        except Exception:
             pass
         else:
             self.assertTrue(False, "DID NOT RAISE")

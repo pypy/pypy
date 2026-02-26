@@ -407,7 +407,7 @@ class UsingFrameworkTest(object):
             def __del__(self):
                 try:
                     g()
-                except:
+                except Exception:
                     pass #os.write(1, "hallo")
         def f1(i):
             if i:

@@ -71,7 +71,7 @@ if MESSAGEBOX:
                     def write(self, x):
                         try:
                             of.write(x)
-                        except:
+                        except Exception:
                             pass
                         self.buf += x
                 fl = FileLike()

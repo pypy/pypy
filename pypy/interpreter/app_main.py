@@ -70,11 +70,11 @@ def handle_sys_exit(e):
     else:
         try:
             exitcode = int(exitcode)
-        except:
+        except Exception:
             # not an integer: print it to stderr
             try:
                 print >> sys.stderr, exitcode
-            except:
+            except Exception:
                 pass   # too bad
             exitcode = 1
     raise SystemExit(exitcode)
@@ -173,7 +173,7 @@ def display_exception(e):
             originalexcepthook(type(e), e, e.__traceback__)
             print >> stderr
             print >> stderr, 'Original exception was:'
-        except:
+        except Exception:
             pass   # too bad
 
     # we only get here if sys.excepthook didn't do its job
@@ -647,7 +647,7 @@ def run_command_line(interactive,
     if not no_site:
         try:
             import site
-        except:
+        except Exception:
             print >> sys.stderr, "'import site' failed"
 
     set_stdio_encodings(ignore_environment)

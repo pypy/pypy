@@ -19,7 +19,7 @@ from re import escape as re_escape
 from datetime import date as datetime_date
 try:
     from thread import allocate_lock as _thread_allocate_lock
-except:
+except Exception:
     from dummy_thread import allocate_lock as _thread_allocate_lock
 
 __all__ = []

@@ -100,7 +100,7 @@ class __extend__(W_NDimArray):
     def descr_tostring(self, space, w_order=None):
         try:
             order = order_converter(space, w_order, NPY.CORDER)
-        except:
+        except Exception:
             raise oefmt(space.w_TypeError, "order not understood")
         order = support.get_order_as_CF(self.get_order(), order)
         arr = self

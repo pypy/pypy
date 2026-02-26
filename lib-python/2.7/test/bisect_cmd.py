@@ -56,7 +56,7 @@ def list_cases(args):
                             universal_newlines=True)
     try:
         stdout = proc.communicate()[0]
-    except:
+    except Exception:
         proc.stdout.close()
         proc.kill()
         proc.wait()
@@ -82,7 +82,7 @@ def run_tests(args, tests, huntrleaks=None):
         proc = subprocess.Popen(cmd)
         try:
             exitcode = proc.wait()
-        except:
+        except Exception:
             proc.kill()
             proc.wait()
             raise

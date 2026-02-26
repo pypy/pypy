@@ -244,7 +244,7 @@ class TestFlowObjSpace(Base):
     def reverse_3(lst):
         try:
             a, b, c = lst
-        except:
+        except Exception:
             return 0, 0, 0
         else:
             return c, b, a
@@ -358,7 +358,7 @@ class TestFlowObjSpace(Base):
     def reraiseAnythingDicCase(dic):
         try:
             dic[5]
-        except:
+        except Exception:
             raise
 
     def test_reraiseAnythingDicCase(self):
@@ -377,7 +377,7 @@ class TestFlowObjSpace(Base):
     def reraiseAnything(x):
         try:
             pow(x, 5)
-        except:
+        except Exception:
             raise
 
     def test_reraiseAnything(self):
@@ -395,7 +395,7 @@ class TestFlowObjSpace(Base):
         try:
             for x in lst:
                 pass
-        except:
+        except Exception:
             lst.append(5)
             raise
 

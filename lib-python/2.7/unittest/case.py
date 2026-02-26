@@ -322,7 +322,7 @@ class TestCase(object):
                 self._addSkip(result, str(e))
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 result.addError(self, sys.exc_info())
             else:
                 try:
@@ -349,7 +349,7 @@ class TestCase(object):
                         result.addFailure(self, sys.exc_info())
                 except SkipTest as e:
                     self._addSkip(result, str(e))
-                except:
+                except Exception:
                     result.addError(self, sys.exc_info())
                 else:
                     success = True
@@ -358,7 +358,7 @@ class TestCase(object):
                     self.tearDown()
                 except KeyboardInterrupt:
                     raise
-                except:
+                except Exception:
                     result.addError(self, sys.exc_info())
                     success = False
 
@@ -384,7 +384,7 @@ class TestCase(object):
                 function(*args, **kwargs)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 ok = False
                 result.addError(self, sys.exc_info())
         return ok

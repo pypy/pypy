@@ -201,7 +201,7 @@ def llexternal(name, args, result, _callable=None,
                 else:
                     try:    # only when non-translated
                         res = funcptr(%(argnames)s)
-                    except:
+                    except Exception:
                         rgil.acquire()
                         raise
                 if %(save_err)d:

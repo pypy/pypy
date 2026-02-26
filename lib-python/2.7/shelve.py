@@ -153,7 +153,7 @@ class Shelf(UserDict.DictMixin):
             # because CPython is in interpreter shutdown.
             try:
                 self.dict = _ClosedDict()
-            except:
+            except Exception:
                 self.dict = None
 
     def __del__(self):

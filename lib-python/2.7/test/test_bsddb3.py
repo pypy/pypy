@@ -77,7 +77,7 @@ def test_main():
         # ignore errors.  We should always make a unique name now.
         try:
             test_all.remove_test_path_directory()
-        except:
+        except Exception:
             pass
 
 

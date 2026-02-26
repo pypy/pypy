@@ -1125,7 +1125,7 @@ class Statement(object):
     def __set_param(self, idx, param):
         try:
             param = adapt(param)
-        except:
+        except Exception:
             pass  # And use previous value
 
         if param is None:

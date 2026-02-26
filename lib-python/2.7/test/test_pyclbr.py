@@ -109,7 +109,7 @@ class PyclbrTest(TestCase):
 
                 try:
                     self.assertListEq(real_bases, pyclbr_bases, ignore)
-                except:
+                except Exception:
                     print >>sys.stderr, "class=%s" % py_item
                     raise
 
@@ -131,7 +131,7 @@ class PyclbrTest(TestCase):
                     self.assertEqualsOrIgnored(py_item.__name__, value.name,
                                                ignore)
                     # can't check file or lineno
-                except:
+                except Exception:
                     print >>sys.stderr, "class=%s" % py_item
                     raise
 

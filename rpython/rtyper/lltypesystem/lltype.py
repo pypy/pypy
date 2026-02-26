@@ -119,10 +119,10 @@ class LowLevelType(object):
         else:
             try:
                 reprself = repr(self)
-            except:
+            except Exception:
                 try:
                     reprself = str(self)
-                except:
+                except Exception:
                     reprself = object.__repr__(self)
             raise AssertionError("%s: changing the field %r but we already "
                                  "computed the hash" % (reprself, attr))

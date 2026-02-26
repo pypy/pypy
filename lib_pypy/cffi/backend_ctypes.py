@@ -874,7 +874,7 @@ class CTypesBackend(object):
                     try:
                         res2 = init(*args2)
                         res2 = BResult._to_ctypes(res2)
-                    except:
+                    except Exception:
                         traceback.print_exc()
                         res2 = error
                     if issubclass(BResult, CTypesGenericPtr):

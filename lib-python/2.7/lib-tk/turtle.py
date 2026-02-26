@@ -3803,7 +3803,7 @@ def getmethparlist(ob):
             argText1 = "(%s)" % argText1
             argText2 = ", ".join(items2)
             argText2 = "(%s)" % argText2
-        except:
+        except Exception:
             pass
     return argText1, argText2
 

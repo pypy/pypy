@@ -538,7 +538,7 @@ if _exists("fork") and not _exists("spawnv") and _exists("execv"):
                     func(file, args)
                 else:
                     func(file, args, env)
-            except:
+            except Exception:
                 _exit(127)
         else:
             # Parent

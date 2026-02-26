@@ -50,7 +50,7 @@ def pypy_init(import_site):
     if import_site:
         try:
             import site
-        except:
+        except Exception:
             import sys
             print >> sys.stderr, "\'import site\' failed"
 ''').interphook('pypy_init')
@@ -180,7 +180,7 @@ def main_(argv=None):
             if go_interactive or os.getenv('PYTHONINSPECT'):
                 try:
                     import readline
-                except:
+                except Exception:
                     pass
                 con = interactive.PyPyConsole(
                     space, verbose=interactiveconfig.verbose,

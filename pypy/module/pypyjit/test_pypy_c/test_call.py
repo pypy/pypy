@@ -370,7 +370,7 @@ class TestCall(BaseTestPyPyC):
             while i < n:
                 try:
                     residual_call(l, [])   # ID: call
-                except:
+                except Exception:
                     pass
                 i += 1
             return i

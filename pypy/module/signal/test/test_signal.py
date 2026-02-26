@@ -166,7 +166,7 @@ class AppTestSignal:
     def test_alarm(self):
         try:
             from signal import alarm, signal, SIG_DFL, SIGALRM
-        except:
+        except Exception:
             skip('no alarm on this platform')
         import time
         l = []

@@ -259,7 +259,7 @@ class FormatTest(unittest.TestCase):
                 else:
                     if verbose: print 'no'
                     print 'Unexpected ', exception, ':', repr(str(exc))
-            except:
+            except Exception:
                 if verbose: print 'no'
                 print 'Unexpected exception'
                 raise

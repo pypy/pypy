@@ -241,7 +241,7 @@ class AppTestSorting(BaseNumpyAppTest):
             skip('not implemented yet in PyPy')
         try:
             a = empty((101,), dtype=object)
-        except:
+        except Exception:
             skip('object type not supported yet')
         a[:] = list(range(101))
         b = a[::-1]
@@ -259,7 +259,7 @@ class AppTestSorting(BaseNumpyAppTest):
         # test datetime64 sorts.
         try:
             a = arange(0, 101, dtype='datetime64[D]')
-        except:
+        except Exception:
             skip('datetime type not supported yet')
         b = a[::-1]
         for kind in ['q', 'h', 'm'] :

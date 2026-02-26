@@ -814,7 +814,7 @@ class ZipFile(object):
                     self._didModify = True
             else:
                 raise RuntimeError('Mode must be "r", "w" or "a"')
-        except:
+        except Exception:
             fp = self.fp
             self.fp = None
             if not self._filePassed:
@@ -1036,7 +1036,7 @@ class ZipFile(object):
 
             return ZipExtFile(zef_file, mode, zinfo, zd,
                     close_fileobj=should_close)
-        except:
+        except Exception:
             if should_close:
                 zef_file.close()
             raise

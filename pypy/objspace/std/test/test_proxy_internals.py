@@ -49,7 +49,7 @@ class AppTestProxyInternals(AppProxy):
     def test_traceback_basic(self):
         try:
             1/0
-        except:
+        except Exception:
             import sys
             e = sys.exc_info()
 
@@ -72,7 +72,7 @@ class AppTestProxyInternals(AppProxy):
         #skip("Not implemented yet")
         try:
             1/0
-        except:
+        except Exception:
             import sys
             e = sys.exc_info()
 
@@ -126,14 +126,14 @@ class AppTestProxyTracebackController(AppProxy):
 
         try:
             g()
-        except:
+        except Exception:
             e = sys.exc_info()
 
         last_tb = e[2]
         tb = get_proxy(e[2])
         try:
             raise e[0], e[1], tb
-        except:
+        except Exception:
             e = sys.exc_info()
 
         assert traceback.format_tb(last_tb) == traceback.format_tb(e[2])

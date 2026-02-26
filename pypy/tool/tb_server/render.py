@@ -36,7 +36,7 @@ class Renderer:
         args = url.path.split('/')[2:]
         try:
             inner = self.render_self(url, args)
-        except:
+        except Exception:
             import sys, traceback
             lines = traceback.format_exception(*sys.exc_info())
             inner =  html.pre(

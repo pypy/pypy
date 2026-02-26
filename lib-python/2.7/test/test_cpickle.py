@@ -34,7 +34,7 @@ class FileIOMixin:
             f.write(data)
             f.seek(0)
             return f
-        except:
+        except Exception:
             f.close()
             raise
 

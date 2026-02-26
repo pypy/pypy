@@ -147,7 +147,7 @@ class PtyTest(unittest.TestCase):
                 # Have pty, but not setsid()?
                 debug("No setsid() available?")
                 pass
-            except:
+            except Exception:
                 # We don't want this error to propagate, escaping the call to
                 # os._exit() and causing very peculiar behavior in the calling
                 # regrtest.py !
@@ -228,7 +228,7 @@ class SmallPtyTests(unittest.TestCase):
         for fd in self.fds:
             try:
                 os.close(fd)
-            except:
+            except Exception:
                 pass
 
     def _pipe(self):

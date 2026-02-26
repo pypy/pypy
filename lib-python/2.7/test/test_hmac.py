@@ -233,21 +233,21 @@ class ConstructorTestCase(unittest.TestCase):
         failed = 0
         try:
             h = hmac.HMAC("key")
-        except:
+        except Exception:
             self.fail("Standard constructor call raised exception.")
 
     def test_withtext(self):
         # Constructor call with text.
         try:
             h = hmac.HMAC("key", "hash this!")
-        except:
+        except Exception:
             self.fail("Constructor call with text argument raised exception.")
 
     def test_withmodule(self):
         # Constructor call with text and digest module.
         try:
             h = hmac.HMAC("key", "", hashlib.sha1)
-        except:
+        except Exception:
             self.fail("Constructor call with hashlib.sha1 raised exception.")
 
 class SanityTestCase(unittest.TestCase):
@@ -267,7 +267,7 @@ class SanityTestCase(unittest.TestCase):
             dig = h.digest()
             dig = h.hexdigest()
             h2 = h.copy()
-        except:
+        except Exception:
             self.fail("Exception raised during normal usage of HMAC class.")
 
 class CopyTestCase(unittest.TestCase):

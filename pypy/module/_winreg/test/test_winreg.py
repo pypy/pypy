@@ -13,7 +13,7 @@ try:
     hToken = win32security.OpenProcessToken (win32api.GetCurrentProcess (), priv_flags)
     privilege_id = win32security.LookupPrivilegeValue (None, "SeBackupPrivilege")
     ret = win32security.AdjustTokenPrivileges (hToken, 0, [(privilege_id, win32security.SE_PRIVILEGE_ENABLED)])
-except:
+except Exception:
     canSaveKey = False
 else:
     canSaveKey = len(ret) > 0
@@ -206,7 +206,7 @@ class AppTestFfi:
         import os
         try:
             os.unlink(self.tmpfilename)
-        except:
+        except Exception:
             pass
 
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)

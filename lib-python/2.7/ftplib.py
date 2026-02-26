@@ -356,7 +356,7 @@ class FTP:
                     resp = self.getresp()
                 if resp[0] != '1':
                     raise error_reply, resp
-            except:
+            except Exception:
                 conn.close()
                 raise
         else:

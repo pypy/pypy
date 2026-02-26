@@ -66,7 +66,7 @@ class ForkedFunc:
                 retvalf.write(marshal.dumps(retval))
                 if child_on_exit is not None:
                     child_on_exit()
-            except:
+            except Exception:
                 excinfo = py.code.ExceptionInfo()
                 stderr.write(str(excinfo._getreprcrash()))
                 EXITSTATUS = self.EXITSTATUS_EXCEPTION

@@ -37,7 +37,7 @@ def wrapper(func, *args, **kwds):
         # module -- the error return from C start_color() is ignorable.
         try:
             curses.start_color()
-        except:
+        except Exception:
             pass
 
         return func(stdscr, *args, **kwds)

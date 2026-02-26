@@ -217,7 +217,7 @@ class TestTypedOptimizedRaisingOps:
         def f(x):
             try:
                 y = 123 / x
-            except:
+            except Exception:
                 y = 456
             return y
         fn = self.getcompiled(f, [int])

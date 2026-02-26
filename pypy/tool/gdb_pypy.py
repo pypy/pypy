@@ -77,7 +77,7 @@ class RPyType(Command):
             from pypy.tool import gdb_pypy
             try:
                 reload(gdb_pypy)
-            except:
+            except Exception:
                 import imp
                 imp.reload(gdb_pypy)
             gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
@@ -86,7 +86,7 @@ class RPyType(Command):
             if not isinstance(result, str):
                 result = result.decode('latin-1')
             print(result)
-        except:
+        except Exception:
             import traceback
             traceback.print_exc()
 

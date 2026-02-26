@@ -79,7 +79,7 @@ class _CommandData(object):
                 result = self.func(*args)
                 obj = AsObj(result)
                 tklib.Tcl_SetObjResult(interp, obj)
-            except:
+            except Exception:
                 self.app.errorInCmd = True
                 self.app.exc_info = sys.exc_info()
                 return tklib.TCL_ERROR

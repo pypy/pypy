@@ -104,7 +104,7 @@ class ReadlineAlikeReader(HistoricalReader, CompletingReader):
             while True:
                 try:
                     next = function(stem, state)
-                except:
+                except Exception:
                     break
                 if not isinstance(next, str):
                     break

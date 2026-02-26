@@ -217,7 +217,7 @@ class DeclTypesTests(unittest.TestCase):
             self.fail("should have raised an InterfaceError")
         except sqlite.InterfaceError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised an InterfaceError")
 
     def CheckUnsupportedDict(self):
@@ -228,7 +228,7 @@ class DeclTypesTests(unittest.TestCase):
             self.fail("should have raised an InterfaceError")
         except sqlite.InterfaceError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised an InterfaceError")
 
     def CheckBlob(self):
@@ -320,7 +320,7 @@ class ObjectAdaptationTests(unittest.TestCase):
         self.con = sqlite.connect(":memory:")
         try:
             del sqlite.adapters[int]
-        except:
+        except Exception:
             pass
         sqlite.register_adapter(int, ObjectAdaptationTests.cast)
         self.cur = self.con.cursor()

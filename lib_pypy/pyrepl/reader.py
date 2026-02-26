@@ -496,7 +496,7 @@ feeling more loquacious than I am now."""
             self.dirty = 1
             self.last_command = None
             self._pscache = {}
-        except:
+        except Exception:
             self.restore()
             raise
 

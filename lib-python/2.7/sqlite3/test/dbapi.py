@@ -162,7 +162,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised an OperationalError")
         except sqlite.OperationalError:
             return
-        except:
+        except Exception:
             self.fail("raised wrong exception")
 
     def CheckExecuteTooMuchSql(self):
@@ -171,7 +171,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a Warning")
         except sqlite.Warning:
             return
-        except:
+        except Exception:
             self.fail("raised wrong exception")
 
     def CheckExecuteTooMuchSql2(self):
@@ -192,7 +192,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a ValueError")
         except ValueError:
             return
-        except:
+        except Exception:
             self.fail("raised wrong exception.")
 
     def CheckExecuteArgInt(self):
@@ -365,7 +365,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a ValueError")
         except ValueError:
             return
-        except:
+        except Exception:
             self.fail("raised wrong exception.")
 
     def CheckExecuteManySelect(self):
@@ -374,7 +374,7 @@ class CursorTests(unittest.TestCase):
             self.fail("should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             return
-        except:
+        except Exception:
             self.fail("raised wrong exception.")
 
     def CheckExecuteManyNotIterable(self):
@@ -521,7 +521,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -539,7 +539,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -557,7 +557,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -575,7 +575,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -593,7 +593,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -611,7 +611,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -629,7 +629,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -648,7 +648,7 @@ class ThreadTests(unittest.TestCase):
                 return
             except sqlite.ProgrammingError:
                 return
-            except:
+            except Exception:
                 errors.append("raised wrong exception")
 
         errors = []
@@ -765,7 +765,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedConCommit(self):
@@ -776,7 +776,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedConRollback(self):
@@ -787,7 +787,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedCurExecute(self):
@@ -799,7 +799,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedCreateFunction(self):
@@ -811,7 +811,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedCreateAggregate(self):
@@ -829,7 +829,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedSetAuthorizer(self):
@@ -842,7 +842,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedSetProgressCallback(self):
@@ -854,7 +854,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
     def CheckClosedCall(self):
@@ -865,7 +865,7 @@ class ClosedConTests(unittest.TestCase):
             self.fail("Should have raised a ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("Should have raised a ProgrammingError")
 
 class ClosedCurTests(unittest.TestCase):
@@ -895,7 +895,7 @@ class ClosedCurTests(unittest.TestCase):
                 self.fail("Should have raised a ProgrammingError: method " + method_name)
             except sqlite.ProgrammingError:
                 pass
-            except:
+            except Exception:
                 self.fail("Should have raised a ProgrammingError: " + method_name)
 
 def suite():

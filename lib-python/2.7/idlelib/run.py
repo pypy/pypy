@@ -88,7 +88,7 @@ def main(del_exitfunc=False):
     try:
         assert(len(sys.argv) > 1)
         port = int(sys.argv[-1])
-    except:
+    except Exception:
         print>>sys.stderr, "IDLE Subprocess: no IP port passed in sys.argv."
         return
 
@@ -121,12 +121,12 @@ def main(del_exitfunc=False):
         except SystemExit:
             capture_warnings(False)
             raise
-        except:
+        except Exception:
             type, value, tb = sys.exc_info()
             try:
                 print_exception()
                 rpc.response_queue.put((seq, None))
-            except:
+            except Exception:
                 # Link didn't work, print same exception to __stderr__
                 traceback.print_exception(type, value, tb, file=sys.__stderr__)
                 exit()
@@ -271,7 +271,7 @@ class MyRPCServer(rpc.RPCServer):
             global exit_now
             exit_now = True
             thread.interrupt_main()
-        except:
+        except Exception:
             erf = sys.__stderr__
             print>>erf, '\n' + '-'*40
             print>>erf, 'Unhandled server exception!'
@@ -343,7 +343,7 @@ class Executive(object):
             # Scripts that raise SystemExit should just
             # return to the interactive prompt
             pass
-        except:
+        except Exception:
             self.usr_exc_info = sys.exc_info()
             if quitting:
                 exit()

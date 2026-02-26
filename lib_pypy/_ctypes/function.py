@@ -318,7 +318,7 @@ class CFuncPtr(_CData):
                 except SystemExit as e:
                     handle_system_exit(e)
                     raise
-            except:
+            except Exception:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
                 print >> sys.stderr, "%s: %s" % (exc_info[0].__name__, exc_info[1])

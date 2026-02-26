@@ -152,7 +152,7 @@ class ProfileHookTestCase(TestCaseBase):
         def g(p):
             try:
                 f(p)
-            except:
+            except Exception:
                 try: f(p)
                 except: pass
         f_ident = ident(f)

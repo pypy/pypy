@@ -31,11 +31,11 @@ class TestApplesingle(unittest.TestCase):
     def tearDown(self):
         try:
             os.unlink(test_support.TESTFN)
-        except:
+        except Exception:
             pass
         try:
             os.unlink(TESTFN2)
-        except:
+        except Exception:
             pass
 
     def compareData(self, isrf, data):
@@ -49,7 +49,7 @@ class TestApplesingle(unittest.TestCase):
     def test_applesingle(self):
         try:
             os.unlink(TESTFN2)
-        except:
+        except Exception:
             pass
         applesingle.decode(test_support.TESTFN, TESTFN2)
         self.compareData(False, dataforkdata)
@@ -58,7 +58,7 @@ class TestApplesingle(unittest.TestCase):
     def test_applesingle_resonly(self):
         try:
             os.unlink(TESTFN2)
-        except:
+        except Exception:
             pass
         applesingle.decode(test_support.TESTFN, TESTFN2, resonly=True)
         self.compareData(False, resourceforkdata)

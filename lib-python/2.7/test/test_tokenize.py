@@ -692,7 +692,7 @@ class TestRoundtrip(TestCase):
             try:
                 with open(testfile, 'rb') as f:
                     self.check_roundtrip(f)
-            except:
+            except Exception:
                 print "Roundtrip failed for file %s" % testfile
                 raise
 

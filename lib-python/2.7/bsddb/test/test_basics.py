@@ -58,7 +58,7 @@ class BasicTestCase(unittest.TestCase):
                 self.env.open(self.homeDir, self.envflags | db.DB_CREATE)
                 self.filename = "test"
             # Yes, a bare except is intended, since we're re-raising the exc.
-            except:
+            except Exception:
                 test_support.rmtree(self.homeDir)
                 raise
         else:

@@ -357,7 +357,7 @@ class CPPMethod(object):
                 for i, conv in enumerate(self.converters):
                     fargs.append(conv.cffi_type(self.space))
                 fresult = self.executor.cffi_type(self.space)
-            except:
+            except Exception:
                 raise FastCallNotPossible
 
             # the following is derived from _cffi_backend.ctypefunc
@@ -387,7 +387,7 @@ class CPPMethod(object):
             try:
                 arg_i = lltype.direct_ptradd(rffi.cast(rffi.CCHARP, args), i*stride)
                 conv.convert_argument(self.space, w_arg, rffi.cast(capi.C_OBJECT, arg_i))
-            except:
+            except Exception:
                 # fun :-(
                 for j in range(i):
                     conv = self.converters[j]

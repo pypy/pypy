@@ -39,7 +39,7 @@ class GeneratorContextManager(object):
                 # was passed to throw().  This prevents a StopIteration
                 # raised inside the "with" statement from being suppressed
                 return exc is not value
-            except:
+            except Exception:
                 # only re-raise if it's *not* the exception that was
                 # passed to throw(), because __exit__() must not raise
                 # an exception unless __exit__() itself failed.  But throw()
@@ -112,7 +112,7 @@ def nested(*managers):
             vars.append(enter())
             exits.append(exit)
         yield vars
-    except:
+    except Exception:
         exc = sys.exc_info()
     finally:
         while exits:
@@ -120,7 +120,7 @@ def nested(*managers):
             try:
                 if exit(*exc):
                     exc = (None, None, None)
-            except:
+            except Exception:
                 exc = sys.exc_info()
         if exc != (None, None, None):
             # Don't rely on sys.exc_info() still containing

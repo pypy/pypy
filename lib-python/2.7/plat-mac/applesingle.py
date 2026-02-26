@@ -9,7 +9,7 @@ import sys
 try:
     import MacOS
     import Carbon.File
-except:
+except Exception:
     class MacOS:
         def openrf(path, mode):
             return open(path + '.rsrc', mode)

@@ -441,7 +441,7 @@ class _Stream:
                     self.cmp = bz2.BZ2Decompressor()
                 else:
                     self.cmp = bz2.BZ2Compressor()
-        except:
+        except Exception:
             if not self._extfileobj:
                 self.fileobj.close()
             self.closed = True
@@ -1609,7 +1609,7 @@ class TarFile(object):
                     buf = self.tarinfo.create_pax_global_header(self.pax_headers.copy())
                     self.fileobj.write(buf)
                     self.offset += len(buf)
-        except:
+        except Exception:
             if not self._extfileobj:
                 self.fileobj.close()
             self.closed = True
@@ -1705,7 +1705,7 @@ class TarFile(object):
             stream = _Stream(name, filemode, comptype, fileobj, bufsize)
             try:
                 t = cls(name, filemode, stream, **kwargs)
-            except:
+            except Exception:
                 stream.close()
                 raise
             t._extfileobj = False
@@ -1752,7 +1752,7 @@ class TarFile(object):
             if mode == 'r':
                 raise ReadError("not a gzip file")
             raise
-        except:
+        except Exception:
             fileobj.close()
             raise
         t._extfileobj = False
@@ -1783,7 +1783,7 @@ class TarFile(object):
             if mode == 'r':
                 raise ReadError("not a bzip2 file")
             raise
-        except:
+        except Exception:
             fileobj.close()
             raise
         t._extfileobj = False

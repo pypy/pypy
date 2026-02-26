@@ -40,7 +40,7 @@ class HASH(object):
                 # cpython uses EVP_DigestInit
                 lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL)
             self.ctx = ctx
-        except:
+        except Exception:
             # no need to gc ctx! 
             raise
 

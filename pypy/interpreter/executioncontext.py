@@ -358,7 +358,7 @@ class ExecutionContext(object):
                         pass   #d.w_f_trace = None
                     else:
                         d.w_f_trace = w_result
-                except:
+                except Exception:
                     self.settrace(space.w_None)
                     d.w_f_trace = None
                     raise
@@ -387,7 +387,7 @@ class ExecutionContext(object):
                 try:
                     self.profilefunc(space, self.w_profilefuncarg,
                                      frame, event, w_arg)
-                except:
+                except Exception:
                     self.profilefunc = None
                     self.w_profilefuncarg = None
                     raise

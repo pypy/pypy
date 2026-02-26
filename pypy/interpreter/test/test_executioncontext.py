@@ -205,7 +205,7 @@ class TestExecutionContext:
             space.appexec([], """():
             try:
                 %s
-            except:
+            except Exception:
                 pass
             return
             """ % snippet)
@@ -317,7 +317,7 @@ class TestExecutionContext:
             sys.setprofile(profile)
             try:
                 x
-            except:
+            except Exception:
                 expected = sys.exc_info()[0]
                 assert expected is NameError
                 for i in l:

@@ -99,7 +99,7 @@ if mswindows:
                     "STARTF_USESTDHANDLES", "STARTF_USESHOWWINDOW"])
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
-except:
+except Exception:
     MAXFD = 256
 
 _active = []
@@ -908,7 +908,7 @@ class Popen(object):
                         continue
                     try:
                         os.close(i)
-                    except:
+                    except Exception:
                         pass
 
 
@@ -966,7 +966,7 @@ class Popen(object):
                         gc.disable()
                     try:
                         self.pid = os.fork()
-                    except:
+                    except Exception:
                         if gc_was_enabled:
                             gc.enable()
                         raise
@@ -1032,7 +1032,7 @@ class Popen(object):
                                             "illegal environment variable name")
                                 os.execvpe(executable, args, env)
 
-                        except:
+                        except Exception:
                             exc_type, exc_value, tb = sys.exc_info()
                             # Save the traceback and attach it to the exception object
                             exc_lines = traceback.format_exception(exc_type,

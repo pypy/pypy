@@ -242,7 +242,7 @@ def checkvalid(space, s):
                             space.wrap(s),
                             space.wrap('?'),
                             space.wrap('exec'))
-    except:
+    except Exception:
         print '\n' + s
         raise
 
@@ -259,7 +259,7 @@ def checkinvalid(space, s):
                 raise
         else:
             raise Exception("Should have raised SyntaxError")
-    except:
+    except Exception:
         print '\n' + s
         raise
 

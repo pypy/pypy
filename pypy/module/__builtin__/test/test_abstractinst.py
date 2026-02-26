@@ -276,7 +276,7 @@ class AppTestAbstractInst:
             assert False, "exception should not be a MyException"
         except KeyError:
             pass
-        except:
+        except Exception:
             assert False, "Should have raised KeyError"
         else:
             assert False, "Should have raised KeyError"

@@ -43,14 +43,14 @@ class SafeRepr(reprlib.Repr):
             s = call(x, *args)
         except py.builtin._sysex:
             raise
-        except:
+        except Exception:
             cls, e, tb = sys.exc_info()
             exc_name = getattr(cls, '__name__', 'unknown')
             try:
                 exc_info = str(e)
             except py.builtin._sysex:
                 raise
-            except:
+            except Exception:
                 exc_info = 'unknown'
             return '<[%s("%s") raised in repr()] %s object at 0x%x>' % (
                 exc_name, exc_info, x.__class__.__name__, id(x))

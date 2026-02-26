@@ -84,7 +84,7 @@ def tuple_attach(space, py_obj, w_obj, w_userdata=None):
         while i < length:
             py_tup.c_ob_item[i] = make_ref(space, items_w[i])
             i += 1
-    except:
+    except Exception:
         while i > 0:
             i -= 1
             ob = py_tup.c_ob_item[i]
@@ -204,7 +204,7 @@ def _PyTuple_Resize(space, p_ref, newsize):
             if ob:
                 incref(space, ob)
                 newref.c_ob_item[i] = ob
-    except:
+    except Exception:
         decref(space, p_ref[0])
         p_ref[0] = lltype.nullptr(PyObject.TO)
         raise

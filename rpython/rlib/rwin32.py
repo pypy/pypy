@@ -579,7 +579,7 @@ if WIN32:
         if fd2 >= 0 and ftype != FILE_TYPE_CHAR:
             try:
                 set_inheritable(fd2, False)
-            except:
+            except Exception:
                 os.close(fd2)
                 raise
         return fd2
@@ -592,7 +592,7 @@ if WIN32:
         if res >= 0 and ftype != FILE_TYPE_CHAR:
             try:
                 set_inheritable(fd2, False)
-            except:
+            except Exception:
                 os.close(fd2)
                 raise
         return res

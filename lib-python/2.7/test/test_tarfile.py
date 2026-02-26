@@ -1727,7 +1727,7 @@ class ContextManagerTest(unittest.TestCase):
         try:
             with tarfile.open(tmpname, "w") as tar:
                 raise Exception
-        except:
+        except Exception:
             pass
         self.assertEqual(os.path.getsize(tmpname), 0,
                 "context manager wrote an end-of-archive block")
@@ -1748,7 +1748,7 @@ class ContextManagerTest(unittest.TestCase):
             try:
                 with tarfile.open(fileobj=fobj, mode="w") as tar:
                     raise Exception
-            except:
+            except Exception:
                 pass
             self.assertFalse(fobj.closed, "external file object was closed")
             self.assertTrue(tar.closed, "context manager failed")

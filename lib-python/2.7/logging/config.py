@@ -836,7 +836,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
                         d =json.loads(chunk)
                         assert isinstance(d, dict)
                         dictConfig(d)
-                    except:
+                    except Exception:
                         #Apply new configuration.
 
                         file = cStringIO.StringIO(chunk)
@@ -844,7 +844,7 @@ def listen(port=DEFAULT_LOGGING_CONFIG_PORT):
                             fileConfig(file)
                         except (KeyboardInterrupt, SystemExit):
                             raise
-                        except:
+                        except Exception:
                             traceback.print_exc()
                     if self.server.ready:
                         self.server.ready.set()

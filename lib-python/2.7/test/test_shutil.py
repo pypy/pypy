@@ -683,7 +683,7 @@ class TestMove(unittest.TestCase):
             try:
                 if d:
                     shutil.rmtree(d)
-            except:
+            except Exception:
                 pass
 
     def _check_move_file(self, src, dst, real_dst):
@@ -730,7 +730,7 @@ class TestMove(unittest.TestCase):
         finally:
             try:
                 shutil.rmtree(dst_dir)
-            except:
+            except Exception:
                 pass
 
     def test_move_dir_other_fs(self):
@@ -743,7 +743,7 @@ class TestMove(unittest.TestCase):
         finally:
             try:
                 shutil.rmtree(dst_dir)
-            except:
+            except Exception:
                 pass
 
     def test_move_dir_to_dir(self):

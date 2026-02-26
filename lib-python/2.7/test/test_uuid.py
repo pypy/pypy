@@ -8,7 +8,7 @@ def importable(name):
     try:
         __import__(name)
         return True
-    except:
+    except Exception:
         return False
 
 class TestUUID(unittest.TestCase):

@@ -11,7 +11,7 @@ class TestPyTracebackObject(BaseApiTest):
             import sys
             try:
                 1/0
-            except:
+            except Exception:
                 return sys.exc_info()[2]
         """
         w_traceback = space.appexec([], src)

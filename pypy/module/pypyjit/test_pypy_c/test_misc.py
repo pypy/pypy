@@ -383,7 +383,7 @@ class TestMisc(BaseTestPyPyC):
             while i < 1000:
                 try:
                     return lst[i]
-                except:
+                except Exception:
                     e = sys.exc_info()[1]    # ID: exc_info
                     if not isinstance(e, IndexError):
                         raise

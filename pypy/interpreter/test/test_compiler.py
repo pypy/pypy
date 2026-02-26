@@ -182,7 +182,7 @@ class BaseTestCompiler:
         def f():
             try:
                 1/0
-            except:
+            except Exception:
                 pass
             else:
                 pass
@@ -544,7 +544,7 @@ def test():
         finally:
             try:
                 continue       # 'continue' inside 'finally'
-            except:
+            except Exception:
                 pass
         '''))
         space.raises_w(space.w_SyntaxError, self.compiler.compile,

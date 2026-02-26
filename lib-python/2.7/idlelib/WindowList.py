@@ -44,7 +44,7 @@ class WindowList:
         for callback in self.callbacks:
             try:
                 callback()
-            except:
+            except Exception:
                 print "warning: callback failed in WindowList", \
                       sys.exc_type, ":", sys.exc_value
 

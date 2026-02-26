@@ -186,7 +186,7 @@ class W_FileIO(W_RawIOBase):
                     os.lseek(self.fd, 0, os.SEEK_END)
                 except OSError as e:
                     raise wrap_oserror(space, e, w_exception_class=space.w_IOError)
-        except:
+        except Exception:
             if not fd_is_own:
                 self.fd = -1
             raise

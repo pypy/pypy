@@ -879,7 +879,7 @@ class AppTestPartialEvaluation:
                         r'System\CurrentControlSet\Control\Nls\CodePage')
             if _winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
                 toencode = u'caf\xbf','caf\xbf'
-        except:
+        except Exception:
             assert False, 'cannot test mbcs on this windows system, check code page'
         assert u'test'.encode('mbcs') == 'test'
         assert toencode[0].encode('mbcs') == toencode[1]

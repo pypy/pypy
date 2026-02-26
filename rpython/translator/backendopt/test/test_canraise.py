@@ -240,7 +240,7 @@ class TestCanRaise(object):
         def g(x):
             try:
                 return f(x)
-            except:
+            except Exception:
                 raise
         t, ra = self.translate(g, [int])
         ra.do_ignore_memory_error()

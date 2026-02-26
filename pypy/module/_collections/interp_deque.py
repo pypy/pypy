@@ -461,7 +461,7 @@ app = gateway.applevel("""
             finally:
                 try:
                     del currently_in_repr[d]
-                except:
+                except Exception:
                     pass
         if d.maxlen is None:
             maxlenrepr = ''

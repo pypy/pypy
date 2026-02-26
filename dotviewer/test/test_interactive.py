@@ -124,7 +124,7 @@ def display1(filename, lock, errors):
                 filename, os.environ.get('GRAPHSERVER', ''),)
             display_dot_file(udir.join(filename))
             print "=== display_dot_file finished"
-        except:
+        except Exception:
             errors.append(sys.exc_info())
     finally:
         lock.release()

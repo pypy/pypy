@@ -247,7 +247,7 @@ class HistoricalReader(R):
             else:
                 self.historyi = len(self.history)
             self.next_history = None
-        except:
+        except Exception:
             self.restore()
             raise
 

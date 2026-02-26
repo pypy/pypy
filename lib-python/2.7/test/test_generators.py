@@ -67,7 +67,7 @@ However, they are not exactly equivalent:
     >>> def g1():
     ...     try:
     ...         return
-    ...     except:
+    ...     except Exception:
     ...         yield 1
     ...
     >>> list(g1())
@@ -76,7 +76,7 @@ However, they are not exactly equivalent:
     >>> def g2():
     ...     try:
     ...         raise StopIteration
-    ...     except:
+    ...     except Exception:
     ...         yield 42
     >>> print list(g2())
     [42]
@@ -159,7 +159,7 @@ Specification: Return
         >>> def f1():
         ...     try:
         ...         return
-        ...     except:
+        ...     except Exception:
         ...        yield 1
         >>> print list(f1())
         []
@@ -169,7 +169,7 @@ Specification: Return
         >>> def f2():
         ...     try:
         ...         raise StopIteration
-        ...     except:
+        ...     except Exception:
         ...         yield 42
         >>> print list(f2())
         [42]
@@ -210,10 +210,10 @@ Specification: Try/Except/Finally
     ...             yield 4
     ...             yield 5
     ...             raise
-    ...         except:
+    ...         except Exception:
     ...             yield 6
     ...         yield 7     # the "raise" above stops this
-    ...     except:
+    ...     except Exception:
     ...         yield 8
     ...     yield 9
     ...     try:
@@ -317,7 +317,7 @@ in try/except, not like a return.
 ...     yield 1
 ...     try:
 ...         raise StopIteration
-...     except:
+...     except Exception:
 ...         yield 2
 ...     yield 3
 >>> list(g())
@@ -776,7 +776,7 @@ These are fine:
 ...             1//0
 ...         except ZeroDivisionError:
 ...             yield 666
-...         except:
+...         except Exception:
 ...             pass
 ...     finally:
 ...         pass
@@ -788,12 +788,12 @@ These are fine:
 ...             1//0
 ...         except ZeroDivisionError:
 ...             yield 666
-...         except:
+...         except Exception:
 ...             try:
 ...                 x = 12
 ...             finally:
 ...                 yield 12
-...     except:
+...     except Exception:
 ...         return
 >>> list(f())
 [12, 666]
@@ -841,7 +841,7 @@ These are fine:
 ...                         f(a, b, c, d, e)
 ...         else:
 ...             pass
-...     except:
+...     except Exception:
 ...         x = 1
 ...     return
 >>> type(f())
@@ -1643,7 +1643,7 @@ TypeError: throw() third argument must be a traceback object
 >>> def throw(g,exc):
 ...     try:
 ...         raise exc
-...     except:
+...     except Exception:
 ...         g.throw(*sys.exc_info())
 >>> throw(g,ValueError) # do it with traceback included
 caught ValueError ()

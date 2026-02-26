@@ -246,7 +246,7 @@ class CGIHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 os.dup2(self.rfile.fileno(), 0)
                 os.dup2(self.wfile.fileno(), 1)
                 os.execve(scriptfile, args, env)
-            except:
+            except Exception:
                 self.server.handle_error(self.request, self.client_address)
                 os._exit(127)
 

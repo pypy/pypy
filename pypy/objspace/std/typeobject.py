@@ -957,7 +957,7 @@ def descr_set__bases__(space, w_type, w_value):
                 w_newbase.add_subclass(w_type)
         # try to recompute all MROs
         mro_subclasses(space, w_type, temp)
-    except:
+    except Exception:
         for cls, old_mro in temp:
             cls.mro_w = old_mro
         w_type.bases_w = saved_bases_w

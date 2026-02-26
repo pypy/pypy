@@ -489,7 +489,7 @@ def flattenobj(*args):
         try:
             for atom in flattenobj(*arg):
                 yield atom
-        except:
+        except Exception:
             yield arg
 
 def mkentrymap(funcgraph):

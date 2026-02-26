@@ -1038,7 +1038,7 @@ class EditorWindow(object):
         for name in self.get_standard_extension_names():
             try:
                 self.load_extension(name)
-            except:
+            except Exception:
                 print "Failed to load extension", repr(name)
                 import traceback
                 traceback.print_exc()

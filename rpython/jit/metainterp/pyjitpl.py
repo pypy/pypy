@@ -2844,7 +2844,7 @@ class MetaInterp(object):
         else:
             try:
                 self._interpret()
-            except:
+            except Exception:
                 import sys
                 if sys.exc_info()[0] is not None:
                     self.staticdata.log(sys.exc_info()[0].__name__)

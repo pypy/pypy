@@ -784,7 +784,7 @@ def _run_forking_function(space, kind):
     except OSError as e:
         try:
             run_fork_hooks('parent', space)
-        except:
+        except Exception:
             # Don't clobber the OSError if the fork failed
             pass
         raise wrap_oserror(space, e)

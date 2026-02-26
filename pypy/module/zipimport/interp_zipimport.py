@@ -277,7 +277,7 @@ class W_ZipImporter(W_Root):
                         space.call_method(w_stderr, "write",
                                           space.newtext(message))
                     return w_result
-                except:
+                except Exception:
                     w_mods = space.sys.get('modules')
                     space.call_method(w_mods, 'pop', space.newtext(fullname), space.w_None)
                     raise

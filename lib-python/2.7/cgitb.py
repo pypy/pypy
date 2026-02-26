@@ -301,7 +301,7 @@ class Hook:
                 file.write(doc)
                 file.close()
                 msg = '%s contains the description of this error.' % path
-            except:
+            except Exception:
                 msg = 'Tried to save traceback to %s, but failed.' % path
 
             if self.format == 'html':

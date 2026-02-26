@@ -43,7 +43,7 @@ class TestGenericUnivNewlines(unittest.TestCase):
     def tearDown(self):
         try:
             os.unlink(test_support.TESTFN)
-        except:
+        except Exception:
             pass
 
     def test_read(self):

@@ -278,7 +278,7 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
         if zdict is not None:
             try:
                 deflateSetDictionary(stream, zdict)
-            except:
+            except Exception:
                 lltype.free(stream, flavor='raw')
                 raise
         return stream
@@ -331,7 +331,7 @@ def inflateInit(wbits=MAX_WBITS, zdict=None):
                                        ZLIB_VERSION if ZLIB_VERSION is not None
                                        else "<unknown>")
                 inflateSetDictionary(stream, zdict)
-            except:
+            except Exception:
                 lltype.free(stream, flavor='raw')
                 raise
         return stream

@@ -198,7 +198,7 @@ class HeaderTests(TestCase):
         for arg, expect in tests:
             try:
                 result = split_header_words([arg])
-            except:
+            except Exception:
                 import traceback, StringIO
                 f = StringIO.StringIO()
                 traceback.print_exc(None, f)

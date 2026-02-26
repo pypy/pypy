@@ -163,7 +163,7 @@ class AppTestInterpObjectPickling:
         def f():
             try:
                 raise Exception()
-            except:
+            except Exception:
                 import sys
                 exc_type, exc, tb = sys.exc_info()
                 return tb.tb_frame
@@ -195,7 +195,7 @@ class AppTestInterpObjectPickling:
         def f():
             try:
                 raise ValueError
-            except:
+            except Exception:
                 import sys, pickle
                 f = sys._getframe()
                 saved = hide_top_frame(f)
@@ -216,7 +216,7 @@ class AppTestInterpObjectPickling:
         def f():
             try:
                 raise Exception()
-            except:
+            except Exception:
                 exc_type, exc, tb = sys.exc_info()
                 return tb.tb_frame
         import pickle
@@ -234,7 +234,7 @@ class AppTestInterpObjectPickling:
         def f():
             try:
                 raise Exception()
-            except:
+            except Exception:
                 from sys import exc_info
                 exc_type, exc, tb = exc_info()
                 return tb

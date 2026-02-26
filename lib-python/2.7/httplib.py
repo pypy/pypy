@@ -1190,7 +1190,7 @@ class HTTPConnection:
                 self.__response = response
 
             return response
-        except:
+        except Exception:
             response.close()
             raise
 

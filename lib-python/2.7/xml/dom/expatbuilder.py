@@ -645,7 +645,7 @@ class FragmentBuilder(ExpatBuilder):
         document = _FRAGMENT_BUILDER_TEMPLATE % (ident, subset, nsattrs)
         try:
             parser.Parse(document, 1)
-        except:
+        except Exception:
             self.reset()
             raise
         fragment = self.fragment

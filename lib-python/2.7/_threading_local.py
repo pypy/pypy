@@ -225,7 +225,7 @@ class local(_localbase):
             # We use the non-locking API since we might already hold the lock
             # (__del__ can be called at any point by the cyclic GC).
             threads = threading._enumerate()
-        except:
+        except Exception:
             # If enumerating the current threads fails, as it seems to do
             # during shutdown, we'll skip cleanup under the assumption
             # that there is nothing to clean up.

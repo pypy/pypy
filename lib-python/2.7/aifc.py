@@ -348,7 +348,7 @@ class Aifc_read:
             f = __builtin__.open(f, 'rb')
             try:
                 self.initfp(f)
-            except:
+            except Exception:
                 f.close()
                 raise
         else:

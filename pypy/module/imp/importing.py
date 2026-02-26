@@ -593,7 +593,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     stream = streamio.open_file_as_stream(filename, filemode)
                     try:
                         return FindInfo(modtype, filename, stream, suffix, filemode)
-                    except:
+                    except Exception:
                         stream.close()
                         raise
             except StreamErrors:
@@ -768,7 +768,7 @@ def reload(space, w_module):
             finally:
                 if find_info.stream:
                     _wrap_close(space, find_info.stream)
-        except:
+        except Exception:
             # load_module probably removed name from modules because of
             # the error.  Put back the original module object.
             space.sys.setmodule(w_module)

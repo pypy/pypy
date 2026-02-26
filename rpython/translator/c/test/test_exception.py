@@ -33,7 +33,7 @@ def test_simple1():
             return 7
         except MyException:
             return 123
-        except:
+        except Exception:
             return 22
         return 66
     f = getcompiled(fn, [int])
@@ -46,7 +46,7 @@ def test_implicit_index_error_lists():
         lst = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         try:
             return lst[n]
-        except:
+        except Exception:
             return 2
     f = getcompiled(fn, [int])
     assert f(-1) == fn(-1)

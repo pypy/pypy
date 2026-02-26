@@ -195,7 +195,7 @@ def worker(num, n, run_param, testdirs, result_queue):
                                     timeout=timeout)
 
             cleanup(test)
-        except:
+        except Exception:
             print "execute-test for %r failed with:" % test
             import traceback
             traceback.print_exc()

@@ -66,7 +66,7 @@ class Nested(object):
             for mgr in self.managers:
                 vars.append(mgr.__enter__())
                 self.entered.appendleft(mgr)
-        except:
+        except Exception:
             if not self.__exit__(*sys.exc_info()):
                 raise
         return vars
@@ -80,7 +80,7 @@ class Nested(object):
             try:
                 if mgr.__exit__(*ex):
                     ex = (None, None, None)
-            except:
+            except Exception:
                 ex = sys.exc_info()
         self.entered = None
         if ex is not exc_info:
@@ -702,7 +702,7 @@ class NestedWith(unittest.TestCase):
         try:
             with self.Dummy() as a, self.InitRaises():
                 pass
-        except:
+        except Exception:
             pass
         self.assertTrue(a.enter_called)
         self.assertTrue(a.exit_called)

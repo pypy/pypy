@@ -91,7 +91,7 @@ def _PyComplex_AsCComplex(space, w_obj, result):
     if not PyComplex_Check(space, w_obj):
         try:
             w_obj = space.call_method(w_obj, "__complex__")
-        except:
+        except Exception:
             # if the above did not work, interpret obj as a float giving the
             # real part of the result, and fill in the imaginary part as 0.
             result.c_real = PyFloat_AsDouble(space, w_obj) # -1 on failure

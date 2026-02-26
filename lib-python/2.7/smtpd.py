@@ -284,7 +284,7 @@ class SMTPServer(asyncore.dispatcher):
             self.set_reuse_addr()
             self.bind(localaddr)
             self.listen(5)
-        except:
+        except Exception:
             # cleanup asyncore.socket_map before raising
             self.close()
             raise

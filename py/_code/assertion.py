@@ -57,7 +57,7 @@ class AssertionError(BuiltinAssertionError):
                 self.msg = str(args[0])
             except py.builtin._sysex:
                 raise
-            except:
+            except Exception:
                 self.msg = "<[broken __repr__] %s at %0xd>" %(
                     args[0].__class__, id(args[0]))
         else:

@@ -279,7 +279,7 @@ class AppTestGreenlet:
         def f():
             try:
                 raise ValueError('fun')
-            except:
+            except Exception:
                 exc_info = sys.exc_info()
                 greenlet(h).switch()
                 assert exc_info == sys.exc_info()

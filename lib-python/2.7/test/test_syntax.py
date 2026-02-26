@@ -406,7 +406,7 @@ This is essentially a continue in a finally which should not be allowed.
     ...        finally:
     ...            try:
     ...                continue
-    ...            except:
+    ...            except Exception:
     ...                pass
     Traceback (most recent call last):
       ...
@@ -454,7 +454,7 @@ This is essentially a continue in a finally which should not be allowed.
     ...   finally:
     ...    try:
     ...     pass
-    ...    except:
+    ...    except Exception:
     ...     continue
     Traceback (most recent call last):
       ...

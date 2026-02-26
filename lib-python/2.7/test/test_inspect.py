@@ -42,7 +42,7 @@ import __builtin__
 
 try:
     1 // 0
-except:
+except Exception:
     tb = sys.exc_traceback
 
 git = mod.StupidGit()

@@ -262,7 +262,7 @@ class TableDBTestCase(unittest.TestCase):
                              'filling': 'no',
                              'is it Guinness?': 'no'})
             self.fail("Insert should've failed due to bad column name")
-        except:
+        except Exception:
             pass
         self.tdb.CreateOrExtendTable(tabname,
                                      ['name', 'taste', 'is it Guinness?'])

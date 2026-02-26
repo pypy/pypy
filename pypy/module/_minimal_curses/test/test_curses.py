@@ -9,7 +9,7 @@ def setup_module(mod):
     try:
         import curses
         curses.setupterm()
-    except:
+    except Exception:
         py.test.skip("Cannot test this here")
 
 class TestCurses(object):

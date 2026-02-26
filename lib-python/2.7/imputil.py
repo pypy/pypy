@@ -306,7 +306,7 @@ class Importer:
         if not is_module:
             try:
                 exec code in module.__dict__
-            except:
+            except Exception:
                 if fqname in sys.modules:
                     del sys.modules[fqname]
                 raise

@@ -74,7 +74,7 @@ def parse_log(lines, verbose=False):
         lasttime = time
         try:
             record(match.group(2), time=int(match.group(1), 16))
-        except:
+        except Exception:
             print("Line", i)
             raise
     if verbose:

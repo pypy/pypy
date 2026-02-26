@@ -380,7 +380,7 @@ def _realize_c_struct_or_union(ffi, sindex):
         # complete_struct_or_union() to compute it now.
         try:
             do_realize_lazy_struct(w_ctype)
-        except:
+        except Exception:
             ffi.cached_types[type_index] = None
             raise
     return x
@@ -581,7 +581,7 @@ def do_realize_lazy_struct(w_ctype):
             totalsize = rffi.getintfield(s, 'c_size'),
             totalalignment = rffi.getintfield(s, 'c_alignment'),
             sflags = sflags)
-    except:
+    except Exception:
         w_ctype.size      = rffi.getintfield(s, 'c_size')       # restore
         w_ctype.alignment = rffi.getintfield(s, 'c_alignment')  # restore
         raise

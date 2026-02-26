@@ -336,7 +336,7 @@ class PimpPreferences:
             for p in sys.path:
                 try:
                     realpath = os.path.realpath(p)
-                except:
+                except Exception:
                     pass
                 if installDir == realpath:
                     break
@@ -602,7 +602,7 @@ class PimpPackage:
             return "old", str(arg)
         except _scriptExc_BadInstalled, arg:
             return "bad", str(arg)
-        except:
+        except Exception:
             sys.stderr.write("-------------------------------------\n")
             sys.stderr.write("---- %s: install test got exception\n" % self.fullname())
             sys.stderr.write("---- source:\n")

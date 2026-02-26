@@ -196,14 +196,14 @@ class PyShellEditorWindow(EditorWindow):
         lineno = int(float(text.index("insert")))
         try:
             self.breakpoints.remove(lineno)
-        except:
+        except Exception:
             pass
         text.tag_remove("BREAK", "insert linestart",\
                         "insert lineend +1char")
         try:
             debug = self.flist.pyshell.interp.debugger
             debug.clear_breakpoint_here(filename, lineno)
-        except:
+        except Exception:
             pass
 
     def clear_file_breaks(self):
@@ -218,7 +218,7 @@ class PyShellEditorWindow(EditorWindow):
             try:
                 debug = self.flist.pyshell.interp.debugger
                 debug.clear_file_breaks(filename)
-            except:
+            except Exception:
                 pass
 
     def store_file_breaks(self):
@@ -482,7 +482,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
             try:
                 # Only close subprocess debugger, don't unregister gui_adap!
                 RemoteDebugger.close_subprocess_debugger(self.rpcclt)
-            except:
+            except Exception:
                 pass
         # Kill subprocess, spawn a new one, accept connection.
         self.rpcclt.close()
@@ -742,7 +742,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
                 msg, (dummy_filename, lineno, offset, line) = value
                 if not offset:
                     offset = 0
-            except:
+            except Exception:
                 ok = 0
         if ok:
             return msg, lineno, offset, line
@@ -805,7 +805,7 @@ class ModifiedInterpreter(InteractiveInterpreter):
                     self.showtraceback()
             else:
                 raise
-        except:
+        except Exception:
             if use_subprocess:
                 print("IDLE internal error in runcode()",
                       file=self.tkconsole.stderr)
@@ -1102,7 +1102,7 @@ class PyShell(OutputWindow):
         try:
             if self.text.compare("sel.first", "!=", "sel.last"):
                 return # Active selection -- always use default binding
-        except:
+        except Exception:
             pass
         if not (self.executing or self.reading):
             self.resetoutput()
@@ -1155,7 +1155,7 @@ class PyShell(OutputWindow):
                 if self.text.compare("sel.last", "<=", "iomark"):
                     self.recall(sel, event)
                     return "break"
-        except:
+        except Exception:
             pass
         # If we're strictly before the line containing iomark, recall
         # the current line, less a leading prompt, less leading or
@@ -1252,7 +1252,7 @@ class PyShell(OutputWindow):
             return self.interp.remote_stack_viewer()
         try:
             sys.last_traceback
-        except:
+        except Exception:
             tkMessageBox.showerror("No stack trace",
                 "There is no stack trace yet.\n"
                 "(sys.last_traceback is not defined)",
@@ -1273,7 +1273,7 @@ class PyShell(OutputWindow):
         self.resetoutput()
         try:
             s = str(sys.ps1)
-        except:
+        except Exception:
             s = ""
         self.console.write(s)
         self.text.mark_set("insert", "end-1c")
@@ -1295,7 +1295,7 @@ class PyShell(OutputWindow):
             self.text.mark_gravity("iomark", "right")
             OutputWindow.write(self, s, tags, "iomark")
             self.text.mark_gravity("iomark", "left")
-        except:
+        except Exception:
             pass
         if self.canceled:
             self.canceled = 0

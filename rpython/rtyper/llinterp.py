@@ -546,7 +546,7 @@ class LLFrame(object):
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
         try:
             return pythonfunction(*args_ll)
-        except:
+        except Exception:
             self.make_llexception()
 
     def op_debug_forked(self, *args):

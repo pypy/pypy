@@ -207,7 +207,7 @@ class TestTimeit(unittest.TestCase):
         t = timeit.Timer("1.0/0.0")
         try:
             t.timeit()
-        except:
+        except Exception:
             t.print_exc(s)
         self.assert_exc_string(s.getvalue(), 'ZeroDivisionError')
 

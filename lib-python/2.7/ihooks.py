@@ -326,7 +326,7 @@ class FancyModuleLoader(ModuleLoader):
         m.__file__ = filename
         try:
             exec code in m.__dict__
-        except:
+        except Exception:
             d = self.hooks.modules_dict()
             if name in d:
                 del d[name]

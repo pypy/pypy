@@ -151,7 +151,7 @@ def make_portable():
 if __name__ == '__main__':
     try:
         os.chdir(sys.argv[1])
-    except:
+    except Exception:
         print('Call as %s <path/to/pypy/topdir' % sys.argv[0])
         exit(-1)
 

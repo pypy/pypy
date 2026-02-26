@@ -29,12 +29,12 @@ class Exchange(object):
     def forceclose(self):
         try:
             self.out.close()
-        except:
+        except Exception:
             pass
 
         try:
             self.inp.close()
-        except:
+        except Exception:
             pass
 
 class SlaveProcess(object):

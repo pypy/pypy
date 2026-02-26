@@ -57,7 +57,7 @@ if threading:
                     n = conn.send(self.buffer[:self.chunk_size])
                     time.sleep(0.001)
                     self.buffer = self.buffer[n:]
-            except:
+            except Exception:
                 pass
 
             conn.close()

@@ -41,7 +41,7 @@ class StupidGit:
     def argue(self, a, b, c):
         try:
             spam(a, b, c)
-        except:
+        except Exception:
             self.ex = sys.exc_info()
             self.tr = inspect.trace()
 
@@ -60,5 +60,5 @@ class FesteringGob(MalodorousPervert, ParrotDroppings):
 currentframe = inspect.currentframe()
 try:
     raise Exception()
-except:
+except Exception:
     tb = sys.exc_info()[2]

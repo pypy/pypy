@@ -581,7 +581,7 @@ def fcmp(x, y): # fuzzy comparison function
             fuzz = (abs(x) + abs(y)) * FUZZ
             if abs(x-y) <= fuzz:
                 return 0
-        except:
+        except Exception:
             pass
     elif type(x) == type(y) and isinstance(x, (tuple, list)):
         for i in range(min(len(x), len(y))):
@@ -1306,7 +1306,7 @@ def run_with_locale(catstr, *locales):
             except AttributeError:
                 # if the test author gives us an invalid category string
                 raise
-            except:
+            except Exception:
                 # cannot retrieve original locale, so do nothing
                 locale = orig_locale = None
             else:
@@ -1314,7 +1314,7 @@ def run_with_locale(catstr, *locales):
                     try:
                         locale.setlocale(category, loc)
                         break
-                    except:
+                    except Exception:
                         pass
 
             # now run the function, resetting the locale on exceptions
@@ -1837,7 +1837,7 @@ def reap_children():
                 pid, status = os.waitpid(any_process, os.WNOHANG)
                 if pid == 0:
                     break
-            except:
+            except Exception:
                 break
 
 @contextlib.contextmanager
@@ -1849,7 +1849,7 @@ def start_threads(threads, unlock=None):
             for t in threads:
                 t.start()
                 started.append(t)
-        except:
+        except Exception:
             if verbose:
                 print("Can't start %d threads, only %d threads started" %
                       (len(threads), len(started)))

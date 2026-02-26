@@ -422,7 +422,7 @@ class Application:
             self.printevent(event)
         try:
             AEProcessAppleEvent(event)
-        except:
+        except Exception:
             pass
             #print "AEProcessAppleEvent error:"
             #traceback.print_exc()
@@ -657,7 +657,7 @@ class PopupMenu(Menu):
             wid = MyFrontWindow()
             try:
                 window = self.bar.parent._windows[wid]
-            except:
+            except Exception:
                 pass # If we can't find the window we pass None
         self.dispatch(id, item, window, event)
 

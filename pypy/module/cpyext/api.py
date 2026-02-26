@@ -1733,7 +1733,7 @@ def load_extension_module(space, path, name):
             try:
                 from pypy.module._cffi_backend import cffi1_module
                 return cffi1_module.load_cffi1_module(space, name, path, initptr)
-            except:
+            except Exception:
                 rdynload.dlclose(dll)
                 raise
     #

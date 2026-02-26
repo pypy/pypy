@@ -803,7 +803,7 @@ class TestNonInteractive:
         if os.name == 'nt':
             try:
                 import __pypy__
-            except:
+            except Exception:
                 py.test.skip('app_main cannot run on non-pypy for windows')
         path = getscript(r"""
             import sys, time
@@ -828,7 +828,7 @@ class TestNonInteractive:
         if os.name == 'nt':
             try:
                 import __pypy__
-            except:
+            except Exception:
                 py.test.skip('app_main cannot run on non-pypy for windows')
         path = getscript(r"""
             import sys, time

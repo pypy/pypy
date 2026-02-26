@@ -460,7 +460,7 @@ class NProperty(ObjectSpecifier):
     def __init__(self, fr = None):
         #try:
         #   dummy = self.want
-        #except:
+        #except Exception:
         #   self.want = 'prop'
         self.want = 'prop'
         ObjectSpecifier.__init__(self, self.want, 'prop',

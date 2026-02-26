@@ -579,7 +579,7 @@ def test():
             r.s_exec(c)
         except SystemExit, n:
             return n
-        except:
+        except Exception:
             traceback.print_exc()
             return 1
 

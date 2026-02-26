@@ -8,7 +8,7 @@ def test_control_flow():
     try:
         raise Exception
         raise AssertionError, "exception failed to raise"
-    except:
+    except Exception:
         pass
     else:
         raise AssertionError, "exception executing else clause!"
@@ -72,11 +72,11 @@ def test_raise_three_args():
     import sys
     try:
         raise ValueError
-    except:
+    except Exception:
         exc_type,exc_val,exc_tb = sys.exc_info()
     try:
         raise exc_type,exc_val,exc_tb
-    except:
+    except Exception:
         exc_type2,exc_val2,exc_tb2 = sys.exc_info()
     assert exc_type ==exc_type2
     assert exc_val ==exc_val2
@@ -89,7 +89,7 @@ def test_reraise():
         import sys
         try:
             raise ValueError
-        except:
+        except Exception:
             try:
                 raise IndexError
             finally:
@@ -102,7 +102,7 @@ def test_reraise():
             raise
         try:
             raise ValueError
-        except:
+        except Exception:
             try:
                 raise IndexError
             finally:
@@ -117,7 +117,7 @@ def test_reraise():
             assert sys._getframe().f_exc_type is ValueError
         try:
             raise ValueError
-        except:
+        except Exception:
             try:
                 raise IndexError
             finally:
@@ -125,10 +125,10 @@ def test_reraise():
 
     try:
         raise ValueError
-    except:
+    except Exception:
         try:
             raise KeyError
-        except:
+        except Exception:
             ok = sys.exc_info()[0] is KeyError
     assert ok
 
@@ -136,11 +136,11 @@ def test_reraise():
         import sys
         try:
             raise ValueError
-        except:
+        except Exception:
             some_traceback = sys.exc_info()[2]
         try:
             raise KeyError
-        except:
+        except Exception:
             try:
                 raise IndexError, IndexError(), some_traceback
             finally:

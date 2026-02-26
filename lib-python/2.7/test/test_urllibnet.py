@@ -28,7 +28,7 @@ def _open_with_retry(func, host, *args, **kwargs):
             return func(host, *args, **kwargs)
         except IOError, last_exc:
             continue
-        except:
+        except Exception:
             raise
     raise last_exc
 

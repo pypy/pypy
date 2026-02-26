@@ -42,7 +42,7 @@ class Bunch(object):
         try:
             for i in range(n):
                 start_new_thread(task, ())
-        except:
+        except Exception:
             self._can_exit = True
             raise
 

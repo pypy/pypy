@@ -707,7 +707,7 @@ class JumpTestCase(unittest.TestCase):
     def test_jump_forwards_out_of_try_except_block(output):
         try:
             output.append(2)
-        except:
+        except Exception:
             output.append(4)
             raise
         output.append(6)
@@ -717,7 +717,7 @@ class JumpTestCase(unittest.TestCase):
         output.append(1)
         try:
             output.append(3)
-        except:
+        except Exception:
             output.append(5)
             raise
 
@@ -736,7 +736,7 @@ class JumpTestCase(unittest.TestCase):
     def test_jump_within_except_block(output):
         try:
             1.0/0.0
-        except:
+        except Exception:
             output.append(4)
             output.append(5)
             output.append(6)
@@ -857,7 +857,7 @@ class JumpTestCase(unittest.TestCase):
     def test_no_jump_to_except_1(output):
         try:
             output.append(2)
-        except:
+        except Exception:
             output.append(4)
             raise
 
@@ -946,7 +946,7 @@ class JumpTestCase(unittest.TestCase):
         output.append(1)
         try:
             output.append(3)
-        except:
+        except Exception:
             output.append(5)
             raise
 
@@ -954,7 +954,7 @@ class JumpTestCase(unittest.TestCase):
     def test_no_jump_backwards_into_try_except_block(output):
         try:
             output.append(2)
-        except:
+        except Exception:
             output.append(4)
             raise
         output.append(6)

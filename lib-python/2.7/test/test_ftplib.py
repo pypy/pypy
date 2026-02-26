@@ -230,7 +230,7 @@ class DummyFTPServer(asyncore.dispatcher, threading.Thread):
             self.active_lock = threading.Lock()
             self.host, self.port = self.socket.getsockname()[:2]
             self.handler_instance = None
-        except:
+        except Exception:
             # unregister the server on bind() error,
             # needed by TestIPv6Environment.setUpClass()
             self.del_channel()
@@ -250,7 +250,7 @@ class DummyFTPServer(asyncore.dispatcher, threading.Thread):
                 self.active_lock.acquire()
                 try:
                     asyncore.loop(timeout=0.1, count=1)
-                except:
+                except Exception:
                     self.active_lock.release()
                     raise
                 self.active_lock.release()

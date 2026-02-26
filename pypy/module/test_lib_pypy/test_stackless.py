@@ -443,7 +443,7 @@ class Test_Stackless:
     def test_bomb(self):
         try:
             1/0
-        except:
+        except Exception:
             import sys
             b = stackless.bomb(*sys.exc_info())
         assert b.type is ZeroDivisionError

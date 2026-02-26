@@ -162,7 +162,7 @@ class Wave_read:
         # else, assume it is an open file object already
         try:
             self.initfp(f)
-        except:
+        except Exception:
             if self._i_opened_the_file:
                 f.close()
             raise
@@ -309,7 +309,7 @@ class Wave_write:
             self._i_opened_the_file = f
         try:
             self.initfp(f)
-        except:
+        except Exception:
             if self._i_opened_the_file:
                 f.close()
             raise

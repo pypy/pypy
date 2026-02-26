@@ -36,7 +36,7 @@ def test_semlock_release(space):
                     w_lock.release(space)
                     successful.append(w_sentinel)
                 w_sentinel.descr_lock_release(space)
-            except:
+            except Exception:
                 import traceback
                 traceback.print_exc()
                 w_sentinel.descr_lock_release(space)

@@ -265,7 +265,7 @@ class SimpleXMLRPCDispatcher:
         except Fault, fault:
             response = xmlrpclib.dumps(fault, allow_none=self.allow_none,
                                        encoding=self.encoding)
-        except:
+        except Exception:
             # report exception back to server
             exc_type, exc_value, exc_tb = sys.exc_info()
             response = xmlrpclib.dumps(
@@ -367,7 +367,7 @@ class SimpleXMLRPCDispatcher:
                     {'faultCode' : fault.faultCode,
                      'faultString' : fault.faultString}
                     )
-            except:
+            except Exception:
                 exc_type, exc_value, exc_tb = sys.exc_info()
                 results.append(
                     {'faultCode' : 1,
@@ -628,7 +628,7 @@ class MultiPathXMLRPCServer(SimpleXMLRPCServer):
         try:
             response = self.dispatchers[path]._marshaled_dispatch(
                data, dispatch_method, path)
-        except:
+        except Exception:
             # report low level exception back to server
             # (each dispatcher should have handled their own
             # exceptions)

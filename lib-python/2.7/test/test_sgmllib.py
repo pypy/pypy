@@ -106,7 +106,7 @@ class SGMLParserTestCase(unittest.TestCase):
             for s in source:
                 parser.feed(s)
             parser.close()
-        except:
+        except Exception:
             #self.events = parser.events
             raise
         return parser.get_events()
@@ -114,7 +114,7 @@ class SGMLParserTestCase(unittest.TestCase):
     def check_events(self, source, expected_events):
         try:
             events = self.get_events(source)
-        except:
+        except Exception:
             #import sys
             #print >>sys.stderr, pprint.pformat(self.events)
             raise

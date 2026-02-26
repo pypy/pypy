@@ -1541,7 +1541,7 @@ class TCPTimeoutTest(SocketTCPTest):
             self.fail("caught timeout instead of error (TCP)")
         except socket.error:
             ok = True
-        except:
+        except Exception:
             self.fail("caught unexpected exception (TCP)")
         if not ok:
             self.fail("accept() returned success when we did not expect it")
@@ -1566,7 +1566,7 @@ class TCPTimeoutTest(SocketTCPTest):
                 self.fail("caught timeout instead of Alarm")
             except Alarm:
                 pass
-            except:
+            except Exception:
                 self.fail("caught other exception instead of Alarm:"
                           " %s(%s):\n%s" %
                           (sys.exc_info()[:2] + (traceback.format_exc(),)))
@@ -1598,7 +1598,7 @@ class UDPTimeoutTest(SocketUDPTest):
             self.fail("caught timeout instead of error (UDP)")
         except socket.error:
             ok = True
-        except:
+        except Exception:
             self.fail("caught unexpected exception (UDP)")
         if not ok:
             self.fail("recv() returned success when we did not expect it")

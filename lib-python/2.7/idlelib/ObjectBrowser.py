@@ -37,7 +37,7 @@ class ObjectTreeItem(TreeItem):
         try:
             value = eval(text)
             self.setfunction(value)
-        except:
+        except Exception:
             pass
         else:
             self.object = value
@@ -108,7 +108,7 @@ class DictTreeItem(SequenceTreeItem):
         keys = self.object.keys()
         try:
             keys.sort()
-        except:
+        except Exception:
             pass
         return keys
 

@@ -519,7 +519,7 @@ class W_BZ2Compressor(W_Root):
         try:
             self.running = False
             self._init_bz2comp(compresslevel)
-        except:
+        except Exception:
             lltype.free(self.bzs, flavor='raw')
             self.bzs = lltype.nullptr(bz_stream.TO)
             raise
@@ -633,7 +633,7 @@ class W_BZ2Decompressor(W_Root):
             self.unused_data = ""
 
             self._init_bz2decomp()
-        except:
+        except Exception:
             lltype.free(self.bzs, flavor='raw')
             self.bzs = lltype.nullptr(bz_stream.TO)
             raise

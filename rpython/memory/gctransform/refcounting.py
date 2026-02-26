@@ -210,7 +210,7 @@ def ll_deallocator(addr):
         if refcount == 0:
 %s
             llop.%s_free(lltype.Void, addr)
-    except:
+    except Exception:
         pass
     llop.gc_restore_exception(lltype.Void, exc_instance)
     pop_alive(exc_instance)

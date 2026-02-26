@@ -57,7 +57,7 @@ class ContextManagerTestCase(unittest.TestCase):
         def whoo():
             try:
                 yield
-            except:
+            except Exception:
                 yield
         ctx = whoo()
         ctx.__enter__()
@@ -166,7 +166,7 @@ class NestedTestCase(unittest.TestCase):
             def __exit__(self, *exc_info):
                 try:
                     raise Exception()
-                except:
+                except Exception:
                     pass
         with self.assertRaises(ZeroDivisionError):
             with nested(a(), b()) as (x, y):
@@ -181,7 +181,7 @@ class NestedTestCase(unittest.TestCase):
         def b():
             try:
                 yield
-            except:
+            except Exception:
                 # Swallow the exception
                 pass
         try:
@@ -219,7 +219,7 @@ class NestedTestCase(unittest.TestCase):
         def a():
             try:
                 yield
-            except:
+            except Exception:
                 pass
         def foo():
             with nested(a(), a()):

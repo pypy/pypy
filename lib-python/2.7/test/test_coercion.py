@@ -339,7 +339,7 @@ class CoercionTest(unittest.TestCase):
             Tester() + 1
         except (RuntimeError, TypeError):
             return
-        except:
+        except Exception:
             raise exc
         else:
             raise exc

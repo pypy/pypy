@@ -102,7 +102,7 @@ class RPCServer(SocketServer.TCPServer):
             raise
         except SystemExit:
             raise
-        except:
+        except Exception:
             erf = sys.__stderr__
             print>>erf, '\n' + '-'*40
             print>>erf, 'Unhandled server exception!'
@@ -198,7 +198,7 @@ class SocketIO(object):
             raise
         except socket.error:
             raise
-        except:
+        except Exception:
             msg = "*** Internal Error: rpc.py:SocketIO.localcall()\n\n"\
                   " Object: %s \n Method: %s \n Args: %s\n"
             print>>sys.__stderr__, msg % (oid, method, args)

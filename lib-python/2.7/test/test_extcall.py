@@ -272,7 +272,7 @@ TypeError if te dictionary is not empty
     >>> try:
     ...     silence = id(1, *{})
     ...     True
-    ... except:
+    ... except Exception:
     ...     False
     True
 

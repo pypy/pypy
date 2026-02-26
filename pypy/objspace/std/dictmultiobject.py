@@ -430,7 +430,7 @@ app = applevel('''
         finally:
             try:
                 del currently_in_repr[d]
-            except:
+            except Exception:
                 pass
 
     def viewrepr(currently_in_repr, view):
@@ -443,7 +443,7 @@ app = applevel('''
         finally:
             try:
                 del currently_in_repr[view]
-            except:
+            except Exception:
                 pass
 ''', filename=__file__)
 

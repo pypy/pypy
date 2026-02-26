@@ -103,12 +103,12 @@ class InteractiveInterpreter:
             exec code in self.locals
         except SystemExit:
             raise
-        except:
+        except Exception:
             if softspace(sys.stdout, 0):
                 print
             try:
                 sys.stdout.flush()
-            except:
+            except Exception:
                 pass
             self.showtraceback()
         else:
@@ -134,7 +134,7 @@ class InteractiveInterpreter:
             # Work hard to stuff the correct filename in the exception
             try:
                 msg, (dummy_filename, lineno, offset, line) = value
-            except:
+            except Exception:
                 # Not the format we expect; leave it alone
                 pass
             else:

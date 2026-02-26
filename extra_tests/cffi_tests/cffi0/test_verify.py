@@ -2106,7 +2106,7 @@ def _run_in_multiple_threads(test1):
     def wrapper(lock):
         try:
             test1()
-        except:
+        except Exception:
             errors.append(sys.exc_info())
         lock.release()
     locks = []

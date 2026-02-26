@@ -132,7 +132,7 @@ class MockRawIO(MockRawIOWithoutRead):
         self._reads += 1
         try:
             return self._read_stack.pop(0)
-        except:
+        except Exception:
             self._extraneous_reads += 1
             return b""
 

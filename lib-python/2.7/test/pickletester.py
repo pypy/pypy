@@ -40,7 +40,7 @@ def run_with_locale(catstr, *locales):
             except AttributeError:
                 # if the test author gives us an invalid category string
                 raise
-            except:
+            except Exception:
                 # cannot retrieve original locale, so do nothing
                 locale = orig_locale = None
             else:
@@ -48,7 +48,7 @@ def run_with_locale(catstr, *locales):
                     try:
                         locale.setlocale(category, loc)
                         break
-                    except:
+                    except Exception:
                         pass
 
             # now run the function, resetting the locale on exceptions
@@ -519,7 +519,7 @@ class AbstractUnpickleTests(unittest.TestCase):
         try:
             try:
                 self.loads(data)
-            except:
+            except Exception:
                 if support.verbose > 1:
                     exc_type, exc, tb = sys.exc_info()
                     print '%-32r - %s: %s' % (data, exc_type.__name__, exc)

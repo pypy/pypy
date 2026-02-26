@@ -648,7 +648,7 @@ class Marshaller:
             # check if this object can be marshalled as a structure
             try:
                 value.__dict__
-            except:
+            except Exception:
                 raise TypeError, "cannot marshal %s objects" % type(value)
             # check if this class is a sub-class of a basic type,
             # because we don't know how to marshal these types

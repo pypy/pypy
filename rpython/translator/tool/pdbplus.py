@@ -57,7 +57,7 @@ class PdbPlusShow(pdb.Pdb):
         try:
             return eval(arg, self.curframe.f_globals,
                     self.curframe.f_locals)
-        except:
+        except Exception:
             t, v = sys.exc_info()[:2]
             if isinstance(t, str):
                 exc_type_name = t
@@ -79,7 +79,7 @@ class PdbPlusShow(pdb.Pdb):
             return self._mygetval(name, "Not found")
         except (KeyboardInterrupt, SystemExit, MemoryError):
             raise
-        except:
+        except Exception:
             pass
         return None
 
@@ -132,7 +132,7 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
                     return self._mygetval(expr, "oops")
                 except (KeyboardInterrupt, SystemExit, MemoryError):
                     raise
-                except:
+                except Exception:
                     raise self.GiveUp
             finally:
                 if old is not marker:
@@ -231,7 +231,7 @@ find a stack frame that has a certain variable (the default is "graph")
             return
         try:
             obj = list(obj)
-        except:
+        except Exception:
             obj = [obj]
         clsdefs = []
         for x in obj:
@@ -453,7 +453,7 @@ def pdbcatch(f):
     def wrapper(*args, **kwds):
         try:
             return f(*args, **kwds)
-        except:
+        except Exception:
             import sys
             PdbPlusShow(None).post_mortem(sys.exc_info()[2])
             raise

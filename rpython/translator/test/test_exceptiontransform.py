@@ -94,7 +94,7 @@ class TestExceptionTransform:
                 return 1 + x
             except TypeError:
                 return 2 + x
-            except:
+            except Exception:
                 return 3 + x
             return 4 + x
         t, g = self.transform_func(foo, [int])
@@ -129,7 +129,7 @@ class TestExceptionTransform:
                 return 1 + x
             except TypeError:
                 return 2 + x
-            except:
+            except Exception:
                 return 3 + x
             return 4 + x
         t, g = self.transform_func(foo, [int])
@@ -149,7 +149,7 @@ class TestExceptionTransform:
             x = one(x)
             try:
                 x = one(x)
-            except:
+            except Exception:
                 return 1 + x
             return 4 + x
         t, g = self.transform_func(foo, [int])

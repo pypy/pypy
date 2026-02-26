@@ -210,7 +210,7 @@ def break_continue(x=numtype):
 def reverse_3(lst=seqtype):
     try:
         a, b, c = lst
-    except:
+    except Exception:
         return 0, 0, 0
     return c, b, a
 
@@ -241,7 +241,7 @@ def finally2(o, k):
 def bare_raise(o, ignore):
     try:
         return o[5]
-    except:
+    except Exception:
         if not ignore:
             raise
 
@@ -1086,7 +1086,7 @@ def lshift_func(i=numtype):
 def unary_func(i=numtype):
     try:
         return ovfcheck(-i), ovfcheck(abs(i-1))
-    except:
+    except Exception:
         raise
     # XXX it would be nice to get it right without an exception
     # handler at all, but then we need to do much harder parsing

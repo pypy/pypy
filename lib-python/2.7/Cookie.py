@@ -741,7 +741,7 @@ class SmartCookie(BaseCookie):
         strval = _unquote(val)
         try:
             return loads(strval), val
-        except:
+        except Exception:
             return strval, val
     def value_encode(self, val):
         if type(val) == type(""):

@@ -10,7 +10,7 @@ class AppTestExceptionComp:
             raise TypeError("nothing")
         except TypeError:
             pass
-        except:
+        except Exception:
             self.fail("Identical exceptions do not match.") 
 
     def test_exceptionfail(self):
@@ -20,7 +20,7 @@ class AppTestExceptionComp:
             self.fail("Different exceptions match.")
         except TypeError:
             pass
-        except:
+        except Exception:
             self.fail("Unanticipated value for exception raise.")
             
 
@@ -29,7 +29,7 @@ class AppTestExceptionComp:
             raise SyntaxError("Invalid")
         except SyntaxError:
             pass
-        except:
+        except Exception:
             self.fail("Instantiated exception does not match parent class.") 
 
     def test_calledfail(self):
@@ -39,7 +39,7 @@ class AppTestExceptionComp:
             self.fail("Instantiated exception matches different parent class.") 
         except SyntaxError:
             pass
-        except:
+        except Exception:
             self.fail("Unanticpated value for exception raise.")
             
         
@@ -50,7 +50,7 @@ class AppTestExceptionComp:
             raise UserExcept("nothing")
         except UserExcept:
             pass
-        except:
+        except Exception:
             self.fail("User defined class exceptions do not match.") 
             
     def test_subclass(self):
@@ -58,7 +58,7 @@ class AppTestExceptionComp:
             raise KeyError("key")
         except LookupError:
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match parent class.") 
 
     def test_deepsubclass(self):
@@ -66,7 +66,7 @@ class AppTestExceptionComp:
             raise FloatingPointError("1.2r")
         except Exception:
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match grandparent class.") 
 
     def test_tuple(self):
@@ -74,7 +74,7 @@ class AppTestExceptionComp:
             raise ArithmeticError("2+jack")
         except (ZeroDivisionError, ArithmeticError):
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match self in tuple.") 
 
     def test_parenttuple(self):
@@ -82,7 +82,7 @@ class AppTestExceptionComp:
             raise ZeroDivisionError("0")
         except (StandardError, SystemExit):
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match parent in tuple.") 
 
     def test_nestedtuples(self):
@@ -90,7 +90,7 @@ class AppTestExceptionComp:
             raise AssertionError("0")
         except (SystemExit, (KeyboardInterrupt, AssertionError)):
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match self in nested tuple.") 
 
     def test_deeptuples(self):
@@ -100,5 +100,5 @@ class AppTestExceptionComp:
                                     (SyntaxError,IOError,ZeroDivisionError)),
                 (MemoryError, NotImplementedError)):
             pass
-        except:
+        except Exception:
             self.fail("Exception does not match self in deeply nested tuple.")

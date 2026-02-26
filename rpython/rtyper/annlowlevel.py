@@ -657,7 +657,7 @@ class cachedtype(type):
             instance = d[args] = selfcls.__new__(selfcls, *args)
             try:
                 instance.__init__(*args)
-            except:
+            except Exception:
                 # If __init__ fails, remove the 'instance' from d.
                 # That's a "best effort" attempt, it's not really enough
                 # in theory because some other place might have grabbed

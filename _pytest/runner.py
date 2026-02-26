@@ -151,7 +151,7 @@ class CallInfo:
         except KeyboardInterrupt:
             self.stop = time()
             raise
-        except:
+        except Exception:
             self.excinfo = ExceptionInfo()
         self.stop = time()
 

@@ -13,22 +13,22 @@ def excepthook(exctype, value, traceback):
     try:
         if sys.stdout.softspace:
             print
-    except:
+    except Exception:
         pass
     try:
         sys.stdout.flush()
-    except:
+    except Exception:
         pass
 
     try:
         encoding = sys.stderr.encoding
-    except:
+    except Exception:
         encoding = None
 
     try:
         from traceback import print_exception
         print_exception(exctype, value, traceback, _encoding=encoding)
-    except:
+    except Exception:
         if not excepthook_failsafe(exctype, value):
             raise
 
@@ -43,7 +43,7 @@ def excepthook_failsafe(exctype, value):
         # then attempt to get the str() of the exception
         try:
             s = str(value)
-        except:
+        except Exception:
             s = '<failure of str() on the exception instance>'
         # then print it
         if s:
@@ -51,7 +51,7 @@ def excepthook_failsafe(exctype, value):
         else:
             stderr.write('\n')
         return True     # successfully printed at least the class and value
-    except:
+    except Exception:
         return False    # got an exception again... ignore, report the original
 
 def exit(exitcode=None):

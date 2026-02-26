@@ -237,7 +237,7 @@ class ModuleFinderTest(unittest.TestCase):
 ##                sys.path = TEST_PATH
 ##                try:
 ##                    __import__(import_this)
-##                except:
+##                except Exception:
 ##                    import traceback; traceback.print_exc()
 ##                sys.path = opath
 ##                return

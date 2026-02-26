@@ -168,7 +168,7 @@ def test_debug_print_traceback():
     def fff():
         try:
             ggg(0)
-        except:
+        except Exception:
             recovery()
 
     fn = compile(fff, [], return_stderr=True)

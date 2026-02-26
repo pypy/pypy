@@ -127,7 +127,7 @@ def _serve():
             send_handle(conn, handle_wanted, destination_pid)
             close(handle_wanted)
             conn.close()
-        except:
+        except Exception:
             if not is_exiting():
                 import traceback
                 sub_warning(

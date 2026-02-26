@@ -943,7 +943,7 @@ def test(environ=os.environ):
             f()
         print "<H3>What follows is a test, not an actual exception:</H3>"
         g()
-    except:
+    except Exception:
         print_exception()
 
     print "<H1>Second try with a small maxlen...</H1>"
@@ -956,7 +956,7 @@ def test(environ=os.environ):
         print_arguments()
         print_form(form)
         print_environ(environ)
-    except:
+    except Exception:
         print_exception()
 
 def print_exception(type=None, value=None, tb=None, limit=None):

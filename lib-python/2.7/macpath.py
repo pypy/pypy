@@ -102,7 +102,7 @@ def islink(s):
     try:
         import Carbon.File
         return Carbon.File.ResolveAliasFile(s, 0)[2]
-    except:
+    except Exception:
         return False
 
 # Is `stat`/`lstat` a meaningful difference on the Mac?  This is safe in any

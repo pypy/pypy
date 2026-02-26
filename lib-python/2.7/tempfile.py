@@ -512,7 +512,7 @@ else:
         try:
             _os.unlink(name)
             return _os.fdopen(fd, mode, bufsize)
-        except:
+        except Exception:
             _os.close(fd)
             raise
 

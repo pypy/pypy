@@ -30,7 +30,7 @@ def main(argv):
                 subobj()
             except NotImplementedError:
                 continue
-            except:
+            except Exception:
                 pass
         if isinstance(subobj, types.TypeType):
             kind = KINDS["TYPE"]

@@ -32,7 +32,7 @@ class AnnotatorPolicy(object):
                 parms = eval("(lambda *parms: parms)(%s" % parms)
             except (KeyboardInterrupt, SystemExit):
                 raise
-            except:
+            except Exception:
                 raise Exception("broken specialize directive parms: %s" % directive)
         name = name.replace(':', '__')
         try:

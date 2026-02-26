@@ -107,7 +107,7 @@ class ScriptBinding:
                         err.args = msg, (filename, lineno, offset, line)
                         err.filename = filename
                     self.colorize_syntax_error(msg, lineno, offset)
-                except:
+                except Exception:
                     msg = "*** " + str(err)
                 self.errorbox("Syntax error",
                               "There's an error in your program:\n" + msg)

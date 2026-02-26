@@ -862,7 +862,7 @@ def lltype2ctypes(llobj, normalize=True):
                         except LLException as lle:
                             llinterp._store_exception(lle)
                             return 0
-                        #except:
+                        #except Exception:
                         #    import pdb
                         #    pdb.set_trace()
                     else:
@@ -891,7 +891,7 @@ def lltype2ctypes(llobj, normalize=True):
                 def callback(*cargs):
                     try:
                         return callback_internal(*cargs)
-                    except:
+                    except Exception:
                         import sys
                         #if option.usepdb:
                         #    import pdb; pdb.post_mortem(sys.exc_traceback)

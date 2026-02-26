@@ -1474,7 +1474,7 @@ class TestAnnotateTestCase:
         def f(dic):
             try:
                 dic[5]
-            except:
+            except Exception:
                 raise
         a = self.RPythonAnnotator()
         a.build_types(f, [somedict(a, annmodel.s_Int, annmodel.s_Int)])

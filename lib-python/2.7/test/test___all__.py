@@ -27,7 +27,7 @@ class AllTest(unittest.TestCase):
                                      DeprecationWarning), quiet=True):
             try:
                 exec "import %s" % modname in names
-            except:
+            except Exception:
                 # Silent fail here seems the best route since some modules
                 # may not be available or not initialize properly in all
                 # environments.

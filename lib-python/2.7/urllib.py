@@ -105,7 +105,7 @@ def urlcleanup():
 # check for SSL
 try:
     import ssl
-except:
+except Exception:
     _have_ssl = False
 else:
     _have_ssl = True
@@ -877,7 +877,7 @@ class ftpwrapper:
         self.keepalive = persistent
         try:
             self.init()
-        except:
+        except Exception:
             self.close()
             raise
 

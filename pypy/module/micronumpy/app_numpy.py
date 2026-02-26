@@ -31,5 +31,5 @@ def add_docstring(obj, docstring):
         raise RuntimeError("%s already has a docstring" % obj)
     try:
         set_docstring(obj, docstring)
-    except:
+    except Exception:
         raise TypeError("Cannot set a docstring for %s" % obj)

@@ -20,7 +20,7 @@ class AppTestTraceBackAttributes:
 
         try:
             g()
-        except:
+        except Exception:
             typ,val,tb = sys.exc_info()
         else:
             raise AssertionError("should have raised")

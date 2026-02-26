@@ -913,7 +913,7 @@ def main(tests=None, testdir=None, verbose=0, quiet=False,
                 except KeyboardInterrupt:
                     interrupted = True
                     break
-                except:
+                except Exception:
                     raise
 
             test_time = time.time() - start_time
@@ -1373,7 +1373,7 @@ def runtest_inner(test, verbose, quiet, huntrleaks=False, pgo=False, testdir=Non
         return FAILED, test_time
     except support.TestDidNotRun:
         return TEST_DID_NOT_RUN, test_time
-    except:
+    except Exception:
         type, value = sys.exc_info()[:2]
         if not pgo:
             print >>sys.stderr, "test", test, "crashed --", str(type) + ":", value

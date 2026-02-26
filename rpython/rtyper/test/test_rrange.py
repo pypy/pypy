@@ -113,7 +113,7 @@ class TestRrange(BaseRtypingTest):
     def check_failed(self, func, *args):
         try:
             self.interpret(func, *args, **kwargs)
-        except:
+        except Exception:
             return True
         else:
             return False

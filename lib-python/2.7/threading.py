@@ -791,7 +791,7 @@ class Thread(_Verbose):
         # if a non-daemonic encounters this, something else is wrong.
         try:
             self.__bootstrap_inner()
-        except:
+        except Exception:
             if self.__daemonic and _sys is None:
                 return
             raise
@@ -821,7 +821,7 @@ class Thread(_Verbose):
             except SystemExit:
                 if __debug__:
                     self._note("%s.__bootstrap(): raised SystemExit", self)
-            except:
+            except Exception:
                 if __debug__:
                     self._note("%s.__bootstrap(): unhandled exception", self)
                 # If sys.stderr is no more (most likely from interpreter
@@ -870,7 +870,7 @@ class Thread(_Verbose):
                     # We don't call self.__delete() because it also
                     # grabs _active_limbo_lock.
                     del _active[_get_ident()]
-                except:
+                except Exception:
                     pass
 
     def __stop(self):

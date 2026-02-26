@@ -717,7 +717,7 @@ class STLStringMoveConverter(STLStringConverter):
                 moveit_reason = 1
             else:
                 moveit_reason = 0
-        except:
+        except Exception:
             pass
 
         if moveit_reason:

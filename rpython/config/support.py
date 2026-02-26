@@ -25,7 +25,7 @@ def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
             return max(count // 2, 3)
         else:
             return count
-    except:
+    except Exception:
         return 1 # we really don't want to explode here, at worst we have 1
 
 def sysctl_get_cpu_count(cmd, name='hw.ncpu'):

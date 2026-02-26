@@ -277,7 +277,7 @@ class Process(object):
                 sys.stderr.write(str(e.args[0]) + '\n')
                 sys.stderr.flush()
                 exitcode = 1
-        except:
+        except Exception:
             exitcode = 1
             import traceback
             sys.stderr.write('Process %s:\n' % self.name)

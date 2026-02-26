@@ -93,11 +93,11 @@ def deltree(fname):
         else:
             try:
                 os.unlink(fullname)
-            except:
+            except Exception:
                 pass
     try:
         os.rmdir(fname)
-    except:
+    except Exception:
         pass
 
 class MhlibTests(unittest.TestCase):

@@ -1221,7 +1221,7 @@ def run_re_tests():
             else:
                 print '=== Syntax error:', t
         except KeyboardInterrupt: raise KeyboardInterrupt
-        except:
+        except Exception:
             print '*** Unexpected error ***', t
             if verbose:
                 traceback.print_exc(file=sys.stdout)

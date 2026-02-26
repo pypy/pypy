@@ -704,7 +704,7 @@ def test_dictlike_environ_keys():
     os.environ.setdefault('USER', 'UNNAMED_USER')
     try:
         del os.environ['PYPY_TEST_DICTLIKE_ENVKEYS']
-    except:
+    except Exception:
         pass
     result1 = func().split('\x00')
     os.environ['PYPY_TEST_DICTLIKE_ENVKEYS'] = '42'

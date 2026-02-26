@@ -174,7 +174,7 @@ class AutoComplete:
         """
         try:
             rpcclt = self.editwin.flist.pyshell.interp.rpcclt
-        except:
+        except Exception:
             rpcclt = None
         if rpcclt:
             return rpcclt.remotecall("exec", "get_the_completion_list",
@@ -199,7 +199,7 @@ class AutoComplete:
                             smalll = sorted(entity.__all__)
                         else:
                             smalll = [s for s in bigl if s[:1] != '_']
-                    except:
+                    except Exception:
                         return [], []
 
             elif mode == COMPLETE_FILES:

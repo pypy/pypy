@@ -1134,7 +1134,7 @@ class IMAP4:
             while n:
                 try:
                     self._mesg(*self._cmd_log[i])
-                except:
+                except Exception:
                     pass
                 i += 1
                 if i >= self._cmd_log_len:
@@ -1517,7 +1517,7 @@ if __name__ == '__main__':
 
         print '\nAll tests OK.'
 
-    except:
+    except Exception:
         print '\nTests failed.'
 
         if not Debug:

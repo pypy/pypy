@@ -462,7 +462,7 @@ class fakeaddress(object):
         else:
             #try:
             #    s = hex(self.ptr._cast_to_int())
-            #except:
+            #except Exception:
             s = str(self.ptr)
         return '<fakeaddr %s>' % (s,)
 

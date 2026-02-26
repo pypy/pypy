@@ -117,7 +117,7 @@ class TestPlistlib(unittest.TestCase):
     def tearDown(self):
         try:
             os.unlink(test_support.TESTFN)
-        except:
+        except Exception:
             pass
 
     def _create(self):

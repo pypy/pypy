@@ -695,7 +695,7 @@ def win32_ver(release='', version='', csd='', ptype=''):
         key = OpenKeyEx(HKEY_LOCAL_MACHINE,
                         r'SOFTWARE\Microsoft\Windows NT\CurrentVersion')
         ptype = QueryValueEx(key, 'CurrentType')[0]
-    except:
+    except Exception:
         pass
     finally:
         if key:

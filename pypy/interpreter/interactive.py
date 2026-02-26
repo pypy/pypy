@@ -118,7 +118,7 @@ class PyPyConsole(code.InteractiveConsole):
 
             import atexit
             atexit.register(readline.write_history_file)
-        except:
+        except Exception:
             pass
 
     def interact(self, banner=None):

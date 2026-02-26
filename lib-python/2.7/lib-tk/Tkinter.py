@@ -1547,7 +1547,7 @@ class CallWrapper:
             return self.func(*args)
         except SystemExit, msg:
             raise SystemExit, msg
-        except:
+        except Exception:
             self.widget._report_exception()
 
 

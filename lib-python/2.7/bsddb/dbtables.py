@@ -263,7 +263,7 @@ class bsdTableDB :
                 getattr(self.db, "put_bytes", self.db.put) \
                         (_table_names_key, pickle.dumps([], 1), txn=txn)
         # Yes, bare except
-        except:
+        except Exception:
             txn.abort()
             raise
         else:
@@ -564,7 +564,7 @@ class bsdTableDB :
                         txn = None
 
                 # catch all exceptions here since we call unknown callables
-                except:
+                except Exception:
                     if txn:
                         txn.abort()
                     raise

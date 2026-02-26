@@ -292,7 +292,7 @@ def importfile(path):
     file = open(path, 'r')
     try:
         module = imp.load_module(name, file, path, (ext, 'r', kind))
-    except:
+    except Exception:
         raise ErrorDuringImport(path, sys.exc_info())
     file.close()
     return module
@@ -324,7 +324,7 @@ def safeimport(path, forceload=0, cache={}):
                     cache[key] = sys.modules[key]
                     del sys.modules[key]
         module = __import__(path)
-    except:
+    except Exception:
         # Did the error occur before or after the module was found?
         (exc, value, tb) = info = sys.exc_info()
         if path in sys.modules:
@@ -441,7 +441,7 @@ class HTMLRepr(Repr):
     def repr_instance(self, x, level):
         try:
             return self.escape(cram(stripid(repr(x)), self.maxstring))
-        except:
+        except Exception:
             return self.escape('<%s instance>' % x.__class__.__name__)
 
     repr_unicode = repr_string
@@ -1024,7 +1024,7 @@ class TextRepr(Repr):
     def repr_instance(self, x, level):
         try:
             return cram(stripid(repr(x)), self.maxstring)
-        except:
+        except Exception:
             return '<%s instance>' % x.__class__.__name__
 
 class TextDoc(Doc):

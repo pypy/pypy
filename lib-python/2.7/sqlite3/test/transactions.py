@@ -124,7 +124,7 @@ class TransactionTests(unittest.TestCase):
             self.fail("should have raised an OperationalError")
         except sqlite.OperationalError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised an OperationalError")
 
     def CheckLocking(self):
@@ -143,7 +143,7 @@ class TransactionTests(unittest.TestCase):
             self.fail("should have raised an OperationalError")
         except sqlite.OperationalError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised an OperationalError")
         # NO self.con2.rollback() HERE!!!
         self.con1.commit()
@@ -165,7 +165,7 @@ class TransactionTests(unittest.TestCase):
             self.fail("InterfaceError should have been raised")
         except sqlite.InterfaceError, e:
             pass
-        except:
+        except Exception:
             self.fail("InterfaceError should have been raised")
 
 class SpecialCommandTests(unittest.TestCase):

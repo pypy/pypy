@@ -78,7 +78,7 @@ class W_HKEY(W_Root):
         # ignore errors
         try:
             self.Close(self.space)
-        except:
+        except Exception:
             pass
 
     def as_int(self):

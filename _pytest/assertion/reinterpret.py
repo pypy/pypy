@@ -224,7 +224,7 @@ class DebugInterpreter(ast.NodeVisitor):
                     break
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 break
             left_explanation, left_result = next_explanation, next_result
 

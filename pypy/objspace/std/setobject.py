@@ -1749,7 +1749,7 @@ app = gateway.applevel("""
         finally:
             try:
                 del currently_in_repr[s]
-            except:
+            except Exception:
                 pass
 """, filename=__file__)
 

@@ -633,7 +633,7 @@ class MmapTests(unittest.TestCase):
         m = mmap.mmap(-1, 1000, tagname="foo")
         try:
             mmap.mmap(-1, 5000, tagname="foo")[:] # same tagname, but larger size
-        except:
+        except Exception:
             pass
         m.close()
 
@@ -645,11 +645,11 @@ class MmapTests(unittest.TestCase):
         f.close()
         try:
             m.resize(0) # will raise WindowsError
-        except:
+        except Exception:
             pass
         try:
             m[:]
-        except:
+        except Exception:
             pass
         m.close()
 

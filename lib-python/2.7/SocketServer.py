@@ -291,7 +291,7 @@ class BaseServer:
         if self.verify_request(request, client_address):
             try:
                 self.process_request(request, client_address)
-            except:
+            except Exception:
                 self.handle_error(request, client_address)
                 self.shutdown_request(request)
         else:
@@ -419,7 +419,7 @@ class TCPServer(BaseServer):
             try:
                 self.server_bind()
                 self.server_activate()
-            except:
+            except Exception:
                 self.server_close()
                 raise
 
@@ -574,7 +574,7 @@ class ForkingMixIn:
                 self.finish_request(request, client_address)
                 self.shutdown_request(request)
                 os._exit(0)
-            except:
+            except Exception:
                 try:
                     self.handle_error(request, client_address)
                     self.shutdown_request(request)
@@ -598,7 +598,7 @@ class ThreadingMixIn:
         try:
             self.finish_request(request, client_address)
             self.shutdown_request(request)
-        except:
+        except Exception:
             self.handle_error(request, client_address)
             self.shutdown_request(request)
 

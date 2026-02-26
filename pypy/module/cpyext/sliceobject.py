@@ -100,6 +100,6 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     try:
         start_p[0], stop_p[0], step_p[0] = \
                 w_slice.indices3(space, length)
-    except:
+    except Exception:
         return -1
     return 0

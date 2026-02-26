@@ -87,7 +87,7 @@ WIN32 = (sys.platform == "win32")
 
 try:
     MAXFD = os.sysconf("SC_OPEN_MAX")
-except:
+except Exception:
     MAXFD = 256
 
 #

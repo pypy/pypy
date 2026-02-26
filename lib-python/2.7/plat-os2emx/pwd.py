@@ -75,7 +75,7 @@ for __i in __passwd_path:
         __f.close()
         passwd_file = __i
         break
-    except:
+    except Exception:
         pass
 
 # path conversion handlers

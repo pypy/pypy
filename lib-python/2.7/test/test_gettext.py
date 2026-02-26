@@ -416,7 +416,7 @@ class WeirdMetadataTest(GettextBaseTest):
         with open(MMOFILE, 'rb') as fp:
             try:
                 self.t = gettext.GNUTranslations(fp)
-            except:
+            except Exception:
                 self.tearDown()
                 raise
 

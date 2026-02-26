@@ -797,7 +797,7 @@ class BufferingOutputStream(Stream):
     def do_write(self, data):
         try:
             self.base.write(data)
-        except:
+        except Exception:
             self.error = True
             raise
 

@@ -354,7 +354,7 @@ def setquit():
             # stdin wrapper is closed.
             try:
                 sys.stdin.close()
-            except:
+            except Exception:
                 pass
             raise SystemExit(code)
     __builtin__.quit = Quitter('quit')

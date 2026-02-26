@@ -88,7 +88,7 @@ def test_main():
     import os
     try:
         display = os.environ['DISPLAY']
-    except:
+    except Exception:
         raise unittest.SkipTest, "No $DISPLAY -- skipping gl test"
 
     # touch all the attributes of gl without doing anything

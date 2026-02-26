@@ -186,13 +186,13 @@ class UsageTests(unittest.TestCase):
             raise ClassicClass
         except ClassicClass:
             pass
-        except:
+        except Exception:
             self.fail("unable to raise classic class")
         try:
             raise ClassicClass()
         except ClassicClass:
             pass
-        except:
+        except Exception:
             self.fail("unable to raise classic class instance")
 
     def test_raise_new_style_non_exception(self):

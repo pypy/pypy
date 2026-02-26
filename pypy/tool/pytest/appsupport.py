@@ -120,7 +120,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
             w_exc = getattr(self.space, 'w_' + clsname)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             pass
         else:
             return self.operr.match(self.space, w_exc)

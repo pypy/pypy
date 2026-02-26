@@ -541,7 +541,7 @@ def command_locals(cmd, extra):
                         if len(s) > 140:
                             s = s[:100] + '...' + s[-30:]
                         print s
-                    except:
+                    except Exception:
                         exc, val, tb = sys.exc_info()
                         print '!<%s: %r>' % (exc, val)
             """)

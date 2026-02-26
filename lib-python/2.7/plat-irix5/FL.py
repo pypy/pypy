@@ -11,7 +11,7 @@ _v21 = 1
 ##import fl
 ##try:
 ##      _v20 = (fl.get_rgbmode is not None)
-##except:
+##except Exception:
 ##      _v20 = 0
 ##del fl
 

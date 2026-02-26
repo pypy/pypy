@@ -59,7 +59,7 @@ class CompileallTests(unittest.TestCase):
         for fn in (self.bc_path, self.bc_path2):
             try:
                 os.unlink(fn)
-            except:
+            except Exception:
                 pass
         compileall.compile_file(self.source_path, force=False, quiet=True)
         self.assertTrue(os.path.isfile(self.bc_path) \

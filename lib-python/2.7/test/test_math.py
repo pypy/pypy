@@ -841,7 +841,7 @@ class MathTests(unittest.TestCase):
         try:
             self.assertTrue(math.isnan(math.tan(INF)))
             self.assertTrue(math.isnan(math.tan(NINF)))
-        except:
+        except Exception:
             self.assertRaises(ValueError, math.tan, INF)
             self.assertRaises(ValueError, math.tan, NINF)
         self.assertTrue(math.isnan(math.tan(NAN)))
@@ -910,7 +910,7 @@ class MathTests(unittest.TestCase):
     def test_exceptions(self):
         try:
             x = math.exp(-1000000000)
-        except:
+        except Exception:
             # mathmodule.c is failing to weed out underflows from libm, or
             # we've got an fp format with huge dynamic range
             self.fail("underflowing exp() should not have raised "

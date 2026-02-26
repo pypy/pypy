@@ -203,7 +203,7 @@ if __name__ == "__main__":
     try:
         fp=open(openfilename,"r")
         fp.close()
-    except:
+    except Exception:
         print "Could not open File: "
         print sys.exc_info()[1]
 

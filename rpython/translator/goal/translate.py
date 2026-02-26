@@ -322,7 +322,7 @@ def main():
             drv.timer.pprint()
     except SystemExit:
         raise
-    except:
+    except Exception:
         finish_profiling()
         debug(True)
         raise SystemExit(1)

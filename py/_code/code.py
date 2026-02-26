@@ -235,7 +235,7 @@ class TracebackEntry(object):
             line = str(self.statement).lstrip()
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             line = "???"
         return "  File %r:%d in %s\n  %s\n" %(fn, self.lineno+1, name, line)
 
@@ -442,12 +442,12 @@ class FormattedExcinfo(object):
             s = str(source.getstatement(len(source)-1))
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             try:
                 s = str(source[-1])
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 return 0
         return 4 + (len(s) - len(s.lstrip()))
 

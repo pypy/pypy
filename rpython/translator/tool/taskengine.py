@@ -114,7 +114,7 @@ class SimpleTaskEngine(object):
                 res = self._do(goal, taskcallable, *args, **kwds)
             except (SystemExit, KeyboardInterrupt):
                 raise
-            except:
+            except Exception:
                 self._error(goal)
                 raise
             self._event('post', goal, taskcallable)

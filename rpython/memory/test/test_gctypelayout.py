@@ -14,7 +14,7 @@ class FakeGC:
 def getname(T):
     try:
         return "field:" + T._name
-    except:
+    except Exception:
         return "field:" + T.__name__
 
 S = lltype.Struct('S', ('s', lltype.Signed), ('char', lltype.Char))

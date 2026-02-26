@@ -24,7 +24,7 @@ def _run_exitfuncs():
             func(*targs, **kargs)
         except SystemExit:
             exc_info = sys.exc_info()
-        except:
+        except Exception:
             import traceback
             print >> sys.stderr, "Error in atexit._run_exitfuncs:"
             traceback.print_exc()

@@ -110,7 +110,7 @@ class TestCaseFunction(pytest.Function):
                     pytest.fail("".join(l), pytrace=False)
                 except (pytest.fail.Exception, KeyboardInterrupt):
                     raise
-                except:
+                except Exception:
                     pytest.fail("ERROR: Unknown Incompatible Exception "
                         "representation:\n%r" %(rawexcinfo,), pytrace=False)
             except KeyboardInterrupt:

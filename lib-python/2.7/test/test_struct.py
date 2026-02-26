@@ -340,7 +340,7 @@ class StructTest(unittest.TestCase):
                             Indexable(42), Indexable(100), Indexable(127)):
                     try:
                         struct.pack(format, obj)
-                    except:
+                    except Exception:
                         self.fail("integer code pack failed on object "
                                   "with '__index__' method")
 

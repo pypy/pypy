@@ -150,19 +150,19 @@ def _test():
     print "b.total() =", b.total()
     try:
         print "b.sum =", b.sum,
-    except:
+    except Exception:
         print "inaccessible"
     else:
         print "accessible"
     try:
         print "b._add =", b._add,
-    except:
+    except Exception:
         print "inaccessible"
     else:
         print "accessible"
     try:
         print "b._get_.func_defaults =", map(type, b._get_.func_defaults),
-    except:
+    except Exception:
         print "inaccessible"
     else:
         print "accessible"

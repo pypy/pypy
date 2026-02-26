@@ -72,7 +72,7 @@ for __i in __group_path:
         __f.close()
         group_file = __i
         break
-    except:
+    except Exception:
         pass
 
 # decide what field separator we can try to use - Unix standard, with

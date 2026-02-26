@@ -175,7 +175,7 @@ class RegressionTests(unittest.TestCase):
             self.fail("should have raised ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised ProgrammingError")
         with self.assertRaisesRegexp(sqlite.ProgrammingError,
                                      r'^Base Cursor\.__init__ not called\.$'):
@@ -196,7 +196,7 @@ class RegressionTests(unittest.TestCase):
             self.fail("should have raised ProgrammingError")
         except sqlite.ProgrammingError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised ProgrammingError")
 
     def CheckCursorRegistration(self):
@@ -223,7 +223,7 @@ class RegressionTests(unittest.TestCase):
             self.fail("should have raised InterfaceError")
         except sqlite.InterfaceError:
             pass
-        except:
+        except Exception:
             self.fail("should have raised InterfaceError")
 
     def CheckAutoCommit(self):

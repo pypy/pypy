@@ -708,7 +708,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception, a:
                 pass
-            except:
+            except Exception:
                 pass"""
 
         a = """
@@ -716,7 +716,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception as a:
                 pass
-            except:
+            except Exception:
                 pass"""
         self.check(b, a)
 
@@ -726,7 +726,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception, a:
                 pass
-            except:
+            except Exception:
                 pass
             else:
                 pass
@@ -738,7 +738,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception as a:
                 pass
-            except:
+            except Exception:
                 pass
             else:
                 pass
@@ -754,7 +754,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception, a:
                 pass
-            except:
+            except Exception:
                 pass"""
 
         a = """
@@ -764,7 +764,7 @@ class Test_except(FixerTestCase):
                 pass
             except Exception as a:
                 pass
-            except:
+            except Exception:
                 pass"""
         self.check(b, a)
 
@@ -820,7 +820,7 @@ class Test_except(FixerTestCase):
         s = """
             try:
                 pass
-            except:
+            except Exception:
                 pass"""
         self.unchanged(s)
 

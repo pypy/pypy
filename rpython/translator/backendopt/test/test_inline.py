@@ -267,7 +267,7 @@ class TestInline(BaseRtypingTest):
         def f(x):
             try:
                 return h(x)
-            except:
+            except Exception:
                 return 87
         def g(x):
             try:

@@ -95,7 +95,7 @@ def is_allowed_to_leak(space, obj):
     from pypy.module.cpyext.methodobject import W_PyCFunctionObject
     try:
         w_obj = from_ref(space, cts.cast('PyObject*', obj._as_ptr()))
-    except:
+    except Exception:
         return False
     if isinstance(w_obj, W_PyCFunctionObject):
         return True
@@ -114,7 +114,7 @@ class CpyextLeak(leakfinder.MallocMismatch):
         for c_obj in self.args[0]:
             try:
                 lines.append("  %s" % (_get_w_obj(self.args[1], c_obj),))
-            except:
+            except Exception:
                 pass
         return '\n'.join(lines)
 

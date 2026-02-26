@@ -128,7 +128,7 @@ class test__RandomNameSequence(TC):
                 i += 1
                 if i == 20:
                     break
-        except:
+        except Exception:
             self.failOnException("iteration")
 
     @unittest.skipUnless(hasattr(os, 'fork'),
@@ -355,7 +355,7 @@ class test__mkstemp_inner(TestBadTempdir, TC):
             dir = tempfile.gettempdir()
         try:
             file = self.mkstemped(dir, pre, suf, bin)
-        except:
+        except Exception:
             self.failOnException("_mkstemp_inner")
 
         self.nameCheck(file.name, dir, pre, suf)
@@ -498,7 +498,7 @@ class test_gettempprefix(TC):
             p = os.path.join(d, p)
             try:
                 fd = os.open(p, os.O_RDWR | os.O_CREAT)
-            except:
+            except Exception:
                 self.failOnException("os.open")
             os.close(fd)
             os.unlink(p)
@@ -530,7 +530,7 @@ class test_gettempdir(TC):
             file = tempfile.NamedTemporaryFile()
             file.write("blat")
             file.close()
-        except:
+        except Exception:
             self.failOnException("create file in %s" % tempfile.gettempdir())
 
     def test_same_thing(self):
@@ -555,7 +555,7 @@ class test_mkstemp(TC):
             adir = os.path.abspath(dir)
             self.assertEqual(adir, ndir,
                 "Directory '%s' incorrectly returned as '%s'" % (adir, ndir))
-        except:
+        except Exception:
             self.failOnException("mkstemp")
 
         try:
@@ -595,13 +595,13 @@ class test_mkdtemp(TestBadTempdir, TC):
             dir = tempfile.gettempdir()
         try:
             name = tempfile.mkdtemp(dir=dir, prefix=pre, suffix=suf)
-        except:
+        except Exception:
             self.failOnException("mkdtemp")
 
         try:
             self.nameCheck(name, dir, pre, suf)
             return name
-        except:
+        except Exception:
             os.rmdir(name)
             raise
 
@@ -703,7 +703,7 @@ class test_mktemp(TC):
     def do_create(self, pre="", suf=""):
         try:
             file = self.mktemped(self.dir, pre, suf)
-        except:
+        except Exception:
             self.failOnException("mktemp")
 
         self.nameCheck(file.name, self.dir, pre, suf)
@@ -749,7 +749,7 @@ class test_NamedTemporaryFile(TC):
         try:
             file = tempfile.NamedTemporaryFile(dir=dir, prefix=pre, suffix=suf,
                                                delete=delete)
-        except:
+        except Exception:
             self.failOnException("NamedTemporaryFile")
 
         self.nameCheck(file.name, dir, pre, suf)
@@ -806,7 +806,7 @@ class test_NamedTemporaryFile(TC):
         try:
             f.close()
             f.close()
-        except:
+        except Exception:
             self.failOnException("close")
 
     def test_context_manager(self):
@@ -857,7 +857,7 @@ class test_SpooledTemporaryFile(TC):
             dir = tempfile.gettempdir()
         try:
             file = tempfile.SpooledTemporaryFile(max_size=max_size, dir=dir, prefix=pre, suffix=suf)
-        except:
+        except Exception:
             self.failOnException("SpooledTemporaryFile")
 
         return file
@@ -960,7 +960,7 @@ class test_SpooledTemporaryFile(TC):
         try:
             f.close()
             f.close()
-        except:
+        except Exception:
             self.failOnException("close")
 
     def test_multiple_close_after_rollover(self):
@@ -972,7 +972,7 @@ class test_SpooledTemporaryFile(TC):
         try:
             f.close()
             f.close()
-        except:
+        except Exception:
             self.failOnException("close")
 
     def test_bound_methods(self):
@@ -1060,7 +1060,7 @@ class test_TemporaryFile(TC):
         # No point in testing the name params - the file has no name.
         try:
             tempfile.TemporaryFile()
-        except:
+        except Exception:
             self.failOnException("TemporaryFile")
 
     def test_has_no_name(self):
@@ -1073,7 +1073,7 @@ class test_TemporaryFile(TC):
         # us from removing the directory it was created in.
         try:
             os.rmdir(dir)
-        except:
+        except Exception:
             ei = sys.exc_info()
             # cleanup
             f.close()
@@ -1088,7 +1088,7 @@ class test_TemporaryFile(TC):
         try:
             f.close()
             f.close()
-        except:
+        except Exception:
             self.failOnException("close")
 
     # How to test the mode and bufsize parameters?

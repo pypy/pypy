@@ -241,7 +241,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print(bld_stdout, file=sys.stderr)
                 print("stderr:")
                 print(bld_stderr, file=sys.stderr)
-        except:
+        except Exception:
             import traceback;traceback.print_exc()
             failures.append((key, module))
         else:

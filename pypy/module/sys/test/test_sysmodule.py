@@ -345,7 +345,7 @@ class AppTestSysModulePortedFromCPython:
             sys.exit(0)
         except SystemExit as exc:
             assert exc.code == 0
-        except:
+        except Exception:
             raise AssertionError("wrong exception")
         else:
             raise AssertionError("no exception")
@@ -356,7 +356,7 @@ class AppTestSysModulePortedFromCPython:
             sys.exit(42)
         except SystemExit as exc:
             assert exc.code == 42
-        except:
+        except Exception:
             raise AssertionError("wrong exception")
         else:
             raise AssertionError("no exception")
@@ -366,7 +366,7 @@ class AppTestSysModulePortedFromCPython:
             sys.exit((42,))
         except SystemExit as exc:
             assert exc.code == 42
-        except:
+        except Exception:
             raise AssertionError("wrong exception")
         else:
             raise AssertionError("no exception")
@@ -376,7 +376,7 @@ class AppTestSysModulePortedFromCPython:
             sys.exit("exit")
         except SystemExit as exc:
             assert exc.code == "exit"
-        except:
+        except Exception:
             raise AssertionError("wrong exception")
         else:
             raise AssertionError("no exception")
@@ -386,7 +386,7 @@ class AppTestSysModulePortedFromCPython:
             sys.exit((17, 23))
         except SystemExit as exc:
             assert exc.code == (17, 23)
-        except:
+        except Exception:
             raise AssertionError("wrong exception")
         else:
             raise AssertionError("no exception")
@@ -798,7 +798,7 @@ class AppTestSysExcInfoDirect:
         e = KeyError("boom")
         try:
             raise e
-        except:
+        except Exception:
             assert sys.exc_info()[0] is KeyError  # y
             assert sys.exc_info()[1] is e         # y
             assert sys.exc_info()[2] is not None  # n
@@ -812,7 +812,7 @@ class AppTestSysExcInfoDirect:
         e = KeyError("boom")
         try:
             raise e
-        except:
+        except Exception:
             foo = sys.exc_info()                  # n
             assert sys.exc_info()[:0] == ()       # y
             assert sys.exc_info()[:1] == foo[:1]  # y
@@ -829,7 +829,7 @@ class AppTestSysExcInfoDirect:
         e = KeyError("boom")
         try:
             raise e
-        except:
+        except Exception:
             foo = sys.exc_info()                   # n
             assert sys.exc_info()[2:2] == ()       # y
             assert sys.exc_info()[0:1] == foo[:1]  # y
@@ -846,7 +846,7 @@ class AppTestSysExcInfoDirect:
         e = KeyError("boom")
         try:
             raise e
-        except:
+        except Exception:
             a = []; k = {}
             assert sys.exc_info(*a)[:0] == ()
             assert sys.exc_info(**k)[:0] == ()
@@ -861,6 +861,6 @@ class AppTestSysExcInfoDirect:
         e = KeyError("boom")
         try:
             raise e
-        except:
+        except Exception:
             assert g() is e
     test_call_in_subfunction.expected = 'n'

@@ -427,7 +427,7 @@ def _ipconfig_getnode():
         buffer = ctypes.create_string_buffer(300)
         ctypes.windll.kernel32.GetSystemDirectoryA(buffer, 300)
         dirs.insert(0, buffer.value.decode('mbcs'))
-    except:
+    except Exception:
         pass
     for dir in dirs:
         try:
@@ -485,7 +485,7 @@ try:
     for libname in _libnames:
         try:
             lib = ctypes.CDLL(ctypes.util.find_library(libname))
-        except:
+        except Exception:
             continue
         if hasattr(lib, 'uuid_generate_time'):
             _uuid_generate_time = lib.uuid_generate_time
@@ -516,14 +516,14 @@ try:
     # on the box.
     try:
         lib = ctypes.windll.rpcrt4
-    except:
+    except Exception:
         lib = None
     _UuidCreate = getattr(lib, 'UuidCreateSequential',
                           getattr(lib, 'UuidCreate', None))
     if _UuidCreate is not None:
         _UuidCreate.argtypes = [ctypes.c_char * 16]
         _UuidCreate.restype = ctypes.c_int
-except:
+except Exception:
     pass
 
 def _unixdll_getnode():
@@ -572,7 +572,7 @@ def getnode():
     for getter in getters + [_random_getnode]:
         try:
             _node = getter()
-        except:
+        except Exception:
             continue
         if (_node is not None) and (0 <= _node < (1 << 48)):
             return _node

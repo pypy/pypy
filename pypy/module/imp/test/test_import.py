@@ -417,7 +417,7 @@ class AppTestImport:
         p = os.path.join(sys.path[0], 'readonly')
         try:
             os.chmod(p, 0555)
-        except:
+        except Exception:
             skip("cannot chmod() the test directory to read-only")
         try:
             import readonly.x    # cannot write x.pyc, but should not crash
