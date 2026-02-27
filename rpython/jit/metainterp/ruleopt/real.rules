@@ -309,6 +309,12 @@ is_zero_true: int_is_zero(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 0
 
+#is_zero_is_zero: int_is_zero(int_is_zero(x))
+#    => int_is_true(x)
+#
+#uint_lt_zero: uint_lt(0, x)
+#    => int_is_true(x)
+
 #is_zero_add: int_is_zero(int_add(x, C))
 #    check x.lower > 0-C or x.upper < 0-C
 #    => 0
