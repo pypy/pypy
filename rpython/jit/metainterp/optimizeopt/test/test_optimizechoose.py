@@ -54,13 +54,13 @@ class TestOptimize(BaseTestBasic):
     def test_jit_choose_promote(self):
         ops = """
         [i1]
-        i2 = jit_choose_i(i1, 0, 1)
+        i2 = jit_choose_i(i1, 0, 5)
         guard_value(i2, 0) []
         finish(i1)
         """
         expected = """
         [i1]
-        i2 = jit_choose_i(i1, 0, 1)
+        i2 = jit_choose_i(i1, 0, 5)
         guard_value(i1, 0) []
         finish(0)
         """
@@ -69,13 +69,13 @@ class TestOptimize(BaseTestBasic):
     def test_jit_choose_pure(self):
         ops = """
         [i1]
-        i2 = jit_choose_i(i1, 0, 1)
-        i3 = jit_choose_i(i1, 0, 1)
+        i2 = jit_choose_i(i1, 0, 5)
+        i3 = jit_choose_i(i1, 0, 5)
         jump(i2, i3)
         """
         expected = """
         [i1]
-        i2 = jit_choose_i(i1, 0, 1)
+        i2 = jit_choose_i(i1, 0, 5)
         jump(i2, i2)
         """
         self.optimize_loop(ops, expected)
