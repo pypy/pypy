@@ -38,11 +38,19 @@ def test_possessive_repeat():
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababbb").match_end == 12
     r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababababab") is None
+    r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('c'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ababababababababc") is not None
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ababababababababc", fullmatch=True) is not None
 
 def test_atomic_group():
     r = [ATOMIC_GROUP, 11, LITERAL, ord('a'), REPEAT_ONE, 6, 0, 1, LITERAL, ord('b'), SUCCESS, SUCCESS, LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abb").match_end == 3
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ab") is None
+
+def test_atomic_group_fullmatch_bug():
+    r = [ATOMIC_GROUP, 4, LITERAL, ord('t'), SUCCESS, LITERAL, ord('a'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ta") is not None
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ta", fullmatch=True) is not None
 
 def test_possessive_repeat_of_atomic_group():
     # (?>x)++x

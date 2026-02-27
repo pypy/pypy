@@ -79,8 +79,6 @@ for mnemo, number in _lib_codes:
 
 # the PySSL_SetError equivalent
 def pyssl_error(obj, ret):
-    errcode = lib.ERR_peek_last_error()
-
     errstr = ""
     errval = 0
     errtype = SSLError
@@ -136,7 +134,7 @@ def pyssl_error(obj, ret):
             if e == 0:
                 errstr = "A failure in the SSL library occurred"
             else:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
+                errstr = _str_from_buf(lib.ERR_lib_error_string(e))
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE

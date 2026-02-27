@@ -107,6 +107,8 @@ alias = {
     'Oscar Nierstrasz': ['oscar'],
     'Tim Felgentreff': ['timfel'],
     'Tadeu Zagallo': ['tadeuzagallo'],
+    'Pierre Augier': ['paugier'],
+    'TheShermanTanker': ['Julian Waters'],
     }
 
 alias_map = {}

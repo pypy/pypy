@@ -1,6 +1,7 @@
 import py
 from rpython.rlib.jit import JitDriver, hint, set_param, dont_look_inside,\
      elidable, promote
+from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import compute_hash
 from rpython.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -1231,6 +1232,57 @@ class LoopTest(object):
         self.check_trace_count_at_most(10)
         self.meta_interp(main, [False])
         self.check_trace_count_at_most(10)
+
+    def test_gh5212_crash(self):
+        class Base(object): pass
+
+        class Tup(Base):
+            _immutable_fields_ = ['items[*]']
+            def __init__(self, items):
+                self.items = items
+
+            def __getitem__(self, i):
+                if i < 0:
+                    i += len(self.items)
+                if i < 0:
+                    raise IndexError
+                if i >= len(self.items):
+                    raise IndexError
+                return self.items[i]
+
+        class Int(Base):
+            _immutable_fields_ = ['intval']
+            def __init__(self, intval):
+                self.intval = intval
+            def mul(self, other):
+                if not isinstance(other, Int):
+                    raise TypeError
+                try:
+                    return Int(ovfcheck(self.intval * other.intval))
+                except OverflowError:
+                    raise
+            def div(self, other):
+                if not isinstance(other, Int):
+                    raise TypeError
+                try:
+                    return Int(ovfcheck(self.intval // other.intval))
+                except OverflowError:
+                    raise
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f():
+            res = 0
+            Int(0)
+            d = Tup([Int(1), Int(1), Int(1)])
+            e = Tup([Int(1), Int(1), Int(1)])
+            f = Tup([Int(1), Int(1), Int(1)])
+            for i in range(2000):
+                myjitdriver.jit_merge_point()
+                res += i + e[1].mul(f[1]).div(d[0]).intval
+                d, e, f = e, f, d
+            return res * 2
+        res = self.meta_interp(f, [])
+        assert res == 4002000
+        self.check_trace_count(1)
 
 
 class TestLLtype(LoopTest, LLJitMixin):

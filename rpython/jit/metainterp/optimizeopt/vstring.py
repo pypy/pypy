@@ -453,10 +453,10 @@ class OptString(Optimization):
             return self.emit(op)
 
     def postprocess_NEWSTR(self, op):
-        self.pure_from_args(mode_string.STRLEN, [op], op.getarg(0))
+        self.pure_from_args1(mode_string.STRLEN, op, op.getarg(0))
 
     def postprocess_NEWUNICODE(self, op):
-        self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
+        self.pure_from_args1(mode_unicode.STRLEN, op, op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         opinfo = getptrinfo(op.getarg(0))

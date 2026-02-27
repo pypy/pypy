@@ -367,6 +367,15 @@ class TestRDictDirect(object):
                 rordereddict.ll_dict_move_to_end(ll_d, 1, False)
                 assert content() == [(1, 11), (2, 22)]
 
+    def test_direct_move_to_start_bug(self):
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        for i in range(150):
+            rordereddict.ll_dict_setitem(ll_d, i, i)
+        assert ll_d.lookup_function_no == 0
+        for i in range(5, 150):
+            rordereddict.ll_dict_move_to_first(ll_d, i)
+
 
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
@@ -525,6 +534,8 @@ class ODictSpace(MappingSpace):
 
 
 class ODictSM(MappingSM):
+    HAVE_MOVE_TO_FIRST_END = True
+
     Space = ODictSpace
 
 def test_hypothesis():

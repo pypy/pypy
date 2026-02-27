@@ -56,7 +56,7 @@ when we do a merge::
 
 Then, we need to do the same for the ``release-pypy3*`` branch(es)
 
-To change the version, you need to edit three files:
+To change the version, you need to edit some files:
 
   - ``module/sys/version.py``: the ``PYPY_VERSION`` should be something like
     ``(7, 3, 10, "final", 0)`` or ``(7, 3, 9, "candidate", 2)`` for rc2.
@@ -65,7 +65,7 @@ To change the version, you need to edit three files:
     something like "7.3.10" for the final release or "7.3.10-candidate3" for
     rc3.
 
-  - ``doc/conf.py``
+  - ``doc/conf.py`` in both ``rpython`` and ``pypy``.
 
 Add tags to the repo. Never change tags once committed: it breaks downstream
 packaging workflows.

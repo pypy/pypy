@@ -324,7 +324,10 @@ class HeapCache(object):
             opnum == rop.SETINTERIORFIELD_RAW or
             opnum == rop.RECORD_EXACT_CLASS or
             opnum == rop.RAW_STORE or
-            opnum == rop.ASSERT_NOT_NONE):
+            opnum == rop.ASSERT_NOT_NONE or
+            opnum == rop.RECORD_EXACT_CLASS or
+            opnum == rop.RECORD_EXACT_VALUE_I or
+            opnum == rop.RECORD_EXACT_VALUE_R):
             return True
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or

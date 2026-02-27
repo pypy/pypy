@@ -34,8 +34,8 @@ Contributors
   Aurelien Campeas
   Edd Barrett
   Niklaus Haldimann
-  Seo Sanghyeon
   Yusuke Izawa
+  Seo Sanghyeon
   Laura Creighton
   Leonardo Santagada
   Alexander Schremmer
@@ -49,10 +49,10 @@ Contributors
   Batuhan Taskaya
   Guido Wesdorp
   Ronny Pfannschmidt
+  Nico Rittinghaus
   Alexander Hesse
   Justin Peel
   Niko Matsakis
-  Nico Rittinghaus
   Toon Verwaest
   Ludovic Aubry
   stian
@@ -93,6 +93,7 @@ Contributors
   Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
+  Michał Górny
   Simon Cross
   Laurence Tratt
   Greg Price
@@ -104,7 +105,6 @@ Contributors
   olliemath
   Wenzhu Man
   Guido van Rossum
-  Michał Górny
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
@@ -123,6 +123,7 @@ Contributors
   Tobias Oberstein
   Stefan H. Muller
   Jan de Mooij
+  Christoph Jung
   Dodan Mihai
   Rami Chowdhury
   Colin Valliant
@@ -164,7 +165,6 @@ Contributors
   Beatrice During
   Jared Grubb
   Olivier Dormond
-  Christoph Jung
   Nils Müller
   Sergey Matyunin
   Brian Dorsey
@@ -237,6 +237,7 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Pierre Augier
   Ilya Egorov
   Paul Gey
   Alessandro Ogier
@@ -262,6 +263,8 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Julian Waters
+  Sam James
   Christian Clauss
   Benjamin Moody
   Renaud Blanch
@@ -336,7 +339,6 @@ Contributors
   kotus9
   Ihar Shabes
   Sam Edwards
-  paugier
   Jesdi
   Ivan
   Yasen Kiprov

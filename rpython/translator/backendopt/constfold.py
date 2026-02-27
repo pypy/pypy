@@ -12,6 +12,7 @@ def fold_op_list(block, constants, exit_early=False, exc_catch=False):
     newops = []
     folded_count = 0
     for index, spaceop in enumerate(operations):
+        RESTYPE = spaceop.result.concretetype
         vargsmodif = False
         vargs = []
         args = []
@@ -29,7 +30,6 @@ def fold_op_list(block, constants, exit_early=False, exc_catch=False):
             pass
         else:
             if not op.sideeffects and len(args) == len(vargs):
-                RESTYPE = spaceop.result.concretetype
                 try:
                     result = op(RESTYPE, *args)
                 except TypeError:
@@ -45,6 +45,16 @@ def fold_op_list(block, constants, exit_early=False, exc_catch=False):
                     if spaceop.opname in fixup_op_result:
                         result = fixup_op_result[spaceop.opname](result)
                     constants[spaceop.result] = Constant(result, RESTYPE)
+                    folded_count += 1
+                    continue
+            elif spaceop.opname in ('ptr_eq', 'int_eq'):
+                if spaceop.args[0] == spaceop.args[1]:
+                    constants[spaceop.result] = Constant(True, RESTYPE)
+                    folded_count += 1
+                    continue
+            elif spaceop.opname in ('ptr_ne', 'int_ne'):
+                if spaceop.args[0] == spaceop.args[1]:
+                    constants[spaceop.result] = Constant(False, RESTYPE)
                     folded_count += 1
                     continue
             if (index == len(operations) - 1 and

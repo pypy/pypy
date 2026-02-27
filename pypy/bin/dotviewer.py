@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 """
 Command-line interface for a dot file viewer.
 Run with no arguments for help.

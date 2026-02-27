@@ -368,6 +368,7 @@ class TestX86(LLtypeBackendTest):
                     ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if not isinstance(i, Const)]
                     looptoken = JitCellToken()
+                    self._prepare_reuse(inputargs, ops)
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     inputvalues = [box.getint() for box in inputargs]
                     deadframe = self.cpu.execute_token(looptoken, *inputvalues)

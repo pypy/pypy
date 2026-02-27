@@ -57,7 +57,7 @@ eq_different_knownbits: int_eq(x, y)
 def test_parse_lshift_rshift():
     s = """\
 int_lshift_int_rshift_consts: int_lshift(int_rshift(x, C1), C1)
-    C = (-1 >>a C1) << C1
+    C = (-1 >> C1) << C1
     => int_and(x, C)
     """
     ast = parse(s)

@@ -718,6 +718,12 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
+    def len(self):
+        if self.is_constant():
+            return immutablevalue(len(self.const))
+        else:
+            return SomeInteger(nonneg=True)
+
     def method_isdigit(self):
         return s_Bool
 

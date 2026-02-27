@@ -379,7 +379,7 @@ class ResOpAssembler(BaseAssembler):
                     break
             else:
                 callee_only = True
-            if self._regalloc.vfprm.reg_bindings:
+            if len(self._regalloc.vfprm.reg_bindings):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.BL(cond_call_adr)
@@ -605,13 +605,13 @@ class ResOpAssembler(BaseAssembler):
         helper_num = card_marking
         if is_frame:
             helper_num = 4
-        elif self._regalloc is not None and self._regalloc.vfprm.reg_bindings:
+        elif self._regalloc is not None and len(self._regalloc.vfprm.reg_bindings):
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
             self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.vfprm.reg_bindings))
+                                    bool(len(self._regalloc.vfprm.reg_bindings)))
             assert self.wb_slowpath[helper_num] != 0
         #
         if loc_base is not r.r0:

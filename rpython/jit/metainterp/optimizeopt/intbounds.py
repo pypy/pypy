@@ -63,10 +63,10 @@ class OptIntBounds(Optimization):
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if b0.and_bound(b1).known_eq_const(0):
-            self.pure_from_args(rop.INT_ADD,
-                                [arg0, arg1], op)
-            self.pure_from_args(rop.INT_XOR,
-                                [arg0, arg1], op)
+            self.pure_from_args2(rop.INT_ADD,
+                                 arg0, arg1, op)
+            self.pure_from_args2(rop.INT_XOR,
+                                arg0, arg1, op)
         b = b0.or_bound(b1)
         self.getintbound(op).intersect(b)
 
@@ -76,10 +76,10 @@ class OptIntBounds(Optimization):
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if b0.and_bound(b1).known_eq_const(0):
-            self.pure_from_args(rop.INT_ADD,
-                                [arg0, arg1], op)
-            self.pure_from_args(rop.INT_OR,
-                                [arg0, arg1], op)
+            self.pure_from_args2(rop.INT_ADD,
+                                 arg0, arg1, op)
+            self.pure_from_args2(rop.INT_OR,
+                                 arg0, arg1, op)
         b = b0.xor_bound(b1)
         self.getintbound(op).intersect(b)
 
@@ -97,31 +97,34 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg1)
         b = b0.sub_bound(b1)
         self.getintbound(op).intersect(b)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
+        self.optimizer.pure_from_args2(rop.INT_ADD, op, arg1, arg0)
+        self.optimizer.pure_from_args2(rop.INT_SUB, arg0, op, arg1)
         if isinstance(arg1, ConstInt):
             # invert the constant
             i1 = arg1.getint()
             if i1 == -sys.maxint - 1:
                 return
             inv_arg1 = ConstInt(-i1)
-            self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
-            self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
+            self.optimizer.pure_from_args2(rop.INT_ADD, arg0, inv_arg1, op)
+            self.optimizer.pure_from_args2(rop.INT_ADD, inv_arg1, arg0, op)
+            self.optimizer.pure_from_args2(rop.INT_SUB, op, inv_arg1, arg0)
+            self.optimizer.pure_from_args2(rop.INT_SUB, op, arg0, inv_arg1)
 
 
     def postprocess_INT_ADD(self, op):
         import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
-        b1 = self.getintbound(arg1)
-        b = b0.add_bound(b1)
+        if arg0 is arg1: # x + x is even
+            b = b0.lshift_bound(IntBound.from_constant(1))
+        else:
+            b1 = self.getintbound(arg1)
+            b = b0.add_bound(b1)
         self.getintbound(op).intersect(b)
         # Synthesize the reverse op for optimize_default to reuse
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
+        self.optimizer.pure_from_args2(rop.INT_SUB, op, arg1, arg0)
+        self.optimizer.pure_from_args2(rop.INT_SUB, op, arg0, arg1)
         if isinstance(arg0, ConstInt):
             # invert the constant
             i0 = arg0.getint()
@@ -137,10 +140,10 @@ class OptIntBounds(Optimization):
             arg1 = arg0
         else:
             return
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
+        self.optimizer.pure_from_args2(rop.INT_SUB, arg1, inv_arg0, op)
+        self.optimizer.pure_from_args2(rop.INT_SUB, arg1, op, inv_arg0)
+        self.optimizer.pure_from_args2(rop.INT_ADD, op, inv_arg0, arg1)
+        self.optimizer.pure_from_args2(rop.INT_ADD, inv_arg0, op, arg1)
 
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
@@ -186,8 +189,8 @@ class OptIntBounds(Optimization):
             #  result = x << y
             #  if (result >> y) != x:
             #      raise OverflowError("x<<y loosing bits or changing sign")
-            self.pure_from_args(rop.INT_RSHIFT,
-                                [op, arg1], arg0)
+            self.pure_from_args2(rop.INT_RSHIFT,
+                                 op, arg1, arg0)
 
     def postprocess_INT_RSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
@@ -218,15 +221,11 @@ class OptIntBounds(Optimization):
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
             elif opnum == rop.INT_ADD_OVF:
-                #self.pure(rop.INT_ADD, args[:], result)
-                self.pure_from_args(rop.INT_SUB, [result, args[1]], args[0])
-                self.pure_from_args(rop.INT_SUB, [result, args[0]], args[1])
+                self.pure_from_args2(rop.INT_SUB, result, args[1], args[0])
+                self.pure_from_args2(rop.INT_SUB, result, args[0], args[1])
             elif opnum == rop.INT_SUB_OVF:
-                #self.pure(rop.INT_SUB, args[:], result)
-                self.pure_from_args(rop.INT_ADD, [result, args[1]], args[0])
-                self.pure_from_args(rop.INT_SUB, [args[0], result], args[1])
-            #elif opnum == rop.INT_MUL_OVF:
-            #    self.pure(rop.INT_MUL, args[:], result)
+                self.pure_from_args2(rop.INT_ADD, result, args[1], args[0])
+                self.pure_from_args2(rop.INT_SUB, args[0], result, args[1])
             return self.emit(op)
 
     def optimize_GUARD_OVERFLOW(self, op):
@@ -257,14 +256,19 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_ADD_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
         # we can always give the result a bound. if the int_add_ovf is followed
         # by a guard_no_overflow, then we know no overflow occurred, and the
         # bound is correct. Otherwise, it must be followed by a guard_overflow
         # and it is also fine to give the result a bound, because the result
         # box must never be used in the rest of the trace
-        resbound = b1.add_bound_no_overflow(b2)
+        if arg0 is arg1:
+            resbound = b0.mul2_bound_no_overflow()
+        else:
+            resbound = b0.add_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -301,9 +305,14 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_MUL_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound_no_overflow(b2)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        if arg0 is arg1:
+            resbound = b0.square_bound_no_overflow()
+        else:
+            b1 = self.getintbound(arg1)
+            resbound = b0.mul_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 

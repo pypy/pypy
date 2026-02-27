@@ -13,6 +13,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rbigint import rbigint
 
+_builtin_max = max
 
 def get_len_of_range(space, lo, hi, step):
     """
@@ -130,6 +131,139 @@ def range_with_longs(space, w_start, w_stop, w_step):
         res_w[idx] = space.newlong_from_rbigint(v)
         v = v.add(step)
     return space.newlist(res_w)
+
+
+def get_printable_location(callable_greenkey, greenkey):
+    return "map_1 [%s, %s]" % (
+            print_callable_greenkey(callable_greenkey), greenkey.iterator_greenkey_printable())
+
+map_1_jitdriver = jit.JitDriver(name='map_1',
+        greens=['callable_greenkey', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+def get_callable_greenkey(space, w_func):
+    if w_func is None:
+        return None
+    pycode = space._try_fetch_pycode(w_func)
+    if pycode:
+        return pycode
+    return space.type(w_func)
+
+def print_callable_greenkey(callable_greenkey):
+    from pypy.interpreter.eval import Code
+    if callable_greenkey is None:
+        return 'None'
+    if isinstance(callable_greenkey, Code):
+        return callable_greenkey.co_name
+    return callable_greenkey.iterator_greenkey_printable()
+
+
+def _map_1(space, w_func, w_seq):
+    length = space.length_hint(w_seq, 0)
+    w_list = space.newlist_hint(length)
+    w_iter = space.iter(w_seq)
+    greenkey = space.iterator_greenkey(w_iter)
+    callable_greenkey = get_callable_greenkey(space, w_func)
+    while 1:
+        map_1_jitdriver.jit_merge_point(callable_greenkey=callable_greenkey, greenkey=greenkey)
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        if w_func is not None:
+            w_res = space.call_function(w_func, w_item)
+        else:
+            w_res = w_item
+        space.call_method(w_list, 'append', w_res)
+    w_list._resize_hint(space.len_w(w_list))
+    return w_list
+
+@jit.unroll_safe
+def _get_map_items(space, iterators_w):
+    have_any = False
+    items_w = [None] * len(iterators_w)
+    for i, w_iter in enumerate(iterators_w):
+        w_item = space.w_None
+        if w_iter is not None:
+            try:
+                w_item = space.next(w_iter)
+                have_any = True
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                iterators_w[i] = None
+        items_w[i] = w_item
+    if have_any:
+        return items_w
+    return None
+
+
+def get_printable_location(num_items, callable_greenkey, greenkey):
+    return "map %s [%s, %s]" % (
+            num_items, print_callable_greenkey(callable_greenkey),
+            greenkey.iterator_greenkey_printable())
+
+map_n_jitdriver = jit.JitDriver(name='map_n',
+        greens=['num_items', 'callable_greenkey', 'greenkey'], reds='auto',
+        get_printable_location=get_printable_location)
+
+
+def _map_n(space, w_func, sequences_w):
+    # Gather the iterators into _Cons objects and guess the
+    # result length (the max of the input lengths)
+    c = None
+    max_hint = 0
+    iterators_w = [None] * len(sequences_w)
+    for i, w_seq in enumerate(sequences_w):
+        iterators_w[i] = space.iter(w_seq)
+        max_hint = _builtin_max(max_hint, space.length_hint(w_seq, 0))
+
+    w_list = space.newlist_hint(max_hint)
+    greenkey = space.iterator_greenkey(sequences_w[0])
+    callable_greenkey = get_callable_greenkey(space, w_func)
+    num_items = len(sequences_w)
+    while 1:
+        map_n_jitdriver.jit_merge_point(
+                num_items=num_items,
+                callable_greenkey=callable_greenkey,
+                greenkey=greenkey)
+        items_w = _get_map_items(space, iterators_w)
+        if items_w is None:
+            break
+        w_args = space.newtuple(items_w)
+        if w_func is None:
+            w_res = w_args
+        else:
+            w_res = space.call(w_func, w_args)
+        space.call_method(w_list, 'append', w_res)
+    w_list._resize_hint(space.len_w(w_list))
+    return w_list
+
+
+def map(space, w_func, args_w):
+    """map(function, sequence[, sequence, ...]) -> list
+
+Return a list of the results of applying the function to the items of
+the argument sequence(s).  If more than one sequence is given, the
+function is called with an argument list consisting of the corresponding
+item of each sequence, substituting None for missing values when not all
+sequences have the same length.  If the function is None, return a list of
+the items of the sequence (or a list of tuples if more than one sequence)."""
+    if not args_w:
+        raise oefmt(space.w_TypeError, "map() requires at least two arguments")
+    num_collections = len(args_w)
+    none_func = space.is_none(w_func)
+    if none_func:
+        w_func = None
+    if num_collections == 1:
+        # Special case for the really common case of a single collection
+        w_seq = args_w[0]
+        return _map_1(space, w_func, w_seq)
+
+    return _map_n(space, w_func, args_w)
+
 
 def get_printable_location(has_key, has_item, greenkey):
     return "min [has_key=%s, has_item=%s, %s]" % (

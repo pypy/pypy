@@ -1035,10 +1035,13 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # <POSSESSIVE_REPEAT> <skip> <1=min> <2=max> pattern
             # <SUCCESS> tail
             start = ptr
+            saved = ctx.match_mode
+            ctx.match_mode = MODE_ANY
             ptr = find_repetition_end_possessive(
                     ctx, pattern,
                     ppos, start,
                     marks)
+            ctx.match_mode = saved
             if ptr < 0:
                 return None
             marks = ctx.match_marks
@@ -1047,7 +1050,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # Atomic Group Sub Pattern
             # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
 
+            saved = ctx.match_mode
+            ctx.match_mode = MODE_ANY
             match = sre_match(ctx, pattern, ppos + 1, ptr, marks)
+            ctx.match_mode = saved
             if match is None:
                 return None
             ptr = ctx.match_end

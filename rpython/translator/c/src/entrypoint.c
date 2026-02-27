@@ -20,6 +20,7 @@
 #  include <stdio.h>
 #  include <fcntl.h>
 #  include <io.h>
+#  include <Windows.h>
    typedef unsigned short ARGV_T;
 #else
    typedef char ARGV_T;
