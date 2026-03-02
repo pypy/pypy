@@ -57,6 +57,8 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    if hasattr(rposix, 'unshare'):
+        USEMODULES = USEMODULES + ["_posixsubprocess", "select"]
     spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
@@ -1778,6 +1780,21 @@ class AppTestPosix:
                 os.unshare(0)
             except PermissionError:
                 skip("unshare() not permitted")
+
+        def test_unshare_userns_in_subprocess(self):
+            os = self.posix
+            try:
+                os.unshare(0)
+            except PermissionError:
+                skip("unshare() not permitted")
+
+            import subprocess
+            def preexec_fn():
+                euid = os.geteuid()
+                os.unshare(os.CLONE_NEWUSER)
+                with open("/proc/self/uid_map", "w") as f:
+                    f.write("0 %d 1\n" % euid)
+            assert subprocess.check_output(["id", "-u"], preexec_fn=preexec_fn) == b"0\n"
 
         def test_unshare_invalid_flags(self):
             import errno
