@@ -1717,6 +1717,13 @@ class AppTestPosix:
             finally:
                 os.close(fd)
 
+        def test_memfd_create_error(self):
+            import errno
+            os = self.posix
+            with raises(OSError) as exc_info:
+                fd = os.memfd_create("abc", flags=-1)
+            assert exc_info.value.errno == errno.EINVAL
+
     def test_get_terminal_size(self):
         os = self.posix
         for args in [(), (1,), (0,), (42421,)]:
