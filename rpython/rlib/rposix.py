@@ -3294,3 +3294,41 @@ if sys.platform.startswith('linux'):
                 'memfd_create', c_memfd_create(name, flags))
 
 
+# ____________________________________________________________
+# Support for unshare function
+
+if sys.platform.startswith('linux'):
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sched.h'],)
+        for name in """
+                CLONE_FILES
+                CLONE_FS
+                CLONE_NEWCGROUP
+                CLONE_NEWIPC
+                CLONE_NEWNET
+                CLONE_NEWNS
+                CLONE_NEWPID
+                CLONE_NEWTIME
+                CLONE_NEWUSER
+                CLONE_NEWUTS
+                CLONE_SIGHAND
+                CLONE_SYSVSEM
+                CLONE_THREAD
+                CLONE_VM
+                """.split():
+            locals()[name] = rffi_platform.DefinedConstantInteger(name)
+        HAVE_UNSHARE = rffi_platform.Has('unshare')
+
+    cConfig = rffi_platform.configure(CConfig)
+    for key, value in cConfig.items():
+        if value is not None and key.startswith("CLONE_"):
+            globals()[key] = value
+
+    if cConfig['HAVE_UNSHARE']:
+        c_unshare = external('unshare',
+            [rffi.INT], rffi.INT,
+            compilation_info=CConfig._compilation_info_,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+        def unshare(flags):
+            return handle_posix_error('unshare', c_unshare(flags))

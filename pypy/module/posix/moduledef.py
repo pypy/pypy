@@ -302,6 +302,27 @@ corresponding Unix manual entries for more information on calls."""
             if getattr(rposix, name, None) is not None:
                 interpleveldefs[name] = 'space.wrap(%d)' % getattr(rposix, name)
 
+    if hasattr(rposix, 'unshare'):
+        interpleveldefs['unshare'] = 'interp_posix.unshare'
+        for name in """
+                CLONE_FILES
+                CLONE_FS
+                CLONE_NEWCGROUP
+                CLONE_NEWIPC
+                CLONE_NEWNET
+                CLONE_NEWNS
+                CLONE_NEWPID
+                CLONE_NEWTIME
+                CLONE_NEWUSER
+                CLONE_NEWUTS
+                CLONE_SIGHAND
+                CLONE_SYSVSEM
+                CLONE_THREAD
+                CLONE_VM
+                """.split():
+            if getattr(rposix, name, None) is not None:
+                interpleveldefs[name] = 'space.wrap(%d)' % getattr(rposix, name)
+
     def startup(self, space):
         from pypy.module.posix import interp_posix
         from pypy.module.imp import importing
