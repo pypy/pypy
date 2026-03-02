@@ -1774,13 +1774,18 @@ class AppTestPosix:
     if hasattr(rposix, 'unshare'):
         def test_unshare_noop(self):
             os = self.posix
-            os.unshare(0)
+            try:
+                os.unshare(0)
+            except PermissionError:
+                skip("unshare() not permitted")
 
         def test_unshare_invalid_flags(self):
             import errno
             os = self.posix
             with raises(OSError) as exc_info:
                 os.unshare(-1)
+            if exc_info.value.errno == errno.EPERM:
+                skip("unshare() not permitted")
             assert exc_info.value.errno == errno.EINVAL
 
         def test_unshare_known_error(self):
@@ -1793,6 +1798,8 @@ class AppTestPosix:
                 t.start()
                 with raises(OSError) as exc_info:
                     os.unshare(os.CLONE_THREAD)
+                if exc_info.value.errno == errno.EPERM:
+                    skip("unshare() not permitted")
                 assert exc_info.value.errno == errno.EINVAL
             finally:
                 stop_event.set()
