@@ -1771,6 +1771,33 @@ class AppTestPosix:
         with raises(ValueError):
             os.execve(args[0], args, newenv)
 
+    if hasattr(rposix, 'unshare'):
+        def test_unshare_noop(self):
+            os = self.posix
+            os.unshare(0)
+
+        def test_unshare_invalid_flags(self):
+            import errno
+            os = self.posix
+            with raises(OSError) as exc_info:
+                os.unshare(-1)
+            assert exc_info.value.errno == errno.EINVAL
+
+        def test_unshare_known_error(self):
+            import errno
+            import threading
+            os = self.posix
+            stop_event = threading.Event()
+            t = threading.Thread(target=stop_event.wait)
+            try:
+                t.start()
+                with raises(OSError) as exc_info:
+                    os.unshare(os.CLONE_THREAD)
+                assert exc_info.value.errno == errno.EINVAL
+            finally:
+                stop_event.set()
+                t.join()
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
