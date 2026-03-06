@@ -473,3 +473,15 @@ class TestString(BaseTestPyPyC):
         assert "call_may_force_r" not in opnames
         assert "call_r" not in opnames
         assert opnames.count("call_i") == 2 # _strip_none_ascii_unboxed_left/right
+
+    def test_textiowrapper_write_is_inlined(self):
+        log = self.run("""
+        def main(n):
+            import io
+            tw = io.TextIOWrapper(io.BytesIO())
+            for i in range(n):
+                tw.write('a')
+        """, [10000])
+        loop1 = log.loops_by_filename(self.filepath)
+        # check that the encoding of the string is inlined
+        assert any(c.code and c.code.name == 'encode' for c in loop1[0].chunks)
