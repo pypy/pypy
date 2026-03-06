@@ -776,3 +776,30 @@ def test_pseudo_encoding_locale():
     t1 = _io.TextIOWrapper(r, encoding="locale")
     t2 = _io.TextIOWrapper(r)
     assert t1.encoding.lower() == t2.encoding
+
+def test_bug_write_during_flush():
+    # from https://github.com/python/cpython/issues/119506
+    import _io
+
+    class MyIO(_io.BytesIO):
+        def __init__(self):
+            _io.BytesIO.__init__(self)
+            self.writes = []
+
+        def write(self, b):
+            self.writes.append(b)
+            tw.write("c")
+            return len(b)
+
+    buf = MyIO()
+    tw = _io.TextIOWrapper(buf)
+
+    CHUNK_SIZE = 8192
+
+    tw.write("a" * (CHUNK_SIZE - 1))
+    tw.write("b" * 2)
+
+    tw.flush()
+    print(buf.writes)
+    assert b''.join(tw.buffer.writes) == b"a" * (CHUNK_SIZE - 1) + b"b" * 2 + b"c"
+
