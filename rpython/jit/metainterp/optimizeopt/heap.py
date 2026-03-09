@@ -615,10 +615,7 @@ class OptHeap(Optimization):
             if op is None:
                 continue
             val = op.getarg(1)
-            if self.optimizer.is_virtual(val):
-                pendingfields.append(op)
-                continue
-            cf.force_lazy_set(self, descr)
+            pendingfields.append(op)
         for descr, submap in self.cached_arrayitems.iteritems():
             for index, cf in submap.const_indexes.iteritems():
                 op = cf._lazy_set
@@ -630,10 +627,7 @@ class OptHeap(Optimization):
                 # SETFIELD_GC or SETARRAYITEM_GC.
                 opinfo = info.getptrinfo(op.getarg(0))
                 assert not opinfo.is_virtual()      # it must be a non-virtual
-                if self.optimizer.is_virtual(op.getarg(2)):
-                    pendingfields.append(op)
-                else:
-                    cf.force_lazy_set(self, descr)
+                pendingfields.append(op)
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
