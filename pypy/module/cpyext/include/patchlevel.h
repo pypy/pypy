@@ -20,12 +20,12 @@
 /* Version parsed out into numeric values */
 #define PY_MAJOR_VERSION	3
 #define PY_MINOR_VERSION	11
-#define PY_MICRO_VERSION	13
+#define PY_MICRO_VERSION	15
 #define PY_RELEASE_LEVEL	PY_RELEASE_LEVEL_FINAL
 #define PY_RELEASE_SERIAL	0
 
 /* Version as a string */
-#define PY_VERSION		"3.11.13"
+#define PY_VERSION		"3.11.15"
 
 /* PyPy version as a string: make sure to keep this in sync with:
  *     module/sys/version.py

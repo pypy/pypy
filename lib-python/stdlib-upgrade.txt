@@ -51,5 +51,3 @@ Then update sys/version.py, cpyext/include/patchlevel.h, and ./stdlib-version.tx
 
 Make sure binary files (especially pip and setuptools wheels) were copied
 correctly. On at least one occasion they were empty after this process.
-Make sure binary files (especially pip and setuptools wheels) were copied
-correctly. On at least one occasion they were empty after this process.
