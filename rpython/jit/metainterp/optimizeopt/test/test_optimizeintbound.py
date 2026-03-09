@@ -4355,6 +4355,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_xor_is_bool_not(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_xor(i1, 1) # negate the bool
+        i3 = int_is_true(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_is_zero(i1) # negate the bool
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

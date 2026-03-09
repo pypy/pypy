@@ -176,6 +176,10 @@ xor_known_result: int_xor(C1, C2)
     C = C1 ^ C2
     => C
 
+xor_is_not: int_xor(x, 1)
+    check x.is_bool()
+    => int_is_zero(x)
+
 
 lshift_zero_x: int_lshift(0, x)
     => 0
