@@ -92,8 +92,8 @@ Changelog
 For all versions
 ----------------
 
-- update to pycparser v2.23
-- bundle ``libz`` and ``libbz2`` into portable builds, for systems without them.
+- Update to pycparser v2.23
+- Bundle ``libz`` and ``libbz2`` into portable builds, for systems without them.
 
 Bugfixes
 ~~~~~~~~
@@ -106,15 +106,15 @@ Bugfixes
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- Speed up ``int.bit_length`` (issue 5314)
+- Speed up ``int.bit_length`` (:issue: `5314`)
 - Refactor the register allocator in the Jit backends to store longevity
   without using a dict. This make the JIT backend quite a bit faster (roughly
   50%) by using a lot fewer dictionary lookups.
-- const-fold ``x == x`` and ``x != x`` in RPython's ``backendopt``
-- remove impossible code in ``_bitcount64``
-- use one less instruction for regex character set membership testing
-- make ``map`` on pypy2 faster
-- add ``or``/``xor`` constant reassociation and `and/or`` combination jit
+- Const-fold ``x == x`` and ``x != x`` in RPython's ``backendopt``
+- Remove impossible code in ``_bitcount64``
+- Use one less instruction for regex character set membership testing
+- Make ``map`` on pypy2 faster
+- Add ``or``/``xor`` constant reassociation and `and/or`` combination jit
   peephole rewrite rules
 - ``storesink`` and ``jtransform`` need to deal with invalid ``cast_pointer`` on
   constants, which happens when optimizing unreachable code.
@@ -124,30 +124,32 @@ Python 3.11
 
 - Update vendored ``libexpat`` to 2.7.4
 - Update ``stdlib`` and version to 3.11.15
-- update to pycparser v3.0.0, which does not support python2
+- Update to pycparser v3.0.0, which does not support python2
 
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- percolate unicode locale numeric separators int formatting (:issue: `5311`)
-- add newline to end of generated headers (issue 5312)
-- allow ``'%lli'`` formatting code in ``PyUnicode_FromFormat*`` (issue 5313)
-- set ``__new__`` to disallow instantiation when
+- Percolate unicode locale numeric separators int formatting (:issue: `5311`)
+- Add newline to end of generated headers (:issue: `5312`)
+- Allow ``'%lli'`` formatting code in ``PyUnicode_FromFormat*`` (:issue: `5313`)
+- Set ``__new__`` to disallow instantiation when
   ``Py_TPFLAGS_DISALLOW_INSTANTIATION`` is set
-- fix ``ht_qualname`` on ``TypeFromSpec`` (issue 5319)
-- add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
-- allow str subclasses as argument of ``bytes/bytearray.fromhex`` (issue 5327)
-- fix ``def func(): if a: f() or g()`` which crashed the bytecode compiler (issue 5328)
-- change ``self.write_buffer`` to accept bytes in ``_overlapped`` (issue 5335)
-- add license header to ``_lzma.py`` and ``_lzma_build.py`` (issue 5337)
-- require ``vsnprintf`` in ``pyerrors.h`` (issue 5343) (:issue:`python/cpython#20899`)
-- add ``Py_RETURN_RICHCOMPARE`` macro (issue 5350)
-- make ``str`` methods ``split``, ``rsplit`` use the current unicode db version
-  (issue 5370)
+- Fix ``ht_qualname`` on ``TypeFromSpec`` (:issue: `5319`)
+- Add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
+- Allow str subclasses as argument of ``bytes/bytearray.fromhex`` (:issue: `5327`)
+- Fix ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue: `5328`)
+- Change ``self.write_buffer`` to accept bytes in ``_overlapped`` (:issue: `5335`)
+- Add license header to ``_lzma.py`` and ``_lzma_build.py`` (:issue: `5337`)
+- Require ``vsnprintf`` in ``pyerrors.h`` (:issue: `5343`) following
+  (:issue:`python/cpython#20899`)
+- Add ``Py_RETURN_RICHCOMPARE`` macro (:issue: `5350`)
+- Make ``str`` methods ``split``, ``rsplit`` use the current unicode db version
+  (:issue: `5370`)
 - Add ``_varname_from_oparg`` method to code objects
-- set ``save_err=rffi.RFFI_SAVE_ERRNO`` for ``c_memfd_create()``.
+- Set ``save_err=rffi.RFFI_SAVE_ERRNO`` for ``c_memfd_create()``.
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- make ``TextIOWrapper.write`` be inlined again by the JIT (issue 5375)
+- Restore the JIT inlining ``TextIOWrapper.write``, disabled by mistake in a
+  refactor (:issue: `5375`)
