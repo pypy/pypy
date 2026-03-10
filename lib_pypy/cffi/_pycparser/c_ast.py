@@ -1,7 +1,6 @@
 #-----------------------------------------------------------------
 # ** ATTENTION **
-# This code was automatically generated from the file:
-# _c_ast.cfg
+# This code was automatically generated from _c_ast.cfg
 #
 # Do not modify it directly. Modify the configuration file and
 # run the generator again.
@@ -17,6 +16,7 @@
 
 
 import sys
+from typing import Any, ClassVar, IO, Optional
 
 def _repr(obj):
     """
@@ -27,10 +27,12 @@ def _repr(obj):
     else:
         return repr(obj)
 
-class Node(object):
+class Node:
     __slots__ = ()
     """ Abstract base class for AST nodes.
     """
+    attr_names: ClassVar[tuple[str, ...]] = ()
+    coord: Optional[Any]
     def __repr__(self):
         """ Generates a python representation of the current node
         """
@@ -55,7 +57,16 @@ class Node(object):
         """
         pass
 
-    def show(self, buf=sys.stdout, offset=0, attrnames=False, showemptyattrs=True, nodenames=False, showcoord=False, _my_node_name=None):
+    def show(
+        self,
+        buf: IO[str] = sys.stdout,
+        offset: int = 0,
+        attrnames: bool = False,
+        showemptyattrs: bool = True,
+        nodenames: bool = False,
+        showcoord: bool = False,
+        _my_node_name: Optional[str] = None,
+    ):
         """ Pretty print the Node and all its attributes and
             children (recursively) to a buffer.
 
@@ -87,17 +98,18 @@ class Node(object):
             buf.write(lead + self.__class__.__name__+ ': ')
 
         if self.attr_names:
-            is_empty = lambda v: v is None or (hasattr(v, '__len__') and len(v) == 0)
+            def is_empty(v):
+                v is None or (hasattr(v, '__len__') and len(v) == 0)
             nvlist = [(n, getattr(self,n)) for n in self.attr_names \
                         if showemptyattrs or not is_empty(getattr(self,n))]
             if attrnames:
-                attrstr = ', '.join('%s=%s' % nv for nv in nvlist)
+                attrstr = ', '.join(f'{name}={value}' for name, value in nvlist)
             else:
-                attrstr = ', '.join('%s' % v for (_,v) in nvlist)
+                attrstr = ', '.join(f'{value}' for _, value in nvlist)
             buf.write(attrstr)
 
         if showcoord:
-            buf.write(' (at %s)' % self.coord)
+            buf.write(f' (at {self.coord})')
         buf.write('\n')
 
         for (child_name, child) in self.children():
@@ -111,7 +123,7 @@ class Node(object):
                 _my_node_name=child_name)
 
 
-class NodeVisitor(object):
+class NodeVisitor:
     """ A base NodeVisitor class for visiting c_ast nodes.
         Subclass it and define your own visit_XXX methods, where
         XXX is the class name you want to visit with these
@@ -147,7 +159,7 @@ class NodeVisitor(object):
 
     _method_cache = None
 
-    def visit(self, node):
+    def visit(self, node: Node):
         """ Visit a node.
         """
 
@@ -162,11 +174,11 @@ class NodeVisitor(object):
 
         return visitor(node)
 
-    def generic_visit(self, node):
+    def generic_visit(self, node: Node):
         """ Called if no explicit visitor function exists for a
             node. Implements preorder visiting of the node.
         """
-        for c in node:
+        for _, c in node.children():
             self.visit(c)
 
 class ArrayDecl(Node):
@@ -179,8 +191,10 @@ class ArrayDecl(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
-        if self.dim is not None: nodelist.append(("dim", self.dim))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
+        if self.dim is not None:
+            nodelist.append(("dim", self.dim))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -200,8 +214,10 @@ class ArrayRef(Node):
 
     def children(self):
         nodelist = []
-        if self.name is not None: nodelist.append(("name", self.name))
-        if self.subscript is not None: nodelist.append(("subscript", self.subscript))
+        if self.name is not None:
+            nodelist.append(("name", self.name))
+        if self.subscript is not None:
+            nodelist.append(("subscript", self.subscript))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -222,8 +238,10 @@ class Assignment(Node):
 
     def children(self):
         nodelist = []
-        if self.lvalue is not None: nodelist.append(("lvalue", self.lvalue))
-        if self.rvalue is not None: nodelist.append(("rvalue", self.rvalue))
+        if self.lvalue is not None:
+            nodelist.append(("lvalue", self.lvalue))
+        if self.rvalue is not None:
+            nodelist.append(("rvalue", self.rvalue))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -242,7 +260,8 @@ class Alignas(Node):
 
     def children(self):
         nodelist = []
-        if self.alignment is not None: nodelist.append(("alignment", self.alignment))
+        if self.alignment is not None:
+            nodelist.append(("alignment", self.alignment))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -261,8 +280,10 @@ class BinaryOp(Node):
 
     def children(self):
         nodelist = []
-        if self.left is not None: nodelist.append(("left", self.left))
-        if self.right is not None: nodelist.append(("right", self.right))
+        if self.left is not None:
+            nodelist.append(("left", self.left))
+        if self.right is not None:
+            nodelist.append(("right", self.right))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -296,9 +317,10 @@ class Case(Node):
 
     def children(self):
         nodelist = []
-        if self.expr is not None: nodelist.append(("expr", self.expr))
+        if self.expr is not None:
+            nodelist.append(("expr", self.expr))
         for i, child in enumerate(self.stmts or []):
-            nodelist.append(("stmts[%d]" % i, child))
+            nodelist.append((f"stmts[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -318,8 +340,10 @@ class Cast(Node):
 
     def children(self):
         nodelist = []
-        if self.to_type is not None: nodelist.append(("to_type", self.to_type))
-        if self.expr is not None: nodelist.append(("expr", self.expr))
+        if self.to_type is not None:
+            nodelist.append(("to_type", self.to_type))
+        if self.expr is not None:
+            nodelist.append(("expr", self.expr))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -339,7 +363,7 @@ class Compound(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.block_items or []):
-            nodelist.append(("block_items[%d]" % i, child))
+            nodelist.append((f"block_items[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -357,8 +381,10 @@ class CompoundLiteral(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
-        if self.init is not None: nodelist.append(("init", self.init))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
+        if self.init is not None:
+            nodelist.append(("init", self.init))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -415,9 +441,12 @@ class Decl(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
-        if self.init is not None: nodelist.append(("init", self.init))
-        if self.bitsize is not None: nodelist.append(("bitsize", self.bitsize))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
+        if self.init is not None:
+            nodelist.append(("init", self.init))
+        if self.bitsize is not None:
+            nodelist.append(("bitsize", self.bitsize))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -439,7 +468,7 @@ class DeclList(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.decls or []):
-            nodelist.append(("decls[%d]" % i, child))
+            nodelist.append((f"decls[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -457,7 +486,7 @@ class Default(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.stmts or []):
-            nodelist.append(("stmts[%d]" % i, child))
+            nodelist.append((f"stmts[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -475,8 +504,10 @@ class DoWhile(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.stmt is not None: nodelist.append(("stmt", self.stmt))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.stmt is not None:
+            nodelist.append(("stmt", self.stmt))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -524,7 +555,8 @@ class Enum(Node):
 
     def children(self):
         nodelist = []
-        if self.values is not None: nodelist.append(("values", self.values))
+        if self.values is not None:
+            nodelist.append(("values", self.values))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -542,7 +574,8 @@ class Enumerator(Node):
 
     def children(self):
         nodelist = []
-        if self.value is not None: nodelist.append(("value", self.value))
+        if self.value is not None:
+            nodelist.append(("value", self.value))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -560,7 +593,7 @@ class EnumeratorList(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.enumerators or []):
-            nodelist.append(("enumerators[%d]" % i, child))
+            nodelist.append((f"enumerators[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -578,7 +611,7 @@ class ExprList(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.exprs or []):
-            nodelist.append(("exprs[%d]" % i, child))
+            nodelist.append((f"exprs[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -596,7 +629,7 @@ class FileAST(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.ext or []):
-            nodelist.append(("ext[%d]" % i, child))
+            nodelist.append((f"ext[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -616,10 +649,14 @@ class For(Node):
 
     def children(self):
         nodelist = []
-        if self.init is not None: nodelist.append(("init", self.init))
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.next is not None: nodelist.append(("next", self.next))
-        if self.stmt is not None: nodelist.append(("stmt", self.stmt))
+        if self.init is not None:
+            nodelist.append(("init", self.init))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.next is not None:
+            nodelist.append(("next", self.next))
+        if self.stmt is not None:
+            nodelist.append(("stmt", self.stmt))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -643,8 +680,10 @@ class FuncCall(Node):
 
     def children(self):
         nodelist = []
-        if self.name is not None: nodelist.append(("name", self.name))
-        if self.args is not None: nodelist.append(("args", self.args))
+        if self.name is not None:
+            nodelist.append(("name", self.name))
+        if self.args is not None:
+            nodelist.append(("args", self.args))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -664,8 +703,10 @@ class FuncDecl(Node):
 
     def children(self):
         nodelist = []
-        if self.args is not None: nodelist.append(("args", self.args))
-        if self.type is not None: nodelist.append(("type", self.type))
+        if self.args is not None:
+            nodelist.append(("args", self.args))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -686,10 +727,12 @@ class FuncDef(Node):
 
     def children(self):
         nodelist = []
-        if self.decl is not None: nodelist.append(("decl", self.decl))
-        if self.body is not None: nodelist.append(("body", self.body))
+        if self.decl is not None:
+            nodelist.append(("decl", self.decl))
+        if self.body is not None:
+            nodelist.append(("body", self.body))
         for i, child in enumerate(self.param_decls or []):
-            nodelist.append(("param_decls[%d]" % i, child))
+            nodelist.append((f"param_decls[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -760,9 +803,12 @@ class If(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.iftrue is not None: nodelist.append(("iftrue", self.iftrue))
-        if self.iffalse is not None: nodelist.append(("iffalse", self.iffalse))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.iftrue is not None:
+            nodelist.append(("iftrue", self.iftrue))
+        if self.iffalse is not None:
+            nodelist.append(("iffalse", self.iffalse))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -784,7 +830,7 @@ class InitList(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.exprs or []):
-            nodelist.append(("exprs[%d]" % i, child))
+            nodelist.append((f"exprs[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -802,7 +848,8 @@ class Label(Node):
 
     def children(self):
         nodelist = []
-        if self.stmt is not None: nodelist.append(("stmt", self.stmt))
+        if self.stmt is not None:
+            nodelist.append(("stmt", self.stmt))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -820,9 +867,10 @@ class NamedInitializer(Node):
 
     def children(self):
         nodelist = []
-        if self.expr is not None: nodelist.append(("expr", self.expr))
+        if self.expr is not None:
+            nodelist.append(("expr", self.expr))
         for i, child in enumerate(self.name or []):
-            nodelist.append(("name[%d]" % i, child))
+            nodelist.append((f"name[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -842,7 +890,7 @@ class ParamList(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.params or []):
-            nodelist.append(("params[%d]" % i, child))
+            nodelist.append((f"params[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -860,7 +908,8 @@ class PtrDecl(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -877,7 +926,8 @@ class Return(Node):
 
     def children(self):
         nodelist = []
-        if self.expr is not None: nodelist.append(("expr", self.expr))
+        if self.expr is not None:
+            nodelist.append(("expr", self.expr))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -895,8 +945,10 @@ class StaticAssert(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.message is not None: nodelist.append(("message", self.message))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.message is not None:
+            nodelist.append(("message", self.message))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -917,7 +969,7 @@ class Struct(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.decls or []):
-            nodelist.append(("decls[%d]" % i, child))
+            nodelist.append((f"decls[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -936,8 +988,10 @@ class StructRef(Node):
 
     def children(self):
         nodelist = []
-        if self.name is not None: nodelist.append(("name", self.name))
-        if self.field is not None: nodelist.append(("field", self.field))
+        if self.name is not None:
+            nodelist.append(("name", self.name))
+        if self.field is not None:
+            nodelist.append(("field", self.field))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -957,8 +1011,10 @@ class Switch(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.stmt is not None: nodelist.append(("stmt", self.stmt))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.stmt is not None:
+            nodelist.append(("stmt", self.stmt))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -979,9 +1035,12 @@ class TernaryOp(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.iftrue is not None: nodelist.append(("iftrue", self.iftrue))
-        if self.iffalse is not None: nodelist.append(("iffalse", self.iffalse))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.iftrue is not None:
+            nodelist.append(("iftrue", self.iftrue))
+        if self.iffalse is not None:
+            nodelist.append(("iffalse", self.iffalse))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1005,7 +1064,8 @@ class TypeDecl(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1025,7 +1085,8 @@ class Typedef(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1045,7 +1106,8 @@ class Typename(Node):
 
     def children(self):
         nodelist = []
-        if self.type is not None: nodelist.append(("type", self.type))
+        if self.type is not None:
+            nodelist.append(("type", self.type))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1063,7 +1125,8 @@ class UnaryOp(Node):
 
     def children(self):
         nodelist = []
-        if self.expr is not None: nodelist.append(("expr", self.expr))
+        if self.expr is not None:
+            nodelist.append(("expr", self.expr))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1082,7 +1145,7 @@ class Union(Node):
     def children(self):
         nodelist = []
         for i, child in enumerate(self.decls or []):
-            nodelist.append(("decls[%d]" % i, child))
+            nodelist.append((f"decls[{i}]", child))
         return tuple(nodelist)
 
     def __iter__(self):
@@ -1100,8 +1163,10 @@ class While(Node):
 
     def children(self):
         nodelist = []
-        if self.cond is not None: nodelist.append(("cond", self.cond))
-        if self.stmt is not None: nodelist.append(("stmt", self.stmt))
+        if self.cond is not None:
+            nodelist.append(("cond", self.cond))
+        if self.stmt is not None:
+            nodelist.append(("stmt", self.stmt))
         return tuple(nodelist)
 
     def __iter__(self):
