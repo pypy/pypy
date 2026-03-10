@@ -284,15 +284,19 @@ def descr__reduce_ex__(space, w_obj, proto):
 
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
+        if space.len_w(w_format_spec) > 0:
+            raise oefmt(space.w_TypeError,
+                         "unsupported format string passed to %T.__format__",
+                         w_obj)
         w_as_str = space.call_function(space.w_unicode, w_obj)
     elif space.isinstance_w(w_format_spec, space.w_bytes):
+        if space.len_w(w_format_spec) > 0:
+            raise oefmt(space.w_TypeError,
+                         "unsupported format string passed to %T.__format__",
+                         w_obj)
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
-    if space.len_w(w_format_spec) > 0:
-        raise oefmt(space.w_TypeError,
-                     "unsupported format string passed to %T.__format__",
-                     w_obj);
     return space.format(w_as_str, w_format_spec)
 
 def descr__eq__(space, w_self, w_other):
