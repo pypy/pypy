@@ -218,20 +218,16 @@ class AbstractAttribute(object):
         # reordering procedure recusively.
 
         # we store the to-be-readded attribute in the stack, with the map and
-        # the value paired up those are lazily initialized to a list large
-        # enough to store all current attributes
-        stack = None
+        # the value paired up
+        stack = [erase_map(None)] * (self.num_attributes() * 2)
         stack_index = 0
         while True:
-            current = self
             unbox_type = self._pick_unbox_type(w_value)
             number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
             attr = holder.pick_attr(unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
-                if stack is None:
-                    stack = [erase_map(None)] * (self.num_attributes() * 2)
                 current = self
                 for i in range(number_to_readd):
                     assert isinstance(current, PlainAttribute)
@@ -244,6 +240,7 @@ class AbstractAttribute(object):
             attr._switch_map_and_write_increase_storage1(obj, w_value)
 
             if not stack_index:
+                assert stack is not None
                 return
 
             # readd the current top of the stack
