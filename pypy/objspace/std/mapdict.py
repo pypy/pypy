@@ -159,9 +159,7 @@ class AbstractAttribute(object):
             # we found the attributes further up, need to save the previous
             # values of the attributes we passed. this is the complicated case,
             # use _reorder_and_add for it.
-            # TODO: right now some extra work is happening, find a way to undo
-            # that
-            self._reorder_and_add(obj, name, attrkind, w_value)
+            self._reorder_and_add(obj, number_to_readd, attr, w_value)
 
     @jit.elidable
     def _find_branch_to_move_into(self, name, attrkind, unbox_type):
@@ -196,11 +194,11 @@ class AbstractAttribute(object):
                 return self.space.FloatObjectCls
         return None
 
-    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
+    @jit.look_inside_iff(lambda self, obj, number_to_readd, attr, w_value:
             jit.isconstant(self) and
-            jit.isconstant(name) and
-            jit.isconstant(attrkind))
-    def _reorder_and_add(self, obj, name, attrkind, w_value):
+            jit.isconstant(attr) and
+            jit.isconstant(number_to_readd))
+    def _reorder_and_add(self, obj, number_to_readd, attr, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
         # must not contain the name of the attribute of any earlier inserted
@@ -222,9 +220,6 @@ class AbstractAttribute(object):
         stack = [erase_map(None)] * (self.num_attributes() * 2)
         stack_index = 0
         while True:
-            unbox_type = self._pick_unbox_type(w_value)
-            number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
-            attr = holder.pick_attr(unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
@@ -250,6 +245,9 @@ class AbstractAttribute(object):
             name = next_map.name
             attrkind = next_map.attrkind
             self = obj._get_mapdict_map()
+            unbox_type = self._pick_unbox_type(w_value)
+            number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
+            attr = holder.pick_attr(unbox_type)
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
