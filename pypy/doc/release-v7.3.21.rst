@@ -101,17 +101,17 @@ Bugfixes
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Speed up ``int.bit_length`` (issue 5314)
-- Refactor the ``rregister`` allocator in the Jit backends to store longevity
+- Refactor the register allocator in the Jit backends to store longevity
   without using a dict. This make the JIT backend quite a bit faster (roughly
   50%) by using a lot fewer dictionary lookups.
-- const-fold ``x == x`` and ``x != x`` in ``backendopt``
+- const-fold ``x == x`` and ``x != x`` in RPython's ``backendopt``
 - remove impossible code in ``_bitcount64``
 - use one less instruction for regex character set membership testing
 - make ``map`` on pypy2 faster
-- add ``or`` constant reassociation and `and/or`` combination jit rules
-- ``storesink`` and ``jtransform`` need to deal with invalid cast_pointer on
+- add ``or``/``xor`` constant reassociation and `and/or`` combination jit
+  peephole rewrite rules
+- ``storesink`` and ``jtransform`` need to deal with invalid ``cast_pointer`` on
   constants, which happens when optimizing unreachable code.
-- optimize ``xor`` constant reassociation
 
 Python 3.11
 -----------
@@ -131,7 +131,7 @@ Bugfixes including missing compatibility with CPython 3.11
 - fix ``ht_qualname`` on ``TypeFromSpec`` (issue 5319)
 - add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
 - allow str subclasses as argument of ``bytes/bytearray.fromhex`` (issue 5327)
-- fix ``def func(): if a: f() or g()`` which crashed the byte compiler (issue 5328)
+- fix ``def func(): if a: f() or g()`` which crashed the bytecode compiler (issue 5328)
 - change ``self.write_buffer`` to accept bytes in ``_overlapped`` (issue 5335)
 - add license header to ``_lzma.py`` and ``_lzma_build.py`` (issue 5337)
 - require ``vsnprintf`` in ``pyerrors.h`` (issue 5343) (:issue:`python/cpython#20899`)

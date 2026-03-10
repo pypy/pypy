@@ -1,14 +1,15 @@
+from rpython.rlib import objectmodel
+from pypy.objspace.std.mapdict import (
+        _make_storage_mixin_size_n,
+       BaseUserClassMapdict, MapdictDictSupport, MapdictStorageMixin)
+from pypy.objspace.std.test.test_mapdict import Class
+from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
+
 import pytest
-pytest.skip("This cannot possibly work on pypy3")
 import sys
 try:
-    import __pypy__
-except ImportError:
-    pass
-else:
-    pytest.skip("makes no sense under pypy!")
-try:
-    from hypothesis import given, strategies, settings
+    from hypothesis import given, strategies, settings, example
 except ImportError:
     pytest.skip("requires hypothesis")
 
@@ -21,7 +22,7 @@ base_initargs = strategies.sampled_from([
     ("type(sys), OldBase", ("fake", ), True),
     ])
 
-attrnames = strategies.sampled_from(["a", "b", "c"])
+attrnames = strategies.sampled_from(["a", "b", "c"] + ["attr%s" % i for i in range(10)])
 
 def make_value_attr(val):
     return val, str(val)
@@ -69,10 +70,10 @@ def make_code(draw):
     inst = cls(*initargs)
     code.append("    pass")
     code.append("a = A(*%s)" % (initargs, ))
-    for attr in draw(strategies.lists(attrnames, min_size=1)):
+    for attr in draw(strategies.lists(attrnames, min_size=10)):
         op = draw(strategies.sampled_from(["read", "read", "read",
-                      "write", "writemeth", "writeclass", "writebase",
-                      "del", "delclass"]))
+                      "write", "write", "write", "del", "del", "writemeth",
+                      "writeclass", "writebase", "delclass"]))
         if op == "read":
             try:
                 res = getattr(inst, attr)
@@ -125,9 +126,124 @@ def make_code(draw):
     return "\n    ".join(code)
 
 
+@pytest.mark.skip(reason="can't work on py3")
 @given(code=make_code())
 #@settings(max_examples=5000)
+@settings(deadline=None)
 def test_random_attrs(code, space):
     print code
     exec "if 1:\n    " + code
     space.appexec([], "():\n    " + code)
+
+
+
+@strategies.composite
+def make_sequence(draw):
+    n_attributes = draw(strategies.integers(min_value=1, max_value=100))
+    attributes = ["s%s" % i for i in range(n_attributes)]
+    model = {}
+    steps = []
+    for i in range(draw(strategies.integers(min_value=2, max_value=1000))):
+        if not model:
+            op = "set"
+        else:
+            op = draw(strategies.sampled_from(["set", "del"]))
+        if op == "set":
+            attr = draw(strategies.sampled_from(attributes))
+            valuekind = draw(strategies.sampled_from(["obj", "int", "float"]))
+            if valuekind == "obj":
+                value = draw(strategies.sampled_from(["a", "b", "c", "d"]))
+            elif valuekind == "int":
+                value = draw(strategies.integers())
+            elif valuekind == "float":
+                value = draw(strategies.floats())
+            model[attr] = value
+            steps.append((op, attr, value))
+        elif op == "del":
+            attr = draw(strategies.sampled_from(sorted(model)))
+            del model[attr]
+            steps.append((op, attr, None))
+    return steps
+
+class objectcls(W_ObjectObject):
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictDictSupport)
+    objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+
+class genericstoragecls(W_ObjectObject):
+    objectmodel.import_from_mixin(BaseUserClassMapdict)
+    objectmodel.import_from_mixin(MapdictDictSupport)
+    objectmodel.import_from_mixin(MapdictStorageMixin)
+
+space = FakeSpace()
+
+@settings(deadline=None)
+@given(make_sequence())
+def test_random_attrs_lowlevel_objclass(sequence):
+    try:
+        run_test(objectcls, sequence)
+    except Exception:
+        raise
+
+@settings(deadline=None)
+@given(make_sequence())
+def test_random_attrs_lowlevel_generic(sequence):
+    try:
+        run_test(genericstoragecls, sequence)
+    except Exception:
+        raise
+
+def run_test(objcls, sequence):
+    cls = Class(allow_unboxing=True)
+    obj = objcls()
+    obj.user_setup(space, cls)
+    print sequence
+    model = {}
+    for i, (what, attr, value) in enumerate(sequence):
+        if what == "set":
+            obj.setdictvalue(space, attr, value)
+            model[attr] = value
+        elif what == "del":
+            obj.deldictvalue(space, attr)
+            del model[attr]
+
+        for name, value in model.iteritems():
+            assert repr(obj.getdictvalue(space, name)) == repr(value)
+        if hasattr(obj, 'storage'):
+            if obj.map.storage_needed():
+                assert obj.map.storage_needed() == len(obj.storage)
+
+def test_bug1():
+    run_test(genericstoragecls,
+             [('set', 's2', 'a'), ('set', 's0', 'a'), ('del', 's0', None),
+              ('del', 's2', None), ('set', 's2', 'a'), ('set', 's0', 'a'),
+              ('set', 's1', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('set', 's0', 'a'), ('del', 's1', None),
+              ('del', 's2', None), ('del', 's0', None), ('set', 's1', 0),
+              ('set', 's0', 'a'), ('del', 's1', None), ('set', 's1', 0),
+              ('del', 's0', None), ('set', 's0', 'a'), ('set', 's2', 'a'),
+              ('del', 's0', None), ('del', 's1', None), ('del', 's2', None),
+              ('set', 's0', 'a'), ('set', 's0', 'a'), ('del', 's0', None),
+              ('set', 's0', 'a'), ('set', 's1', 0), ('del', 's0', None),
+              ('set', 's0', 'a'), ('del', 's0', None), ('del', 's1', None),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's0', 'a'), ('del', 's0', None), ('set', 's0', 'a'),
+              ('set', 's1', 0), ('del', 's0', None), ('set', 's0', 'a'),
+              ('del', 's0', None), ('del', 's1', None), ('set', 's4', 0),
+              ('set', 's3', 'a'), ('set', 's0', 'a'), ('set', 's3', 0),
+              ('set', 's0', 'a'), ('set', 's1', 0)])
+
+def test_bug2():
+    run_test(genericstoragecls,
+             [('set', 's30', 0),
+              ('set', 's0', 'a'),
+              ('set', 's1', 0),
+              ('set', 's3', 'a'),
+              ('set', 's0', 'a'),
+              ('del', 's0', None),
+              ('del', 's30', None),
+              ('set', 's0', 'a'),
+              ('set', 's2', 0),
+              ('del', 's0', None),
+              ('set', 's30', 'a')])
