@@ -4340,6 +4340,42 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_and_or_and2(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16)
+        i6 = int_or(i5, i4)
+        i7 = int_and(i6, 65535)
+        jump(i7, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16) # dead
+        i6 = int_or(i5, i4) # dead
+        jump(i4, i4) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_add(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 8589934591)
+        i3 = int_add(8589934591, i2)
+        i4 = int_and(i3, 8589934591)
+        i5 = int_add(1, i4)
+        i6 = int_and(i5, 8589934591)
+        jump(i6, i2) # equal
+        """
+        # tricky: this is (x - 1) + 1, but for 33 bit ints
+        expected = ops
+        self.optimize_loop(ops, expected)
+
     def test_xor_reassoc_consts(self):
         ops = """
         [i0]
