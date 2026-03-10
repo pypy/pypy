@@ -98,6 +98,12 @@ For all versions
 Bugfixes
 ~~~~~~~~
 
+- Fix a bug in instance dictionaries that could lead to segmentation faults of
+  the interpreter. This could happen for instances that stored unboxed integer
+  values in their attributes and used with different code paths in the
+  ``__init__``-method that added the attributes in different orders or that
+  deleted some attributes (:issue: `5377`).
+
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Speed up ``int.bit_length`` (issue 5314)
