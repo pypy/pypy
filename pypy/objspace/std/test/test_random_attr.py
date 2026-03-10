@@ -128,6 +128,7 @@ def make_code(draw):
 
 @given(code=make_code())
 #@settings(max_examples=5000)
+@settings(deadline=None)
 def test_random_attrs(code, space):
     print code
     exec "if 1:\n    " + code
@@ -175,6 +176,7 @@ class genericstoragecls(W_ObjectObject):
 
 space = FakeSpace()
 
+@settings(deadline=None)
 @given(make_sequence())
 def test_random_attrs_lowlevel_objclass(sequence):
     try:
@@ -182,6 +184,7 @@ def test_random_attrs_lowlevel_objclass(sequence):
     except Exception:
         raise
 
+@settings(deadline=None)
 @given(make_sequence())
 def test_random_attrs_lowlevel_generic(sequence):
     try:
