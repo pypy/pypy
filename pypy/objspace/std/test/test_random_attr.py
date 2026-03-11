@@ -9,7 +9,7 @@ from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
 import pytest
 import sys
 try:
-    from hypothesis import given, strategies, settings, example
+    from hypothesis import given, strategies, settings, example, HealthCheck
 except ImportError:
     pytest.skip("requires hypothesis")
 
@@ -176,7 +176,7 @@ class genericstoragecls(W_ObjectObject):
 
 space = FakeSpace()
 
-@settings(deadline=None)
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(make_sequence())
 def test_random_attrs_lowlevel_objclass(sequence):
     try:
@@ -184,7 +184,7 @@ def test_random_attrs_lowlevel_objclass(sequence):
     except Exception:
         raise
 
-@settings(deadline=None)
+@settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(make_sequence())
 def test_random_attrs_lowlevel_generic(sequence):
     try:
