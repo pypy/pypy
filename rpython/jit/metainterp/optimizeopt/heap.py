@@ -66,6 +66,10 @@ class AbstractCachedEntry(object):
 
     def possible_aliasing_two_infos(self, optheap, opinfo1, opinfo2):
         """returns MUST_ALIAS, CANNOT_ALIAS, UNKNOWN_ALIAS """
+        if isinstance(opinfo1, info.ConstPtrInfo) and isinstance(opinfo2, info.ConstPtrInfo):
+            if opinfo1.same_info(opinfo2):
+                return MUST_ALIAS
+            return CANNOT_ALIAS
         if opinfo1.same_info(opinfo2):
             return MUST_ALIAS
         if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2) == CANNOT_ALIAS:

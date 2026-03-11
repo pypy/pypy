@@ -231,6 +231,8 @@ class LLtypeMixin(object):
     arraydescr_tid = arraydescr.get_type_id()
     array = lltype.malloc(lltype.GcArray(lltype.Signed), 15, zero=True)
     arrayref = lltype.cast_opaque_ptr(llmemory.GCREF, array)
+    array_signed17 = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                            lltype.malloc(lltype.GcArray(lltype.Signed), 17, zero=True))
     array2 = lltype.malloc(lltype.GcArray(lltype.Ptr(S)), 15, zero=True)
     array2ref = lltype.cast_opaque_ptr(llmemory.GCREF, array2)
     gcarraydescr = cpu.arraydescrof(lltype.GcArray(llmemory.GCREF))

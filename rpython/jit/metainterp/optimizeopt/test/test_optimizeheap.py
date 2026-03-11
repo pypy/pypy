@@ -879,6 +879,24 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setarrayitem_on_const_not_forced_by_getarrayitem_on_other_const(self):
+        ops = """
+        []
+        setarrayitem_gc(ConstPtr(arrayref), 0, 12, descr=arraydescr)
+        i2 = getarrayitem_gc_i(ConstPtr(array_signed17), 0, descr=arraydescr)
+        setarrayitem_gc(ConstPtr(arrayref), 0, 13, descr=arraydescr)
+        i3 = getarrayitem_gc_i(ConstPtr(array_signed17), 0, descr=arraydescr)
+        i4 = getarrayitem_gc_i(ConstPtr(arrayref), 0, descr=arraydescr)
+        jump(i2, i3, i4)
+        """
+        expected = """
+        []
+        i2 = getarrayitem_gc_i(ConstPtr(array_signed17), 0, descr=arraydescr)
+        setarrayitem_gc(ConstPtr(arrayref), 0, 13, descr=arraydescr)
+        jump(i2, i2, 13)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_getarrayitem_pure_does_not_invalidate(self):
         ops = """
         [p1, p2]
