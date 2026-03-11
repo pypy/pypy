@@ -318,6 +318,7 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Jeongseop Lim
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
