@@ -1061,6 +1061,7 @@ XML_SetBillionLaughsAttackProtectionMaximumAmplification(
 XMLPARSEAPI(XML_Bool)
 XML_SetBillionLaughsAttackProtectionActivationThreshold(
     XML_Parser parser, unsigned long long activationThresholdBytes);
+#  endif
 
 /* Added in Expat 2.7.2. */
 XMLPARSEAPI(XML_Bool)
@@ -1071,7 +1072,6 @@ XML_SetAllocTrackerMaximumAmplification(XML_Parser parser,
 XMLPARSEAPI(XML_Bool)
 XML_SetAllocTrackerActivationThreshold(
     XML_Parser parser, unsigned long long activationThresholdBytes);
-#  endif
 
 /* Added in Expat 2.6.0. */
 XMLPARSEAPI(XML_Bool)
