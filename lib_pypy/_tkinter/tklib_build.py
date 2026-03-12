@@ -24,7 +24,7 @@ elif sys.platform == 'darwin':
     linklibs = ['tcl8.6', 'tk8.6']
     libdirs = []
     if homebrew:
-        incdirs.append(homebrew + '/opt/tcl-tk@8/include')
+        incdirs.append(homebrew + '/opt/tcl-tk@8/include/tcl-tk')
         libdirs.append(homebrew + '/opt/tcl-tk@8/lib')
 else:
     # On some Linux distributions, the tcl and tk libraries are
@@ -57,6 +57,9 @@ config_ffi.cdef("""
 #define TK_HEX_VERSION ...
 #define HAVE_WIDE_INT_TYPE ...
 """)
+
+oldval = os.environ.get("DISTUTILS_DEBUG", None)
+os.environ["DISTUTILS_DEBUG"] = "1"
 config_lib = config_ffi.verify("""
 #include <tk.h>
 #define TK_HEX_VERSION ((TK_MAJOR_VERSION << 24) | \
@@ -71,8 +74,12 @@ config_lib = config_ffi.verify("""
 """,
 include_dirs=incdirs,
 libraries=linklibs,
-library_dirs = libdirs
+library_dirs = libdirs,
 )
+if oldval is None:
+    os.environ.pop("DISTUTILS_DEBUG")
+else:
+    os.environ["DISTUTILS_DEBUG"] = oldval
 
 TK_HEX_VERSION = config_lib.TK_HEX_VERSION
 
