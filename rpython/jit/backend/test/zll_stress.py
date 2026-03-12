@@ -1,4 +1,5 @@
 from __future__ import print_function
+import sys
 
 from rpython.jit.backend.test.test_random import check_random_function, Random
 from rpython.jit.backend.test.test_ll_random import LLtypeOperationBuilder

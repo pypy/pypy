@@ -59,6 +59,7 @@ Contributors
   Alex Martelli
   Adrien Di Mascio
   Anders Hammarquist
+  Oskar Haarklou Veileborg
   Ondrej Baranovič
   Logan Chien
   Mark Young
@@ -237,6 +238,7 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Samuel Ytterbrink
   Pierre Augier
   Ilya Egorov
   Paul Gey
@@ -316,12 +318,13 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Jeongseop Lim
+  Alex Willmer
   Ariel Volovik
   Martin Teichmann
   diath
   robinverduijn
   obafgkmdh
-  Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
   Isuru Fernando

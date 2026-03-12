@@ -444,7 +444,13 @@ class MIFrame(object):
                 name = self.metainterp.framestack[-2].jitcode.name
             else:
                 name = self.jitcode.name
-            loc = self.metainterp.jitdriver_sd.warmstate.get_location_str(self.greenkey)
+            metainterp = self.metainterp
+            if not metainterp.current_merge_points:
+                loc = "unknown language location"
+            else:
+                jd_sd = metainterp.jitdriver_sd
+                greenkey = metainterp.current_merge_points[0][0][:jd_sd.num_green_args]
+                loc = jd_sd.warmstate.get_location_str(greenkey)
             debug_print(error, name, loc)
         if invalid:
             raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)

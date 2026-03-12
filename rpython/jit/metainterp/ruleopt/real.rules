@@ -117,6 +117,14 @@ and_idempotent: int_and(x, y)
     check y.ones | x.zeros == -1
     => x
 
+and_or: int_and(int_or(x, y), z)
+    check y.and_bound(z).known_eq_const(0)
+    => int_and(x, z)
+
+#and_add: int_and(int_add(x, y), z)
+#    check y.and_bound(z).known_eq_const(0)
+#    => int_and(x, z)
+
 and_known_result: int_and(a, b)
     bound = a.and_bound(b)
     check bound.is_constant()
@@ -148,9 +156,16 @@ or_and_two_parts: int_or(int_and(x, C1), int_and(x, C2))
     C = C1 | C2
     => int_and(x, C)
 
+or_reassoc_consts: int_or(int_or(x, C1), C2)
+    C = C1 | C2
+    => int_or(x, C)
 
 xor_x_x: int_xor(a, a)
     => 0
+
+xor_reassoc_consts: int_xor(int_xor(x, C1), C2)
+    C = C1 ^ C2
+    => int_xor(x, C)
 
 xor_absorb: int_xor(int_xor(a, b), b)
     => a
@@ -164,6 +179,10 @@ xor_minus_1: int_xor(x, -1)
 xor_known_result: int_xor(C1, C2)
     C = C1 ^ C2
     => C
+
+xor_is_not: int_xor(x, 1)
+    check x.is_bool()
+    => int_is_zero(x)
 
 
 lshift_zero_x: int_lshift(0, x)
@@ -297,6 +316,12 @@ is_true_and_minint: int_is_true(int_and(x, MININT))
 is_zero_true: int_is_zero(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 0
+
+#is_zero_is_zero: int_is_zero(int_is_zero(x))
+#    => int_is_true(x)
+#
+#uint_lt_zero: uint_lt(0, x)
+#    => int_is_true(x)
 
 #is_zero_add: int_is_zero(int_add(x, C))
 #    check x.lower > 0-C or x.upper < 0-C

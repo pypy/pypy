@@ -111,9 +111,15 @@ def _storesink_block(block, cache, inputlink):
         elif op.opname == 'cast_pointer':
             arg0 = get_rep(op.args[0])
             if isinstance(arg0, Constant):
-                llres = lltype.cast_pointer(op.result.concretetype, arg0.value)
-                res = Constant(llres, op.result.concretetype)
-                replace(op, res)
+                try:
+                    llres = lltype.cast_pointer(op.result.concretetype, arg0.value)
+                except RuntimeError:
+                    # such an invalid cast can happen if we optimize
+                    # unreachable code. constfold also handles the case
+                    pass
+                else:
+                    res = Constant(llres, op.result.concretetype)
+                    replace(op, res)
             else:
                 tup = (arg0, op.result.concretetype)
                 res = cache.get(tup, None)

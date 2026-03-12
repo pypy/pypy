@@ -18,7 +18,8 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
-    _format_lowest_level_divmod_int_results, _format_int10_18digits)
+    _format_lowest_level_divmod_int_results, _format_int10_18digits,
+    bit_length_int, _bitcount64)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1006,6 +1007,12 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-4).bit_length() == 3
         assert rbigint.fromlong(1<<40).bit_length() == 41
 
+    def test_bit_length_int(self):
+        assert bit_length_int(0) == 0
+        assert bit_length_int(1) == 1
+        assert bit_length_int(sys.maxint) in (31, 63)
+        assert bit_length_int(-sys.maxint-1) in (32, 64)
+
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
                   sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
@@ -1798,6 +1805,12 @@ class TestHypothesis(object):
     def test_bit_count(self, val):
         assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
 
+    @given(strategies.integers(0, 2**64-1))
+    @example(1)
+    @example(0b110001010111)
+    def test_bitcount64(self, val):
+        assert _bitcount64(r_ulonglong(val)) == bin(val).count("1")
+
     @given(strategies.binary(), strategies.booleans(), strategies.booleans())
     def test_frombytes_tobytes_hypothesis(self, s, big, signed):
         # check the roundtrip from binary strings to bigints and back
@@ -1884,6 +1897,22 @@ class TestHypothesis(object):
         s = builder.build()
         assert len(s) == 18
         assert s.lstrip('0') == str(val).lstrip('0')
+
+    @given(longs)
+    def test_bit_length(self, val):
+        rval = rbigint.fromlong(val)
+        assert val.bit_length() == rval.bit_length()
+
+    @given(ints)
+    def test_bit_length_int(self, val):
+        res = bit_length_int(val)
+        assert res == val.bit_length()
+        if val > 0:
+            assert 2 ** (res - 1) <= val < 2 ** res
+        if not val:
+            assert res == 0
+        if val < 0:
+            assert res == (-val).bit_length()
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])

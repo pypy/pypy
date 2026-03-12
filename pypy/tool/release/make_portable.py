@@ -2,7 +2,7 @@
 
 bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel',
-          'panelw']
+          'panelw', 'z', 'bz2']
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath

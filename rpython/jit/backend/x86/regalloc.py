@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
-     RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
+     RegisterManager, TempVar, compute_vars_longevity,
      valid_addressing_size, get_scale, SAVE_DEFAULT_REGS, SAVE_GCREF_REGS,
      SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86
@@ -303,7 +303,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                     used[loc] = None
                 else:
                     if loc is ebp:
-                        self.rm.bindings_to_frame_reg[arg] = None
+                        assert self.rm.box_currently_in_frame_reg is None
+                        self.rm.box_currently_in_frame_reg = arg
                     else:
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
@@ -347,7 +348,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             accuminfo = descr.rd_vector_info
             while accuminfo:
                 accuminfo.location = faillocs[accuminfo.getpos_in_failargs()]
-                loc = self.loc(accuminfo.getoriginal())
+                loc = self.loc(accuminfo.getoriginal().get_box_replacement())
                 faillocs[accuminfo.getpos_in_failargs()] = loc
                 accuminfo = accuminfo.next()
         return faillocs
@@ -391,8 +392,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.rm._check_invariants()
             self.xrm._check_invariants()
             i += 1
-        assert not self.rm.reg_bindings
-        assert not self.xrm.reg_bindings
+        assert len(self.rm.reg_bindings) == 0
+        assert len(self.xrm.reg_bindings) == 0
         if not we_are_translated():
             self.assembler.mc.UD2()
         self.flush_loop()
@@ -1091,7 +1092,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def get_gcmap(self, forbidden_regs=[], noregs=False):
         frame_depth = self.fm.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler, frame_depth, JITFRAME_FIXED_SIZE)
-        for box, loc in self.rm.reg_bindings.iteritems():
+        for box, loc in self.rm.reg_bindings_iteritems():
             if loc in forbidden_regs:
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
@@ -1099,7 +1100,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 assert isinstance(loc, RegLoc)
                 val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert isinstance(loc, FrameLoc)
                 val = loc.position + JITFRAME_FIXED_SIZE
@@ -1259,7 +1260,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.rm.possibly_free_var(tmpbox_high)
 
     def compute_hint_frame_locations(self, operations):
-        # optimization only: fill in the 'hint_frame_pos' dictionary
+        # optimization only: add a frame position hint
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
         op = operations[-1]
@@ -1275,7 +1276,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self._compute_hint_locations_from_descr(descr)
         #else:
         #   The loop ends in a JUMP going back to a LABEL in the same loop.
-        #   We cannot fill 'hint_frame_pos' immediately, but we can
+        #   We cannot add a frame pos hint immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
         # YYY can we do coalescing hints in the new register allocation model?
@@ -1290,7 +1291,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
-                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                    self.fm.add_frame_pos_hint(box, loc)
                 else:
                     if box not in hinted:
                         hinted.append(box)
@@ -1377,7 +1378,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if self.loc(arg) is ebp:
                 loc2 = self.fm.loc(arg)
                 self.assembler.mc.MOV(loc2, ebp)
-        self.rm.bindings_to_frame_reg.clear()
+        self.rm.box_currently_in_frame_reg = None
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
