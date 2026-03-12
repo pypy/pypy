@@ -239,7 +239,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             i += 1
             if loc.is_reg():
                 if loc is r.SPP:
-                    self.rm.bindings_to_frame_reg[arg] = None
+                    self.rm.box_currently_in_frame_reg = arg
                 else:
                     self.rm.reg_bindings[arg] = loc
                     used[loc] = None
@@ -377,7 +377,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 assert loc.is_reg()
                 val = self.assembler.cpu.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert isinstance(loc, locations.StackLocation)
                 val = loc.get_position() + r.JITFRAME_FIXED_SIZE
@@ -704,7 +704,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                    self.fm.add_frame_pos_hint(box, loc)
 
     def prepare_jump(self, op):
         descr = op.getdescr()
@@ -942,7 +942,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         for arg in inputargs:
             assert self.loc(arg) is not r.SPP, (
                 "variable stored in spp in prepare_label")
-        self.rm.bindings_to_frame_reg.clear()
+        self.rm.box_currently_in_frame_reg = None
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]

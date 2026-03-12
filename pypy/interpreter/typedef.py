@@ -565,7 +565,7 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
-from pypy.interpreter.special import NotImplemented, Ellipsis
+from pypy.interpreter.special import NotImplemented, Ellipsis, DisallowNew
 
 
 def descr_get_dict(space, w_obj):
@@ -709,6 +709,7 @@ PyCode.typedef = TypeDef('code',
     co_lnotab = GetSetProperty(PyCode.fget_co_lnotab),
     co_lines = interp2app(PyCode.co_lines),
     replace = interp2app(PyCode.descr_replace),
+    _varname_from_oparg = interp2app(PyCode.descr__varname_from_oparg),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False
@@ -946,6 +947,12 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
     __bool__ = interp2app(NotImplemented.descr_bool),
 )
 NotImplemented.typedef.acceptable_as_base_class = False
+
+
+DisallowNew.typedef = TypeDef("DisallowNewType",
+    __new__ = interp2app(DisallowNew.descr_new_disallow),
+)
+DisallowNew.typedef.acceptable_as_base_class = False
 
 SApplicationException.typedef = TypeDef("SApplicationException")
 SApplicationException.typedef.acceptable_as_base_class = False

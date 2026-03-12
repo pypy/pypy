@@ -23,3 +23,9 @@ class AppTestFormat(object):
                     raises(TypeError, format, cls(), fmt_str)
                 else:
                     format(cls(), fmt_str)  # does not raise
+
+        class D:
+            def __str__(self):
+                raise ValueError
+
+        raises(TypeError, format, D(), 's')

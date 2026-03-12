@@ -13,6 +13,7 @@ from rpython.translator import cdir
 import sys
 import weakref
 import py
+import math
 
 srcdir = py.path.local(__file__).dirpath().join('src', 'expat')
 
@@ -22,7 +23,7 @@ else:
     pre_include_bits = []
 
 eci = ExternalCompilationInfo(
-    includes=['expat.h', 'pyexpatns.h'],
+    includes=['__expat.h', 'pyexpatns.h'],  # avoid conflicts with system libraries
     include_dirs=[str(srcdir), cdir],
     pre_include_bits = pre_include_bits,
     separate_module_files=[
@@ -165,9 +166,8 @@ HANDLERS = dict(
     ElementDeclHandler = [INTERNED_CCHARP, lltype.Ptr(XML_Content)],
     AttlistDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
                           INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT_real],
+    SkippedEntityHandler = [INTERNED_CCHARP, rffi.INT_real],
     )
-if XML_COMBINED_VERSION >= 19504:
-    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT_real]
 NB_HANDLERS = len(HANDLERS)
 
 class Storage:
@@ -252,8 +252,9 @@ for index, (name, params) in enumerate(HANDLERS.items()):
             converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         elif ARG == rffi.INT_real:
             converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
-        else:
-            assert 0, "missing conversion case"
+        elif ARG == rffi.ULONGLONG:
+            # TODO : fix this to be a ulonglong
+            converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         real_params.append(ARG)
     converters = '; '.join(converters)
 
@@ -377,10 +378,12 @@ XML_SetParamEntityParsing = expat_external(
     'XML_SetParamEntityParsing', [XML_Parser, rffi.INT], lltype.Void)
 XML_SetBase = expat_external(
     'XML_SetBase', [XML_Parser, rffi.CCHARP], lltype.Void)
-if XML_COMBINED_VERSION >= 19505:
-    XML_UseForeignDTD = expat_external(
-        'XML_UseForeignDTD', [XML_Parser, rffi.INT], lltype.Void)
-
+XML_UseForeignDTD = expat_external(
+    'XML_UseForeignDTD', [XML_Parser, rffi.INT], lltype.Void)
+XML_SetAllocTrackerActivationThreshold = expat_external(
+    'XML_SetAllocTrackerActivationThreshold', [XML_Parser, rffi.ULONGLONG], rffi.INT)
+XML_SetAllocTrackerMaximumAmplification = expat_external(
+    'XML_SetAllocTrackerMaximumAmplification', [XML_Parser, rffi.FLOAT], rffi.INT)
 XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
@@ -490,6 +493,46 @@ getting the advantage of providing document type information to the parser.
 'flag' defaults to True if not provided."""
         flag = space.is_true(w_flag)
         XML_UseForeignDTD(self.itself, flag)
+
+    @unwrap_spec(threshold=rffi.r_ulonglong)
+    def SetAllocTrackerActivationThreshold(self, space, threshold):
+        """SetAllocTrackerActivationThreshold(threshold) -> success
+Sets the number of allocated bytes of dynamic memory needed to activate protection against disproportionate use of RAM.
+
+By default, parser objects have an allocation activation threshold of 64 MiB.
+[clinic start generated code]"""
+
+        ret = XML_SetAllocTrackerActivationThreshold(self.itself, threshold)
+        if ret == XML_TRUE:
+            return None
+        raise self.set_error_msg(space, "parser must be a root parser")
+        
+
+    @unwrap_spec(max_factor=float)
+    def SetAllocTrackerMaximumAmplification(self, space, max_factor):
+        """SetAllocTrackerMaximumAmplification(max_factor) -> success
+Sets the maximum amplification factor between direct input and bytes of dynamic memory allocated.
+
+The amplification factor is calculated as "allocated / direct" while parsing,
+where "direct" is the number of bytes read from the primary document in parsing
+and "allocated" is the number of bytes of dynamic memory allocated in the parser
+hierarchy.
+
+The 'max_factor' value must be a non-NaN floating point value greater than
+or equal to 1.0. Amplification factors greater than 100.0 can be observed
+near the start of parsing even with benign files in practice. In particular,
+the activation threshold should be carefully chosen to avoid false positives.
+
+By default, parser objects have a maximum amplification factor of 100.0."""
+
+        if math.isnan(max_factor) or max_factor < 1.0:
+            raise self.set_error_msg(space, "'max_factor' must be at least 1.0")
+        max_factorF = rffi.cast(rffi.FLOAT, max_factor)
+        ret = XML_SetAllocTrackerMaximumAmplification(self.itself, max_factorF)
+        if ret == XML_TRUE:
+            return None
+        raise self.set_error_msg(space, "parser must be a root parser")
+    
 
     # Handlers management
 
@@ -751,6 +794,16 @@ information passed to the ExternalEntityRefHandler."""
         self.w_error = w_error
         return OperationError(w_errorcls, w_error)
 
+    def set_error_msg(self, space, msg):
+        w_errorcls = space.fromcache(Cache).w_error
+        w_error = space.call_function(w_errorcls, space.newtext(msg))
+        space.setattr(w_error, space.newtext("code"), space.newint(0))
+        space.setattr(w_error, space.newtext("offset"), space.newint(0))
+        space.setattr(w_error, space.newtext("lineno"), space.newint(0))
+
+        self.w_error = w_error
+        return OperationError(w_errorcls, w_error)
+
     def descr_ErrorCode(self, space):
         return space.newint(XML_GetErrorCode(self.itself))
 
@@ -822,9 +875,10 @@ def bool_property(name, cls, doc=None):
     return GetSetProperty(fget, fset, cls=cls, doc=doc)
 
 XMLParser_methods = ['Parse', 'ParseFile', 'SetBase', 'SetParamEntityParsing',
-                     'ExternalEntityParserCreate']
-if XML_COMBINED_VERSION >= 19505:
-    XMLParser_methods.append('UseForeignDTD')
+                     'ExternalEntityParserCreate', 'UseForeignDTD',
+                     'SetAllocTrackerActivationThreshold',
+                     'SetAllocTrackerMaximumAmplification',
+                    ]
 
 _XMLParser_extras = {}
 for name in XMLParser_methods:

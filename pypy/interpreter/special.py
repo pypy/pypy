@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 
 
 class Ellipsis(W_Root):
@@ -31,3 +32,9 @@ class NotImplemented(W_Root):
         )
         return space.w_True
 
+class DisallowNew(W_Root):
+    @staticmethod
+    def descr_new_disallow(space, w_type):
+        """Create and return a new object.  See help(type) for accurate signature."""
+        name = w_type.getname(space)
+        raise oefmt(space.w_TypeError, "cannot create '%s' instances", name)

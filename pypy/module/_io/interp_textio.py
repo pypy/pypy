@@ -1129,15 +1129,14 @@ class W_TextIOWrapper(W_TextIOBase):
 
         b = space.bytes_w(w_bytes)
 
-        if len(b) >= self.chunk_size:
-            # _textiowrapper_writeflush() calls buffer.write().
+        if len(b) >= self.chunk_size and self.pending_bytes:
+            # self._writeflush() calls buffer.write().
             # self->pending_bytes can be appended during buffer->write()
             # or other thread.
             # We need to loop until buffer becomes empty.
             # https://github.com/python/cpython/issues/118138
             # https://github.com/python/cpython/issues/119506
-            while self.pending_bytes:
-                self._writeflush(space)
+            self._writeflush_loop(space)
 
         if not self.pending_bytes:
             self.pending_bytes = [b]
@@ -1162,6 +1161,11 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
 
         return space.newint(textlen)
+
+    def _writeflush_loop(self, space):
+        # in extra function, so the jit still traces into write_w
+        while self.pending_bytes:
+            self._writeflush(space)
 
     def _writeflush(self, space):
         # jit inlinable fast path

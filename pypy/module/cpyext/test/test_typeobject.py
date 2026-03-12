@@ -2490,7 +2490,12 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 };
 
                 return PyType_FromSpecWithBases(&HeapType_spec, args);
-            """)])
+            """),
+            ("get_qualname", "METH_O",
+            """
+                return PyType_GetQualName((PyTypeObject *)args);
+            """),
+            ])
 
         # bool cannot be a base class
         with raises(TypeError):
@@ -2505,6 +2510,8 @@ class AppTestFlags(AppTestCpythonExtensionBase):
 
         # Make sure the flag passes to app-level
         assert isinstance(inttype(), int)
+
+        assert module.get_qualname(inttype) == "HeapType"
 
     def test_subclass_from_default(self):
         # CPython allows static types to subclass base classes without
@@ -2584,7 +2591,8 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             type->tp_as_sequence = &heap_type->as_sequence;
             type->tp_as_mapping = &heap_type->as_mapping;
             type->tp_as_async = &heap_type->as_async;
-            type->tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_BASETYPE;
+            type->tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
+            type->tp_flags |= Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION;
             PyType_Ready(type);
             PyObject_SetAttrString(scope, full_name, (PyObject*)type);
             return (PyObject *) type;
@@ -2599,3 +2607,5 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(bp, "__bases__", a_tuple_p);
         """)
         assert module.B.__bases__ == (module.A,)
+        with raises(TypeError):
+            module.B()

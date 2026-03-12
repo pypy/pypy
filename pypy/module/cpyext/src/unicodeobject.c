@@ -185,18 +185,19 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
              * they don't affect the amount of space we reserve.
              */
             if (*f == 'l') {
-                if (f[1] == 'd' || f[1] == 'u') {
+                if (f[1] == 'd' || f[1] == 'i' || f[1] == 'u') {
                     ++f;
                 }
 #ifdef HAVE_LONG_LONG
                 else if (f[1] == 'l' &&
-                         (f[2] == 'd' || f[2] == 'u')) {
+                         (f[2] == 'd' || f[2] == 'i' || f[2] == 'u')) {
                     longlongflag = 1;
                     f += 2;
                 }
 #endif
             }
-            else if (*f == 'z' && (f[1] == 'd' || f[1] == 'u')) {
+            else if (*f == 'z' &&
+                     (f[1] == 'd' || f[1] == 'i' || f[1] == 'u')) {
                 ++f;
             }
 
@@ -380,20 +381,21 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
             }
             /* Handle %ld, %lu, %lld and %llu. */
             if (*f == 'l') {
-                if (f[1] == 'd' || f[1] == 'u') {
+                if (f[1] == 'd' || f[1] == 'i' || f[1] == 'u') {
                     longflag = 1;
                     ++f;
                 }
 #ifdef HAVE_LONG_LONG
                 else if (f[1] == 'l' &&
-                         (f[2] == 'd' || f[2] == 'u')) {
+                         (f[2] == 'd' || f[2] == 'i' || f[2] == 'u')) {
                     longlongflag = 1;
                     f += 2;
                 }
 #endif
             }
             /* handle the size_t flag. */
-            if (*f == 'z' && (f[1] == 'd' || f[1] == 'u')) {
+            if (*f == 'z' &&
+                (f[1] == 'd' || f[1] == 'i' || f[1] == 'u')) {
                 size_tflag = 1;
                 ++f;
             }
@@ -413,8 +415,9 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
                 break;
             }
             case 'd':
+            case 'i':
                 makefmt(fmt, longflag, longlongflag, size_tflag, zeropad,
-                        width, precision, 'd');
+                        width, precision, *f);
                 if (longflag)
                     sprintf(realbuffer, fmt, va_arg(vargs, long));
 #ifdef HAVE_LONG_LONG
@@ -441,11 +444,6 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
                     sprintf(realbuffer, fmt, va_arg(vargs, size_t));
                 else
                     sprintf(realbuffer, fmt, va_arg(vargs, unsigned int));
-                appendstring(realbuffer);
-                break;
-            case 'i':
-                makefmt(fmt, 0, 0, 0, zeropad, width, precision, 'i');
-                sprintf(realbuffer, fmt, va_arg(vargs, int));
                 appendstring(realbuffer);
                 break;
             case 'x':

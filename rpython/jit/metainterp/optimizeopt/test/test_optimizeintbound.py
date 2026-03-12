@@ -4292,6 +4292,121 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_two_ors_with_constants(self):
+        # tests or_reassoc_consts
+        ops = """
+        [i1]
+        i2 = int_or(i1, 57)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(i1, 57) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_or(57, i1)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(57, i1) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_or_and(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 16)
+        i3 = int_and(i2, 65535)
+        i4 = int_or(2293760, i3)
+        i5 = int_and(i4, 65535)
+        jump(i5, i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = uint_rshift(i1, 16)
+        i3 = int_and(i2, 65535)
+        i4 = int_or(2293760, i3) # dead
+        jump(i3, i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_or_and2(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16)
+        i6 = int_or(i5, i4)
+        i7 = int_and(i6, 65535)
+        jump(i7, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16) # dead
+        i6 = int_or(i5, i4) # dead
+        jump(i4, i4) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_add(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 8589934591)
+        i3 = int_add(8589934591, i2)
+        i4 = int_and(i3, 8589934591)
+        i5 = int_add(1, i4)
+        i6 = int_and(i5, 8589934591)
+        jump(i6, i2) # equal
+        """
+        # tricky: this is (x - 1) + 1, but for 33 bit ints
+        expected = ops
+        self.optimize_loop(ops, expected)
+
+    def test_xor_reassoc_consts(self):
+        ops = """
+        [i0]
+        i1 = int_xor(i0, 1)
+        i2 = int_xor(i1, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_xor(i0, 1) # dead
+        i2 = int_xor(i0, 3)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_xor_is_bool_not(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_xor(i1, 1) # negate the bool
+        i3 = int_is_true(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_is_zero(i1) # negate the bool
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -205,12 +205,10 @@ class W_BytearrayObject(W_Root):
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):
-        if not space.is_w(space.type(w_hexstring), space.w_unicode):
+        if not space.isinstance_w(w_hexstring, space.w_unicode):
             raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
         hexstring = space.utf8_w(w_hexstring)
         data = _hexstring_to_array(space, hexstring)
-        # in CPython bytearray.fromhex is a staticmethod, so
-        # we ignore w_type and always return a bytearray
         w_result = new_bytearray(space, space.w_bytearray, data)
         if w_bytearraytype is not space.w_bytearray:
             w_result = space.call_function(w_bytearraytype, w_result)

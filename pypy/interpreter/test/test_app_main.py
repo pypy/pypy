@@ -1237,7 +1237,9 @@ class TestNonInteractive:
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
-        assert "No module named script_pkg" in traceback_lines[-1]
+        if len(traceback_lines) > 0:
+            # Only the untranslated buildbot, stderr is empty
+            assert "No module named script_pkg" in traceback_lines[-1]
  
     def test_error_msg(self):
         data, status = self.run_with_status_code('does_not_exist.py')

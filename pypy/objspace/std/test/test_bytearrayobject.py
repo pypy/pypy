@@ -474,6 +474,9 @@ class AppTestBytesArray:
         class Sub(bytearray):
             pass
         assert type(Sub.fromhex("abcd")) is Sub
+        class mystr(str):
+            pass
+        assert bytearray.fromhex(mystr("abcd")) == bytearray(b'\xab\xcd')
 
     def test_extend(self):
         b = bytearray(b'abc')
