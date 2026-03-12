@@ -114,7 +114,7 @@ Speedups and enhancements
 - Remove impossible code in ``_bitcount64``
 - Use one less instruction for regex character set membership testing
 - Make ``map`` on pypy2 faster
-- Add ``or``/``xor`` constant reassociation and `and/or`` combination jit
+- Add ``or``/``xor`` constant reassociation and ``and/or`` combination jit
   peephole rewrite rules
 - ``storesink`` and ``jtransform`` need to deal with invalid ``cast_pointer`` on
   constants, which happens when optimizing unreachable code.
@@ -137,7 +137,7 @@ Bugfixes including missing compatibility with CPython 3.11
 - Fix ``ht_qualname`` on ``TypeFromSpec`` (:issue:`5319`)
 - Add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
 - Allow str subclasses as argument of ``bytes/bytearray.fromhex`` (:issue:`5327`)
-- Fix ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue:`5328`)
+- Fix for ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue:`5328`)
 - Change ``self.write_buffer`` to accept bytes in ``_overlapped`` (:issue:`5335`)
 - Add license header to ``_lzma.py`` and ``_lzma_build.py`` (:issue:`5337`)
 - Require ``vsnprintf`` in ``pyerrors.h`` (:issue:`5343`) following
