@@ -123,7 +123,7 @@ Bugfixes
 ~~~~~~~~
 
 - Raise ``SyntaxError`` rather than ``ValueError`` when parsing null bytes in
-  source code (:issue: `5234`)
+  source code (:issue:`5234`)
 - Fix ``LOAD_GLOBAL`` disassembly (:issue:`5238`)
 - Fix pure python ``datetime.*.fromisoformat()`` to reject spaces in fraction
   part. Backported to CPython. (:issue:`5240`), (:issue:`python/cpython#130959`)
