@@ -1,17 +1,10 @@
 ==============================================================
-PyPy v7.3.21: release of python 2.7, 3.11, released 2025-xx-xx
+PyPy v7.3.21: release of python 2.7, 3.11, released 2025-03-13
 ==============================================================
 
 
 ..
-  updated to a601e091cc58457740528ac4e19a78ac8c498243
-
-.. note::
-       This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-      Need to add release date
+  updated to 996ebee08886ee13f
 
 The PyPy team is proud to release version 7.3.21 of PyPy after the previous
 release on July 4, 2025. This is a bug-fix release that also updates to Python
