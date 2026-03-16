@@ -297,7 +297,7 @@ def descr___format__(space, w_obj, w_format_spec):
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
-    return space.format(w_as_str, w_format_spec)
+    return w_as_str
 
 def descr__eq__(space, w_self, w_other):
     if space.is_w(w_self, w_other):
