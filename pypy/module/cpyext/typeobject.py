@@ -604,7 +604,6 @@ class W_PyCTypeObject(W_TypeObject):
             raw_doc = rffi.constcharp2str(pto.c_tp_doc)
             dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
         if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
-            print(name, flags, Py_TPFLAGS_DISALLOW_INSTANTIATION, flags & Py_TPFLAGS_DISALLOW_INSTANTIATION)
             add_disallow_new(space, dict_w, pto)
         elif pto.c_tp_new:
             add_tp_new_wrapper(space, dict_w, pto)
