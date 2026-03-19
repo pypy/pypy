@@ -348,8 +348,8 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                              LIMIT_LOOP_BREAK)
             i += 1
-        assert not self.rm.reg_bindings
-        assert not self.fprm.reg_bindings
+        assert not len(self.rm.reg_bindings)
+        assert not len(self.fprm.reg_bindings)
         if not we_are_translated():
             self.assembler.mc.trap()
         self.flush_loop()
