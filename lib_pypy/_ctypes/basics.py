@@ -37,6 +37,12 @@ def store_reference(where, base_key, target):
 class ArgumentError(Exception):
     pass
 
+class _ctypes_property(property):
+    """A property subclass that raises TypeError (not AttributeError) on delete,
+    matching CPython ctypes behaviour."""
+    def __delete__(self, obj):
+        raise TypeError("cannot delete attribute")
+
 class COMError(Exception):
     "Raised when a COM method call failed."
     def __init__(self, hresult, text, details):
