@@ -491,7 +491,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
     def _conv_param(cls, argtype, arg):
         if argtype is not None:
             arg = argtype.from_param(arg)
-        if hasattr(arg, '_as_parameter_'):
+        while hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
         if isinstance(arg, _CData):
             return arg, arg._to_ffi_param(), type(arg)
