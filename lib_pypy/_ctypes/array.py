@@ -269,17 +269,12 @@ class Array(_CData, metaclass=ArrayMeta):
 
     def __buffer__(self, flags):
         shape = []
-        obj = self
-        while 1:
-            shape.append(obj._length_)
-            try:
-                obj[0]._length_
-            except (AttributeError, IndexError):
-                break
-            obj = obj[0]
-
-        fmt = obj._type_._getformat()
-        itemsize = sizeof(obj._type_)
+        tp = type(self)
+        while hasattr(tp, '_length_'):
+            shape.append(tp._length_)
+            tp = tp._type_
+        fmt = tp._getformat()
+        itemsize = sizeof(tp)
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
     def __class_getitem__(self, item):
