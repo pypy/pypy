@@ -36,6 +36,18 @@ void pypy_hpy_debug_set_ctx(HPyContext *dctx) {
     hpy_debug_set_ctx(dctx);
 }
 
+HPyContext* pypy_hpy_debug_ctx_before_call(HPyContext *dctx) {
+    HPyContext *next_dctx = hpy_debug_get_next_dctx_from_cache(dctx);
+    get_ctx_info(dctx)->is_valid = false;
+    get_ctx_info(next_dctx)->is_valid = true;
+    return next_dctx;
+}
+
+void pypy_hpy_debug_ctx_after_call(HPyContext *original_dctx, HPyContext *next_dctx) {
+    get_ctx_info(next_dctx)->is_valid = false;
+    get_ctx_info(original_dctx)->is_valid = true;
+}
+
 // NOTE: this is currently unused: it is needed because it is
 // referenced by hpy_magic_dump. But we could try to use this variable to
 // store the actual ctx instead of malloc()ing it in setup_ctx.

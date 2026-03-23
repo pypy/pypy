@@ -755,6 +755,14 @@ hpy_debug_close_handle = rffi.llexternal(
     'pypy_hpy_debug_close_handle', [HPyContext, HPy], lltype.Void,
     compilation_info=eci, _nowrapper=True)
 
+hpy_debug_ctx_before_call = rffi.llexternal(
+    'pypy_hpy_debug_ctx_before_call', [HPyContext], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_ctx_after_call = rffi.llexternal(
+    'pypy_hpy_debug_ctx_after_call', [HPyContext, HPyContext], lltype.Void,
+    compilation_info=eci, _nowrapper=True)
+
 HPyInit__debug = rffi.llexternal(
     'pypy_HPyInit__debug', [], HPyModuleDefP,
     compilation_info=eci, _nowrapper=True)
@@ -762,6 +770,10 @@ HPyInit__debug = rffi.llexternal(
 #trace mode
 hpy_trace_get_ctx = rffi.llexternal(
     'pypy_hpy_trace_get_ctx', [HPyContext], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_get_stored_ctx = rffi.llexternal(
+    'pypy_hpy_trace_get_stored_ctx', [], HPyContext,
     compilation_info=eci, _nowrapper=True)
 
 hpy_trace_ctx_init = rffi.llexternal(

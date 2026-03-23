@@ -24,6 +24,9 @@ int pypysig_set_wakeup_fd(int fd, int with_nul_byte);
 /* utility to poll for signals that arrived */
 RPY_EXTERN
 int pypysig_poll(void);   /* => signum or -1 */
+/* errno from last failed wakeup-fd write (0 if none); clears on read */
+RPY_EXTERN
+int pypysig_get_wakeup_fd_write_errno(void);
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
