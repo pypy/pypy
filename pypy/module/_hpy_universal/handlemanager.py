@@ -318,7 +318,7 @@ class DebugHandleManager(AbstractHandleManager):
         llapi.hpy_debug_set_ctx(self.ctx)
 
     def get_ctx(self):
-        return self.ctx
+        return llapi.hpy_debug_get_current_ctx()
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)

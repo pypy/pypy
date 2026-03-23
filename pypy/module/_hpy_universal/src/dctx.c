@@ -32,20 +32,30 @@ HPyModuleDef* pypy_HPyInit__debug() {
     return HPyInit__debug();
 }
 
+/* Tracks the currently valid debug context, updated by before/after_call. */
+static HPyContext *g_current_debug_ctx = NULL;
+
 void pypy_hpy_debug_set_ctx(HPyContext *dctx) {
     hpy_debug_set_ctx(dctx);
+    g_current_debug_ctx = dctx;
+}
+
+HPyContext* pypy_hpy_debug_get_current_ctx(void) {
+    return g_current_debug_ctx;
 }
 
 HPyContext* pypy_hpy_debug_ctx_before_call(HPyContext *dctx) {
     HPyContext *next_dctx = hpy_debug_get_next_dctx_from_cache(dctx);
     get_ctx_info(dctx)->is_valid = false;
     get_ctx_info(next_dctx)->is_valid = true;
+    g_current_debug_ctx = next_dctx;
     return next_dctx;
 }
 
 void pypy_hpy_debug_ctx_after_call(HPyContext *original_dctx, HPyContext *next_dctx) {
     get_ctx_info(next_dctx)->is_valid = false;
     get_ctx_info(original_dctx)->is_valid = true;
+    g_current_debug_ctx = original_dctx;
 }
 
 // NOTE: this is currently unused: it is needed because it is

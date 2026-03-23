@@ -11,3 +11,4 @@ RPY_EXPORTED HPyModuleDef* pypy_HPyInit__debug(void);
 RPY_EXPORTED void pypy_hpy_debug_set_on_invalid_handle(HPyContext *uctx, HPy_ssize_t dh);
 RPY_EXPORTED HPyContext* pypy_hpy_debug_ctx_before_call(HPyContext *dctx);
 RPY_EXPORTED void pypy_hpy_debug_ctx_after_call(HPyContext *original_dctx, HPyContext *next_dctx);
+RPY_EXPORTED HPyContext* pypy_hpy_debug_get_current_ctx(void);

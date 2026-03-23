@@ -763,6 +763,10 @@ hpy_debug_ctx_after_call = rffi.llexternal(
     'pypy_hpy_debug_ctx_after_call', [HPyContext, HPyContext], lltype.Void,
     compilation_info=eci, _nowrapper=True)
 
+hpy_debug_get_current_ctx = rffi.llexternal(
+    'pypy_hpy_debug_get_current_ctx', [], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
 HPyInit__debug = rffi.llexternal(
     'pypy_HPyInit__debug', [], HPyModuleDefP,
     compilation_info=eci, _nowrapper=True)
