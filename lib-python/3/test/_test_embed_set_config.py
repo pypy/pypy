@@ -5,12 +5,13 @@
 # does reset sys attributes to their state of the Python startup
 # (before the site module is run).
 
-import _testinternalcapi
 import os
 import sys
 import unittest
-from test.support import MS_WINDOWS
+from test.support import MS_WINDOWS, import_module
 
+# PyPy change: skip if no _testinternalcapi
+_testinternalcapi = import_module.import_module("_testinternalcapi")
 
 MAX_HASH_SEED = 4294967295
 
