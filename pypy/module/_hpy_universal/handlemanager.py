@@ -144,6 +144,12 @@ class AbstractHandleManager(object):
     def get_ctx(self):
         raise NotImplementedError
 
+    def debug_before_call(self):
+        raise NotImplementedError
+
+    def debug_after_call(self, next_ctx):
+        raise NotImplementedError
+
     @specialize.arg(0)
     def using(self, *w_objs):
         """
@@ -217,6 +223,12 @@ class HandleManager(AbstractHandleManager):
 
     def get_ctx(self):
         return self.ctx
+
+    def debug_before_call(self):
+        return self.get_ctx()
+
+    def debug_after_call(self, next_ctx):
+        pass
 
     def new(self, w_object):
         if len(self.free_list) == 0:
@@ -344,6 +356,12 @@ class DebugHandleManager(AbstractHandleManager):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, index)
         self.u_handles.attach_release_callback(uh, cb)
 
+    def debug_before_call(self):
+        return llapi.hpy_debug_ctx_before_call(self.ctx)
+
+    def debug_after_call(self, next_ctx):
+        llapi.hpy_debug_ctx_after_call(self.ctx, next_ctx)
+
     def str2ownedptr(self, s, owner):
         return self.u_handles.str2ownedptr(s, owner)
 
@@ -354,7 +372,6 @@ class TraceHandleManager(AbstractHandleManager):
         from .interp_extfunc import W_ExtensionFunction_t, W_ExtensionMethod_t
         AbstractHandleManager.__init__(self, space, is_debug=False)
         self.u_handles = u_handles
-        self.ctx = lltype.nullptr(llapi.HPyContext.TO)
         self.w_ExtensionFunction = W_ExtensionFunction_t
         self.w_ExtensionMethod = W_ExtensionMethod_t
 
@@ -377,10 +394,15 @@ class TraceHandleManager(AbstractHandleManager):
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(ctx, ctx_field, funcptr)
-        self.ctx = ctx
 
     def get_ctx(self):
-        return self.ctx
+        return llapi.hpy_trace_get_stored_ctx()
+
+    def debug_before_call(self):
+        return self.get_ctx()
+
+    def debug_after_call(self, next_ctx):
+        pass
 
     def new(self, w_object):
         return self.u_handles.new(w_object)
