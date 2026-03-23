@@ -634,6 +634,8 @@ class W_OSError(W_Exception):
                     self.written = space.int_w(w_filename)
                 except OperationError:
                     self.w_filename = w_filename
+                    if not space.is_none(w_filename2):
+                        self.w_filename2 = w_filename2
             else:
                 if not space.is_none(w_filename):
                     self.w_filename = w_filename
