@@ -354,6 +354,7 @@ class TraceHandleManager(AbstractHandleManager):
         from .interp_extfunc import W_ExtensionFunction_t, W_ExtensionMethod_t
         AbstractHandleManager.__init__(self, space, is_debug=False)
         self.u_handles = u_handles
+        self.ctx = lltype.nullptr(llapi.HPyContext.TO)
         self.w_ExtensionFunction = W_ExtensionFunction_t
         self.w_ExtensionMethod = W_ExtensionMethod_t
 
@@ -376,9 +377,10 @@ class TraceHandleManager(AbstractHandleManager):
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(ctx, ctx_field, funcptr)
+        self.ctx = ctx
 
     def get_ctx(self):
-        return llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        return self.ctx
 
     def new(self, w_object):
         return self.u_handles.new(w_object)
