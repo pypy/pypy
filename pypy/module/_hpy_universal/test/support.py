@@ -12,6 +12,55 @@ from .. import llapi
 
 COMPILER_VERBOSE = False
 
+# Module-level cache: built once, reused for every test that calls _init.
+# Maps hpy_abi string -> {abi: [lib_path]} dict (empty dict means build failed).
+_static_lib_cache = {}
+
+def _try_build_static_lib(hpy_devel, hpy_abi):
+    """
+    Compile the HPy helper sources into a static archive once per session.
+    Returns {hpy_abi: [lib_path]} on success, {} on failure.
+    """
+    try:
+        import distutils.ccompiler
+        import distutils.sysconfig
+        import os
+
+        base = udir.join('hpy_staticlib')
+        abi_dir = base.join(hpy_abi)
+        abi_dir.ensure(dir=True)
+        obj_dir = base.join('obj', hpy_abi)
+        obj_dir.ensure(dir=True)
+
+        compiler = distutils.ccompiler.new_compiler()
+        distutils.sysconfig.customize_compiler(compiler)
+
+        include_dirs = hpy_devel.get_extra_include_dirs()
+        include_dirs.append(str(hpy_devel.get_include_dir_forbid_python_h()))
+        macros = [('HPY', None), ('HPY_ABI_UNIVERSAL', None)]
+
+        objects = compiler.compile(
+            hpy_devel.get_extra_sources(),
+            output_dir=str(obj_dir),
+            include_dirs=include_dirs,
+            macros=macros,
+        )
+
+        lib_name = 'hpyextra'
+        compiler.create_static_lib(objects, lib_name, output_dir=str(abi_dir))
+        lib_filename = compiler.library_filename(lib_name, lib_type='static')
+        lib_path = str(abi_dir.join(lib_filename))
+        return {'universal': [lib_path], 'hybrid': [lib_path]}
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            "HPy static-lib build failed (%s); "
+            "falling back to per-test source compilation." % e,
+            stacklevel=2,
+        )
+        return {}
+
+
 def debug_collect():
     import gc
     gc.collect()
@@ -72,6 +121,10 @@ class HPyAppTest(object):
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))
+        if 'libs' not in _static_lib_cache:
+            _static_lib_cache['libs'] = _try_build_static_lib(hpy_devel, 'universal')
+        if _static_lib_cache['libs']:
+            hpy_devel._available_static_libs = _static_lib_cache['libs']
         if hpy_abi in ("debug", "hybrid+debug"):
             mode = llapi.MODE_DEBUG
         elif hpy_abi in ("universal", "hybrid"):
