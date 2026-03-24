@@ -1230,7 +1230,8 @@ def get_ctypes_callable(funcptr, calling_conv, natural_arity):
         eci = _eci_cache[old_eci]
     except KeyError:
         eci = old_eci.compile_shared_lib(ignore_a_files=True,
-                                         defines=['RPYTHON_LL2CTYPES'])
+                                         defines=['RPYTHON_LL2CTYPES'],
+                                         symbolic=True)
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks

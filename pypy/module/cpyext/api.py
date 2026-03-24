@@ -1379,7 +1379,8 @@ def build_bridge(space):
 
     eci = build_eci(code, use_micronumpy, translating=False)
     eci = eci.compile_shared_lib(
-        outputfilename=str(udir / "module_cache" / "pypyapi"))
+        outputfilename=str(udir / "module_cache" / "pypyapi"),
+        symbolic=True)
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 
