@@ -77,19 +77,19 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
     def test_releasebuffer(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
-        assert module.get_releasebuffer_cnt() == 0
+        initial = module.get_releasebuffer_cnt()
         module.create_and_release_buffer(arr)
-        assert module.get_releasebuffer_cnt() == 1
+        assert module.get_releasebuffer_cnt() == initial + 1
 
     def test_Py_buffer(self):
         module = self.import_module(name='array')
         arr = module.array('i', [1,2,3,4])
-        assert module.get_releasebuffer_cnt() == 0
+        initial = module.get_releasebuffer_cnt()
         m = memoryview(arr)
-        assert module.get_releasebuffer_cnt() == 0
+        assert module.get_releasebuffer_cnt() == initial
         del m
         self.debug_collect()
-        assert module.get_releasebuffer_cnt() == 1
+        assert module.get_releasebuffer_cnt() == initial + 1
 
     def test_0d_view(self):
         module = self.import_module(name='array')
