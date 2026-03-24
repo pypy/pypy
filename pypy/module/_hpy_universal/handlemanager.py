@@ -144,6 +144,17 @@ class AbstractHandleManager(object):
     def get_ctx(self):
         raise NotImplementedError
 
+    def get_ctx_for_handles(self):
+        """Return the context that is consistent with handles created by new().
+
+        For DebugHandleManager, get_ctx() tracks the currently-valid debug
+        context (which may be next_dctx during before_call/after_call), but
+        new() always uses self.ctx.  Callers that create handles and then pass
+        both the handle and the context to a C function must use the same
+        context for both; get_ctx_for_handles() satisfies that requirement.
+        """
+        return self.get_ctx()
+
     def debug_before_call(self):
         raise NotImplementedError
 
@@ -319,6 +330,15 @@ class DebugHandleManager(AbstractHandleManager):
 
     def get_ctx(self):
         return llapi.hpy_debug_get_current_ctx()
+
+    def get_ctx_for_handles(self):
+        # new() always opens debug handles with self.ctx, so callers that
+        # pair a freshly-created handle with a context must use self.ctx too.
+        # get_ctx() may return next_dctx during a before_call/after_call cycle
+        # (e.g. when the GC finalizer fires inside a C callback), which would
+        # cause hpy_debug_unwrap_handle to return NULL for a handle created
+        # with self.ctx, leading to a segfault.
+        return self.ctx
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
