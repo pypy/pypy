@@ -8,10 +8,10 @@
 import os
 import sys
 import unittest
-from test.support import MS_WINDOWS, import_module
-
+from test.support import MS_WINDOWS
 # PyPy change: skip if no _testinternalcapi
-_testinternalcapi = import_module.import_module("_testinternalcapi")
+from test.support.import_helper import import_module
+_testinternalcapi = import_module("_testinternalcapi")
 
 MAX_HASH_SEED = 4294967295
 
