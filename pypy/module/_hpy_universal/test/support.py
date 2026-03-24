@@ -159,8 +159,14 @@ class HPyAppTest(object):
             else:
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
+            # Include mode in the cache key so that different ABI modes
+            # (e.g. universal vs debug) get separate .so files.  Both
+            # compile identically but are loaded as distinct shared
+            # libraries, which prevents C-level static variables from
+            # leaking between runs (e.g. test_tp_finalize's
+            # saw_expected_finalize_call / test_finished).
             cache_key = (main_src, ExtensionTemplate.__name__,
-                         name, tuple(extra_sources), hpy_abi)
+                         name, tuple(extra_sources), hpy_abi, mode)
             if cache_key in _compiled_module_cache:
                 so_filename = _compiled_module_cache[cache_key]
             else:
@@ -198,7 +204,7 @@ class HPyAppTest(object):
             if w_ExtensionTemplate is not None:
                 raise NotImplementedError
             cache_key = (main_src, ExtensionTemplate.__name__,
-                         name, tuple(extra_sources), hpy_abi)
+                         name, tuple(extra_sources), hpy_abi, mode)
             if cache_key in _compiled_module_cache:
                 so_filename = _compiled_module_cache[cache_key]
             else:
