@@ -16,6 +16,12 @@ COMPILER_VERBOSE = False
 # Maps hpy_abi string -> {abi: [lib_path]} dict (empty dict means build failed).
 _static_lib_cache = {}
 
+# Cache compiled .so files by (source, template, name, extra_sources, hpy_abi).
+# universal/debug share the same compiled artifact; hybrid/hybrid+debug share
+# another. This is safe because hpy_abi is already normalized before the
+# ExtensionCompiler is created.
+_compiled_module_cache = {}  # (main_src, template_name, name, extra_sources, hpy_abi) -> so_filename
+
 def _try_build_static_lib(hpy_devel, hpy_abi):
     """
     Compile the HPy helper sources into a static archive once per session.
@@ -153,9 +159,15 @@ class HPyAppTest(object):
             else:
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
-            module = compiler.compile_module(main_src, ExtensionTemplate,
-                                                  name, extra_sources)
-            so_filename = module.so_filename
+            cache_key = (main_src, ExtensionTemplate.__name__,
+                         name, tuple(extra_sources), hpy_abi)
+            if cache_key in _compiled_module_cache:
+                so_filename = _compiled_module_cache[cache_key]
+            else:
+                module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                 name, extra_sources)
+                so_filename = module.so_filename
+                _compiled_module_cache[cache_key] = so_filename
             w_mod = space.appexec([space.newtext(name),
                                    space.newtext(so_filename),
                                    space.newint(mode)],
@@ -185,11 +197,18 @@ class HPyAppTest(object):
                 extra_sources = [space.text_w(item) for item in items_w]
             if w_ExtensionTemplate is not None:
                 raise NotImplementedError
-            module = compiler.compile_module(main_src, ExtensionTemplate,
-                                                  name, extra_sources)
+            cache_key = (main_src, ExtensionTemplate.__name__,
+                         name, tuple(extra_sources), hpy_abi)
+            if cache_key in _compiled_module_cache:
+                so_filename = _compiled_module_cache[cache_key]
+            else:
+                module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                 name, extra_sources)
+                so_filename = module.so_filename
+                _compiled_module_cache[cache_key] = so_filename
             # All we need for tests is module.so_filename
             w_class_with_so_filename = space.appexec([
-                    space.newtext(module.so_filename)],
+                    space.newtext(so_filename)],
                 """(so_filename,):
                     class ClassWithSoFilename():
                         def __init__(self, so_filename):
