@@ -249,6 +249,26 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.sys_info = get_cpyext_info(space)
             cls.w_debug_collect = space.wrap(interp2app(debug_collect))
             cls.preload_builtins(space)
+            # Flush stdout once here to pre-create any file lock objects
+            # before we start counting allocations (moved from setup_method).
+            space.call_method(space.sys.get("stdout"), "flush")
+            # Class-level list accumulating every module name imported across
+            # all tests; drained in teardown_class.
+            cls.imported_module_names = []
+            # Class-level cache for file-based import_module() calls only.
+            # Keyed by module name; holds the wrapped module object.
+            # Separate from sys.modules so that import_extension() calls using
+            # the same name don't accidentally shadow the file-based module.
+            cls._file_module_cache = {}
+            # Keepalive list: holds references to module objects that were
+            # evicted from sys.modules (by import_extension overwriting the
+            # same name).  Prevents their raw allocations from being freed
+            # inside a later test's leakfinder tracking window.
+            cls._module_keepalive = []
+            # Establish the allocation baseline once for the whole class
+            # (moved from setup_method so we don't pay the cleanup cost
+            # per test -- see teardown_class).
+            freeze_refcnts(cls)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
                     include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
@@ -338,9 +358,30 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                           filename=None, w_include_dirs=None,
                           PY_SSIZE_T_CLEAN=False, use_imp=False):
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
+            # For file-based imports (no inline code), reuse the previously
+            # loaded module from our own cache -- avoids re-running PyInit_xxx
+            # (the expensive part) on every test in the class.
+            # We use a separate cache (not sys.modules) so that an
+            # import_extension() call with the same name doesn't shadow the
+            # file-based module.
+            if init is None and not body:
+                if name in self._file_module_cache:
+                    self.record_imported_module(name)
+                    return self._file_module_cache[name]
+                # About to overwrite sys.modules[name] -- save the displaced
+                # module (if any) so that its raw allocations aren't freed
+                # during a later test's leakfinder tracking window.
+                w_modules = space.sys.get('modules')
+                try:
+                    w_old = space.getitem(w_modules, space.newtext(name))
+                    self._module_keepalive.append(w_old)
+                except OperationError:
+                    pass
             w_result = self.sys_info.import_module(
                 name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN,
                 use_imp)
+            if init is None and not body:
+                self._file_module_cache[name] = w_result
             self.record_imported_module(name)
             return w_result
 
@@ -355,15 +396,23 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
             functions = space.unwrap(w_functions)
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
+            # If there's already a module under this name (file-based or a
+            # previous inline extension), save it in _module_keepalive before
+            # it's displaced.  This prevents its raw allocations (method-name
+            # strings, type dicts, etc.) from being freed during a later
+            # test's leakfinder tracking window.
+            self._file_module_cache.pop(modname, None)
+            w_modules = space.sys.get('modules')
+            try:
+                w_old = space.getitem(w_modules, space.newtext(modname))
+                self._module_keepalive.append(w_old)
+            except OperationError:
+                pass
             w_result = self.sys_info.import_extension(
                 modname, functions, prologue, include_dirs, more_init,
                 PY_SSIZE_T_CLEAN)
             self.record_imported_module(modname)
             return w_result
-
-        # A list of modules which the test caused to be imported (in
-        # self.space).  These will be cleaned up automatically in teardown.
-        self.imported_module_names = []
 
         wrap = self.space.wrap
         self.w_compile_module = wrap(interp2app(compile_module))
@@ -371,28 +420,78 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         self.w_import_module = wrap(interp2app(import_module))
         self.w_import_extension = wrap(interp2app(import_extension))
 
-        # create the file lock before we count allocations
-        self.space.call_method(self.space.sys.get("stdout"), "flush")
-
-        freeze_refcnts(self)
-
     def unimport_module(self, name):
         """
         Remove the named module from the space's sys.modules.
         """
+        w_cached = self._file_module_cache.pop(name, None)
+        if w_cached is not None:
+            self._module_keepalive.append(w_cached)
         w_modules = self.space.sys.get('modules')
         w_name = self.space.wrap(name)
+        try:
+            w_old = self.space.getitem(w_modules, w_name)
+            self._module_keepalive.append(w_old)
+        except OperationError:
+            pass
         self.space.delitem(w_modules, w_name)
 
     def teardown_method(self, func):
         if self.runappdirect:
             self.w_debug_collect()
             return
-        debug_collect(self.space)
-        for name in self.imported_module_names:
-            self.unimport_module(name)
-        self.cleanup()
-        state = self.space.fromcache(State)
+        # Preempt rpython's LeakFinder hook (which would call
+        # stop_tracking_allocations with check=True and flag still-loaded
+        # modules as leaks).  The actual GC + cleanup runs once per class in
+        # teardown_class.
+        if leakfinder.TRACK_ALLOCATIONS:
+            leakfinder.stop_tracking_allocations(check=False)
+        # Drain the rawrefcount dealloc queue (_d_list) now, while
+        # TRACK_ALLOCATIONS is False.  Without this, objects queued by this
+        # test linger in _d_list until the *next* test calls debug_collect(),
+        # where they are freed inside a fresh tracking window that has no
+        # record of their original allocations - KeyError in remember_free.
+        # Loop until stable: tp_dealloc may decref sub-objects (e.g. a
+        # heap-type's __dict__) that need further GC rounds to die.  Most
+        # tests exit after 1 iteration (nothing dies → before == after).
+        fq = self.space.finalizer_queue
+        for _ in range(5):
+            before = len(rawrefcount._p_list) + len(rawrefcount._o_list)
+            rawrefcount._collect()
+            self.space.user_del_action._run_finalizers()
+            after = len(rawrefcount._p_list) + len(rawrefcount._o_list)
+            if before == after and not (hasattr(fq, '_queue') and fq._queue):
+                break
+
+    @classmethod
+    def teardown_class(cls):
+        if cls.runappdirect:
+            return
+        space = cls.space
+        debug_collect(space)
+        seen = set()
+        for name in cls.imported_module_names:
+            if name not in seen:
+                seen.add(name)
+                w_modules = space.sys.get('modules')
+                w_name = space.wrap(name)
+                try:
+                    space.delitem(w_modules, w_name)
+                except OperationError:
+                    pass  # already removed by a test
+        # Drop keepalive references so the displaced modules can be freed
+        # during the GC pass below (leakfinder tracking is already off by now).
+        cls._module_keepalive = []
+        # Run full GC cleanup once for the whole class.
+        space.getexecutioncontext().cleanup_cpyext_state()
+        fq = space.finalizer_queue
+        for _ in range(5):
+            rawrefcount._collect()
+            if not (hasattr(fq, '_queue') and fq._queue):
+                break   # no finalizers queued; further iterations do nothing
+            space.user_del_action._run_finalizers()
+        assert not space.finalizer_queue.next_dead()
+        state = space.fromcache(State)
         assert 'operror' not in dir(state)
 
 
