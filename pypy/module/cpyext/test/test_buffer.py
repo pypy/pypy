@@ -25,8 +25,6 @@ class AppTestBuffer(AppTestCpythonExtensionBase):
         bb = _cffi_backend.buffer(p)
         assert module.write_buffer_len(bb) == 6
 
-
-class AppTestMmap(AppTestCpythonExtensionBase):
     def test_mmap_buffer(self):
         module = self.import_extension('mmap_buffer', [
             ('isbuffer', 'METH_O',

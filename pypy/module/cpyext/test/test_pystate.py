@@ -322,11 +322,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 print("sleeping")
                 time.sleep(0.1)
 
-
-
-
-class AppTestState(AppTestCpythonExtensionBase):
-
     @pytest.mark.xfail('not config.option.runappdirect', reason='segfaults', run=False)
     def test_frame_tstate_tracing(self):
         import sys, threading

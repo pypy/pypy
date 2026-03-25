@@ -127,7 +127,6 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
         assert "foo.pypy" in file
         assert os.path.exists(file)
 
-class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
         from types import ModuleType
         module = self.import_module(name='multiphase', use_imp=True)
@@ -252,7 +251,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init, use_imp=True)
 
-class AppTestMultiPhase2(AppTestCpythonExtensionBase):
+class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def setup_class(cls):
         cls.w_name = cls.space.wrap('_testmultiphase')
         AppTestCpythonExtensionBase.setup_class.im_func(cls)

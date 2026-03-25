@@ -2213,7 +2213,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert inst.dictobj == inst.__dict__
         assert inst.dictobj == {"foo": 42} 
  
-class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
         if not self.runappdirect:
             skip('pointer to function equality available'
@@ -2243,7 +2242,6 @@ class AppTestHashable(AppTestCpythonExtensionBase):
         assert not isinstance(obj, Hashable)
 
 
-class AppTestFlags(AppTestCpythonExtensionBase):
     def test_has_subclass_flag(self):
         module = self.import_extension('foo', [
            ("test_flags", "METH_VARARGS",
