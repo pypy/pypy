@@ -655,6 +655,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.check_forbidden_name(target.attr, target)
             target.value.walkabout(self)
             self.emit_op(ops.DUP_TOP)
+            attr_col = target.end_col_offset - len(target.attr)
+            attr_position = (target.end_lineno, target.end_lineno, attr_col, target.end_col_offset)
+            self.update_position(attr_position)
             self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
             assign.value.walkabout(self)
             self.emit_op(inplace_operations(assign.op))
@@ -1886,6 +1889,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
+        attr_col = attr_lookup.end_col_offset - len(attr_lookup.attr)
+        self.update_position((attr_lookup.end_lineno, attr_lookup.end_lineno, attr_col, attr_lookup.end_col_offset))
         self.emit_op_name(ops.LOAD_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
         if not call.keywords:
@@ -2043,16 +2048,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         names = self.names
         ctx = attr.ctx
         attr.value.walkabout(self)
-        # the name has no complete position, give a line number at least
+        attr_col = attr.end_col_offset - len(attr.attr)
+        self.update_position((attr.end_lineno, attr.end_lineno, attr_col, attr.end_col_offset))
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
             return
         self.check_forbidden_name(attr.attr, attr, ctx)
         if ctx == ast.Store:
-            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
-            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
         else:
             raise AssertionError("unknown context")

@@ -1487,6 +1487,53 @@ def f():
             (2, 8, 4, 5)
         ]
 
+    def test_attribute_position_multiline(self):
+        # LOAD_ATTR should get the position of the attribute name,
+        # not the position of the object it's accessed on
+        yield self.simple_test, """\
+            def function():
+                return (
+                    o.
+                    a
+                )
+            co = function.__code__
+            result = list(co.co_positions())[1]
+        """, 'result', (4, 4, 8, 9)
+
+    def test_load_method_position_multiline(self):
+        # LOAD_METHOD should get the position of the method name,
+        # not the position of the object
+        yield self.simple_test, """\
+            def fmeth():       # line 1
+                (              # line 2
+                    o.         # line 3
+                    m          # line 4
+                )()            # line 5
+            import dis
+            co = fmeth.__code__
+            opcodes = [i.opname for i in dis.get_instructions(co)]
+            positions = list(co.co_positions())
+            result = positions[opcodes.index('LOAD_METHOD')]
+        """, 'result', (4, 4, 8, 9)
+
+    def test_augassign_attribute_position_multiline(self):
+        # LOAD_ATTR and STORE_ATTR in augmented assignment should get the
+        # position of the attribute name, not the object
+        yield self.simple_test, """\
+            def faug():        # line 1
+                (              # line 2
+                    o.         # line 3
+                    a          # line 4
+                ) += 1         # line 5
+            import dis
+            co = faug.__code__
+            opcodes = [i.opname for i in dis.get_instructions(co)]
+            positions = list(co.co_positions())
+            load_idx = opcodes.index('LOAD_ATTR')
+            store_idx = opcodes.index('STORE_ATTR')
+            result = (positions[load_idx], positions[store_idx])
+        """, 'result', ((4, 4, 8, 9), (4, 4, 8, 9))
+
     def test_many_args(self):
         args = ["a%i" % i for i in range(300)]
         argdef = ", ".join(args)
