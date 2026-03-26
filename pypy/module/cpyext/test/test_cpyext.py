@@ -453,7 +453,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         # record of their original allocations - KeyError in remember_free.
         # Loop until stable: tp_dealloc may decref sub-objects (e.g. a
         # heap-type's __dict__) that need further GC rounds to die.  Most
-        # tests exit after 1 iteration (nothing dies → before == after).
+        # tests exit after 1 iteration (nothing dies means before == after).
         fq = self.space.finalizer_queue
         for _ in range(5):
             before = len(rawrefcount._p_list) + len(rawrefcount._o_list)
