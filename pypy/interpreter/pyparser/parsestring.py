@@ -288,8 +288,11 @@ def decode_unicode_escape(space, string, astbuilder, token):
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)
     if first_escape_error_char is not None and astbuilder is not None:
-        msg = "invalid escape sequence '\\%s'"
-        astbuilder.deprecation_warn(msg % first_escape_error_char, token)
+        if len(first_escape_error_char) > 1:
+            msg = "invalid octal escape sequence '\\%s'" % first_escape_error_char
+        else:
+            msg = "invalid escape sequence '\\%s'" % first_escape_error_char
+        astbuilder.deprecation_warn(msg, token)
     return s, ulen, blen
 
 def isxdigit(ch):

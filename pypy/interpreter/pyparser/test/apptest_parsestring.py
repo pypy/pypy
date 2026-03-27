@@ -29,6 +29,13 @@ def test_str_invalid_escape():
     assert not w
     assert excinfo.value.filename == '<string>'
 
+def test_str_invalid_octal_escape():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always', category=DeprecationWarning)
+        eval("'''\n\\407'''")
+    assert len(w) == 1
+    assert str(w[0].message) == r"invalid octal escape sequence '\407'"
+
 def test_fstring_invalid_escape():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter('always', category=DeprecationWarning)
