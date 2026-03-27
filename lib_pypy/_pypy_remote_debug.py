@@ -345,7 +345,7 @@ def _check_elf_debuglink(file):
 
 # __________________________________________________________
 # symbolication support, used by _vmprof.resolve_address and
-# _vmprof.resolve_many_addrs
+# _vmprof.resolve_many_addr
 
 def _proc_map_find_base_map(value, maps=None):
     if maps is None:
