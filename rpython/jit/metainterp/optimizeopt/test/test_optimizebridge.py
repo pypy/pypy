@@ -118,3 +118,22 @@ class TestOptimizeBridge(BaseTest):
         self.optimize(loop, bridge, expected,
                       jump_values=[None, self.simpleaddr],
                       bridge_values=[None, self.simpleaddr])
+
+    def test_bridge_wrong_type(self):
+        loop = """
+        [p1, i0]
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        i2 = getarrayitem_gc_i(p2, 0, descr=arraydescr)
+        i6 = int_add(i0, i2)
+        guard_true(i6) []
+        jump(p1, i6)
+        """
+        bridge = """
+        [p1]
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        guard_class(p2, ConstClass(node_vtable2)) []
+        jump(p1, 1)
+        """
+        expected = ""
+        self.optimize(loop, bridge, expected)
+
