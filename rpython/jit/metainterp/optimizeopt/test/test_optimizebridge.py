@@ -18,7 +18,7 @@ class TestOptimizeBridge(BaseTest):
         mid_label_descr.short_preamble = info.short_preamble
         mid_label_descr.virtual_state = info.virtual_state
         start_label_descr = TargetToken(jitcell_token)
-        jitcell_token.target_tokens = [mid_label_descr, start_label_descr]
+        jitcell_token.target_tokens = [start_label_descr, mid_label_descr]
         loop.operations[0].setdescr(mid_label_descr)
         loop.operations[-1].setdescr(mid_label_descr)
         info.preamble.operations[0].setdescr(start_label_descr)
@@ -134,6 +134,20 @@ class TestOptimizeBridge(BaseTest):
         guard_class(p2, ConstClass(node_vtable2)) []
         jump(p1, 1)
         """
-        expected = ""
+
+        # this is a bad bridge, in the sense that the guard_class and
+        # guard_gc_type contradict each other, so the bridge will always lead
+        # to a failure. however, it is safe, because there are no unguarded
+        # accesses to objects that could lead to crashes
+        expected = """
+        [p1]
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        guard_class(p2, ConstClass(node_vtable2)) []
+        guard_gc_type(p2, ConstInt(arraydescr_tid)) []
+        i3 = arraylen_gc(p2, descr=arraydescr)
+        i4 = int_ge(i3, 1),
+        guard_true(i4) []
+        jump(p1, 1)
+        """
         self.optimize(loop, bridge, expected)
 
