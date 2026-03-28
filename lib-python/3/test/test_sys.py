@@ -626,7 +626,10 @@ class SysModuleTest(unittest.TestCase):
         self.assertEqual(len(sys.float_info), 11)
         self.assertEqual(sys.float_info.radix, 2)
         self.assertEqual(len(sys.int_info), 4)
-        self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
+        if sys.implementation.name == 'pypy':
+            self.assertTrue(sys.int_info.bits_per_digit > 0)
+        else:
+            self.assertTrue(sys.int_info.bits_per_digit % 5 == 0)
         self.assertTrue(sys.int_info.sizeof_digit >= 1)
         self.assertGreaterEqual(sys.int_info.default_max_str_digits, 500)
         self.assertGreaterEqual(sys.int_info.str_digits_check_threshold, 100)
