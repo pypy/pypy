@@ -377,7 +377,7 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
             sys.path.append(dir)
             _seen.add(dir)
 
-def initstdio(encoding=None, unbuffered=False):
+def initstdio(encoding=None, unbuffered=False, utf8_mode=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
     if IS_WINDOWS:
@@ -399,13 +399,26 @@ def initstdio(encoding=None, unbuffered=False):
         encerr = e
 
     try:
+        # Track whether the user explicitly provided a non-empty encoding name.
+        # An explicit encoding suppresses the C/POSIX locale surrogateescape
+        # default (matching CPython behaviour: PYTHONIOENCODING=utf-8 → strict,
+        # but PYTHONIOENCODING=: → surrogateescape in C locale).
+        user_set_encoding = False
         if encoding and ':' in encoding:
-            encoding, errors = encoding.split(':', 1)
-            if encoding == '':
-                encoding = 'utf-8'
-            if errors == '':
+            enc_part, err_part = encoding.split(':', 1)
+            user_set_encoding = bool(enc_part)
+            encoding = enc_part or 'utf-8'
+            if err_part:
+                errors = err_part
+            elif user_set_encoding:
+                # "utf-8:" — encoding given, no error handler → strict
                 errors = 'strict'
-            errors = errors or None
+            else:
+                # ":" — both parts empty → treat as unspecified
+                errors = None
+        elif encoding:
+            user_set_encoding = True
+            errors = None
         else:
             errors = None
         encoding = encoding or None
@@ -414,10 +427,9 @@ def initstdio(encoding=None, unbuffered=False):
         _locale.setlocale(_locale.LC_CTYPE, "")
         if _WIN32 and not encoding:
             encoding = "utf-8"
-        if not (encoding or errors):
-            # stdin/out default to strict in C locale
-            if _locale.setlocale(_locale.LC_CTYPE, None) == 'C':
-                errors = 'strict'
+        if errors is None and not user_set_encoding:
+            if utf8_mode or _locale.setlocale(_locale.LC_CTYPE, None) in ('C', 'POSIX'):
+                errors = 'surrogateescape'
 
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
@@ -810,9 +822,7 @@ def run_command_line(interactive,
 
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
-    if (not io_encoding or io_encoding == ":") and utf8_mode:
-        io_encoding = "utf-8"
-    initstdio(io_encoding, unbuffered)
+    initstdio(io_encoding, unbuffered, utf8_mode=utf8_mode)
 
     if 'faulthandler' in sys.builtin_module_names:
         if dev_mode or 'faulthandler' in sys._xoptions or (readenv and getenv('PYTHONFAULTHANDLER')):

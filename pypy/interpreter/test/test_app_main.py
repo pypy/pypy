@@ -1147,10 +1147,12 @@ class TestNonInteractive:
 
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
-            (None, "strict"),
-            ("", "strict"),
+            (None, "surrogateescape"),
+            ("", "surrogateescape"),
             (":surrogateescape", "surrogateescape"),
-            (":", "strict")
+            (":", "surrogateescape"),
+            ("utf-8", "strict"),
+            ("utf-8:", "strict"),
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()
