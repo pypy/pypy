@@ -89,6 +89,8 @@ MISSING = object()
 
 @hidden_applevel
 def structseq_new(cls, sequence, dict=MISSING):
+    if not getattr(cls, 'allow_instantiation', True):
+        raise TypeError("cannot create '%s' instances" % cls._name)
     if dict is MISSING:
         dict = {}
     elif not isinstance(dict, builtin_dict):

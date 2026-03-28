@@ -1219,6 +1219,8 @@ def entry_point(executable, bargv, argv):
         return 2
     except SystemExit as e:
         return e.code or 0
+    if WE_ARE_TRANSLATED:
+        type(sys.flags).allow_instantiation = False
     setup_and_fix_paths(**cmdline)
     return run_command_line(**cmdline)
 
