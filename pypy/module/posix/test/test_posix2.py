@@ -57,6 +57,8 @@ GET_POSIX = "(): import %s as m ; return m" % os.name
 
 
 class AppTestPosix:
+    if hasattr(rposix, 'unshare'):
+        USEMODULES = USEMODULES + ["_posixsubprocess", "select"]
     spaceconfig = {'usemodules': USEMODULES}
 
     def setup_class(cls):
@@ -1770,6 +1772,55 @@ class AppTestPosix:
         newenv["FRUIT=VEGETABLE"] = "cabbage"
         with raises(ValueError):
             os.execve(args[0], args, newenv)
+
+    if hasattr(rposix, 'unshare'):
+        def test_unshare_noop(self):
+            os = self.posix
+            try:
+                os.unshare(0)
+            except PermissionError:
+                skip("unshare() not permitted")
+
+        def test_unshare_userns_in_subprocess(self):
+            os = self.posix
+            try:
+                os.unshare(0)
+            except PermissionError:
+                skip("unshare() not permitted")
+
+            import subprocess
+            def preexec_fn():
+                euid = os.geteuid()
+                os.unshare(os.CLONE_NEWUSER)
+                with open("/proc/self/uid_map", "w") as f:
+                    f.write("0 %d 1\n" % euid)
+            assert subprocess.check_output(["id", "-u"], preexec_fn=preexec_fn) == b"0\n"
+
+        def test_unshare_invalid_flags(self):
+            import errno
+            os = self.posix
+            with raises(OSError) as exc_info:
+                os.unshare(-1)
+            if exc_info.value.errno == errno.EPERM:
+                skip("unshare() not permitted")
+            assert exc_info.value.errno == errno.EINVAL
+
+        def test_unshare_known_error(self):
+            import errno
+            import threading
+            os = self.posix
+            stop_event = threading.Event()
+            t = threading.Thread(target=stop_event.wait)
+            try:
+                t.start()
+                with raises(OSError) as exc_info:
+                    os.unshare(os.CLONE_THREAD)
+                if exc_info.value.errno == errno.EPERM:
+                    skip("unshare() not permitted")
+                assert exc_info.value.errno == errno.EINVAL
+            finally:
+                stop_event.set()
+                t.join()
 
 
 @py.test.mark.skipif("sys.platform != 'win32'")

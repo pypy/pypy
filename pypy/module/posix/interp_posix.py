@@ -3218,4 +3218,16 @@ def _supports_virtual_terminal(space):
         return space.newbool(res)
     finally: 
         lltype.free(mode, flavor='raw')
-    
+
+@unwrap_spec(flags=c_int)
+def unshare(space, flags):
+    """
+Disassociate parts of a process (or thread) execution context.
+
+  flags
+    Namespaces to be unshared.
+"""
+    try:
+        rposix.unshare(flags)
+    except OSError as e:
+        raise wrap_oserror(space, e, eintr_retry=False)
