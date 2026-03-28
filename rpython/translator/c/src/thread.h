@@ -12,10 +12,6 @@ typedef enum RPyLockStatus {
 } RPyLockStatus;
 
 #ifdef _WIN32
-#if 0
-#define RPYTHREAD_NAME "nt"
-#include "thread_nt.h"
-#else
 #define RPYTHREAD_NAME "win7"
 #include "thread_win7.h"
 #endif
