@@ -574,6 +574,13 @@ static inline void mutex2_unlock(mutex2_t *mutex) {
     ASSERT_STATUS(pthread_mutex_unlock(&mutex->mut));
     ASSERT_STATUS(pthread_cond_signal(&mutex->cond));
 }
+static inline void mutex2_signal(mutex2_t *mutex) {
+    /* Signal without changing locked state.  Used to wake a stealer that
+       is sleeping in pthread_cond_timedwait so it can re-check rpy_fastgil.
+       Safe to call without holding mutex->mut; a missed wakeup is benign
+       because the stealer's timedwait has a fallback timeout. */
+    pthread_cond_signal(&mutex->cond);
+}
 static inline void mutex2_loop_start(mutex2_t *mutex) {
     ASSERT_STATUS(pthread_mutex_lock(&mutex->mut));
 }
