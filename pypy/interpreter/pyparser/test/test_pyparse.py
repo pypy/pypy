@@ -441,6 +441,14 @@ if 1:
         assert "Invalid star expression" in info.value.msg
         assert info.value.offset == 10
 
+    def test_null_bytes_in_source(self):
+        info = pytest.raises(SyntaxError, self.parse, "x = 0\x00\n")
+        assert "source code cannot contain null bytes" in info.value.msg
+
+    def test_null_bytes_in_comment(self):
+        info = pytest.raises(SyntaxError, self.parse, "#\x00\n")
+        assert "source code cannot contain null bytes" in info.value.msg
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
