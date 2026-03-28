@@ -1797,10 +1797,10 @@ class W_Pairwise(W_Root):
         w_prev = self.w_prev
         if w_prev is None:
             w_prev = space.next(self.w_iterator)
+            self.w_prev = w_prev  # set before fetching w_next to handle reentrancy
         w_next = space.next(self.w_iterator)
-        w_res = space.newtuple2(w_prev, w_next)
         self.w_prev = w_next
-        return w_res
+        return space.newtuple2(w_prev, w_next)
 
 def W_Pairwise__new__(space, w_subtype, w_iterable, __posonly__=None):
     r = space.allocate_instance(W_Pairwise, w_subtype)
