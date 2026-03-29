@@ -32,8 +32,6 @@ class Instruction(object):
     def __init__(self, opcode, arg=0, position_info=UNKNOWN_POSITION):
         self.opcode = opcode
         self.arg = arg
-        if opcode < ops.HAVE_ARGUMENT:
-            assert arg == 0
         self.position_info = position_info
         self.jump = None
 
