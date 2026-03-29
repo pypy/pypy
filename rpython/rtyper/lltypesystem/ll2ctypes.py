@@ -602,8 +602,10 @@ class _parentable_mixin(object):
         else:
             if not isinstance(other, lltype._parentable):
                 return False
-            if self._storage is None or other._storage is None:
+            if self._storage is None:
                 raise RuntimeError("pointer comparison with a freed structure")
+            if other._storage is None:
+                return False  # stale WeakKeyDictionary entry
             if other._storage is True:
                 return False    # the other container is not ctypes-based
             addressof_other = other._addressof_storage()
