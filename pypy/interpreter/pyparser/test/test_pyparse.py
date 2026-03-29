@@ -585,3 +585,20 @@ class TestIncompleteInput(object):
     def test_line_continuation(self):
         self.check_incomplete("a = \\")
         self.check_incomplete("a = '\\")
+
+    def test_invalid_with_explicit_newline(self):
+        # An expression that is genuinely invalid (not just incomplete) should
+        # raise "invalid syntax" when it ends with an explicit newline.
+        # CPython behaviour: compile("a @\n", ..., PyCF_ALLOW_INCOMPLETE_INPUT)
+        # raises SyntaxError("invalid syntax"), not "incomplete input".
+        msg = self.check_error("a @\n")
+        assert "invalid syntax" in msg, msg
+
+    def test_if_with_explicit_newline(self):
+        # An 'if' header ending with an explicit newline is still incomplete
+        # (it needs an indented body), so "incomplete input" must be raised.
+        self.check_incomplete("if True:\n")
+        self.check_incomplete("while True:\n")
+        self.check_incomplete("for x in y:\n")
+        self.check_incomplete("def f():\n")
+

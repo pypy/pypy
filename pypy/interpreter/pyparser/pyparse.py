@@ -194,6 +194,13 @@ class PegParser(object):
             source_lines[-1] += '\n'
         if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+            compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+        else:
+            # single mode and source does not end with '\n': the input may be
+            # genuinely incomplete (more lines could follow). Mark this in
+            # compile_info.flags so parse_meth_or_raise can use the heuristic.
+            # (We do NOT change 'flags' here, to preserve tokenizer behaviour.)
+            compile_info.flags |= consts.PyCF_DONT_IMPLY_DEDENT
 
         try:
             # Note: we no longer pass the CO_FUTURE_* to the tokenizer,

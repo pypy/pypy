@@ -271,12 +271,14 @@ class Parser:
         res = meth(self)
         if res is None:
             tok = self.diagnose()
-            if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
-                # bit of a heuristic: if the remaining tokens are ENDMARKER,
-                # NEWLINE, DEDENT then more input could fix things, so we raise
-                # "incomplete input"
+            if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
+                    self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT):
+                # bit of a heuristic: if the source does not end with a newline
+                # (PyCF_DONT_IMPLY_DEDENT is set) and the remaining tokens are
+                # ENDMARKER, NEWLINE, DEDENT then more input could fix things,
+                # so we raise "incomplete input"
                 for index in range(self._highwatermark, len(self._tokens)):
-                    typ = tok.token_type
+                    typ = self._tokens[index].token_type
                     if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
                             typ != tokens.DEDENT):
                         break
@@ -303,6 +305,11 @@ class Parser:
         return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
+        if self.call_invalid_rules:
+            # The call_invalid_rules pass is purely for generating better error
+            # messages. Suppress warnings here to avoid emitting duplicates:
+            # the first (normal) parse pass already emitted them.
+            return
         from pypy.interpreter import error
         from pypy.module._warnings.interp_warnings import warn_explicit
         space = self.space
@@ -523,6 +530,14 @@ class Parser:
 
     def raise_indentation_error(self, msg):
         """Raise an indentation error."""
+        if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
+                msg.startswith("expected an indented block")):
+            # When checking for incomplete input, "expected an indented block"
+            # means the block-requiring construct (if/while/for/def/...) was
+            # written but its body was not yet provided. Report "incomplete
+            # input" so that codeop._maybe_compile can detect it and return
+            # None rather than raising SyntaxError.
+            msg = "incomplete input"
         self._raise_syntax_error(msg, cls=IndentationError)
 
     def get_expr_name(self, node):

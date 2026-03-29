@@ -49,3 +49,17 @@ def test_fstring_invalid_escape():
             eval('f"\\{8}"')
     assert not w
     assert excinfo.value.filename == '<string>'
+
+def test_invalid_escape_plus_syntax_error_single_warning():
+    # When a string literal contains an invalid escape sequence AND the
+    # surrounding expression is a SyntaxError, the DeprecationWarning must
+    # be emitted exactly once. The call_invalid_rules second parse pass must
+    # not re-emit it.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always', category=DeprecationWarning)
+        try:
+            compile("'\\e' 1", '<test>', 'single')
+        except SyntaxError:
+            pass
+    dep = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(dep) == 1, dep
