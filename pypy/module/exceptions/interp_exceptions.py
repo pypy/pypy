@@ -360,10 +360,16 @@ class W_ImportError(W_Exception):
     w_msg = None
 
     @jit.unroll_safe
-    @unwrap_spec(w_name=WrappedDefault(None), w_path=WrappedDefault(None))
-    def descr_init(self, space, args_w, __kwonly__, w_name=None, w_path=None):
-        self.w_name = w_name
-        self.w_path = w_path
+    def descr_init(self, space, __args__):
+        args_w, kwargs_w = __args__.unpack()
+        w_name = kwargs_w.pop("name", None)
+        w_path = kwargs_w.pop("path", None)
+        if kwargs_w:
+            for key in kwargs_w:
+                raise oefmt(space.w_TypeError,
+                    "'%s' is an invalid keyword argument for ImportError", key)
+        self.w_name = w_name if w_name is not None else space.w_None
+        self.w_path = w_path if w_path is not None else space.w_None
         if len(args_w) == 1:
             self.w_msg = args_w[0]
         else:
