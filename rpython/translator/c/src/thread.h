@@ -14,7 +14,6 @@ typedef enum RPyLockStatus {
 #ifdef _WIN32
 #define RPYTHREAD_NAME "win7"
 #include "thread_win7.h"
-#endif
 #else
 
 /* We should check if unistd.h defines _POSIX_THREADS, but sometimes
