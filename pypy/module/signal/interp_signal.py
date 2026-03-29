@@ -155,6 +155,17 @@ class Handlers:
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
 
+def _report_wakeup_fd_error(space, errno_val):
+    from pypy.interpreter.error import OperationError
+    try:
+        w_exc = space.call_function(space.w_OSError, space.newint(errno_val))
+        operr = OperationError(space.w_OSError, w_exc)
+        operr.write_unraisable(
+            space,
+            "when trying to write to the signal wakeup fd",
+            with_traceback=True)
+    except Exception:
+        pass
 
 def _report_wakeup_fd_error(space, errno_val):
     from pypy.interpreter.error import OperationError
