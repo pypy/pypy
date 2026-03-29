@@ -205,7 +205,8 @@ class PegParser(object):
             # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
             # which is expected to work independently of them.  It's
             # certainly the case for all futures in Python <= 2.7.
-            tokens = pytokenizer.generate_tokens(source_lines, flags)
+            tokens = pytokenizer.generate_tokens(source_lines, flags,
+                                                  compile_info.filename)
         except error.TokenError as e:
             if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
                     (pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or

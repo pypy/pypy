@@ -168,34 +168,35 @@ class ExceptionTests(unittest.TestCase):
             try:
                 compile(src, '<fragment>', 'exec')
             except exception as e:
-                if e.msg != msg:
-                    self.fail("expected %s, got %s" % (msg, e.msg))
+                self.assertRegex(e.msg, msg)
             else:
                 self.fail("failed to get expected SyntaxError")
 
+        # PyPy includes the actual argument in the suggestion rather than '...',
+        # so we match the common prefix/suffix with a regex.
         s = '''print "old style"'''
-        ckmsg(s, "Missing parentheses in call to 'print'. Did you mean print(...)?")
+        ckmsg(s, r"Missing parentheses in call to 'print'\. Did you mean print\(.*\)\?")
 
         s = '''print "old style",'''
-        ckmsg(s, "Missing parentheses in call to 'print'. Did you mean print(...)?")
+        ckmsg(s, r"Missing parentheses in call to 'print'\. Did you mean print\(.*\)\?")
 
         s = 'print f(a+b,c)'
-        ckmsg(s, "Missing parentheses in call to 'print'. Did you mean print(...)?")
+        ckmsg(s, r"Missing parentheses in call to 'print'\. Did you mean print\(.*\)\?")
 
         s = '''exec "old style"'''
-        ckmsg(s, "Missing parentheses in call to 'exec'. Did you mean exec(...)?")
+        ckmsg(s, r"Missing parentheses in call to 'exec'\. Did you mean exec\(.*\)\?")
 
         s = 'exec f(a+b,c)'
-        ckmsg(s, "Missing parentheses in call to 'exec'. Did you mean exec(...)?")
+        ckmsg(s, r"Missing parentheses in call to 'exec'\. Did you mean exec\(.*\)\?")
 
         # Check that we don't incorrectly identify '(...)' as an expression to the right
-        # of 'print'
-
+        # of 'print'. PyPy may give a more specific message (e.g. "invalid character"),
+        # so we just check it is not a "Missing parentheses" suggestion.
         s = 'print (a+b,c) $ 42'
-        ckmsg(s, "invalid syntax")
+        ckmsg(s, "^invalid")
 
         s = 'exec (a+b,c) $ 42'
-        ckmsg(s, "invalid syntax")
+        ckmsg(s, "^invalid")
 
         # should not apply to subclasses, see issue #31161
         s = '''if True:\nprint "No indent"'''

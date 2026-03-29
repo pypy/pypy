@@ -832,14 +832,13 @@ class W_SyntaxError(W_Exception):
             self.w_msg = args_w[0]
         if len(args_w) == 2:
             values_w = space.fixedview(args_w[1])
-            if len(values_w) > 0:
-                self.w_filename = values_w[0]
-            if len(values_w) > 1:
-                self.w_lineno = values_w[1]
-            if len(values_w) > 2:
-                self.w_offset = values_w[2]
-            if len(values_w) > 3:
-                self.w_text = values_w[3]
+            if len(values_w) < 4:
+                raise oefmt(space.w_TypeError,
+                    "function missing required argument 'info[3]' (pos 4)")
+            self.w_filename = values_w[0]
+            self.w_lineno = values_w[1]
+            self.w_offset = values_w[2]
+            self.w_text = values_w[3]
             if len(values_w) == 5:
                 raise oefmt(space.w_TypeError, "end_offset must be provided when end_lineno is provided")
             if len(values_w) == 6:
@@ -912,7 +911,20 @@ class W_SyntaxError(W_Exception):
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
+            arg = text[len("exec"):].strip()
+            if arg.endswith(";"):
+                arg = arg[:-1].strip()
+            suggestion = "exec(%s)" % arg
+            compiler = space.createcompiler()
+            try:
+                compiler.compile(suggestion, '?', 'eval', 0)
+            except OperationError:
+                self.w_msg = space.newtext(
+                    "Missing parentheses in call to 'exec'")
+            else:
+                self.w_msg = space.newtext(
+                    "Missing parentheses in call to 'exec'. Did you mean %s?" % (
+                        suggestion,))
             return True
         return False
 

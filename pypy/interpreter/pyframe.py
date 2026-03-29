@@ -675,7 +675,10 @@ class PyFrame(W_Root):
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         if self.get_w_f_trace() is None:
-            return space.newint(self.get_last_lineno())
+            lineno = self.get_last_lineno()
+            if lineno == -1:
+                return space.w_None
+            return space.newint(lineno)
         else:
             f_lineno = self.getorcreatedebug().f_lineno
             if f_lineno == -1:
