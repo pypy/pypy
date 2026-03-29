@@ -2479,6 +2479,7 @@ def _divmod_fast_pos(a, b):
         index += 1
 
     a_digits_index = len(a_digits_base_two_pow_n) - 1
+    assert a_digits_index >= 0
     if a_digits_base_two_pow_n[a_digits_index].ge(b):
         r = NULLRBIGINT
     else:

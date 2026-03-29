@@ -55,6 +55,12 @@ RPY_EXTERN
 void *pypysig_getaddr_occurred(void);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
 
+/* siginterrupt(2) is deprecated on Linux; use sigaction instead */
+#ifndef _WIN32
+RPY_EXTERN
+int pypysig_siginterrupt(int sig, int flag);
+#endif
+
 inline static char pypysig_check_and_reset(void) {
     /* used by reverse_debugging */
     char result = --pypysig_counter.inner.value < 0;
