@@ -82,6 +82,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
                              'Internal error: parser passed unquoted literal')
     ps += 1
     q = len(s) - 1
+    assert q >= 0
     if s[q] != quote:
         raise_app_valueerror(space, 'Internal error: parser passed unmatched '
                                     'quotes in literal')

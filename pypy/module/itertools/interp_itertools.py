@@ -1255,6 +1255,7 @@ class W_Product(W_Root):
     def _rotate_previous_gears(self):
         lst = self.lst
         x = len(self.gears) - 1
+        assert x >= 0
         lst[x] = self.gears[x][0]
         self.indices[x] = 0
         x -= 1

@@ -526,7 +526,7 @@ pypy_wchar2char_strict(const wchar_t *wstr, size_t *error_pos)
         error_pos[0] = (size_t)-1;
         return NULL;
     }
-    result = PyMem_Malloc(len);
+    result = PyMem_Malloc(len + 1);
     len2 = wcstombs(result, wstr, len+1);
     if (len2 == (size_t)-1 || len2 > len) {
         error_pos[0] = (size_t)-1;
