@@ -427,6 +427,11 @@ def initstdio(encoding=None, unbuffered=False, utf8_mode=False):
         _locale.setlocale(_locale.LC_CTYPE, "")
         if _WIN32 and not encoding:
             encoding = "utf-8"
+        if not encoding:
+            # Use "locale" (Python 3.10+) rather than None so that
+            # TextIOWrapper is never called with encoding=None, which would
+            # trigger EncodingWarning under -X warn_default_encoding.
+            encoding = "locale"
         if errors is None and not user_set_encoding:
             if utf8_mode or _locale.setlocale(_locale.LC_CTYPE, None) in ('C', 'POSIX'):
                 errors = 'surrogateescape'
