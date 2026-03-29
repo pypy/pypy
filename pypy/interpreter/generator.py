@@ -528,16 +528,27 @@ def gen_is_coroutine(w_obj):
     return (isinstance(w_obj, GeneratorIterator) and
             (w_obj.pycode.co_flags & consts.CO_ITERABLE_COROUTINE) != 0)
 
-def get_awaitable_iter(space, w_obj):
+def get_awaitable_iter(space, w_obj, context=0):
     # This helper function returns an awaitable for `o`:
     #    - `o` if `o` is a coroutine-object;
     #    - otherwise, o.__await__()
+    # context: 0 = plain await, 1 = __aenter__, 2 = __aexit__
 
     if isinstance(w_obj, Coroutine) or gen_is_coroutine(w_obj):
         return w_obj
 
     w_await = space.lookup(w_obj, "__await__")
     if w_await is None:
+        if context == 1:
+            raise oefmt(space.w_TypeError,
+                        "'async with' received an object from __aenter__ "
+                        "that does not implement __await__: %T",
+                        w_obj)
+        elif context == 2:
+            raise oefmt(space.w_TypeError,
+                        "'async with' received an object from __aexit__ "
+                        "that does not implement __await__: %T",
+                        w_obj)
         raise oefmt(space.w_TypeError,
                     "object %T can't be used in 'await' expression",
                     w_obj)

@@ -1406,7 +1406,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fblock_kind = F_WITH
         else:
             self.emit_op(ops.BEFORE_ASYNC_WITH)
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 1)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
@@ -1431,7 +1431,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # end of body, successful outcome, start cleanup
         self.call_exit_with_nones()
         if is_async:
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 2)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_TOP)
@@ -1443,7 +1443,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wih)
         self.emit_op(ops.WITH_EXCEPT_START)
         if is_async:
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 2)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         exit2 = self.new_block()

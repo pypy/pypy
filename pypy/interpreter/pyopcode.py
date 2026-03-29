@@ -1548,7 +1548,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.generator import get_awaitable_iter
         from pypy.interpreter.generator import Coroutine
         w_iterable = self.popvalue()
-        w_iter = get_awaitable_iter(self.space, w_iterable)
+        w_iter = get_awaitable_iter(self.space, w_iterable, oparg)
         if isinstance(w_iter, Coroutine):
             if w_iter.get_delegate() is not None:
                 # 'w_iter' is a coroutine object that is being awaited,

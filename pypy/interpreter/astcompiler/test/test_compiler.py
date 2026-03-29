@@ -2029,6 +2029,41 @@ def g():
 """
         self.st(func, "g()", None)
 
+    def test_newbytecode_async_with_bad_aenter(self):
+        # GET_AWAITABLE oparg=1: error message should mention __aenter__
+        space = self.space
+        w_err = py.test.raises(OperationError, space.appexec, [], r"""():
+            class CM:
+                def __aenter__(self): return 123
+                def __aexit__(self, *e): return 456
+            async def f():
+                async with CM(): pass
+            c = f()
+            c.send(None)
+        """)
+        assert w_err.value.match(space, space.w_TypeError)
+        msg = w_err.value.errorstr(space)
+        assert "__aenter__" in msg
+        assert "does not implement __await__" in msg
+
+    def test_newbytecode_async_with_bad_aexit(self):
+        # GET_AWAITABLE oparg=2: error message should mention __aexit__
+        space = self.space
+        w_err = py.test.raises(OperationError, space.appexec, [], r"""():
+            class CM:
+                async def __aenter__(self): return self
+                def __aexit__(self, *e): return 456
+            async def f():
+                async with CM(): pass
+            c = f()
+            try: c.send(None)
+            except StopIteration: c.send(None)
+        """)
+        assert w_err.value.match(space, space.w_TypeError)
+        msg = w_err.value.errorstr(space)
+        assert "__aexit__" in msg
+        assert "does not implement __await__" in msg
+
     def test_newbytecode_reraise_no_match(self):
         space = self.space
         space.raises_w(space.w_KeyError,
