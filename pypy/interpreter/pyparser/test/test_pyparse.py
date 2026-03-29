@@ -214,6 +214,14 @@ if 1:
         pytest.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         pytest.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
 
+    def test_null_bytes_rejected(self):
+        # bpo-24022, bpo-25388: null bytes must always raise SyntaxError with
+        # the right message, even when PyCF_ACCEPT_NULL_BYTES is set.
+        for src in [b'0000\x00\n', b'#\x00\n']:
+            for flags in [0, consts.PyCF_ACCEPT_NULL_BYTES]:
+                exc = pytest.raises(SyntaxError, self.parse, src, flags=flags)
+                assert "null bytes" in exc.value.msg
+
     def test_unpack(self):
         self.parse('[*{2}, 3, *[4]]')
         self.parse('{*{2}, 3, *[4]}')

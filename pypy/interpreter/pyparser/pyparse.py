@@ -176,8 +176,7 @@ class PegParser(object):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
-        from pypy.interpreter.astcompiler.consts import PyCF_ACCEPT_NULL_BYTES
-        if '\x00' in bytessrc and not (compile_info.flags & PyCF_ACCEPT_NULL_BYTES):
+        if '\x00' in bytessrc:
             raise error.SyntaxError("source code cannot contain null bytes",
                                     filename=compile_info.filename)
         textsrc = PythonParser._handle_encoding(bytessrc, compile_info, self.space)
