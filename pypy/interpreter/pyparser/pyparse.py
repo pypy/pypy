@@ -114,6 +114,7 @@ class PythonParser(object): # leave class for mergeability of _handle_encoding
             explicit_encoding = (decl_enc is not None)
             if decl_enc and _normalize_encoding(decl_enc) != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
+                                        offset=-1,
                                         filename=compile_info.filename)
             textsrc = bytessrc
         else:

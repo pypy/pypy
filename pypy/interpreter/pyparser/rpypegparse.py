@@ -5326,7 +5326,7 @@ class PythonParser(Parser):
             if literal:
                 _tmp_217 = self._tmp_217()
                 if _tmp_217:
-                    return self . raise_syntax_error ( "expected one or more exception types" )
+                    return self . raise_syntax_error_known_location ( "expected one or more exception types" , _tmp_217 )
         self._index = mark
         return None
 

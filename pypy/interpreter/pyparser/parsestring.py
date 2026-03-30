@@ -117,7 +117,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
     # Disallow non-ascii characters (but not escapes)
     for i, c in enumerate(substr):
         if ord(c) > 0x7F:
-            raise SyntaxError("bytes can only contain ASCII literal characters.",
+            raise SyntaxError("bytes can only contain ASCII literal characters",
                 token.lineno, token.column + ps + i + 1)
 
     if rawmode or '\\' not in substr:

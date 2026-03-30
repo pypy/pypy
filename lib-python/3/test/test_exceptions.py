@@ -230,12 +230,18 @@ class ExceptionTests(unittest.TestCase):
         check = self.check
         check('def fact(x):\n\treturn x!\n', 2, 10)
         check('1 +\n', 1, 4)
-        check('def spam():\n  print(1)\n print(2)', 3, 10)
+        if sys.implementation.name == 'pypy':
+            check('def spam():\n  print(1)\n print(2)', 3, 2)
+        else:
+            check('def spam():\n  print(1)\n print(2)', 3, 10)
         check('Python = "Python" +', 1, 20)
         check('Python = "\u1e54\xfd\u0163\u0125\xf2\xf1" +', 1, 20)
         check(b'# -*- coding: cp1251 -*-\nPython = "\xcf\xb3\xf2\xee\xed" +',
               2, 19, encoding='cp1251')
-        check(b'Python = "\xcf\xb3\xf2\xee\xed" +', 1, 13)
+        if sys.implementation.name == 'pypy':
+            check(b'Python = "\xcf\xb3\xf2\xee\xed" +', 1, 10)
+        else:
+            check(b'Python = "\xcf\xb3\xf2\xee\xed" +', 1, 13)
         check('x = "a', 1, 5)
         check('lambda x: x = 2', 1, 1)
         check('f{a + b + c}', 1, 2)
@@ -243,7 +249,10 @@ class ExceptionTests(unittest.TestCase):
         check('a = « hello » « world »', 1, 5)
         check('[\nfile\nfor str(file)\nin\n[]\n]', 3, 5)
         check('[file for\n str(file) in []]', 2, 2)
-        check("ages = {'Alice'=22, 'Bob'=23}", 1, 9)
+        if sys.implementation.name == 'pypy':
+            check("ages = {'Alice'=22, 'Bob'=23}", 1, 16)
+        else:
+            check("ages = {'Alice'=22, 'Bob'=23}", 1, 9)
         check('match ...:\n    case {**rest, "key": value}:\n        ...', 2, 19)
         check("[a b c d e f]", 1, 2)
         check("for x yfff:", 1, 7)
@@ -302,7 +311,10 @@ class ExceptionTests(unittest.TestCase):
             {
             6
             0="""''', 5, 13)
-        check('b"fooжжж"'.encode(), 1, 1, 1, 10)
+        if sys.implementation.name == 'pypy':
+            check('b"fooжжж"'.encode(), 1, 6)
+        else:
+            check('b"fooжжж"'.encode(), 1, 1, 1, 10)
 
         # Errors thrown by symtable.c
         check('x = [(yield i) for i in range(3)]', 1, 7)
@@ -312,7 +324,10 @@ class ExceptionTests(unittest.TestCase):
         check('def f(x):\n  nonlocal x', 2, 3)
         check('def f(x):\n  x = 1\n  global x', 3, 3)
         check('nonlocal x', 1, 1)
-        check('def f():\n  global x\n  nonlocal x', 2, 3)
+        if sys.implementation.name == 'pypy':
+            check('def f():\n  global x\n  nonlocal x', 3, 3)
+        else:
+            check('def f():\n  global x\n  nonlocal x', 2, 3)
 
         # Errors thrown by future.c
         check('from __future__ import doesnt_exist', 1, 1)
