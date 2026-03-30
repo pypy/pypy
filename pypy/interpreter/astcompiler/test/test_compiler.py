@@ -2239,8 +2239,8 @@ x = brokenargs(c=3)
         self.st(func, "x", [1, 2, 3])
 
     def test_keyword_repeated(self):
-        yield self.error_test, "f(a=c, a=d)", SyntaxError, "keyword argument repeated: 'a'"
-        yield self.error_test, "class A(metaclass=c, metaclass=d): pass", SyntaxError, "keyword argument repeated: 'metaclass'"
+        yield self.error_test, "f(a=c, a=d)", SyntaxError, "keyword argument repeated: a"
+        yield self.error_test, "class A(metaclass=c, metaclass=d): pass", SyntaxError, "keyword argument repeated: metaclass"
 
     def test_while_false_break(self):
         self.st("x=1\nwhile False: break", "x", 1)

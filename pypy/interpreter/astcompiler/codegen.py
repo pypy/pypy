@@ -2885,7 +2885,7 @@ class CallCodeGenerator(object):
                 continue
             if kw.arg in self.seen_keyword_names:
                 self.codegenerator.error(
-                        "keyword argument repeated: '%s'" % (kw.arg, ), kw)
+                        "keyword argument repeated: %s" % (kw.arg, ), kw)
             self.seen_keyword_names[kw.arg] = None
             if len(self.keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
                 self._pack_kwargs_into_dict()
