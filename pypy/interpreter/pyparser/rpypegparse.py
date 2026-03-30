@@ -5699,6 +5699,12 @@ class PythonParser(Parser):
                 if self.positive_lookahead(PythonParser._tmp_226, ):
                     return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a )
         self._index = mark
+        a = self.expression()
+        if a:
+            b = self.expect_type(22)
+            if b:
+                return self . raise_syntax_error_known_location ( "':' expected after dictionary key" , b )
+        self._index = mark
         return None
 
     def invalid_kvpair(self): # type Optional[None]

@@ -541,6 +541,12 @@ try:
 except* ValueError:
     pass""")
 
+    def test_dict_with_equals_suggests_colon(self):
+        # ages = {'Alice'=22} should suggest ':' instead of generic "invalid syntax"
+        exc = pytest.raises(SyntaxError, self.parse, "ages = {'Alice'=22, 'Bob'=23}").value
+        assert exc.msg == "':' expected after dictionary key"
+        assert exc.offset == 16  # points at '='
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
