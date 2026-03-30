@@ -2106,15 +2106,27 @@ class ObjSpace(object):
 
     def guess_function_name_parens(self, w_function):
         """ Returns 'funcname()' from callable w_function. If it's not a
-        function or a method, returns 'Classname object'"""
+        function or a method, returns repr(w_function)"""
         # XXX this is super annoying to compute every time we do a function call!
-        # CPython has a similar function, PyEval_GetFuncName
+        # CPython has a similar function, _PyObject_FunctionStr
         from pypy.interpreter.function import Function, _Method
         if isinstance(w_function, Function):
-            return w_function.qualname + '()'
+            qualname = w_function.qualname
+            w_module = w_function.fget___module__(self)
+            if not self.is_w(w_module, self.w_None):
+                try:
+                    module = self.text_w(w_module)
+                    if module and module != 'builtins':
+                        return module + '.' + qualname + '()'
+                except OperationError:
+                    pass
+            return qualname + '()'
         if isinstance(w_function, _Method):
             return self.guess_function_name_parens(w_function.w_function)
-        return self.type(w_function).getname(self) + ' object'
+        try:
+            return self.text_w(self.repr(w_function))
+        except OperationError:
+            return self.type(w_function).getname(self) + ' object'
 
 
 class AppExecCache(SpaceCache):
