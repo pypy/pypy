@@ -256,9 +256,9 @@ def test_addr_raw_packet(space, ):
     rffi.setintfield(c_addr_ll, 'c_sll_pkttype', 13)
     rffi.setintfield(c_addr_ll, 'c_sll_hatype', 0)
     rffi.setintfield(c_addr_ll, 'c_sll_halen', 3)
-    c_addr_ll.c_sll_addr[0] = 'a'
-    c_addr_ll.c_sll_addr[1] = 'b'
-    c_addr_ll.c_sll_addr[2] = 'c'
+    c_addr_ll.c_sll_addr[0] = rffi.r_uchar(ord('a'))
+    c_addr_ll.c_sll_addr[1] = rffi.r_uchar(ord('b'))
+    c_addr_ll.c_sll_addr[2] = rffi.r_uchar(ord('c'))
     rffi.setintfield(c_addr, 'c_sa_family', socket.AF_PACKET)
     # fd needs to be somehow valid
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
