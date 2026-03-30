@@ -337,3 +337,7 @@ class TestTokenizer310Changes(object):
         error = pytest.raises(TokenError, tokenize, "\x89")
         assert error.value.msg.startswith("Non-UTF-8 code starting with '\\x89' in file")
 
+    def test_invalid_float_exponent(self):
+        # 32e-+4 has an invalid exponent; should match CPython: "invalid decimal literal" at offset=8
+        check_token_error("x = 32e-+4", "invalid decimal literal", pos=8)
+

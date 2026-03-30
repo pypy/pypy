@@ -502,6 +502,8 @@ def generate_tokens(lines, flags, filename='<unknown>'):
                 if line[pos] == "0":
                     raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
                             line, lnum, pos+1, token_list)
+                if line[pos] in NUMCHARS:
+                    _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list)
                 tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line, level=len(parenstack))
                 token_list.append(tok)
                 last_comment = ''
@@ -518,6 +520,25 @@ def generate_tokens(lines, flags, filename='<unknown>'):
 
     token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line, level=len(parenstack)))
     return token_list
+
+def _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list):
+    """Detect invalid float exponents like 32e-+4 (DFA won't match them).
+    Raises 'invalid decimal literal' at the sign position, matching CPython."""
+    i = pos
+    while i < max and line[i] in NUMCHARS:
+        i += 1
+    if i >= max or line[i] not in 'eE':
+        return
+    i += 1  # skip e/E
+    if i < max and line[i] in '+-':
+        sign_pos = i
+        i += 1
+    else:
+        sign_pos = -1
+    if i < max and line[i] in NUMCHARS:
+        return  # valid exponent
+    err_pos = sign_pos if sign_pos >= 0 else i - 1
+    raise TokenError("invalid decimal literal", line, lnum, err_pos + 1, token_list)
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
     ch = _get_next_or_nul(line, end)
