@@ -865,8 +865,15 @@ Raises ValueError if the value is not present."""
                     if isinstance(w_obj, KeyContainer):
                         sorter.list[i] = w_obj.w_item
 
-            # check if the user mucked with the list during the sort
-            mucked = self.length() > 0
+            # check if the user mucked with the list during the sort.
+            # length() > 0 catches net-positive mutations; but append+pop
+            # leaves length==0 yet the list was touched. With list strategies
+            # enabled, any mutation switches away from EmptyListStrategy and
+            # lists never switch back, so a changed strategy means mutation.
+            if space.config.objspace.std.withliststrategies:
+                mucked = self.strategy is not space.fromcache(EmptyListStrategy)
+            else:
+                mucked = self.length() > 0
 
             # put the items back into the list
             self.__init__(space, sorter.list)

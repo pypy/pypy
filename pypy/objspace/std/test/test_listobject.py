@@ -782,6 +782,21 @@ The argument must be an iterable if specified."""
         l.sort()
         assert l == [3, 6, 9]
 
+    def test_sort_mutation_detected_append_pop(self):
+        L = [1, 2, 3]
+        def mutating_key(x):
+            L.append(99)
+            L.pop()
+            return x
+        raises(ValueError, L.sort, key=mutating_key)
+
+        L = [1, 2, 3]
+        def mutating_key2(x):
+            L.append(99)
+            del L[:]
+            return x
+        raises(ValueError, L.sort, key=mutating_key2)
+
     def test_getitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
         assert l[0] == 1
