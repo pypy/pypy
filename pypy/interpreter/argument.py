@@ -10,11 +10,11 @@ from rpython.rlib.rstring import StringBuilder
 from pypy.interpreter.error import OperationError, oefmt
 
 @specialize.arg(2)
-def raise_type_error(space, fnname_parens, msg, *args):
-    if fnname_parens is None:
+def raise_type_error(space, w_function, msg, *args):
+    if w_function is None:
         raise oefmt(space.w_TypeError, msg, *args)
     msg = "%s " + msg
-    raise oefmt(space.w_TypeError, msg, fnname_parens, *args)
+    raise oefmt(space.w_TypeError, msg, space.object_functionstr(w_function), *args)
 
 
 class Arguments(object):
@@ -30,7 +30,7 @@ class Arguments(object):
 
     def __init__(self, space, args_w, keyword_names_w=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None,
-                 methodcall=False, fnname_parens=None):
+                 methodcall=False, w_function=None):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
@@ -44,7 +44,7 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
-        self._combine_wrapped(w_stararg, w_starstararg, fnname_parens)
+        self._combine_wrapped(w_stararg, w_starstararg, w_function)
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
         self._jit_few_keywords = self.keyword_names_w is None or jit.isconstant(len(self.keyword_names_w))
@@ -82,14 +82,14 @@ class Arguments(object):
         "Return a new Arguments with a new argument inserted first."
         return self.replace_arguments([w_firstarg] + self.arguments_w)
 
-    def _combine_wrapped(self, w_stararg, w_starstararg, fnname_parens=None):
+    def _combine_wrapped(self, w_stararg, w_starstararg, w_function=None):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
         if w_stararg is not None:
-            self._combine_starargs_wrapped(w_stararg, fnname_parens)
+            self._combine_starargs_wrapped(w_stararg, w_function)
         if w_starstararg is not None:
-            self._combine_starstarargs_wrapped(w_starstararg, fnname_parens)
+            self._combine_starstarargs_wrapped(w_starstararg, w_function)
 
-    def _combine_starargs_wrapped(self, w_stararg, fnname_parens=None):
+    def _combine_starargs_wrapped(self, w_stararg, w_function=None):
         # unpack the * arguments
         space = self.space
         try:
@@ -97,13 +97,13 @@ class Arguments(object):
         except OperationError as e:
             if (e.match(space, space.w_TypeError) and
                     not space.is_iterable(w_stararg)):
-                raise_type_error(space, fnname_parens,
+                raise_type_error(space, w_function,
                             "argument after * must be an iterable, not %T",
                             w_stararg)
             raise
         self.arguments_w = self.arguments_w + args_w
 
-    def _combine_starstarargs_wrapped(self, w_starstararg, fnname_parens=None):
+    def _combine_starstarargs_wrapped(self, w_starstararg, w_function=None):
         # unpack the ** arguments
         space = self.space
         keyword_names_w, values_w = space.view_as_kwargs(w_starstararg)
@@ -114,7 +114,7 @@ class Arguments(object):
             else:
                 _check_not_duplicate_kwargs(
                     self.space, self.keyword_names_w, keyword_names_w, values_w,
-                    fnname_parens)
+                    w_function)
                 self.keyword_names_w = self.keyword_names_w + keyword_names_w
                 self.keywords_w = self.keywords_w + values_w
             return
@@ -132,7 +132,7 @@ class Arguments(object):
                 w_keys = space.call_method(w_starstararg, "keys")
             except OperationError as e:
                 if e.match(space, space.w_AttributeError):
-                    raise_type_error(space, fnname_parens,
+                    raise_type_error(space, w_function,
                                 "argument after ** must be a mapping, not %T",
                                 w_starstararg)
                 raise
@@ -141,7 +141,7 @@ class Arguments(object):
         keyword_names_w = [None] * len(keys_w)
         _do_combine_starstarargs_wrapped(
             space, keys_w, w_starstararg, keyword_names_w, keywords_w, self.keyword_names_w,
-            is_dict, fnname_parens)
+            is_dict, w_function)
         if self.keyword_names_w is None:
             self.keyword_names_w = keyword_names_w
             self.keywords_w = keywords_w
@@ -374,6 +374,11 @@ class Arguments(object):
         try:
             return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
                                blindargs)
+        except ArgErrUnknownKwds as e:
+            if not signature.has_kwarg() and signature.kwonlyargcount == 0:
+                raise oefmt(self.space.w_TypeError,
+                            "%s() takes no keyword arguments", fnname)
+            raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
         except ArgErr as e:
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())
 
@@ -399,15 +404,15 @@ class Arguments(object):
 # look at. They should not get a self arguments, which makes the amount of
 # arguments annoying :-(
 
-@jit.look_inside_iff(lambda space, existingkeywords_w, keyword_names_w, keywords_w, fnname_parens:
+@jit.look_inside_iff(lambda space, existingkeywords_w, keyword_names_w, keywords_w, w_function:
         jit.isconstant(len(keyword_names_w) and
         jit.isconstant(existingkeywords_w)))
-def _check_not_duplicate_kwargs(space, existingkeywords_w, keyword_names_w, keywords_w, fnname_parens):
+def _check_not_duplicate_kwargs(space, existingkeywords_w, keyword_names_w, keywords_w, w_function):
     # looks quadratic, but the JIT should remove all of it nicely.
     # Also, all the lists should be small
     for w_key in keyword_names_w:
         if contains_w_names(w_key, existingkeywords_w):
-            raise_type_error(space, fnname_parens,
+            raise_type_error(space, w_function,
                         "got multiple values for keyword argument '%S'",
                         w_key)
 
@@ -418,7 +423,7 @@ def contains_w_names(w_key, keys_w):
     return False
 
 def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names_w,
-        keywords_w, existingkeywords_w, is_dict, fnname_parens):
+        keywords_w, existingkeywords_w, is_dict, w_function):
     i = 0
     seen = {}
     for w_key in keys_w:
@@ -426,7 +431,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names
             key = space.text_w(w_key)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise_type_error(space, fnname_parens,
+                raise_type_error(space, w_function,
                             "keywords must be strings, not '%T'",
                             w_key)
             raise
@@ -435,7 +440,7 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keyword_names
                  contains_w_names(w_key, existingkeywords_w)) or
                 key in seen
             ):
-                raise_type_error(space, fnname_parens,
+                raise_type_error(space, w_function,
                             "got multiple values for keyword argument '%S'",
                             w_key)
         seen[key] = None

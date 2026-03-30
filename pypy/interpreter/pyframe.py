@@ -509,20 +509,14 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
-        if fnname:
-            import pdb;pdb.set_trace()
-        fnname_parens = self.space.guess_function_name_parens(w_function)
+    def make_arguments(self, nargs, methodcall=False, w_function=None):
         return Arguments(
-                self.space, self.peekvalues(nargs), methodcall=methodcall, fnname_parens=fnname_parens)
+                self.space, self.peekvalues(nargs), methodcall=methodcall, w_function=w_function)
 
-    def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
-        if fnname:
-            import pdb;pdb.set_trace()
-        fnname_parens = self.space.guess_function_name_parens(w_function)
+    def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None):
         return Arguments(
                 self.space, arguments, keyword_names_w, keywords_w, w_star,
-                w_starstar, methodcall=methodcall, fnname_parens=fnname_parens)
+                w_starstar, methodcall=methodcall, w_function=w_function)
 
     def hide(self):
         return self.pycode.hidden_applevel
