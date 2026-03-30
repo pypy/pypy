@@ -278,10 +278,12 @@ def _unwrap_dirfd(space, w_value):
         return unwrap_fd(space, w_value, allowed_types="integer or None")
 
 class _DirFD(Unwrapper):
+    text_default = None  # user-visible default is None; actual sentinel is DEFAULT_DIR_FD
     def unwrap(self, space, w_value):
         return _unwrap_dirfd(space, w_value)
 
 class _DirFD_Unavailable(Unwrapper):
+    text_default = None  # user-visible default is None; actual sentinel is DEFAULT_DIR_FD
     def unwrap(self, space, w_value):
         dir_fd = _unwrap_dirfd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:

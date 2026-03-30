@@ -1076,7 +1076,9 @@ class HTMLDoc(Doc):
                 note = ' method of %s instance' % self.classlink(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              inspect.ismethodwrapper(object)):
+              #PyPy change
+              inspect.ismethodwrapper(object) or
+              hasattr(object, '__objclass__')):
             try:
                 objclass = object.__objclass__
             except AttributeError:
@@ -1534,7 +1536,9 @@ location listed above.
                 note = ' method of %s instance' % classname(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              inspect.ismethodwrapper(object)):
+              #PyPy change
+              inspect.ismethodwrapper(object) or
+              hasattr(object, '__objclass__')):
             try:
                 objclass = object.__objclass__
             except AttributeError:
