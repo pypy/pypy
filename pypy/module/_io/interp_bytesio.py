@@ -49,8 +49,22 @@ class BytesIOBuffer(Buffer):
             w_bytesio.seek(tell)
 
 
+class BytesIOView(SimpleView):
+    """SimpleView that tracks exports on W_BytesIO, decrementing on release."""
+    _immutable_ = True
+    _attrs_ = ['w_bytesio']
+
+    def __init__(self, data, w_bytesio):
+        SimpleView.__init__(self, data, w_obj=w_bytesio)
+        self.w_bytesio = w_bytesio
+
+    def releasebuffer(self):
+        self.w_bytesio.export_count -= 1
+
+
 class W_BytesIO(W_BufferedIOBase):
     import_from_mixin(RStringIO)
+    export_count = 0
 
     def __init__(self, space):
         W_BufferedIOBase.__init__(self, space, add_to_autoflusher=False)
@@ -62,6 +76,7 @@ class W_BytesIO(W_BufferedIOBase):
         return self
 
     def descr_init(self, space, w_initial_bytes=None):
+        self._check_exports(space)
         self.init()
         if not space.is_none(w_initial_bytes):
             self.write_w(space, w_initial_bytes)
@@ -72,6 +87,11 @@ class W_BytesIO(W_BufferedIOBase):
             if message is None:
                 message = "I/O operation on closed file"
             raise OperationError(space.w_ValueError, space.newtext(message))
+
+    def _check_exports(self, space):
+        if self.export_count > 0:
+            raise oefmt(space.w_BufferError,
+                        "Existing exports of data: object cannot be re-sized")
 
     def read_w(self, space, w_size=None):
         self._check_closed(space)
@@ -97,6 +117,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def write_w(self, space, w_data):
         self._check_closed(space)
+        self._check_exports(space)
         buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
@@ -106,6 +127,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
+        self._check_exports(space)
 
         pos = self.tell()
         if space.is_none(w_size):
@@ -125,7 +147,8 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return SimpleView(BytesIOBuffer(self), w_obj=self).wrap(space)
+        self.export_count += 1
+        return BytesIOView(BytesIOBuffer(self), w_bytesio=self).wrap(space)
 
     def getvalue_w(self, space):
         self._check_closed(space)
