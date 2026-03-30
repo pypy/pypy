@@ -2041,7 +2041,7 @@ def _dict_merge(space, w_dict, w_item, w_function):
         if not space.ismapping_w(w_item):
             raise oefmt(space.w_TypeError,
                         "%s argument after ** must be a mapping, not %T",
-                        space.guess_function_name_parens(w_function), w_item)
+                        space.object_functionstr(w_function), w_item)
     else:
         l2 = space.len_w(w_item)
         if l1 == 0:
@@ -2062,7 +2062,7 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
             raise
         raise oefmt(space.w_TypeError,
                     "%s argument after ** must be a mapping, not %T",
-                    space.guess_function_name_parens(w_function), w_item)
+                    space.object_functionstr(w_function), w_item)
     while True:
         try:
             w_key = space.next(w_iterator)
@@ -2074,7 +2074,7 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
         if space.contains_w(w_dict, w_key):
             raise oefmt(space.w_TypeError,
                 "%s got multiple values for keyword argument %R",
-                space.guess_function_name_parens(w_function), w_key)
+                space.object_functionstr(w_function), w_key)
         space.setitem(w_dict, w_key, w_value)
 
 def _copy_dict_without_keys(space, w_keys, w_subject):
