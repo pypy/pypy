@@ -63,7 +63,10 @@ class structseqtype(type):
             n_sequence_fields += 1
 
         dict['n_sequence_fields'] = n_sequence_fields
-        dict['n_unnamed_fields'] = 0     # no fully anonymous fields in PyPy
+        # Fields with names starting with '_' are the PyPy equivalent of
+        # CPython's unnamed fields (those with NULL names in C).
+        dict['n_unnamed_fields'] = sum(
+            1 for name in sequence_fields if name.startswith('_'))
 
         extra_fields = [field for index, field in extra_fields]
         for field in extra_fields:
@@ -79,7 +82,8 @@ class structseqtype(type):
         dict['__repr__'] = structseq_repr
         dict['__str__'] = structseq_repr
         dict['_name'] = dict.get('name', classname)
-        dict['__match_args__'] = tuple(sequence_fields)
+        dict['__match_args__'] = tuple(
+            name for name in sequence_fields if not name.startswith('_'))
         return type.__new__(metacls, classname, (tuple,), dict)
 
 
