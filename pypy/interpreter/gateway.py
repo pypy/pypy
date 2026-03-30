@@ -1141,6 +1141,60 @@ class interp2app(W_Root):
         return self
 
     @not_rpython
+    def _generate_text_signature(self):
+        """Generate a __text_signature__ string for use by inspect.signature."""
+        code = self._code
+        sig = code.sig
+        # Skip signatures with *args or **kwargs -- too complex to auto-generate
+        if sig.varargname or sig.kwargname:
+            return None
+        # Build defaults map: python-visible name -> default value
+        defaults_map = {}
+        for rpyname, spec in zip(code._argnames, code._unwrap_spec):
+            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'args_w', 'w_args'):
+                continue
+            pyname = rpyname[2:] if rpyname.startswith('w_') else rpyname
+            if isinstance(spec, WrappedDefault):
+                defaults_map[pyname] = spec.default_value
+            elif rpyname in self._staticdefs:
+                if isinstance(spec, type) and issubclass(spec, Unwrapper) and hasattr(spec, 'text_default'):
+                    defaults_map[pyname] = spec.text_default
+                else:
+                    defaults_map[pyname] = self._staticdefs[rpyname]
+        argnames = sig.argnames
+        kwonly_count = sig.kwonlyargcount
+        pos_argnames = argnames[:len(argnames) - kwonly_count]
+        kw_argnames = argnames[len(argnames) - kwonly_count:]
+        posonlyargcount = sig.posonlyargcount
+        parts = []
+        if self.self_type is None:
+            parts.append('$module')
+        posonly_slash_added = False
+        for i, name in enumerate(pos_argnames):
+            if self.self_type is not None and i == 0 and name == 'self':
+                parts.append('$self')
+                continue
+            if posonlyargcount > 0 and i == posonlyargcount and not posonly_slash_added:
+                parts.append('/')
+                posonly_slash_added = True
+            if name in defaults_map:
+                parts.append('%s=%r' % (name, defaults_map[name]))
+            else:
+                parts.append(name)
+        if not kw_argnames and not posonly_slash_added:
+            parts.append('/')
+        elif posonlyargcount > 0 and not posonly_slash_added:
+            parts.append('/')
+        if kw_argnames:
+            parts.append('*')
+            for name in kw_argnames:
+                if name in defaults_map:
+                    parts.append('%s=%r' % (name, defaults_map[name]))
+                else:
+                    parts.append(name)
+        return '(' + ', '.join(parts) + ')'
+
+    @not_rpython
     def _getdefaults(self, space):
         alldefs_w = {}
         assert len(self._code._argnames) == len(self._code._unwrap_spec)
@@ -1259,6 +1313,9 @@ class GatewayCache(SpaceCache):
                                    forcename=gateway.name)
         if not space.config.translating:
             fn.add_to_table()
+        text_sig = gateway._generate_text_signature()
+        if text_sig:
+            fn.w_text_signature = space.newtext(text_sig)
         if gateway.as_classmethod:
             fn = ClassMethod(fn)
         #

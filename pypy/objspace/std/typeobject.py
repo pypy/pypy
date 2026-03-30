@@ -1754,6 +1754,7 @@ class TypeCache(SpaceCache):
                     qualname = (w_type.getqualname(space).encode('utf-8')
                                 + '.' + name)
                     w_obj.set_qualname(qualname)
+                    w_obj.set_objclass(w_type)
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat
