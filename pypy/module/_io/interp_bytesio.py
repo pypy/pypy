@@ -51,6 +51,9 @@ class BytesIOBuffer(Buffer):
 
 class BytesIOView(SimpleView):
     """SimpleView that tracks exports on W_BytesIO, decrementing on release."""
+    _immutable_ = True
+    _attrs_ = ['w_bytesio']
+
     def __init__(self, data, w_bytesio):
         SimpleView.__init__(self, data, w_obj=w_bytesio)
         self.w_bytesio = w_bytesio
