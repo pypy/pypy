@@ -480,3 +480,257 @@ def test_buffers_error():
         loads(data, buffers=[])
     except UnpicklingError:
         pass
+
+
+# ---- Tests for fixed bugs ----
+
+def test_load_int_true_false():
+    # load_int must recognise I01\n as True and I00\n as False
+    assert loads(b'I01\n.') is True
+    assert loads(b'I00\n.') is False
+    assert loads(b'I42\n.') == 42
+
+def test_load_unicode_raw_escape():
+    # UNICODE opcode uses raw-unicode-escape, not UTF-8
+    assert loads(b'V\\u03c0\n.') == u'\u03c0'
+    assert loads(b'Vhello\n.') == u'hello'
+    # null and backslash escapes
+    assert loads(b'V\\u0000\n.') == u'\x00'
+
+def test_save_bytes_proto0():
+    # bytes with high bytes must survive proto 0 round-trip
+    for proto in (0, 1, 2):
+        for b in (b'\x80', b'\xff', b'\x00\x80\xff'):
+            assert loads(dumps(b, proto)) == b
+
+def test_save_str_proto0():
+    # save_str with proto 0 must apply chained replacements correctly
+    for proto in (0,):
+        for s in (u'hello', u'a\nb', u'a\\b', u'\x00', u'\r', u'\x1a'):
+            assert loads(dumps(s, proto)) == s
+    # high-codepoint string
+    assert loads(dumps(u'\u03c0', 0)) == u'\u03c0'
+
+def test_string_opcode():
+    # STRING opcode (Python 2 compat)
+    assert loads(b"S'hello'\n.") == u'hello'
+    assert loads(b'S"hello"\n.') == u'hello'
+    assert loads(b"S'\\x41'\n.") == u'A'
+
+def test_binstring_opcode():
+    # BINSTRING opcode (Python 2 compat)
+    data = b'T\x05\x00\x00\x00hello.'
+    assert loads(data) == u'hello'
+
+def test_short_binstring_opcode():
+    # SHORT_BINSTRING opcode (Python 2 compat)
+    data = b'U\x05hello.'
+    assert loads(data) == u'hello'
+
+def test_string_opcode_bytes_encoding():
+    # With encoding='bytes', STRING gives bytes not str
+    import io
+    f = io.BytesIO(b"S'hello'\n.")
+    u = Unpickler(f, encoding='bytes')
+    assert u.load() == b'hello'
+
+def test_file_write_none_return():
+    # Pickler must work even when file.write() returns None
+    import io
+    class NoneWriter:
+        def __init__(self):
+            self.buf = b''
+        def write(self, data):
+            self.buf += data
+            # return None (no return value)
+    w = NoneWriter()
+    p = Pickler(w, 4)
+    p.dump(42)
+    assert loads(w.buf) == 42
+
+def test_buffers_as_list():
+    # Unpickler must accept a list for buffers= (not just iterators)
+    from pickle import PickleBuffer
+    pb = PickleBuffer(b'hello')
+    collected = []
+    data = dumps(pb, 5, buffer_callback=collected.append)
+    result = loads(data, buffers=collected)    # list, not iterator
+    assert result == b'hello'
+
+def test_buffers_exhausted_error():
+    # Consuming more out-of-band buffers than provided must raise UnpicklingError
+    from pickle import PickleBuffer
+    pb = PickleBuffer(b'hello')
+    data = dumps(pb, 5, buffer_callback=[].append)
+    try:
+        loads(data, buffers=[])
+    except UnpicklingError:
+        pass
+    else:
+        assert False, "expected UnpicklingError"
+
+def test_reducer_override():
+    # reducer_override must be called with object as single argument
+    import io
+    class MyPickler(Pickler):
+        def reducer_override(self, obj):
+            if isinstance(obj, int):
+                return str, (str(obj),)
+            return NotImplemented
+    f = io.BytesIO()
+    p = MyPickler(f, 4)
+    p.dump(42)
+    result = loads(f.getvalue())
+    assert result == '42'
+
+def test_dispatch_table_on_instance():
+    # dispatch_table set on instance must override default pickling
+    import io
+    f = io.BytesIO()
+    p = Pickler(f, 4)
+    p.dispatch_table = {complex: lambda c: (str, (str(c),))}
+    p.dump(1+2j)
+    assert loads(f.getvalue()) == '(1+2j)'
+
+def test_dispatch_table_on_class():
+    # dispatch_table set as class attribute must also work
+    import io
+    class MyPickler(Pickler):
+        dispatch_table = {complex: lambda c: (str, (str(c),))}
+    f = io.BytesIO()
+    p = MyPickler(f, 4)
+    p.dump(1+2j)
+    assert loads(f.getvalue()) == '(1+2j)'
+
+def test_persistent_id():
+    # Pickler subclass with persistent_id must write PERSID/BINPERSID
+    import io
+    class MyPickler(Pickler):
+        def persistent_id(self, obj):
+            if isinstance(obj, int):
+                return 'int:%d' % obj
+            return None
+    class MyUnpickler(Unpickler):
+        def persistent_load(self, pid):
+            if pid.startswith('int:'):
+                return int(pid[4:])
+            raise UnpicklingError("bad pid")
+    for proto in range(6):
+        f = io.BytesIO()
+        p = MyPickler(f, proto)
+        p.dump([1, 2, 'hello'])
+        f.seek(0)
+        u = MyUnpickler(f)
+        result = u.load()
+        assert result == [1, 2, 'hello']
+
+def test_pickler_clear_memo():
+    # clear_memo must reset the memo dict
+    import io
+    f = io.BytesIO()
+    p = Pickler(f, 4)
+    p.dump('hello')
+    assert len(p.memo) > 0
+    p.clear_memo()
+    assert len(p.memo) == 0
+
+def test_pickler_memo_property():
+    # memo property must be gettable/settable
+    import io
+    f1 = io.BytesIO()
+    p1 = Pickler(f1, 4)
+    p1.dump('hello')
+    memo = p1.memo
+    assert isinstance(memo, dict)
+
+    # priming: set memo on second pickler
+    f2 = io.BytesIO()
+    p2 = Pickler(f2, 4)
+    p2.memo = memo
+    p2.dump('hello')
+    # second pickle should use memo (shorter, no re-serialization)
+    assert len(f2.getvalue()) < len(f1.getvalue())
+
+def test_unpickler_memo_property():
+    # memo property on Unpickler must be gettable/settable
+    import io
+    data = dumps('hello')
+    f = io.BytesIO(data)
+    u = Unpickler(f)
+    u.load()
+    memo = u.memo
+    assert isinstance(memo, dict)
+
+def test_pickler_new_without_file():
+    # Pickler subclass that doesn't call super().__init__ should raise on dump
+    class BadPickler(Pickler):
+        def __init__(self):
+            pass   # does NOT call super().__init__
+    p = BadPickler()
+    try:
+        p.dump(42)
+    except PicklingError:
+        pass
+    else:
+        assert False, "expected PicklingError"
+
+def test_pickler_bad_file():
+    # Pickler(bad_file) must raise TypeError if file has no write()
+    class NoWrite:
+        pass
+    try:
+        Pickler(NoWrite(), 4)
+    except TypeError:
+        pass
+    else:
+        assert False, "expected TypeError"
+
+def test_load_setitems_odd():
+    # SETITEMS with odd number of items must raise UnpicklingError
+    # }(NNNu. => empty dict, MARK, 3 Nones, SETITEMS
+    try:
+        loads(b'}(NNNu.')
+    except (UnpicklingError, IndexError):
+        pass
+    else:
+        assert False, "expected error"
+
+def test_frame_readline():
+    # readline inside a framed pickle (proto 4) must work correctly
+    # pickle.dumps(42, 0) uses INT opcode with \n - test it survives framing
+    for proto in (4, 5):
+        data = dumps(u'line1\nline2', proto)
+        assert loads(data) == u'line1\nline2'
+    # Also test a string needing readline in protocol 0
+    data = dumps(u'hello', 0)
+    assert loads(data) == u'hello'
+
+def test_newobj_ex_proto2():
+    # save_reduce with __newobj_ex__ and proto < 4 must fall back to REDUCE
+    # (NEWOBJ_EX opcode is only available in proto >= 4)
+    import io
+    import copyreg
+    for proto in (2, 3):
+        f = io.BytesIO()
+        p = Pickler(f, proto)
+        # Register a reducer for int that returns a __newobj_ex__ tuple.
+        # copyreg.__newobj_ex__(cls, args, kwargs) calls cls(*args, **kwargs).
+        p.dispatch_table = {int: lambda x: (copyreg.__newobj_ex__, (int, (x,), {}))}
+        p.dump(42)
+        data = f.getvalue()
+        result = loads(data)
+        assert result == 42
+        # NEWOBJ_EX opcode (0xd2) must NOT appear for proto < 4
+        assert b'\xd2' not in data, "NEWOBJ_EX opcode must not appear in proto < 4"
+
+def test_readonly_buffer():
+    # READONLY_BUFFER opcode must make buffer read-only
+    from pickle import PickleBuffer
+    import io
+    bufs = []
+    pb = PickleBuffer(bytearray(b'mutable'))
+    data = dumps(pb, 5, buffer_callback=bufs.append)
+    # Load with a readonly version
+    readonly_buf = memoryview(bufs[0]).toreadonly()
+    result = loads(data, buffers=[readonly_buf])
+    assert bytes(result) == b'mutable'

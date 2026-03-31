@@ -81,10 +81,9 @@ def dumps(obj, protocol=None, *, fix_imports=True, buffer_callback=None):
     from _pickle import Pickler
     import _io
     f = _io.BytesIO()
-    assert fix_imports
     if protocol is None:
         protocol = 4
-    Pickler(f, protocol).dump(obj)
+    Pickler(f, protocol, fix_imports=fix_imports, buffer_callback=buffer_callback).dump(obj)
     res = f.getvalue()
     assert isinstance(res, bytes_types)
     return res
