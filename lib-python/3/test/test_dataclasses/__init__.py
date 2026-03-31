@@ -7,6 +7,7 @@ from dataclasses import *
 import abc
 import io
 import pickle
+import sys
 import inspect
 import builtins
 import types
@@ -3169,9 +3170,11 @@ class TestSlots(unittest.TestCase):
 
         self.assertNotIn("__weakref__", A.__slots__)
         a = A()
-        with self.assertRaisesRegex(TypeError,
-                                    "cannot create weak reference"):
-            weakref.ref(a)
+        #PyPy change: PyPy allows weakrefs to all objects regardless of __slots__
+        if sys.implementation.name != 'pypy':
+            with self.assertRaisesRegex(TypeError,
+                                        "cannot create weak reference"):
+                weakref.ref(a)
         with self.assertRaises(AttributeError):
             a.__weakref__
 

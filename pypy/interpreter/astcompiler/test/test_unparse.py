@@ -41,9 +41,13 @@ class TestAstUnparser:
     def test_num(self):
         self.check("1")
         self.check("1.64")
+        import sys
+        infstr = "1e" + str(sys.float_info.max_10_exp + 1)
+        self.check("1e1000", infstr)
+        self.check("1e1000j", infstr + "j")
 
     def test_str(self):
-        self.check("u'a'", "'a'")
+        self.check("u'a'")
 
     def test_bytes(self):
         self.check("b'a'")
@@ -189,6 +193,12 @@ class TestAstUnparseAnnotations(object):
 
     def test_yield_not_allowed(self):
         ast = self.get_ast("""def f():\n    a: (yield)""")
+        func = ast.body[0]
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
+
+    def test_yield_from_not_allowed(self):
+        ast = self.get_ast("""def f():\n    a: (yield from x)""")
         func = ast.body[0]
         with pytest.raises(SyntaxError):
             unparse_annotations(self.space, func)
