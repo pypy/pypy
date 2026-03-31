@@ -58,6 +58,11 @@ def _get_printable_location(typ, greenkey):
 jitdriver_setitems = jit.JitDriver(name="Pickler._batch_setitems", greens=["typ", "greenkey"], reds="auto",
                                get_printable_location=_get_printable_location)
 
+def _get_printable_location(opcode):
+    return 'Unpickler.load opcode=%d' % opcode
+jitdriver_load = jit.JitDriver(name="Unpickler.load", greens=["opcode"], reds="auto",
+                               get_printable_location=_get_printable_location)
+
 class Opcodes(object):
     MARK           = b'('   # push special markobject on stack
     STOP           = b'.'   # every pickle ends with STOP
@@ -1708,9 +1713,11 @@ class W_Unpickler(W_Root):
                 if e.match(space, unpickling_error(space)):
                     raise oefmt(space.w_EOFError, "Ran out of input")
                 raise
-            if key[0] == op.STOP[0]:
+            opcode = ord(key[0])
+            if opcode == ord(op.STOP[0]):
                 return data_pop(self.space, self.stack)
-            self.dispatch[ord(key[0])](self)
+            jitdriver_load.jit_merge_point(opcode=opcode)
+            self.dispatch[opcode](self)
 
     def read1(self):
         return self._unframer.read1()
