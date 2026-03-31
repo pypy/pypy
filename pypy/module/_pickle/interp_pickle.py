@@ -414,7 +414,7 @@ class W_Pickler(W_Root):
         self.proto = protocol
         self.bin = protocol >= 1
         self.fast = 0
-        self.pers_func = None
+        self.pers_func = None  # updated below and via set_pers_func_w
         self.w_dispatch_table = None
         self.w_reducer_override = None
         self.w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
@@ -432,6 +432,10 @@ class W_Pickler(W_Root):
             self.framer = _Framer(space, w_file)
         else:
             self.framer = None
+        # Cache persistent_id if defined on a subclass (avoids findattr per save()).
+        w_pers = space.findattr(self, space.newtext('persistent_id'))
+        if w_pers is not None:
+            self.pers_func = w_pers
 
     def write(self, data):
         return self.framer.write(data)
@@ -470,14 +474,11 @@ class W_Pickler(W_Root):
         space = self.space
         self.framer.commit_frame()
 
-        # Check for persistent id (defined by a subclass)
-        if save_persistent_id:
-            w_pers_func = space.findattr(self, space.newtext('persistent_id'))
-            if w_pers_func is not None:
-                w_pid = space.call_function(w_pers_func, w_obj)
-                if not space.is_none(w_pid):
-                    self.save_pers(w_pid)
-                    return
+        if save_persistent_id and self.pers_func is not None:
+            w_pid = space.call_function(self.pers_func, w_obj)
+            if not space.is_none(w_pid):
+                self.save_pers(w_pid)
+                return
 
         w_type = space.type(w_obj)
 
@@ -950,6 +951,18 @@ class W_Pickler(W_Root):
                 return packI(op.LONG_BINGET, idx)
 
         return "%s%d\n" %(op.GET, idx)
+
+    def get_pers_func_w(self, space):
+        if self.pers_func is None:
+            raise oefmt_attribute_error(space, self, space.newtext('persistent_id'),
+                "'%T' object has no attribute %R")
+        return self.pers_func
+
+    def set_pers_func_w(self, space, w_obj):
+        self.pers_func = w_obj
+
+    def del_pers_func_w(self, space):
+        self.pers_func = None
 
     def set_dispatch_table_w(self, space, w_obj):
         self.w_dispatch_table = w_obj
@@ -1441,6 +1454,8 @@ W_Pickler.typedef = TypeDef("_pickle.Pickler",
     memo = GetSetProperty(W_Pickler.get_memo_w, W_Pickler.set_memo_w),
     dispatch_table = GetSetProperty(W_Pickler.get_dispatch_table_w, W_Pickler.set_dispatch_table_w),
     fast = GetSetProperty(W_Pickler.get_fast_w, W_Pickler.set_fast_w),
+    persistent_id = GetSetProperty(W_Pickler.get_pers_func_w, W_Pickler.set_pers_func_w,
+                                   W_Pickler.del_pers_func_w),
 )
 
 
