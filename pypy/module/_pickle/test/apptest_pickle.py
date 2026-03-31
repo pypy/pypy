@@ -723,6 +723,19 @@ def test_newobj_ex_proto2():
         # NEWOBJ_EX opcode (0xd2) must NOT appear for proto < 4
         assert b'\xd2' not in data, "NEWOBJ_EX opcode must not appear in proto < 4"
 
+def test_pickler_subclass_super_init():
+    # Pickler subclass that calls super().__init__(file, protocol) must work.
+    # Regression test: ForkingPickler-style subclasses (e.g. multiprocessing)
+    # call super().__init__(*args) and were broken because Pickler had no __init__.
+    import io
+    class MyPickler(Pickler):
+        def __init__(self, file, protocol=None):
+            super().__init__(file, protocol)
+    f = io.BytesIO()
+    p = MyPickler(f, 2)
+    p.dump(42)
+    assert loads(f.getvalue()) == 42
+
 def test_readonly_buffer():
     # READONLY_BUFFER opcode must make buffer read-only
     from pickle import PickleBuffer

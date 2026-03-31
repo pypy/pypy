@@ -1507,8 +1507,26 @@ def descr__new__(space, w_subtype, w_file=None, w_protocol=None, fix_imports=1, 
     W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
     return w_self
 
+@unwrap_spec(fix_imports=int, w_file=WrappedDefault(None))
+def descr__init__(space, w_self, w_file=None, w_protocol=None, fix_imports=1, w_buffer_callback=None):
+    assert isinstance(w_self, W_Pickler)
+    if w_file is None or space.is_none(w_file):
+        return
+    if space.is_none(w_protocol):
+        protocol = HIGHEST_PROTOCOL
+    else:
+        protocol = space.int_w(w_protocol)
+    if protocol < 0:
+        protocol = HIGHEST_PROTOCOL
+    elif not 0 <= protocol <= HIGHEST_PROTOCOL:
+        raise oefmt(space.w_ValueError, "pickle protocol must be <= %d", HIGHEST_PROTOCOL)
+    if not space.is_none(w_buffer_callback) and protocol < 5:
+        raise oefmt(space.w_ValueError, "buffer_callback needs protocol >= 5")
+    W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
+
 W_Pickler.typedef = TypeDef("_pickle.Pickler",
     __new__ = interp2app(descr__new__),
+    __init__ = interp2app(descr__init__),
     dump = interp2app(W_Pickler.dump),
     clear_memo = interp2app(W_Pickler.clear_memo),
     memo = GetSetProperty(W_Pickler.get_memo_w, W_Pickler.set_memo_w),
