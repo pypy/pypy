@@ -497,7 +497,7 @@ class Function(W_Root):
 
     def fget_func_objclass(self, space):
         if self.w_objclass is None:
-            return space.w_None
+            raise oefmt(space.w_AttributeError, "__objclass__")
         return self.w_objclass
 
     def set_objclass(self, w_type):
