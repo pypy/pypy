@@ -414,9 +414,9 @@ class W_Pickler(W_Root):
         self.proto = protocol
         self.bin = protocol >= 1
         self.fast = 0
-        self.pers_func = None  # updated below and via set_pers_func_w
+        self.pers_func = None
         self.w_dispatch_table = None
-        self.w_reducer_override = None
+        self.w_reducer_override = None  # updated below and via set_reducer_override_w
         self.w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
         cache = space.fromcache(DispatchCache)
         self.dispatch = cache.dispatch
@@ -432,10 +432,13 @@ class W_Pickler(W_Root):
             self.framer = _Framer(space, w_file)
         else:
             self.framer = None
-        # Cache persistent_id if defined on a subclass (avoids findattr per save()).
+        # Cache persistent_id and reducer_override if defined on a subclass.
         w_pers = space.findattr(self, space.newtext('persistent_id'))
         if w_pers is not None:
             self.pers_func = w_pers
+        w_ro = space.findattr(self, space.newtext('reducer_override'))
+        if w_ro is not None:
+            self.w_reducer_override = w_ro
 
     def write(self, data):
         return self.framer.write(data)
@@ -460,8 +463,6 @@ class W_Pickler(W_Root):
         jit.promote(self.proto)
         jit.promote(self.bin)
         space = self.space
-        if space.findattr(self, space.newtext("reducer_override")):
-            self.w_reducer_override = space.getattr(self, space.newtext("reducer_override"))
         if self.proto >= 2:
             self.write_packB(op.PROTO, self.proto)
         if self.proto >= 4:
@@ -984,6 +985,18 @@ class W_Pickler(W_Root):
     def del_pers_func_w(self, space):
         self.pers_func = None
 
+    def get_reducer_override_w(self, space):
+        if self.w_reducer_override is None:
+            raise oefmt_attribute_error(space, self, space.newtext('reducer_override'),
+                "'%T' object has no attribute %R")
+        return self.w_reducer_override
+
+    def set_reducer_override_w(self, space, w_obj):
+        self.w_reducer_override = w_obj
+
+    def del_reducer_override_w(self, space):
+        self.w_reducer_override = None
+
     def set_dispatch_table_w(self, space, w_obj):
         self.w_dispatch_table = w_obj
 
@@ -1476,6 +1489,9 @@ W_Pickler.typedef = TypeDef("_pickle.Pickler",
     fast = GetSetProperty(W_Pickler.get_fast_w, W_Pickler.set_fast_w),
     persistent_id = GetSetProperty(W_Pickler.get_pers_func_w, W_Pickler.set_pers_func_w,
                                    W_Pickler.del_pers_func_w),
+    reducer_override = GetSetProperty(W_Pickler.get_reducer_override_w,
+                                      W_Pickler.set_reducer_override_w,
+                                      W_Pickler.del_reducer_override_w),
 )
 
 
