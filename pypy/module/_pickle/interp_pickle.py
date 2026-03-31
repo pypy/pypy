@@ -1,7 +1,8 @@
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
-from rpython.rlib import objectmodel, jit
+from rpython.rlib.rstruct.ieee import float_pack
+from rpython.rlib import objectmodel, jit, rarithmetic
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
@@ -321,6 +322,24 @@ class _Framer(object):
                 data += extra
             return self.file_write(data)
 
+    @jit.unroll_safe
+    def write_binfloat(self, f):
+        """Write the BINFLOAT opcode + 8-byte big-endian IEEE 754 double.
+        Avoids MutableStringBuffer + finish() + string concat from pack_float().
+        """
+        unsigned = float_pack(f, 8)
+        value = rarithmetic.longlongmask(unsigned)
+        if self.current_frame is not None:
+            self.current_frame.append(op.BINFLOAT)
+            for i in range(7, -1, -1):
+                self.current_frame.append(chr((value >> (i * 8)) & 0xFF))
+        else:
+            buf = StringBuilder(9)
+            buf.append(op.BINFLOAT)
+            for i in range(7, -1, -1):
+                buf.append(chr((value >> (i * 8)) & 0xFF))
+            self.file_write(buf.build())
+
     def write_packi(self, opcode, val, extra=None):
         if self.current_frame is not None:
             append_pack_int(self.current_frame, opcode, val, 4, extra)
@@ -445,6 +464,9 @@ class W_Pickler(W_Root):
 
     def write_packB(self, opcode, val, extra=None):
         return self.framer.write_packB(opcode, val, extra)
+
+    def write_binfloat(self, f):
+        self.framer.write_binfloat(f)
 
     def write_packi(self, opcode, val, extra=None):
         self.framer.write_packi(opcode, val, extra)
@@ -1111,7 +1133,7 @@ def save_float(self, w_obj):
     space = self.space
     if self.bin:
         obj = space.float_w(w_obj)
-        self.write(op.BINFLOAT + pack_float(obj))
+        self.write_binfloat(obj)
     else:
         as_ascii = space.utf8_w(space.repr(w_obj)) # .encode("ascii")
         self.write(op.FLOAT + as_ascii + '\n')
