@@ -184,6 +184,7 @@ def descr_set___class__(space, w_obj, w_newcls):
 def descr__repr__(space, w_obj):
     classname = space.getfulltypename(w_obj)
     return w_obj.getrepr(space, '%s object' % (classname,))
+descr__repr__.__text_signature__ = '($self, /)'
 
 
 def descr__str__(space, w_obj):

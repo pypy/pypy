@@ -1137,12 +1137,15 @@ class interp2app(W_Root):
         self._staticdefs = dict(zip(
             argnames[len(argnames) - len(defaults):], defaults))
         self.self_type = self_type
+        self._explicit_text_sig = getattr(f, '__text_signature__', None)
 
         return self
 
     @not_rpython
     def _generate_text_signature(self):
         """Generate a __text_signature__ string for use by inspect.signature."""
+        if self._explicit_text_sig is not None:
+            return self._explicit_text_sig
         code = self._code
         sig = code.sig
         # Skip signatures with *args or **kwargs -- too complex to auto-generate
