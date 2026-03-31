@@ -435,6 +435,8 @@ class W_Pickler(W_Root):
         else:
             self.buffer_callback = buffer_callback
         self.memo = {}
+        self.str_memo = {}    # utf8 str -> int: value-based dedup for W_Unicode
+        self.bytes_memo = {}  # bytes str -> int: value-based dedup for W_Bytes
         self.proto = protocol
         self.bin = protocol >= 1
         self.fast = 0
@@ -517,7 +519,7 @@ class W_Pickler(W_Root):
             w_rv = space.call_function(w_reduce, w_obj)
 
         if w_rv is space.w_NotImplemented:
-            # Atom types: these are not memoized
+            # Atom types: None, bool, int, float are never memoized
             if w_type is space.w_None:
                 return save_none(self, w_obj)
             elif w_type is space.w_bool:
@@ -528,7 +530,21 @@ class W_Pickler(W_Root):
                 return save_float(self, w_obj)
 
         if w_rv is space.w_NotImplemented:
-            # Check the memo
+            # Check value-based memo before identity memo: PyPy list strategies
+            # wrap stored values in new W_* objects on each getitem, so identity
+            # checks miss even for repeated references to the same logical value.
+            if w_type is space.w_text:
+                x = self.str_memo.get(space.utf8_w(w_obj), -1)
+                if x >= 0:
+                    self.write_get(x)
+                    return
+            elif w_type is space.w_bytes:
+                x = self.bytes_memo.get(space.bytes_w(w_obj), -1)
+                if x >= 0:
+                    self.write_get(x)
+                    return
+
+            # Check the identity memo
             x = self.memo.get(w_obj, -1)
             if x >= 0:
                 self.write_get(x)
@@ -956,6 +972,12 @@ class W_Pickler(W_Root):
         assert w_obj not in self.memo
         idx = len(self.memo)
         self.memo[w_obj] = idx
+        space = self.space
+        w_type = space.type(w_obj)
+        if w_type is space.w_text:
+            self.str_memo[space.utf8_w(w_obj)] = idx
+        elif w_type is space.w_bytes:
+            self.bytes_memo[space.bytes_w(w_obj)] = idx
         # Inline put() to avoid method call
         if self.proto >= 4:
             self.write(op.MEMOIZE)
@@ -1058,6 +1080,8 @@ class W_Pickler(W_Root):
 
     def clear_memo(self):
         self.memo.clear()
+        self.str_memo.clear()
+        self.bytes_memo.clear()
 
     def get_memo_w(self, space):
         # Return a copy of the memo as a Python dict mapping id->obj
@@ -1068,6 +1092,8 @@ class W_Pickler(W_Root):
 
     def set_memo_w(self, space, w_memo):
         self.memo = {}
+        self.str_memo = {}
+        self.bytes_memo = {}
         w_items = space.call_method(w_memo, 'items')
         w_iter = space.iter(w_items)
         while True:
@@ -1080,6 +1106,11 @@ class W_Pickler(W_Root):
             w_key, w_val = space.unpackiterable(w_item, 2)
             idx = space.int_w(w_key)
             self.memo[w_val] = idx
+            w_type = space.type(w_val)
+            if w_type is space.w_text:
+                self.str_memo[space.utf8_w(w_val)] = idx
+            elif w_type is space.w_bytes:
+                self.bytes_memo[space.bytes_w(w_val)] = idx
 
 def save_global(self, w_obj):
     return self.save_global2(w_obj, None)

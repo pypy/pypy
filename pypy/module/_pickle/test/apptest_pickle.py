@@ -736,6 +736,21 @@ def test_pickler_subclass_super_init():
     p.dump(42)
     assert loads(f.getvalue()) == 42
 
+def test_memo_reuses_repeated_string():
+    # Pickling the same string object multiple times should use GET opcodes.
+    import pickletools
+    s = 'hello'
+    data = [s, s, s]
+    buf = io.BytesIO()
+    Pickler(buf, 4).dump(data)
+    blob = buf.getvalue()
+    buf.seek(0)
+    ops = [(op.name, arg) for op, arg, pos in pickletools.genops(buf)]
+    gets = [op for op, arg in ops if 'GET' in op]
+    shorts = [op for op, arg in ops if op == 'SHORT_BINUNICODE' and arg == 'hello']
+    assert len(shorts) == 1, "expected 1 full string, got %d: %r" % (len(shorts), ops)
+    assert len(gets) == 2, "expected 2 GET ops, got %d: %r" % (len(gets), ops)
+
 def test_readonly_buffer():
     # READONLY_BUFFER opcode must make buffer read-only
     from pickle import PickleBuffer
