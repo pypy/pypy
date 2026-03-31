@@ -1100,8 +1100,7 @@ def save_raw_bytes(self, n, obj):
 def save_str(self, w_obj):
     space = self.space
     if self.bin:
-        w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
-        encoded = space.bytes_w(w_encoded)
+        encoded = space.utf8_w(w_obj)
         n = len(encoded)
         if n <= 0xff and self.proto >= 4:
             self.write_packB(op.SHORT_BINUNICODE, n, encoded)
