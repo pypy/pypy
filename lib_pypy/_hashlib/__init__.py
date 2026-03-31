@@ -448,7 +448,7 @@ values other than 1 may have additional significance."""
             raise ValueError("could not call FIPS_mode")
     return result
 
-
+@cache
 def py_digest_by_name(name, py_ht):
     """Get EVP_MD by HID and purpose"""
 
