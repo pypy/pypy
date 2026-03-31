@@ -503,7 +503,7 @@ class W_Pickler(W_Root):
             # Check the memo
             x = self.memo.get(w_obj, -1)
             if x >= 0:
-                self.write(self.get(x))
+                self.write_get(x)
                 return
 
             if w_type is space.w_bytes:
@@ -927,10 +927,20 @@ class W_Pickler(W_Root):
             return
         assert w_obj not in self.memo
         idx = len(self.memo)
-        self.write(self.put(idx))
         self.memo[w_obj] = idx
+        # Inline put() to avoid method call
+        if self.proto >= 4:
+            self.write(op.MEMOIZE)
+        elif self.bin:
+            if idx < 256:
+                self.write_packB(op.BINPUT, idx)
+            else:
+                self.write(packI(op.LONG_BINPUT, idx))
+        else:
+            self.write("%s%d\n" % (op.PUT, idx))
 
     # Return a PUT (BINPUT, LONG_BINPUT) opcode string, with argument i.
+    # Only needed externally (e.g. save_tuple recursive-memo path).
     def put(self, idx):
         if self.proto >= 4:
             return op.MEMOIZE
@@ -951,6 +961,16 @@ class W_Pickler(W_Root):
                 return packI(op.LONG_BINGET, idx)
 
         return "%s%d\n" %(op.GET, idx)
+
+    def write_get(self, idx):
+        """Write a GET opcode directly, avoiding an intermediate bytes object."""
+        if self.bin:
+            if idx < 256:
+                self.write_packB(op.BINGET, idx)
+            else:
+                self.write(packI(op.LONG_BINGET, idx))
+        else:
+            self.write("%s%d\n" % (op.GET, idx))
 
     def get_pers_func_w(self, space):
         if self.pers_func is None:
