@@ -423,8 +423,12 @@ class W_Pickler(W_Root):
         if self.proto >= 4:
             self.dispatch = cache.dispatch4
         if w_file is not None and not space.is_none(w_file):
-            if space.findattr(w_file, space.newtext('write')) is None:
-                raise oefmt(space.w_TypeError, "file must have a 'write' attribute")
+            try:
+                space.getattr(w_file, space.newtext('write'))
+            except OperationError as e:
+                if e.match(space, space.w_AttributeError):
+                    raise oefmt(space.w_TypeError, "file must have a 'write' attribute")
+                raise
             self.framer = _Framer(space, w_file)
         else:
             self.framer = None
@@ -542,23 +546,36 @@ class W_Pickler(W_Root):
                 # Check for a class with a custom metaclass; treat as regular
                 # class
                 if space.issubtype_w(w_type, space.w_type):
-                    self.save_global2(w_obj, None)
+                    # Special handling for singleton types not directly accessible in builtins
+                    if space.is_w(w_obj, space.type(space.w_None)):
+                        self.save_reduce(space.w_type,
+                            space.newtuple([space.w_None]), w_obj=w_obj)
+                    elif space.is_w(w_obj, space.type(space.w_NotImplemented)):
+                        self.save_reduce(space.w_type,
+                            space.newtuple([space.w_NotImplemented]), w_obj=w_obj)
+                    elif space.is_w(w_obj, space.type(space.w_Ellipsis)):
+                        self.save_reduce(space.w_type,
+                            space.newtuple([space.w_Ellipsis]), w_obj=w_obj)
+                    else:
+                        self.save_global2(w_obj, None)
+                    return
+
+                # Handle function types (both Python and builtin) - save as globals
+                if w_type is self.w_function:
+                    save_global(self, w_obj)
                     return
 
                 # Check for a __reduce_ex__ method, fall back to __reduce__
-                w_reduce = space.lookup(w_obj, "__reduce_ex__")
+                # Use findattr (not lookup) so proxy objects forward correctly.
+                w_reduce = space.findattr(w_obj, space.newtext("__reduce_ex__"))
                 if w_reduce is not None:
-                    w_rv = space.call_function(w_reduce, w_obj, space.newint(self.proto))
+                    w_rv = space.call_function(w_reduce, space.newint(self.proto))
                 else:
-                    w_reduce = space.lookup(w_obj, "__reduce__")
+                    w_reduce = space.findattr(w_obj, space.newtext("__reduce__"))
                     if w_reduce is not None:
-                        w_rv = space.call_function(w_reduce, w_obj)
+                        w_rv = space.call_function(w_reduce)
                     else:
                         raise oefmt(pickling_error(space), "Can't pickle %T object: %R", w_obj, w_obj)
-        else:
-            if w_type is self.w_function:
-                save_global(self, w_obj)
-                return
         # Check for string returned by reduce(), meaning "save as global"
         if space.isinstance_w(w_rv, space.w_unicode):
             self.save_global2(w_obj, w_rv)
@@ -750,7 +767,10 @@ class W_Pickler(W_Root):
             # compatibility with Python 2.2 (pickles written using
             # protocol 0 or 1 in Python 2.3 should be unpicklable by
             # Python 2.2).
-            w_cls = space.getitem(w_args, space.newint(0))
+            args_w = space.fixedview(w_args)
+            if not args_w:
+                raise oefmt(pickling_error(space), "__newobj__ requires at least one arg")
+            w_cls = args_w[0]
             w_new = space.findattr(w_cls, space.newtext("__new__"))
             if not w_new:
                 raise oefmt(pickling_error(space),
@@ -758,9 +778,9 @@ class W_Pickler(W_Root):
             if w_obj is not None and not space.is_w(w_cls, space.getattr(w_obj, space.newtext('__class__'))):
                 raise oefmt(pickling_error(space),
                     "args[0] from __newobj__ args has the wrong class")
-            w_args = space.getitem(w_args, space.newslice(space.newint(1), space.w_None, space.w_None))
+            w_newargs = space.newtuple(args_w[1:])
             self.save(w_cls)
-            self.save(w_args)
+            self.save(w_newargs)
             self.write(op.NEWOBJ)
         else:
             save(w_func)
@@ -1445,7 +1465,7 @@ class _Unframer(object):
                 w_ret = space.call_function(self.w_file_read, space.newint(n))
                 ret = space.bytes_w(w_ret)
                 if len(ret) < n:
-                    raise oefmt(space.w_EOFError, "Ran out of input 1")
+                    raise oefmt(unpickling_error(space), "pickle data was truncated")
                 return ret
             if len(data) - self.index < n:
                 raise oefmt(unpickling_error(space),
@@ -1457,11 +1477,7 @@ class _Unframer(object):
             w_ret = space.call_function(self.w_file_read, space.newint(n))
             ret = space.bytes_w(w_ret)
             if len(ret) < n:
-                if n == 1:
-                    w_err = space.w_EOFError
-                else:
-                    w_err = unpickling_error(space)
-                raise oefmt(w_err, "pickle data was truncated, wanted %d got %d", n, len(ret))
+                raise oefmt(unpickling_error(space), "pickle data was truncated, wanted %d got %d", n, len(ret))
             return ret
 
     def read1(self):
@@ -1506,7 +1522,7 @@ class _Unframer(object):
                 n = len(line)
                 stop = n - 1
                 if stop < 0:
-                    raise oefmt(space.w_EOFError, "Ran out of input 3")
+                    raise oefmt(unpickling_error(space), "pickle data was truncated")
                 if line[stop] == '\n':
                     return line[:stop]
                 return line
@@ -1529,7 +1545,7 @@ class _Unframer(object):
         w_ret = self.space.call_function(self.w_file_read, self.space.newint(frame_size))
         ret = self.space.bytes_w(w_ret)
         if len(ret) < frame_size:
-            raise oefmt(self.space.w_EOFError, "Ran out of input 5")
+            raise oefmt(unpickling_error(self.space), "pickle data was truncated")
         self.current_frame = ret
         self.index = 0
 
@@ -1595,9 +1611,16 @@ class W_Unpickler(W_Root):
         self.space = space
 
     def load(self):
-        # if not hasattr(self, "w_file_read"):
-        #     raise oefmt(unpickling_error(self.space),
-        #         "Unpickler.__init__() was not called by %T", self)
+        space = self.space
+        # If file was not provided to __new__, try to use self.read/readline methods
+        if self.w_file_read is None or space.is_none(self.w_file_read):
+            w_read = space.findattr(self, space.newtext('read'))
+            w_readline = space.findattr(self, space.newtext('readline'))
+            if w_read is None or w_readline is None:
+                raise oefmt(unpickling_error(space),
+                    "Unpickler.__init__() was not called")
+            self.w_file_read = w_read
+            self.w_file_readline = w_readline
         self._unframer = _Unframer(self.space, self.w_file_read, self.w_file_readline)
         self.read = self._unframer.read
         self.readline = self._unframer.readline
@@ -1607,11 +1630,15 @@ class W_Unpickler(W_Root):
         self.proto = 0
         read = self.read
         while True:
-            key = self.read1()
+            try:
+                key = self.read1()
+            except OperationError as e:
+                if e.match(space, unpickling_error(space)):
+                    raise oefmt(space.w_EOFError, "Ran out of input")
+                raise
             if key[0] == op.STOP[0]:
                 return data_pop(self.space, self.stack)
             self.dispatch[ord(key[0])](self)
-            # print "self.stack", self.stack
 
     def read1(self):
         return self._unframer.read1()
@@ -1672,6 +1699,10 @@ class W_Unpickler(W_Root):
         except UnicodeDecodeError:
             raise oefmt(unpickling_error(space),
                 "persistent IDs in protocol 0 must be ASCII strings")
+        for c in pid:
+            if ord(c) > 127:
+                raise oefmt(unpickling_error(space),
+                    "persistent id must be ASCII")
         w_pers_load = space.findattr(self, space.newtext('persistent_load'))
         if w_pers_load is None:
             raise oefmt(unpickling_error(space),
@@ -2006,39 +2037,35 @@ class W_Unpickler(W_Root):
         self.append(w_d)
     dispatch[ord(op.DICT[0])] = load_dict
 
-    if 0:  # Python2 residue?
-        # INST and OBJ differ only in how they get a class object.  It's not
-        # only sensible to do the rest in a common routine, the two routines
-        # previously diverged and grew different bugs.
-        # klass is the class to instantiate, and k points to the topmost mark
-        # object, following which are the arguments for klass.__init__.
-        def _instantiate(self, klass, args):
-            if (args or not isinstance(klass, type) or
-                hasattr(klass, "__getinitargs__")):
-                try:
-                    value = klass(*args)
-                except TypeError as err:
-                    raise oefmt(self.space.w_TypeError("in constructor for %s: %s",
-                                    klass.__name__, str(err)))
-            else:
-                value = klass.__new__(klass)
-            self.append(value)
+    def _instantiate(self, w_klass, w_args):
+        space = self.space
+        has_getinitargs = space.findattr(w_klass, space.newtext("__getinitargs__")) is not None
+        if space.len_w(w_args) > 0 or not space.isinstance_w(w_klass, space.w_type) or has_getinitargs:
+            w_obj = space.call(w_klass, w_args)
+        else:
+            w_new = space.getattr(w_klass, space.newtext("__new__"))
+            w_obj = space.call_function(w_new, w_klass)
+        self.append(w_obj)
 
-        def load_inst(self):
-            raise oefmt(self.space.w_NotImplementedError, "INST opcode not implemented")
-            w_module = self.readline()
-            w_name = self.readline()
-            klass = self.find_class(w_module, w_name)
-            self._instantiate(klass, self.pop_mark())
-        dispatch[ord(op.INST[0])] = load_inst
+    def load_inst(self):
+        space = self.space
+        w_module = space.newtext(self.readline())
+        w_name = space.newtext(self.readline())
+        w_klass = self.find_class(w_module, w_name)
+        w_args = space.newlist(self.pop_mark())
+        self._instantiate(w_klass, w_args)
+    dispatch[ord(op.INST[0])] = load_inst
 
-        def load_obj(self):
-            raise oefmt(self.space.w_NotImplementedError, "OBJ opcode not implemented")
-            # Stack is ... markobject classobject arg1 arg2 ...
-            args = self.pop_mark()
-            cls = args.pop(0)
-        self._instantiate(cls, args)
-        dispatch[ord(op.OBJ[0])] = load_obj
+    def load_obj(self):
+        space = self.space
+        # Stack is ... markobject classobject arg1 arg2 ...
+        args = self.pop_mark()
+        if not args:
+            raise oefmt(unpickling_error(space), "OBJ opcode with empty stack")
+        w_klass = args[0]
+        w_args = space.newlist(args[1:])
+        self._instantiate(w_klass, w_args)
+    dispatch[ord(op.OBJ[0])] = load_obj
 
     def load_newobj(self):
         space = self.space
@@ -2353,6 +2380,9 @@ class W_Unpickler(W_Root):
         return w_d
 
     def set_memo_w(self, space, w_memo):
+        if not space.isinstance_w(w_memo, space.w_dict):
+            raise oefmt(space.w_TypeError,
+                "Unpickler.memo must be a mapping with integer keys")
         self.memo = [None] * 32
         self.memo_index = 0
         w_iter = space.iter(space.call_method(w_memo, 'items'))
@@ -2365,13 +2395,28 @@ class W_Unpickler(W_Root):
                 break
             w_key, w_val = space.unpackiterable(w_item, 2)
             idx = space.int_w(w_key)
+            if idx < 0:
+                raise oefmt(space.w_ValueError,
+                    "Unpickler.memo key must be a non-negative integer")
             self._memo_put(idx, w_val)
             if idx >= self.memo_index:
                 self.memo_index = idx + 1
 
-@unwrap_spec(fix_imports=bool, encoding="text", errors="text", w_buffers=WrappedDefault(None))
-def descr__new__unpickler(space, w_subtype, w_file, __kwonly__, fix_imports=True, encoding="ASCII", errors="strict", w_buffers=None):
+@unwrap_spec(fix_imports=bool, encoding="text", errors="text", w_buffers=WrappedDefault(None), w_file=WrappedDefault(None))
+def descr__new__unpickler(space, w_subtype, w_file=None, __kwonly__=None, fix_imports=True, encoding="ASCII", errors="strict", w_buffers=None):
     w_self = space.allocate_instance(W_Unpickler, w_subtype)
+    if w_file is None or space.is_none(w_file):
+        # subclass without file (e.g. provides read/readline methods)
+        w_self.w_file_read = space.w_None
+        w_self.w_file_readline = space.w_None
+        w_self.fix_imports = fix_imports
+        w_self.encoding = encoding
+        w_self.errors = errors
+        w_self.w_buffers = None
+        w_self.memo = [None] * 32
+        w_self.memo_index = 0
+        w_self.space = space
+        return w_self
     if not space.is_none(w_buffers):
         w_buffers = space.iter(w_buffers)
     W_Unpickler.__init__(w_self, space, w_file, fix_imports, encoding, errors, w_buffers)
