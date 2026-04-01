@@ -38,9 +38,72 @@ def get_errstr():
 
 
 def new(name, string=b'', usedforsecurity=True):
+    if string:
+        # Fast one-shot path: one C call, no EVP_MD_CTX allocation, no ffi.gc.
+        name_lower = str(name).lower()
+        py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
+        dtype = py_digest_by_name(name_lower, py_ht)
+        buf = ffi.from_buffer(string)
+        digest_size = lib.EVP_MD_size(dtype)
+        md = ffi.new("unsigned char[]", digest_size)
+        if lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL):
+            return _OneShotHash(name_lower, digest_size,
+                                _bytes_with_len(md, digest_size),
+                                string, usedforsecurity)
     h = HASH(name, usedforsecurity=usedforsecurity)
     h.update(string)
     return h
+
+class _OneShotHash:
+    """Lightweight result of new(name, data) using EVP_Digest.
+
+    Avoids EVP_MD_CTX allocation, ffi.gc, and Lock for the common
+    hashlib.new(name, data).hexdigest() pattern.  Lazily upgrades to a
+    full HASH object if update() or copy() is called.
+    """
+    __slots__ = ('name', 'digest_size', '_digest', '_data', '_usedforsecurity', '_hash')
+
+    def __init__(self, name, digest_size, digest, data, usedforsecurity):
+        self.name = name
+        self.digest_size = digest_size
+        self._digest = digest
+        self._data = data
+        self._usedforsecurity = usedforsecurity
+        self._hash = None
+
+    def _upgrade(self):
+        h = HASH(self.name, usedforsecurity=self._usedforsecurity)
+        h.update(self._data)
+        self._hash = h
+
+    def digest(self):
+        if self._hash is not None:
+            return self._hash.digest()
+        return self._digest
+
+    def hexdigest(self):
+        if self._hash is not None:
+            return self._hash.hexdigest()
+        return self._digest.hex()
+
+    def update(self, string):
+        if self._hash is None:
+            self._upgrade()
+        self._hash.update(string)
+        self._digest = None
+
+    def copy(self):
+        if self._hash is not None:
+            return self._hash.copy()
+        return new(self.name, self._data, usedforsecurity=self._usedforsecurity)
+
+    @property
+    def block_size(self):
+        if self._hash is not None:
+            return self._hash.block_size
+        # Create a temporary HASH just to read block_size (rare path).
+        return HASH(self.name, usedforsecurity=self._usedforsecurity).block_size
+
 
 class Immutable(type):
     def __init__(cls, name, bases, dct):
@@ -90,11 +153,15 @@ class HASH(object, metaclass=Immutable):
                 if not lib.EVP_MD_CTX_copy_ex(ctx, copy_from):
                     raise ValueError
             else:
-                if lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL) == 0:
+                # Use a cached pre-initialised template per algorithm so we can
+                # call EVP_MD_CTX_copy_ex instead of EVP_DigestInit_ex.
+                # copy_ex is ~5x faster than init_ex on OpenSSL 3.x.
+                template = _get_ctx_template(digest_type)
+                if not lib.EVP_MD_CTX_copy_ex(ctx, template):
                     raise ValueError(get_errstr())
             self.ctx = ctx
         except:
-            # no need to gc ctx! 
+            # no need to gc ctx!
             raise
 
     def digest_type_by_name(self):
@@ -209,7 +276,7 @@ class HMAC(HASH):
                     raise ValueError(get_errstr())
             self.ctx = ctx
         except:
-            # no need to gc ctx! 
+            # no need to gc ctx!
             raise
 
     def _update(self, buf):
@@ -457,6 +524,25 @@ def py_digest_by_name(name, py_ht):
     ffi.gc(digest, PY_EVP_MD_free)
     return digest 
     
+
+# Cache of pre-initialised EVP_MD_CTX per digest type.
+# Keyed by id(digest_type): py_digest_by_name is @cache'd so the same Python
+# object (and thus the same C pointer) is always returned for a given algorithm.
+_ctx_templates = {}
+
+def _get_ctx_template(digest_type):
+    """Return a cached pre-initialised EVP_MD_CTX for use as a copy_ex source."""
+    key = id(digest_type)
+    template = _ctx_templates.get(key)
+    if template is None:
+        template = lib.EVP_MD_CTX_new()
+        if template == ffi.NULL:
+            raise MemoryError
+        if lib.EVP_DigestInit_ex(template, digest_type, ffi.NULL) == 0:
+            lib.EVP_MD_CTX_free(template)
+            raise ValueError(get_errstr())
+        _ctx_templates[key] = template
+    return template
 
 def py_digest_by_digestmod(digestmod):
     """Get digest EVP from object"""

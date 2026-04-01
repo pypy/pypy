@@ -66,3 +66,4 @@ site-packages/pkg_resources*
 site-packages/easy_install.py
 bin/pip*
 bin/easy_install*
+lib-python/3/test/data/*.txt 

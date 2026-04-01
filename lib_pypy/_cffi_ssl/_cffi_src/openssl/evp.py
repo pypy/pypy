@@ -62,6 +62,7 @@ int EVP_MD_CTX_copy_ex(EVP_MD_CTX *, const EVP_MD_CTX *);
 int EVP_DigestInit_ex(EVP_MD_CTX *, const EVP_MD *, ENGINE *);
 int EVP_DigestUpdate(EVP_MD_CTX *, const void *, size_t);
 int EVP_DigestFinal_ex(EVP_MD_CTX *, unsigned char *, unsigned int *);
+int EVP_Digest(const void *, size_t, unsigned char *, unsigned int *, const EVP_MD *, ENGINE *);
 int EVP_DigestFinalXOF(EVP_MD_CTX *, unsigned char *, size_t);
 const EVP_MD *EVP_get_digestbyname(const char *);
 int EVP_MD_size(const EVP_MD *);
