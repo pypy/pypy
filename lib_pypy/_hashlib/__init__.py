@@ -135,13 +135,7 @@ class HASH(object, metaclass=Immutable):
 
     def hexdigest(self):
         """Return the digest value as a string of hexadecimal digits."""
-        digest = self._digest()
-        hexdigits = '0123456789abcdef'
-        result = []
-        for c in digest:
-            result.append(hexdigits[(c >> 4) & 0xf])
-            result.append(hexdigits[ c       & 0xf])
-        return ''.join(result)
+        return self._digest().hex()
 
     @property
     def block_size(self):
