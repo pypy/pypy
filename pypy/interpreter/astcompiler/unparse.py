@@ -97,8 +97,7 @@ class UnparseVisitor(Utf8BuilderVisitor):
             self.space.isinstance_w(node.value, self.space.w_bytes)
             or self.space.isinstance_w(node.value, self.space.w_unicode)
         ):
-            # Emit u-prefix for u-strings (kind == 'u')
-            if node.kind is not None:
+            if node.kind is not None and not self.space.is_w(node.kind, self.space.w_None):
                 self.append_ascii("u")
             res = self.space.repr(node.value)
         else:
