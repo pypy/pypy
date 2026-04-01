@@ -171,7 +171,7 @@ class CArgObject(object):
         self._buffer = None
 
     def __repr__(self):
-        return '<CArgObject %r>' % (self._obj,)
+        return repr(self._obj)
 
     def __eq__(self, other):
         return self._obj == other
