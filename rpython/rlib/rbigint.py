@@ -1278,6 +1278,7 @@ class rbigint(object):
         # wordshift, remshift = divmod(int_other, SHIFT)
         wordshift = int_other // SHIFT
         remshift = int_other - wordshift * SHIFT
+        hishift = SHIFT - remshift
 
         if not remshift:
             # So we can avoid problems with eq, AND avoid the need for normalize.
@@ -1286,18 +1287,19 @@ class rbigint(object):
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, selfsign, newsize)
-        accum = _unsigned_widen_digit(0)
         j = 0
+        prevdigit = NULLDIGIT
         while j < oldsize:
-            accum += self.uwidedigit(j) << remshift
-            z.setdigit(wordshift, accum)
-            accum >>= SHIFT
+            digit = self.udigit(j)
+            newdigit = (digit << remshift) | (prevdigit >> hishift)
+            z.setdigit(wordshift, newdigit)
+            prevdigit = digit
             wordshift += 1
             j += 1
 
         newsize -= 1
         assert newsize >= 0
-        z.setdigit(newsize, accum)
+        z.setdigit(newsize, prevdigit >> hishift)
 
         z._normalize()
         return z
@@ -1312,14 +1314,16 @@ class rbigint(object):
         selfsign = self.get_sign()
 
         z = rbigint([NULLDIGIT] * (oldsize + 1), selfsign, (oldsize + 1))
-        accum = _unsigned_widen_digit(0)
         i = 0
+        hishift = SHIFT - int_other
+        prevdigit = NULLDIGIT
         while i < oldsize:
-            accum += self.uwidedigit(i) << int_other
-            z.setdigit(i, accum)
-            accum >>= SHIFT
+            digit = self.udigit(i)
+            newdigit = (digit << int_other) | (prevdigit >> hishift)
+            z.setdigit(i, newdigit)
+            prevdigit = digit
             i += 1
-        z.setdigit(oldsize, accum)
+        z.setdigit(oldsize, prevdigit >> hishift)
         z._normalize()
         return z
     lqshift._always_inline_ = True # It's so fast that it's always beneficial.
