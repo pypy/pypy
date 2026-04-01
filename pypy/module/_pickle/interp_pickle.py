@@ -437,6 +437,7 @@ class W_Pickler(W_Root):
         self.memo = {}
         self.str_memo = {}    # utf8 str -> int: value-based dedup for W_Unicode
         self.bytes_memo = {}  # bytes str -> int: value-based dedup for W_Bytes
+        self.memo_size = 0    # total number of memoized objects (len(memo) + fast-path entries)
         self.proto = protocol
         self.bin = protocol >= 1
         self.fast = 0
@@ -652,6 +653,47 @@ class W_Pickler(W_Root):
             self.save_reduce(rv_w[0], rv_w[1], rv_w[2], rv_w[3], rv_w[4], rv_w[5], w_obj=w_obj)
 
     _BATCHSIZE = 1000
+
+    def _batch_appends_raw_str(self, items, value_memo, write_item):
+        """Fast path for list strategies storing raw RPython strings.
+
+        items       — list of RPython str from listview_ascii / listview_bytes
+        value_memo  — self.str_memo or self.bytes_memo
+        write_item  — callable(self, s) that writes the pickle opcode + data
+        """
+        write = self.write
+        n_items = len(items)
+        if n_items == 0:
+            return
+        if n_items == 1:
+            s = items[0]
+            x = value_memo.get(s, -1)
+            if x >= 0:
+                self.write_get(x)
+            else:
+                write_item(self, s)
+                value_memo[s] = self.memo_size
+                self.memo_size += 1
+                write(op.MEMOIZE)
+            write(op.APPEND)
+            return
+        i = 0
+        while i < n_items:
+            batch_end = min(i + self._BATCHSIZE, n_items)
+            write(op.MARK)
+            while i < batch_end:
+                s = items[i]
+                x = value_memo.get(s, -1)
+                if x >= 0:
+                    self.write_get(x)
+                else:
+                    write_item(self, s)
+                    value_memo[s] = self.memo_size
+                    self.memo_size += 1
+                    write(op.MEMOIZE)
+                i += 1
+            write(op.APPENDS)
+
     def _batch_appends(self, w_list):
         space = self.space
         # Helper to batch up APPENDS sequences
@@ -663,6 +705,21 @@ class W_Pickler(W_Root):
                 save(w_x)
                 write(op.APPEND)
             return
+
+        # Fast path for AsciiListStrategy: no W_Unicode wrapper per element
+        ascii_items = space.listview_ascii(w_list)
+        if ascii_items is not None:
+            self._batch_appends_raw_str(ascii_items, self.str_memo,
+                                        _write_ascii_item)
+            return
+
+        # Fast path for BytesListStrategy: no W_Bytes wrapper per element
+        if self.proto >= 3:
+            bytes_items = space.listview_bytes(w_list)
+            if bytes_items is not None:
+                self._batch_appends_raw_str(bytes_items, self.bytes_memo,
+                                            _write_bytes_item)
+                return
 
         w_it = space.iter(w_list)
         while True:
@@ -970,7 +1027,8 @@ class W_Pickler(W_Root):
         if self.fast:
             return
         assert w_obj not in self.memo
-        idx = len(self.memo)
+        idx = self.memo_size
+        self.memo_size += 1
         self.memo[w_obj] = idx
         space = self.space
         w_type = space.type(w_obj)
@@ -1082,6 +1140,7 @@ class W_Pickler(W_Root):
         self.memo.clear()
         self.str_memo.clear()
         self.bytes_memo.clear()
+        self.memo_size = 0
 
     def get_memo_w(self, space):
         # Return a copy of the memo as a Python dict mapping id->obj
@@ -1111,6 +1170,7 @@ class W_Pickler(W_Root):
                 self.str_memo[space.utf8_w(w_val)] = idx
             elif w_type is space.w_bytes:
                 self.bytes_memo[space.bytes_w(w_val)] = idx
+        self.memo_size = len(self.memo)
 
 def save_global(self, w_obj):
     return self.save_global2(w_obj, None)
@@ -1200,6 +1260,30 @@ def save_raw_bytes(self, n, obj):
         self._write_large_bytes(packI(op.BINBYTES, n), obj)
     else:
         self.write_packI(op.BINBYTES, n, obj)
+
+def _write_ascii_item(self, s):
+    """Write a single ASCII/UTF-8 string item in the fast-path batch loop."""
+    n = len(s)
+    if n <= 0xff and self.proto >= 4:
+        self.write_packB(op.SHORT_BINUNICODE, n, s)
+    elif n > 0xffffffff and self.proto >= 4:
+        self._write_large_bytes(packQ(op.BINUNICODE8, n), s)
+    elif n >= self.framer._FRAME_SIZE_TARGET:
+        self._write_large_bytes(packI(op.BINUNICODE, n), s)
+    else:
+        self.write_packI(op.BINUNICODE, n, s)
+
+def _write_bytes_item(self, s):
+    """Write a single bytes item in the fast-path batch loop."""
+    n = len(s)
+    if n <= 0xff:
+        self.write_packB(op.SHORT_BINBYTES, n, s)
+    elif n > 0xffffffff and self.proto >= 4:
+        self._write_large_bytes(packQ(op.BINBYTES8, n), s)
+    elif n >= self.framer._FRAME_SIZE_TARGET:
+        self._write_large_bytes(packI(op.BINBYTES, n), s)
+    else:
+        self.write_packI(op.BINBYTES, n, s)
 
 def save_str(self, w_obj):
     space = self.space
