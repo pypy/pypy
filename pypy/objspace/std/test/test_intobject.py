@@ -918,7 +918,7 @@ class AppTestInt(object):
     def test_int_new_pos_only(self):
         with raises(TypeError) as info:
             int(x=1)
-        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+        assert "got some positional-only arguments passed as keyword arguments: 'x'" in str(info.value)
 
     def test_int_as_integer_ratio(self):
         assert 4 .as_integer_ratio() == (4, 1)

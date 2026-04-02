@@ -910,7 +910,7 @@ class TestErrorHandling(object):
             args = Arguments(space, [1, 2, 3, 4, 5], ["x"], [6])
             l = [None] * 6
             args._match_signature(None, l, sig)
-        assert info.value.getmsg() == "got a positional-only argument passed as keyword argument: 'x'"
+        assert info.value.getmsg() == "got some positional-only arguments passed as keyword arguments: 'x'"
 
         with pytest.raises(ArgErrPosonlyAsKwds) as info:
             args = Arguments(space, [1, 2, 3, 4, 5], ["x", "z"], [6, 7])

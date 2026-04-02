@@ -633,8 +633,5 @@ class ArgErrPosonlyAsKwds(ArgErr):
         self.posonly_kwds = posonly_kwds
 
     def getmsg(self):
-        if len(self.posonly_kwds) == 1:
-            msg = ("got a positional-only argument passed as keyword argument: '%s'" % self.posonly_kwds[0])
-        else:
-            msg = ("got some positional-only arguments passed as keyword arguments: '%s'" % ", ".join(self.posonly_kwds))
+        msg = ("got some positional-only arguments passed as keyword arguments: '%s'" % ", ".join(self.posonly_kwds))
         return msg
