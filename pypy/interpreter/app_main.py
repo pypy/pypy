@@ -533,6 +533,7 @@ def isolated_option(options, name, iterargv):
     options[name] += 1
     options["no_user_site"] += 1
     options["ignore_environment"] += 1
+    options["safe_path"] = True
 
 def c_option(options, runcmd, iterargv):
     options["run_command"] = runcmd
