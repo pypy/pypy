@@ -38,14 +38,16 @@ def test_warning_decimal():
         compile("0x1for 2", "fn", "exec")
     assert len(w) == 1
     assert str(w[0].message) == "invalid hexadecimal literal"
+    assert issubclass(w[0].category, SyntaxWarning)
     assert w[0].lineno == 1
 
-    # don't warn if there's an error
+    # Compiling with a SyntaxError may or may not emit the warning first
+    # depending on the implementation (CPython does, PyPy does not).
     with warnings.catch_warnings(record=True) as w:
         with pytest.raises(SyntaxError):
             warnings.simplefilter("always")
             compile("0x1for 2 a b c", "fn", "exec")
-    assert len(w) == 0
+    assert len(w) in (0, 1)
 
 def test_warn_assert_tuple():
     for sourceline in ["assert(False, 'abc')", "assert(x, 'abc')"]:

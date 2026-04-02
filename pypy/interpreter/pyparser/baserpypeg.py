@@ -294,7 +294,7 @@ class Parser:
         assert res
         # now raise all warnings from the tokenizer
         for tok in self._warnings:
-            self.deprecation_warn(tok.value, tok)
+            self.syntax_warn(tok.value, tok)
         return res
 
     def recursive_parse_to_ast(self, str, info):
@@ -305,6 +305,7 @@ class Parser:
         return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
+        """Emit a DeprecationWarning (used for invalid escape sequences in strings)."""
         if self.call_invalid_rules:
             # The call_invalid_rules pass is purely for generating better error
             # messages. Suppress warnings here to avoid emitting duplicates:
@@ -326,6 +327,30 @@ class Parser:
                 )
         except error.OperationError as e:
             if e.match(space, space.w_DeprecationWarning):
+                self.raise_syntax_error_known_location(msg, tok)
+            else:
+                raise
+
+    def syntax_warn(self, msg, tok):
+        """Emit a SyntaxWarning (used for invalid numeric literals)."""
+        if self.call_invalid_rules:
+            return
+        from pypy.interpreter import error
+        from pypy.module._warnings.interp_warnings import warn_explicit
+        space = self.space
+        try:
+            warn_explicit(
+                space, space.newtext(msg),
+                space.w_SyntaxWarning,
+                space.newtext(self.compile_info.filename),
+                tok.lineno,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                )
+        except error.OperationError as e:
+            if e.match(space, space.w_SyntaxWarning):
                 self.raise_syntax_error_known_location(msg, tok)
             else:
                 raise

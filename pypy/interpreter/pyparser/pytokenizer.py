@@ -623,6 +623,11 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                                 lnum, start, line, -1, -1))
     elif potential_identifier_char(ch):
         # raise an error right here
+        if ord(ch) >= 0x80:
+            from pypy.module.unicodedata.interp_ucd import unicodedb
+            code = rutf8.codepoint_at_pos(line, end)
+            if not unicodedb.isxidcontinue(code):
+                raise_invalid_unicode_char(code, line, lnum, end, token_list)
         raise TokenError("invalid %s literal" % kind,
                          line, lnum, start + 1, token_list, lnum, end + 2)
 
