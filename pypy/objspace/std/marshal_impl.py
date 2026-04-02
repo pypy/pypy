@@ -309,9 +309,7 @@ def _marshal_tuple(space, tuple_w, m):
 def marshal_tuple(space, w_tuple, m):
     tuple_w = w_tuple.tolist()
     typecode, single_byte_size = _tuple_typecode(tuple_w, m)
-    typecode = write_ref(typecode, w_tuple, m)
-    if typecode != FLAG_DONE:
-        m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
+    m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
 
 @unmarshaller(TYPE_TUPLE)
 def unmarshal_tuple(space, u, tc):

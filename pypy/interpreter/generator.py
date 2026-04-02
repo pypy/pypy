@@ -195,6 +195,11 @@ return next yielded value or raise StopIteration."""
         else:
             tb = check_traceback(space, w_tb, msg)
 
+        if (not space.exception_is_valid_obj_as_class_w(w_type) and
+                not space.isinstance_w(w_type, space.w_BaseException)):
+            raise oefmt(space.w_TypeError,
+                "exceptions must be classes or instances deriving from "
+                "BaseException, not %N", space.type(w_type))
         operr = OperationError(w_type, w_val, tb)
         w_value = operr.normalize_exception(space)
 

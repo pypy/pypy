@@ -318,7 +318,9 @@ class PyFrame(W_Root):
             return r_uint(last_instr + 2)
 
         if isinstance(w_arg_or_err, SApplicationException):
-            return self.handle_generator_error(w_arg_or_err.operr)
+            operr = w_arg_or_err.operr
+            operr.record_context(space, space.getexecutioncontext())
+            return self.handle_generator_error(operr)
 
         last_instr = jit.promote(self.last_instr)
         if last_instr != -1:

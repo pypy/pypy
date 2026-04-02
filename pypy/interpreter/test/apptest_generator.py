@@ -888,3 +888,70 @@ def test_list_building_wrong_exception():
         yield from [1, 2, 3]
     with raises(ValueError):
         [*gen1()]
+
+def test_throw_context_set_from_active_exception():
+    # When throw() is called on a generator suspended inside an except block,
+    # the thrown exception's __context__ must be set to the active exception.
+    def f():
+        try:
+            raise KeyError('a')
+        except Exception:
+            yield
+
+    gen = f()
+    gen.send(None)
+    with raises(ValueError) as cm:
+        gen.throw(ValueError)
+    context = cm.value.__context__
+    assert type(context) is KeyError
+    assert context.args == ('a',)
+
+def test_throw_context_set_inside_generator():
+    # Same as above but the context is also visible from inside the generator.
+    results = []
+    def f():
+        try:
+            raise KeyError('a')
+        except Exception:
+            try:
+                yield
+            except Exception as exc:
+                results.append((type(exc.__context__), exc.__context__.args))
+                yield 'done'
+
+    gen = f()
+    gen.send(None)
+    val = gen.throw(ValueError)
+    assert val == 'done'
+    assert results == [(KeyError, ('a',))]
+
+def test_throw_non_exception_error_message():
+    # gen.throw() with a non-exception should report
+    # "classes or instances deriving from BaseException".
+    def f():
+        yield
+    g = f()
+    with raises(TypeError) as cm:
+        g.throw("abc")
+    assert "classes or instances deriving from BaseException" in str(cm.value)
+    assert "str" in str(cm.value)
+
+    g2 = f()
+    with raises(TypeError) as cm2:
+        g2.throw(list)
+    assert "classes or instances deriving from BaseException" in str(cm2.value)
+
+def test_throw_bad_new_returns_non_instance():
+    # If E.__new__ returns the class itself instead of an instance,
+    # throw() should say "should have returned an instance of BaseException".
+    class E(Exception):
+        def __new__(cls, *args, **kwargs):
+            return cls
+
+    def f():
+        yield
+
+    g = f()
+    with raises(TypeError) as cm:
+        g.throw(E)
+    assert "should have returned an instance of BaseException" in str(cm.value)
