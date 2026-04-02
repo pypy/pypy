@@ -21,8 +21,8 @@ def format_assertmsg(space, __args__):
     newlines.  For other objects py.io.saferepr() is used first.
 
     """
-    # XXX
-    return obj.replace("\n", "\n~").replace("%", "%%")
+    obj = space.text_w(__args__.firstarg())
+    return space.newtext(obj.replace("\n", "\n~").replace("%", "%%"))
 
 
 def _split_explanation(explanation):
