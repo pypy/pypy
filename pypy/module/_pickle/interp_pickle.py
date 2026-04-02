@@ -13,6 +13,7 @@ from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
 from pypy.module._pickle.state import State
 from pypy.module.__pypy__.interp_buffer import W_PickleBuffer
+from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 import sys
 maxsize = sys.maxint
@@ -2501,6 +2502,24 @@ class W_Unpickler(W_Root):
         w_list_obj = self.stack[-1]
         w_extend = space.lookup(w_list_obj, "extend")
         if w_extend:
+            # Fast path: fuse strategy-detection + unwrap into one pass for
+            # lists of pure-ASCII strings (the common case when unpickling
+            # large lists of short str values).
+            if len(w_items) > 0 and type(w_items[0]) is W_UnicodeObject:
+                ascii_strs = []
+                for w in w_items:
+                    if type(w) is not W_UnicodeObject:
+                        ascii_strs = None
+                        break
+                    utf8 = w._utf8
+                    if w._length != len(utf8):  # not ASCII
+                        ascii_strs = None
+                        break
+                    ascii_strs.append(utf8)
+                if ascii_strs is not None:
+                    space.call_method(w_list_obj, "extend",
+                                      space.newlist_utf8(ascii_strs, True))
+                    return
             space.call_method(w_list_obj, "extend", space.newlist(w_items))
             return
         # Even if the PEP 307 requires extend() and append() methods,
