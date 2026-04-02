@@ -148,6 +148,10 @@ RPY_EXTERN
 const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
 RPY_EXTERN
 void pypy_cjk_enc_copystate(struct pypy_cjk_enc_s *dst, struct pypy_cjk_enc_s *src);
+RPY_EXTERN
+void pypy_cjk_enc_getstate(struct pypy_cjk_enc_s *d, unsigned char *buf);
+RPY_EXTERN
+void pypy_cjk_enc_setstate(struct pypy_cjk_enc_s *d, const unsigned char *buf);
 
 /* list of codecs defined in the .c files */
 
