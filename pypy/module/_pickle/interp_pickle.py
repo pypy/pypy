@@ -15,6 +15,43 @@ from pypy.module._pickle.state import State
 from pypy.module.__pypy__.interp_buffer import W_PickleBuffer
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
+
+class _W_AsciiListUnpickler(W_Root):
+    """Sentinel pushed onto the stack when GLOBAL 'pypy._builtin' '_ascii_list_unpickle'
+    is encountered.  load_reduce checks for this type and calls the RPython fast path
+    instead of going through the generic Python call mechanism."""
+    pass
+
+_ascii_list_unpickler_sentinel = _W_AsciiListUnpickler()
+
+
+def _ascii_list_from_packed(space, w_args):
+    """Unpack the PyPy ASCII-list blob (a 1-tuple of bytes) into an AsciiList.
+
+    Packed format: 4-byte LE count N + N x (1-byte length + raw ASCII bytes).
+    Called by load_reduce when the sentinel is on the stack; never goes through
+    the Python call mechanism.
+    """
+    w_packed = space.getitem(w_args, space.newint(0))
+    data = space.bytes_w(w_packed)
+    if len(data) < 4:
+        raise oefmt(space.w_ValueError, "truncated ascii list pickle data")
+    n = (ord(data[0])
+         | (ord(data[1]) << 8)
+         | (ord(data[2]) << 16)
+         | (ord(data[3]) << 24))
+    strs = [''] * n
+    i = 4
+    for j in range(n):
+        if i >= len(data):
+            raise oefmt(space.w_ValueError, "truncated ascii list pickle data")
+        length = ord(data[i])
+        i += 1
+        strs[j] = data[i:i + length]
+        i += length
+    return space.newlist_utf8(strs, True)
+
+
 import sys
 maxsize = sys.maxint
 
@@ -442,6 +479,7 @@ class W_Pickler(W_Root):
         self.proto = protocol
         self.bin = protocol >= 1
         self.fast = 0
+        self.pypy_extensions = False
         self.pers_func = None
         self.w_dispatch_table = None
         self.w_reducer_override = None  # updated below and via set_reducer_override_w
@@ -1120,6 +1158,12 @@ class W_Pickler(W_Root):
     def get_fast_w(self, space):
         return space.newint(self.fast)
 
+    def set_pypy_extensions_w(self, space, w_val):
+        self.pypy_extensions = space.is_true(w_val)
+
+    def get_pypy_extensions_w(self, space):
+        return space.newbool(self.pypy_extensions)
+
     def save_pers(self, w_pid):
         space = self.space
         if self.bin:
@@ -1368,8 +1412,59 @@ def save_tuple(self, w_obj):
     write(op.TUPLE)
     self.memoize(w_obj)
 
+def _save_ascii_list(self, w_obj, ascii_items):
+    """Emit a PyPy-specific compact form for a list of pure-ASCII strings.
+
+    Format on the wire:
+        GLOBAL 'pypy._builtin\\n_ascii_list_unpickle\\n'
+        SHORT_BINBYTES / BINBYTES  <packed>
+        TUPLE1
+        REDUCE
+        MEMOIZE / BINPUT / PUT
+
+    packed = 4-byte LE count N  +  N x (1-byte length + raw UTF-8 bytes)
+    Strings longer than 255 bytes fall back to the regular path.
+    """
+    n = len(ascii_items)
+    # Verify every string fits in a 1-byte length prefix.
+    for s in ascii_items:
+        if len(s) > 255:
+            # Fall back: write as a normal list.
+            self.write(op.EMPTY_LIST)
+            self.memoize(w_obj)
+            self._batch_appends(w_obj)
+            return
+    # Build the packed bytes blob.
+    total = 4 + n  # 4-byte count + 1 length byte per string
+    for s in ascii_items:
+        total += len(s)
+    buf = StringBuilder(total)
+    buf.append(chr(n & 0xff))
+    buf.append(chr((n >> 8) & 0xff))
+    buf.append(chr((n >> 16) & 0xff))
+    buf.append(chr((n >> 24) & 0xff))
+    for s in ascii_items:
+        buf.append(chr(len(s)))
+        buf.append(s)
+    packed = buf.build()
+    # Emit the special global + packed bytes + TUPLE1 + REDUCE.
+    self.write(op.GLOBAL + 'pypy._builtin\n_ascii_list_unpickle\n')
+    self.save(self.space.newbytes(packed))
+    self.write(op.TUPLE1)
+    self.write(op.REDUCE)
+    self.memoize(w_obj)
+
 def save_list(self, w_obj):
     if self.bin:
+        # Fast path for AsciiListStrategy: emit a compact PyPy-specific form
+        # that lets the unpickler reconstruct the list without per-item W_Root
+        # allocations.  Proto >= 2 is required for the GLOBAL opcode variant
+        # we use; proto 0/1 fall through to the generic path.
+        if self.pypy_extensions and self.proto >= 2:
+            ascii_items = self.space.listview_ascii(w_obj)
+            if ascii_items is not None:
+                _save_ascii_list(self, w_obj, ascii_items)
+                return
         self.write(op.EMPTY_LIST)
     else:   # proto 0 -- can't use EMPTY_LIST
         self.write(op.MARK + op.LIST)
@@ -1648,6 +1743,8 @@ W_Pickler.typedef = TypeDef("_pickle.Pickler",
     memo = GetSetProperty(W_Pickler.get_memo_w, W_Pickler.set_memo_w),
     dispatch_table = GetSetProperty(W_Pickler.get_dispatch_table_w, W_Pickler.set_dispatch_table_w),
     fast = GetSetProperty(W_Pickler.get_fast_w, W_Pickler.set_fast_w),
+    pypy_extensions = GetSetProperty(W_Pickler.get_pypy_extensions_w,
+                                     W_Pickler.set_pypy_extensions_w),
     persistent_id = GetSetProperty(W_Pickler.get_pers_func_w, W_Pickler.set_pers_func_w,
                                    W_Pickler.del_pers_func_w),
     # Note: reducer_override is intentionally NOT registered here as a
@@ -2308,9 +2405,13 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.NEWOBJ_EX[0])] = load_newobj_ex
 
     def load_global(self):
-            w_module = self.space.newtext(self.readline())
-            w_name = self.space.newtext(self.readline())
-            w_klass = self.find_class(w_module, w_name)
+            module = self.readline()
+            name = self.readline()
+            if module == 'pypy._builtin' and name == '_ascii_list_unpickle':
+                self.append(_ascii_list_unpickler_sentinel)
+                return
+            w_klass = self.find_class(self.space.newtext(module),
+                                      self.space.newtext(name))
             self.append(w_klass)
     dispatch[ord(op.GLOBAL[0])] = load_global
 
@@ -2394,6 +2495,9 @@ class W_Unpickler(W_Root):
             raise oefmt(unpickling_error(self.space),
                 "unexpected MARK found")
         w_func = stack[-1]
+        if type(w_func) is _W_AsciiListUnpickler:
+            stack[-1] = _ascii_list_from_packed(self.space, w_args)
+            return
         w_arguments = Arguments(self.space, [], w_stararg = w_args)
         w_obj = self.space.call_args(w_func, w_arguments)
         stack[-1] = w_obj
@@ -2505,8 +2609,10 @@ class W_Unpickler(W_Root):
             # Fast path: fuse strategy-detection + unwrap into one pass for
             # lists of pure-ASCII strings (the common case when unpickling
             # large lists of short str values).
-            if len(w_items) > 0 and type(w_items[0]) is W_UnicodeObject:
-                ascii_strs = []
+            n = len(w_items)
+            if n > 0 and type(w_items[0]) is W_UnicodeObject:
+                ascii_strs = [''] * n
+                i = 0
                 for w in w_items:
                     if type(w) is not W_UnicodeObject:
                         ascii_strs = None
@@ -2515,7 +2621,8 @@ class W_Unpickler(W_Root):
                     if w._length != len(utf8):  # not ASCII
                         ascii_strs = None
                         break
-                    ascii_strs.append(utf8)
+                    ascii_strs[i] = utf8
+                    i += 1
                 if ascii_strs is not None:
                     space.call_method(w_list_obj, "extend",
                                       space.newlist_utf8(ascii_strs, True))
