@@ -1397,11 +1397,11 @@ def save_set(self, w_obj):
 
         write(op.EMPTY_SET)
         self.memoize(w_obj)
-        w_iter = space.iter(w_obj)
-        write(op.MARK)
         length = space.len_w(w_obj)
         if length == 0:
             return
+        w_iter = space.iter(w_obj)
+        write(op.MARK)
         w_item = space.next(w_iter)
         save(w_item)
         for i in range(1, length - 1):

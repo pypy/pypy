@@ -796,3 +796,12 @@ def test_pickle_dict_views():
                 pass
             else:
                 assert False, "expected TypeError or PicklingError for %r" % (view,)
+
+def test_pickle_empty_set():
+    # empty set must roundtrip correctly for all protocols (proto >= 4 uses
+    # EMPTY_SET opcode; a bug left an unmatched MARK for empty sets)
+    for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+        for obj in (set(), frozenset()):
+            result = loads(dumps(obj, proto))
+            assert result == obj
+            assert type(result) is type(obj)
