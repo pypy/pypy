@@ -657,9 +657,9 @@ class W_Pickler(W_Root):
     def _batch_appends_raw_str(self, items, value_memo, write_item):
         """Fast path for list strategies storing raw RPython strings.
 
-        items       — list of RPython str from listview_ascii / listview_bytes
-        value_memo  — self.str_memo or self.bytes_memo
-        write_item  — callable(self, s) that writes the pickle opcode + data
+        items       - list of RPython str from listview_ascii / listview_bytes
+        value_memo  - self.str_memo or self.bytes_memo
+        write_item  - callable(self, s) that writes the pickle opcode + data
         """
         write = self.write
         n_items = len(items)
