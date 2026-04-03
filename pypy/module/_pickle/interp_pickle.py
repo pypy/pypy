@@ -1978,11 +1978,13 @@ class W_Unpickler(W_Root):
 
     def load_long(self):
         data = self.readline()
-        stop = len(data) - 1
-        if stop >= 0 and data[stop] == 'L':
-            data = data[:stop]
-        val = int(data)
-        self.append(self.space.newint(val))
+        # strip trailing newline, then optional 'L' suffix (Python 2 pickle)
+        if data and data[-1] == '\n':
+            data = data[:-1]
+        if data and data[-1] == 'L':
+            data = data[:-1]
+        self.append(self.space.call_function(
+            self.space.w_int, self.space.newtext(data)))
     dispatch[ord(op.LONG[0])] = load_long
 
     def load_long1(self):
