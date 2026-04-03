@@ -740,7 +740,7 @@ class AppTestSysModulePortedFromCPython:
         assert SimpleNamespace() != Fake()
 
     def test_pickle_simplenamespace(self):
-        import pickle, sys
+        import _pickle as pickle, sys
         SimpleNamespace = type(sys.implementation)
         ns = SimpleNamespace(x=1, y=2, w=3)
         copy = pickle.loads(pickle.dumps(ns))

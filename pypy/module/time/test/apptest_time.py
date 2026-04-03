@@ -552,7 +552,7 @@ def test_strptime():
         time.strptime(time.strftime(format, tt), format)
 
 def test_pickle():
-    import pickle
+    import _pickle as pickle
     import time
     now = time.localtime()
     new = pickle.loads(pickle.dumps(now))

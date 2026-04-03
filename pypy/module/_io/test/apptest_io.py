@@ -378,7 +378,7 @@ def test_warn_on_dealloc(tempfile):
     _check_warn_on_dealloc(tempfile, 'w')
 
 def test_pickling(tempfile):
-    import pickle
+    import _pickle as pickle
     # Pickling file objects is forbidden
     for kwargs in [
             {"mode": "w"},

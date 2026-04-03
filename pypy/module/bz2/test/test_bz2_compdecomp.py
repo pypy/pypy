@@ -111,7 +111,7 @@ class AppTestBZ2Compressor(CheckAllocation):
 
     def test_compressor_pickle_error(self):
         from _bz2 import BZ2Compressor
-        import pickle
+        import _pickle as pickle
 
         exc = raises(TypeError, pickle.dumps, BZ2Compressor())
         assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Compressor' object"
@@ -196,7 +196,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
     def test_decompressor_pickle_error(self):
         from _bz2 import BZ2Decompressor
-        import pickle
+        import _pickle as pickle
 
         exc = raises(TypeError, pickle.dumps, BZ2Decompressor())
         assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Decompressor' object"
