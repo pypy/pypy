@@ -1,3 +1,4 @@
+# spaceconfig = {"usemodules": ["_multibytecodec", "_codecs"]}
 import os
 import codecs
 import pytest
@@ -162,7 +163,7 @@ def test_encode_big5hkscs():
     assert r == b'\x88b'
 
 
-def test_encoder_state_with_buffer(monkeypatch):
+def test_encoder_state_with_buffer():
     # euc_jis_2004 stores state as a buffer of pending Unicode chars
     encoder = codecs.getincrementalencoder('euc_jis_2004')()
 

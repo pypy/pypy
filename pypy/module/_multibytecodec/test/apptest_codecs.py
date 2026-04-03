@@ -1,3 +1,4 @@
+# spaceconfig = {"usemodules": ["_multibytecodec", "_codecs"]}
 import pytest
 import codecs
 import sys

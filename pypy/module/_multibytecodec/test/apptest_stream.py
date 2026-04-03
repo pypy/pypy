@@ -1,3 +1,4 @@
+# spaceconfig = {"usemodules": ["_multibytecodec", "_codecs"]}
 import _codecs_cn
 import _codecs_jp
 from _multibytecodec import MultibyteStreamReader, MultibyteStreamWriter
