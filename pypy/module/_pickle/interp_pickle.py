@@ -949,7 +949,7 @@ class W_Pickler(W_Root):
         except OperationError as e:
             if (not e.match(space, space.w_ImportError) and
                     not e.match(space, space.w_KeyError) and
-                    e.match(space, space.w_AttributeError)):
+                    not e.match(space, space.w_AttributeError)):
                 raise
             raise oefmt(pickling_error(space),
                 "Can't pickle %R: it's not found as %S.%S",
@@ -1649,9 +1649,10 @@ W_Pickler.typedef = TypeDef("_pickle.Pickler",
     fast = GetSetProperty(W_Pickler.get_fast_w, W_Pickler.set_fast_w),
     persistent_id = GetSetProperty(W_Pickler.get_pers_func_w, W_Pickler.set_pers_func_w,
                                    W_Pickler.del_pers_func_w),
-    reducer_override = GetSetProperty(W_Pickler.get_reducer_override_w,
-                                      W_Pickler.set_reducer_override_w,
-                                      W_Pickler.del_reducer_override_w),
+    # Note: reducer_override is intentionally NOT registered here as a
+    # GetSetProperty. A data descriptor would shadow Python subclass methods
+    # in MRO lookup (the common use case). Matches CPython's _pickle.c which
+    # also does not define reducer_override in Pickler_getsets.
 )
 
 

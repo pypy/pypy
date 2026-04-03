@@ -762,3 +762,37 @@ def test_readonly_buffer():
     readonly_buf = memoryview(bufs[0]).toreadonly()
     result = loads(data, buffers=[readonly_buf])
     assert bytes(result) == b'mutable'
+
+def test_reducer_override_subclass():
+    # reducer_override defined as a method on a Pickler subclass must be
+    # called (not shadowed by a data descriptor on the base Pickler class).
+    import io
+    class MyPickler(Pickler):
+        def reducer_override(self, obj):
+            if obj == 42:
+                return int, (99,)
+            return NotImplemented
+
+    bio = io.BytesIO()
+    p = MyPickler(bio, 2)
+    p.dump(42)
+    result = loads(bio.getvalue())
+    assert result == 99, "reducer_override was not called"
+
+    # Non-intercepted objects still pickle normally
+    bio2 = io.BytesIO()
+    p2 = MyPickler(bio2, 2)
+    p2.dump("hello")
+    assert loads(bio2.getvalue()) == "hello"
+
+def test_pickle_dict_views():
+    # dict_keys/values/items are not picklable; must raise TypeError or PicklingError
+    d = {1: 10, "a": "ABC"}
+    for proto in range(5 + 1):
+        for view in (d.keys(), d.values(), d.items()):
+            try:
+                dumps(view, proto)
+            except (TypeError, PicklingError):
+                pass
+            else:
+                assert False, "expected TypeError or PicklingError for %r" % (view,)
