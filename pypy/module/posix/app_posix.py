@@ -55,7 +55,7 @@ class stat_result(metaclass=structseqtype):
         st_file_attributes = structseqfield(30, "Windows file attribute bits")
         st_reparse_tag = structseqfield(31, "Windows reparse tag")
 
-    # nsec_xtime
+    # nsec_xtime: nanoseconds remainder, populated by build_stat_result
     if "nsec_atime" in posix._statfields:
         nsec_atime = structseqfield(40, "nanoseconds part of time of last access")
     if "nsec_mtime" in posix._statfields:
@@ -63,31 +63,21 @@ class stat_result(metaclass=structseqtype):
     if "nsec_ctime" in posix._statfields:
         nsec_ctime = structseqfield(42, "nanoseconds part of time of last change")
 
+    # full nanosecond timestamps, populated by build_stat_result
+    st_atime_ns = structseqfield(50, "time of last access in nanoseconds")
+    st_mtime_ns = structseqfield(51, "time of last modification in nanoseconds")
+    st_ctime_ns = structseqfield(52, "time of last change in nanoseconds")
+
     def __init__(self, *args, **kw):
-        # If we have been initialized from a tuple,
-        # st_?time might be set to None. Initialize it
-        # from the int slots.
+        # If we have been initialized from a tuple (not via build_stat_result),
+        # st_?time might be None. Initialize from the int slots.
+        # st_?time_ns is left as None if not provided (matching CPython behavior).
         if self.st_atime is None:
             self.__dict__['st_atime'] = self[7]
         if self.st_mtime is None:
             self.__dict__['st_mtime'] = self[8]
         if self.st_ctime is None:
             self.__dict__['st_ctime'] = self[9]
-
-    @property
-    def st_atime_ns(self):
-        "time of last access in nanoseconds"
-        return int(self[7]) * 1000000000 + self.nsec_atime
-
-    @property
-    def st_mtime_ns(self):
-        "time of last modification in nanoseconds"
-        return int(self[8]) * 1000000000 + self.nsec_mtime
-
-    @property
-    def st_ctime_ns(self):
-        "time of last change in nanoseconds"
-        return int(self[9]) * 1000000000 + self.nsec_ctime
 
 
 class statvfs_result(metaclass=structseqtype):

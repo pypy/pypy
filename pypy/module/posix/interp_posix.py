@@ -563,9 +563,16 @@ def build_stat_result(space, st):
             w_value = space.newint(value)
             w_result.setdictvalue(space, name, w_value)
 
-    # Note: 'w_result' contains the three attributes 'nsec_Xtime'.
-    # We have an app-level property in app_posix.stat_result to
-    # compute the full 'st_Xtime_ns' value.
+    # full nanosecond timestamps
+    w_result.setdictvalue(space, 'st_atime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'atime')))
+    w_result.setdictvalue(space, 'st_mtime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'mtime')))
+    w_result.setdictvalue(space, 'st_ctime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'ctime')))
 
     # non-rounded values for name-based access
     if stat_float_times:
