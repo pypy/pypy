@@ -252,10 +252,10 @@ What about willful misconduct?
       ...
     TypeError: g() got multiple values for argument 'x'
 
-    >>> f(**{1:2})
+    >>> f(**{1:2})  # doctest: +ELLIPSIS
     Traceback (most recent call last):
       ...
-    TypeError: keywords must be strings
+    TypeError: keywords must be strings...
 
     >>> h(**{'e': 2})
     Traceback (most recent call last):
