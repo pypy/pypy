@@ -25,6 +25,13 @@ class _W_AsciiListUnpickler(W_Root):
 _ascii_list_unpickler_sentinel = _W_AsciiListUnpickler()
 
 
+class _W_BytesListUnpickler(W_Root):
+    """Sentinel for GLOBAL 'pypy._builtin' '_bytes_list_unpickle'."""
+    pass
+
+_bytes_list_unpickler_sentinel = _W_BytesListUnpickler()
+
+
 def _ascii_list_from_packed(space, w_args):
     """Unpack the PyPy ASCII-list blob (a 1-tuple of bytes) into an AsciiList.
 
@@ -50,6 +57,31 @@ def _ascii_list_from_packed(space, w_args):
         strs[j] = data[i:i + length]
         i += length
     return space.newlist_utf8(strs, True)
+
+
+def _bytes_list_from_packed(space, w_args):
+    """Unpack a PyPy bytes-list blob (1-tuple of bytes) into a BytesListStrategy list.
+
+    Packed format: 4-byte LE count N + N x (1-byte length + raw bytes).
+    """
+    w_packed = space.getitem(w_args, space.newint(0))
+    data = space.bytes_w(w_packed)
+    if len(data) < 4:
+        raise oefmt(space.w_ValueError, "truncated bytes list pickle data")
+    n = (ord(data[0])
+         | (ord(data[1]) << 8)
+         | (ord(data[2]) << 16)
+         | (ord(data[3]) << 24))
+    items = [''] * n
+    i = 4
+    for j in range(n):
+        if i >= len(data):
+            raise oefmt(space.w_ValueError, "truncated bytes list pickle data")
+        length = ord(data[i])
+        i += 1
+        items[j] = data[i:i + length]
+        i += length
+    return space.newlist_bytes(items)
 
 
 import sys
@@ -1454,6 +1486,44 @@ def _save_ascii_list(self, w_obj, ascii_items):
     self.write(op.REDUCE)
     self.memoize(w_obj)
 
+def _save_bytes_list(self, w_obj, bytes_items):
+    """Emit a PyPy-specific compact form for a list of bytes objects.
+
+    Format on the wire:
+        GLOBAL 'pypy._builtin\\n_bytes_list_unpickle\\n'
+        SHORT_BINBYTES / BINBYTES  <packed>
+        TUPLE1
+        REDUCE
+        MEMOIZE / BINPUT / PUT
+
+    packed = 4-byte LE count N  +  N x (1-byte length + raw bytes)
+    Items longer than 255 bytes fall back to the regular path.
+    """
+    n = len(bytes_items)
+    for s in bytes_items:
+        if len(s) > 255:
+            self.write(op.EMPTY_LIST)
+            self.memoize(w_obj)
+            self._batch_appends(w_obj)
+            return
+    total = 4 + n
+    for s in bytes_items:
+        total += len(s)
+    buf = StringBuilder(total)
+    buf.append(chr(n & 0xff))
+    buf.append(chr((n >> 8) & 0xff))
+    buf.append(chr((n >> 16) & 0xff))
+    buf.append(chr((n >> 24) & 0xff))
+    for s in bytes_items:
+        buf.append(chr(len(s)))
+        buf.append(s)
+    packed = buf.build()
+    self.write(op.GLOBAL + 'pypy._builtin\n_bytes_list_unpickle\n')
+    self.save(self.space.newbytes(packed))
+    self.write(op.TUPLE1)
+    self.write(op.REDUCE)
+    self.memoize(w_obj)
+
 def save_list(self, w_obj):
     if self.bin:
         # Fast path for AsciiListStrategy: emit a compact PyPy-specific form
@@ -1464,6 +1534,10 @@ def save_list(self, w_obj):
             ascii_items = self.space.listview_ascii(w_obj)
             if ascii_items is not None:
                 _save_ascii_list(self, w_obj, ascii_items)
+                return
+            bytes_items = self.space.listview_bytes(w_obj)
+            if bytes_items is not None:
+                _save_bytes_list(self, w_obj, bytes_items)
                 return
         self.write(op.EMPTY_LIST)
     else:   # proto 0 -- can't use EMPTY_LIST
@@ -2407,9 +2481,13 @@ class W_Unpickler(W_Root):
     def load_global(self):
             module = self.readline()
             name = self.readline()
-            if module == 'pypy._builtin' and name == '_ascii_list_unpickle':
-                self.append(_ascii_list_unpickler_sentinel)
-                return
+            if module == 'pypy._builtin':
+                if name == '_ascii_list_unpickle':
+                    self.append(_ascii_list_unpickler_sentinel)
+                    return
+                if name == '_bytes_list_unpickle':
+                    self.append(_bytes_list_unpickler_sentinel)
+                    return
             w_klass = self.find_class(self.space.newtext(module),
                                       self.space.newtext(name))
             self.append(w_klass)
@@ -2497,6 +2575,9 @@ class W_Unpickler(W_Root):
         w_func = stack[-1]
         if type(w_func) is _W_AsciiListUnpickler:
             stack[-1] = _ascii_list_from_packed(self.space, w_args)
+            return
+        if type(w_func) is _W_BytesListUnpickler:
+            stack[-1] = _bytes_list_from_packed(self.space, w_args)
             return
         w_arguments = Arguments(self.space, [], w_stararg = w_args)
         w_obj = self.space.call_args(w_func, w_arguments)
