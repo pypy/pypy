@@ -38,8 +38,10 @@ class ExceptionTest(unittest.TestCase):
         self.assertIn('UnhashableException: ex1', tb[10])
 
     data = (('1/0', ZeroDivisionError, "division by zero\n"),
+            # PyPy appends "Or did you forget to import 'abc'" after the typo
+            # hint, so check only the common prefix (no trailing newline).
             ('abc', NameError, "name 'abc' is not defined. "
-                               "Did you mean: 'abs'?\n"),
+                               "Did you mean: 'abs'?"),
             ('int.reel', AttributeError,
                  "type object 'int' has no attribute 'reel'. "
                  "Did you mean: 'real'?\n"),
