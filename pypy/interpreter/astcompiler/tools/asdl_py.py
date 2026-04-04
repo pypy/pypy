@@ -239,12 +239,21 @@ class ASTNodeVisitor(ASDLVisitor):
             lines.append("_%s = [%s for w_item in %s_w]" %
                          (field.name, value, field.name))
         else:
-            value = self.get_value_extractor(field, "w_%s" % (field.name,))
-            lines = ["_%s = %s" % (field.name, value)]
-            if not field.opt and field.type not in ("int",):
-                lines.append("if _%s is None:" % (field.name,))
-                lines.append("    raise_required_value(space, w_node, '%s')"
-                             % (field.name,))
+            if not field.opt and field.type == "identifier":
+                # Check for w_None before space.text_w so we raise ValueError
+                # ("field X is required") instead of TypeError ("expected str").
+                lines = [
+                    "if space.is_w(w_%s, space.w_None):" % field.name,
+                    "    raise_required_value(space, w_node, '%s')" % field.name,
+                    "_%s = space.text_w(w_%s)" % (field.name, field.name),
+                ]
+            else:
+                value = self.get_value_extractor(field, "w_%s" % (field.name,))
+                lines = ["_%s = %s" % (field.name, value)]
+                if not field.opt and field.type not in ("int",):
+                    lines.append("if _%s is None:" % (field.name,))
+                    lines.append("    raise_required_value(space, w_node, '%s')"
+                                 % (field.name,))
 
         return lines
 

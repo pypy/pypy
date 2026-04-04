@@ -1523,7 +1523,7 @@ class PythonParser(Parser):
                             if b:
                                 tok = self.get_last_non_whitespace_token()
                                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . With ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+                                return self . check_version_for_parenthesized_with ( a , opt , ast . With ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
         literal = self.expect_type(520)
         if literal:
@@ -1555,7 +1555,7 @@ class PythonParser(Parser):
                                 if b:
                                     tok = self.get_last_non_whitespace_token()
                                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-                                    return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
+                                    return self . check_version_for_parenthesized_with ( a , opt , ast . AsyncWith ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
         _async = self.expect_type(58)
         if _async:
@@ -5326,7 +5326,7 @@ class PythonParser(Parser):
             if literal:
                 _tmp_217 = self._tmp_217()
                 if _tmp_217:
-                    return self . raise_syntax_error_known_location ( "expected one or more exception types" , _tmp_217 )
+                    return self . raise_syntax_error ( "expected one or more exception types" )
         self._index = mark
         return None
 
@@ -5698,12 +5698,6 @@ class PythonParser(Parser):
             if a:
                 if self.positive_lookahead(PythonParser._tmp_226, ):
                     return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a )
-        self._index = mark
-        a = self.expression()
-        if a:
-            b = self.expect_type(22)
-            if b:
-                return self . raise_syntax_error_known_location ( "':' expected after dictionary key" , b )
         self._index = mark
         return None
 

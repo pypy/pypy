@@ -2128,3 +2128,19 @@ except*:
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(s)
         assert excinfo.value.msg == "multiple exception types must be parenthesized"
+
+    def test_with_parenthesized_conditional_low_feature_version(self):
+        # gh-115881: with (cond_expr): should NOT be treated as
+        # "parenthesized with items" and should parse on all versions.
+        # A single expression in parens is just grouping, not new syntax.
+        info = pyparse.CompileInfo("<test>", "exec", feature_version=8)
+        ast_node = self.parser.parse_source(
+            "with (x() if y else z()): pass", info)
+        assert isinstance(ast_node.body[0], ast.With)
+
+    def test_with_parenthesized_items_rejected_on_low_feature_version(self):
+        # Multiple items OR trailing comma IS the new syntax and requires 3.9+
+        info = pyparse.CompileInfo("<test>", "exec", feature_version=8)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parser.parse_source("with (a(), b()): pass", info)
+        assert "Parenthesized with items" in excinfo.value.msg

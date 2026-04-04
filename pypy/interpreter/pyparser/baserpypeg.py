@@ -553,6 +553,16 @@ class Parser:
                 "%s only supported in Python %s and above." % (error_msg, min_version),
                 node)
 
+    def check_version_for_parenthesized_with(self, a, opt, node):
+        """Only version-gate parenthesized with when it's genuinely the new
+        syntax: multiple items or a trailing comma.  A single expression in
+        parens without trailing comma is just expression grouping, valid in
+        all Python versions (gh-115881)."""
+        if opt or len(a) > 1:
+            return self.check_version(
+                (3, 9), "Parenthesized with items", node)
+        return node
+
     def raise_indentation_error(self, msg):
         """Raise an indentation error."""
         if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and

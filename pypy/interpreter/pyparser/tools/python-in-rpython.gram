@@ -454,22 +454,16 @@ for_stmt[Union[ast.For, ast.AsyncFor]]:
 
 with_stmt[Union[ast.With, ast.AsyncWith]]:
     | invalid_with_stmt_indent
-    | 'with' '(' a=','.with_item+ ','? ')' ':' b=block {
-        self.check_version(
-           (3, 9),
-           "Parenthesized with items",
-            ast.With(items=a, body=b, type_comment=None, LOCATIONS)
-        )
+    | 'with' '(' a=','.with_item+ opt=','? ')' ':' b=block {
+        self.check_version_for_parenthesized_with(
+            a, opt, ast.With(items=a, body=b, type_comment=None, LOCATIONS))
      }
     | 'with' a=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
         ast.With(items=a, body=b, type_comment=tc, LOCATIONS)
      }
-    | ASYNC 'with' '(' a=','.with_item+ ','? ')' ':' b=block {
-       self.check_version(
-           (3, 9),
-           "Parenthesized with items",
-           ast.AsyncWith(items=a, body=b, type_comment=None, LOCATIONS)
-        )
+    | ASYNC 'with' '(' a=','.with_item+ opt=','? ')' ':' b=block {
+        self.check_version_for_parenthesized_with(
+            a, opt, ast.AsyncWith(items=a, body=b, type_comment=None, LOCATIONS))
      }
     | ASYNC 'with' a=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
        self.check_version(
