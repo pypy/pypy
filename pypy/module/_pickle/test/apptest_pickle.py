@@ -68,9 +68,6 @@ def test_int():
             for expected in (-n, n):
                 s = dumps(expected, proto)
                 s2 = pickle._dumps(expected, proto)
-                print(expected, proto, s)
-                if s != s2:
-                    print(s, s2)
                 assert s == s2
                 n2 = loads(s)
                 assert expected == n2
@@ -212,7 +209,6 @@ def test_dict():
         assert s1 == s2
         val = loads(s1)
         assert val == DICT
-        print("ok", proto, s1)
 
 def test_reduce():
     import sys

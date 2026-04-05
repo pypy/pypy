@@ -31,8 +31,7 @@ def test_ascii_list_roundtrip():
 
 
 def test_ascii_list_large():
-    import hashlib
-    data = [hashlib.md5(b'hello %i' % i).hexdigest() for i in range(10000)]
+    data = ['%032x' % i for i in range(10000)]
     assert loads(_pypy_dumps(data)) == data
 
 

@@ -270,7 +270,7 @@ def unpackQ(s, index=0):
         x = ord(s[index])
         val += x * (1 << 8 * i)
         index += 1
-    return val
+    return int(val)
 
 
 def packI(opcode, val):
@@ -1331,7 +1331,7 @@ def save_bytes(self, w_obj):
 def save_raw_bytes(self, n, obj):
     if n <= 0xff:
         self.write_packB(op.SHORT_BINBYTES, n, obj)
-    elif n > 0xffffffff and self.proto >= 4:
+    elif sys.maxint > 0x7fffffff and n > 0xffffffff and self.proto >= 4:
         self._write_large_bytes(packQ(op.BINBYTES8, n), obj)
     elif n >= self.framer._FRAME_SIZE_TARGET:
         self._write_large_bytes(packI(op.BINBYTES, n), obj)
@@ -1343,7 +1343,7 @@ def _write_ascii_item(self, s):
     n = len(s)
     if n <= 0xff and self.proto >= 4:
         self.write_packB(op.SHORT_BINUNICODE, n, s)
-    elif n > 0xffffffff and self.proto >= 4:
+    elif sys.maxint > 0x7fffffff and n > 0xffffffff and self.proto >= 4:
         self._write_large_bytes(packQ(op.BINUNICODE8, n), s)
     elif n >= self.framer._FRAME_SIZE_TARGET:
         self._write_large_bytes(packI(op.BINUNICODE, n), s)
@@ -1355,7 +1355,7 @@ def _write_bytes_item(self, s):
     n = len(s)
     if n <= 0xff:
         self.write_packB(op.SHORT_BINBYTES, n, s)
-    elif n > 0xffffffff and self.proto >= 4:
+    elif sys.maxint > 0x7fffffff and n > 0xffffffff and self.proto >= 4:
         self._write_large_bytes(packQ(op.BINBYTES8, n), s)
     elif n >= self.framer._FRAME_SIZE_TARGET:
         self._write_large_bytes(packI(op.BINBYTES, n), s)
@@ -1369,7 +1369,7 @@ def save_str(self, w_obj):
         n = len(encoded)
         if n <= 0xff and self.proto >= 4:
             self.write_packB(op.SHORT_BINUNICODE, n, encoded)
-        elif n > 0xffffffff and self.proto >= 4:
+        elif sys.maxint > 0x7fffffff and n > 0xffffffff and self.proto >= 4:
             self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
         elif n >= self.framer._FRAME_SIZE_TARGET:
             self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
@@ -2125,8 +2125,15 @@ class W_Unpickler(W_Root):
         elif data == b'01':  # op.TRUE[1:-1]
             w_val = space.w_True
         else:
+            from rpython.rlib.rbigint import rbigint
             try:
-                w_val = space.newint(int(data))
+                ival = int(data)
+                if -(sys.maxint + 1) <= ival <= sys.maxint:
+                    w_val = space.newint(ival)
+                else:
+                    w_val = space.newlong_from_rbigint(rbigint.fromstr(data))
+            except OverflowError:
+                w_val = space.newlong_from_rbigint(rbigint.fromstr(data))
             except ValueError:
                 raise oefmt(space.w_ValueError, "could not convert string to int")
         self.append(w_val)
