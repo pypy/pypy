@@ -1489,7 +1489,7 @@ invalid_except_stmt[None]:
      }
     | a='except' '*'? expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
-    | a='except' '*' (NEWLINE | ':') { self.raise_syntax_error("expected one or more exception types") }
+    | a='except' '*' b=(NEWLINE | ':') { self.raise_syntax_error_known_location("expected one or more exception types", b) }
 invalid_finally_stmt[NoReturn]:
     | a='finally' ':' NEWLINE !INDENT {
         self.raise_indentation_error(

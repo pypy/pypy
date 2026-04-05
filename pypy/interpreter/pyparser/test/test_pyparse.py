@@ -547,6 +547,13 @@ except* ValueError:
         assert exc.msg == "':' expected after dictionary key"
         assert exc.offset == 16  # points at '='
 
+    def test_except_star_no_type_offset(self):
+        # 'except*:' should report offset pointing at ':' (offset 8), not past it
+        src = "try:\n  pass\nexcept*:\n  pass"
+        exc = pytest.raises(SyntaxError, self.parse, src).value
+        assert exc.msg == "expected one or more exception types"
+        assert exc.offset == 8  # points at ':'
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
