@@ -63,6 +63,17 @@ class AppTestMarshalMore:
             s1 = marshal.dumps((x, x)) # check that sharing works
             assert s1 == b")\x02" + s + b"r\x00\x00\x00\x00"
 
+    def test_shared_tuple(self):
+        import marshal
+        t = (1, "hello")
+        for version in [2, 3]:
+            s = marshal.dumps((t, t), version)
+            y = marshal.loads(s)
+            assert y == (t, t)
+            if version >= 3:
+                # same object must be shared (referenced, not duplicated)
+                assert y[0] is y[1]
+
     def test_shared_string(self):
         import marshal
         x = "hello, "
