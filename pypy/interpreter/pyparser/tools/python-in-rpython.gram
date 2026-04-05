@@ -1607,6 +1607,9 @@ invalid_double_starred_kvpairs[None]:
     | expression a=':' &('}'|',') {
         self.raise_syntax_error_known_location("expression expected after dictionary key and ':'", a)
      }
+    | a=expression b='=' {
+        self.raise_syntax_error_known_location("':' expected after dictionary key", b)
+     }
 invalid_kvpair[None]:
     | a=expression !(':') {
         self._raise_syntax_error(
