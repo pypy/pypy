@@ -215,6 +215,7 @@ class CodeTest(unittest.TestCase):
         obj = List([1, 2, 3])
         self.assertEqual(obj[0], "Foreign getitem: 1")
 
+    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_constructor(self):
         def func(): pass
         co = func.__code__
@@ -286,6 +287,7 @@ class CodeTest(unittest.TestCase):
         self.assertEqual(new_code.co_varnames, code2.co_varnames)
         self.assertEqual(new_code.co_nlocals, code2.co_nlocals)
 
+    @cpython_only  # constructor signature includes co_exceptiontable
     def test_nlocals_mismatch(self):
         def func():
             x = 1
@@ -338,6 +340,7 @@ class CodeTest(unittest.TestCase):
         new_code = code = func.__code__.replace(co_linetable=b'')
         self.assertEqual(list(new_code.co_lines()), [])
 
+    @cpython_only  # checks CPython-specific exception bytecodes (PUSH_EXC_INFO etc.)
     @requires_debug_ranges()
     def test_co_positions_artificial_instructions(self):
         import dis
@@ -429,6 +432,7 @@ class CodeTest(unittest.TestCase):
             self.assertIsNone(line)
             self.assertEqual(end_line, new_code.co_firstlineno + 1)
 
+    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_code_equality(self):
         def f():
             try:
