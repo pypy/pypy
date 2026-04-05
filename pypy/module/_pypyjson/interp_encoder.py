@@ -285,7 +285,7 @@ class W_Encoder(W_Root):
         first = True
         if self.sort_keys:
             # Coerce all keys up front so we sort by their JSON string form,
-            # matching CPython's behaviour (e.g. True → "true" sorts with 't').
+            # matching CPython's behaviour (e.g. True -> "true" sorts with 't').
             sort_strs = []
             wkey_list = []
             wstr_list = []
@@ -296,7 +296,7 @@ class W_Encoder(W_Root):
                 sort_strs.append(space.utf8_w(w_key_str))
                 wkey_list.append(w_key)
                 wstr_list.append(w_key_str)
-            # insertion sort — keeps wkey_list and wstr_list in sync
+            # insertion sort -- keeps wkey_list and wstr_list in sync
             n = len(sort_strs)
             for i in range(1, n):
                 sk = sort_strs[i]
@@ -349,7 +349,7 @@ W_Encoder.typedef.acceptable_as_base_class = False
 
 def _get_fast_encode_mode(space, w_str_encoder):
     """Determine encoding mode by comparing w_str_encoder against the two
-    standard functions in json.encoder — same logic as CPython's
+    standard functions in json.encoder -- same logic as CPython's
     PyCFunction_GetFunction identity check in _json.c encoder_new()."""
     w_sys_modules = space.sys.get('modules')
     try:
