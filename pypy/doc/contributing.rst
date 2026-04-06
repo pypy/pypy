@@ -309,7 +309,7 @@ App level testing
 -----------------
 
 While the usual invocation of ``python2 pytest.py`` runs app-level tests on an
-untranslated PyPy that runs on top of CPython, we have a test extension to run tests
+untranslated PyPy that runs on top of python2, we have a test extension to run tests
 directly on the host python. This is very convenient for modules such as
 ``cpyext``, to compare and contrast test results between CPython and PyPy.
 
@@ -324,7 +324,7 @@ Mixed-level tests (the usual ones that start with ``test_``) are invoked by usin
 
     python2 pytest.py -A pypy/module/cpyext/test
 
-where ``python2`` can be either ``python2`` or ``pypy2``. On the ``py3`` branch, the
+where ``python2`` can be either ``python2`` or ``pypy2``. On any of the ``py3*`` branches, the
 collection phase must be run with ``python2`` so untranslated tests are run
 with::
 
