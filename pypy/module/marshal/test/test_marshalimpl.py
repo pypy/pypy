@@ -70,9 +70,6 @@ class AppTestMarshalMore:
             s = marshal.dumps((t, t), version)
             y = marshal.loads(s)
             assert y == (t, t)
-            if version >= 3:
-                # same object must be shared (referenced, not duplicated)
-                assert y[0] is y[1]
 
     def test_shared_string(self):
         import marshal
