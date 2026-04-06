@@ -469,6 +469,17 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
             raise
         return None
 
+    # Normalize encoding to the codec's canonical name (e.g. 'latin1' ->
+    # 'iso8859-1'), matching CPython's pylifecycle.c behaviour.
+    # _codecs is a builtin so import is free; encodings.latin_1 etc. are
+    # already imported above in initstdio so the lookup itself is also cheap.
+    if encoding and encoding not in ('utf-8', 'locale'):
+        try:
+            import _codecs
+            encoding = _codecs.lookup(encoding).name
+        except LookupError:
+            pass
+
     raw = buf.raw if buffering else buf
     raw.name = name
     # We normally use newline='\n' below, which turns off any translation.
@@ -762,11 +773,11 @@ def _parse_command_line(argv):
         if getenv("PYTHONWARNDEFAULTENCODING"):
             options["warn_default_encoding"] = 1
     if options["utf8_mode"] == -1: # neither env var nor -X utf8
-        # See https://docs.python.org/3/library/os.html#utf8-mode
-        # On CPython this can be somehow set to 0 by some combination of locale
-        # and environment variables, but it is not clear to me (mattip) how.
-        # If this is problematic for you, please open an issue.
-        options["utf8_mode"] = 1
+        import _locale
+        if _locale.setlocale(_locale.LC_CTYPE, None) in ('C', 'POSIX'):
+            options["utf8_mode"] = 1
+        else:
+            options["utf8_mode"] = 0
 
     if (options["interactive"] or (readenv and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1

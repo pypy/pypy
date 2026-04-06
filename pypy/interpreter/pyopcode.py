@@ -2073,7 +2073,7 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
         w_value = space.getitem(w_item, w_key)
         if space.contains_w(w_dict, w_key):
             raise oefmt(space.w_TypeError,
-                "%s got multiple values for keyword argument %R",
+                "%s got multiple values for keyword argument '%S'",
                 space.object_functionstr(w_function), w_key)
         space.setitem(w_dict, w_key, w_value)
 

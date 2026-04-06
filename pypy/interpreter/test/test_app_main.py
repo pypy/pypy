@@ -267,6 +267,11 @@ class TestParseCommandLine:
                    run_command='pass', _xoptions=['utf8'], utf8_mode=True)
         self.check(['-X', 'utf8=0', '-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
+        # -E ignores PYTHONUTF8
+        import _locale
+        if _locale.setlocale(_locale.LC_CTYPE, None) not in ('C', 'POSIX'):
+            self.check(['-E', '-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
+                       run_command='pass', ignore_environment=1, utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
         env = os.environ.copy()
@@ -622,7 +627,19 @@ class TestInteraction:
         stdout, stderr = proc.communicate()
         assert stdout.split() == ['False', 'False', 'False', 'False', 'False', 'True']
 
- 
+    def test_stdio_encoding_normalized_to_canonical(self):
+        # PYTHONIOENCODING=latin1 → sys.stdin.encoding should be 'iso8859-1'
+        # (the codec's canonical name), not 'latin1' (the alias)
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'latin1'
+        args = [get_python3(), app_main, '-c',
+                'import sys; print(sys.stdin.encoding)']
+        with setpythonpath():
+            proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    universal_newlines=True, env=env)
+            stdout, _ = proc.communicate()
+        assert stdout.strip() == 'iso8859-1'
 
     def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
@@ -936,9 +953,10 @@ class TestNonInteractive:
 
     @py.test.mark.skipif('linux' not in sys.platform, reason="windows, sendata, and quoting problems")
     def test_putenv_fires_interactive_within_process(self):
-        try:
-            import __pypy__
-        except ImportError:
+        result = subprocess.call(
+            [get_python3(), app_main, '-c', 'import __pypy__'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result != 0:
             py.test.skip("This can be only tested on PyPy with real_getenv")
 
         # should be noninteractive when piped in
