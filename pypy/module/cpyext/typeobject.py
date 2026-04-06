@@ -1279,6 +1279,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     res_obj = cts.cast('PyObject*', res)
     w_type = from_ref(space, res_obj)
     if tp_txtsig is not None:
+        assert isinstance(w_type, W_PyCTypeObject)
         w_type.text_signature = tp_txtsig
     if not module_from_spec and modname is not None:
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
