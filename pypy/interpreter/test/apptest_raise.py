@@ -633,6 +633,17 @@ def test_invalid_cause():
     else:
         fail("Expected TypeError")
 
+def test_normalize_exception_subclasscheck():
+    # When __subclasscheck__ raises during exception normalization,
+    # that exception should propagate (CPython behaviour).
+    class Meta(type):
+        def __subclasscheck__(cls, sub):
+            1/0
+    class Broken(Exception, metaclass=Meta):
+        pass
+    with pytest.raises(ZeroDivisionError):
+        raise Broken(42)
+
 def test_invalid_cause_setter():
     class Setter(BaseException):
         def set_cause(self, cause):

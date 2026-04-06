@@ -214,7 +214,7 @@ class OperationError(Exception):
                 w_type = self._exception_getclass(space, w_value)
             else:
                 w_valuetype = space.exception_getclass(w_value)
-                if space.exception_issubclass_w(w_valuetype, w_type):
+                if space.abstract_issubclass_w(w_valuetype, w_type, allow_override=True):
                     # raise Type, Instance: let etype be the exact type of value
                     w_type = w_valuetype
                 else:
