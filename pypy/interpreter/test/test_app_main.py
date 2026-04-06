@@ -628,7 +628,7 @@ class TestInteraction:
         assert stdout.split() == ['False', 'False', 'False', 'False', 'False', 'True']
 
     def test_stdio_encoding_normalized_to_canonical(self):
-        # PYTHONIOENCODING=latin1 → sys.stdin.encoding should be 'iso8859-1'
+        # PYTHONIOENCODING=latin1 -> sys.stdin.encoding should be 'iso8859-1'
         # (the codec's canonical name), not 'latin1' (the alias)
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'latin1'

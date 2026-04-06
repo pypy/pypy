@@ -303,21 +303,12 @@ def _determine_encoding(space, encoding, w_buffer):
         # _Py_GetLocaleEncoding, which has this at the top
         return space.newtext("utf-8")
 
-    # On legacy systems or darwin, try app-level
-    # _bootlocale.getprefferedencoding(False)
-    try:
-        w_locale = space.call_method(space.builtin, '__import__',
-                                     space.newtext('_bootlocale'))
-        w_encoding = space.call_method(w_locale, 'getpreferredencoding',
-                                       space.w_False)
-    except OperationError as e:
-        # getpreferredencoding() may also raise ImportError
-        if not e.match(space, space.w_ImportError):
-            raise
-        return space.newtext('ascii')
-    else:
-        if space.isinstance_w(w_encoding, space.w_text):
-            return w_encoding
+    if rlocale.HAVE_LANGINFO:
+        try:
+            encoding = rlocale.nl_langinfo(rlocale.CODESET)
+        except ValueError:
+            encoding = 'ascii'
+        return space.newtext(encoding)
 
     raise oefmt(space.w_IOError, "could not determine default encoding")
 
