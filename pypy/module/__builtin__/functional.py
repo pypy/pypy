@@ -449,13 +449,24 @@ class W_Range(W_Root):
         self.w_length = w_length
         self.promote_step = promote_step
 
-    def descr_new(space, w_subtype, w_start, w_stop=None, w_step=None):
+    def descr_new(space, w_subtype, __args__):
+        args_w = __args__.arguments_w
+        nargs = len(args_w)
+        if nargs == 0:
+            raise oefmt(space.w_TypeError,
+                        "range expected at least 1 argument, got 0")
+        if nargs > 3:
+            raise oefmt(space.w_TypeError,
+                        "range expected at most 3 arguments, got %d", nargs)
+        w_start = args_w[0]
+        w_stop  = args_w[1] if nargs >= 2 else None
+        w_step  = args_w[2] if nargs == 3 else None
         w_start = space.index(w_start)
         promote_step = False
-        if space.is_none(w_step):  # no step argument provided
+        if w_step is None:  # no step argument provided
             w_step = space.newint(1)
             promote_step = True
-        if space.is_none(w_stop):  # only 1 argument provided
+        if w_stop is None:  # only 1 argument provided
             w_start, w_stop = space.newint(0), w_start
         else:
             w_stop = space.index(w_stop)

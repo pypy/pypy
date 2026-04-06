@@ -578,6 +578,46 @@ class AppTestBytesArray:
         buf[4:6] = b'EF'
         assert b == b'abcDEFghi'
 
+    def test_buffer_export_locks_resize(self):
+        # While a buffer is exported from a bytearray, resizing must raise
+        # BufferError (bpo-14212 / CPython behaviour).
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        raises(BufferError, b.extend, b'x' * 100)
+        raises(BufferError, b.__iadd__, b'x')
+        raises(BufferError, b.append, ord('x'))
+        raises(BufferError, b.insert, 0, ord('x'))
+        raises(BufferError, b.pop)
+        raises(BufferError, b.remove, ord('h'))
+        raises(BufferError, b.clear)
+        # After releasing the buffer, resizing must succeed again.
+        m.release()
+        b.extend(b'x' * 100)   # must not raise
+
+    def test_buffer_gc_releases_export(self):
+        import gc
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        del m
+        gc.collect()
+        b.append(ord('x'))   # must not raise BufferError
+
+    def test_buffer_double_release_no_crash(self):
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        m.release()
+        m.release()          # second release is a no-op on an already-released view
+        b.append(ord('x'))   # must not raise
+
+    def test_buffer_memoryview_copy_gc(self):
+        import gc
+        b = bytearray(b'hello')
+        m1 = memoryview(b)
+        m2 = memoryview(m1)  # copy shares the same buffer export
+        del m1, m2
+        gc.collect()
+        b.append(ord('x'))   # must not raise BufferError
+
     def test_decode(self):
         b = bytearray(b'abcdefghi')
         u = b.decode('utf-8')

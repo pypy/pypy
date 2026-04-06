@@ -259,6 +259,9 @@ class SimpleView(RawBufferView_Base):
         self.readonly = self.data.readonly
         self.w_obj = w_obj
 
+    def releasebuffer(self):
+        self.data.releasebuffer()
+
     def getformat(self):
         return 'B'
 

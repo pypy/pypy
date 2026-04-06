@@ -93,6 +93,11 @@ class W_MemoryView(W_Root):
         self.flags = 0
         self._init_flags()
 
+    def _finalize_(self):
+        if self.view is not None:
+            self.view.releasebuffer()
+            self.view = None
+
     def getndim(self):
         return self.view.getndim()
 
@@ -433,10 +438,11 @@ class W_MemoryView(W_Root):
         self.view = None
 
     def descr_release_buffer(self, space, w_view):
-        # assert view is w_view
-        if self.view:
-            self.view.releasebuffer()
-        self.view = None
+        # Called by C code via bf_releasebuffer when a view obtained from
+        # memoryview.buffer_w() is released.  W_MemoryView.buffer_w() does
+        # not increment the underlying object's _exports counter (unlike
+        # W_BytearrayObject.buffer_w()), so there is nothing to undo here.
+        pass
 
     def _check_released(self, space):
         if self.view is None:

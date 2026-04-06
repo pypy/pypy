@@ -762,9 +762,7 @@ def make_bf_releasebuffer(space, typedef, name, attr):
     @slot_function([PyObject, Py_bufferP], lltype.Void, error=CANNOT_FAIL)
     @func_renamer("cpyext_%s_%s" % (name, typedef.name))
     def slot_bf_releasebuffer(space, w_self, view):
-        return
-        # XXX call this
-        # return space.call_function(release_fn, w_self, view)
+        space.call_function(release_fn, w_self, space.w_None)
     return slot_bf_releasebuffer
 
 @slot_factory('tp_descr_get')
