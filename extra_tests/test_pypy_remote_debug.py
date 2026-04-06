@@ -284,7 +284,7 @@ def test_symbolify_vmprof():
     result = _vmprof.resolve_addr(1)
     assert result is None
 
-@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_many_addrs'), reason="not implemented")
+@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_many_addr'), reason="not implemented")
 def test_symbolify_vmprof_many():
     import _vmprof, ctypes
     names = [b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write']
@@ -300,7 +300,7 @@ def test_symbolify_vmprof_many():
         all.append(address_of_function)
     all.append(1)
 
-    res = _vmprof.resolve_many_addrs(all)
+    res = _vmprof.resolve_many_addr(all)
     for index, name in enumerate(names + names2):
         addr = all[index]
         assert res[addr][0] == name
