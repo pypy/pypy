@@ -15,7 +15,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
                                 codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
-from rpython.rlib import rlocale, jit
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import always_inline
 
 
@@ -303,14 +303,8 @@ def _determine_encoding(space, encoding, w_buffer):
         # _Py_GetLocaleEncoding, which has this at the top
         return space.newtext("utf-8")
 
-    if rlocale.HAVE_LANGINFO:
-        try:
-            encoding = rlocale.nl_langinfo(rlocale.CODESET)
-        except ValueError:
-            encoding = 'ascii'
-        return space.newtext(encoding)
-
-    raise oefmt(space.w_IOError, "could not determine default encoding")
+    from pypy.module._locale.interp_locale import _getencoding
+    return space.newtext(_getencoding())
 
 @unwrap_spec(stacklevel=int)
 def text_encoding(space, w_encoding, stacklevel=2):
