@@ -1,6 +1,32 @@
 from _collections import deque
 import gc
 
+
+def test_callable_iter_reentrant_exhaustion():
+    # gh-101892: when the callable re-enters its own iterator (e.g. by
+    # exhausting it inside the call), the outer next() should raise
+    # StopIteration, not ValueError('generator already executing').
+    HAS_MORE = 1
+    NO_MORE = 2
+
+    def exhaust(iterator):
+        list(iterator)
+
+    def spam():
+        if spam.is_recursive_call:
+            return NO_MORE
+        spam.is_recursive_call = True
+        exhaust(spam.iterator)
+        return HAS_MORE
+
+    spam.is_recursive_call = False
+    spam.iterator = iter(spam, NO_MORE)
+    try:
+        next(spam.iterator)
+        assert False, "expected StopIteration"
+    except StopIteration:
+        pass
+
 #from  AppTestW_IterObjectApp
 def test_user_iter():
     class C(object):
