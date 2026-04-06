@@ -54,6 +54,14 @@ def test_encode_truefalse_sort_keys():
     assert ''.join(enc({True: False, False: True}, 0)) == '{"false": true, "true": false}'
 
 
+def test_encode_sort_keys_by_value():
+    # Mixed numeric keys must sort by original value, not by JSON string form.
+    # "false" > "6" lexicographically, but False(0) < 2 < 4.0 < 6 numerically.
+    enc = _make_encoder(sort_keys=True)
+    result = ''.join(enc({2: 3.0, 4.0: 5, False: 1, 6: True}, 0))
+    assert result == '{"false": 1, "2": 3.0, "4.0": 5, "6": true}', result
+
+
 def test_encode_mutated_list():
     # Mutations to a list during default() must be visible (lazy iteration,
     # matching CPython's enumerate() behaviour).

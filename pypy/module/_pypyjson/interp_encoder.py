@@ -284,31 +284,25 @@ class W_Encoder(W_Root):
         sb.append('{')
         first = True
         if self.sort_keys:
-            # Coerce all keys up front so we sort by their JSON string form,
-            # matching CPython's behaviour (e.g. True -> "true" sorts with 't').
-            sort_strs = []
             wkey_list = []
             wstr_list = []
             for w_key in keys_w:
                 w_key_str, skip = self._coerce_dict_key(w_key)
                 if skip:
                     continue
-                sort_strs.append(space.utf8_w(w_key_str))
                 wkey_list.append(w_key)
                 wstr_list.append(w_key_str)
-            # insertion sort -- keeps wkey_list and wstr_list in sync
-            n = len(sort_strs)
+            # insertion sort by original key value, matching CPython's
+            # sorted(dct.items()) — e.g. False(0) < 2 < 4.0 < 6 numerically
+            n = len(wkey_list)
             for i in range(1, n):
-                sk = sort_strs[i]
                 wk = wkey_list[i]
                 ws = wstr_list[i]
                 j = i
-                while j > 0 and sort_strs[j - 1] > sk:
-                    sort_strs[j] = sort_strs[j - 1]
+                while j > 0 and space.is_true(space.lt(wk, wkey_list[j - 1])):
                     wkey_list[j] = wkey_list[j - 1]
                     wstr_list[j] = wstr_list[j - 1]
                     j -= 1
-                sort_strs[j] = sk
                 wkey_list[j] = wk
                 wstr_list[j] = ws
             for i in range(len(wkey_list)):
