@@ -1207,3 +1207,21 @@ class AppTestUnicodeExtra:
         result = re.sub(b"x", lambda x: 1/0, B(b"yz"))
         assert type(result) is bytes
         assert result == b"yz"
+
+    def test_bug_40736(self):
+        # Passing a non-string/bytes-like object to re.search() must raise
+        # TypeError with a message mentioning the actual type, not a misleading
+        # "can't use a string pattern on a bytes-like object" message.
+        import re
+        try:
+            re.search("x*", 5)
+        except TypeError as e:
+            assert "got 'int'" in str(e), str(e)
+        else:
+            raise AssertionError("expected TypeError")
+        try:
+            re.search("x*", None)
+        except TypeError as e:
+            assert "got 'NoneType'" in str(e), str(e)
+        else:
+            raise AssertionError("expected TypeError")
