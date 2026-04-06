@@ -141,7 +141,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert obj.uint_member == 42
         obj.ulong_member = Index(99)
         assert obj.ulong_member == 99
-        # T_PYSSIZET must NOT accept __index__ objects — plain int only
+        # T_PYSSIZET must NOT accept __index__ objects - plain int only
         raises(TypeError, setattr, obj, 'ssizet_member', Index(1))
 
     def test_overflow(self):
