@@ -1044,7 +1044,7 @@ class Statement(object):
         if '\0' in sql:
             raise ValueError("the query contains a null character")
 
-        
+
         if sql.strip():
             first_word = sql.lstrip().split()[0].upper()
             if first_word == '':

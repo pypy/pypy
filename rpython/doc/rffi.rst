@@ -49,9 +49,9 @@ Types
 -----
 
 In :source:`rffi <rpython/rtyper/lltypesystem/rffi.py>` there are various declared types for C-structures, like CCHARP
-(char*), SIZE_T (size_t) and others. Refer to file for details. 
-Instances of non-primitive types must be alloced by hand, with call 
-to lltype.malloc, and freed by lltype.free both with keyword argument 
+(char*), SIZE_T (size_t) and others. Refer to file for details.
+Instances of non-primitive types must be alloced by hand, with call
+to lltype.malloc, and freed by lltype.free both with keyword argument
 flavor='raw'. There are several helpers like string -> char*
 converter, refer to the source for details.
 

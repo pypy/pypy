@@ -24,7 +24,7 @@ class AppTest_IndexProtocol:
                 pass
             return newstyle_no_index""")
 
-        w_TrapInt = self.space.appexec([], """(): 
+        w_TrapInt = self.space.appexec([], """():
             class TrapInt(int):
                 def __index__(self):
                     return self
@@ -52,8 +52,8 @@ class AppTest_IndexProtocol:
         import operator
         assert operator.index(self.o) == -2
         assert operator.index(self.n) == 2
-        raises(TypeError, operator.index, self.o_no_index) 
-        raises(TypeError, operator.index, self.n_no_index) 
+        raises(TypeError, operator.index, self.o_no_index)
+        raises(TypeError, operator.index, self.n_no_index)
 
     def test_slice(self):
         self.o.ind = 1
@@ -113,7 +113,7 @@ class SeqTestCase:
                     return self.ind
             return newstyle""")
 
-        w_TrapInt = self.space.appexec([], """(): 
+        w_TrapInt = self.space.appexec([], """():
             class TrapInt(int):
                 def __index__(self):
                     return self
@@ -259,7 +259,7 @@ class AppTest_StringTestCase(SeqTestCase, StringTestCase):
         SeqTestCase.setup_method(self, method)
         self.w_seq = self.space.wrap("this is a test")
         self.w_const = self.space.appexec([], """(): return str""")
-    
+
 class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
     def setup_method(self, method):
         SeqTestCase.setup_method(self, method)

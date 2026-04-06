@@ -9,7 +9,7 @@ from rpython.rlib.jit_libffi import jit_ffi_prep_cif, jit_ffi_call
 
 if sys.platform == 'win32':
     math_sin = intmask(ctypes.cast(ctypes.cdll.msvcrt.sin, ctypes.c_void_p).value)
-else:    
+else:
     math_sin = intmask(ctypes.cast(ctypes.CDLL(None).sin, ctypes.c_void_p).value)
 math_sin = rffi.cast(rffi.VOIDP, math_sin)
 

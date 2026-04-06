@@ -99,7 +99,7 @@ Generally available functionality
 
   - ``list_get_physical_size(obj)``: Return the physical (ie overallocated
     size) of the underlying list
-  
+
   - ``specialized_zip_2_lists``
   - ``locals_to_fast``
   - ``set_code_callback``
@@ -124,7 +124,7 @@ Generally available functionality
     code pages. Equivalent to calling ``GetConsoleCP`` and
     ``GetConsoleOuputCP``.
   - ``utf8content(u)``: Given a unicode string u, return it's internal byte
-    representation.  Useful for debugging only.  
+    representation.  Useful for debugging only.
   - ``os.real_getenv(...)`` gets OS environment variables skipping python code
   - ``_pypydatetime`` provides base classes with correct C API interactions for
     the pure-python ``datetime`` stdlib module
@@ -187,9 +187,9 @@ it is enough to divide the ticks by the maximum nominal frequency of the CPU.
 For this reason, PyPy gives the raw value, and leaves the job of doing the
 conversion to external libraries.
 
-.. _`Time Stamp Counter`: https://en.wikipedia.org/wiki/Time_Stamp_Counter    
-    
-   
+.. _`Time Stamp Counter`: https://en.wikipedia.org/wiki/Time_Stamp_Counter
+
+
 Transparent Proxy Functionality
 -------------------------------
 

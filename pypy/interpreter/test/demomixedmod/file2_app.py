@@ -1,3 +1,3 @@
 
-def someappfunc(x): 
+def someappfunc(x):
     return x + 1

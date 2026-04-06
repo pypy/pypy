@@ -10,7 +10,7 @@ from pypy.tool.getdocstrings import mk_std_filelist
 class TestDocStringInserter:
     def setup_method(self, method):
         self.fd1 = file(this_dir+'/fordocstrings1', 'r')
- 
+
     def teardown_method(self, method):
         self.fd1.close()
 
@@ -31,26 +31,26 @@ class TestDocStringInserter:
         s = self.fd1.read()       # whole file as string
 
         s1 = 'from pypy.objspace.std.stdtypedef import *\n\n\n# ____________________________________________________________\n\nbasestring_typedef = StdTypeDef("basestring",\n    )\n'
-        
+
         assert s == s1
 
 
     def test_compile_typedef(self):
         match = 'basestring'
         s = self.fd1.read()
-        
+
         typedef = re.compile(r"(?P<whitespace>\s*)"
                             + r"(?P<typeassign>" + match
                             + "_typedef = StdTypeDef+\s*\(\s*"
                             + quote + match +  quote + ",)",
                             re.DOTALL
                              )
-        
+
         tdsearch = typedef.search(s).group('typeassign')
         assert tdsearch
-                 
-        
-        
-        
 
-        
+
+
+
+
+

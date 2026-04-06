@@ -308,7 +308,7 @@ class W_Ufunc(W_Root):
                 out.implementation.setitem(0, res)
                 call__array_wrap__ = True
                 res = out
-            elif (space.issubtype_w(space.type(w_obj), w_NDimArray) and 
+            elif (space.issubtype_w(space.type(w_obj), w_NDimArray) and
                   not space.is_w(space.type(w_obj), w_NDimArray)):
                 # subtypes return a ndarray subtype, not a scalar
                 out = W_NDimArray.from_shape(space, [1], dtype, w_instance=obj)
@@ -375,7 +375,7 @@ class W_Ufunc(W_Root):
         args = [convert_to_array(space, w_obj) for w_obj in args_w]
         w_outshape = [space.newint(i) for i in args[0].get_shape() + [1]*args[1].ndims()]
         args0 = args[0].reshape(space, space.newtuple(w_outshape))
-        return self.descr_call(space, Arguments.frompacked(space, 
+        return self.descr_call(space, Arguments.frompacked(space,
                                                         space.newlist([args0, args[1]])))
 
     def parse_kwargs(self, space, kwds_w):
@@ -1035,7 +1035,7 @@ class W_UfuncGeneric(W_Ufunc):
             # Make sure args can be cast to dtypes
             if not _match_dtypes(space, dtypes, s_dtypes, 0, "safe"):
                 _raise_err_msg(self, space, dtypes, s_dtypes)
-            dtypes = s_dtypes    
+            dtypes = s_dtypes
         #Find the first matchup of dtypes with _dtypes
         for i in range(0, len(_dtypes), self.nargs):
             allok = _match_dtypes(space, dtypes, _dtypes, i, "no")

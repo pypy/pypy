@@ -194,7 +194,7 @@ class PartialTraceWithIds(TraceWithIds):
     def __init__(self, trace, is_entry_bridge=False):
         self.trace = trace
         self.is_entry_bridge = is_entry_bridge
-    
+
     def allops(self, *args, **kwds):
         if self.is_entry_bridge:
             return self.entry_bridge_ops(*args, **kwds)
@@ -228,12 +228,12 @@ class PartialTraceWithIds(TraceWithIds):
     @property
     def filename(self):
         return self.trace.filename
-    
+
     @property
     def code(self):
         return self.trace.code
-    
-    
+
+
 class InvalidMatch(Exception):
     opindex = None
 

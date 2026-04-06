@@ -51,7 +51,7 @@ class AppTestLocaleTrivia:
 
         import locale
         assert locale
-        
+
     def test_constants(self):
         import sys
 
@@ -75,7 +75,7 @@ class AppTestLocaleTrivia:
         )
 
         import _locale
-        
+
         for constant in _CONSTANTS:
             assert hasattr(_locale, constant)
 
@@ -293,7 +293,7 @@ class AppTestLocaleTrivia:
 
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
-    
+
     def test_bindtextdomain(self):
         import sys
         if sys.platform == 'win32':

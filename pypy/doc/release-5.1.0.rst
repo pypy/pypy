@@ -10,7 +10,7 @@ requirements. We have seen about a 20% memory requirement reduction and up to
 
 We also now have `fully support for the IBM s390x`_. Since this support is in
 `RPython`_, any dynamic language written using RPython, like PyPy, will
-automagically be supported on that architecture.  
+automagically be supported on that architecture.
 
 We updated cffi_ to 1.6, and continue to improve support for the wider
 python ecosystem using the PyPy interpreter.
@@ -47,13 +47,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other
 `dynamic languages`_ to see what RPython can do for them.
 
-This release supports: 
+This release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD, FreeBSD),
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux

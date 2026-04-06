@@ -57,7 +57,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
             'bin': Dir({
                 'pypy-c': RealFile(self.executable, mode=0111),
                 'lib-python': RealDir(os.path.join(libroot, 'lib-python'),
-                                      exclude=exclude), 
+                                      exclude=exclude),
                 'lib_pypy': RealDir(os.path.join(libroot, 'lib_pypy'),
                                       exclude=exclude),
                 }),
@@ -66,7 +66,7 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 def main():
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:hv', 
+    options, arguments = getopt(sys.argv[1:], 't:hv',
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
                                  'verbose', 'help'])
     tmpdir = None

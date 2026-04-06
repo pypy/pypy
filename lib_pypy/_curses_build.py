@@ -65,8 +65,8 @@ ffi.set_source("_curses_cffi", """
 /* explicitly opt into this, rather than relying on _XOPEN_SOURCE */
 #define NCURSES_WIDECHAR 1
 
-/* ncurses 6 change behaviour  and makes all pointers opaque, 
-  lets define backward compatibility. It doesn't harm 
+/* ncurses 6 change behaviour  and makes all pointers opaque,
+  lets define backward compatibility. It doesn't harm
   previous versions */
 
 #define NCURSES_INTERNALS 1

@@ -90,7 +90,7 @@ def test_deflate_set_dictionary():
     rzlib.deflateSetDictionary(stream, zdict)
     bytes = rzlib.compress(stream, text, rzlib.Z_FINISH)
     rzlib.deflateEnd(stream)
-    
+
     stream2 = rzlib.inflateInit()
 
     from rpython.rtyper.lltypesystem import lltype, rffi, rstr
@@ -118,7 +118,7 @@ def test_deflate_set_dictionary():
 
 def test_compression():
     """
-    Once we have got a deflate stream, rzlib.compress() 
+    Once we have got a deflate stream, rzlib.compress()
     should allow us to compress bytes.
     """
     stream = rzlib.deflateInit()

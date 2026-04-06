@@ -118,7 +118,7 @@ def test_copy():
       "123456789 123456789 123456789 12345678",
      )
 
-    # Load both with same prefix.    
+    # Load both with same prefix.
     prefix1 = 2**10 * 'a'
 
     m1 = md5.md5()

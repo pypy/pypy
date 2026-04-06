@@ -8,19 +8,19 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
                  PyOS_sighandler_t handler = SIG_IGN;
                  PyOS_sighandler_t oldhandler;
                  int result = 0;
-                 
+
                  oldhandler = PyOS_getsig(SIGFPE);
-                 
+
                  handler = PyOS_setsig(SIGFPE, SIG_IGN);
-                 
+
                  if( oldhandler != handler )
                      result += 1;
-                 
+
                  handler = PyOS_setsig(SIGFPE, oldhandler);
-                 
+
                  if( handler != SIG_IGN )
                      result += 2;
-                 
+
                  return PyInt_FromLong(result);
              """),
             ], prologue = """

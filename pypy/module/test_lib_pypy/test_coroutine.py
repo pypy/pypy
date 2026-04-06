@@ -116,16 +116,16 @@ class Test_Coroutine:
                 co_test.switch()
             except CoroutineExit:
                 coroutineexit.append(True)
-                raise 
-        
+                raise
+
         co_a.bind(a)
         co_a.switch()
         assert co_a.is_alive
-        
+
         co_a.kill()
         assert coroutineexit == [True]
         assert not co_a.is_alive
-        
+
     def test_throw(self):
         exceptions = []
         co = coroutine()
@@ -134,37 +134,37 @@ class Test_Coroutine:
                 main.switch()
             except RuntimeError:
                 exceptions.append(True)
-        
+
         co.bind(f, coroutine.getcurrent())
         co.switch()
         co.throw(RuntimeError)
         assert exceptions == [True]
-        
+
     def test_propagation(self):
         exceptions = []
         co = coroutine()
         co2 = coroutine()
         def f(main):
             main.switch()
-        
+
         co.bind(f, coroutine.getcurrent())
         co.switch()
-        
+
         try:
             co.throw(RuntimeError)
         except RuntimeError:
             exceptions.append(1)
-            
+
         def f2():
             raise RuntimeError
-        
+
         co2.bind(f2)
-            
+
         try:
             co2.switch()
         except RuntimeError:
             exceptions.append(2)
-        
+
         assert exceptions == [1,2]
 
     def test_bogus_bind(self):

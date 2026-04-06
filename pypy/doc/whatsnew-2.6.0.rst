@@ -14,7 +14,7 @@ added constants to _ssl for TLS 1.1 and 1.2
 issue2014:
 Add PyLong_FromUnicode to cpyext.
 
-issue2017: 
+issue2017:
 On non-Linux-x86 platforms, reduced the memory impact of
 creating a lot of greenlets/tasklets.  Particularly useful on Win32 and
 on ARM, where you used to get a MemoryError after only 2500-5000
@@ -44,7 +44,7 @@ Better document pyinteractive and add --withmod-time
 
 .. branch: gc-incminimark-pinning-improve
 
-branch gc-incminimark-pinning-improve: 
+branch gc-incminimark-pinning-improve:
 Object Pinning is now used in `bz2` and `rzlib` (therefore also affects
 Python's `zlib`). In case the data to compress/decompress is inside the nursery
 (incminimark) it no longer needs to create a non-moving copy of it. This saves
@@ -55,7 +55,7 @@ is introduced (`PYPY_GC_MAX_PINNED`) primarily for debugging purposes.
 
 branch refactor-pycall:
 Make `*`-unpacking in RPython function calls completely equivalent to passing
-the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves 
+the tuple's elements as arguments. In other words, `f(*(a, b))` now behaves
 exactly like `f(a, b)`.
 
 .. branch: issue2018
@@ -96,7 +96,7 @@ Implement np.can_cast, np.min_scalar_type and missing dtype comparison operation
 .. branch: numpy-fixes
 
 branch numpy-fixes:
-Fix some error related to object dtype, non-contiguous arrays, implement parts of 
+Fix some error related to object dtype, non-contiguous arrays, implement parts of
 __array_interface__, __array_priority__, __array_wrap__
 
 .. branch: cells-local-stack

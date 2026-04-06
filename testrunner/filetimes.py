@@ -17,7 +17,7 @@ def findfile(root, classname):
     if not classname:
         return
     parts = classname.split('.')
-    
+
     #pytest bug workaround
     first = parts[0]
     for start in bugstarts:

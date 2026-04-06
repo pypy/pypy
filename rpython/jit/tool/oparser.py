@@ -454,7 +454,7 @@ def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
         descr = op.getdescr()
         if op.is_guard():
             descr = None # will be faked below
-        newpos = trace.record_op(op.getopnum(), [get(arg) for arg in 
+        newpos = trace.record_op(op.getopnum(), [get(arg) for arg in
             op.getarglist()], descr)
         if op.is_guard():
             failargs = []

@@ -1,4 +1,4 @@
-from pypy.interpreter.mixedmodule import MixedModule 
+from pypy.interpreter.mixedmodule import MixedModule
 
 
 class Module(MixedModule):

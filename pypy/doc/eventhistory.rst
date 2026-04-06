@@ -190,7 +190,7 @@ Together with Armin they wrote one about `the rest of the sprint`_ on the
 way back.
 *(10/18/2005)*
 
-.. _Logilab offices in Paris: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/paris-2005-sprint.txt 
+.. _Logilab offices in Paris: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/paris-2005-sprint.txt
 .. _JIT: https://en.wikipedia.org/wiki/Just-in-time_compilation
 .. _continuation-passing: https://en.wikipedia.org/wiki/Continuation_passing_style
 .. _report about day one: https://mail.python.org/pipermail/pypy-dev/2005-October/002510.html
@@ -213,13 +213,13 @@ PyPy Sprint in Heidelberg 22nd-29th August 2005
 -----------------------------------------------
 
 The last `PyPy sprint`_ took place at the Heidelberg University
-in Germany from 22nd August to 29th August (both days included). 
-Its main focus is translation of the whole PyPy interpreter 
+in Germany from 22nd August to 29th August (both days included).
+Its main focus is translation of the whole PyPy interpreter
 to a low level language and reaching 2.4.1 Python compliance.
 The goal of the sprint is to release a first self-contained
 PyPy-0.7 version.  Carl has written a report about `day 1 - 3`_
 and a `heidelberg summary report`_ detailing some of the works
-that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`! 
+that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`!
 
 .. _heidelberg summary report: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-report.txt
 .. _PyPy sprint: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/sprintinfo/Heidelberg-sprint.txt
@@ -229,12 +229,12 @@ that led to the successful release of :doc:`pypy-0.7.0 <release-0.7.0>`!
 PyPy Hildesheim2 finished: first self-contained PyPy run!
 ---------------------------------------------------------
 
-Up until 31st August we were in a PyPy sprint at `Trillke-Gut`_. 
-Carl has written a `report about day 1`_, Holger 
-about `day 2 and day 3`_ and Carl again about `day 4 and day 5`_, 
-On `day 6`_ Holger reports the breakthrough: PyPy runs 
+Up until 31st August we were in a PyPy sprint at `Trillke-Gut`_.
+Carl has written a `report about day 1`_, Holger
+about `day 2 and day 3`_ and Carl again about `day 4 and day 5`_,
+On `day 6`_ Holger reports the breakthrough: PyPy runs
 on its own! Hurray!.  And Carl finally reports about the winding
-down of `day 7`_ which saw us relaxing, discussing and generally 
+down of `day 7`_ which saw us relaxing, discussing and generally
 having a good time.
 
 .. _report about day 1: https://mail.python.org/pipermail/pypy-dev/2005-July/002217.html

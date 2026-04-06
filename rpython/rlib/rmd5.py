@@ -122,7 +122,7 @@ def XX(func, a, b, c, d, x, s, ac):
     """
 
     res = a + func(b, c, d)
-    res = res + x 
+    res = res + x
     res = res + ac
     res = _rotateLeft(res, s)
     res = res + b
@@ -168,85 +168,85 @@ class RMD5(object):
 
         S11, S12, S13, S14 = 7, 12, 17, 22
 
-        a = XX(F, a, b, c, d, inp[ 0], S11, r_uint(0xD76AA478L)) # 1 
-        d = XX(F, d, a, b, c, inp[ 1], S12, r_uint(0xE8C7B756L)) # 2 
-        c = XX(F, c, d, a, b, inp[ 2], S13, r_uint(0x242070DBL)) # 3 
-        b = XX(F, b, c, d, a, inp[ 3], S14, r_uint(0xC1BDCEEEL)) # 4 
-        a = XX(F, a, b, c, d, inp[ 4], S11, r_uint(0xF57C0FAFL)) # 5 
-        d = XX(F, d, a, b, c, inp[ 5], S12, r_uint(0x4787C62AL)) # 6 
-        c = XX(F, c, d, a, b, inp[ 6], S13, r_uint(0xA8304613L)) # 7 
-        b = XX(F, b, c, d, a, inp[ 7], S14, r_uint(0xFD469501L)) # 8 
-        a = XX(F, a, b, c, d, inp[ 8], S11, r_uint(0x698098D8L)) # 9 
-        d = XX(F, d, a, b, c, inp[ 9], S12, r_uint(0x8B44F7AFL)) # 10 
-        c = XX(F, c, d, a, b, inp[10], S13, r_uint(0xFFFF5BB1L)) # 11 
-        b = XX(F, b, c, d, a, inp[11], S14, r_uint(0x895CD7BEL)) # 12 
-        a = XX(F, a, b, c, d, inp[12], S11, r_uint(0x6B901122L)) # 13 
-        d = XX(F, d, a, b, c, inp[13], S12, r_uint(0xFD987193L)) # 14 
-        c = XX(F, c, d, a, b, inp[14], S13, r_uint(0xA679438EL)) # 15 
-        b = XX(F, b, c, d, a, inp[15], S14, r_uint(0x49B40821L)) # 16 
+        a = XX(F, a, b, c, d, inp[ 0], S11, r_uint(0xD76AA478L)) # 1
+        d = XX(F, d, a, b, c, inp[ 1], S12, r_uint(0xE8C7B756L)) # 2
+        c = XX(F, c, d, a, b, inp[ 2], S13, r_uint(0x242070DBL)) # 3
+        b = XX(F, b, c, d, a, inp[ 3], S14, r_uint(0xC1BDCEEEL)) # 4
+        a = XX(F, a, b, c, d, inp[ 4], S11, r_uint(0xF57C0FAFL)) # 5
+        d = XX(F, d, a, b, c, inp[ 5], S12, r_uint(0x4787C62AL)) # 6
+        c = XX(F, c, d, a, b, inp[ 6], S13, r_uint(0xA8304613L)) # 7
+        b = XX(F, b, c, d, a, inp[ 7], S14, r_uint(0xFD469501L)) # 8
+        a = XX(F, a, b, c, d, inp[ 8], S11, r_uint(0x698098D8L)) # 9
+        d = XX(F, d, a, b, c, inp[ 9], S12, r_uint(0x8B44F7AFL)) # 10
+        c = XX(F, c, d, a, b, inp[10], S13, r_uint(0xFFFF5BB1L)) # 11
+        b = XX(F, b, c, d, a, inp[11], S14, r_uint(0x895CD7BEL)) # 12
+        a = XX(F, a, b, c, d, inp[12], S11, r_uint(0x6B901122L)) # 13
+        d = XX(F, d, a, b, c, inp[13], S12, r_uint(0xFD987193L)) # 14
+        c = XX(F, c, d, a, b, inp[14], S13, r_uint(0xA679438EL)) # 15
+        b = XX(F, b, c, d, a, inp[15], S14, r_uint(0x49B40821L)) # 16
 
         # Round 2.
 
         S21, S22, S23, S24 = 5, 9, 14, 20
 
-        a = XX(G, a, b, c, d, inp[ 1], S21, r_uint(0xF61E2562L)) # 17 
-        d = XX(G, d, a, b, c, inp[ 6], S22, r_uint(0xC040B340L)) # 18 
-        c = XX(G, c, d, a, b, inp[11], S23, r_uint(0x265E5A51L)) # 19 
-        b = XX(G, b, c, d, a, inp[ 0], S24, r_uint(0xE9B6C7AAL)) # 20 
-        a = XX(G, a, b, c, d, inp[ 5], S21, r_uint(0xD62F105DL)) # 21 
-        d = XX(G, d, a, b, c, inp[10], S22, r_uint(0x02441453L)) # 22 
-        c = XX(G, c, d, a, b, inp[15], S23, r_uint(0xD8A1E681L)) # 23 
-        b = XX(G, b, c, d, a, inp[ 4], S24, r_uint(0xE7D3FBC8L)) # 24 
-        a = XX(G, a, b, c, d, inp[ 9], S21, r_uint(0x21E1CDE6L)) # 25 
-        d = XX(G, d, a, b, c, inp[14], S22, r_uint(0xC33707D6L)) # 26 
-        c = XX(G, c, d, a, b, inp[ 3], S23, r_uint(0xF4D50D87L)) # 27 
-        b = XX(G, b, c, d, a, inp[ 8], S24, r_uint(0x455A14EDL)) # 28 
-        a = XX(G, a, b, c, d, inp[13], S21, r_uint(0xA9E3E905L)) # 29 
-        d = XX(G, d, a, b, c, inp[ 2], S22, r_uint(0xFCEFA3F8L)) # 30 
-        c = XX(G, c, d, a, b, inp[ 7], S23, r_uint(0x676F02D9L)) # 31 
-        b = XX(G, b, c, d, a, inp[12], S24, r_uint(0x8D2A4C8AL)) # 32 
+        a = XX(G, a, b, c, d, inp[ 1], S21, r_uint(0xF61E2562L)) # 17
+        d = XX(G, d, a, b, c, inp[ 6], S22, r_uint(0xC040B340L)) # 18
+        c = XX(G, c, d, a, b, inp[11], S23, r_uint(0x265E5A51L)) # 19
+        b = XX(G, b, c, d, a, inp[ 0], S24, r_uint(0xE9B6C7AAL)) # 20
+        a = XX(G, a, b, c, d, inp[ 5], S21, r_uint(0xD62F105DL)) # 21
+        d = XX(G, d, a, b, c, inp[10], S22, r_uint(0x02441453L)) # 22
+        c = XX(G, c, d, a, b, inp[15], S23, r_uint(0xD8A1E681L)) # 23
+        b = XX(G, b, c, d, a, inp[ 4], S24, r_uint(0xE7D3FBC8L)) # 24
+        a = XX(G, a, b, c, d, inp[ 9], S21, r_uint(0x21E1CDE6L)) # 25
+        d = XX(G, d, a, b, c, inp[14], S22, r_uint(0xC33707D6L)) # 26
+        c = XX(G, c, d, a, b, inp[ 3], S23, r_uint(0xF4D50D87L)) # 27
+        b = XX(G, b, c, d, a, inp[ 8], S24, r_uint(0x455A14EDL)) # 28
+        a = XX(G, a, b, c, d, inp[13], S21, r_uint(0xA9E3E905L)) # 29
+        d = XX(G, d, a, b, c, inp[ 2], S22, r_uint(0xFCEFA3F8L)) # 30
+        c = XX(G, c, d, a, b, inp[ 7], S23, r_uint(0x676F02D9L)) # 31
+        b = XX(G, b, c, d, a, inp[12], S24, r_uint(0x8D2A4C8AL)) # 32
 
         # Round 3.
 
         S31, S32, S33, S34 = 4, 11, 16, 23
 
-        a = XX(H, a, b, c, d, inp[ 5], S31, r_uint(0xFFFA3942L)) # 33 
-        d = XX(H, d, a, b, c, inp[ 8], S32, r_uint(0x8771F681L)) # 34 
-        c = XX(H, c, d, a, b, inp[11], S33, r_uint(0x6D9D6122L)) # 35 
-        b = XX(H, b, c, d, a, inp[14], S34, r_uint(0xFDE5380CL)) # 36 
-        a = XX(H, a, b, c, d, inp[ 1], S31, r_uint(0xA4BEEA44L)) # 37 
-        d = XX(H, d, a, b, c, inp[ 4], S32, r_uint(0x4BDECFA9L)) # 38 
-        c = XX(H, c, d, a, b, inp[ 7], S33, r_uint(0xF6BB4B60L)) # 39 
-        b = XX(H, b, c, d, a, inp[10], S34, r_uint(0xBEBFBC70L)) # 40 
-        a = XX(H, a, b, c, d, inp[13], S31, r_uint(0x289B7EC6L)) # 41 
-        d = XX(H, d, a, b, c, inp[ 0], S32, r_uint(0xEAA127FAL)) # 42 
-        c = XX(H, c, d, a, b, inp[ 3], S33, r_uint(0xD4EF3085L)) # 43 
-        b = XX(H, b, c, d, a, inp[ 6], S34, r_uint(0x04881D05L)) # 44 
-        a = XX(H, a, b, c, d, inp[ 9], S31, r_uint(0xD9D4D039L)) # 45 
-        d = XX(H, d, a, b, c, inp[12], S32, r_uint(0xE6DB99E5L)) # 46 
-        c = XX(H, c, d, a, b, inp[15], S33, r_uint(0x1FA27CF8L)) # 47 
-        b = XX(H, b, c, d, a, inp[ 2], S34, r_uint(0xC4AC5665L)) # 48 
+        a = XX(H, a, b, c, d, inp[ 5], S31, r_uint(0xFFFA3942L)) # 33
+        d = XX(H, d, a, b, c, inp[ 8], S32, r_uint(0x8771F681L)) # 34
+        c = XX(H, c, d, a, b, inp[11], S33, r_uint(0x6D9D6122L)) # 35
+        b = XX(H, b, c, d, a, inp[14], S34, r_uint(0xFDE5380CL)) # 36
+        a = XX(H, a, b, c, d, inp[ 1], S31, r_uint(0xA4BEEA44L)) # 37
+        d = XX(H, d, a, b, c, inp[ 4], S32, r_uint(0x4BDECFA9L)) # 38
+        c = XX(H, c, d, a, b, inp[ 7], S33, r_uint(0xF6BB4B60L)) # 39
+        b = XX(H, b, c, d, a, inp[10], S34, r_uint(0xBEBFBC70L)) # 40
+        a = XX(H, a, b, c, d, inp[13], S31, r_uint(0x289B7EC6L)) # 41
+        d = XX(H, d, a, b, c, inp[ 0], S32, r_uint(0xEAA127FAL)) # 42
+        c = XX(H, c, d, a, b, inp[ 3], S33, r_uint(0xD4EF3085L)) # 43
+        b = XX(H, b, c, d, a, inp[ 6], S34, r_uint(0x04881D05L)) # 44
+        a = XX(H, a, b, c, d, inp[ 9], S31, r_uint(0xD9D4D039L)) # 45
+        d = XX(H, d, a, b, c, inp[12], S32, r_uint(0xE6DB99E5L)) # 46
+        c = XX(H, c, d, a, b, inp[15], S33, r_uint(0x1FA27CF8L)) # 47
+        b = XX(H, b, c, d, a, inp[ 2], S34, r_uint(0xC4AC5665L)) # 48
 
         # Round 4.
 
         S41, S42, S43, S44 = 6, 10, 15, 21
 
-        a = XX(I, a, b, c, d, inp[ 0], S41, r_uint(0xF4292244L)) # 49 
-        d = XX(I, d, a, b, c, inp[ 7], S42, r_uint(0x432AFF97L)) # 50 
-        c = XX(I, c, d, a, b, inp[14], S43, r_uint(0xAB9423A7L)) # 51 
-        b = XX(I, b, c, d, a, inp[ 5], S44, r_uint(0xFC93A039L)) # 52 
-        a = XX(I, a, b, c, d, inp[12], S41, r_uint(0x655B59C3L)) # 53 
-        d = XX(I, d, a, b, c, inp[ 3], S42, r_uint(0x8F0CCC92L)) # 54 
-        c = XX(I, c, d, a, b, inp[10], S43, r_uint(0xFFEFF47DL)) # 55 
-        b = XX(I, b, c, d, a, inp[ 1], S44, r_uint(0x85845DD1L)) # 56 
-        a = XX(I, a, b, c, d, inp[ 8], S41, r_uint(0x6FA87E4FL)) # 57 
-        d = XX(I, d, a, b, c, inp[15], S42, r_uint(0xFE2CE6E0L)) # 58 
-        c = XX(I, c, d, a, b, inp[ 6], S43, r_uint(0xA3014314L)) # 59 
-        b = XX(I, b, c, d, a, inp[13], S44, r_uint(0x4E0811A1L)) # 60 
-        a = XX(I, a, b, c, d, inp[ 4], S41, r_uint(0xF7537E82L)) # 61 
-        d = XX(I, d, a, b, c, inp[11], S42, r_uint(0xBD3AF235L)) # 62 
-        c = XX(I, c, d, a, b, inp[ 2], S43, r_uint(0x2AD7D2BBL)) # 63 
-        b = XX(I, b, c, d, a, inp[ 9], S44, r_uint(0xEB86D391L)) # 64 
+        a = XX(I, a, b, c, d, inp[ 0], S41, r_uint(0xF4292244L)) # 49
+        d = XX(I, d, a, b, c, inp[ 7], S42, r_uint(0x432AFF97L)) # 50
+        c = XX(I, c, d, a, b, inp[14], S43, r_uint(0xAB9423A7L)) # 51
+        b = XX(I, b, c, d, a, inp[ 5], S44, r_uint(0xFC93A039L)) # 52
+        a = XX(I, a, b, c, d, inp[12], S41, r_uint(0x655B59C3L)) # 53
+        d = XX(I, d, a, b, c, inp[ 3], S42, r_uint(0x8F0CCC92L)) # 54
+        c = XX(I, c, d, a, b, inp[10], S43, r_uint(0xFFEFF47DL)) # 55
+        b = XX(I, b, c, d, a, inp[ 1], S44, r_uint(0x85845DD1L)) # 56
+        a = XX(I, a, b, c, d, inp[ 8], S41, r_uint(0x6FA87E4FL)) # 57
+        d = XX(I, d, a, b, c, inp[15], S42, r_uint(0xFE2CE6E0L)) # 58
+        c = XX(I, c, d, a, b, inp[ 6], S43, r_uint(0xA3014314L)) # 59
+        b = XX(I, b, c, d, a, inp[13], S44, r_uint(0x4E0811A1L)) # 60
+        a = XX(I, a, b, c, d, inp[ 4], S41, r_uint(0xF7537E82L)) # 61
+        d = XX(I, d, a, b, c, inp[11], S42, r_uint(0xBD3AF235L)) # 62
+        c = XX(I, c, d, a, b, inp[ 2], S43, r_uint(0x2AD7D2BBL)) # 63
+        b = XX(I, b, c, d, a, inp[ 9], S44, r_uint(0xEB86D391L)) # 64
 
         A += a
         B += b
@@ -292,7 +292,7 @@ class RMD5(object):
         # Restore the saved state in case this instance is still used
         self.count = count
         self.input = input
-        self.A = A 
+        self.A = A
         self.B = B
         self.C = C
         self.D = D

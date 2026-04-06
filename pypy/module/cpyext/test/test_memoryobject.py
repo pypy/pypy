@@ -49,7 +49,7 @@ class TestMemoryViewObject(BaseApiTest):
         assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
         assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getreadbuffer
         assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getwritebuffer
-         
+
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):

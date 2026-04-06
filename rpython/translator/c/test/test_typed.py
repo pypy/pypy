@@ -145,7 +145,7 @@ class TestTypedTestCase(object):
     def test_memoryerror(self):
         def g(i):
             return [0] * i
-        
+
         def f(i):
             try:
                 lst = g(i)
@@ -759,7 +759,7 @@ class TestTypedTestCase(object):
                 return f(n)
             except StackOverflow:
                 return -42
-        
+
         def f(n):
             if n == 0:
                 return 1

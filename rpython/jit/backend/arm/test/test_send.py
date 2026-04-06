@@ -16,4 +16,4 @@ class TestSend(JitARMMixin, SendTests):
         res = self.interp_operations(f, [1, 2, 3, 4])
         assert res == 4321
 
-    
+

@@ -11,7 +11,7 @@ from pypy.module.micronumpy.ndarray import W_NDimArray
 from pypy.module.micronumpy.ctors import array
 from pypy.module.micronumpy.descriptor import get_dtype_cache, W_Dtype
 from pypy.module.micronumpy.concrete import ConcreteArray
-from pypy.module.micronumpy.constants import (ARRAY_C_CONTIGUOUS, 
+from pypy.module.micronumpy.constants import (ARRAY_C_CONTIGUOUS,
     ARRAY_F_CONTIGUOUS, ARRAY_OWNDATA, ARRAY_ALIGNED, ARRAY_WRITEABLE,
     ARRAY_NOTSWAPPED, CORDER, FORTRANORDER)
 from pypy.module.micronumpy import ufuncs
@@ -239,7 +239,7 @@ def PyArray_CopyInto(space, w_dest, w_src):
         dest[:] = src
         """ )
     return 0
-    
+
 
 gufunctype = lltype.Ptr(ufuncs.GenericUfunc)
 @cpython_api([rffi.CArrayPtr(gufunctype), rffi.VOIDP, rffi.CCHARP, Py_ssize_t, Py_ssize_t,

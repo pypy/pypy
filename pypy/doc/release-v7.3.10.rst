@@ -98,7 +98,7 @@ We provide binary builds for:
 
   * 64-bit **ARM** machines running Linux (``aarch64``).
 
-  * Apple **M1 arm64** machines (``macos_arm64``). 
+  * Apple **M1 arm64** machines (``macos_arm64``).
 
   * **s390x** running Linux
 
@@ -366,7 +366,7 @@ Python 3.9+ speedups and enhancements
 
 Python 3.9+ C-API
 ~~~~~~~~~~~~~~~~~
-- Add ``PyObject_VectorcallMethod``, 
+- Add ``PyObject_VectorcallMethod``,
 - Add ``PyObject_Call`` variants ``*NoArgs``, ``*OneArg``, ``*MethodNoArgs``,
   ``*MethodOneArg`` (issue 3669_)
 - Handle vectorcall offset (issue 3845_)

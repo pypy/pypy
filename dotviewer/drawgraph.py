@@ -743,7 +743,7 @@ class GraphLayout:
 
     def get_display(self):
         from dotviewer.graphdisplay import GraphDisplay
-        return GraphDisplay(self)      
+        return GraphDisplay(self)
 
     def display(self):
         self.get_display().run()
@@ -754,9 +754,9 @@ class GraphLayout:
 # async interaction helpers
 
 def display_async_quit():
-    pygame.event.post(pygame.event.Event(QUIT))        
+    pygame.event.post(pygame.event.Event(QUIT))
 
-def display_async_cmd(**kwds):                
+def display_async_cmd(**kwds):
     pygame.event.post(pygame.event.Event(USEREVENT, **kwds))
 
 EventQueue = []
@@ -795,7 +795,7 @@ class Node:
 
 class Edge:
     label = None
-    
+
     def __init__(self, nodes, tail, head, cnt, *rest):
         self.tail = nodes[forceunicode(tail)]
         self.head = nodes[forceunicode(head)]
@@ -934,7 +934,7 @@ def ellipse(t, center, a, b):
 class GraphRenderer:
     MARGIN = 0.6
     FONTCACHE = {}
-    
+
     def __init__(self, screen, graphlayout, scale=75, highdpi=False):
         if highdpi:
             self.SCALEMIN = 10
@@ -989,7 +989,7 @@ class GraphRenderer:
                 filename = FONT
             font = self.FONTCACHE[size] = pygame.font.Font(filename, size)
             return font
-    
+
     def setoffset(self, offsetx, offsety):
         "Set the (x,y) origin of the rectangle where the graph will be rendered."
         self.ofsx = offsetx - self.margin
@@ -1432,7 +1432,7 @@ class GraphRenderer:
 
 
 class TextSnippet:
-    
+
     def __init__(self, renderer, text, fgcolor, bgcolor=None, font=None):
         fgcolor = ensure_readable(fgcolor, bgcolor)
         self.renderer = renderer

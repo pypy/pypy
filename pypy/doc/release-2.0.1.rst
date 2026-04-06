@@ -4,7 +4,7 @@ PyPy 2.0.1 - Bohr Smørrebrød
 
 We're pleased to announce PyPy 2.0.1.  This is a stable bugfix release
 over `2.0`_.  You can download it here:
-  
+
     https://pypy.org/download.html
 
 The fixes are mainly about fatal errors or crashes in our stdlib.  See

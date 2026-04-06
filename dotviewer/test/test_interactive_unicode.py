@@ -39,7 +39,7 @@ def test_dotviewer():
     assert err == 0
 
     plain_name = FILENAME.replace('.dot','.plain')
-    
+
     os.system('dot -Tplain "%s" > "%s"' % (udir.join(FILENAME),
                                            udir.join(plain_name)))
     print "=== dotviewer.py %s" % plain_name

@@ -1,11 +1,11 @@
-from rpython.translator.backendopt import graphanalyze        
+from rpython.translator.backendopt import graphanalyze
 
 # This is not an optimization. It checks for possible releases of the
 # GIL in all graphs starting from rgc.no_release_gil.
 
 
 class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
-    
+
     def analyze_direct_call(self, graph, seen=None):
         try:
             func = graph.func
@@ -16,7 +16,7 @@ class GilAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return True
             if getattr(func, '_transaction_break_', False):
                 return True
-      
+
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(
             self, graph, seen)
 
@@ -50,4 +50,4 @@ def analyze(graphs, translator):
                 raise Exception("'no_release_gil' function can release the GIL:"
                                 " %s\n%s" % (func, err.getvalue()))
 
-        
+

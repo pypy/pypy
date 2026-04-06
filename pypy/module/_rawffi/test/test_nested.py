@@ -7,7 +7,7 @@ class AppTestNested:
         E = _rawffi.Structure([])
         assert E.size == 0
         assert E.alignment == 1
-        
+
         align = max(struct.calcsize("i"), struct.calcsize("P"))
         assert align & (align-1) == 0, "not a power of 2??"
         def round_up(x):

@@ -128,11 +128,11 @@ class TestObjSpace:
         w = self.space.wrap
         w_object_doc = self.space.getattr(self.space.w_object, w("__doc__"))
         w_instance = self.space.appexec([], "(): return object()")
-        assert self.space.lookup(w_instance, "__doc__") == w_object_doc 
+        assert self.space.lookup(w_instance, "__doc__") == w_object_doc
         assert self.space.lookup(w_instance, "gobbledygook") is None
         w_instance = self.space.appexec([], """():
             class Lookup(object):
-                "bla" 
+                "bla"
             return Lookup()""")
         assert self.space.str_w(self.space.lookup(w_instance, "__doc__")) == "bla"
 
@@ -146,7 +146,7 @@ class TestObjSpace:
         assert is_callable(w_func)
         w_lambda_func = self.space.appexec([], "(): return lambda: True")
         assert is_callable(w_lambda_func)
-        
+
         w_instance = self.space.appexec([], """():
             class Call(object):
                 def __call__(self): pass
@@ -306,7 +306,7 @@ class TestObjSpace:
 
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
-        
+
         space = self.space
 
         w_f = space.appexec([], """():
@@ -331,7 +331,7 @@ class TestObjSpace:
         assert w_x is w_9
         assert w_y is w_1
 
-        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))        
+        w_res = space.call_obj_args(w_a, w_9, Arguments(space, []))
         assert w_res is w_9
 
     def test_compare_by_iteration(self):
@@ -350,7 +350,7 @@ class TestObjSpace:
                         else:
                             assert w_res is space.w_False
 
-class TestModuleMinimal: 
+class TestModuleMinimal:
     def test_sys_exists(self):
         assert self.space.sys
 

@@ -4,6 +4,6 @@ class State:
         self.w_file = space.appexec([], """():
                 import _file;
                 return _file.file""")
-        
+
 def get(space):
     return space.fromcache(State)

@@ -5,7 +5,7 @@ from pypy.tool.bench.pypyresult import ResultDB, BenchResult
 import pickle
 
 def setup_module(mod):
-    mod.tmpdir = py.test.ensuretemp(__name__) 
+    mod.tmpdir = py.test.ensuretemp(__name__)
 
 def gettestpickle(cache=[]):
     if cache:

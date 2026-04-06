@@ -30,7 +30,7 @@ class FakeRegalloc(ZARCHRegisterManager):
             self.free_regs = [fr for fr in self.free_regs if fr is not register]
 
 class TempInt(TempVar):
-    type = 'i' 
+    type = 'i'
     def __repr__(self):
         return "<TempInt at %s>" % (id(self),)
 

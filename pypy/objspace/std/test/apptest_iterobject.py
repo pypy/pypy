@@ -8,7 +8,7 @@ def test_no_len_on_list_iter():
 def test_no_len_on_tuple_iter():
     iterable = (1,2,3,4)
     raises(TypeError, len, iter(iterable))
-    
+
 def test_no_len_on_deque_iter():
     iterable = deque([1,2,3,4])
     raises(TypeError, len, iter(iterable))

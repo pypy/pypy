@@ -5,7 +5,7 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10, 2023-06-16
 ..
        Changelog up to commit ba2e9a6c433e
 
-The PyPy team is proud to release version 7.3.12 of PyPy. 
+The PyPy team is proud to release version 7.3.12 of PyPy.
 This release includes a new string-to-int algorithm (also appearing in CPython
 3.12) that is faster than the older one; support for symlinks in Windows; and
 our first Python3.10 version.
@@ -82,7 +82,7 @@ We provide binary builds for:
 
   * 64-bit **ARM** machines running Linux (``aarch64``).
 
-  * Apple **M1 arm64** machines (``macos_arm64``). 
+  * Apple **M1 arm64** machines (``macos_arm64``).
 
   * **s390x** running Linux
 
@@ -136,7 +136,7 @@ Speedups and enhancements
   alloc-removed everywhere
 - Improve warmup a little bit:
   - directly put the two most common opcodes into the loop
-  - add a special case for the int_add variant with a constant argument 
+  - add a special case for the int_add variant with a constant argument
 
 - Use the ``rbigint.add_int`` (etc) shortcuts for the ``int+int`` overflowing
   operations

@@ -15,6 +15,6 @@ class AppTestCell(AppTestCpythonExtensionBase):
             def g():
                 return o
             return g
-        
+
         cell_type = type(f(0).func_closure[0])
         assert d["cell"] is cell_type

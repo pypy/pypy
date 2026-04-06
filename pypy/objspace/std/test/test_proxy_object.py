@@ -16,7 +16,7 @@ class AppTestProxyNoDict(AppProxyBasic):
         from __pypy__ import tproxy
         return tproxy
         """)
-    
+
     def test_write_dict(self):
         c = self.Controller(self.A())
         obj = self.proxy(self.A, c.perform)
@@ -30,21 +30,21 @@ class AppTestProxyObj(AppProxyBasic):
             pass
         return A
         """)
-        
+
     def test_simple_obj(self):
         class AT(self.A):
             pass
 
         c = self.Controller(self.A())
         obj = self.proxy(AT, c.perform)
-        
+
         assert type(obj) is AT
         assert obj.__class__ is AT
 
     def test__class__override(self):
         c = self.Controller(self.A())
         obj = self.proxy(self.A, c.perform)
-        
+
         raises(TypeError, "obj.__class__ = self.A")
 
     def test_attribute_access(self):
@@ -52,14 +52,14 @@ class AppTestProxyObj(AppProxyBasic):
         a.x = 3
         c = self.Controller(a)
         obj = self.proxy(self.A, c.perform)
-        
+
         assert obj.x == 3
 
     def test_nonexistant_attribuite_access(self):
         c = self.Controller(self.A())
         obj = self.proxy(self.A, c.perform)
         raises(AttributeError, "obj.x")
-    
+
     def test_setattr(self):
         a = self.A()
         c = self.Controller(a)
@@ -75,14 +75,14 @@ class AppTestProxyObj(AppProxyBasic):
         obj = self.proxy(self.A, c.perform)
         del obj.f
         raises(AttributeError, "obj.f")
-    
+
     def test__dict__(self):
         a = self.A()
         a.x = 3
         c = self.Controller(a)
         obj = self.proxy(self.A, c.perform)
         assert 'x' in obj.__dict__
-    
+
     def test_set__dict__(self):
         a = self.A()
         c = self.Controller(a)
@@ -90,7 +90,7 @@ class AppTestProxyObj(AppProxyBasic):
         obj.__dict__ = {'x':3}
         assert obj.x == 3
         assert obj.__dict__.keys() == ['x']
-    
+
     def test_repr(self):
         a = self.A()
         c = self.Controller(a)

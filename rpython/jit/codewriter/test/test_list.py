@@ -98,8 +98,8 @@ def test_fixed_ll_arraycopy():
     builtin_test('list.ll_arraycopy',
                  [varoftype(FIXEDLIST),
                   varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void, """
                      residual_call_ir_v $'myfunc', I[%i0, %i1, %i2], R[%r0, %r1], <CallDescrOS1>
@@ -108,8 +108,8 @@ def test_fixed_ll_arraycopy():
 def test_fixed_ll_arraymove():
     builtin_test('list.ll_arraymove',
                  [varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void, """
                      residual_call_ir_v $'myfunc', I[%i0, %i1, %i2], R[%r0], <CallDescrOS9>

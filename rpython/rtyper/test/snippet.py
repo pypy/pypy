@@ -11,7 +11,7 @@ def simple2():
 def not1(n):
     return not n
 
-    
+
 def not2(n):
     t = not n
     if not n:
@@ -42,7 +42,7 @@ def bool_cast1(n):
 
 def int1(n):
     i = 0
-    
+
     i  += n<<3
     i <<= 3
 
@@ -63,7 +63,7 @@ def int1(n):
 
     i  += n|3
     i  |= n
-    
+
     i  += ~n
 
     n += False
@@ -105,7 +105,7 @@ def int_cast1(n):
 
 def float1(n):
     i = 0
-    
+
     n += False
     n += True
     n += bool(False)

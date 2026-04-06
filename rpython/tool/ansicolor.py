@@ -1,7 +1,7 @@
 class colors:
     black = '30'
     darkred = '31'
-    darkgreen = '32'    
+    darkgreen = '32'
     brown = '33'
     darkblue = '34'
     purple = '35'

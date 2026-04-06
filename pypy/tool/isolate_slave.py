@@ -30,7 +30,7 @@ class IsolateSlave(slaveproc.Slave):
             except KeyboardInterrupt:
                 raise
             except:
-                exc_type = sys.exc_info()[0] 
+                exc_type = sys.exc_info()[0]
                 return ('exc', (exc_type.__module__, exc_type.__name__))
             else:
                 return ('ok', res)

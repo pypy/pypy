@@ -5,7 +5,7 @@ PyPy2.7 and PyPy3.5 v5.7 - two in one release
 The PyPy team is proud to release both PyPy2.7 v5.7 (an interpreter supporting
 Python v2.7 syntax), and a beta-quality PyPy3.5 v5.7 (an interpreter for Python
 v3.5 syntax). The two releases are both based on much the same codebase, thus
-the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
+the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 (our first in the 3.5 series) includes the upstream stdlib version
@@ -69,13 +69,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-The PyPy 2.7 release supports: 
+The PyPy 2.7 release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -143,7 +143,7 @@ See also issues that were resolved_
 
   * clean-ups in the jit optimizeopt
   * optimize ``if x is not None: return x`` or ``if x != 0: return x``
-  * add ``jit.conditional_call_elidable()``, a way to tell the JIT 
+  * add ``jit.conditional_call_elidable()``, a way to tell the JIT
     "conditionally call this function" returning a result
   * try harder to propagate ``can_be_None=False`` information
   * add ``rarithmetic.ovfcheck_int32_add/sub/mul``
@@ -183,7 +183,7 @@ Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket
 
 * Bug Fixes
 
-  * implement fixes for some CPython issues that arose since the last release 
+  * implement fixes for some CPython issues that arose since the last release
   * solve deadlocks in thread locking mechanism
 
 * Performance improvements:

@@ -26,7 +26,7 @@ Using PyPy instead of CPython
 -----------------------------
 
 Please read the information at https://pypy.org/ to find the correct way to
-download and use PyPy as an alternative to CPython. 
+download and use PyPy as an alternative to CPython.
 
 
 Building

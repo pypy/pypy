@@ -4,26 +4,26 @@ import re
 
 if hasattr(sys.stdout, 'fileno') and os.isatty(sys.stdout.fileno()):
     def log(msg):
-        print msg 
+        print msg
 else:
     def log(msg):
         pass
 
 def convert_rest_html(source, source_path, stylesheet=None, encoding='latin1'):
-    """ return html latin1-encoded document for the given input. 
+    """ return html latin1-encoded document for the given input.
         source  a ReST-string
         sourcepath where to look for includes (basically)
         stylesheet path (to be used if any)
     """
     from docutils.core import publish_string
     kwargs = {
-        'stylesheet' : stylesheet, 
+        'stylesheet' : stylesheet,
         'stylesheet_path': None,
-        'traceback' : 1, 
+        'traceback' : 1,
         'embed_stylesheet': 0,
-        'output_encoding' : encoding, 
+        'output_encoding' : encoding,
         #'halt' : 0, # 'info',
-        'halt_level' : 2, 
+        'halt_level' : 2,
     }
     # docutils uses os.getcwd() :-(
     source_path = os.path.abspath(str(source_path))
@@ -53,24 +53,24 @@ def process(txtpath, encoding='latin1'):
     doc = convert_rest_html(content, txtpath, stylesheet=stylesheet, encoding=encoding)
     htmlpath.write(doc)
     #log("wrote %r" % htmlpath)
-    #if txtpath.check(svnwc=1, versioned=1): 
+    #if txtpath.check(svnwc=1, versioned=1):
     #    info = txtpath.info()
-    #    svninfopath.dump(info) 
+    #    svninfopath.dump(info)
 
 rex1 = re.compile(ur'.*<body>(.*)</body>.*', re.MULTILINE | re.DOTALL)
 rex2 = re.compile(ur'.*<div class="document">(.*)</div>.*', re.MULTILINE | re.DOTALL)
 
 def strip_html_header(string, encoding='utf8'):
-    """ return the content of the body-tag """ 
+    """ return the content of the body-tag """
     uni = unicode(string, encoding)
-    for rex in rex1,rex2: 
-        match = rex.search(uni) 
-        if not match: 
-            break 
-        uni = match.group(1) 
-    return uni 
+    for rex in rex1,rex2:
+        match = rex.search(uni)
+        if not match:
+            break
+        uni = match.group(1)
+    return uni
 
-class Project: # used for confrest.py files 
+class Project: # used for confrest.py files
     def __init__(self, sourcepath):
         self.sourcepath = sourcepath
     def process(self, path):

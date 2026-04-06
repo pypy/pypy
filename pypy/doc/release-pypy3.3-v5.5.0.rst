@@ -2,8 +2,8 @@
 PyPy3 v5.5.0
 ============
 
-We're pleased to announce the release of PyPy3 v5.5.0. Coming four months 
-after PyPy3.3 v5.2, it improves compatibility with Python 3.3 (3.3.5). We 
+We're pleased to announce the release of PyPy3 v5.5.0. Coming four months
+after PyPy3.3 v5.2, it improves compatibility with Python 3.3 (3.3.5). We
 strongly recommend updating from previous PyPy3 versions.
 
 We would like to thank all of the people who donated_ to the `py3k proposal`_

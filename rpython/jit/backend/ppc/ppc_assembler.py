@@ -105,23 +105,23 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         self._debug = v
 
     def _save_nonvolatiles(self):
-        """ save nonvolatile GPRs and FPRs in SAVE AREA 
+        """ save nonvolatile GPRs and FPRs in SAVE AREA
         """
         for i, reg in enumerate(NONVOLATILES):
             # save r31 later on
             if reg.value == r.SPP.value:
                 continue
-            self.mc.store(reg.value, r.SPP.value, 
+            self.mc.store(reg.value, r.SPP.value,
                           self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
         for i, reg in enumerate(NONVOLATILES_FLOAT):
-            self.mc.stfd(reg.value, r.SPP.value, 
+            self.mc.stfd(reg.value, r.SPP.value,
                          self.OFFSET_SPP_TO_FPR_SAVE_AREA + WORD * i)
 
     def _restore_nonvolatiles(self, mc, spp_reg):
         """ restore nonvolatile GPRs and FPRs from SAVE AREA
         """
         for i, reg in enumerate(NONVOLATILES):
-            mc.load(reg.value, spp_reg.value, 
+            mc.load(reg.value, spp_reg.value,
                          self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
         for i, reg in enumerate(NONVOLATILES_FLOAT):
             mc.lfd(reg.value, spp_reg.value,

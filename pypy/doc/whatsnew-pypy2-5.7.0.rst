@@ -74,7 +74,7 @@ Updated the implementation to match CPython 2.7.13 instead of 2.7.13.
 
 Fix ``PyObject_GetBuffer`` and ``PyMemoryView_GET_BUFFER``, which leaked
 memory and held references. Add a finalizer to CPyBuffer, add a
-PyMemoryViewObject with a PyBuffer attached so that the call to 
+PyMemoryViewObject with a PyBuffer attached so that the call to
 ``PyMemoryView_GET_BUFFER`` does not leak a PyBuffer-sized piece of memory.
 Properly call ``bf_releasebuffer`` when not ``NULL``.
 

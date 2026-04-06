@@ -22,12 +22,12 @@ from rpython.rtyper.lltypesystem import rffi
 #  |    | | | | |    |                |
 #  |    | | | | |    |                |    age < max      age == max
 #  |nur-|o|o|o|o|    |                |      +---+      +---+      +---+
-#  |sery|b|b|b|b|free|     empty      |      |obj|      |obj|      |obj|  
-#  |    |j|j|j|j|    |                |      +---+      +---+      +---+  
+#  |sery|b|b|b|b|free|     empty      |      |obj|      |obj|      |obj|
+#  |    |j|j|j|j|    |                |      +---+      +---+      +---+
 #  |    | | | | |    |                |       +---+      +---+      +---+
 #  +-----------------+----------------+       |obj|      |obj|      |obj|
 #        age <= max                           +---+      +---+      +---+
-#            
+#
 #  |gen1|------------- generation 2 -----------------|-----generation 3-----|
 #
 # Object lists:

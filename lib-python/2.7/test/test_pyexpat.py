@@ -598,7 +598,7 @@ class ChardataBufferTest(unittest.TestCase):
         self.assertEqual(self.n, 4)
 
 class MalformedInputText(unittest.TestCase):
-    # CPython seems to ship its own version of expat, they fixed it on this commit : 
+    # CPython seems to ship its own version of expat, they fixed it on this commit :
     # http://svn.python.org/view?revision=74429&view=revision
     @unittest.skipIf(sys.platform == "darwin", "Expat is broken on Mac OS X 10.6.6")
     def test1(self):

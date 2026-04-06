@@ -39,7 +39,7 @@ reader_emacs_keymap = tuple(
      (r'\C-x\C-u', 'upcase-region'),
      (r'\C-y', 'yank'),
      (r'\C-z', 'suspend'),
-     
+
      (r'\M-b', 'backward-word'),
      (r'\M-c', 'capitalize-word'),
      (r'\M-d', 'kill-word'),
@@ -98,7 +98,7 @@ comp_emacs_keymap = hist_emacs_keymap + (
 python_emacs_keymap = comp_emacs_keymap + (
     (r'\n', 'maybe-accept'),
     (r'\M-\n', 'self-insert'))
-    
+
 reader_vi_insert_keymap = tuple(
     [(c, 'self-insert')
      for c in map(chr, range(32, 127)) if c <> '\\'] + \
@@ -114,7 +114,7 @@ reader_vi_command_keymap = tuple(
     ('R', 'enter-replace-mode'),
     ('dw', 'delete-word'),
     ('dd', 'delete-line'),
-    
+
     ('h', 'left'),
     ('i', 'enter-insert-mode'),
     ('j', 'down'),
@@ -125,10 +125,10 @@ reader_vi_command_keymap = tuple(
     ('x', 'delete'),
     ('.', 'repeat-edit'), # argh!
     (r'\<insert>', 'enter-insert-mode'),
-     ] + 
+     ] +
     [(c, 'digit-arg') for c in '01234567689'] +
     [])
-   
+
 
 reader_keymaps = {
     'emacs' : reader_emacs_keymap,

@@ -119,7 +119,7 @@ def pyssl_error(obj, ret):
                         if err.ws:
                             return OSError(err.ws, os.strerror(err.ws))
                     if err.c:
-                        ffi.errno = err.c 
+                        ffi.errno = err.c
                     errno = ffi.errno
                     return SSLError(errno, os.strerror(errno))
                 else:

@@ -21,7 +21,7 @@ Actively Developed:
   * Tulip, an untyped functional language, in language design mode, maintained,
     https://github.com/tulip-lang/tulip/
   * Pycket, a Racket implementation, proof of concept, small language core
-    working, a lot of primitives are missing. Slow development 
+    working, a lot of primitives are missing. Slow development
     https://github.com/samth/pycket
   * Lever, a dynamic language with a modifiable grammar, actively developed,
     https://github.com/cheery/lever
@@ -31,7 +31,7 @@ Complete, functioning, but inactive
   * Converge 2, complete, last release version 2.1 in Feb 2015, http://convergepl.org/
   * Pyrolog, Prolog, core complete, extensions missing, last commit in Nov
     2015, https://hg.sr.ht/~cfbolz/Pyrolog
-  * PyPy.js, compiles PyPy to Javascript via emscripten_, with a custom JIT 
+  * PyPy.js, compiles PyPy to Javascript via emscripten_, with a custom JIT
     backend that emits asm.js_ code at runtime, http://pypyjs.org
 
 .. _emscripten: http://emscripten.org
@@ -50,7 +50,7 @@ Inactive (last reviewed Sept 2015):
   * IO, no clue about completeness, inactive https://bitbucket.org/pypy/lang-io
   * Qoppy, an implementation Qoppa, which is a scheme without special forms: https://github.com/timfel/qoppy
   * XlispX, a toy Lisp: https://bitbucket.org/rxe/xlispx
-  * RPySOM, an RPython implementation of SOM (Simple Object Model) https://github.com/SOM-st/RPySOM          
+  * RPySOM, an RPython implementation of SOM (Simple Object Model) https://github.com/SOM-st/RPySOM
   * SQPyte, really experimental implementation of the SQLite bytecode VM, jitted, probably inactive, https://bitbucket.org/softdevteam/sqpyte
   * Icbink, an implementation of Kernel, core complete, naive, no JIT optimizations yet, on hiatus https://github.com/euccastro/icbink
 

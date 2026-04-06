@@ -4,7 +4,7 @@ import os, sys
 
 class error(Exception):
     def __init__(self, msg):
-        self.msg = msg  
+        self.msg = msg
 
     def __str__(self):
         return self.msg
@@ -66,7 +66,7 @@ class dbm(object):
         return value
 
     def __setitem__(self, key, value):
-        if not self._aobj: 
+        if not self._aobj:
             raise error('DBM object has already been closed')
         dat = datum(key)
         data = datum(value)

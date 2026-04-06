@@ -83,7 +83,7 @@ class PythonicReader(CompletingReader, HistoricalReader):
         return super(PythonicReader, self).collect_keymap() + (
             (r'\n', 'maybe-accept'),
             (r'\M-\n', 'insert-nl'))
-    
+
     def __init__(self, console, locals,
                  compiler=None):
         super(PythonicReader, self).__init__(console)
@@ -110,8 +110,8 @@ class PythonicReader(CompletingReader, HistoricalReader):
         atexit.register(mk_saver(self))
         for c in [maybe_accept]:
             self.commands[c.__name__] = c
-            self.commands[c.__name__.replace('_', '-')] = c        
-    
+            self.commands[c.__name__.replace('_', '-')] = c
+
     def get_completions(self, stem):
         b = self.get_unicode()
         m = import_line_prog.match(b)
@@ -242,7 +242,7 @@ class ReaderConsole(code.InteractiveInterpreter):
         _tkinter.createfilehandler(
             self.reader.console.input_fd, _tkinter.READABLE,
             self.tkfilehandler)
-        
+
         self.exc_info = None
         while 1:
             # dooneevent will return 0 without blocking if there are
@@ -255,13 +255,13 @@ class ReaderConsole(code.InteractiveInterpreter):
                 type, value, tb = self.exc_info
                 self.exc_info = None
                 raise type, value, tb
-        
+
     def tkinteract(self):
         """Run a Tk-aware Python interactive session.
 
         This function simulates the Python top-level in a way that
         allows Tk's mainloop to run."""
-        
+
         # attempting to understand the control flow of this function
         # without help may cause internal injuries.  so, some
         # explanation.
@@ -280,7 +280,7 @@ class ReaderConsole(code.InteractiveInterpreter):
         # KeyboardInterrupts cause a restart.  All other exceptions
         # are likely bugs in pyrepl (well, 'cept for SystemExit, of
         # course).
-        
+
         while 1:
             try:
                 try:
@@ -328,15 +328,15 @@ class ReaderConsole(code.InteractiveInterpreter):
             reactor.run()
         finally:
             self.restore()
-        
+
 
     def cocoainteract(self, inputfilehandle=None, outputfilehandle=None):
         # only call this when there's a run loop already going!
         # note that unlike the other *interact methods, this returns immediately
         from cocoasupport import CocoaInteracter
         self.cocoainteracter = CocoaInteracter.alloc().init(self, inputfilehandle, outputfilehandle)
-        
-        
+
+
 def main(use_pygame_console=0, interactmethod=default_interactmethod, print_banner=True, clear_main=True):
     si, se, so = sys.stdin, sys.stderr, sys.stdout
     try:

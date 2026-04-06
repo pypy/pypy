@@ -1,5 +1,5 @@
 ==========
-PyPy 2.6.1 
+PyPy 2.6.1
 ==========
 
 We're pleased to announce PyPy 2.6.1, an update to PyPy 2.6.0 released June 1.
@@ -12,16 +12,16 @@ You can download the PyPy 2.6.1 release here:
     https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
-project, and our volunteers and contributors.  
+project, and our volunteers and contributors.
 
 .. _`cffi`: https://cffi.readthedocs.org
 
 We would also like to encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
-RPython's JIT even better. 
+RPython's JIT even better.
 
-.. _`PyPy`: https://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
@@ -45,7 +45,7 @@ We also welcome developers of other
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
 .. _`dynamic languages`: https://pypyjs.org
 
-Highlights 
+Highlights
 ===========
 
 * Bug Fixes
@@ -108,7 +108,7 @@ Highlights
   * Add a list strategy for lists that store both floats and 32-bit integers.
     The latter are encoded as nonstandard NaNs.  Benchmarks show that the speed
     of such lists is now very close to the speed of purely-int or purely-float
-    lists. 
+    lists.
 
   * Simplify implementation of ffi.gc() to avoid most weakrefs
 

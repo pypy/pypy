@@ -62,7 +62,7 @@ where XXXXX is the revision hash.
 Install build-time dependencies
 -------------------------------
 (**Note**: for some hints on how to translate the Python interpreter under
-Windows, see the `windows document`_ . 
+Windows, see the `windows document`_ .
 
 .. _`windows document`: windows.html
 .. _`RPython documentation`: https://rpython.readthedocs.org

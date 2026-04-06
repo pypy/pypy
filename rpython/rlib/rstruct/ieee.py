@@ -68,7 +68,7 @@ def float_unpack(Q, size):
             exp = r_ulonglong(0x7ff) << 52
             sign = r_ulonglong(sign) << 63
             if MANT_DIG < 53:
-                mant = r_ulonglong(mant) << (53 - MANT_DIG) 
+                mant = r_ulonglong(mant) << (53 - MANT_DIG)
             if mant == 0:
                 result = rfloat.NAN
             else:

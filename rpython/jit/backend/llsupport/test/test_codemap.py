@@ -5,7 +5,7 @@ from rpython.jit.backend.llsupport.codemap import CodemapStorage, \
      CodemapBuilder, unpack_traceback, find_codemap_at_addr
 
 NULL = lltype.nullptr(rffi.CArray(lltype.Signed))
-     
+
 def test_register_codemap():
     codemap = CodemapStorage()
     codemap.setup()

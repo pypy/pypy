@@ -1230,7 +1230,7 @@ def attach_c_functions(space, eci, prefix):
         for attr, setter in unroll_flag_setters:
             setter(rffi.cast(rffi.INT_real, space.sys.get_flag(attr)))
     state.C.init_flags = init_flags
-        
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)

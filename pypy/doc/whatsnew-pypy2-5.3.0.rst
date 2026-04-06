@@ -25,9 +25,9 @@ remove-objspace-options.
 
 .. branch: cpyext-for-merge
 
-Update cpyext C-API support After this branch, we are almost able to support 
-upstream numpy via cpyext, so we created (yet another) fork of numpy at 
-github.com/pypy/numpy with the needed changes. Among the significant changes 
+Update cpyext C-API support After this branch, we are almost able to support
+upstream numpy via cpyext, so we created (yet another) fork of numpy at
+github.com/pypy/numpy with the needed changes. Among the significant changes
 to cpyext:
 
   - allow c-snippet tests to be run with -A so we can verify we are compatible
@@ -40,7 +40,7 @@ to cpyext:
   - PyAnySet_CheckExact, PyUnicode_Concat
   - improve support for PyGILState_Ensure, PyGILState_Release, and thread
     primitives, also find a case where CPython will allow thread creation
-    before PyEval_InitThreads is run, disallow on PyPy 
+    before PyEval_InitThreads is run, disallow on PyPy
   - create a PyObject-specific list strategy
   - rewrite slot assignment for typeobjects
   - improve tracking of PyObject to rpython object mapping
@@ -143,4 +143,4 @@ nonmovable, possibly making a copy of it first.
 
 Finish the work already partially merged in cpyext-for-merge. Adds support
 for ByteArrayObject using the nonmovable-list, which also enables
-buffer(bytearray(<some-list>)) 
+buffer(bytearray(<some-list>))

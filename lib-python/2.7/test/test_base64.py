@@ -3,7 +3,7 @@ from test import test_support
 import base64
 
 
-
+
 class LegacyBase64TestCase(unittest.TestCase):
     def test_encodestring(self):
         eq = self.assertEqual
@@ -58,7 +58,7 @@ class LegacyBase64TestCase(unittest.TestCase):
         self.assertEqual(outfp.getvalue(), 'www.python.org')
 
 
-
+
 class BaseXYTestCase(unittest.TestCase):
     def test_b64encode(self):
         eq = self.assertEqual
@@ -235,7 +235,7 @@ class BaseXYTestCase(unittest.TestCase):
         self.assertRaises(TypeError, base64.b16decode, '010')
 
 
-
+
 def test_main():
     test_support.run_unittest(__name__)
 

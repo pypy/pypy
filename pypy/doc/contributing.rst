@@ -261,7 +261,7 @@ PyPy development always was and is still thoroughly test-driven.
 There are two modes of tests: those that run on top of RPython before
 translation (untranslated tests) and those that run on top of a translated
 ``pypy`` (app tests). Since RPython is a dialect of Python2, the untranslated
-tests run with a python2 host. 
+tests run with a python2 host.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::

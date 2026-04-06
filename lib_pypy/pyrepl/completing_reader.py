@@ -66,7 +66,7 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
     if sort_in_column:
         # sort_in_column=False (default)     sort_in_column=True
         #          A B C                       A D G
-        #          D E F                       B E 
+        #          D E F                       B E
         #          G                           C F
         #
         # "fill" the table with empty words, so we always have the same amout
@@ -91,7 +91,7 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
         if r + 5 > cons.height:
             menu.append("   %d more... "%(len(wordlist) - i))
             break
-    return menu, i    
+    return menu, i
 
 # this gets somewhat user interface-y, and as a result the logic gets
 # very convoluted.
@@ -118,7 +118,7 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
 # only if the ``assume_immutable_completions`` is True.
 #
 # now it gets complicated.
-# 
+#
 # for the first press of a completion key:
 #  if there's a common prefix, stick it in.
 
@@ -206,11 +206,11 @@ class CompletingReader(Reader):
     assume_immutable_completions = True
     use_brackets = True # display completions inside []
     sort_in_column = False
-    
+
     def collect_keymap(self):
         return super(CompletingReader, self).collect_keymap() + (
             (r'\t', 'complete'),)
-    
+
     def __init__(self, console):
         super(CompletingReader, self).__init__(console)
         self.cmpltn_menu = ["[ menu 1 ]", "[ menu 2 ]"]
@@ -218,7 +218,7 @@ class CompletingReader(Reader):
         self.cmpltn_menu_end = 0
         for c in [complete, self_insert]:
             self.commands[c.__name__] = c
-            self.commands[c.__name__.replace('_', '-')] = c        
+            self.commands[c.__name__.replace('_', '-')] = c
 
     def after_command(self, cmd):
         super(CompletingReader, self).after_command(cmd)
@@ -243,7 +243,7 @@ class CompletingReader(Reader):
         self.cmpltn_menu = []
         self.cmpltn_menu_vis = 0
         self.cmpltn_menu_end = 0
-        self.cmpltn_menu_choices = []        
+        self.cmpltn_menu_choices = []
 
     def get_stem(self):
         st = self.syntax_table

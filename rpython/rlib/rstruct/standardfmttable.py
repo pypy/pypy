@@ -191,7 +191,7 @@ def make_int_packer(size, signed, _memo={}):
         if pack_fastpath(TYPE)(fmtiter, value):
             return
         #
-        pos = fmtiter.pos + size - 1        
+        pos = fmtiter.pos + size - 1
         if fmtiter.bigendian:
             for i in unroll_revrange_size:
                 x = (value >> (8*i)) & 0xff

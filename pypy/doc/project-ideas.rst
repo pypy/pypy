@@ -78,16 +78,16 @@ Explicit typing in RPython
 --------------------------
 
 RPython is mostly based around type inference, but there are many cases where
-specifying types explicitly is useful. We would like to be able to optionally 
+specifying types explicitly is useful. We would like to be able to optionally
 specify the exact types of the arguments to any function. We already have
 solutions in that space, ``@rpython.rlib.objectmodel.enforceargs`` and
-``@rpython.rlib.signature.signature``, but they are inconvenient and limited. 
+``@rpython.rlib.signature.signature``, but they are inconvenient and limited.
 For instance, they do not easily allow to express the type "dict with ints as
 keys and lists of instances of Foo as values".
 
 Additionally, we would like to be able to specify the types of instance
 attributes. Unlike the function case, this is likely to require some
-refactoring of the annotator. 
+refactoring of the annotator.
 
 Make bytearray type fast
 ------------------------
@@ -171,7 +171,7 @@ Improve performance
 * Switch to a `sea-of-nodes`_ IR, or a `Lua-Jit`_-like IR which iterates on
   on the sea-of-nodes approach
 * Use real register-allocation
-* Improve instruction selection / scheduling 
+* Improve instruction selection / scheduling
 * Create a hybrid tracing/method JIT
 
 .. _`sea-of-nodes`: https://darksi.de/d.sea-of-nodes/

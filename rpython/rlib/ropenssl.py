@@ -38,7 +38,7 @@ include_dirs = []
 library_dirs = []
 
 #
-# Work around the facts that 
+# Work around the facts that
 # - since 10.11, OS X no longer ships openssl system-wide,
 # - Homebrew does not install it system-wide.
 # - on the docker buildbot images, openssl is in /usr/local

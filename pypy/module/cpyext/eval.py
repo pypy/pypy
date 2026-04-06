@@ -272,7 +272,7 @@ def Py_EnterRecursiveCall(space, where):
         global limit
         limit += 1
         if limit > 10:
-            raise oefmt(space.w_RuntimeError, 
+            raise oefmt(space.w_RuntimeError,
                  "maximum recursion depth exceeded%s", rffi.charp2str(where))
         return 0
     from rpython.rlib.rstack import stack_almost_full

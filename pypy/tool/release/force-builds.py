@@ -112,8 +112,8 @@ if __name__ == '__main__':
         subprocess.check_call(['hg','id','-r', options.branch])
     except subprocess.CalledProcessError:
         print('branch',  options.branch, 'could not be found in local repository')
-        sys.exit(-1) 
+        sys.exit(-1)
     if options.branch.startswith('release') and not '-v' in options.branch:
         print('release branches must be of the form "release.*-v.*')
-        sys.exit(-1) 
+        sys.exit(-1)
     main(options)

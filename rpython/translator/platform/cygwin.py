@@ -6,7 +6,7 @@ from rpython.translator.platform.posix import BasePosix
 
 class BaseCygwin(BasePosix):
     name = "cygwin"
-    
+
 #    link_flags = tuple(
 #                 ['-pthread',]
 #                 + os.environ.get('LDFLAGS', '').split())
@@ -26,7 +26,7 @@ class BaseCygwin(BasePosix):
     shared_only = ('-fPIC',)
     so_ext = 'dll'
     exe_ext = 'exe'
-    
+
     def _args_for_shared(self, args, **kwds):
         return ['-shared'] + args
 

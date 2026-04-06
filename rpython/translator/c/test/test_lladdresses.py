@@ -90,7 +90,7 @@ def test_pointer_arithmetic():
     def f(offset, char):
         char = chr(char)
         addr = raw_malloc(10000)
-        same_offset = (addr + 2 * offset - offset) - addr 
+        same_offset = (addr + 2 * offset - offset) - addr
         addr.char[offset] = char
         result = (addr + same_offset).char[0]
         raw_free(addr)

@@ -22,7 +22,7 @@ ongoing work, and helping us find the source of these problems.
   (continuation of issue 3441_)
 - Four upstream (CPython) security patches were applied:
 
-  - `BPO 42988`_ to remove ``pydoc.getfile`` 
+  - `BPO 42988`_ to remove ``pydoc.getfile``
   - `BPO 43285`_ to not trust the ``PASV`` response in ``ftplib``.
   - `BPO 43075`_ to remove a possible ReDoS in urllib AbstractBasicAuthHandler
   - `BPO 43882`_ to sanitize urls containing ASCII newline and tabs in
@@ -55,7 +55,7 @@ to https://github.com/pypy/pypy.org
 We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
-on PyPy, or general `help`_ with making RPython's JIT even better. 
+on PyPy, or general `help`_ with making RPython's JIT even better.
 
 If you are a python library maintainer and use C-extensions, please consider
 making a CFFI_ / cppyy_ version of your library that would be performant on PyPy.

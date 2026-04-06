@@ -18,7 +18,7 @@ CALL_RELEASE_GIL_STACK_OFF = 6*WORD
 class CallBuilder(AbstractCallBuilder):
     GPR_ARGS = [r.r2, r.r3, r.r4, r.r5, r.r6]
     FPR_ARGS =  [r.f0, r.f2, r.f4, r.f6]
-    
+
     RSHADOWOLD  = r.r8
     RSHADOWPTR  = r.r9
     RFASTGILPTR = r.r10

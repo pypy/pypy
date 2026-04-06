@@ -104,7 +104,7 @@ def PyNumber_ToBase(space, w_obj, base):
         value = space.bigint_w(w_index)
         return space.newtext(formatter._long_to_base(base, value))
     return space.newtext(formatter._int_to_base(base, value))
-    
+
 
 @cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyNumber_CoerceEx(space, pp1, pp2):

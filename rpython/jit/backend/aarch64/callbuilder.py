@@ -74,7 +74,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
     def pop_gcmap(self):
         self.asm._reload_frame_if_necessary(self.mc)
-        self.asm.pop_gcmap(self.mc)        
+        self.asm.pop_gcmap(self.mc)
 
     def emit_raw_call(self):
         #the actual call

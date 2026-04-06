@@ -20,7 +20,7 @@ def convert(symbs):
     if isinstance(symbs, tuple):
         return map(convert1, symbs)
     else:
-        return convert1(symbs)    
+        return convert1(symbs)
 
 
 def test_field_token():
@@ -35,20 +35,20 @@ def test_field_token():
         assert ofs_z == ofs_y + WORD
 
 def test_struct_size():
-    for translate_support_code in (True, False):    
+    for translate_support_code in (True, False):
         ofs_z, size_z = convert(get_field_token(S, 'z', translate_support_code))
         totalsize = convert(get_size(S, translate_support_code))
         assert totalsize == ofs_z + WORD
 
 def test_primitive_size():
-    for translate_support_code in (True, False):    
+    for translate_support_code in (True, False):
         assert convert(get_size(lltype.Signed, translate_support_code)) == WORD
         assert convert(get_size(lltype.Char, translate_support_code)) == 1
         sz = get_size(lltype.Ptr(S), translate_support_code)
         assert convert(sz) == PTRWORD
 
 def test_array_token():
-    for translate_support_code in (True, False):        
+    for translate_support_code in (True, False):
         A = lltype.GcArray(lltype.Char)
         arraytok = get_array_token(A, translate_support_code)
         basesize, itemsize, ofs_length = convert(arraytok)
@@ -68,7 +68,7 @@ def test_array_token():
         assert itemsize == WORD
         assert ofs_length == -1
 
-def test_varsized_struct_size():    
+def test_varsized_struct_size():
     S1 = lltype.GcStruct('S1', ('parent', S),
                                ('extra', lltype.Signed),
                                ('chars', lltype.Array(lltype.Char)))
@@ -77,7 +77,7 @@ def test_varsized_struct_size():
         fldtok = get_field_token(S1, 'extra', translate_support_code)
         ofs_extra, size_extra = convert(fldtok)
         arraytok = get_array_token(S1, translate_support_code)
-        basesize, itemsize, ofs_length = convert(arraytok)        
+        basesize, itemsize, ofs_length = convert(arraytok)
         assert size_parent == ofs_extra
         assert size_extra == WORD
         assert ofs_length == ofs_extra + WORD

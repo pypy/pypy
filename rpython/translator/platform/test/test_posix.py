@@ -15,7 +15,7 @@ def test_echo():
 class TestMakefile(object):
     platform = host
     strict_on_stderr = True
-    
+
     def test_simple_makefile(self):
         tmpdir = udir.join('simple_makefile' + self.__class__.__name__).ensure(dir=1)
         cfile = tmpdir.join('test_simple_enough.c')

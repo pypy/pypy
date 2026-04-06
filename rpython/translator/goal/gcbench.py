@@ -2,7 +2,7 @@
 #  This is adapted from a benchmark written by John Ellis and Pete Kovac
 #  of Post Communications.
 #  It was modified by Hans Boehm of Silicon Graphics.
-# 
+#
 #       This is no substitute for real applications.  No actual application
 #       is likely to behave in exactly this way.  However, this benchmark was
 #       designed to be more representative of real applications than other

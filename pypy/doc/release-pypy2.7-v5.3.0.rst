@@ -43,13 +43,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This release supports: 
+This release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -75,7 +75,7 @@ Other Highlights (since 5.1 released in April 2016)
         PyAnySet_CheckExact, PyUnicode_Concat, PyDateTime_TZInfo
       - improve support for PyGILState_Ensure, PyGILState_Release, and thread
         primitives, also find a case where CPython will allow thread creation
-        before PyEval_InitThreads is run, disallow on PyPy 
+        before PyEval_InitThreads is run, disallow on PyPy
       - create a PyObject-specific list strategy
       - rewrite slot assignment for typeobjects
       - improve tracking of PyObject to rpython object mapping
@@ -167,7 +167,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Document and refactor OperationError -> oefmt
 
-  * Reduce the size of generated C sources during translation by 
+  * Reduce the size of generated C sources during translation by
     eliminating many many unused struct declarations (Issue #2281)
 
   * Remove a number of translation-time options that were not tested and

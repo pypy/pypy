@@ -76,7 +76,7 @@ def test_no_tty():
     assert len(output) == 2
     assert output[0] == ('[test:WARNING] oops\n', ())
     assert output[1] == ('[test:WARNING] maybe?\n', ())
-        
+
 
 def test_unknown_method_names():
     log = ansi_print.AnsiLogger('test')

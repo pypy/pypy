@@ -39,7 +39,7 @@ install additional modules that require compilation, you may need to install
 additional packages such as pypy-dev. This will manifest as an error about
 "missing Python.h". Distributions do not as of yet supply many pypy-ready
 packages, if you require additional modules we recommend creating a virtualenv
-and using pip. 
+and using pip.
 
 .. _prebuilt-pypy:
 
@@ -82,7 +82,7 @@ Installing more modules
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 If you want to install 3rd party libraries, the most convenient way is
-to install pip_ using ensurepip_ (unless you want to install virtualenv as 
+to install pip_ using ensurepip_ (unless you want to install virtualenv as
 explained below; then you can directly use pip inside virtualenvs):
 
 .. code-block:: console

@@ -27,7 +27,7 @@ def chr(space, w_ascii):
 def unichr(space, code):
     "Return a Unicode string of one character with the given ordinal."
     if code < 0 or code > 0x10FFFF:
-        raise oefmt(space.w_ValueError, "unichr() arg out of range")        
+        raise oefmt(space.w_ValueError, "unichr() arg out of range")
     s = rutf8.unichr_as_utf8(code, allow_surrogates=True)
     return space.newutf8(s, 1)
 

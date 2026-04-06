@@ -4,7 +4,7 @@ PyPy 2.1 - Considered ARMful
 
 We're pleased to announce PyPy 2.1, which targets version 2.7.3 of the Python
 language. This is the first release with official support for ARM processors in the JIT.
-This release also contains several bugfixes and performance improvements. 
+This release also contains several bugfixes and performance improvements.
 
 You can download the PyPy 2.1 release here:
 
@@ -61,7 +61,7 @@ Highlights
 
 * During packaging, compile the CFFI based TK extension
 
-* Pickling of numpy arrays and dtypes 
+* Pickling of numpy arrays and dtypes
 
 * Subarrays for numpy
 
@@ -71,12 +71,12 @@ Highlights
 
 * Bugfixes to the x86 stacklet support
 
-* Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number). 
+* Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number).
 
 * Fixed issue `1552`_: GreenletExit should inherit from BaseException.
 
 * Fixed issue `1537`_: numpypy __array_interface__
-  
+
 * Fixed issue `1238`_: Writing to an SSL socket in PyPy sometimes failed with a "bad write retry" message.
 
 .. _`1533`: https://bugs.pypy.org/issue1533

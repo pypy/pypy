@@ -10,7 +10,7 @@ includes two different interpreters:
 
   - PyPy3.6-beta: this is the second official release of PyPy to support 3.6
     features, although it is still considered beta quality.
-    
+
 The interpreters are based on much the same codebase, thus the double
 release.
 

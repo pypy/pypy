@@ -38,8 +38,8 @@ def test_fixed_ll_arraycopy():
     builtin_test('list.ll_arraycopy',
                  [varoftype(FIXEDLIST),
                   varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void,
                  NotSupported)
@@ -47,8 +47,8 @@ def test_fixed_ll_arraycopy():
 def test_fixed_ll_arraymove():
     builtin_test('list.ll_arraymove',
                  [varoftype(FIXEDLIST),
-                  varoftype(lltype.Signed), 
-                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed),
+                  varoftype(lltype.Signed),
                   varoftype(lltype.Signed)],
                  lltype.Void,
                  NotSupported)

@@ -16,7 +16,7 @@ main:
 """
     begin_tag = 'START   '
     end_tag = 'END     '
-    base_name = 'test_%d.asm' 
+    base_name = 'test_%d.asm'
     index = 0
 
     def __init__(self, instr):

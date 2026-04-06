@@ -104,7 +104,7 @@ def main(argv):
     if 'help' in argv[1]:
         print '\nusage: python', os.path.dirname(__file__), '<path-to-pypy> [<outfile.html>] [<path-to-cpython-with-numpy>]'
         print '       path-to-cpython-with-numpy defaults to "/usr/bin/python"\n'
-        return 
+        return
     if len(argv) < 4:
         cpython = '/usr/bin/python'
     else:

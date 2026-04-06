@@ -705,7 +705,7 @@ class ObjSpace(object):
         elif self.config.objspace.usemodules._cffi_backend:
             from pypy.module._cffi_backend import copy_includes
             copy_includes.main()
-        
+
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')
@@ -1804,7 +1804,7 @@ class ObjSpace(object):
                 raise oefmt(self.w_TypeError,
                             "argument must be a string without NUL characters")
             return rstring.assert_str0(result)
-            
+
         else:
             return self.bytes0_w(w_obj)
 

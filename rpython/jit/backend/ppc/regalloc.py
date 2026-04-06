@@ -459,7 +459,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         self.vrm.free_temp_vars()
 
     # ******************************************************
-    # *         P R E P A R E  O P E R A T I O N S         * 
+    # *         P R E P A R E  O P E R A T I O N S         *
     # ******************************************************
 
 

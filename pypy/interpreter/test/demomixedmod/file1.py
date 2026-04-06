@@ -1,7 +1,7 @@
 
-def somefunc(space): 
-    return space.w_True 
+def somefunc(space):
+    return space.w_True
 
-def initpath(space): 
+def initpath(space):
     print "got to initpath", space
-    return space.wrap(3) 
+    return space.wrap(3)

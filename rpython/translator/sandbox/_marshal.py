@@ -98,7 +98,7 @@ class _Marshaller:
 
     def dump_ellipsis(self, x):
         self._write(TYPE_ELLIPSIS)
-    
+
     try:
         dispatch[type(Ellipsis)] = dump_ellipsis
     except NameError:

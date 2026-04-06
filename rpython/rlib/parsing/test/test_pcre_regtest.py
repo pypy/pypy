@@ -14,56 +14,56 @@ pcre_license = """
 
 #        PCRE LICENCE
 #        ------------
-#        
+#
 #        PCRE is a library of functions to support regular expressions whose syntax
 #        and semantics are as close as possible to those of the Perl 5 language.
 #
 #        Release 7 of PCRE is distributed under the terms of the "BSD" licence, as
 #        specified below. The documentation for PCRE, supplied in the "doc"
 #        directory, is distributed under the same terms as the software itself.
-#        
+#
 #        The basic library functions are written in C and are freestanding. Also
 #        included in the distribution is a set of C++ wrapper functions.
-#        
+#
 #        THE BASIC LIBRARY FUNCTIONS
 #        ---------------------------
-#        
+#
 #        Written by:       Philip Hazel
 #        Email local part: ph10
 #        Email domain:     cam.ac.uk
-#        
+#
 #        University of Cambridge Computing Service,
 #        Cambridge, England.
-#        
+#
 #        Copyright (c) 1997-2008 University of Cambridge
 #        All rights reserved.
-#        
+#
 #        THE C++ WRAPPER FUNCTIONS
 #        -------------------------
-#        
+#
 #        Contributed by:   Google Inc.
-#        
+#
 #        Copyright (c) 2007-2008, Google Inc.
 #        All rights reserved.
-#        
+#
 #        THE "BSD" LICENCE
 #        -----------------
-#        
+#
 #        Redistribution and use in source and binary forms, with or without
 #        modification, are permitted provided that the following conditions are met:
-#        
+#
 #            * Redistributions of source code must retain the above copyright notice,
 #              this list of conditions and the following disclaimer.
-#        
+#
 #            * Redistributions in binary form must reproduce the above copyright
 #              notice, this list of conditions and the following disclaimer in the
 #              documentation and/or other materials provided with the distribution.
-#        
+#
 #            * Neither the name of the University of Cambridge nor the name of Google
 #              Inc. nor the names of their contributors may be used to endorse or
 #              promote products derived from this software without specific prior
 #              written permission.
-#        
+#
 #        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 #        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 #        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -75,7 +75,7 @@ pcre_license = """
 #        CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 #        ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 #        POSSIBILITY OF SUCH DAMAGE.
-#        
+#
 #        End
 
 """
@@ -106,7 +106,7 @@ class PickleDumper(Dumper):
     def load(self):
         suite = pickle.load(file)
         return suite
-        
+
 class PythonDumper(Dumper):
     def __init__(self, fileobj):
         self.file = fileobj
@@ -130,7 +130,7 @@ def generate_output7():
 def create_pcre_pickle(file, dumper):
     """Create a filtered PCRE test file for the test."""
     lines = [line for line in file.readlines()]
-    
+
     # Look for things to skip...
     no_escape = r'(^|[^\\])(\\\\)*'                   # Make sure there's no escaping \
     greedy_ops = re.compile(no_escape + r'[*?+}\(]\?')  # Look for *? +? }? (?
@@ -138,11 +138,11 @@ def create_pcre_pickle(file, dumper):
     caret_in_middle = re.compile(no_escape + r'[^\[\\]\^')
     posix_char_classes = re.compile(no_escape + r'\[[^]]*\[:[^]]+:\][^]]*\]')    # like [[:digit:]]
     bad_backslashes = re.compile(no_escape + r'(\\Q|\\E|\\G|\\P|\\8|\\9|\\A|\\Z|\\F|\\R|\\B|\\b|\\h|\\H|\\v|\\V|\\z|\\N)')   # PCRE allows \Q.....\E to quote substrings, we dont.
-    
+
     # Perl allows single-digit hex escapes. Change \x0 -> \x00, for example
     expand_perl_hex = re.compile(r'\\x([0-9a-fA-F]{1})(?=[^0-9a-fA-F]|$)')
-    
-    # suite = [ 
+
+    # suite = [
     #            [regex, flags, [(test,result),(test,result),...]]
     #            [regex, flags, [(test,result),(test,result),...]]
     #         ]
@@ -165,20 +165,20 @@ def create_pcre_pickle(file, dumper):
                 assert delim in (set(string.printable) - set(string.letters) - set(string.digits))
                 test_re = re.compile(r'%(delim)s(([^%(delim)s]|\\%(delim)s)*([^\\]))%(delim)s(\\?)([^\n\r]*)' % {'delim': delim})
                 # last two groups are an optional backslash and optional flags
-            
+
             matches = test_re.findall(regex)
             if matches:
                 break
 
         assert len(matches)==1  # check to make sure we matched right
-    
+
         regex = matches[0][0]
         regex += matches[0][-2] # Add the backslash, if we gotta
         flags = matches[0][-1] # Get the flags for the regex
 
         # Gotta tolerate Perl's short hexes
         regex = expand_perl_hex.sub(lambda m: r'\x0'+m.group(1), regex)
-            
+
         tests = []
         if greedy_ops.search(regex) or back_refs.search(regex):
             # Suppress complex features we can't do
@@ -195,8 +195,8 @@ def create_pcre_pickle(file, dumper):
         else:
             # In any other case, we're going to add the test
             # All the above test fall through and DONT get appended
-            suite.append([regex, flags, tests]) 
-            
+            suite.append([regex, flags, tests])
+
         # Now find the test and expected result
         while lines:
             test = lines.pop(0).strip()
@@ -215,7 +215,7 @@ def create_pcre_pickle(file, dumper):
             except Exception:
                 disqualify_test = True
                 print "Warning: could not unescape %r" % test
-                
+
 
             # Third line in the OUTPUT is the result, either:
             # ' 0: ...' for a match (but this is ONLY escaped by \x__ types)
@@ -243,7 +243,7 @@ def create_pcre_pickle(file, dumper):
                     raise Exception("Lost sync in output.")
             if not disqualify_test:
                 tests.append((test,match))
-    
+
     # Last step, if there are regex's that dont have any tests,
     # might as well strip them out
     suite = [test for test in suite if test[2]]
@@ -252,7 +252,7 @@ def create_pcre_pickle(file, dumper):
 
 def run_individual_test(regex, tests):
     """Run a test from the PCRE suite."""
-    
+
     # Process the regex and make it ready for make_runner
     regex_to_use = regex
 
@@ -266,21 +266,21 @@ def run_individual_test(regex, tests):
     if not regex_to_use:
         #print "  SKIPPED (Cant do blank regex)"
         return
-    
+
     print "%s:" % regex_to_use
-    
+
     runner = make_runner(regex_to_use)
-    
+
     # Now run the test expressions against the Regex
     for test, match in tests:
         print "/%r/%r/" % (test, match)
-        
+
         # Create possible subsequences that we should test
         if anchor_left:
             start_range = [0]
         else:
             start_range = range(0, len(test))
-        
+
         if anchor_right:
             subseq_gen = ( (start, len(test)) for start in start_range )
         else:

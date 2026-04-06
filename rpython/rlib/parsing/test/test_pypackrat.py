@@ -234,7 +234,7 @@ class TestPackrat(object):
     def test_error_not(self):
         class parser(PackratParser):
             """
-            b: 
+            b:
                 'b' !'a';
             """
         p = parser("ba")
@@ -246,7 +246,7 @@ class TestPackrat(object):
     def test_error_lookahead(self):
         class parser(PackratParser):
             """
-            b: 
+            b:
                 'b' !!'a';
             """
         p = parser("bc")
@@ -258,7 +258,7 @@ class TestPackrat(object):
     def test_error_star(self):
         class parser(PackratParser):
             """
-            b: 
+            b:
                 'b'* !__any__;
             """
         print parser._code
@@ -271,7 +271,7 @@ class TestPackrat(object):
     def test_error_success(self):
         class parser(PackratParser):
             """
-            b: 
+            b:
                 bstar !__any__;
             bstar:
                 'b'*;
@@ -418,7 +418,7 @@ class TestPackrat(object):
                     c = __any__
                 if {ord(a) <= ord(c) <= ord(b)}
                 return {c};
-                
+
             small_big_small:
                 x = between({'a'}, {'z'})+
                 y = between({'A'}, {'Z'})+
@@ -501,7 +501,7 @@ class TestPackrat(object):
                 ignoreline*
                 rest = ([',' ignoreline*] group)*
                 ')'
-                return {[g] + rest} 
+                return {[g] + rest}
               | g = group
                 rest = ([',' ignore*] group)*
                 return {[g] + rest};

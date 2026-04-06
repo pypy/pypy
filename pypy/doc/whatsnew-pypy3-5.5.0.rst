@@ -33,7 +33,7 @@ Fix the mappingproxy type to behave as in CPython.
 
 .. branch: py3k-kwonly-builtin
 
-Implement keyword-only arguments for built-in functions. Fix functions in the 
+Implement keyword-only arguments for built-in functions. Fix functions in the
 posix module to have keyword-only arguments wherever CPython has them, instead
 of regular keyword arguments.
 

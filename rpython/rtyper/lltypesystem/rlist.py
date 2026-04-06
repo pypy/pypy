@@ -38,7 +38,7 @@ def LIST_OF(ITEMTYPE, cache={}):
         return cache[ITEMTYPE]
     except KeyError:
         pass
-    
+
     from rpython.rtyper.lltypesystem.rstr import CharRepr
     assert ITEMTYPE is Char, 'only Char is supported for now'
     # XXX: maybe we should think of a better way to build the type?

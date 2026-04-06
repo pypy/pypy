@@ -33,7 +33,7 @@ def direct_calls(p):
             names.append(direct_target(spaceop))
     return names
 
-            
+
 def check(g, funcname, ignore=None):
     paths = paths_naive(g)
     relevant = []
@@ -45,7 +45,7 @@ def check(g, funcname, ignore=None):
                     funcs_called.index('stack_check___'))
             relevant.append(p)
     return relevant
-    
+
 
 class A(object):
     def __init__(self, n):
@@ -66,7 +66,7 @@ def test_simple():
     a = t.buildannotator()
     a.build_types(g, [int])
     a.simplify()
-    t.buildrtyper().specialize()        
+    t.buildrtyper().specialize()
     backend_optimizations(t)
     t.checkgraphs()
     n = insert_ll_stackcheck(t)
@@ -81,7 +81,7 @@ def test_gctransformed():
     a = t.buildannotator()
     a.build_types(g, [int])
     a.simplify()
-    t.buildrtyper().specialize()        
+    t.buildrtyper().specialize()
     backend_optimizations(t)
     t.checkgraphs()
     n = insert_ll_stackcheck(t)
@@ -92,7 +92,7 @@ def test_gctransformed():
     exctransf.create_exception_handling(f_graph)
     if option.view:
         f_graph.show()
-    check(f_graph, 'f')    
+    check(f_graph, 'f')
 
     class GCTransform(shadowstack.ShadowStackFrameworkGCTransformer):
         from rpython.memory.gc.generation import GenerationGC as \
@@ -103,7 +103,7 @@ def test_gctransformed():
     gctransf.transform_graph(f_graph)
     if option.view:
         f_graph.show()
-    relevant = check(f_graph, 'f')        
+    relevant = check(f_graph, 'f')
     for p in relevant:
         in_between = False
         reload = 0
@@ -116,5 +116,5 @@ def test_gctransformed():
                     in_between = True
             if in_between and spaceop.opname == 'gc_reload_possibly_moved':
                 reload += 1
-                
+
         assert reload == 0

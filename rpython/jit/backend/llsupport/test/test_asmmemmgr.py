@@ -249,7 +249,7 @@ def test_blockbuildermixin(translated=True):
     debug._log = debug.DebugLog()
     try:
         mc._dump(addr, 'test-logname-section')
-        log = list(debug._log) 
+        log = list(debug._log)
     finally:
         debug._log = None
     encoded = ''.join(writtencode).encode('hex').upper()
@@ -257,7 +257,7 @@ def test_blockbuildermixin(translated=True):
     assert log == [('test-logname-section',
                     [('debug_print', 'SYS_EXECUTABLE', '??'),
                      ('debug_print', 'CODE_DUMP', ataddr, '+0 ', encoded)])]
-    
+
     lltype.free(p, flavor='raw')
 
 def test_blockbuildermixin2():

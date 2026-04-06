@@ -512,7 +512,7 @@ def ll_no_initial_index(d):
     # index unless it is freshly created or freshly translated.  Most
     # dict operations start with ll_call_lookup_function(), which will
     # recompute the hashes and create the index.
-    ll_assert(d.num_live_items == d.num_ever_used_items, 
+    ll_assert(d.num_live_items == d.num_ever_used_items,
          "ll_no_initial_index(): dict already in use")
     d.lookup_function_no = FUNC_MUST_REINDEX
     d.indexes = lltype.nullptr(llmemory.GCREF.TO)

@@ -44,7 +44,7 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
                 zero = not we_are_translated()
                 return lltype.malloc(CHUNK, flavor="raw", zero=zero,
                                      track_allocation=False)
-                
+
             result = self.free_list
             self.free_list = result.next
             return result
@@ -83,7 +83,7 @@ def get_chunk_manager(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
 
     def sort_chunk(chunk, size):
         quicksort(chunk.items, 0, size - 1)
-        
+
     return unused_chunks, null_chunk, sort_chunk
 
 
@@ -97,7 +97,7 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
 
     class AddressStack(object):
         _alloc_flavor_ = "raw"
-        
+
         def __init__(self):
             self.chunk = unused_chunks.get()
             self.chunk.next = null_chunk
@@ -224,7 +224,7 @@ def get_address_deque(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
 
     class AddressDeque(object):
         _alloc_flavor_ = "raw"
-        
+
         def __init__(self):
             chunk = unused_chunks.get()
             chunk.next = null_chunk

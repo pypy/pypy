@@ -21,7 +21,7 @@ class TestRecompilation(BaseTestRegalloc):
         fail = self.run(loop, 0)
         assert fail == bridge.operations[-1].getdescr()
         assert self.getint(0) == 21
-    
+
     def test_compile_bridge_deeper(self):
         ops = '''
         [i0]
@@ -156,4 +156,4 @@ class TestRecompilation(BaseTestRegalloc):
         self.run(loop, 0, 0, 0)
         assert self.getint(0) == 1
         assert self.getint(1) == 20
-        
+

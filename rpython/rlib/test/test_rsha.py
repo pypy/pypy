@@ -6,7 +6,7 @@
 
 from rpython.rlib import rsha
 
-class TestSHA: 
+class TestSHA:
     def check(self, data, digest):
         computed = rsha.new(data).hexdigest()
         assert computed == digest

@@ -17,4 +17,4 @@ def run(c_entry_point):
     print "CPython:"
     richards.main(iterations=5)
 
-    
+

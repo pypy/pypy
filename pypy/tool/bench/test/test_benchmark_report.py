@@ -11,7 +11,7 @@ from pypy.tool.bench.htmlreport import (
         PerfResultDelta, Page
 )
 
-# Sample performance data with a newline 
+# Sample performance data with a newline
 testlines = """\
 --date 1152625530.0  hacker@canonical.com-20060705122759-0a3481a4647b16dc
  100ms package.module.test_name1
@@ -22,7 +22,7 @@ testlines = """\
 
 class TestPerfTable:
     """tests to ensure that performance data files are processed properly"""
-    
+
     def setup_method(self, method):
         self.lines = testlines[:]
         self.num_test_ids = 2
@@ -33,7 +33,7 @@ class TestPerfTable:
         t = PerfTable()
         data = list(t.parse(lines))
         assert len(data) == 1 # check that one object was created
-        
+
         assert isinstance(data[0], PerfResult) # is it really a PerfResult
         pr = data[0]
         expected = PerfResult(
@@ -49,7 +49,7 @@ class TestPerfTable:
 
     def test_multiline_parse(self):
         """ensure all lines are parsed correctly. """
-        
+
         lines= self.lines
         results = list(PerfTable().parse(lines))
         assert len(results) == self.num_test_ids # was all data read?
@@ -57,8 +57,8 @@ class TestPerfTable:
                           1) # check for one unique revision id
 
         # check for self.num_test_ids unique test ids
-        assert len(dict.fromkeys([r.test_id for r in results])) == ( 
-                          self.num_test_ids) 
+        assert len(dict.fromkeys([r.test_id for r in results])) == (
+                          self.num_test_ids)
 
     def test_get_results(self):
         """check that get_results returns the right number of PerfResults"""
@@ -75,7 +75,7 @@ class TestPerfTable:
         results = list(perftable.get_results(test_ids = test_ids[1:]))
         assert len(results) == self.num_test_ids -1
 
-        
+
     def test_get_results_two_dates_same_revision_id(self):
         """check that PerfTable handles 2 dates in the data correctly"""
 
@@ -111,7 +111,7 @@ class TestPerfTable:
     def test_list_values_of(self):
         perftable = PerfTable(self.lines)
         assert perftable.list_values_of('date') == [1152625530.0]
-        assert perftable.list_values_of('revision_id') == ( 
+        assert perftable.list_values_of('revision_id') == (
                      ['hacker@canonical.com-20060705122759-0a3481a4647b16dc'])
         assert len(perftable.list_values_of('test_id')) == (
                           self.num_test_ids)
@@ -122,7 +122,7 @@ class TestPerfTable:
 
 class TestPerfResultCollection:
     """check the average and variance computation"""
-    
+
     def test_property_elapsed_time(self):
         """check elapsed_time computated property"""
         p1 = PerfResult(elapsed_time=1, date=132.123)
@@ -130,10 +130,10 @@ class TestPerfResultCollection:
         sample = PerfResultCollection([p1,p2])
         assert sample.min_elapsed == 1
 
-    
+
 class TestPerfResultDelta:
     """check delta computations and the statistical tests"""
-    
+
     def setup_method(self, meth):
         self.r1 = PerfResult(date=123123.123, elapsed_time = 10)
         self.r2 = PerfResult(date=123523.123, elapsed_time = 11)
@@ -143,7 +143,7 @@ class TestPerfResultDelta:
     def test_attributes(self):
         """check delta computation"""
         delta = PerfResultDelta(self.c1, self.c2)
-        assert delta.delta == ( 
+        assert delta.delta == (
                           self.c2.min_elapsed - self.c1.min_elapsed)
         assert round(delta.percent - 0.10, 7) == 0
 
@@ -151,20 +151,20 @@ class TestPerfResultDelta:
         delta = PerfResultDelta(self.c1, None)
         assert delta.delta == 0
         assert delta.percent == 0.0
-        
+
         delta = PerfResultDelta(None, self.c2)
         assert delta.delta == 0
         assert delta.percent == 0.0
 
-        
+
 class TestPage:
     """check that every part of the page and the page itself can be
     generated without errors"""
-    
+
     def setup_method(self, method):
         self.lines = testlines[:]
         self.perftable = PerfTable(self.lines)
-            
+
     def check_serialize_html(self, html):
         """render unicode string from the given 'html' tree.
 
@@ -187,18 +187,18 @@ class TestPage:
         ]
         x = Page().gen_image_map(samples, revisions=range(20))
         self.check_serialize_html(x)
-    
+
     def test_report(self):
         """check revision report showing changes to prev revision"""
-        
+
         p1 = [PerfResultCollection([PerfResult(elapsed_time=i,
                                            date=float(i),
                                            revision = 1,
                                            test_id='test123',
                                            revision_id='one')])
               for i in range(1, 4)]
-        p2 = [PerfResultCollection([PerfResult(elapsed_time=i, 
-                                           date=float(i), 
+        p2 = [PerfResultCollection([PerfResult(elapsed_time=i,
+                                           date=float(i),
                                            test_id='test123',
                                            revision = 2,
                                            revision_id='two')])
@@ -209,22 +209,22 @@ class TestPage:
 
     def test_header(self):
         """check header generation"""
-        p1 = PerfResultCollection([PerfResult(revision_date=124.8, 
+        p1 = PerfResultCollection([PerfResult(revision_date=124.8,
                                             nick="hello",
                                             revision=100)])
-        p2 = PerfResultCollection([PerfResult(revision_date=12456.3, 
+        p2 = PerfResultCollection([PerfResult(revision_date=12456.3,
                                             nick="hello",
                                             revision=200 )])
         self.check_serialize_html(Page().render_header(
                 p1.results[0], p2.results[0]))
-        
+
     def test_table(self):
         """check main reporting table generation"""
         p1 = PerfResultCollection(
             [PerfResult(
-                    elapsed_time=2, 
-                    revision_date=124.8, 
-                    revision=100, 
+                    elapsed_time=2,
+                    revision_date=124.8,
+                    revision=100,
                     test_id=('bzrlib.benchmarks.bench_add.AddBenchmark.'
                                 'test_one_add_kernel_like_tree'),
                 )
@@ -232,8 +232,8 @@ class TestPage:
         )
         p2 = PerfResultCollection(
             [PerfResult(
-                    elapsed_time=3, 
-                    revision_date=12456.3, 
+                    elapsed_time=3,
+                    revision_date=12456.3,
                     revision=200,
                     test_id=('bzrlib.benchmarks.bench_add.AddBenchmark.'
                                 'test_one_add_kernel_like_tree'),

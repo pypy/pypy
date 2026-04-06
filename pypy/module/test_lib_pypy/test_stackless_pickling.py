@@ -32,7 +32,7 @@ class Test_StacklessPickling:
         mod.output = output
 
         exec """from stackless import schedule
-        
+
 def aCallable(name):
     output.append(('b', name))
     schedule()
@@ -56,7 +56,7 @@ def aCallable(name):
         schedule()
         assert output == [('a', x) for x in "ABCDE"]
         del output[:]
-        
+
         unpickledTasks = pickle.loads(pickledTasks)
         for task in unpickledTasks:
             task.insert()

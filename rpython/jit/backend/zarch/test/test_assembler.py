@@ -522,7 +522,7 @@ class TestRunningAssembler(object):
                     pool.addr(mem)
                 self.mc.LEY(r.f1, loc.addr(0, r.r13))
                 ## cast short to long!
-                self.mc.LDEBR(r.f0, r.f1) 
+                self.mc.LDEBR(r.f0, r.f1)
                 self.mc.LG(r.r11, loc.addr(4, r.r13))
                 self.mc.STD(r.f0, loc.addr(0, r.r11))
             run_asm(self.a)
@@ -536,7 +536,7 @@ class TestRunningAssembler(object):
                     pool.addr(mem)
                 self.mc.LG(r.r12, loc.addr(0, r.r13))
                 # cast int to float!
-                self.mc.CDGBR(r.f0, r.r12) 
+                self.mc.CDGBR(r.f0, r.r12)
                 self.mc.LG(r.r11, loc.addr(8, r.r13))
                 self.mc.STD(r.f0, loc.addr(0, r.r11))
             run_asm(self.a)
@@ -568,7 +568,7 @@ class TestRunningAssembler(object):
         def STG(reg, addr):
             stored.append((reg,))
         def LMG(start, end, addr):
-            loaded.append((start, end)) 
+            loaded.append((start, end))
         def LG(reg, addr):
             loaded.append((reg,))
         self.mc.STMG = STMG

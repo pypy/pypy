@@ -389,7 +389,7 @@ def make_statvfs_result(tup):
     args = tuple(
         lltype.cast_primitive(TYPE, value) for value, (name, TYPE) in
             zip(tup, STATVFS_FIELDS))
-    # only used untranslated 
+    # only used untranslated
     return statvfs_result(*args)
 
 class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
@@ -740,7 +740,7 @@ if _WIN32:
             errcode = rwin32.GetLastError_saved()
             if (errcode == traits.ERROR_ACCESS_DENIED or
                 errcode == traits.ERROR_SHARING_VIOLATION):
-                # Try reading the parent directory 
+                # Try reading the parent directory
                 if win32_attributes_from_dir(traits, path, fileInfo, tagInfo) == 0:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_attributes_from_dir failed")
@@ -775,7 +775,7 @@ if _WIN32:
                                        "win32_xstat failed")
             else:
                 raise WindowsError(errcode, "os_stat failed")
-        
+
         if hFile != rwin32.INVALID_HANDLE_VALUE:
             # Handle types other than files on disk.
             fileType = traits.GetFileType(hFile)
@@ -842,7 +842,7 @@ if _WIN32:
         if res == 0:
             raise WindowsError(errcode, "GetFileInformationByHandle failed")
         result = win32_by_handle_info_to_stat(traits, fileInfo, tagInfo.c_ReparseTag)
-        
+
         # TBD: adjust the file execute permissions by finding the file extension
         # if fileExtension in ('exe', 'bat', 'cmd', 'com'):
         #    result.st_mode |= 0x0111

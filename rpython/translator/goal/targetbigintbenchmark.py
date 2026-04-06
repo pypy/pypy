@@ -9,10 +9,10 @@ from rpython.rlib.rbigint import rbigint
 def entry_point(argv):
     """
         All benchmarks are run using --opt=2 and minimark gc (default).
-        
+
         Benchmark changes:
         2**N is a VERY heavy operation in default pypy, default to 10 million instead of 500,000 used like an hour to finish.
-        
+
         A cutout with some benchmarks.
         Pypy default:
         mod by 2:  7.978181
@@ -33,7 +33,7 @@ def entry_point(argv):
         v = v * v 17.119933
         v = v + v 6.489957
         Sum:  142.686547
-        
+
         Pypy with improvements:
         mod by 2:  0.007059
         mod by 10000:  3.204295
@@ -83,86 +83,86 @@ def entry_point(argv):
     t = time()
     for n in xrange(600000):
         rbigint.mod(num, V2)
-        
+
     _time = time() - t
     sumTime += _time
     print "mod by 2: ", _time
-    
+
     by = rbigint.fromint(10000)
     t = time()
     for n in xrange(300000):
         rbigint.mod(num, by)
-        
+
     _time = time() - t
     sumTime += _time
     print "mod by 10000: ", _time
-    
+
     V1024 = rbigint.fromint(1024)
     t = time()
     for n in xrange(300000):
         rbigint.mod(num, V1024)
-        
+
     _time = time() - t
     sumTime += _time
     print "mod by 1024 (power of two): ", _time
-    
+
     t = time()
     num = rbigint.pow(rbigint.fromint(100000000), rbigint.fromint(1024))
     by = rbigint.pow(rbigint.fromint(2), rbigint.fromint(128))
     for n in xrange(80000):
         rbigint.divmod(num, by)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "Div huge number by 2**128:", _time
-    
+
     t = time()
     num = rbigint.fromint(1000000000)
     for n in xrange(160000000):
         rbigint.rshift(num, 16)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "rshift:", _time
-    
+
     t = time()
     num = rbigint.fromint(1000000000)
     for n in xrange(160000000):
         rbigint.lshift(num, 4)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "lshift:", _time
-    
+
     t = time()
     num = rbigint.fromint(100000000)
     for n in xrange(80000000):
         rbigint.floordiv(num, V2)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "Floordiv by 2:", _time
-    
+
     t = time()
     num = rbigint.fromint(100000000)
     V3 = rbigint.fromint(3)
     for n in xrange(80000000):
         rbigint.floordiv(num, V3)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "Floordiv by 3 (not power of two):",_time
-    
+
     t = time()
     num = rbigint.fromint(500000)
     for n in xrange(10000):
         rbigint.pow(V2, num)
-        
+
 
     _time = time() - t
     sumTime += _time
@@ -172,24 +172,24 @@ def entry_point(argv):
     num = rbigint.fromint(5000000)
     for n in xrange(31):
         rbigint.pow(rbigint.pow(V2, rbigint.fromint(n)), num)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "(2**N)**5000000 (power of two):",_time
-    
+
     t = time()
     num = rbigint.pow(rbigint.fromint(10000), rbigint.fromint(2 ** 8))
     P10_4 = rbigint.fromint(10**4)
     V100 = rbigint.fromint(100)
     for n in xrange(60000):
         rbigint.pow(P10_4, num, V100)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "10000 ** BIGNUM % 100", _time
-    
+
     t = time()
     i = rbigint.fromint(2**31)
     i2 = rbigint.fromint(2**31)
@@ -199,58 +199,58 @@ def entry_point(argv):
     _time = time() - t
     sumTime += _time
     print "i = i * i:", _time
-    
+
     t = time()
-    
+
     for n in xrange(10000):
         rbigint.pow(rbigint.fromint(n), P10_4)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "n**10000 (not power of two):",_time
-    
+
     t = time()
     for n in xrange(100000):
         rbigint.pow(V1024, V1024)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "Power of two ** power of two:", _time
-    
-    
+
+
     t = time()
     v = rbigint.fromint(2)
     P62 = rbigint.fromint(2**62)
     for n in xrange(50000):
         v = v.mul(P62)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "v = v * power of two", _time
-    
+
     t = time()
     v2 = rbigint.fromint(2**8)
     for n in xrange(28):
         v2 = v2.mul(v2)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "v = v * v", _time
-    
+
     t = time()
     v3 = rbigint.fromint(2**62)
     for n in xrange(500000):
         v3 = v3.add(v3)
-        
+
 
     _time = time() - t
     sumTime += _time
     print "v = v + v", _time
-    
+
     x = rbigint.fromstr("13579246801357924680135792468013579246801")
     y = rbigint.fromstr("112233445566778899112233445566778899112233445566778899")
     t = time()

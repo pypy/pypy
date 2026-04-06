@@ -91,7 +91,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractZARCHBuilder):
             data = rffi.cast(rffi.CCHARP, addr)
             for i in range(self.currpos()):
                 f.write(data[i])
-            f.close() 
+            f.close()
     def clear_cache(self, addr):
         if we_are_translated():
             startaddr = rffi.cast(llmemory.Address, addr)

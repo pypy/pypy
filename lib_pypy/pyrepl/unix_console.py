@@ -86,7 +86,7 @@ class UnixConsole(Console):
     def __init__(self, f_in=0, f_out=1, term=None, encoding=None):
         if encoding is None:
             encoding = sys.getdefaultencoding()
-            
+
         self.encoding = encoding
 
         if isinstance(f_in, int):
@@ -98,12 +98,12 @@ class UnixConsole(Console):
             self.output_fd = f_out
         else:
             self.output_fd = f_out.fileno()
-        
+
         self.pollob = poll()
         self.pollob.register(self.input_fd, POLLIN)
         curses.setupterm(term, self.output_fd)
         self.term = term
-        
+
         self._bel   = _my_getstr("bel")
         self._civis = _my_getstr("civis", optional=1)
         self._clear = _my_getstr("clear")
@@ -128,7 +128,7 @@ class UnixConsole(Console):
         self._ri    = _my_getstr("ri",    1)
         self._rmkx  = _my_getstr("rmkx",  1)
         self._smkx  = _my_getstr("smkx",  1)
-        
+
         ## work out how we're going to sling the cursor around
         if 0 and self._hpa: # hpa don't work in windows telnet :-(
             self.__move_x = self.__move_x_hpa
@@ -168,7 +168,7 @@ class UnixConsole(Console):
 
     def change_encoding(self, encoding):
         self.encoding = encoding
-    
+
     def refresh(self, screen, cxy):
         # this function is still too long (over 90 lines)
 
@@ -181,7 +181,7 @@ class UnixConsole(Console):
                 self.screen.append("")
         else:
             while len(self.screen) < len(screen):
-                self.screen.append("")            
+                self.screen.append("")
 
         if len(screen) > self.height:
             self.__gone_tall = 1
@@ -231,7 +231,7 @@ class UnixConsole(Console):
                                         newscr):
             if oldline != newline:
                 self.__write_changed_line(y, oldline, newline, px)
-                
+
         y = len(newscr)
         while y < len(oldscr):
             self.__hide_cursor()
@@ -241,7 +241,7 @@ class UnixConsole(Console):
             y += 1
 
         self.__show_cursor()
-        
+
         self.screen = screen
         self.move_cursor(cx, cy)
         self.flushoutput()
@@ -289,7 +289,7 @@ class UnixConsole(Console):
                 self.__write_code(self._el)
             self.__write(newline[x:])
             self.__posxy = len(newline), y
-        
+
         if '\x1b' in newline:
             # ANSI escape characters are present, so we can't assume
             # anything about the position of the cursor.  Moving the cursor
@@ -373,7 +373,7 @@ class UnixConsole(Console):
         self.height, self.width = self.getheightwidth()
 
         self.__buffer = []
-        
+
         self.__posxy = 0, 0
         self.__gone_tall = 0
         self.__move = self.__move_short
@@ -421,7 +421,7 @@ class UnixConsole(Console):
         else:
             self.partial_char = ''
             self.event_queue.push(c)
-        
+
     def get_event(self, block=1):
         while self.event_queue.empty():
             while 1: # All hail Unix!
@@ -547,7 +547,7 @@ class UnixConsole(Console):
                 e2 = self.event_queue.get()
                 e.data += e2.data
                 e.raw += e.raw
-                
+
             amount = struct.unpack(
                 "i", ioctl(self.input_fd, FIONREAD, "\0\0\0\0"))[0]
             raw = unicode(os.read(self.input_fd, amount), self.encoding, 'replace')
@@ -562,7 +562,7 @@ class UnixConsole(Console):
                 e2 = self.event_queue.get()
                 e.data += e2.data
                 e.raw += e.raw
-                
+
             amount = 10000
             raw = unicode(os.read(self.input_fd, amount), self.encoding, 'replace')
             e.data += raw

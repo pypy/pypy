@@ -1115,11 +1115,11 @@ def notimplemented(self, op):
 
 def notimplemented_guard_op(self, op, prevop):
     llop.debug_print(lltype.Void, "[ARM64/regalloc] %s not implemented" % op.getopname())
-    raise NotImplementedError(op)    
+    raise NotImplementedError(op)
 
 def notimplemented_comp_op(self, op, res_in_cc):
     llop.debug_print(lltype.Void, "[ARM64/regalloc] %s not implemented" % op.getopname())
-    raise NotImplementedError(op)    
+    raise NotImplementedError(op)
 
 operations = [notimplemented] * (rop._LAST + 1)
 guard_operations = [notimplemented_guard_op] * (rop._LAST + 1)
@@ -1142,4 +1142,4 @@ for key, value in rop.__dict__.items():
     if hasattr(Regalloc, methname):
         func = getattr(Regalloc, methname).im_func
         comp_operations[value] = func
-    
+

@@ -6,7 +6,7 @@ Release Policy
 
 We try to create a stable release a few times a year. These are released on
 a branch named like release-pypy3.5-v2.x or release-pypy3.5-v4.x, and each
-release is tagged, for instance release-pypy3.5-v4.0.1. 
+release is tagged, for instance release-pypy3.5-v4.0.1.
 
 The release version number should be bumped. A micro release increment means
 there were no changes that justify rebuilding c-extension wheels, since
@@ -118,7 +118,7 @@ Other steps
     (it is important to mark this as a candidate since usually at least two
     tries are needed to complete the process) and download and repackage source
     from the buildbot. You may find it convenient to use the ``repackage.sh``
-    script in ``pypy/tool/release`` to do this. 
+    script in ``pypy/tool/release`` to do this.
 
     Also repackage and upload source "-src.tar.bz2"
 
@@ -134,7 +134,7 @@ Other steps
 
 * Send out a mailing list message asking for last-minute comments and testing
 
-* RELEASE !  
+* RELEASE !
 
   * update pypy.org_ with the checksum hashes produced from the
     ``repackage.sh`` script or by hand and the download pages

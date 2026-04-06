@@ -82,7 +82,7 @@ Module xyz does not work in the sandboxed PyPy?
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
 Sandboxing in PyPy is a good proof of concept, and is without a doubt
-safe IMHO, however it is only a proof of concept.  It currently requires 
+safe IMHO, however it is only a proof of concept.  It currently requires
 some work from a motivated developer. However, until then it can only be used for "pure Python"
 example: programs that import mostly nothing (or only pure Python
 modules, recursively).
@@ -112,11 +112,11 @@ version; this is usually easily done by changing some line in ``setup.py``.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For more information about how we manage refcounting semamtics see 
+For more information about how we manage refcounting semamtics see
 rawrefcount_
 
 .. _cffi: https://cffi.readthedocs.org/
-.. _rawrefcount: discussion/rawrefcount.html   
+.. _rawrefcount: discussion/rawrefcount.html
 
 
 On which platforms does PyPy run?
@@ -126,12 +126,12 @@ PyPy currently supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32/64 bits, OpenBSD, FreeBSD),
-  
+
   * 64-bit **AArch**, also known as ARM64,
 
   * **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux
     (we no longer provide prebuilt binaries for these),
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -205,7 +205,7 @@ Should I install numpy or numpypy?
 -----------------------------------
 
 TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
-install numpy``. 
+install numpy``.
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply

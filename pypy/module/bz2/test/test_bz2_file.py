@@ -451,7 +451,7 @@ class AppTestBZ2File(CheckAllocation):
 
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
-# 
+#
 # if has_cmdline_bunzip2:
 #     def decompress(self, data):
 #         pop = popen2.Popen3("bunzip2", capturestderr=1)
@@ -462,7 +462,7 @@ class AppTestBZ2File(CheckAllocation):
 #         if pop.wait() != 0:
 #             ret = bz2.decompress(data)
 #         return ret
-# 
+#
 # else:
 #     # popen2.Popen3 doesn't exist on Windows, and even if it did, bunzip2
 #     # isn't available to run.

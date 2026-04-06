@@ -3,7 +3,7 @@ class TestAstToObject:
     def test_types(self, space):
         assert space.issubtype_w(
                 ast.get(space).w_Module, ast.get(space).w_mod)
-                                  
+
     def test_num(self, space):
         value = space.wrap(42)
         node = ast.Num(value, lineno=1, col_offset=1)
@@ -46,9 +46,9 @@ class TestAstToObject:
                                  space.wrap("_fields"))
         assert space.eq_w(w_fields, space.wrap(
             ('args', 'vararg', 'kwarg', 'defaults')))
-        
+
     def test_attributes(self, space):
         w_attrs = space.getattr(ast.get(space).w_FunctionDef,
                                 space.wrap("_attributes"))
         assert space.eq_w(w_attrs, space.wrap(('lineno', 'col_offset')))
-        
+

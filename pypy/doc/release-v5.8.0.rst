@@ -5,7 +5,7 @@ PyPy2.7 and PyPy3.5 v5.8 dual release
 The PyPy team is proud to release both PyPy2.7 v5.8 (an interpreter supporting
 Python 2.7 syntax), and a beta-quality PyPy3.5 v5.8 (an interpreter for Python
 3.5 syntax). The two releases are both based on much the same codebase, thus
-the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
+the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
@@ -77,13 +77,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-The PyPy 2.7 release supports: 
+The PyPy 2.7 release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -120,7 +120,7 @@ Note that these are also merged into PyPy 3.5
   * Support profile-guided optimization, enabled with --profopt, , and
     specify training data ``profoptpath``
 
-* Bug Fixes 
+* Bug Fixes
 
   * Correctly handle dict.pop where the popping key is not the same type as the
     dict's and pop is called with a default (Part of the 5.7.1 bugfix release)
@@ -199,11 +199,11 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
   * Use "<python> -m test" to run the CPython test suite, as documented by CPython,
     instead of our outdated regrverbose.py script
   * Change _cffi_src/openssl/callbacks.py to stop relying on the CPython C API.
-  * Avoid importing the full locale module during _io initialization, 
+  * Avoid importing the full locale module during _io initialization,
     CPython change fbbf8b160e8d
   * Avoid freezing many app-level modules at translation, avoid importing many
     modules at startup
-  * Refactor buffers, which allows an optimization for 
+  * Refactor buffers, which allows an optimization for
     ``bytearray()[:n].tobytes()``
 
 * The following features of Python 3.5 are not implemented yet in PyPy:

@@ -63,7 +63,7 @@ def division_operations(n_box, m, known_nonneg=False):
     # case t == 0, i.e. 0 <= n < 2**63
     #
     #     a <= q <= a + (m-1)/m     (we use '/' for the real quotient here)
-    #    
+    #
     #     n * k == n * (2**(64+i) // m + 1)
     #           == n * ceil(2**(64+i) / m)
     #           == n * (2**(64+i) / m + ferr)         for 0 < ferr < 1
@@ -71,11 +71,11 @@ def division_operations(n_box, m, known_nonneg=False):
     #           <  q * 2**(64+i) + n
     #           <= (a + (m-1)/m) * 2**(64+i) + n
     #           == 2**(64+i) * (a + extra)            for 0 <= extra < ?
-    #    
+    #
     #     extra == (m-1)/m + (n / 2**(64+i))
-    #    
+    #
     #     but  n < 2**63 < 2**(64+i)/m  because  m < 2**(i+1)
-    #    
+    #
     #     extra < (m-1)/m + 1/m
     #     extra < 1.
     #

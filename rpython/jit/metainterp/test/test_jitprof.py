@@ -12,7 +12,7 @@ class FakeProfiler(Profiler):
         Profiler.start(self)
         self.events = []
         self.times = [0, 0]
-    
+
     def timer(self):
         self.counter += 1
         return self.counter - 1
@@ -62,7 +62,7 @@ class TestProfile(ProfilerMixin):
         @dont_look_inside
         def g(n):
             pass
-        
+
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -82,7 +82,7 @@ class TestProfile(ProfilerMixin):
         @elidable
         def g(n):
             return n+1
-        
+
         myjitdriver = JitDriver(greens = ['z'], reds = ['y', 'x','res'])
         def f(x, y, z):
             res = 0

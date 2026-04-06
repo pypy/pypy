@@ -86,7 +86,7 @@ We provide binary builds for:
 
   * 64-bit **ARM** machines running Linux (``aarch64``).
 
-  * Apple **M1 arm64** machines (``macos_arm64``). 
+  * Apple **M1 arm64** machines (``macos_arm64``).
 
   * **s390x** running Linux
 
@@ -129,7 +129,7 @@ Python 3.8+
 - Update stdlib for PyPy3.8 to 3.8.16 and for PyPy3.9 to 3.9.16. This brings
   some security fixes, as documented in the `CPython release note`_
 - Ensure that only valid values are passed from ``Py_UNICODE_*`` calls to
-  unicodedb lookups (issue 3870_) 
+  unicodedb lookups (issue 3870_)
 - Fix ast ``lineno``, ``end_lineno``, ``end_col_number`` around decorators (issue 3876_)
 - Re-apply fix for issue 3436_ since our ensurepip setuptools version is ``< 59.0``
 - In ``_tkinter``, ``getboolean``, ``getint``, ``getdouble`` accepts a ``Tcl_Obj`` (bpo-23880_)

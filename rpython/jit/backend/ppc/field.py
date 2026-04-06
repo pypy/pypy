@@ -11,7 +11,7 @@ Traceback (most recent call last):
   File \"field.py\", line 25, in encode
     raise ValueError(\"field '%s' can't accept value %s\"
 ValueError: field 'test' can't accept value 65536
->>> 
+>>>
 
 """
 

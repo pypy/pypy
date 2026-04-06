@@ -227,7 +227,7 @@ class ArenaCollection(object):
         if freepages == NULL:
             # This was the last page, so put the arena away into
             # arenas_lists[0].
-            ll_assert(arena.nfreepages == 0, 
+            ll_assert(arena.nfreepages == 0,
                       "freepages == NULL but nfreepages > 0")
             arena.nextarena = self.arenas_lists[0]
             self.arenas_lists[0] = arena

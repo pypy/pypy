@@ -4,7 +4,7 @@ def opcode(n, opcode_name):
     global opcode_names
     names[opcode_name] = globals()[opcode_name] = n
 
-# basic tl opcodes: 
+# basic tl opcodes:
 
 opcode(1,  "NOP")
 opcode(2,  "PUSH")     #1 operand
@@ -118,7 +118,7 @@ def compile(code='', pool=None):
         for i, (methname, label) in enumerate(methods):
             pc = labels[label]
             methods[i] = (methname, pc)
-    return ''.join([chr(i & 0xff) for i in bytecode])  
+    return ''.join([chr(i & 0xff) for i in bytecode])
 
 
 def decode_descr(encdescr):

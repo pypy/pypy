@@ -12,7 +12,7 @@ three different interpreters:
   - PyPy3.6: which is an interpreter supporting the syntax and the features of
     Python 3.6, including the stdlib for CPython 3.6.12 (updated from the
     previous version).
-    
+
   - PyPy3.7 beta: which is our second release of an interpreter supporting the
     syntax and the features of Python 3.7, including the stdlib for CPython
     3.7.9. We call this beta quality software, there may be issues about
@@ -20,7 +20,7 @@ three different interpreters:
     Please let us know what is broken or missing. We have not implemented the
     `documented changes`_ in the ``re`` module, and a few other pieces are also
     missing. For more information, see the `PyPy 3.7 wiki`_ page
-    
+
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3
 releases, but read on to find out what is new.

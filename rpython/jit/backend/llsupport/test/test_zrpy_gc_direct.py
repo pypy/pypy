@@ -184,7 +184,7 @@ def run_guards_translated(gcremovetypeptr):
     cbuilder = genc.CStandaloneBuilder(t, main, t.config)
     cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
     cbuilder.compile()
-    
+
     data = cbuilder.cmdexec('')
     assert data == ('fail\n'
                     'match\n'

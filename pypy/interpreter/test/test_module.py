@@ -2,7 +2,7 @@ import py
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 
-class TestModule: 
+class TestModule:
     def test_name(self, space):
         w = space.wrap
         m = Module(space, space.wrap('m'))
@@ -30,7 +30,7 @@ class TestModule:
         py.test.raises(OperationError, space.getattr, w(m), w('__file__'))
 
 
-class AppTest_ModuleObject: 
+class AppTest_ModuleObject:
     def test_attr(self):
         m = __import__('__builtin__')
         m.x = 15
@@ -65,7 +65,7 @@ class AppTest_ModuleObject:
             skip("need PyPy for _pypy_interact")
         r = repr(sys)
         assert r == "<module 'sys' (built-in)>"
-        
+
         import _pypy_interact # known to be in lib_pypy
         r = repr(_pypy_interact)
         assert (r.startswith("<module '_pypy_interact' from ") and

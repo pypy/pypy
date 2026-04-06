@@ -9,7 +9,7 @@ class ListTests:
     def check_all_virtualized(self):
         self.check_resops(setarrayitem_gc=0, new_array=0, arraylen_gc=0,
                           getarrayitem_gc_i=0, getarrayitem_gc_r=0,
-                          getarrayitem_gc_f=0)        
+                          getarrayitem_gc_f=0)
 
     def test_simple_array(self):
         jitdriver = JitDriver(greens = [], reds = ['n'])

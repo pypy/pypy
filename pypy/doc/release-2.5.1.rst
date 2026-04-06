@@ -10,7 +10,7 @@ You can download the PyPy 2.5.1 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
-volunteers and contributors.  
+volunteers and contributors.
 We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects! The three sub-projects are:
@@ -35,7 +35,7 @@ layers and we need help with all of them: `PyPy`_ and `Rpython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
 Rpython's JIT even better.
 
-.. _`PyPy`: https://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org
 .. _`Rpython`: https://rpython.readthedocs.org
 .. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
@@ -58,7 +58,7 @@ to `handle that`_.
 .. _`pypy and cpython 2.7.x`: https://speed.pypy.org
 .. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
-Highlights 
+Highlights
 ==========
 
 * The past months have seen pypy mature and grow, as rpython becomes the goto
@@ -69,7 +69,7 @@ Highlights
 
 * We merged version 2.7.9 of python's stdlib. From the python release notice:
 
-  * The entirety of Python 3.4's `ssl module`_ has been backported. 
+  * The entirety of Python 3.4's `ssl module`_ has been backported.
     See `PEP 466`_ for justification.
 
   * HTTPS certificate validation using the system's certificate store is now

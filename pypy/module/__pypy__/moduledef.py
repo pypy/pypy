@@ -73,7 +73,7 @@ class PyPyBufferable(MixedModule):
     interpleveldefs = {
         'bufferable': 'interp_buffer.W_Bufferable',
     }
-        
+
 
 class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
@@ -159,7 +159,7 @@ class Module(MixedModule):
                 raise
             else:
                 pass   # ok fine to ignore in this case
-        
+
         if self.space.config.translation.jit:
             features = detect_cpu.getcpufeatures(model)
             self.extra_interpdef('jit_backend_features',

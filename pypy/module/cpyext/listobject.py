@@ -14,7 +14,7 @@ PyList_Check, PyList_CheckExact = build_type_checkers_flags("List")
 @cpython_api([Py_ssize_t], PyObject)
 def PyList_New(space, len):
     """Return a new list of length len on success, or NULL on failure.
-    
+
     If length is greater than zero, the returned list object's items are
     set to NULL.  Thus you cannot use abstract API functions such as
     PySequence_SetItem()  or expose the object to Python code before

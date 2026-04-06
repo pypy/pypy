@@ -314,7 +314,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
                 return 0
         l = [Foo()]
         select.select(l, (), (), 0)
-        assert 1 <= len(l) <= 100    
+        assert 1 <= len(l) <= 100
         # ^^^ CPython gives 100, PyPy gives 1.  I think both are OK as
         # long as there is no crash.
 

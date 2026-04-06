@@ -193,8 +193,8 @@ if _WIN:
                              "void pypy__tzset();"],
         separate_module_sources = ["""
             long pypy_get_timezone() {
-                long timezone; 
-                _get_timezone(&timezone); 
+                long timezone;
+                _get_timezone(&timezone);
                 return timezone;
             };
             int pypy_get_daylight() {
@@ -214,7 +214,7 @@ if _WIN:
     c_get_timezone = external('pypy_get_timezone', [], rffi.LONG, win_eci)
     c_get_daylight = external('pypy_get_daylight', [], rffi.INT, win_eci)
     c_get_tzname = external('pypy_get_tzname',
-                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP], 
+                            [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
 c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],

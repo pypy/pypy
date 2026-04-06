@@ -1,6 +1,6 @@
 from pypy.tool.tb_server.server import TBRequestHandler
-import py 
-html = py.xml.html 
+import py
+html = py.xml.html
 
 import traceback
 import cgi
@@ -42,7 +42,7 @@ class Renderer:
             inner =  html.pre(
                 py.xml.escape(''.join(
                 ['Internal Rendering Error, traceback follows\n'] + lines)))
-            
+
         tag = html.html(
             html.head(),
             html.body(
@@ -50,16 +50,16 @@ class Renderer:
             )
         )
         return tag.unicode(indent=2)
-    
+
 
 class TracebackView(Renderer):
     def __init__(self, excinfo):
-        self.name = 'traceback%d' % len(views) 
+        self.name = 'traceback%d' % len(views)
         views[self.name] = self
-        if not isinstance(excinfo, py.code.ExceptionInfo): 
-            excinfo = py.code.ExceptionInfo(excinfo) 
-        self.excinfo = excinfo 
-        
+        if not isinstance(excinfo, py.code.ExceptionInfo):
+            excinfo = py.code.ExceptionInfo(excinfo)
+        self.excinfo = excinfo
+
     def render_self(self, url, args):
         lines = html.div()
         opts = {}
@@ -67,36 +67,36 @@ class TracebackView(Renderer):
             ent, opt = k.split(':')
             val = int(url.query[k][0])
             opts.setdefault(ent, {})[opt] = val
-            
+
         i = 0
-        for tbentry in self.excinfo.traceback: 
+        for tbentry in self.excinfo.traceback:
             lines.append(self.render_tb(
                                 url, tbentry, i,
                                 **opts.get('entry' + str(i), {})))
             i += 1
-            
-        lines.append(html.pre(py.xml.escape(self.excinfo.exconly()))) 
+
+        lines.append(html.pre(py.xml.escape(self.excinfo.exconly())))
         return lines
 
     def render_tb(self, url, tbentry, i, showlocals=0):
         lines = html.pre()
-        filename = tbentry.frame.code.path 
+        filename = tbentry.frame.code.path
         lineno = tbentry.lineno + 1
-        name = tbentry.frame.code.name 
-        link = '/file%s?line=%d#%d' %(filename, lineno, lineno) 
+        name = tbentry.frame.code.name
+        link = '/file%s?line=%d#%d' %(filename, lineno, lineno)
         lines.append('  File "%s", line %d, in %s\n'%(
             html.a(filename, href=link), lineno, name))
         lines.append(html.a('locals', href=url.link_with_options(
             {'entry%d:showlocals' % i : 1-showlocals})))
-        lines.append('       ' + 
+        lines.append('       ' +
                      filename.readlines()[lineno-1].lstrip())
         if showlocals:
-            for k, v in tbentry.frame.f_locals.items(): 
+            for k, v in tbentry.frame.f_locals.items():
                 if k[0] == '_':
                     continue
                 lines.append(py.xml.escape('%s=%s\n'%(k, repr(v)[:1000])))
         return lines
-        
+
 
 def ln(lineno):
     return html.a(name=str(lineno))
@@ -117,11 +117,11 @@ class FileSystemView(Renderer):
                 html.td(
                     html.pre(py.xml.escape(line)[:-1],
                              **kws),
-                ), 
+                ),
             )
-            lines.append(row) 
+            lines.append(row)
             i += 1
         return lines
-    
+
 views['file'] = FileSystemView()
-                
+

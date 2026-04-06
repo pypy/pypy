@@ -389,7 +389,7 @@ class deque_iterator(object):
         return self
 
 class defaultdict(dict):
-    
+
     def __init__(self, *args, **kwds):
         if len(args) > 0:
             default_factory = args[0]
@@ -400,10 +400,10 @@ class defaultdict(dict):
             default_factory = None
         self.default_factory = default_factory
         super(defaultdict, self).__init__(*args, **kwds)
- 
+
     def __missing__(self, key):
         # from defaultdict docs
-        if self.default_factory is None: 
+        if self.default_factory is None:
             raise KeyError(key)
         self[key] = value = self.default_factory()
         return value
@@ -419,7 +419,7 @@ class defaultdict(dict):
 
     def copy(self):
         return type(self)(self.default_factory, self)
-    
+
     def __copy__(self):
         return self.copy()
 

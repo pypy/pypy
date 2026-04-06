@@ -83,6 +83,6 @@ class ErrorMaker(object):
                     raise value
             raise cls("%s%r" % (func.__name__, args))
             __tracebackhide__ = True
-            
+
 
 error = ErrorMaker()

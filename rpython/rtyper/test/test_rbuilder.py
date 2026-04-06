@@ -234,7 +234,7 @@ class TestStringBuilder(BaseRtypingTest):
     def test_prebuilt_string_builder(self):
         s = StringBuilder(100)
         s.append("abc")
-        
+
         def f():
             return len(s.build())
 
@@ -244,7 +244,7 @@ class TestStringBuilder(BaseRtypingTest):
     def test_prebuilt_unicode_builder(self):
         s = UnicodeBuilder(100)
         s.append(u"abc")
-        
+
         def f():
             return len(s.build())
 

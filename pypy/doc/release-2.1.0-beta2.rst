@@ -14,12 +14,12 @@ Highlights
 
 * Support for os.statvfs and os.fstatvfs on unix systems.
 
-* Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number). 
+* Fixed issue `1533`_: fix an RPython-level OverflowError for space.float_w(w_big_long_number).
 
 * Fixed issue `1552`_: GreenletExit should inherit from BaseException.
 
 * Fixed issue `1537`_: numpypy __array_interface__
-  
+
 * Fixed issue `1238`_: Writing to an SSL socket in pypy sometimes failed with a "bad write retry" message.
 
 * `distutils`_: copy CPython's implementation of customize_compiler, dont call

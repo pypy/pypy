@@ -1,6 +1,6 @@
 from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.history import (ConstInt, INT, FLOAT)
-from rpython.jit.backend.llsupport.descr import (ArrayDescr, 
+from rpython.jit.backend.llsupport.descr import (ArrayDescr,
     unpack_arraydescr)
 from rpython.jit.metainterp.resoperation import VectorOp, rop
 from rpython.rlib.objectmodel import we_are_translated

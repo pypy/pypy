@@ -13,7 +13,7 @@ You can download the PyPy 2.6.0 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
-volunteers and contributors.  
+volunteers and contributors.
 
 Thanks also to Yury V. Zaytsev and David Wilson who recently started
 running nightly builds on Windows and MacOSX buildbots.
@@ -43,7 +43,7 @@ improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ wit
 RPython's JIT even better. Nine new people contributed since the last release,
 you too could be one of them.
 
-.. _`PyPy`: https://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
@@ -60,7 +60,7 @@ This release supports **x86** machines on most common operating systems
 as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
 While we support 32 bit python on Windows, work on the native Windows 64
-bit python is still stalling, we would welcome a volunteer 
+bit python is still stalling, we would welcome a volunteer
 to `handle that`_. We also welcome developers with other operating systems or
 `dynamic languages`_ to see what RPython can do for them.
 
@@ -70,7 +70,7 @@ to `handle that`_. We also welcome developers with other operating systems or
 .. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 .. _`dynamic languages`: https://pypyjs.org
 
-Highlights 
+Highlights
 ===========
 
 * Python compatibility:
@@ -96,7 +96,7 @@ Highlights
   * Support for ``object`` dtype via a garbage collector hook
 
   * Support for .can_cast and .min_scalar_type as well as beginning
-    a refactoring of the internal casting rules 
+    a refactoring of the internal casting rules
 
   * Better support for subtypes, via the __array_interface__,
     __array_priority__, and __array_wrap__ methods (still a work-in-progress)

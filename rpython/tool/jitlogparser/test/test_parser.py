@@ -368,7 +368,7 @@ def test_parse_2_levels_up():
     debug_merge_point(0, 0, 'one')
     debug_merge_point(1, 0, 'two')
     debug_merge_point(2, 0, 'three')
-    debug_merge_point(0, 0, 'one')    
+    debug_merge_point(0, 0, 'one')
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 3
@@ -378,7 +378,7 @@ def test_parse_from_inside():
     []
     debug_merge_point(1, 0, 'two')
     debug_merge_point(2, 0, 'three')
-    debug_merge_point(0, 0, 'one')    
+    debug_merge_point(0, 0, 'one')
     """)
     f = Function.from_operations(loop.operations, LoopStorage())
     assert len(f.chunks) == 2

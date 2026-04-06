@@ -13,7 +13,7 @@
     https://doc.pypy.org/en/latest/config/index.html
 """
 # Back-Propagation Neural Networks
-# 
+#
 # Written in Python.  See http://www.python.org/
 #
 # Neil Schemenauer <nascheme@enme.ucalgary.ca>
@@ -45,7 +45,7 @@ def makeMatrix(I, J, fill=0.0):
     return m
 
 class NN:
-    
+
     def __init__(self, ni, nh, no):
         # number of input, hidden, and output nodes
         self.ni = ni + 1 # +1 for bias node
@@ -56,7 +56,7 @@ class NN:
         self.ai = [1.0]*self.ni
         self.ah = [1.0]*self.nh
         self.ao = [1.0]*self.no
-        
+
         # create weights
         self.wi = makeMatrix(self.ni, self.nh)
         self.wo = makeMatrix(self.nh, self.no)
@@ -68,7 +68,7 @@ class NN:
             for k in range(self.no):
                 self.wo[j][k] = rand(-2.0, 2.0)
 
-        # last change in weights for momentum   
+        # last change in weights for momentum
         self.ci = makeMatrix(self.ni, self.nh)
         self.co = makeMatrix(self.nh, self.no)
 

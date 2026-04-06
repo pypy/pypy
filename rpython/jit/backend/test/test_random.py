@@ -21,7 +21,7 @@ class DummyLoop(object):
 
 class FakeMetaInterp(object):
     ovf_flag = False
-    
+
     def execute_raised(self, exc, constant=False):
         self._got_exc = exc
 

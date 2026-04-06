@@ -193,8 +193,8 @@ class RSHA(object):
         # Restore the saved state in case this instance is still used
         self.count = count
         self.input = input
-        self.H0 = H0 
-        self.H1 = H1 
+        self.H0 = H0
+        self.H1 = H1
         self.H2 = H2
         self.H3 = H3
         self.H4 = H4

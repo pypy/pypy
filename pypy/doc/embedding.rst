@@ -66,8 +66,8 @@ principles. The API is:
 
 .. function:: int pypy_execute_source_ptr(char* source, void* ptr);
 
-   .. note:: added in PyPy 2.3.1, June 2014 
-   
+   .. note:: added in PyPy 2.3.1, June 2014
+
    Just like the above, except it registers a magic argument in the source
    scope as ``c_argument``, where ``void*`` is encoded as Python int.
 
@@ -148,7 +148,7 @@ embedding interface:
 .. code-block:: python
 
     # file "interface.py"
-    
+
     import cffi
 
     ffi = cffi.FFI()
@@ -232,7 +232,7 @@ Finding pypy_home
 -----------------
 
 **You can usually skip this section if you are running PyPy >= 5.5, released
-Oct 2016** 
+Oct 2016**
 
 The function pypy_setup_home() takes as first parameter the path to a
 file from which it can deduce the location of the standard library.

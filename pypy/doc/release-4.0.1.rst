@@ -14,20 +14,20 @@ You can download the PyPy 4.0.1 release here:
 We would like to thank our donors for the continued support of the PyPy
 project.
 
-We would also like to thank our contributors and 
+We would also like to thank our contributors and
 encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
-with making RPython's JIT even better. 
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
 
 CFFI
 ====
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
-contribution to the python ecosystem. PyPy 4.0.1 ships with 
+contribution to the python ecosystem. PyPy 4.0.1 ships with
 `cffi-1.3.1`_ with the improvements it brings.
 
-.. _`PyPy`: https://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.3.1`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-1

@@ -99,7 +99,7 @@ class AppTest_SliceObject:
         assert repr(slice(1, 2, 3)) == 'slice(1, 2, 3)'
         assert repr(slice(1, 2)) == 'slice(1, 2, None)'
         assert repr(slice('a', 'b')) == "slice('a', 'b', None)"
-        
+
     def test_eq(self):
         slice1 = slice(1, 2, 3)
         slice2 = slice(1, 2, 3)

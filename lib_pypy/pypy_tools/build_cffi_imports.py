@@ -160,7 +160,7 @@ def _build_dependency(name, patches=[]):
             env = os.environ.copy()
             env['MACOSX_DEPLOYMENT_TARGET'] = target
             print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
-        
+
     for args in build_cmds:
         print('running', ' '.join(args), 'in', sources, file=sys.stderr)
         status, stdout, stderr = run_subprocess(args[0], args[1:],
@@ -294,7 +294,7 @@ if __name__ == '__main__':
     while not os.path.exists(join(basedir,'include')):
         _basedir = os.path.dirname(basedir)
         if _basedir == basedir:
-            raise ValueError('interpreter %s not inside pypy repo', 
+            raise ValueError('interpreter %s not inside pypy repo',
                                  str(exename))
         basedir = _basedir
     options = Options()

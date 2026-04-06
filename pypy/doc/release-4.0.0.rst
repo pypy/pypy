@@ -16,11 +16,11 @@ You can download the PyPy 4.0.0 release here:
 We would like to thank our donors for the continued support of the PyPy
 project.
 
-We would also like to thank our contributors (7 new ones since PyPy 2.6.0) and 
+We would also like to thank our contributors (7 new ones since PyPy 2.6.0) and
 encourage new people to join the project. PyPy has many
 layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
-improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ 
-with making RPython's JIT even better. 
+improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
+with making RPython's JIT even better.
 
 New Version Numbering
 =====================
@@ -28,7 +28,7 @@ New Version Numbering
 Since the past release, PyPy 2.6.1, we decided to update the PyPy 2.x.x
 versioning directly to PyPy 4.x.x, to avoid confusion with CPython 2.7
 and 3.5. Note that this version of PyPy uses the stdlib and implements the
-syntax of CPython 2.7.10. 
+syntax of CPython 2.7.10.
 
 Vectorization
 =============
@@ -54,7 +54,7 @@ Internal Refactoring: Warmup Time Improvement and Reduced Memory Usage
 ======================================================================
 
 Maciej Fijalkowski and Armin Rigo refactored internals of rpython that now allow
-PyPy to more efficiently use `guards`_ in jitted code. They also rewrote 
+PyPy to more efficiently use `guards`_ in jitted code. They also rewrote
 unrolling, leading to a warmup time improvement of 20% or so. The reduction in
 guards also means a reduction in the use of memory, also a savings of around
 20%.
@@ -81,7 +81,7 @@ lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
 .. _`warmup time and memory overhead used for tracing`: https://morepypy.blogspot.com/2015/10/pypy-memory-and-warmup-improvements-2.html
 .. _`vectorization`: https://pypyvecopt.blogspot.co.at/
 .. _`guards`: https://rpython.readthedocs.org/en/latest/glossary.html
-.. _`PyPy`: https://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.3`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-0
@@ -103,7 +103,7 @@ This release supports **x86** machines on most common operating systems
 (Linux 32/64, Mac OS X 64, Windows 32, OpenBSD_, freebsd_),
 as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
-We also introduce `support for the 64 bit PowerPC`_ hardware, specifically 
+We also introduce `support for the 64 bit PowerPC`_ hardware, specifically
 Linux running the big- and little-endian variants of ppc64.
 
 .. _`pypy and cpython 2.7.x`: https://speed.pypy.org

@@ -82,7 +82,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert isinstance(b, matrix)
         assert b.__array_priority__ == 0.0
         assert (b == a).all()
-        assert isinstance(b.view(), matrix) 
+        assert isinstance(b.view(), matrix)
         a = array(5)[()]
         for s in [matrix, ndarray]:
             b = a.view(s)
@@ -100,7 +100,7 @@ class AppTestSupport(BaseNumpyAppTest):
         ret = np.ndarray.__new__(np.ndarray, arr.shape, arr.dtype, buffer=arr)
         assert ret.__array_priority__ == 0.0
         assert (arr == ret).all()
-    
+
     def test_priority(self):
         from numpy import ndarray, arange, add
         class DoReflected(object):
@@ -120,7 +120,7 @@ class AppTestSupport(BaseNumpyAppTest):
         assert a.__add__(b) is NotImplemented # not an exception
         assert b.__radd__(a) == 42
         assert a + b == 42
-        
+
     def test_finalize(self):
         #taken from http://docs.scipy.org/doc/numpy/user/basics.subclassing.html#simple-example-adding-an-extra-attribute-to-ndarray
         import numpy as np
@@ -536,9 +536,9 @@ class AppTestSupport(BaseNumpyAppTest):
         a = self.SubType(array([[1, 2], [3, 4]]))
         b = array(a, subok=False)
         assert type(b) is ndarray
-    
+
     def test_numpypy_mmap(self):
-        # issue #21 on pypy/numpy 
+        # issue #21 on pypy/numpy
         from numpy import array, ndarray, arange, dtype as dtypedescr
         import mmap
         import os.path
@@ -635,7 +635,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
             def flush(self):
                 if self.base is not None and hasattr(self.base, 'flush'):
-                    self.base.flush() 
+                    self.base.flush()
 
         def asarray(obj, itemsize=None, order=None):
             return array(obj, itemsize, copy=False, order=order)
@@ -682,7 +682,7 @@ class AppTestSupport(BaseNumpyAppTest):
                 # then just call the parent
                 ret = np.ndarray.__array_wrap__(self, out_arr, context)
                 print 'wrap',self.output
-                return ret 
+                return ret
 
         obj = MySubClass(np.arange(5), info='spam')
         assert obj.output.startswith('In __array_finalize')

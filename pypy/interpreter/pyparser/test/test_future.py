@@ -58,7 +58,7 @@ def test_from_as():
     s = 'from  __future__ import division as b\n'
     f = run(s, (1, 24))
     assert f == fut.CO_FUTURE_DIVISION
-    
+
 def test_froms_as():
     s = 'from  __future__ import division as b, generators as c\n'
     f = run(s, (1, 24))

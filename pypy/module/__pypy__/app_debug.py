@@ -17,7 +17,7 @@ def remote_exec(pid, filename, wait=True):
         pass
     elif isinstance(filename, unicode):
         filename = filename.encode('utf-8')
-    
+
     from _pypy_remote_debug import start_debugger
     start_debugger(pid, filename, bool(wait))
 

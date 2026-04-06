@@ -150,4 +150,4 @@ def test_remove_duplicate_casts():
     ops = getops(graph_getsum)
     assert len(ops['cast_pointer']) < num_cast_pointer
     print len(ops['cast_pointer']), num_cast_pointer
-    
+

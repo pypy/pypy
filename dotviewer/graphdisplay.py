@@ -172,7 +172,7 @@ class GraphDisplay(Display):
 
     def initialize_keys(self):
         pygame.key.set_repeat(*self.KEY_REPEAT)
-        
+
         mask = 0
 
         for strnames, methodname in self.KEYS.items():
@@ -214,7 +214,7 @@ class GraphDisplay(Display):
                         mod = mod & ~KMOD_SHIFT
                         self.ascii_key_cache[(char, mod)] = (method, args)
                         mask |= mod
-            
+
         self.key_mask = mask
 
     def help(self):
@@ -376,7 +376,7 @@ class GraphDisplay(Display):
         return min(float(self.width) / self.viewer.width,
                 float(self.height) / self.viewer.height,
                 float(self.viewer.SCALEMAX) / self.viewer.scale)
-    
+
     def zoom_to_fit(self):
         """
         center and scale to view the whole graph
@@ -392,7 +392,7 @@ class GraphDisplay(Display):
 
     def reoffset(self):
         self.viewer.reoffset(self.width, self.height)
-    
+
     def pan(self, p):
         x, y = p
         self.viewer.shiftoffset(x * (self.width // 8), y * (self.height // 8))
@@ -401,7 +401,7 @@ class GraphDisplay(Display):
     def fast_pan(self, p):
         x, y = p
         self.pan((x * 4, y * 4))
-    
+
     def update_status_bar(self):
         self.statusbarinfo = None
         self.must_redraw = True
@@ -410,7 +410,7 @@ class GraphDisplay(Display):
         else:
             info = 'Press H for help'
         self.setstatusbar(info)
-    
+
     def updated_viewer(self, keep_highlight=False):
         self.reoffset()
         if not keep_highlight:
@@ -599,7 +599,7 @@ class GraphDisplay(Display):
             self.method_cache[event.type] = method
         if method is not None:
             method(event)
-        
+
     def process_MouseMotion(self, event):
         if self.peek(MOUSEMOTION):
             return
@@ -676,7 +676,7 @@ class GraphDisplay(Display):
 
     def process_Quit(self, event):
         self.quit()
-     
+
     def process_UserEvent(self, event): # new layout request
         if hasattr(event, 'layout'):
             if event.layout is None:
@@ -685,7 +685,7 @@ class GraphDisplay(Display):
                 self.setlayout(event.layout)
         elif hasattr(event, 'say'):
             self.setstatusbar(event.say)
-    
+
     def quit(self):
         raise StopIteration
 

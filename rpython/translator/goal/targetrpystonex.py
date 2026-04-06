@@ -20,7 +20,7 @@ def make_target_definition(LOOPS):
 
     def target(*args):
         return entry_point, [int]
-    
+
     def run(c_entry_point):
         res = c_entry_point(LOOPS)
         (benchtime, stones), _ = res

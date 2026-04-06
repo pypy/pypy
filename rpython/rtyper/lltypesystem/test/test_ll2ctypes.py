@@ -1438,7 +1438,7 @@ class TestLL2Ctypes(object):
         static int forty_two(void) { return 42; }
         static int forty_three(void) { return 43; }
         static funcptr_t testarray[2];
-        RPY_EXPORTED void runtest(void cb(funcptr_t *)) { 
+        RPY_EXPORTED void runtest(void cb(funcptr_t *)) {
             testarray[0] = &forty_two;
             testarray[1] = &forty_three;
             fprintf(stderr, "&forty_two = %p\n", testarray[0]);

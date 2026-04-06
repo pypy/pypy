@@ -45,4 +45,4 @@ class AppTestBoolMacros(AppTestCpythonExtensionBase):
         assert module.type_check(False)
         assert not module.type_check(None)
         assert not module.type_check(1.0)
-             
+

@@ -51,7 +51,7 @@ def test_hypothesis(l):
 
 def test_file():
     for fn in py.path.local(__file__).dirpath().listdir():
-        if fn.ext == '.py': 
+        if fn.ext == '.py':
             lines1 = fn.readlines()
             sorttest(lines1)
 

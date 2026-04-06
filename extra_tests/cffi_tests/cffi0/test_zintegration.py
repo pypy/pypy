@@ -19,7 +19,7 @@ def create_venv(name):
         # FUTURE: we should probably update this to use venv for at least more modern Pythons, and
         # install setuptools/pip/etc explicitly for the tests that require them (as venv has stopped including
         # setuptools and wheel by default for newer versions).
-        subprocess.check_call(['virtualenv', 
+        subprocess.check_call(['virtualenv',
             #'--never-download', <= could be added, but causes failures
             # in random cases on random machines
                                '-p', os.path.abspath(sys.executable),

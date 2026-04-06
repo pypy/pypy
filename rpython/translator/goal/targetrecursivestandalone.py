@@ -1,5 +1,5 @@
 """
-A simple deeply recursive target. 
+A simple deeply recursive target.
 
 The target below specifies None as the argument types list.
 This is a case treated specially in driver.py . If the list
@@ -9,7 +9,7 @@ actually implementing argv of the executable.
 
 import os, sys
 
-def debug(msg): 
+def debug(msg):
     os.write(2, "debug: " + msg + '\n')
 
 # __________  Entry point  __________

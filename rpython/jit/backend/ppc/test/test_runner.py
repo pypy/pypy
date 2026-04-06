@@ -63,13 +63,13 @@ class TestPPC(LLtypeBackendTest):
             args = [i+1 for i in range(numargs)]
             deadframe = self.cpu.execute_token(looptoken, *args)
             assert self.cpu.get_int_value(deadframe, 0) == sum(args)
-  
+
     def test_return_spilled_args(self):
         numargs = 50
         ops = []
         arglist = "[%s]\n" % ", ".join(["i%d" % i for i in range(numargs)])
         ops.append(arglist)
-        
+
         # spill every inputarg
         for i in range(numargs):
             ops.append("force_spill(i%d)\n" % i)

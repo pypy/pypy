@@ -37,7 +37,7 @@ def _translate(s, altchars):
     return s.translate(''.join(translation))
 
 
-
+
 # Base64 encoding/decoding uses binascii
 
 def b64encode(s, altchars=None):
@@ -119,7 +119,7 @@ def urlsafe_b64decode(s):
     return b64decode(s.translate(_urlsafe_decode_translation))
 
 
-
+
 # Base32 encoding/decoding must be done in Python
 _b32alphabet = {
     0: 'A',  9: 'J', 18: 'S', 27: '3',
@@ -251,7 +251,7 @@ def b32decode(s, casefold=False, map01=None):
     return EMPTYSTRING.join(parts)
 
 
-
+
 # RFC 3548, Base 16 Alphabet specifies uppercase, but hexlify() returns
 # lowercase.  The RFC also recommends against accepting input case
 # insensitively.
@@ -281,7 +281,7 @@ def b16decode(s, casefold=False):
     return binascii.unhexlify(s)
 
 
-
+
 # Legacy interface.  This code could be cleaned up since I don't believe
 # binascii has any line length limitations.  It just doesn't seem worth it
 # though.
@@ -328,7 +328,7 @@ def decodestring(s):
     return binascii.a2b_base64(s)
 
 
-
+
 # Useable as a script...
 def test():
     """Small test program"""

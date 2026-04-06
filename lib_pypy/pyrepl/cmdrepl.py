@@ -44,7 +44,7 @@ class CmdReader(CR):
         return super(CmdReader, self).collect_keymap() + (
             ("\\M-\\n", "invalid-key"),
             ("\\n", "accept"))
-    
+
     CR_init = CR.__init__
     def __init__(self, completions):
         self.CR_init(self)
@@ -90,7 +90,7 @@ def replize(klass, history_across_invocations=1):
             def __init__(self, *args, **kw):
                 self.k_init(*args, **kw)
                 self.__reader = CmdReader(completions)
-        
+
         def cmdloop(self, intro=None):
             self.preloop()
             if intro is not None:

@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, build_type_checkers, c_fdopen)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
-from pypy.interpreter.error import (OperationError, oefmt, 
+from pypy.interpreter.error import (OperationError, oefmt,
     exception_from_saved_errno)
 from pypy.module._file.interp_file import W_File
 
@@ -49,7 +49,7 @@ def PyFile_FromString(space, filename, mode):
 @cpython_api([PyObject], FILEP, error=lltype.nullptr(FILEP.TO))
 def PyFile_AsFile(space, w_p):
     """Return the file object associated with p as a FILE*.
-    
+
     If the caller will ever use the returned FILE* object while
     the GIL is released it must also call the PyFile_IncUseCount() and
     PyFile_DecUseCount() functions as appropriate."""
@@ -61,10 +61,10 @@ def PyFile_AsFile(space, w_p):
         fd = space.int_w(space.call_method(w_p, 'fileno'))
         mode = w_p.mode
     except OperationError as e:
-        raise oefmt(space.w_IOError, 'could not call fileno') 
+        raise oefmt(space.w_IOError, 'could not call fileno')
     if (fd < 0 or not mode or mode[0] not in ['r', 'w', 'a', 'U'] or
         ('U' in mode and ('w' in mode or 'a' in mode))):
-        raise oefmt(space.w_IOError, 'invalid fileno or mode') 
+        raise oefmt(space.w_IOError, 'invalid fileno or mode')
     ret = c_fdopen(fd, mode)
     if not ret:
         raise exception_from_saved_errno(space, space.w_IOError)
@@ -78,7 +78,7 @@ def PyFile_FromFile(space, fp, name, mode, close):
     pointer, fp.  The function close will be called when the file should be
     closed.  Return NULL on failure."""
     if close:
-        raise oefmt(space.w_NotImplementedError, 
+        raise oefmt(space.w_NotImplementedError,
             'PyFromFile(..., close) with close function not implemented')
     w_ret = space.allocate_instance(W_File, space.gettypefor(W_File))
     w_ret.w_name = space.newtext(rffi.charp2str(name))

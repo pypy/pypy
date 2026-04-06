@@ -156,7 +156,7 @@ def AsObj(value):
         try:
             tkffi.new("long[]", [value])
         except OverflowError:
-            pass 
+            pass
         else:
             return tklib.Tcl_NewLongObj(value)
         if tklib.HAVE_WIDE_INT_TYPE:
@@ -168,7 +168,7 @@ def AsObj(value):
                 return tklib.Tcl_NewWideIntObj(value)
         if tklib.HAVE_LIBTOMMATH:
             return AsBignumObj(value)
-            
+
     if isinstance(value, float):
         return tklib.Tcl_NewDoubleObj(value)
     if isinstance(value, tuple):

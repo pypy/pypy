@@ -174,7 +174,7 @@ def make_win32_traits(traits):
                        _O_RDONLY _O_WRONLY _O_BINARY
                     '''.split():
             locals()[name] = config[name]
-        
+
         # Windows doesn't define S_IFLNK but rposix_stat maps
         # IO_REPARSE_TAG_SYMLINK to S_IFLNK
         _S_IFLNK = 0120000

@@ -8,7 +8,7 @@ class W_Object:
         """
         Return an RPython string which represent the object
         """
-        raise NotImplementedError 
+        raise NotImplementedError
 
     def is_true(self):
         raise NotImplementedError
@@ -96,7 +96,7 @@ jitdriver = JitDriver(greens=['pc', 'bytecode'],
 
 class Frame(object):
     _virtualizable_ = ['stackpos', 'stack[*]']
-    
+
     def __init__(self, bytecode):
         self.bytecode = bytecode
         self.stack = [None] * 8

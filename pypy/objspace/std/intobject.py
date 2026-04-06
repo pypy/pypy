@@ -511,7 +511,7 @@ class W_IntObject(W_AbstractIntObject):
             self = self.descr_float(space)
             w_exponent = w_exponent.descr_float(space)
             return space.pow(self, w_exponent, space.w_None)
-            
+
         return space.newint(result)
 
     @unwrap_spec(w_modulus=WrappedDefault(None))

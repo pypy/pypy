@@ -729,7 +729,7 @@ class AppTestADVANCEDCPP:
         assert b1.m_int    == 13
         assert b1.m_int2   == 42
         assert b1.vcheck() == 'B'
- 
+
         b2 = B(10)
         assert b2.m_int    == 10
         assert b2.m_int2   == 42

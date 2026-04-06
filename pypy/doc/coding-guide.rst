@@ -609,7 +609,7 @@ host interpreter, which is usually a translated pypy executable in this case::
 Note that in interpreted mode, only a small subset of pytest's functionality is
 available.  To configure the object space, the host interpreter will parse the
 optional spaceconfig declaration.  This declaration must be in the form of a
-valid json dict. 
+valid json dict.
 
 Mixed-level tests (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -627,7 +627,7 @@ they are imported at interpreter-level while you test code
 runs at application level. If you need to use modules
 you have to import them within the test function.
 
-Data can be passed into the AppTest using 
+Data can be passed into the AppTest using
 the ``setup_class`` method of the AppTest. All wrapped objects that are
 attached to the class there and start with ``w_`` can be accessed
 via self (but without the ``w_``) in the actual test method. An example::

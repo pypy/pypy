@@ -94,12 +94,12 @@ CloseBracket = r'[\]\)\}]'
 #____________________________________________________________
 # all tokens
 
-tokens = ["Number", "String", "Name", "Ignore", "Indent", 
+tokens = ["Number", "String", "Name", "Ignore", "Indent",
           "OpenBracket", "CloseBracket", "Operator"]
 
 def make_lexer():
     return Lexer([parse_regex(globals()[r]) for r in tokens], tokens[:])
-    
+
 pythonlexer = make_lexer()
 
 def postprocess(tokens):
@@ -140,7 +140,7 @@ def postprocess(tokens):
                     elif c == '\f':
                         column = 0
                     pos = pos + 1
-                # split the token in two: one for the newline and one for the 
+                # split the token in two: one for the newline and one for the
                 output_tokens.append(Token("Newline", s[:start], token.source_pos))
                 if column > indentation_levels[-1]: # count indents or dedents
                     indentation_levels.append(column)

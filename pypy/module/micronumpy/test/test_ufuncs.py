@@ -234,7 +234,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b1 = ufunc_dot(a1, a3, sig='dd->d')
         b2 = dot(a1, a3)
         assert (b1==b2).all()
- 
+
     def test_frompyfunc_needs_nditer(self):
         import sys
         from numpy import frompyfunc, dtype, arange
@@ -281,7 +281,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert aout3.shape == (3, 3)
         aout4 = ufunc_add(ai, ai[0,:,:][None, :,:])
         assert (aout1 == aout4).all()
-        
+
     def test_frompyfunc_fortran(self):
         import sys
         import numpy as np
@@ -346,12 +346,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
             in0 = np.arange(4, dtype=d)
             out0 = times2stacked(in0)
             assert out0.shape == in0.shape
-            assert out0.dtype in (int, complex) 
+            assert out0.dtype in (int, complex)
             assert (out0 == in0 * 2).all()
 
             out0 = times2(in0)
             assert out0.shape == in0.shape
-            assert out0.dtype in (int, complex) 
+            assert out0.dtype in (int, complex)
             assert (out0 == in0 * 2).all()
 
             in0 = np.arange(4, dtype=int)

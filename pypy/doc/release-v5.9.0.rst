@@ -5,7 +5,7 @@ PyPy2.7 and PyPy3.5 v5.9 dual release
 The PyPy team is proud to release both PyPy2.7 v5.9 (an interpreter supporting
 Python 2.7 syntax), and a beta-quality PyPy3.5 v5.9 (an interpreter for Python
 3.5 syntax). The two releases are both based on much the same codebase, thus
-the dual release.  Note that PyPy3.5 supports Linux 64bit only for now. 
+the dual release.  Note that PyPy3.5 supports Linux 64bit only for now.
 
 This new PyPy2.7 release includes the upstream stdlib version 2.7.13, and
 PyPy3.5 includes the upstream stdlib version 3.5.3.
@@ -73,13 +73,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-The PyPy 2.7 release supports: 
+The PyPy 2.7 release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -108,7 +108,7 @@ Note that these are also merged into PyPy 3.5
   * Update RevDB to version pypy2.7-v5.6.2
   * Previously, ``instance.method`` would return always the same bound method
     object, when gotten from the same instance (as far as ``is`` and ``id()``
-    can tell).  CPython doesn't do that.  Now PyPy, like CPython, returns a 
+    can tell).  CPython doesn't do that.  Now PyPy, like CPython, returns a
     different bound method object every time.  For ``type.method``, PyPy2 still
     returns always the same *unbound* method object; CPython does it for built-in
     types but not for user-defined types
@@ -120,7 +120,7 @@ Note that these are also merged into PyPy 3.5
   * Added ``_swappedbytes_`` support for ``ctypes.Structure``
   * Better support the ``inspect`` module on ``frames``
 
-* Bug Fixes 
+* Bug Fixes
 
   * Fix issue 2592_ - cpyext ``PyListObject.pop``, ``pop_end`` must return a value
   * Implement ``PyListOjbect.getstorage_copy``
@@ -168,7 +168,7 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 
 * New features
 
-  * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``, 
+  * Add support for ``_PyNamespace_New``, ``PyMemoryView_FromMemory``,
     ``Py_EnterRecursiveCall`` raising RecursionError, ``PyObject_LengthHint``,
     ``PyUnicode_FromKindAndData``, ``PyDict_SetDefault``, ``PyGenObject``,
     ``PyGenObject``, ``PyUnicode_Substring``, ``PyLong_FromUnicodeObject``
@@ -200,7 +200,7 @@ Highlights of the PyPy3.5 release (since 5.8 beta released June 2017)
 
 * Performance improvements:
 
-  * 
+  *
 
 * The following features of Python 3.5 are not implemented yet in PyPy:
 

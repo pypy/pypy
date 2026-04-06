@@ -280,7 +280,7 @@ void _pypy_init_free(char *p)
 if we_are_translated():
    post_include_bits = []
 else:
-    # for tests 
+    # for tests
     post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
                        'RPY_EXPORTED void _pypy_init_free(char*);',
                       ]

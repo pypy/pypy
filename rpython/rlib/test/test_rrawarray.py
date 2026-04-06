@@ -15,7 +15,7 @@ class TestRArray(BaseRtypingTest):
         for i in range(4):
             assert buf[i] == i+1
         lltype.free(buf, flavor='raw')
-        
+
 
     def test_copy_list_to_raw_array_rtyped(self):
         INTARRAY = rffi.CArray(lltype.Signed)

@@ -341,7 +341,7 @@ finally:
 """,
 
     ]
-    
+
 one_stmt_funcdefs = [
     "def f(): return 1",
     "def f(x): return x+1",
@@ -407,7 +407,7 @@ augassigns = [
     'a=1;a&=2',
     'a=1;a^=2',
     'a=1;a|=2',
-    
+
     'a=A();a.x+=2',
     'a=A();a.x-=2',
     'a=A();a.x*=2',
@@ -469,7 +469,7 @@ PY23_TESTS = [
     ]
 
 OPTIONAL_TESTS = [
-    # expressions_inbetweenversions, 
+    # expressions_inbetweenversions,
     genexps,
     imports_newstyle,
     asserts,

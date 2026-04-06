@@ -39,7 +39,7 @@ def demo(depth):
     print ch.receive()
     global blob
     blob = pickle.dumps(t)
-    
+
 t = stackless.tasklet(demo)(lev)
 stackless.run()
 assert seen == range(1, lev+1) + range(lev, 0, -1)
@@ -52,7 +52,7 @@ assert seen == range(lev, 0, -1)
 ''' in mod.__dict__
         finally:
             del sys.modules['mod']
-    
+
     def test_pickle2(self):
         # To test a bug where too much stuff gets pickled when
         # a tasklet halted on stackless.schedule() is pickled.
@@ -75,7 +75,7 @@ def task_socket():
 
 def task_pickle(ref_task):
     p = pickle.dumps(ref_task)
-    
+
 ref_task = stackless.tasklet(task_should_be_picklable)()
 stackless.tasklet(task_socket)()
 stackless.tasklet(task_pickle)(ref_task)

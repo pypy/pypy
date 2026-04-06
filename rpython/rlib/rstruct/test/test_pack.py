@@ -43,7 +43,7 @@ class PackSupport(object):
     ALLOW_SLOWPATH = True
     ALLOW_FASTPATH = True
     ALLOW_UNALIGNED_ACCESS = rawstorage.misaligned_is_fine
-    
+
     def setup_method(self, meth):
         standardfmttable.USE_FASTPATH = self.USE_FASTPATH
         standardfmttable.ALLOW_SLOWPATH = self.ALLOW_SLOWPATH

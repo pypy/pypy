@@ -1146,7 +1146,7 @@ class LoopTest(object):
                     v = reverse(W_Cons(pc + 1, W_Cons(pc + 2, W_Cons(pc + 3, W_Cons(pc + 4, W_Nil())))))
                     pc = pc + 1
                 repetitions += 1
-        
+
         self.meta_interp(entry_point, [])
 
     def test_unroll_shortpreamble_mutates_bug(self):

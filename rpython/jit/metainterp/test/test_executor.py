@@ -167,7 +167,7 @@ def _int_binary_operations():
             yield opnum, [x, y], z
 
 def _int_comparison_operations():
-    cpu = FakeCPU()            
+    cpu = FakeCPU()
     random_numbers = [-sys.maxint-1, -1, 0, 1, sys.maxint]
     def pick():
         r = random.randrange(-99999, 100000)

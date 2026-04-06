@@ -43,7 +43,7 @@ Remove all implicit str-unicode conversions in RPython.
 
 Fix uninitialized value in rlock.acquire on windows, fixes issue 3252
 
-.. branch: jit-releaseall 
+.. branch: jit-releaseall
 
 Add ``pypyjit.releaseall()`` that marks all current machine code
 objects as ready to release. They will be released at the next GC (unless they
