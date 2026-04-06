@@ -3288,7 +3288,8 @@ if sys.platform.startswith('linux'):
     if cConfig['HAVE_MEMFD_CREATE']:
         c_memfd_create = external('memfd_create',
             [rffi.CCHARP, rffi.UINT], rffi.INT,
-            compilation_info=CConfig._compilation_info_)
+            compilation_info=CConfig._compilation_info_,
+            save_err=rffi.RFFI_SAVE_ERRNO)
         def memfd_create(name, flags):
             return handle_posix_error(
                 'memfd_create', c_memfd_create(name, flags))
