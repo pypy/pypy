@@ -553,12 +553,12 @@ class ExportedState(LoopInfo):
         self.dump(memo)
 
     def dump(self, memo):
+        debug_start("jit-log-exported-state")
         if have_debug_prints():
-            debug_start("jit-log-exported-state")
             debug_print("[" + ", ".join([x.repr_short(memo) for x in self.next_iteration_args]) + "]")
             for box in self.short_boxes:
                 debug_print("  " + box.repr(memo))
-            debug_stop("jit-log-exported-state")
+        debug_stop("jit-log-exported-state")
 
     def final(self):
         return False

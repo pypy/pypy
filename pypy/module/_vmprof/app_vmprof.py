@@ -10,7 +10,7 @@ def resolve_addr(addr):
     name, filename = res
     return name.decode('utf-8'), 0, filename
 
-def resolve_many_addrs(addrs):
+def resolve_many_addr(addrs):
     import sys
     if not sys.platform.startswith('linux'):
         return {}
