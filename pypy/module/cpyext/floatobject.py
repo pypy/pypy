@@ -7,6 +7,7 @@ from pypy.module.cpyext.pyobject import (
 from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.module.cpyext.state import State
+from pypy.interpreter.error import OperationError
 
 PyFloatObjectStruct = lltype.ForwardReference()
 PyFloatObject = lltype.Ptr(PyFloatObjectStruct)
@@ -52,7 +53,14 @@ def PyFloat_FromDouble(space, value):
 @cpython_api([PyObject], lltype.Float, error=-1)
 def PyFloat_AsDouble(space, w_obj):
     if not space.isinstance_w(w_obj, space.w_float):
-        w_value = space.float(w_obj)
+        try:
+            w_value = space.float(w_obj)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            # No __float__; fall back to __index__ as CPython does
+            w_index = space.index(w_obj)
+            return space.float_w(space.float(w_index))
         w_value_type = space.type(w_value)
         if not space.is_w(w_value_type, space.w_float):
             space.warn(space.newtext(

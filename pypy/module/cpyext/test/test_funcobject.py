@@ -228,3 +228,4 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.func_name(wrapper) == "wrapper"
         assert module.func_name(A.method_example) == "method_example"
         assert module.func_name(A().method_example) == "method_example"
+        assert module.func_name(A) == "type"  # type objects: return metatype name

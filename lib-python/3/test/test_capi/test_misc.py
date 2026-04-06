@@ -73,6 +73,7 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(AttributeError, setattr, inst.testfunction, "attribute", "test")
 
     @support.requires_subprocess()
+    @support.impl_detail("PyPy uses a different fatal error message format", pypy=False)
     def test_no_FatalError_infinite_loop(self):
         with support.SuppressCrashReport():
             p = subprocess.Popen([sys.executable, "-c",
@@ -366,7 +367,7 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no allocation hooks on PyPy")
+    @support.impl_detail("no allocation hooks on PyPy", pypy=False)
     def test_set_nomemory(self):
         code = """if 1:
             import _testcapi
@@ -566,12 +567,12 @@ class CAPITest(unittest.TestCase):
             L = MyList((L,))
 
     @support.requires_resource('cpu')
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
+    @support.impl_detail("no trashcan on PyPy", pypy=False)
     def test_trashcan_python_class1(self):
         self.do_test_trashcan_python_class(list)
 
     @support.requires_resource('cpu')
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
+    @support.impl_detail("no trashcan on PyPy", pypy=False)
     def test_trashcan_python_class2(self):
         from _testcapi import MyList
         self.do_test_trashcan_python_class(MyList)
@@ -692,6 +693,7 @@ class CAPITest(unittest.TestCase):
         inst = _testcapi.HeapCTypeWithNegativeDict()
         self.assertEqual({}, inst.__dict__)
 
+    @support.impl_detail("PyPy does not maintain the C-struct weakref list at tp_weaklistoffset", pypy=False)
     def test_heaptype_with_weakref(self):
         inst = _testcapi.HeapCTypeWithWeakref()
         ref = weakref.ref(inst)
@@ -703,7 +705,7 @@ class CAPITest(unittest.TestCase):
         b = bytes(inst)
         self.assertEqual(b, b"1234")
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no getrefcount in PyPy")
+    @support.impl_detail("no getrefcount in PyPy", pypy=False)
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclass()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclass)
@@ -716,7 +718,7 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
         self.assertEqual(type_refcnt - 1, sys.getrefcount(_testcapi.HeapCTypeSubclass))
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no getrefcount in PyPy")
+    @support.impl_detail("no getrefcount in PyPy", pypy=False)
     def test_c_subclass_of_heap_ctype_with_del_modifying_dunder_class_only_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclassWithFinalizer()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclassWithFinalizer)
@@ -806,6 +808,7 @@ class CAPITest(unittest.TestCase):
             self.assertNotIn(name, modules)
         self.assertEqual(len(modules), total)
 
+    @support.impl_detail("PyPy does not print extension modules in Py_FatalError output", pypy=False)
     @support.requires_subprocess()
     def test_fatal_error(self):
         # By default, stdlib extension modules are ignored,
@@ -845,7 +848,7 @@ class CAPITest(unittest.TestCase):
         expected = compile(code, "<string>", "exec")
         self.assertEqual(result.co_consts, expected.co_consts)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no ctypes.pythonapi in PyPy")
+    @support.impl_detail("no ctypes.pythonapi in PyPy", pypy=False)
     def test_export_symbols(self):
         # bpo-44133: Ensure that the "Py_FrozenMain" and
         # "PyThread_get_thread_native_id" symbols are exported by the Python
@@ -1057,7 +1060,7 @@ class TestPendingCalls(unittest.TestCase):
         self.pendingcalls_submit(l, n)
         self.pendingcalls_wait(l, n)
 
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no subinterpreters on PyPy")
+@support.impl_detail("no subinterpreters on PyPy", pypy=False)
 class SubinterpreterTest(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
@@ -1205,7 +1208,7 @@ class Test_testinternalcapi(unittest.TestCase):
 
 
 @support.requires_subprocess()
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
+@support.impl_detail("no malloc policies on PyPy", pypy=False)
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
     # '0x04c06e0' or '04C06E0'
@@ -1258,21 +1261,21 @@ class PyMemDebugTests(unittest.TestCase):
         regex = regex.format(ptr=self.PTR_REGEX)
         self.assertRegex(out, regex)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
+    @support.impl_detail("no debug hooks on PyPy", pypy=False)
     def check_malloc_without_gil(self, code):
         out = self.check(code)
         expected = ('Fatal Python error: _PyMem_DebugMalloc: '
                     'Python memory allocator called without holding the GIL')
         self.assertIn(expected, out)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
+    @support.impl_detail("no debug hooks on PyPy", pypy=False)
     def test_pymem_malloc_without_gil(self):
         # Debug hooks must raise an error if PyMem_Malloc() is called
         # without holding the GIL
         code = 'import _testcapi; _testcapi.pymem_malloc_without_gil()'
         self.check_malloc_without_gil(code)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
+    @support.impl_detail("no debug hooks on PyPy", pypy=False)
     def test_pyobject_malloc_without_gil(self):
         # Debug hooks must raise an error if PyObject_Malloc() is called
         # without holding the GIL
@@ -1311,19 +1314,19 @@ class PyMemDebugTests(unittest.TestCase):
         self.check_pyobject_is_freed('check_pyobject_freed_is_freed')
 
 
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
+@support.impl_detail("no malloc policies on PyPy", pypy=False)
 class PyMemMallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'malloc_debug'
 
 
 @unittest.skipUnless(support.with_pymalloc(), 'need pymalloc')
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
+@support.impl_detail("no malloc policies on PyPy", pypy=False)
 class PyMemPymallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'pymalloc_debug'
 
 
 @unittest.skipUnless(Py_DEBUG, 'need Py_DEBUG')
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
+@support.impl_detail("no malloc policies on PyPy", pypy=False)
 class PyMemDefaultTests(PyMemDebugTests):
     # test default allocator of Python compiled in debug mode
     PYTHONMALLOC = ''
@@ -1450,7 +1453,7 @@ class Test_FrameAPI(unittest.TestCase):
 
 SUFFICIENT_TO_DEOPT_AND_SPECIALIZE = 100
 
-@unittest.skipIf(support.check_impl_detail(pypy=True), "no _testinternalcapi PyPy")
+@support.impl_detail("no _testinternalcapi PyPy", pypy=False)
 class Test_Pep523API(unittest.TestCase):
 
     def do_test(self, func, names):

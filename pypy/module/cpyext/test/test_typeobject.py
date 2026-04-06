@@ -130,6 +130,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         #
         obj.ulong_member = -3; assert obj.ulong_member == max_uint + 1 - 3, obj.ulong_member
 
+    def test_int_member_index_protocol(self):
+        # T_ULONG should accept objects implementing __index__, like T_UINT does
+        module = self.import_module(name='foo')
+        obj = module.new()
+        class Index:
+            def __init__(self, val): self.val = val
+            def __index__(self): return self.val
+        obj.uint_member = Index(42)
+        assert obj.uint_member == 42
+        obj.ulong_member = Index(99)
+        assert obj.ulong_member == 99
+        # T_PYSSIZET must NOT accept __index__ objects — plain int only
+        raises(TypeError, setattr, obj, 'ssizet_member', Index(1))
+
     def test_overflow(self):
         import struct, warnings
         module = self.import_module(name='foo')
@@ -582,7 +596,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert htype().__doc__ == "A type with a signature"
         assert mod.SomeType.__text_signature__ == '()'
         assert mod.SomeType.__doc__ == 'A type with a signature'
-        assert htype.__text_signature__ is None
+        assert htype.__text_signature__ == '()'
 
         assert htype.__module__ == 'docstrings'
         assert htype.__name__ == 'HeapType'

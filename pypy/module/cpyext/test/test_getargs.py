@@ -263,3 +263,60 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
                 return 4.25
         # float subclass value overrides __float__ in PyFloat_AsDouble
         assert module.getargs_d(FloatSubclass2(7.5)) == 7.5
+
+    def test_d_index(self):
+        # Objects implementing __index__ should be accepted by the 'd' format
+        # via the __float__ -> __index__ coercion chain.
+        module = self.import_extension('foo', [
+        ("getargs_d", "METH_VARARGS",
+         """
+            double d;
+            if (!PyArg_ParseTuple(args, "d", &d))
+                return NULL;
+            return PyFloat_FromDouble(d);
+         """),
+         ])
+        class Index:
+            def __index__(self):
+                return 99
+        assert module.getargs_d(Index()) == 99.0
+
+    def test_f_index(self):
+        # Objects implementing __index__ should be accepted by the 'f' format.
+        module = self.import_extension('foo', [
+        ("getargs_f", "METH_VARARGS",
+         """
+            float f;
+            if (!PyArg_ParseTuple(args, "f", &f))
+                return NULL;
+            return PyFloat_FromDouble((double)f);
+         """),
+         ])
+        class Index:
+            def __index__(self):
+                return 99
+        assert module.getargs_f(Index()) == 99.0
+
+    def test_nested_tuple_es(self):
+        # 'es' and 'et' are two-character format codes; inside a nested tuple
+        # '(es)' the 'e' prefix must not be counted as a separate slot.
+        module = self.import_extension('foo', [
+        ("getargs_nested_es", "METH_VARARGS",
+         """
+            const char *encoding = "";
+            char *buf = NULL;
+            if (!PyArg_ParseTuple(args, "(es)", &encoding, &buf))
+                return NULL;
+            PyObject *result = PyUnicode_FromString(buf);
+            PyMem_Free(buf);
+            return result;
+         """),
+         ])
+        # '(es)' expects a 1-element tuple; passing a 1-element tuple with
+        # empty encoding should raise LookupError, not TypeError about length.
+        raises(LookupError, module.getargs_nested_es, ('a',))
+        # passing a 0-element tuple should raise TypeError about length 1 vs 0
+        exc = raises(TypeError, module.getargs_nested_es, ())
+        assert "length 1" in str(exc.value)
+        assert "not 0" in str(exc.value)
+

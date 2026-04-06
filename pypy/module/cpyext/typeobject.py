@@ -1134,6 +1134,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     # - calculate tp_doc if Py_tp_doc is used
     nmembers = weaklistoffset = dictoffset = vectorcalloffset = 0;
     tp_doc = None
+    tp_txtsig = None
     module_from_spec = False
     i = 0
     while True:
@@ -1176,6 +1177,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
                 from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
                 # Remove the signature if any from the docstring
                 tp_doc = extract_doc(from_pfunc, name)
+                tp_txtsig = extract_txtsig(from_pfunc, name)
         i += 1
     if not spec.c_name:
         raise oefmt(space.w_SystemError,
@@ -1276,6 +1278,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
 
     res_obj = cts.cast('PyObject*', res)
     w_type = from_ref(space, res_obj)
+    if tp_txtsig is not None:
+        w_type.text_signature = tp_txtsig
     if not module_from_spec and modname is not None:
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
     # Convert getsets
