@@ -132,7 +132,7 @@ def callstats():
     return None
 
 copyright_str = """\
-Copyright 2003-2021 PyPy development team.
+Copyright 2003 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
