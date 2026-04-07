@@ -589,6 +589,8 @@ class OptHeap(Optimization):
     def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
         for cf in submap.const_indexes.itervalues():
             cf.force_lazy_set(self, None, can_cache)
+        if not can_cache:
+            submap.clear_varindex()
 
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()
