@@ -956,7 +956,8 @@ def _string_to_int_or_long(space, w_source, string, base=10):
     try:
         value = string_to_int(string, base, allow_underscores=True,
                               no_implicit_octal=True,
-                              max_str_digits=max_str_digits)
+                              max_str_digits=max_str_digits,
+                              disallow_whitespace_after_sign=True)
         return wrapint(space, value)
     except MaxDigitsError as e:
         raise oefmt(space.w_ValueError,
