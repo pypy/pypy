@@ -430,7 +430,8 @@ def setcopyright():
     if is_pypy:
         builtins.credits = _sitebuiltins._Printer(
             "credits",
-            "PyPy is maintained by the PyPy developers\nhttp://pypy.org/")
+            "PyPy is maintained by the PyPy developers.\n"
+            "For more information see: https://pypy.org/")
         builtins.license = _sitebuiltins._Printer(
             "license",
             "See https://foss.heptapod.net/pypy/pypy/src/default/LICENSE")
