@@ -250,12 +250,12 @@ Creation of Application Level objects
 .. py:function:: newunicode(ustr)
 
    Creates a Unicode string from an rpython unicode string.
-   This method may disappear soon and be replaced by :py:function::`newutf8`.
+   This method may disappear soon and be replaced by :py:function:`newutf8`.
 
 .. py:function:: newutf8(bytestr)
 
    Creates a Unicode string from an rpython byte string, decoded as
-   "utf-8-nosg".  On PyPy3 it is the same as :py:function::`newtext`.
+   "utf-8-nosg".  On PyPy3 it is the same as :py:function:`newtext`.
 
 Many more space operations can be found in `pypy/interpreter/baseobjspace.py` and
 `pypy/objspace/std/objspace.py`.
@@ -272,8 +272,8 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: is_true(w_x)
 
-   Returns a interpreter-level boolean (:py:const:`True` or :py:const:`False`) that
-   gives the truth value of the wrapped object :py:obj:`w_x`.
+   Returns an interpreter-level boolean (:py:const:`True` or :py:const:`False`)
+   that gives the truth value of the wrapped object :py:obj:`w_x`.
 
    This is a particularly important operation because it is necessary to implement,
    for example, if-statements in the language (or rather, to be pedantic, to
@@ -302,9 +302,9 @@ Conversions from Application Level to Interpreter Level
 
 .. py:function:: unicode_w(w_x)
 
-   Takes an application level :py:class::`unicode` and return an
+   Takes an application level :py:class:`unicode` and return an
    interpreter-level unicode string.  This method may disappear soon and
-   be replaced by :py:function::`text_w`.
+   be replaced by :py:function:`text_w`.
 
 .. py:function:: float_w(w_x)
 
