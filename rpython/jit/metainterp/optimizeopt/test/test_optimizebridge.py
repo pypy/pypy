@@ -122,6 +122,8 @@ class TestOptimizeBridge(BaseTest):
     def test_bridge_wrong_type(self):
         loop = """
         [p1, i0]
+        i10 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i10, 5) []
         p2 = getfield_gc_r(p1, descr=otherdescr)
         i2 = getarrayitem_gc_i(p2, 0, descr=arraydescr)
         i6 = int_add(i0, i2)
@@ -135,18 +137,15 @@ class TestOptimizeBridge(BaseTest):
         jump(p1, 1)
         """
 
-        # this is a bad bridge, in the sense that the guard_class and
-        # guard_gc_type contradict each other, so the bridge will always lead
-        # to a failure. however, it is safe, because there are no unguarded
-        # accesses to objects that could lead to crashes
+        # this bridge jumps to the preamble, because the guard_gc_type of the
+        # short preamble (which checks that p2 is an array) contradicts the
+        # guard_class.
         expected = """
         [p1]
         p2 = getfield_gc_r(p1, descr=otherdescr)
         guard_class(p2, ConstClass(node_vtable2)) []
-        guard_gc_type(p2, ConstInt(arraydescr_tid)) []
-        i3 = arraylen_gc(p2, descr=arraydescr)
-        i4 = int_ge(i3, 1),
-        guard_true(i4) []
+        i10 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i10, 5) []
         jump(p1, 1)
         """
         self.optimize(loop, bridge, expected)

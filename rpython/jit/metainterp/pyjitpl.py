@@ -2352,6 +2352,27 @@ class MetaInterpStaticData(object):
     def log(self, msg):
         debug_print(msg)
 
+    def _try_find_typeid_for_vtable(self, known_class):
+        # this doesn't work for all vtables, only those where the JIT built a
+        # descr (ie sees the allocation). it's only used in the optimizer to
+        # try to detect invalid loops/bridges early. if not found, it raises
+        # KeyError
+        d = self.globaldata.vtable2typeid
+        if d is None:
+            # Build the dictionary at run-time.  This is needed
+            # because the keys are vtable addresses, so they
+            # can change from run to run.
+            d = {}
+            for descr in self.opcode_descrs:
+                vtable = descr.get_vtable()
+                typeid = descr.get_type_id()
+                if vtable and typeid >= 0:
+                    # using the hash as the key is safe, it's just the pointer
+                    # value of the vtable
+                    d[ConstInt(vtable)._get_hash_()] = typeid
+            self.globaldata.vtable2typeid = d
+        return d[known_class._get_hash_()]
+
 # ____________________________________________________________
 
 class MetaInterpGlobalData(object):
@@ -2371,6 +2392,7 @@ class MetaInterpGlobalData(object):
         self.initialized = False
         self.indirectcall_dict = None
         self.addr2name = None
+        self.vtable2typeid = None
 
 # ____________________________________________________________
 
