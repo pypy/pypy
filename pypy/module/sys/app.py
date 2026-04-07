@@ -134,7 +134,7 @@ def callstats():
 copyright_str = """\
 Copyright 2003 PyPy development team.
 All Rights Reserved.
-For further information, see <http://pypy.org>
+For further information, see <https://pypy.org>
 
 Portions Copyright (c) 2001-2021 Python Software Foundation.
 All Rights Reserved.
