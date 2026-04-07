@@ -293,7 +293,7 @@ class W_Encoder(W_Root):
                 wkey_list.append(w_key)
                 wstr_list.append(w_key_str)
             # insertion sort by original key value, matching CPython's
-            # sorted(dct.items()) — e.g. False(0) < 2 < 4.0 < 6 numerically
+            # sorted(dct.items()) - e.g. False(0) < 2 < 4.0 < 6 numerically
             n = len(wkey_list)
             for i in range(1, n):
                 wk = wkey_list[i]
