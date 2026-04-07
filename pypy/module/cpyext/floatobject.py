@@ -54,7 +54,7 @@ def PyFloat_FromDouble(space, value):
 def PyFloat_AsDouble(space, w_obj):
     if not space.isinstance_w(w_obj, space.w_float):
         # Replicate CPython's PyFloat_AsDouble: try __float__, then __index__,
-        # then raise "must be real number, not <type>" — not the broader
+        # then raise "must be real number, not <type>" - not the broader
         # float() error which also accepts strings.
         w_float_method = space.lookup(w_obj, '__float__')
         if w_float_method is not None:
