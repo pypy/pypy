@@ -671,9 +671,14 @@ class PyFrame(W_Root):
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
         lineno = self.get_last_lineno()
-        if lineno == -1:
-            lineno = self.pycode.co_firstlineno
-        return space.newint(lineno)
+        if self.get_w_f_trace() is None:
+            if lineno == -1:
+                return space.w_None
+            return space.newint(lineno)
+        else:
+            if lineno == -1:
+                lineno = self.pycode.co_firstlineno
+            return space.newint(lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."

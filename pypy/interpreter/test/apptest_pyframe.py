@@ -1375,6 +1375,40 @@ def test_clear_locals():
     assert not inner.f_locals
 
 
+def test_missing_lineno_shows_as_none():
+    # PEP 626: when co_linetable encodes no line info, f_lineno must be None
+    def f():
+        1/0
+    lines = []
+    try:
+        f()
+    except ZeroDivisionError as ex:
+        t = ex.__traceback__.tb_next  # skip this frame
+        while t:
+            frame = t.tb_frame
+            lines.append(
+                None if frame.f_lineno is None
+                else frame.f_lineno - frame.f_code.co_firstlineno
+            )
+            t = t.tb_next
+    assert lines == [1], lines
+    # Now replace linetable with CPython's encoding for "no line number"
+    f.__code__ = f.__code__.replace(co_linetable=b'\xf8\xf8\xf8\xf9\xf8\xf8\xf8')
+    lines = []
+    try:
+        f()
+    except ZeroDivisionError as ex:
+        t = ex.__traceback__.tb_next
+        while t:
+            frame = t.tb_frame
+            lines.append(
+                None if frame.f_lineno is None
+                else frame.f_lineno - frame.f_code.co_firstlineno
+            )
+            t = t.tb_next
+    assert lines == [None], lines
+
+
 def test_locals2fast_del_cell_var():
     import sys
     def t(frame, event, *args):
