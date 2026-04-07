@@ -957,7 +957,7 @@ class CoroutineTest(unittest.TestCase):
                 send_msg = 'generator/coroutine'
                 close_msg = 'generator/coroutine'
                 throw_msg = 'generator/coroutine'
-                name_msg = 'generator/coroutine'
+                name_msg = 'of the coroutine'
             else:
                 send_msg = 'into coroutine'
                 close_msg = 'inside coroutine'

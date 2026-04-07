@@ -826,9 +826,7 @@ class PyFrame(W_Root):
                 if gen.running:
                     raise oefmt(space.w_RuntimeError,
                                 "cannot clear an executing frame")
-                # xxx CPython raises the RuntimeWarning "coroutine was never
-                # awaited" in this case too.  Does it make any sense?
-                gen.descr_close()
+                gen._finalize_()
 
         debug = self.getdebug()
         if debug is not None:

@@ -384,6 +384,7 @@ class Coroutine(GeneratorOrCoroutine):
     def __init__(self, frame, name=None, qualname=None):
         GeneratorOrCoroutine.__init__(self, frame, name, qualname)
         self.w_cr_origin = self.space.w_None
+        self._warned_unawaited = False
 
     def capture_origin(self, ec):
         if not ec.coroutine_origin_tracking_depth:
@@ -408,11 +409,29 @@ class Coroutine(GeneratorOrCoroutine):
     def descr__await__(self, space):
         return CoroutineWrapper(self)
 
+    def descr_gicr_frame(self, space):
+        if self.frame is not None and not self.frame.frame_finished_execution:
+            # CPython emits the "coroutine was never awaited" warning from
+            # tp_finalize, triggered by immediate ref-count deallocation.
+            # PyPy's GC is not ref-counted, so emit it here when cr_frame is
+            # accessed on a coroutine in FRAME_CREATED state (last_instr == -1).
+            if not self._warned_unawaited and self.frame.last_instr == -1:
+                self._warned_unawaited = True
+                w_mod = space.getbuiltinmodule("_warnings")
+                w_f = space.getattr(w_mod,
+                                    space.newtext("_warn_unawaited_coroutine"))
+                space.call_function(w_f, self)
+            return self.frame
+        else:
+            return space.w_None
+
     def _finalize_(self):
         # If coroutine was never awaited on issue a RuntimeWarning.
-        if (self.pycode is not None and
+        if (not self._warned_unawaited and
+                self.pycode is not None and
                 self.frame is not None and
                 self.frame.last_instr == -1):
+            self._warned_unawaited = True
             space = self.space
             w_mod = space.getbuiltinmodule("_warnings")
             w_f = space.getattr(w_mod, space.newtext("_warn_unawaited_coroutine"))
@@ -433,7 +452,8 @@ Coroutine.typedef = TypeDef("coroutine",
                             descrmismatch='__await__'),
     cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
     cr_suspended = GetSetProperty(Coroutine.descr_get_suspended),
-    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
+    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame,
+                               doc="the frame being executed by the coroutine"),
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
     cr_await=GetSetProperty(Coroutine.descr_delegate),
     cr_origin  = interp_attrproperty_w('w_cr_origin', cls=Coroutine),

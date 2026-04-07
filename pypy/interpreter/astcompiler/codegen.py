@@ -319,7 +319,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.ROT_TWO)
             self.call_exit_with_nones()
             if kind == F_ASYNC_WITH:
-                self.emit_op(ops.GET_AWAITABLE)
+                self.emit_op_arg(ops.GET_AWAITABLE, 2)
                 self.load_const(self.space.w_None)
                 self.emit_op(ops.YIELD_FROM)
             self.emit_op(ops.POP_TOP)
