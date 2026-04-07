@@ -31,36 +31,7 @@ def raw_encode_basestring_ascii(space, w_unicode):
         return w_unicode
 
     sb = StringBuilder(len(u) + 20)
-
-    for c in Utf8StringIterator(u):
-        if c <= ord('~'):
-            if c == ord('"') or c == ord('\\'):
-                sb.append('\\')
-            elif c < ord(' '):
-                sb.append(ESCAPE_BEFORE_SPACE[c])
-                continue
-            sb.append(chr(c))
-        else:
-            if c <= ord(u'\uffff'):
-                sb.append('\\u')
-                sb.append(HEX[c >> 12])
-                sb.append(HEX[(c >> 8) & 0x0f])
-                sb.append(HEX[(c >> 4) & 0x0f])
-                sb.append(HEX[c & 0x0f])
-            else:
-                # surrogate pair
-                n = c - 0x10000
-                s1 = 0xd800 | ((n >> 10) & 0x3ff)
-                sb.append('\\ud')
-                sb.append(HEX[(s1 >> 8) & 0x0f])
-                sb.append(HEX[(s1 >> 4) & 0x0f])
-                sb.append(HEX[s1 & 0x0f])
-                s2 = 0xdc00 | (n & 0x3ff)
-                sb.append('\\ud')
-                sb.append(HEX[(s2 >> 8) & 0x0f])
-                sb.append(HEX[(s2 >> 4) & 0x0f])
-                sb.append(HEX[s2 & 0x0f])
-
+    _append_str_ascii_helper(sb, u)
     res = sb.build()
     return space.newtext(res)
 
@@ -68,6 +39,10 @@ def raw_encode_basestring_ascii(space, w_unicode):
 def _append_str_ascii(sb, u):
     """Append a JSON-encoded string (with quotes) escaping all non-ASCII."""
     sb.append('"')
+    _append_str_ascii_helper(sb, u)
+    sb.append('"')
+
+def _append_str_ascii_helper(sb, u):
     for c in Utf8StringIterator(u):
         if c <= ord('~'):
             if c == ord('"') or c == ord('\\'):
@@ -96,8 +71,6 @@ def _append_str_ascii(sb, u):
                 sb.append(HEX[(s2 >> 8) & 0x0f])
                 sb.append(HEX[(s2 >> 4) & 0x0f])
                 sb.append(HEX[s2 & 0x0f])
-    sb.append('"')
-
 
 def _append_str_unicode(sb, u):
     """Append a JSON-encoded string (with quotes) preserving non-ASCII chars."""
