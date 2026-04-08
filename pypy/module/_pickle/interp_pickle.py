@@ -397,6 +397,22 @@ class _Framer(object):
                 data += extra
             return self.file_write(data)
 
+    def write_packH(self, opcode, val, extra=None):
+        if self.current_frame is not None:
+            self.current_frame.append(opcode)
+            self.current_frame.append(chr(val & 0xff))
+            self.current_frame.append(chr((val >> 8) & 0xff))
+            res = 3
+            if extra is not None:
+                self.current_frame.append(extra)
+                res += len(extra)
+            return res
+        else:
+            data = packH(opcode, val)
+            if extra:
+                data += extra
+            return self.file_write(data)
+
     @jit.unroll_safe
     def write_binfloat(self, f):
         """Write the BINFLOAT opcode + 8-byte big-endian IEEE 754 double.
@@ -543,6 +559,9 @@ class W_Pickler(W_Root):
 
     def write_packB(self, opcode, val, extra=None):
         return self.framer.write_packB(opcode, val, extra)
+
+    def write_packH(self, opcode, val, extra=None):
+        return self.framer.write_packH(opcode, val, extra)
 
     def write_binfloat(self, f):
         self.framer.write_binfloat(f)
@@ -1041,7 +1060,7 @@ class W_Pickler(W_Root):
                 if code <= 0xff:
                     self.write_packB(op.EXT1, code)
                 elif code <= 0xffff:
-                    write(packH(op.EXT2, code))
+                    self.write_packH(op.EXT2, code)
                 else:
                     self.write_packi(op.EXT4, code)
                 return
@@ -1114,7 +1133,7 @@ class W_Pickler(W_Root):
             if idx < 256:
                 self.write_packB(op.BINPUT, idx)
             else:
-                self.write(packI(op.LONG_BINPUT, idx))
+                self.write_packI(op.LONG_BINPUT, idx)
         else:
             self.write("%s%d\n" % (op.PUT, idx))
 
@@ -1147,7 +1166,7 @@ class W_Pickler(W_Root):
             if idx < 256:
                 self.write_packB(op.BINGET, idx)
             else:
-                self.write(packI(op.LONG_BINGET, idx))
+                self.write_packI(op.LONG_BINGET, idx)
         else:
             self.write("%s%d\n" % (op.GET, idx))
 
@@ -1281,7 +1300,7 @@ def save_long(self, w_obj):
                     self.write_packB(op.BININT1, obj)
                     return
                 if obj <= 0xffff:
-                    self.write(packH(op.BININT2 , obj))
+                    self.write_packH(op.BININT2 , obj)
                     return
             # Next check for 4-byte signed ints:
             # XXX 32 bit systems?
