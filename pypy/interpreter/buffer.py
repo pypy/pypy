@@ -386,6 +386,75 @@ class BufferSlice(BufferView):
 # XXX not sure this is the right approach, maybe adding a copy to BufferView or
 # even a toreadonly would be a better approach
 
+class BorrowedView(BufferView):
+    """Wraps a view without owning the export ref-count.
+
+    releasebuffer() is a no-op so callers that call buffer_w() transiently
+    (e.g. readbuf_w, _convert_from_buffer_or_iterable) can safely release
+    the view they receive even when the underlying object's counter was not
+    incremented for this particular borrow (as is the case for
+    W_MemoryView.buffer_w()).
+    """
+    _immutable_ = True
+    _attrs_ = ['_view', 'readonly', 'w_obj']
+
+    def __init__(self, view):
+        self._view = view
+        self.readonly = view.readonly
+        self.w_obj = view.w_obj
+
+    def releasebuffer(self):
+        pass  # no-op: ref-count was not incremented for this borrow
+
+    def getlength(self):
+        return self._view.getlength()
+
+    def as_str(self):
+        return self._view.as_str()
+
+    def getbytes(self, start, size):
+        return self._view.getbytes(start, size)
+
+    def setbytes(self, start, string):
+        return self._view.setbytes(start, string)
+
+    def get_raw_address(self):
+        return self._view.get_raw_address()
+
+    def as_readbuf(self):
+        return self._view.as_readbuf()
+
+    def as_writebuf(self):
+        return self._view.as_writebuf()
+
+    def getformat(self):
+        return self._view.getformat()
+
+    def getitemsize(self):
+        return self._view.getitemsize()
+
+    def getndim(self):
+        return self._view.getndim()
+
+    def getshape(self):
+        return self._view.getshape()
+
+    def getstrides(self):
+        return self._view.getstrides()
+
+    def new_slice(self, start, step, slicelength):
+        return BorrowedView(self._view.new_slice(start, step, slicelength))
+
+    def w_getitem(self, space, idx):
+        return self._view.w_getitem(space, idx)
+
+    def setitem_w(self, space, idx, w_obj):
+        return self._view.setitem_w(space, idx, w_obj)
+
+    def get_offset(self, space, dim, index):
+        return self._view.get_offset(space, dim, index)
+
+
 class ReadonlyWrapper(BufferView):
     _immutable_ = True
     def __init__(self, view):
