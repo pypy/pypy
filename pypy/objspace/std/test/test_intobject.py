@@ -435,6 +435,10 @@ class AppTestInt(object):
         assert 42 == int("42")
         assert 10000000000 == int("10000000000")
 
+    def test_int_no_whitespace_after_sign(self):
+        raises(ValueError, int, '+ 42')
+        raises(ValueError, int, '- 42')
+
     def test_int_string_limit(self):
         import sys
         max_str_digits = sys.get_int_max_str_digits()
