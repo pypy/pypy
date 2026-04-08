@@ -3688,13 +3688,19 @@ def frombytes_int(s, byteorder, signed):
     sign = -1 if msb >= 0x80 and signed else 1
     result = r_uint(0)
     bitpos = 0
+    pad_byte = 0xdead
 
     for i in itr:
         c = r_uint(ord(s[i]))
-        # Check if this byte would overflow
+        if bitpos == LONG_BIT - 8:
+            if signed and c & (1 << 7): # signed and negative
+                pad_byte = 0xff
+            else:
+                pad_byte = 0x00
+
         if bitpos >= LONG_BIT:
             # Extra bytes are only OK if they're padding (0x00 or 0xff)
-            if c != 0 and not (signed and c == 0xff):
+            if c != pad_byte:
                 raise OverflowError("value does not fit in int")
         else:
             result |= c << bitpos
