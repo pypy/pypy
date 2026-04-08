@@ -1155,8 +1155,14 @@ def test_frombytes_int():
     val = frombytes_int(s, 'big', signed=True)
     assert val == minint
 
+    # check that all the higher bytes are the same
+    s = "\x00\x00\x00\x00\x00\x00\x00\x00\xff"
+    with pytest.raises(OverflowError):
+        frombytes_int(s, byteorder='little', signed=True)
+
+
 @given(ints, strategies.booleans(), strategies.booleans(), strategies.integers(0, 1000))
-def test_frombytes_tobytes_int_hypothesis(value, big, signed, extra_size):
+def test_tobytes_frombytes_int_hypothesis(value, big, signed, extra_size):
     # check the roundtrip from binary strings to bigints and back
     byteorder = 'big' if big else 'little'
     size = (value.bit_length() >> 3) + 1
@@ -1169,6 +1175,20 @@ def test_frombytes_tobytes_int_hypothesis(value, big, signed, extra_size):
     value2 = frombytes_int(s, byteorder, signed)
     assert value2 == value
 
+
+@given(strategies.binary(), strategies.booleans(), strategies.booleans())
+def test_frombytes_tobytes_int_hypothesis(s, big, signed):
+    # check the roundtrip from binary strings to bigints and back
+    signed = True
+    byteorder = 'big' if big else 'little'
+    bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+    try:
+        value2 = frombytes_int(s, byteorder, signed)
+    except OverflowError:
+        assert not (-sys.maxint-1 <= bigint.tolong() <= sys.maxint)
+    else:
+        assert bigint.bit_length() <= LONG_BIT
+        assert value2 == bigint.toint()
 
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
