@@ -237,6 +237,8 @@ def _unwrap_include_dirs(space, w_include_dirs):
 
 def debug_collect(space):
     rawrefcount._collect()
+    space.user_del_action._run_finalizers()
+    rawrefcount._collect()
 
 
 class AppTestCpythonExtensionBase(LeakCheckingTest):
