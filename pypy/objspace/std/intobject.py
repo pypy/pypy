@@ -14,7 +14,8 @@ from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
 from rpython.rlib.rbigint import (
-    InvalidEndiannessError, InvalidSignednessError, rbigint, bit_length_int)
+    InvalidEndiannessError, InvalidSignednessError, rbigint, bit_length_int,
+    frombytes_int, tobytes_int)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     ParseStringError, ParseStringOverflowError, MaxDigitsError)
@@ -80,19 +81,23 @@ class W_AbstractIntObject(W_Root):
         complement is used to represent the integer.
         """
         from pypy.objspace.std.bytesobject import makebytesdata_w
-        bytes = makebytesdata_w(space, w_obj)
-        try:
+        def frombytes(space, bytes, byteorder, signed):
+            try:
+                value = frombytes_int(bytes, byteorder=byteorder,
+                                      signed=signed)
+            except OverflowError:
+                pass
+            else:
+                return space.newint(value)
             bigint = rbigint.frombytes(bytes, byteorder=byteorder,
                                        signed=signed)
+            return space.newlong_from_rbigint(bigint)
+        bytes = makebytesdata_w(space, w_obj)
+        try:
+            w_obj = frombytes(space, bytes, byteorder, signed)
         except InvalidEndiannessError:
             raise oefmt(space.w_ValueError,
                         "byteorder must be either 'little' or 'big'")
-        try:
-            as_int = bigint.toint()
-        except OverflowError:
-            w_obj = space.newlong_from_rbigint(bigint)
-        else:
-            w_obj = space.newint(as_int)
         if not space.is_w(w_inttype, space.w_int):
             # That's what from_bytes() does in CPython 3.5.2 too
             w_obj = space.call_function(w_inttype, w_obj)
@@ -868,6 +873,21 @@ class W_IntObject(W_AbstractIntObject):
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(
         _divmod, ovf2small=_divmod_ovf2small)
+
+    def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
+        x = self.intval
+        try:
+            byte_string = tobytes_int(x, length, byteorder=byteorder,
+                                      signed=signed)
+        except InvalidEndiannessError:
+            raise oefmt(space.w_ValueError,
+                        "byteorder must be either 'little' or 'big'")
+        except InvalidSignednessError:
+            raise oefmt(space.w_OverflowError,
+                        "can't convert negative int to unsigned")
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "int too big to convert")
+        return space.newbytes(byte_string)
 
 
 def setup_prebuilt(space):
