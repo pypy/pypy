@@ -3665,3 +3665,84 @@ def gcd_lehmer(a, b):
 # absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
+
+# _________________________________________________________________
+# tobytes and frombytes for integers
+
+@jit.elidable
+def frombytes_int(s, byteorder, signed):
+    """ like rbigint.frombytes but returns an int. raises OverflowError if not
+    possible """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not s:
+        return 0
+
+    if byteorder == 'big':
+        msb = ord(s[0])
+        itr = range(len(s)-1, -1, -1)
+    else:
+        msb = ord(s[-1])
+        itr = range(0, len(s))
+
+    sign = -1 if msb >= 0x80 and signed else 1
+    result = r_uint(0)
+    bitpos = 0
+
+    for i in itr:
+        c = r_uint(ord(s[i]))
+        # Check if this byte would overflow
+        if bitpos >= LONG_BIT:
+            # Extra bytes are only OK if they're padding (0x00 or 0xff)
+            if c != 0 and not (signed and c == 0xff):
+                raise OverflowError("value does not fit in int")
+        else:
+            result |= c << bitpos
+        bitpos += 8
+    if signed and bitpos <= LONG_BIT:
+        # sign extend
+        m = r_uint(1) << (bitpos - 1)
+        result = (result ^ m) - m
+
+    result = intmask(result)
+
+    if sign == -1:
+        assert result < 0
+
+    return result
+
+
+@jit.elidable
+def tobytes_int(intval, nbytes, byteorder, signed):
+    """ like rbigint.tobytes, but starts from an int """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not signed and intval < 0:
+        raise InvalidSignednessError()
+
+    bswap = byteorder == 'big'
+    result = StringBuilder(nbytes)
+
+    currval = intval
+    byte = 0
+    for i in range(nbytes):
+        byte = currval & 0xff
+        result.append(chr(byte))
+        currval >>= 8
+    if currval != 0 and currval != -1:
+        raise OverflowError
+
+    digits = result.build()
+    if nbytes > 0 and signed:
+        # If not already set, we cannot contain the sign bit
+        if (intval < 0) != (byte >= 0x80):
+            raise OverflowError()
+
+    if bswap:
+        # Bah, this is very inefficient. At least it's not
+        # quadratic.
+        length = len(digits)
+        if length >= 0:
+            digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
+    return digits
+

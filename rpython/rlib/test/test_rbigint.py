@@ -14,12 +14,12 @@ except ImportError:
 
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
-from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
+from rpython.rlib.rbigint import (frombytes_int, rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
     _format_lowest_level_divmod_int_results, _format_int10_18digits,
-    bit_length_int, _bitcount64)
+    bit_length_int, _bitcount64, tobytes_int)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1100,6 +1100,74 @@ class Test_rbigint(object):
                 y = rbigint.fromlong(y)
                 g = x.gcd(y)
                 assert g.tolong() == 18218089570126697993340888567155155527541105
+
+
+def test_tobytes_int():
+    assert tobytes_int(0, 1, 'big', signed=True) == '\x00'
+    assert tobytes_int(1, 2, 'big', signed=True) == '\x00\x01'
+    with pytest.raises(OverflowError):
+        tobytes_int(255, 1, 'big', signed=True)
+    assert tobytes_int(-129, 2, 'big', signed=True) == '\xff\x7f'
+    assert tobytes_int(-129, 2, 'little', signed=True) == '\x7f\xff'
+    assert tobytes_int(65535, 3, 'big', signed=True) == '\x00\xff\xff'
+    assert tobytes_int(-65536, 3, 'little', signed=True) == '\x00\x00\xff'
+    assert tobytes_int(65535, 2, 'big', signed=False) == '\xff\xff'
+    assert tobytes_int(-8388608, 3, 'little', signed=True) == '\x00\x00\x80'
+    i = -8388608
+    with pytest.raises(InvalidEndiannessError):
+        tobytes_int(i, 3, 'foo', signed=True)
+    with pytest.raises(InvalidSignednessError):
+        tobytes_int(i, 3, 'little', signed=False)
+    with pytest.raises(OverflowError):
+        tobytes_int(i, 2, 'little', signed=True)
+
+
+def test_frombytes_int():
+    val = frombytes_int('', byteorder='big', signed=True)
+    assert val == 0
+    s = "\xFF\x12\x34\x56"
+    val = frombytes_int(s, byteorder="big", signed=False)
+    assert val == 0xFF123456
+    val = frombytes_int(s, byteorder="little", signed=False)
+    assert val == 0x563412FF
+    with pytest.raises(InvalidEndiannessError):
+        frombytes_int('\xFF', 'foo', signed=True)
+    val = frombytes_int('\x82', byteorder='big', signed=True)
+    assert val == -126
+    # Test overflow - too many bytes to fit in a machine int
+    s = "\xFF" * 100
+    with pytest.raises(OverflowError):
+        frombytes_int(s, byteorder='big', signed=False)
+    # Test minint (two's complement asymmetry)
+    import sys
+    minint = -sys.maxint - 1
+    # minint in 8 bytes (for 64-bit) or 4 bytes (for 32-bit)
+    nbytes = LONG_BIT // 8
+    s = tobytes_int(minint, nbytes, 'big', signed=True)
+    val = frombytes_int(s, 'big', signed=True)
+    assert val == minint
+    # Also test with little endian
+    s = tobytes_int(minint, nbytes, 'little', signed=True)
+    val = frombytes_int(s, 'little', signed=True)
+    assert val == minint
+    # Test with extra padding byte (sign extension)
+    s = tobytes_int(minint, nbytes + 1, 'big', signed=True)
+    val = frombytes_int(s, 'big', signed=True)
+    assert val == minint
+
+@given(ints, strategies.booleans(), strategies.booleans(), strategies.integers(0, 1000))
+def test_frombytes_tobytes_int_hypothesis(value, big, signed, extra_size):
+    # check the roundtrip from binary strings to bigints and back
+    byteorder = 'big' if big else 'little'
+    size = (value.bit_length() >> 3) + 1
+    if not signed and value < 0:
+        value = int(abs(value))
+        assume(type(value) is int) # exclude the minint case
+    s = tobytes_int(value, size + extra_size, byteorder, signed)
+    bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+    assert bigint.toint() == value
+    value2 = frombytes_int(s, byteorder, signed)
+    assert value2 == value
 
 
 class TestInternalFunctions(object):
