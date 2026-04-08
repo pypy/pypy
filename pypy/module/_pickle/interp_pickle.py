@@ -2059,6 +2059,12 @@ class W_Unpickler(W_Root):
         self._memo_put(self.memo_index, w_val)
         self.memo_index += 1
 
+    def _stack_top(self, opcode_name):
+        """Return the top of the stack, raising an error if the stack is empty."""
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "stack empty in %s", opcode_name)
+        return self.stack[-1]
 
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
@@ -2342,7 +2348,7 @@ class W_Unpickler(W_Root):
 
     def load_readonly_buffer(self):
         space = self.space
-        w_buf = self.stack[-1]
+        w_buf = self._stack_top("READONLY_BUFFER")
         w_mv = space.call_function(space.w_memoryview, w_buf)
         w_readonly = space.call_method(w_mv, 'toreadonly')
         self.stack[-1] = w_readonly
@@ -2587,21 +2593,17 @@ class W_Unpickler(W_Root):
             return space.getattr(w_module, w_name)
 
     def load_reduce(self):
-        stack = self.stack
-        w_args = data_pop(self.space, stack)
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_func = stack[-1]
+        w_args = data_pop(self.space, self.stack)
+        w_func = self._stack_top("REDUCE")
         if type(w_func) is _W_AsciiListUnpickler:
-            stack[-1] = _ascii_list_from_packed(self.space, w_args)
+            self.stack[-1] = _ascii_list_from_packed(self.space, w_args)
             return
         if type(w_func) is _W_BytesListUnpickler:
-            stack[-1] = _bytes_list_from_packed(self.space, w_args)
+            self.stack[-1] = _bytes_list_from_packed(self.space, w_args)
             return
         w_arguments = Arguments(self.space, [], w_stararg = w_args)
         w_obj = self.space.call_args(w_func, w_arguments)
-        stack[-1] = w_obj
+        self.stack[-1] = w_obj
     dispatch[ord(op.REDUCE[0])] = load_reduce
 
     def load_pop(self):
@@ -2616,10 +2618,8 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.POP_MARK[0])] = load_pop_mark
 
     def load_dup(self):
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        self.append(self.stack[-1])
+        w_val = self._stack_top("DUP")
+        self.append(w_val)
     dispatch[ord(op.DUP[0])] = load_dup
 
     def load_get(self):
@@ -2654,57 +2654,41 @@ class W_Unpickler(W_Root):
         i = int(data)
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative PUT argument")
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                'stack underflow in PUT')
-        self._memo_put(i, self.stack[-1])
+        w_val = self._stack_top("PUT")
+        self._memo_put(i, w_val)
     dispatch[ord(op.PUT[0])] = load_put
 
     def load_binput(self):
         i = ord(self.read1())
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative BINPUT argument")
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                'stack underflow in BINPUT')
-        self._memo_put(i, self.stack[-1])
+        w_val = self._stack_top("BINPUT")
+        self._memo_put(i, w_val)
     dispatch[ord(op.BINPUT[0])] = load_binput
 
     def load_long_binput(self):
         i = self.read_unpackI()
         if i > maxsize:
             raise oefmt(self.space.w_ValueError, "negative LONG_BINPUT argument")
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                'stack underflow in LONG_BINPUT')
-        self._memo_put(i, self.stack[-1])
+        w_val = self._stack_top("LONG_BINPUT")
+        self._memo_put(i, w_val)
     dispatch[ord(op.LONG_BINPUT[0])] = load_long_binput
 
     def load_memoize(self):
-        memo = self.memo
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                'stack underflow in MEMOIZE')
-        self._memo_append(self.stack[-1])
+        w_val = self._stack_top("MEMOIZE")
+        self._memo_append(w_val)
     dispatch[ord(op.MEMOIZE[0])] = load_memoize
 
     def load_append(self):
-        stack = self.stack
-        w_value = data_pop(self.space, stack)
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_list = stack[-1]
+        w_value = data_pop(self.space, self.stack)
+        w_list = self._stack_top("APPEND")
         self.space.call_method(w_list, "append", w_value)
     dispatch[ord(op.APPEND[0])] = load_append
 
     def load_appends(self):
         space = self.space
         w_items = self.pop_mark()
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_list_obj = self.stack[-1]
+        w_list_obj = self._stack_top("APPENDS")
         w_extend = space.lookup(w_list_obj, "extend")
         if w_extend:
             # Fast path: fuse strategy-detection + unwrap into one pass for
@@ -2738,25 +2722,18 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.APPENDS[0])] = load_appends
 
     def load_setitem(self):
-        stack = self.stack
-        w_value = data_pop(self.space, stack)
-        w_key = data_pop(self.space, stack)
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_dict = stack[-1]
+        w_value = data_pop(self.space, self.stack)
+        w_key = data_pop(self.space, self.stack)
+        w_dict = self._stack_top("SETITEM")
         self.space.setitem(w_dict, w_key, w_value)
     dispatch[ord(op.SETITEM[0])] = load_setitem
 
     def load_setitems(self):
         items_w = self.pop_mark()
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
         if len(items_w) % 2 != 0:
             raise oefmt(unpickling_error(self.space),
                 "odd number of items for SETITEMS")
-        w_dict = self.stack[-1]
+        w_dict = self._stack_top("SETITEMS")
         for i in range(0, len(items_w), 2):
             self.space.setitem(w_dict, items_w[i], items_w[i + 1])
     dispatch[ord(op.SETITEMS[0])] = load_setitems
@@ -2764,10 +2741,7 @@ class W_Unpickler(W_Root):
     def load_additems(self):
         space = self.space
         items = self.pop_mark()
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_set_obj = self.stack[-1]
+        w_set_obj = self._stack_top("ADDITEMS")
         if space.isinstance_w(w_set_obj, space.w_set):
             w_items = space.newtuple([w_i for w_i in items])
             space.call_method(w_set_obj,"update", w_items)
@@ -2778,12 +2752,8 @@ class W_Unpickler(W_Root):
 
     def load_build(self):
         space = self.space
-        stack = self.stack
-        w_state = data_pop(self.space, stack)
-        if len(self.stack) < 1:
-            raise oefmt(unpickling_error(self.space),
-                "unexpected MARK found")
-        w_inst = stack[-1]
+        w_state = data_pop(self.space, self.stack)
+        w_inst = self._stack_top("BUILD")
         w_setstate = space.findattr(w_inst, space.newtext("__setstate__"))
         if not space.is_none(w_setstate):
             space.call_function(w_setstate , w_state)
