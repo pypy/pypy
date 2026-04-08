@@ -1760,16 +1760,10 @@ def encode_long(space, w_x):
     return result
 
 def decode_long(space, data):
-    from rpython.rlib.rbigint import rbigint
-    bigint = rbigint.frombytes(data, byteorder="little",
-                               signed=True)
-    try:
-        as_int = bigint.toint()
-    except OverflowError:
-        w_obj = space.newlong_from_rbigint(bigint)
-    else:
-        w_obj = space.newint(as_int)
-    return w_obj
+    from pypy.objspace.std import intobject
+    return intobject.W_AbstractIntObject.descr_from_bytes(
+            space, space.w_int, space.newbytes(data), byteorder="little",
+            signed=True)
 
 
 @unwrap_spec(fix_imports=int, w_file=WrappedDefault(None))
