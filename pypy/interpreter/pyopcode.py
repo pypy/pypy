@@ -705,7 +705,7 @@ class __extend__(pyframe.PyFrame):
             w_value = last_operr._w_value
             if w_value is not None and isinstance(w_value, W_BaseException):
                 w_tb = w_value.w_traceback
-                if w_tb is None or space.is_w(w_tb, space.w_None):
+                if space.is_none(w_tb):
                     last_operr.set_traceback(None)
                 else:
                     from pypy.interpreter.pytraceback import PyTraceback
