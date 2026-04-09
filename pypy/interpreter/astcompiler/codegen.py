@@ -650,6 +650,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i in range(n):
                 self.update_position(cls.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            self.update_position(cls)
         # 7. store into <name>
         self.name_op(cls.name, ast.Store, cls)
 

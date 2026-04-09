@@ -1083,9 +1083,11 @@ def test_line_tracing_bug_class_decorator():
         ('line', 3),
         ('line', 7),
         ('return', 7),
+        ('line', 3),
         ('call', 1),
         ('line', 2),
         ('return', 2),
+        ('line', 4),
         ('return', 4)
     ]
 
