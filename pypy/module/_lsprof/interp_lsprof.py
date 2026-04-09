@@ -217,12 +217,15 @@ def create_spec_for_method(space, w_function, w_type):
 
 def create_spec_for_function(space, w_func):
     assert isinstance(w_func, Function)
-    pre = b'built-in function ' if isinstance(w_func, BuiltinFunction) else b''
+    if isinstance(w_func, BuiltinFunction):
+        if w_func.w_module is not None:
+            module = space.utf8_w(w_func.w_module)
+            return b'<built-in method %s.%s>' % (module, w_func.getname(space))
+        return b'<built-in function %s>' % (w_func.getname(space),)
     if w_func.w_module is not None:
         module = space.utf8_w(w_func.w_module)
-        if module != b'builtins':
-            return b'<%s%s.%s>' % (pre, module, w_func.getname(space))
-    return b'<%s%s>' % (pre, w_func.getname(space))
+        return b'<%s.%s>' % (module, w_func.getname(space))
+    return b'<%s>' % (w_func.getname(space),)
 
 
 def create_spec_for_object(space, w_type):

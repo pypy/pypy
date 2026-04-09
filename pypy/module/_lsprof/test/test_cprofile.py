@@ -19,7 +19,7 @@ class AppTestCProfile(object):
         prof.disable()
         stats = prof.getstats()
         expected = (
-            "<built-in function len>",
+            "<built-in method builtins.len>",
             "<method 'append' of 'list' objects>",
             "<method 'disable' of '_lsprof.Profiler' objects>",
         )
@@ -37,7 +37,7 @@ class AppTestCProfile(object):
         prof.disable()
         stats = prof.getstats()
         expected = (
-            "<built-in function len>",
+            "<built-in method builtins.len>",
             "<method 'append' of 'list' objects>",
         )
         by_id = set()
