@@ -1024,6 +1024,13 @@ class AppTestCompiler(object):
             raises(SyntaxError, compile, b"# coding: utf-8\n#\xfd\n",
                    "dummy", "exec") #3
 
+    def test_invalid_utf8_in_multiline_string(self):
+        # gh96611: non-UTF-8 byte inside a multiline string literal should
+        # produce "Non-UTF-8 code starting with '\xNN'" not a codec error
+        excinfo = raises(SyntaxError, compile, b'print("""\n\xb1""")\n',
+                         "dummy", "exec")
+        assert str(excinfo.value).startswith("Non-UTF-8 code starting with '\\xb1'")
+
     def test_cpython_issues_24022_25388(self):
         from _ast import PyCF_ACCEPT_NULL_BYTES
         raises(SyntaxError, compile, b'0000\x00\n00000000000\n\x00\n\x9e\n',
