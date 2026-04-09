@@ -118,9 +118,7 @@ class W_BytesIO(W_BufferedIOBase):
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_exports(space)
-        view = space.buffer_w(w_data, space.BUF_CONTIG_RO)
-        buf = view.as_str()
-        view.releasebuffer()
+        buf = space.buffer_w(w_data, space.BUF_CONTIG_RO).as_str()
         length = len(buf)
         if length <= 0:
             return space.newint(0)

@@ -223,7 +223,6 @@ class W_MMap(W_Root):
                     raise
                 buf = space.buffer_w(w_value, space.BUF_FULL_RO)
                 value = buf.as_str()
-                buf.releasebuffer()
             if len(value) != length:
                 raise oefmt(space.w_ValueError,
                             "mmap slice assignment is wrong size")

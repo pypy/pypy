@@ -1628,17 +1628,13 @@ def save_bytearray(self, w_obj):
     space = self.space
     n = space.len_w(w_obj)
     if self.proto >= 5:
-        view = space.buffer_w(w_obj, 0)
-        obj = view.as_str()
-        view.releasebuffer()
+        obj = space.buffer_w(w_obj, 0).as_str()
         save_raw_bytearray(self, n, obj)
         self.memoize(w_obj)
     elif n == 0:
         self.save_reduce(space.w_bytearray, space.newtuple([]), w_obj=w_obj)
     else:
-        view = space.buffer_w(w_obj, 0)
-        obj = view.as_str()
-        view.releasebuffer()
+        obj = space.buffer_w(w_obj, 0).as_str()
         w_bytes = space.newbytes(obj)
         self.save_reduce(space.w_bytearray, space.newtuple([w_bytes]), w_obj=w_obj)
 
