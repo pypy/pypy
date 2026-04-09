@@ -3714,6 +3714,8 @@ def frombytes_int(s, byteorder, signed):
 
     if sign == -1:
         assert result < 0
+    elif not signed and result < 0:
+        raise OverflowError("value does not fit in int")
 
     return result
 
