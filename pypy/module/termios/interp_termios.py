@@ -50,8 +50,9 @@ def tcgetattr(space, w_fd):
     l_w = [space.newint(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
     # last one need to be chosen carefully
     cc_w = [space.newbytes(i) for i in cc]
-    cc_w[rtermios.VMIN] = space.newint(ord(cc[rtermios.VMIN][0]))
-    cc_w[rtermios.VTIME] = space.newint(ord(cc[rtermios.VTIME][0]))
+    if not (lflag & rtermios.ICANON):
+        cc_w[rtermios.VMIN] = space.newint(ord(cc[rtermios.VMIN][0]))
+        cc_w[rtermios.VTIME] = space.newint(ord(cc[rtermios.VTIME][0]))
     w_cc = space.newlist(cc_w)
     l_w.append(w_cc)
     return space.newlist(l_w)
