@@ -1664,20 +1664,14 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
-            result = buf.as_readbuf()
-            buf.releasebuffer()
-            return result
+            return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            buf = self._try_buffer_w(w_obj, self.BUF_WRITABLE)
-            result = buf.as_writebuf()
-            buf.releasebuffer()
-            return result
+            return self._try_buffer_w(w_obj, self.BUF_WRITABLE).as_writebuf()
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 

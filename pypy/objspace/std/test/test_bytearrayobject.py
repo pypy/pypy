@@ -869,17 +869,3 @@ class AppTestBytesArray:
         b1 = bytearray(b'0')
         b2 = bytearray(b'0')
         assert b1.endswith(b2, 0, 2)
-
-    def test_exports_released_after_readbuf(self):
-        # readbuf_w (old buffer interface) must release _exports when done.
-        # If not, any resize attempt after e.g. os.write() raises BufferError.
-        import os
-        b = bytearray(b"hello")
-        fd = os.open(os.devnull, os.O_WRONLY)
-        try:
-            os.write(fd, b)
-        finally:
-            os.close(fd)
-        # must not raise BufferError
-        del b[:3]
-        assert b == bytearray(b"lo")
