@@ -811,3 +811,8 @@ def test_unpickle_crash2():
     b = b'p\n'
     with raises(ValueError):
         pickle.loads(b)
+
+def test_unpickle_crash3():
+    b = b'F\n'
+    with raises(ValueError):
+        pickle.loads(b)

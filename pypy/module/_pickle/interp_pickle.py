@@ -2211,7 +2211,10 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.LONG4[0])] = load_long4
 
     def load_float(self):
-        f = float(self.readline())
+        try:
+            f = float(self.readline())
+        except ValueError:
+            raise oefmt(self.space.w_ValueError, "could not convert string to float")
         self.append(self.space.newfloat(f))
     dispatch[ord(op.FLOAT[0])] = load_float
 
