@@ -133,6 +133,15 @@ def _get_printable_location(opcode):
 jitdriver_load = jit.JitDriver(name="Unpickler.load", greens=["opcode"], reds="auto",
                                get_printable_location=_get_printable_location)
 
+def _get_printable_location(typ1, typ2, greenkey):
+    return 'Unpickler.load_setitems [%s, %s, %s]' % (
+        typ1, typ2,
+        greenkey.iterator_greenkey_printable()
+    )
+jitdriver_load_setitems = jit.JitDriver(name="Unpickler.load_setitems",
+                                        greens=["typ1", "typ2", "greenkey"], reds="auto",
+                                        get_printable_location=_get_printable_location)
+
 class Opcodes(object):
     MARK           = b'('   # push special markobject on stack
     STOP           = b'.'   # every pickle ends with STOP
@@ -2737,7 +2746,12 @@ class W_Unpickler(W_Root):
             raise oefmt(unpickling_error(self.space),
                 "odd number of items for SETITEMS")
         w_dict = self._stack_top("SETITEMS")
+        greenkey = self.space.iterator_greenkey(w_dict)
         for i in range(0, len(items_w), 2):
+            jitdriver_load_setitems.jit_merge_point(
+                typ1=type(items_w[i]), typ2=type(items_w[i+1]),
+                greenkey=greenkey
+            )
             self.space.setitem(w_dict, items_w[i], items_w[i + 1])
     dispatch[ord(op.SETITEMS[0])] = load_setitems
 
