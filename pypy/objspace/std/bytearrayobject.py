@@ -41,7 +41,6 @@ class W_BytearrayObject(W_Root):
         self._offset = 0
         # NOTE: the bytearray data is in 'self._data[self._offset:]'
         check_nonneg(self._offset)
-        self._exports = 0   # count of active buffer exports
         _tweak_for_tests(self)
 
     def getdata(self):
@@ -56,13 +55,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:-1]))
 
     def buffer_w(self, space, flags):
-        self._exports += 1
         return SimpleView(BytearrayBuffer(self), w_obj=self)
-
-    def _check_exports(self, space):
-        if self._exports > 0:
-            raise oefmt(space.w_BufferError,
-                "Existing exports of data: object cannot be re-sized")
 
     def bytearray_list_of_chars_w(self, space):
         return self._val(space)
@@ -374,7 +367,6 @@ class W_BytearrayObject(W_Root):
         return space.w_True
 
     def descr_inplace_add(self, space, w_other):
-        self._check_exports(space)
         if isinstance(w_other, W_BytearrayObject):
             other_data = w_other.getdata()[:-1]
         else:
@@ -393,7 +385,6 @@ class W_BytearrayObject(W_Root):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        self._check_exports(space)
         data = self.getdata()
         # pop off the null byte
         if data:
@@ -406,8 +397,6 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_index, W_SliceObject):
             sequence2 = makebytesdata_w(space, w_other)
             start, stop, step, slicelength = self._unpack_slice(space, w_index)
-            if len(sequence2) != slicelength:
-                self._check_exports(space)
             if start == 0 and step == 1 and len(sequence2) <= slicelength:
                 self._delete_from_start(slicelength - len(sequence2))
                 slicelength = len(sequence2)
@@ -423,7 +412,6 @@ class W_BytearrayObject(W_Root):
             self._data[self._fixindex(space, idx)] = newvalue
 
     def descr_delitem(self, space, w_idx):
-        self._check_exports(space)
         if isinstance(w_idx, W_SliceObject):
             start, stop, step, slicelength = self._unpack_slice(space, w_idx)
             if start == 0 and step == 1:
@@ -446,14 +434,12 @@ class W_BytearrayObject(W_Root):
                              _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
-        self._check_exports(space)
         data = self.getdata()
         location = len(data) - 1
         assert location >= 0
         data.insert(location, space.byte_w(w_item))
 
     def descr_extend(self, space, w_other):
-        self._check_exports(space)
         if isinstance(w_other, W_BytearrayObject):
             other_data = list(w_other.getdata()[:-1])
         elif isinstance(w_other, W_BytesObject):    # performance only
@@ -468,7 +454,6 @@ class W_BytearrayObject(W_Root):
         data.append("\0")
 
     def descr_insert(self, space, w_idx, w_other):
-        self._check_exports(space)
         where = space.int_w(w_idx)
         data = self.getdata()
         index = get_positive_index(where, len(data) - 1)
@@ -477,7 +462,6 @@ class W_BytearrayObject(W_Root):
 
     @unwrap_spec(w_idx=WrappedDefault(-1))
     def descr_pop(self, space, w_idx):
-        self._check_exports(space)
         index = space.int_w(w_idx)
         if self._len() == 0:
             raise oefmt(space.w_IndexError, "pop from empty bytearray")
@@ -486,7 +470,6 @@ class W_BytearrayObject(W_Root):
         return space.newint(ord(result))
 
     def descr_remove(self, space, w_char):
-        self._check_exports(space)
         char = space.int_w(space.index(w_char))
         _data = self._data
         for index in range(self._offset, len(_data) - 1):
@@ -516,7 +499,6 @@ class W_BytearrayObject(W_Root):
             data[i] = tmp
 
     def descr_clear(self, space):
-        self._check_exports(space)
         self._data = ["\0"]
         self._offset = 0
 
@@ -610,7 +592,9 @@ class W_BytearrayObject(W_Root):
         return self._getitem_result(space, index)
 
     def descr_releasebuffer(self, w_view):
-        self._exports -= 1
+        # in CPython this decrements a counter that is incremented by getbuffer,
+        # and the counter is checked at deallocation. Used in the C-API
+        return None
 
 # ____________________________________________________________
 
@@ -1494,10 +1478,6 @@ class BytearrayBuffer(GCBuffer):
         p = nonmoving_raw_ptr_for_resizable_list(ba._data)
         p = rffi.ptradd(p, ba._offset)
         return p
-
-    def releasebuffer(self):
-        assert self.ba._exports > 0, "_exports underflow in BytearrayBuffer.releasebuffer"
-        self.ba._exports -= 1
 
     @staticmethod
     def _get_gc_data_offset():

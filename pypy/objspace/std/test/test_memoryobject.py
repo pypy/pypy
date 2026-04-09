@@ -243,12 +243,12 @@ class AppTestMemoryView(object):
                 return 1
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        with raises(BufferError):
+        with raises(IndexError):
             v[A()]
 
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        with raises(BufferError):
+        with raises(IndexError):
             v[A()] = b'z'
 
     def test_hex(self):

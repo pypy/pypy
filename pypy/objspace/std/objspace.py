@@ -378,10 +378,11 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
+    def newmemoryview(self, w_obj):
+        return W_MemoryView(w_obj)
+
     def newmemoryview(self, view):
-        mv = W_MemoryView(view)
-        mv.register_finalizer(self)
-        return mv
+        return W_MemoryView(view)
 
     def newbytes(self, s):
         assert isinstance(s, bytes)

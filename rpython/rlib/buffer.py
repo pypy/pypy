@@ -124,9 +124,6 @@ class Buffer(object):
             msg += " '%s'" % (self,)
         raise ValueError(msg)
 
-    def releasebuffer(self):
-        pass
-
 
 class RawBuffer(Buffer):
     """

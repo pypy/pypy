@@ -87,20 +87,3 @@ class AppTestBuffer(AppTestCpythonExtensionBase):
         ret = module.getbuffer(buf)
         for i in range(2000):
             assert ret == 0, "failed in iteration %d" % i
-
-    def test_bytearray_release_buffer_unlocks_resize(self):
-        # After PyBuffer_Release the bytearray must be resizable again.
-        module = self.import_extension("foo", [
-            ("acquire_and_release", "METH_O",
-             """
-             Py_buffer buf;
-             if (PyObject_GetBuffer(args, &buf, PyBUF_SIMPLE) < 0)
-                 return NULL;
-             PyBuffer_Release(&buf);
-             Py_RETURN_NONE;
-             """),
-        ])
-        b = bytearray(b'hello')
-        module.acquire_and_release(b)
-        b.append(ord('x'))   # must not raise BufferError
-        assert b == bytearray(b'hellox')
