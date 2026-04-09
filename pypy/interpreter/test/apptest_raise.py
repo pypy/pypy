@@ -655,3 +655,28 @@ def test_invalid_cause_setter():
         assert "exception cause" in str(e)
     else:
         fail("Expected TypeError")
+
+def test_reraise_with_cleared_traceback():
+    try:
+        try:
+            raise ValueError("err")
+        except ValueError as err:
+            err.__traceback__ = None
+            raise
+    except ValueError as err:
+        assert err.__traceback__ is None
+
+def test_reraise_with_replaced_traceback():
+    import sys
+    try:
+        raise KeyError
+    except KeyError:
+        othr = sys.exc_info()[2]
+    try:
+        try:
+            raise ValueError("err")
+        except ValueError as err:
+            err.__traceback__ = othr
+            raise
+    except ValueError as err:
+        assert err.__traceback__ is othr
