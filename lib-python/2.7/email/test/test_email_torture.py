@@ -31,7 +31,7 @@ except IOError:
     raise TestSkipped
 
 
-
+
 class TortureBase(TestEmailBase):
     def _msgobj(self, filename):
         fp = openfile(filename)
@@ -42,7 +42,7 @@ class TortureBase(TestEmailBase):
         return msg
 
 
-
+
 class TestCrispinTorture(TortureBase):
     # Mark Crispin's torture test from the SquirrelMail project
     def test_mondo_message(self):
@@ -113,7 +113,7 @@ multipart/mixed
                         audio/x-sun
 """)
 
-
+
 def _testclasses():
     mod = sys.modules[__name__]
     return [getattr(mod, name) for name in dir(mod) if name.startswith('Test')]
@@ -131,6 +131,6 @@ def test_main():
         run_unittest(testclass)
 
 
-
+
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

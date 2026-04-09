@@ -26,7 +26,7 @@ class UnitTestCase(pytest.Class):
     # marker for fixturemanger.getfixtureinfo()
     # to declare that our children do not support funcargs
     nofuncargs = True
-                                              
+
     def setup(self):
         cls = self.obj
         if getattr(cls, '__unittest_skip__', False):

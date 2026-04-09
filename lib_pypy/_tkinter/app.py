@@ -46,7 +46,7 @@ def Tcl_AppInit(app):
         tk_path = join(lib_path, 'tk')
     if exists(tcl_path):
         tklib.Tcl_Eval(app.interp, 'set tcl_library "{0}"'.format(tcl_path).encode('utf-8'))
-    if exists(tk_path):    
+    if exists(tk_path):
         tklib.Tcl_Eval(app.interp, 'set tk_library "{0}"'.format(tk_path).encode('utf-8'))
 
     if tklib.Tcl_Init(app.interp) == tklib.TCL_ERROR:

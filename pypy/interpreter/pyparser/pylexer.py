@@ -212,7 +212,7 @@ def simplifyTempDfa (tempStates):
 
 def finalizeTempDfa (tempStates):
     """finalizeTempDfa (tempStates)
-    
+
     Input domain:
     tempState := [ nfaClosure : Long, [ tempArc ], accept : Boolean ]
     tempArc := [ label, arrow, nfaClosure ]

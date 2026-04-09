@@ -54,7 +54,7 @@ Hooks`_.  The following code is roughly equivalent to a ``gc.collect()``::
     while True:
         if gc.collect_step().major_is_done:
             break
-  
+
 For a real-world example of usage of this API, you can look at the 3rd-party
 module `pypytools.gc.custom`_, which also provides a ``with customgc.nogc()``
 context manager to mark sections where the GC is forbidden.
@@ -95,7 +95,7 @@ so it's disabled by default due to its cost. Enable it when debugging
 mysterious memory disappearance.
 
 Example call looks like that::
-    
+
     >>> gc.get_stats(True)
     Total memory consumed:
     GC used:            4.2MB (peak: 4.2MB)
@@ -116,7 +116,7 @@ Example call looks like that::
     memory pressure:    0.0kB
     -----------------------------
     Total:                   4.5MB
-    
+
 In this particular case, which is just at startup, GC consumes relatively
 little memory and there is even less unused, but allocated memory. In case
 there is a lot of unreturned memory or actual fragmentation, the "allocated"
@@ -207,7 +207,7 @@ The attributes for ``GcMinorStats`` in the ``on_gc_minor`` hook are:
 
 ``duration_min``
     The duration of the fastest minor collection since the last hook call.
-    
+
 ``duration_max``
     The duration of the slowest minor collection since the last hook call.
 

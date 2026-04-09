@@ -31,11 +31,11 @@ class FakeFFI(object):
     Context manager to monkey patch jit_libffi with our custom "libffi-like"
     function
     """
-    
+
     def __init__(self, fake_call_impl_any):
         self.fake_call_impl_any = fake_call_impl_any
         self.monkey = monkeypatch()
-        
+
     def __enter__(self, *args):
         self.monkey.setattr(jit_libffi, 'jit_ffi_call_impl_any', self.fake_call_impl_any)
 
@@ -323,7 +323,7 @@ class FfiCallTests(object):
             assert f() == 100
             res = self.meta_interp(f, [])
             assert res == 100
-        
+
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     def test_jit_ffi_vref(self):

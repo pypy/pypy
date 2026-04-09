@@ -12,7 +12,7 @@ def no_vector_backend():
     if IS_X86:
         from rpython.jit.backend.x86.detect_feature import detect_sse4_2
         if sys.maxsize < 2**31:
-            return True    
+            return True
         return not detect_sse4_2()
     if platform.machine().startswith('ppc'):
         from rpython.jit.backend.ppc.detect_feature import detect_vsx

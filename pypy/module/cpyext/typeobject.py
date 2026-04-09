@@ -238,7 +238,7 @@ def methoddescr_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-def wrapperdescr_attach(space, py_obj, w_obj, w_userdata=None): 
+def wrapperdescr_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, W_PyCWrapperObject)
     py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
     init_descr(space, py_obj, w_obj.w_objclass, w_obj.getname(space))

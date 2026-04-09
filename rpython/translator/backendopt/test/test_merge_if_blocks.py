@@ -65,7 +65,7 @@ def test_merge1():
             return u'c'
         return u'd'
     do_test_merge(merge_uchr, range(96, 101))
-    
+
 def test_merge_passonvars():
     def merge(n, m):
         if n == 1:
@@ -212,7 +212,7 @@ def test_replace_exitswitch_by_constant_bug():
         elif n == 4: return -123
         elif n == 5: return 12973
         else: return n
-    
+
     t = TranslationContext()
     a = t.buildannotator()
     a.build_types(fn, [])

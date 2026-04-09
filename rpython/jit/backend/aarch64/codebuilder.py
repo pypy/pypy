@@ -97,13 +97,13 @@ class AbstractAarch64Builder(object):
         base = 0b111100101
         assert 0 <= immed < 1 << 16
         assert shift in (0, 16, 32, 48)
-        self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd) 
+        self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd)
 
     def MOVZ_r_u16(self, rd, immed, shift):
         base = 0b110100101
         assert 0 <= immed < 1 << 16
         assert shift in (0, 16, 32, 48)
-        self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd) 
+        self.write32((base << 23) | (shift >> 4 << 21) | (immed << 5) | rd)
 
     def MOVN_r_u16(self, rd, immed):
         base = 0b10010010100
@@ -178,7 +178,7 @@ class AbstractAarch64Builder(object):
 
     def LDR_uint32_rr(self, rt, rn, rm):
         base = 0b10111000011
-        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)        
+        self.write32((base << 21) | (rm << 16) | (0b011010 << 10) | (rn << 5) | rt)
 
     def LDRH_rr(self, rt, rn, rm):
         base = 0b01111000011
@@ -283,11 +283,11 @@ class AbstractAarch64Builder(object):
 
     def SXTH_rr(self, rd, rn):
         base = 0b1001001101000000001111
-        self.write32((base << 10) | (rn << 5) | rd)        
+        self.write32((base << 10) | (rn << 5) | rd)
 
     def SXTW_rr(self, rd, rn):
         base = 0b1001001101000000011111
-        self.write32((base << 10) | (rn << 5) | rd)        
+        self.write32((base << 10) | (rn << 5) | rd)
 
     def FSQRT_dd(self, rd, rn):
         base = 0b0001111001100001110000

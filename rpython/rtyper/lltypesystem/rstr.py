@@ -100,7 +100,7 @@ def _new_copy_contents_fun(SRC_TP, DST_TP, CHAR_TP, name):
                 dst.chars[dststart + i] = src.chars[srcstart + i]
                 i += 1
             return
-        #  
+        #
         #
         # from here, no GC operations can happen
         asrc = _get_raw_buf(SRC_TP, src, srcstart)

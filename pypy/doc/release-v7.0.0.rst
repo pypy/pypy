@@ -12,7 +12,7 @@ three different interpreters:
 
   - PyPy3.6-alpha: this is the first official release of PyPy to support 3.6
     features, although it is still considered alpha quality.
-    
+
 All the interpreters are based on much the same codebase, thus the triple
 release.
 

@@ -1,7 +1,7 @@
 """disassembler of Python byte code into mnemonics.
 
-XXX this only works for python-2.3 because of the linenumber 
-    optimization 
+XXX this only works for python-2.3 because of the linenumber
+    optimization
 
 """
 
@@ -17,7 +17,7 @@ EXTENDED_ARG = stdlib_opcode.opcodedesc.EXTENDED_ARG.index
 
 class Bytecode:
     def __init__(self, disresult, bytecodeindex, oparg, lineno):
-        self.disresult = disresult 
+        self.disresult = disresult
         self.index = bytecodeindex
         self.op = ord(disresult.code.co_code[self.index])
         self.name = opname[self.op]
@@ -25,7 +25,7 @@ class Bytecode:
         self.lineno = lineno
 
     def __eq__(self, other):
-        return (self.__class__ == other.__class__ and 
+        return (self.__class__ == other.__class__ and
                 self.index == other.index and
                 self.op == other.op and
                 self.name == other.name and
@@ -41,7 +41,7 @@ class Bytecode:
             return ''
         co = self.disresult.code
         op = self.op
-        
+
         s = repr(oparg).rjust(5) + " "
         if op in hasconst:
             consts = self.get_consts(space)
@@ -58,7 +58,7 @@ class Bytecode:
             #if free is None:
             free = co.co_cellvars + co.co_freevars
             s +=  '(' + free[oparg] + ')'
-        return s 
+        return s
 
     def get_consts(self, space=None):
         # support both real code objects and PyCode objects
@@ -68,7 +68,7 @@ class Bytecode:
 
         if space is None:
             return [repr(c) for c in co.co_consts_w]
-        
+
         r = lambda x: space.str_w(space.repr(x))
         return [r(c) for c in co.co_consts_w]
 
@@ -79,13 +79,13 @@ class Bytecode:
         return self.name + self.reprargstring()
 
 class DisResult:
-    """ an instance of this class gets returned for disassembling 
-        objects/functions/code objects whatever.    
+    """ an instance of this class gets returned for disassembling
+        objects/functions/code objects whatever.
     """
     def __init__(self, code):
         self.code = code
         self.bytecodes = []
-   
+
     def append(self,  bytecodeindex, oparg, lineno):
         """ append bytecode anaylsis information ..."""
         bc = Bytecode(self, bytecodeindex, oparg, lineno)
@@ -111,7 +111,7 @@ class DisResult:
             else:
                 l.append("   ")
             l.append(bc.index in labels and ">>" or "  ")
-            l.append(repr(bc.index).rjust(4)) 
+            l.append(repr(bc.index).rjust(4))
             l.append(bc.name.ljust(20))
             l.append(bc.reprargstring())
             lines.append(" ".join(l))
@@ -119,14 +119,14 @@ class DisResult:
 
     __repr__ = format
 
-def pydis(co): 
+def pydis(co):
     """return result of dissassembling a code object. """
 
     if hasattr(co, 'func_code'):
-        co = co.func_code 
+        co = co.func_code
 
     if hasattr(co, 'code'):
-        co = co.code 
+        co = co.code
 
     disresult = DisResult(co)
     code = co.co_code

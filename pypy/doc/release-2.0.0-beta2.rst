@@ -23,7 +23,7 @@ make it happen before the 2.0 final. The new major features are:
 
 You can download the PyPy 2.0 beta 2 release here:
 
-    https://pypy.org/download.html 
+    https://pypy.org/download.html
 
 What is PyPy?
 =============

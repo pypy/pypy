@@ -244,7 +244,7 @@ def write_int(f, l):
                 chr((l >> 16) & 0xff) +
                 chr((l >> 24) & 0xff))
     else:
-        f.write(chr(l & 0xff) + 
+        f.write(chr(l & 0xff) +
                 chr((l >> 8) & 0xff) +
                 chr((l >> 16) & 0xff) +
                 chr((l >> 24) & 0xff) +

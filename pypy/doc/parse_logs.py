@@ -52,7 +52,7 @@ if __name__ == "__main__":
 
     def path_guesser(path):
         return "pypy" in path
-    
+
     keys, ret = read_log(sys.argv[1], path_guesser, max_reads=max_reads)
     for key in keys:
         year, month, day = key

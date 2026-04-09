@@ -7,7 +7,7 @@ exclude_files = ["__init__.py", "conftest.py"]
 
 def include_file(path):
     if ("test" in str(path) or "tool" in str(path) or
-        "documentation" in str(path) or 
+        "documentation" in str(path) or
         "_cache" in str(path)):
         return False
     if path.basename in exclude_files:

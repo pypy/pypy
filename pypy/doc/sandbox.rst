@@ -55,7 +55,7 @@ that are normally only present in debugging versions.
    an unsandboxed PyPy).  Contributions welcome.
 
 .. warning::
-  
+
   Tested with PyPy2.  May not work out of the box with PyPy3.
 
 

@@ -48,7 +48,7 @@ def test_get_clock_range():
     minclock, maxclock = log2gnumeric.get_clock_range(log)
     assert minclock == 0x1000
     assert maxclock == 0xa000
-    
+
 
 def test_gc_collect_rows():
     rows = list(log2gnumeric.gc_collect_rows(0x1000, log))
@@ -56,7 +56,7 @@ def test_gc_collect_rows():
     assert rows[0] == (      'clock', 'gc-before', 'gc-after')
     assert rows[1] == (0x3000-0x1000,     500+100,    300+ 50)
     assert rows[2] == (0x5000-0x1000,     600+200,    400+100)
-    
+
 def test_tasks_rows():
     rows = list(log2gnumeric.tasks_rows(0x1000, log))
     assert len(rows) == 3

@@ -181,7 +181,7 @@ def rAssertAlmostEqual(a, b, rel_err = 2e-15, abs_err = 5e-323, msg=''):
 def test_specific_values():
     #if not float.__getformat__("double").startswith("IEEE"):
     #    return
-    
+
     import rpython
     # too fragile...
     fname = os.path.join(os.path.dirname(rpython.rlib.__file__), 'test', 'rcomplex_testcases.txt')

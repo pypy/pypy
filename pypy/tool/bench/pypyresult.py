@@ -18,15 +18,15 @@ class ResultDB(object):
 
     def getbenchmarks(self, name=None):
         l = []
-        for bench in self.benchmarks: 
+        for bench in self.benchmarks:
             if name is not None and name != bench.name:
                 continue
             l.append(bench)
-        return l 
+        return l
 
 class BenchResult(object):
     def __init__(self, id, besttime, numruns):
-        self._id = id 
+        self._id = id
         if id.startswith("./"):
             id = id[2:]
         if id.startswith("pypy"):
@@ -49,10 +49,10 @@ class BenchResult(object):
         self.numruns = numruns
     def __repr__(self):
         return "<BenchResult %r>" %(self._id, )
-            
+
 
 if __name__ == "__main__":
     x = py.path.local(__file__).dirpath("bench-unix.benchmark_result")
     db = ResultDB()
     db.parsepickle(x)
-    
+

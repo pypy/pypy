@@ -4,7 +4,7 @@ import pytest
 
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
-only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names" 
+only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 class AppTestThread(AppTestCpythonExtensionBase):
     @pytest.mark.skipif(only_pypy, reason='pypy only test')

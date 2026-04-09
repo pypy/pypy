@@ -41,7 +41,7 @@ if not os.path.exists(test1) or not os.path.exists(test0):
         return internal_sum(a, b);
     }
     '''))
-    eci = ExternalCompilationInfo(include_dirs=[cdir], 
+    eci = ExternalCompilationInfo(include_dirs=[cdir],
                         libraries=[loadtest_dir + '/loadtest0' + arch])
     lib_name = str(platform.compile([c_file], eci, test1[:-4],
                    standalone=False, ))

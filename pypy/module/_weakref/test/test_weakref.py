@@ -59,7 +59,7 @@ class AppTestWeakref(object):
         del a1
         gc.collect()
         assert a2.x == 42
-        
+
     def test_dont_callback_if_weakref_dead(self):
         import _weakref, gc
         class A(object):
@@ -341,7 +341,7 @@ class AppTestWeakref(object):
 
 class AppTestProxy(object):
     spaceconfig = dict(usemodules=('_weakref',))
-                    
+
     def test_simple(self):
         import _weakref, gc
         class A(object):

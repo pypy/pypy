@@ -3,7 +3,7 @@ import errno
 class AppTestErrno:
     spaceconfig = dict(usemodules=['errno'])
 
-    def setup_class(cls): 
+    def setup_class(cls):
         cls.w_errno = cls.space.appexec([], "(): import errno ; return errno")
         cls.w_errorcode = cls.space.wrap(errno.errorcode)
 

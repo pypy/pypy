@@ -9,7 +9,7 @@ from rpython.translator.translator import graphof
 def test_canrelease_external():
     for rel in ['auto', True, False]:
         for sbxs in [True, False]:
-            fext = rffi.llexternal('fext2', [], lltype.Void, 
+            fext = rffi.llexternal('fext2', [], lltype.Void,
                                    releasegil=rel, sandboxsafe=sbxs)
             def g():
                 fext()
@@ -49,7 +49,7 @@ def test_no_release_gil():
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     gilanalysis.analyze(t.graphs, t)
 
@@ -69,7 +69,7 @@ def test_no_release_gil_detect(gc="minimark"):
 
     def entrypoint(argv):
         return g() + 2
-    
+
     t = rtype(entrypoint, [s_list_of_strings])
     f = py.test.raises(Exception, gilanalysis.analyze, t.graphs, t)
     expected = "'no_release_gil' function can release the GIL: <function g at "

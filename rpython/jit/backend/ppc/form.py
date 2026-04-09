@@ -40,7 +40,7 @@ class IBoundDesc(object):
         for i in range(min(len(self.desc.defaults), len(fieldsleft) - len(args))):
             f, v = self.desc.defaults[i]
             fieldvalues[f] = v
-            fieldsleft.remove(f)            
+            fieldsleft.remove(f)
         for a in args:
             field = fieldsleft.pop(0)
             fieldvalues[field] = a

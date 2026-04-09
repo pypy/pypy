@@ -7,7 +7,7 @@ from test import test_support
 import sys
 
 
-
+
 class TestIsInstanceExceptions(unittest.TestCase):
     # Test to make sure that an AttributeError when accessing the instance's
     # class's bases is masked.  This was actually a bug in Python 2.2 and
@@ -83,7 +83,7 @@ class TestIsInstanceExceptions(unittest.TestCase):
         self.assertRaises(TypeError, isinstance, I(), C())
 
 
-
+
 # These tests are similar to above, but tickle certain code paths in
 # issubclass() instead of isinstance() -- really PyObject_IsSubclass()
 # vs. PyObject_IsInstance().
@@ -133,7 +133,7 @@ class TestIsSubclassExceptions(unittest.TestCase):
         self.assertRaises(TypeError, issubclass, B, C())
 
 
-
+
 # meta classes for creating abstract classes and instances
 class AbstractClass(object):
     def __init__(self, bases):
@@ -174,7 +174,7 @@ class NewChild(NewSuper):
     pass
 
 
-
+
 class TestIsInstanceIsSubclass(unittest.TestCase):
     # Tests to ensure that isinstance and issubclass work on abstract
     # classes and instances.  Before the 2.2 release, TypeErrors were
@@ -275,7 +275,7 @@ def blowstack(fxn, arg, compare_to):
         tuple_arg = (tuple_arg,)
         fxn(arg, tuple_arg)
 
-
+
 def test_main():
     test_support.run_unittest(
         TestIsInstanceExceptions,

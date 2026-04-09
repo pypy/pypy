@@ -14,7 +14,7 @@ import os
 #
 # Bumped to 10.15 on py3.9+ for variadic arg handling in HPy
 # Note this is not used on arm64 builds.
-# 
+#
 # Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
 # lib_pypy/_sysconfigdata.py
 #

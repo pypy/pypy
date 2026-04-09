@@ -47,7 +47,7 @@ test: NUMBER;
     t = parse("((a, b, c),b,c,d=2,**kwargs)").visit(ToAST())[0]
     t = parse("((a, b, c),b,c,(c, d)=4,*args, **args)").visit(ToAST())[0]
     t = parse("(self, a, b, args)").visit(ToAST())[0]
-    
+
 def test_parse_funcdef():
     regexs, rules, ToAST = parse_ebnf("""
 IGNORE: " ";
@@ -165,13 +165,13 @@ def f(x):
 print >> f, a, b, c,
 print >> f, a, b
 print >> f
-print 
+print
 print 1
 print 1, 2
-print 1, 2,  
+print 1, 2,
 """)
         t = self.ToAST.transform(t)
- 
+
     def test_assignment(self):
         t = self.parse("""
 a = 1

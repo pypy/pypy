@@ -22,4 +22,4 @@ def test_pycparser_version():
     # if this fails, the vendored pycparser is not the latest version
     # lib_pypy/cffi/_pycparser/README
     assert source.strip() == dest.strip()
-    
+

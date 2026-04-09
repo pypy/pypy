@@ -9,7 +9,7 @@ actually implementing argv of the executable.
 
 import os, sys
 
-def debug(msg): 
+def debug(msg):
     os.write(2, "debug: " + msg + '\n')
 
 # __________  Entry point  __________

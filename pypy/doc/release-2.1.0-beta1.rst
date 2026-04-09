@@ -10,7 +10,7 @@ Foundation`_ for supporting the work to finish PyPy's ARM support.
 
 You can download the PyPy 2.1 beta 1 release here:
 
-    https://pypy.org/download.html 
+    https://pypy.org/download.html
 
 .. _`Raspberry Pi Foundation`: https://www.raspberrypi.org
 

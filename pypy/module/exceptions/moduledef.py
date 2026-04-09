@@ -3,7 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
     appleveldefs = {}
-    
+
     interpleveldefs = {
         'ArithmeticError' : 'interp_exceptions.W_ArithmeticError',
         'AssertionError' : 'interp_exceptions.W_AssertionError',

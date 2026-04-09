@@ -19,7 +19,7 @@ class PreambleOp(AbstractResOp):
     See force_op_from_preamble for details how the extra things are put.
     """
     op = None
-    
+
     def __init__(self, op, preamble_op, invented_name):
         self.op = op
         self.preamble_op = preamble_op
@@ -204,7 +204,7 @@ class AbstractProducedShortOp(object):
 
 class ProducedShortOp(AbstractProducedShortOp):
     invented_name = False
-    
+
     def __init__(self, short_op, preamble_op):
         self.short_op = short_op
         self.preamble_op = preamble_op

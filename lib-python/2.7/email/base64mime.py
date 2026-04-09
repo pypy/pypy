@@ -47,7 +47,7 @@ EMPTYSTRING = ''
 MISC_LEN = 7
 
 
-
+
 # Helpers
 def base64_len(s):
     """Return the length of s when it is encoded with base64."""
@@ -60,7 +60,7 @@ def base64_len(s):
     return n
 
 
-
+
 def header_encode(header, charset='iso-8859-1', keep_eols=False,
                   maxlinelen=76, eol=NL):
     """Encode a single header line with Base64 encoding in a given charset.
@@ -118,7 +118,7 @@ def header_encode(header, charset='iso-8859-1', keep_eols=False,
     return joiner.join(lines)
 
 
-
+
 def encode(s, binary=True, maxlinelen=76, eol=NL):
     """Encode a string with base64.
 
@@ -156,7 +156,7 @@ body_encode = encode
 encodestring = encode
 
 
-
+
 def decode(s, convert_eols=None):
     """Decode a raw base64 string.
 

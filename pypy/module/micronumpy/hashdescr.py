@@ -25,7 +25,7 @@ def _array_descr_builtin(space, descr):
     # type_num + elsize + alignment
     nt = space.newtext
     ni = space.newint
-    return [nt(descr.kind), nt(nbyteorder), ni(descr.flags), 
+    return [nt(descr.kind), nt(nbyteorder), ni(descr.flags),
                            ni(descr.elsize), ni(descr.alignment)]
 
 def _array_descr_walk_fields(space, names, fields):
@@ -51,7 +51,7 @@ def _array_descr_walk_fields(space, names, fields):
         if not isinstance(value[1], W_Dtype):
             raise oefmt(space.w_SystemError,
                         "(Hash) item in compound dtype tuple not a descr ???")
-        
+
         sub_res = _array_descr_walk(space, value[1])
         for v in sub_res:
             res.append(v)
@@ -82,6 +82,6 @@ def _array_descr_walk(space, descr):
     if descr.subdtype:
         return _array_descr_walk_subarray(space, descr.subdtype)
     return _array_descr_builtin(space, descr)
-     
+
 
 

@@ -9,7 +9,7 @@ class AppTestProxyIter(AppProxy):
         def some(l):
             for i in l:
                 yield i
-        
+
         g = self.get_proxy(some([1,2,3]))
         assert list(g) == [1,2,3]
         g = self.get_proxy(some([1,2,3]))

@@ -40,7 +40,7 @@ def test_composite():
     assert b.signed[0] == 123
     b.signed[0] = 234
     assert s2.s.x == 234
-    
+
 def test_array():
     A = lltype.GcArray(lltype.Signed)
     x = lltype.malloc(A, 5)
@@ -85,7 +85,7 @@ def test_dont_mix_offsets_and_ints():
     o = AddressOffset()
     py.test.raises(TypeError, "1 + o")
     py.test.raises(TypeError, "o + 1")
-    
+
 def test_sizeof():
     # this is mostly an "assert not raises" sort of test
     array = lltype.Array(lltype.Signed)
@@ -421,7 +421,7 @@ def test_raw_free():
     py.test.raises(RuntimeError, "p_s.x = 2")
     repr(adr)
     str(p_s)
-    
+
     T = lltype.GcStruct('T', ('s', S))
     adr = raw_malloc(sizeof(T))
     p_s = cast_adr_to_ptr(adr, lltype.Ptr(S))
@@ -431,7 +431,7 @@ def test_raw_free():
     py.test.raises(RuntimeError, "p_s.x = 2")
     repr(adr)
     str(p_s)
-    
+
     U = lltype.Struct('U', ('y', lltype.Signed))
     T = lltype.GcStruct('T', ('x', lltype.Signed), ('u', U))
     adr = raw_malloc(sizeof(T))
@@ -446,10 +446,10 @@ def test_raw_free():
 
 def test_raw_free_with_hdr():
     from rpython.memory.gcheader import GCHeaderBuilder
-    
+
     HDR = lltype.Struct('h', ('t', lltype.Signed))
     gh = GCHeaderBuilder(HDR).size_gc_header
-    
+
     A = lltype.GcArray(lltype.Signed)
     adr = raw_malloc(gh+sizeof(A, 10))
     p_a = cast_adr_to_ptr(adr+gh, lltype.Ptr(A))
@@ -471,7 +471,7 @@ def test_raw_free_with_hdr():
     py.test.raises(RuntimeError, "p_s.x = 2")
     repr(adr)
     str(p_s)
-    
+
     T = lltype.GcStruct('T', ('s', S))
     adr = raw_malloc(gh+sizeof(T))
     p_s = cast_adr_to_ptr(adr+gh, lltype.Ptr(S))
@@ -482,7 +482,7 @@ def test_raw_free_with_hdr():
     py.test.raises(RuntimeError, "p_s.x = 2")
     repr(adr)
     str(p_s)
-    
+
     U = lltype.Struct('U', ('y', lltype.Signed))
     T = lltype.GcStruct('T', ('x', lltype.Signed), ('u', U))
     adr = raw_malloc(gh+sizeof(T))

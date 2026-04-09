@@ -212,7 +212,7 @@ class TestRunningAssembler(object):
         self.a.mc.ADD_ri(r.sp.value, r.sp.value, 8)
         self.a.gen_func_epilog()
         assert run_asm(self.a) == x
-    
+
     def test_stm(self):
         container = lltype.malloc(lltype.Array(lltype.Signed, hints={'nolength': True}), 10, flavor='raw')
         self.a.gen_func_prolog()

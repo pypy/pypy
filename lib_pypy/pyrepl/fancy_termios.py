@@ -49,4 +49,4 @@ class Term(TermState):
     def restore(self):
         self.TS__init__(self.stack.pop())
         self.set()
-        
+

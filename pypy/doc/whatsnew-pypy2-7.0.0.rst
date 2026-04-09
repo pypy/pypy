@@ -50,7 +50,7 @@ Enable use of unicode file names in `dlopen`
 
 .. branch: rlock-in-rpython
 
-Backport CPython fix for `thread.RLock` 
+Backport CPython fix for `thread.RLock`
 
 
 .. branch: expose-gc-time

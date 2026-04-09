@@ -53,5 +53,5 @@ def test_composition(s, space, NF1, NF2, NF3):
     assert norm2(norm1(s)) == norm3(s)
 
 if sys.maxunicode != 65535:
-    # conditionally generate the example via an unwrapped decorator    
+    # conditionally generate the example via an unwrapped decorator
     test_composition = example(s=u'\ufacf')(test_composition)

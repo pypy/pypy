@@ -560,7 +560,7 @@ def test_unboxed_compute_indices():
     assert aa.storageindex == 1
     assert aa.firstunwrapped
     assert aa.listindex == 0
-    
+
     c = UnboxedPlainAttribute("c", DICT, aa, 0, int)
     assert c.storageindex == 1
     assert c.listindex == 1
@@ -1064,7 +1064,7 @@ def test_specialized_class_overflow():
         for j in range(i + 1, 20):
             assert obj.getdictvalue(space, str(j)) is objs[(j + 1) % len(objs)]
 
- 
+
 # ___________________________________________________________
 # integration tests
 

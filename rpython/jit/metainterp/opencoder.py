@@ -14,7 +14,7 @@ in _snapshot_array_data.
 
 Top snapshots start with:
     vable_array_index
-    vref_array_index 
+    vref_array_index
     ... then continue like a normal snapshot
 
 regular snapshots:
@@ -297,7 +297,7 @@ class TraceIterator(BaseTrace):
         res = ord(self.trace._ops[self.pos])
         self.pos += 1
         return res
-        
+
     def _next(self):
         if self.done():
             raise IndexError

@@ -196,7 +196,7 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
                 mod = PyImport_ImportModule("datetime");
                 if (mod == NULL) INITERROR;
                 dt = PyString_FromString("datetime");
-                datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod, dt); 
+                datetime_cls = (PyTypeObject*)PyObject_GetAttr(mod, dt);
                 if (datetime_cls == NULL) INITERROR;
                 _Timestamp.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
                 _Timestamp.tp_base = datetime_cls;

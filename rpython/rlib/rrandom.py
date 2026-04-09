@@ -35,7 +35,7 @@ class Random(object):
             # See Knuth TAOCP Vol2. 3rd Ed. P.106 for multiplier.
             # In the previous versions, MSBs of the seed affect
             # only MSBs of the array mt[].
-            # for >32 bit machines 
+            # for >32 bit machines
             mt[mti] &= MASK_32
         self.index = N
 

@@ -21,7 +21,7 @@ The JIT no longer performs loop unrolling if the loop compiles to too much code.
 
 .. branch: run-create_cffi_imports
 
-Build cffi import libraries as part of translation by monkey-patching an 
+Build cffi import libraries as part of translation by monkey-patching an
 additional task into translation
 
 .. branch: int-float-list-strategy

@@ -91,7 +91,7 @@ class IntOpAssembler(object):
         mc.LPGR(l1, l1)
         mc.MLGR(lr, l1)
         mc.LGHI(r.SCRATCH, l.imm(-1))
-        # 0xff -> shift 0 -> 0xff set MSB on pos 0 to zero -> 7f 
+        # 0xff -> shift 0 -> 0xff set MSB on pos 0 to zero -> 7f
         mc.RISBG(r.SCRATCH, r.SCRATCH, l.imm(1), l.imm(0x80 | 63), l.imm(0))
         jmp_lq_overflow = mc.get_relative_pos()
         mc.reserve_cond_jump() # CLGRJ lq > 0x7fff ... ff -> (label_overflow)

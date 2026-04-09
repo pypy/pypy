@@ -209,7 +209,7 @@ def get_sys_executable():
 
 def print_help(*args):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     print 'usage: %s [option] ... [-c cmd | -m mod | file | -] [arg] ...' % (
@@ -333,7 +333,7 @@ def initstdio(unbuffered=False):
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()
@@ -353,7 +353,7 @@ def setup_and_fix_paths(ignore_environment=False, **extra):
 
 def set_stdio_encodings(ignore_environment):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()

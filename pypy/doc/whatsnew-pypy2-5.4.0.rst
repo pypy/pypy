@@ -55,7 +55,7 @@ errno.
 
 .. branch: PyTuple_Type-subclass
 
-Refactor PyTupleObject to look like cpython's and allow subclassing 
+Refactor PyTupleObject to look like cpython's and allow subclassing
 PyTuple_Type
 
 .. branch: call-via-pyobj

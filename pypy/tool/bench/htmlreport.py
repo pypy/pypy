@@ -16,32 +16,32 @@ from result import (
     PerfTable
 )
 
-    
+
 class Page:
     """generates a benchmark summary page
     The generated page is self contained, all images are inlined. The
     page refers to a local css file 'benchmark_report.css'.
     """
-    
+
     def __init__(self, perftable=None):
         """perftable is of type PerfTable"""
         self.perftable = perftable
 
     def render(self):
         """return full rendered page html tree for the perftable."""
-        
+
         perftable = self.perftable
         testid2collections = perftable.get_testid2collections()
 
-        # loop to get per-revision collection and the 
-        # maximum delta revision collections. 
+        # loop to get per-revision collection and the
+        # maximum delta revision collections.
         maxdeltas = []
         revdeltas = {}
         start = end = None
         for testid, collections in testid2collections.iteritems():
             if len(collections) < 2:  # less than two revisions sampled
                 continue
-            # collections are sorted by lowest REVNO first 
+            # collections are sorted by lowest REVNO first
             delta = PerfResultDelta(collections[0], collections[-1])
             maxdeltas.append(delta)
 
@@ -50,14 +50,14 @@ class Page:
                 revdelta = PerfResultDelta(col1, col2)
                 l = revdeltas.setdefault(col2.revision, [])
                 l.append(revdelta)
-            
-            # keep track of overall earliest and latest revision 
-            if start is None or delta._from.revision < start.revision: 
+
+            # keep track of overall earliest and latest revision
+            if start is None or delta._from.revision < start.revision:
                 start = delta._from.results[0]
             if end is None or delta._to.revision > end.revision:
                 end = delta._to.results[0]
 
-        # sort by best changes first 
+        # sort by best changes first
         maxdeltas.sort(key=lambda x: x.percent)
 
         # generate revision reports
@@ -66,7 +66,7 @@ class Page:
         revno_deltas.reverse()
         revreports = []
         for revno, deltas in revno_deltas:
-            # sort by best changes first 
+            # sort by best changes first
             deltas.sort(key=lambda x: x.percent)
             revreports.append(self.render_report(deltas))
         assert revreports
@@ -81,24 +81,24 @@ class Page:
         # images in the order of max_deltas test_ids
         images = [self.gen_image_map(sample, xaxis) for sample in samples]
 
-        page = pyhtml.html( 
+        page = pyhtml.html(
             pyhtml.head(
                 pyhtml.meta(
-                    name="Content-Type", 
+                    name="Content-Type",
                     value="text/html; charset=latin1",
                     ),
                 pyhtml.link(rel="stylesheet",
                             type="text/css",
                             href="benchmark_report.css")
- 
+
                 ),
             pyhtml.body(
                 #self.render_header(start, end),
-                self.render_table(maxdeltas, images, anchors=False), 
+                self.render_table(maxdeltas, images, anchors=False),
                 *revreports
                 )
             )
-        return page 
+        return page
 
     def _revision_report_name(self, sample):
         """return anchor name for reports,
@@ -125,13 +125,13 @@ class Page:
         if max_value == 0:
             #nothing to draw
             return (pyhtml.span('No value greater than 0'), py.html.span(''))
-        
-        step = 3 # pixels for each revision on x axis 
+
+        step = 3 # pixels for each revision on x axis
         xsize = (len(revisions) - 1) * step +2
         ysize = 32 # height of the image
         im = Image.new("RGB", (xsize + 2, ysize), 'white')
         draw = ImageDraw.Draw(im)
-        
+
         areas = []
         for x, revno in enumerate(revisions):
             if revno not in revision2collection: # data for this revision?
@@ -151,7 +151,7 @@ class Page:
                     head_color = "#FF0000"
             draw.rectangle((x*step+1, y-1, x*step + step -1, y+1),
                            fill=head_color)
-            
+
             areas.append(
                 pyhtml.area(
                     shape="rect",
@@ -160,7 +160,7 @@ class Page:
                     title="%s Value: %s" % (sample.revision,sample.min_elapsed)
                 ))
         del draw
-        
+
         f = StringIO.StringIO()
         im.save(f, "GIF")
         image_src = 'data:image/gif,%s' % (urllib.quote(f.getvalue()),)
@@ -170,12 +170,12 @@ class Page:
                                 usemap='#%s' % (map_name,))
         html_map = pyhtml.map(areas, name=map_name)
         return html_image, html_map
- 
+
     def _color_for_change(self, delta, max_value=20):
         """return green for negative change_in_percent and red for
         positve change_in_percent. If change_in_percent equals 0, then
         grey is returned.
-        
+
          The colors range from light green to full saturated green and
         light red to full saturated red.  Full saturation is reached
         when change_in_percent >= max_value.
@@ -184,7 +184,7 @@ class Page:
         #hsv values are between 0 and 1
         if len(delta._from) < 3 or len(delta._to) < 3:
             return  '#%02x%02x%02x' % (200,200,200) # grey
-            
+
         change_in_percent = delta.percent * 100
         if change_in_percent < 0:
             basic_color = (0,1,0) # green
@@ -193,21 +193,21 @@ class Page:
 
         max_value = 20
         change = min(abs(change_in_percent), max_value)
-        
+
         h,s,v = colorsys.rgb_to_hsv(*basic_color)
         rgb = colorsys.hsv_to_rgb(h, float(change) / max_value, 255)
         return '#%02x%02x%02x' % rgb
 
-    def _change_report(self, delta): 
+    def _change_report(self, delta):
         """return a red,green or gray colored html representation of a
         PerfResultDelta object.
         """
-          
+
         fromtimes = [x.elapsed_time for x in delta._from.results]
         totimes = [x.elapsed_time for x in delta._to.results]
-        
+
         results = pyhtml.div(
-            "r%d [%s] -> r%d[%s]" %(delta._from.revision, 
+            "r%d [%s] -> r%d[%s]" %(delta._from.revision,
                                     ", ".join(map(str, fromtimes)),
                                     delta._to.revision,
                                     ", ".join(map(str, totimes)))
@@ -215,8 +215,8 @@ class Page:
         return pyhtml.td(
             pyhtml.div(
                 '%+.1f%% change [%.0f - %.0f = %+.0f ms]' %(
-                delta.percent * 100, 
-                delta._to.min_elapsed, 
+                delta.percent * 100,
+                delta._to.min_elapsed,
                 delta._from.min_elapsed,
                 delta.delta),
                 style= "background-color: %s" % (
@@ -237,11 +237,11 @@ class Page:
         return pyhtml.ul([date, committer, revision, revision_id, logmessage])
 
     def render_report(self, deltas):
-        """return a report table with header. 
-        
+        """return a report table with header.
+
         All deltas must have the same revision_id."""
         deltas = [d for d in deltas if d.test_id]
-        
+
         sample = deltas[0]._to.getfastest()
         report_list = self.render_revision_header(sample)
 
@@ -251,10 +251,10 @@ class Page:
             report_list,
             table,
         )
-    
+
     def render_header(self, start, end):
         """return the header of the page, sample output:
-        
+
         benchmarks on bzr.dev
         from r1231 2006-04-01
         to r1888 2006-07-01
@@ -283,13 +283,13 @@ class Page:
     def _test_id(self, sample):
         """helper function, return a short form of a test_id """
         return '.'.join(sample.test_id.split('.')[-2:])
-    
+
     def render_table(self, deltas, images=None, anchors=True):
-        """return an html table for deltas and images. 
+        """return an html table for deltas and images.
 
         this function is used to generate the main table and
         the table of each report"""
-        
+
         classname = "main"
         if images is None:
             classname = "report"
@@ -323,7 +323,7 @@ def main(path_to_perf_history='../.perf_history'):
         f.write(page.unicode(indent=2).encode('latin-1'))
     finally:
         f.close()
-    
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         main()
@@ -333,4 +333,4 @@ if __name__ == '__main__':
         main(*sys.argv[1:3])
     else:
         print 'Usage: benchmark_report.py [perf_history [branch]]'
-        
+

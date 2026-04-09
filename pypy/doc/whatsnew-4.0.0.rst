@@ -11,7 +11,7 @@ Improve the performance of ``dict.update()`` and a bunch of methods from
 sets, by reusing the hash value stored in one dict when inspecting
 or changing another dict with that key.
 
-.. branch: optresult-unroll 
+.. branch: optresult-unroll
 
 A major refactoring of the ``ResOperations`` that kills Box. Also rewrote
 unrolling to enable future enhancements.  Should improve warmup time
@@ -58,7 +58,7 @@ pure operations and guards in between.
 
 .. branch: issue-2148
 
-Fix performance regression on operations mixing numpy scalars and Python 
+Fix performance regression on operations mixing numpy scalars and Python
 floats, cf. issue #2148.
 
 .. branch: cffi-stdcall

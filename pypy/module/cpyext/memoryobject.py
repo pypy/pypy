@@ -227,7 +227,7 @@ def memory_from_contiguous_copy(space, src, order):
     """
     Return a memoryview that is based on a contiguous copy of src.
     Assumptions: src has PyBUF_FULL_RO information, src->ndim > 0.
- 
+
     Ownership rules:
       1) As usual, the returned memoryview has a private copy
          of src->shape, src->strides and src->suboffsets.
@@ -238,7 +238,7 @@ def memory_from_contiguous_copy(space, src, order):
     """
     raise oefmt(space.w_NotImplementedError,
                 "creating contiguous readonly buffer from non-contiguous "
-                "not implemented yet") 
+                "not implemented yet")
 
 
 @cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)

@@ -28,7 +28,7 @@ def _is8bitstring(s):
     return False
 
 
-
+
 class Generator:
     """Generates output from a Message object tree.
 
@@ -290,7 +290,7 @@ class Generator:
         self._fp.write(payload)
 
 
-
+
 _FMT = '[Non-text (%(type)s) part of message omitted, filename %(filename)s]'
 
 class DecodedGenerator(Generator):
@@ -348,7 +348,7 @@ class DecodedGenerator(Generator):
                     }
 
 
-
+
 # Helper
 _width = len(repr(sys.maxint-1))
 _fmt = '%%0%dd' % _width

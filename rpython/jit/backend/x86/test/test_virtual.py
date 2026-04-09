@@ -9,7 +9,7 @@ class TestsVirtual(Jit386Mixin, VirtualTests):
     # ====> ../../../metainterp/test/test_virtual.py
     _new_op = 'new_with_vtable'
     _field_prefix = 'inst_'
-    
+
     @staticmethod
     def _new():
         return MyClass()

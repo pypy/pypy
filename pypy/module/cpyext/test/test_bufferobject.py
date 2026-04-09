@@ -79,7 +79,7 @@ class AppTestBufferObject(AppTestCpythonExtensionBase):
 
                 if (PyObject_GetBuffer(obj, &bp, PyBUF_SIMPLE) == -1)
                     return NULL;
-                
+
                 if (((unsigned char*)bp.buf)[0] != '0') {
                     void * buf = (void*)bp.buf;
                     unsigned char val[4];

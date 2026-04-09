@@ -11,14 +11,14 @@ from rpython.rlib.rmmap import madvise_free
 class TestMMap:
     def setup_class(cls):
         cls.tmpname = str(udir.join('mmap-'))
-    
+
     def test_page_size(self):
         def f():
             assert mmap.PAGESIZE > 0
             assert isinstance(mmap.PAGESIZE, int)
 
         interpret(f, [])
-    
+
     def test_attributes(self):
         def f():
             assert isinstance(mmap.ACCESS_READ, int)
@@ -46,7 +46,7 @@ class TestMMap:
                 raise Exception("didn't raise")
 
         f = open(self.tmpname + "a", "w+")
-        
+
         f.write("c")
         f.flush()
 
@@ -55,7 +55,7 @@ class TestMMap:
 
     def test_create(self):
         f = open(self.tmpname + "b", "w+")
-        
+
         f.write("c")
         f.flush()
 
@@ -64,7 +64,7 @@ class TestMMap:
             assert m.read(99) == "c"
 
         interpret(func, [f.fileno()])
-        
+
         f.close()
 
     @pytest.mark.skipif("os.name != 'posix'")
@@ -93,7 +93,7 @@ class TestMMap:
 
     def test_close(self):
         f = open(self.tmpname + "c", "w+")
-        
+
         f.write("c")
         f.flush()
 
@@ -150,7 +150,7 @@ class TestMMap:
 
     def test_read(self):
         f = open(self.tmpname + "f", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -209,7 +209,7 @@ class TestMMap:
 
     def test_is_modifiable(self):
         f = open(self.tmpname + "h", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -233,7 +233,7 @@ class TestMMap:
 
     def test_seek(self):
         f = open(self.tmpname + "i", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -267,7 +267,7 @@ class TestMMap:
 
     def test_write_byte(self):
         f = open(self.tmpname + "k", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -306,7 +306,7 @@ class TestMMap:
 
     def test_size(self):
         f = open(self.tmpname + "l3", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -320,7 +320,7 @@ class TestMMap:
 
     def test_tell(self):
         f = open(self.tmpname + "m", "w+")
-        
+
         f.write("c")
         f.flush()
 
@@ -334,7 +334,7 @@ class TestMMap:
 
     def test_move(self):
         f = open(self.tmpname + "o", "w+")
-        
+
         f.write("foobar")
         f.flush()
 
@@ -350,13 +350,13 @@ class TestMMap:
 
         interpret(func, [f.fileno()])
         f.close()
-    
+
     def test_resize(self):
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
             pytest.skip("resize does not work under OSX or FreeBSD")
-        
+
         import os
-        
+
         f = open(self.tmpname + "p", "w+")
         f.write("foobar")
         f.flush()
@@ -374,7 +374,7 @@ class TestMMap:
         f.close()
 
     def test_len(self):
-        
+
         f = open(self.tmpname + "q", "w+")
         f.write("foobar")
         f.flush()
@@ -386,9 +386,9 @@ class TestMMap:
 
         interpret(func, [f.fileno()])
         f.close()
-     
+
     def test_get_item(self):
-        
+
         f = open(self.tmpname + "r", "w+")
         f.write("foobar")
         f.flush()
@@ -403,7 +403,7 @@ class TestMMap:
 
         interpret(func, [f.fileno()])
         f.close()
-    
+
     def test_set_item(self):
         f = open(self.tmpname + "s", "w+")
         f.write("foobar")

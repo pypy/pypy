@@ -46,17 +46,17 @@ class Test_Stackless:
 
     def test_with_channel(self):
         pref = {}
-        pref[-1] = ['s0', 'r0', 's1', 'r1', 's2', 'r2', 
-                    's3', 'r3', 's4', 'r4', 's5', 'r5', 
-                    's6', 'r6', 's7', 'r7', 's8', 'r8', 
+        pref[-1] = ['s0', 'r0', 's1', 'r1', 's2', 'r2',
+                    's3', 'r3', 's4', 'r4', 's5', 'r5',
+                    's6', 'r6', 's7', 'r7', 's8', 'r8',
                     's9', 'r9']
-        pref[0] =  ['s0', 'r0', 's1', 's2', 'r1', 'r2', 
-                    's3', 's4', 'r3', 'r4', 's5', 's6', 
-                    'r5', 'r6', 's7', 's8', 'r7', 'r8', 
+        pref[0] =  ['s0', 'r0', 's1', 's2', 'r1', 'r2',
+                    's3', 's4', 'r3', 'r4', 's5', 's6',
+                    'r5', 'r6', 's7', 's8', 'r7', 'r8',
                     's9', 'r9']
-        pref[1] =  ['s0', 's1', 'r0', 's2', 'r1', 's3', 
-                    'r2', 's4', 'r3', 's5', 'r4', 's6', 
-                    'r5', 's7', 'r6', 's8', 'r7', 's9', 
+        pref[1] =  ['s0', 's1', 'r0', 's2', 'r1', 's3',
+                    'r2', 's4', 'r3', 's5', 'r4', 's6',
+                    'r5', 's7', 'r6', 's8', 'r7', 's9',
                     'r8', 'r9']
         rlist = []
 
@@ -230,7 +230,7 @@ class Test_Stackless:
         # Tests if TaskletExit can be caught in the tasklet being killed.
         global taskletexit
         taskletexit = False
-        
+
         def f():
             try:
                 stackless.schedule()
@@ -238,19 +238,19 @@ class Test_Stackless:
                 global TaskletExit
                 taskletexit = True
                 raise
-            
+
             t =  stackless.tasklet(f)()
             t.run()
             assert t.alive
             t.kill()
             assert not t.alive
             assert taskletexit
-            
+
     def test_autocatch_taskletexit(self):
-        # Tests if TaskletExit is caught correctly in stackless.tasklet.setup(). 
+        # Tests if TaskletExit is caught correctly in stackless.tasklet.setup().
         def f():
             stackless.schedule()
-        
+
         t = stackless.tasklet(f)()
         t.run()
         t.kill()
@@ -279,7 +279,7 @@ class Test_Stackless:
 
         stackless.run()
         assert output == [("aCallable:", 'Inline using ()')]
-        
+
         del output[:]
         task = stackless.tasklet()
         task.bind(aCallable)
@@ -292,7 +292,7 @@ class Test_Stackless:
         output = []
         def print_(*args):
             output.append(args)
-            
+
         def Sending(channel):
             print_("sending")
             channel.send("foo")
@@ -321,7 +321,7 @@ class Test_Stackless:
     def test_balance_zero(self):
         ch=stackless.channel()
         assert ch.balance == 0
-        
+
     def test_balance_send(self):
         def Sending(channel):
             channel.send("foo")
@@ -410,9 +410,9 @@ class Test_Stackless:
         assert res == ['hello','world']
         maintask = stackless.getmain()
         assert cb == [
-            (chan, maintask, 0, 1), 
-            (chan, task, 1, 0), 
-            (chan, maintask, 1, 1), 
+            (chan, maintask, 0, 1),
+            (chan, task, 1, 0),
+            (chan, maintask, 1, 1),
             (chan, task, 0, 0)
         ]
 
@@ -532,7 +532,7 @@ class Test_Stackless:
             dprint('tnp_N ==== 2')
             X2.send(X_Val)
             dprint('tnp_N ==== 3')
-            Y2_Val = Y2.receive() 
+            Y2_Val = Y2.receive()
             dprint('tnp_N ==== 4')
             Y.send(Y2_Val)
             dprint('tnp_N ==== 5')
@@ -541,7 +541,7 @@ class Test_Stackless:
         t1 = stackless.tasklet(nest)(X, Y)
         X.send(13)
         dprint('tnp ==== 2')
-        res = Y.receive() 
+        res = Y.receive()
         dprint('tnp ==== 3')
         assert res == 13
         if SHOW_STRANGE:
@@ -584,10 +584,10 @@ class Test_Stackless:
         dprint('twt ==== 2')
         X.send(42)
         dprint('twt ==== 3')
-        value = Ret_chan.receive() 
+        value = Ret_chan.receive()
         dprint('twt ==== 4')
         assert value == (2, 42)
-        
+
 
     def test_schedule_return_value(self):
 

@@ -8,7 +8,7 @@ def main(iterations=1):
         os.write(dest, payload)
 
     os.close(dest)
-    
+
 def entry_point(argv):
     if len(argv) > 1:
         n = int(argv[1])

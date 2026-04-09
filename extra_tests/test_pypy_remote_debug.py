@@ -205,9 +205,9 @@ def test_proc_map_find_base_map_bug():
     # the entries can be non-consecutive, and we should pick the one with file
     # offset 0
     s = """\
-eb284000-eb285000 rw-p 00000000 00:00 0 
+eb284000-eb285000 rw-p 00000000 00:00 0
 eb285000-eb286000 r-xp 01a80000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
-eb286000-eb287000 rw-p 00000000 00:00 0 
+eb286000-eb287000 rw-p 00000000 00:00 0
 eb287000-eb288000 r--p 00000000 103:05 8993868                           /home/user/pypy/lib_pypy/_pypy_util_cffi_inner.pypy-73.so
 eb288000-eb289000 r-xp 00001000 103:05 8993868                           /home/user/pypy/lib_pypy/_pypy_util_cffi_inner.pypy-73.so
 eb289000-eb28a000 r--p 00002000 103:05 8993868                           /home/user/pypy/lib_pypy/_pypy_util_cffi_inner.pypy-73.so
@@ -220,7 +220,7 @@ ecd10000-ed32e000 r--p 01a82000 103:05 8993453                           /home/u
 ed32e000-ed32f000 ---p 020a0000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
 ed32f000-ed33d000 r--p 020a0000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
 ed33d000-ede21000 rw-p 020ae000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
-ede21000-ede3f000 rw-p 00000000 00:00 0 
+ede21000-ede3f000 rw-p 00000000 00:00 0
 ede3f000-ede47000 rw-p 02b92000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
 """
     maps = _pypy_remote_debug._parse_maps(lineiter=iter(s.splitlines()))

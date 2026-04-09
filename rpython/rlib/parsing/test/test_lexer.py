@@ -54,7 +54,7 @@ class TestDirectLexer(object):
         names = ["IF", "ELSE", "WHILE", "COLON", "WHITE"]
         l = self.get_lexer(rexs, names, ["WHITE"])
         assert [t.name for t in l.tokenize("if if if: else while")] == "IF IF IF COLON ELSE WHILE".split()
-      
+
     def test_errors(self):
         rexs = [StringExpression("if"), StringExpression("else"),
                 StringExpression("while"), StringExpression(":"),

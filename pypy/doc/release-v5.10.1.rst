@@ -41,13 +41,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This PyPy 3.5 release supports: 
+This PyPy 3.5 release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux

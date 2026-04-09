@@ -1244,7 +1244,7 @@ class TestNewShortcut:
 
         assert w_A.w_new_function is None
         assert w_B.w_new_function is None
-        assert w_M.w_new_function is None                
+        assert w_M.w_new_function is None
 
         _, w_object_newdescr = space.lookup_in_type_where(space.w_object,
                                                           '__new__')

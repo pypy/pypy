@@ -11,7 +11,7 @@ class TestParseSignatureDirect(BaseNumpyAppTest):
         name = 'dummy ufunc'
         identity = None
         dtypes = [int, int, int]
-        
+
         nin = 2
         nout = 1
         signature = '(), () -> (  ) '

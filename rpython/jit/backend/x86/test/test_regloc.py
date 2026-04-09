@@ -108,7 +108,7 @@ def test_relocation():
 class Fake32CodeBlockWrapper(codebuf.MachineCodeBlockWrapper):
     def check_stack_size_at_ret(self):
         pass
-        
+
 def test_follow_jump_instructions_32():
     buf = lltype.malloc(rffi.CCHARP.TO, 80, flavor='raw')
     raw = rffi.cast(lltype.Signed, buf)

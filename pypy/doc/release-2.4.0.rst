@@ -3,7 +3,7 @@ PyPy 2.4 - Snow White
 =================================================
 
 We're pleased to announce PyPy 2.4, which contains significant performance
-enhancements and bug fixes. 
+enhancements and bug fixes.
 
 You can download the PyPy 2.4.0 release here:
 
@@ -23,13 +23,13 @@ any donations up to $10k!  The three sub-projects are:
 * `STM`_ (software transactional memory): We have released a first working version,
   and continue to try out new promising paths of achieving a fast multithreaded Python
 
-* `NumPy`_ which requires installation of our fork of upstream numpy, 
+* `NumPy`_ which requires installation of our fork of upstream numpy,
   available `on bitbucket`_
 
 .. _`Py3k`: https://pypy.org/py3donate.html
 .. _`STM`: https://pypy.org/tmdonate2.html
 .. _`NumPy`: https://pypy.org/numpydonate.html
-.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
+.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 .. _`the Python Software Foundation`: https://www.python.org/psf/
 .. _`match funds`: https://morepypy.blogspot.com/2014/09/python-software-foundation-matching.html
 
@@ -40,9 +40,9 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7. It's fast (`pypy 2.4 and cpython 2.7.x`_ performance comparison)
 due to its integrated tracing JIT compiler.
 
-This release supports **x86** machines on most common operating systems 
+This release supports **x86** machines on most common operating systems
 (Linux 32/64, Mac OS X 64, Windows, and OpenBSD),
-as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux. 
+as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
 While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
@@ -102,12 +102,12 @@ for more information see `whats-new`_:
 
 * Win32 now links statically to zlib, expat, bzip, and openssl-1.0.1i.
   No more missing DLLs
-  
+
 * Many issues were resolved_ since the 2.3.1 release on June 8
 
 .. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.4.0.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
-.. _sandbox: https://doc.pypy.org/en/latest/sandbox.html   
+.. _sandbox: https://doc.pypy.org/en/latest/sandbox.html
 
 We have further improvements on the way: rpython file handling,
 numpy linalg compatibility, as well

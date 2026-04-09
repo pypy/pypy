@@ -1,4 +1,4 @@
-from rpython.rlib.cache import Cache 
+from rpython.rlib.cache import Cache
 
 class MyCache(Cache):
     counter = 0
@@ -6,7 +6,7 @@ class MyCache(Cache):
         self.counter += 1
         return key*7
 
-class TestCache: 
+class TestCache:
     def test_getorbuild(self):
         cache = MyCache()
         assert cache.getorbuild(1) == 7

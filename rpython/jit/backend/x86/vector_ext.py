@@ -148,7 +148,7 @@ class VectorAssemblerMixin(object):
                 self._accum_reduce_mul(scalar_arg, vector_loc, scalar_loc)
             else:
                 not_implemented("accum operator %s not implemented" %
-                                            (accum_info.accum_operation)) 
+                                            (accum_info.accum_operation))
             if tmpvar:
                 regalloc.rm.possibly_free_var(tmpvar)
             if scalar_loc is not orig_scalar_loc:

@@ -16,7 +16,7 @@ from rpython.jit.metainterp.history import BasicFailDescr, \
 from rpython.jit.tool.oparser import parse
 
 class MockBuilder(object):
-    
+
     def __init__(self):
         self.reset()
 
@@ -49,12 +49,12 @@ class MockInstruction(object):
 
     def __str__(self):
         return "%s %r" % (self.name, self.args)
-    
+
 
 MI = MockInstruction
 
 class TestMocks(object):
-    
+
     def setup_method(self, method):
         self.builder = MockBuilder()
 
@@ -67,7 +67,7 @@ class TestMocks(object):
         assert MI("a") == MI("a")
 
     def test_basic(self):
-        exp_instrs = [MI("mr", 3, 5), 
+        exp_instrs = [MI("mr", 3, 5),
                       MI("foobar"),
                       MI("li", 3, 2),
                       MI("stw", 3, 5, 100)]
@@ -76,14 +76,14 @@ class TestMocks(object):
         self.builder.foobar()
         self.builder.li(3, 2)
         self.builder.stw(3, 5, 100)
-       
+
         assert self.builder.instrs == exp_instrs
-        
+
         self.builder.blub()
         assert self.builder.instr != exp_instrs
 
 class TestRegallocMov(object):
-    
+
     def setup_method(self, method):
         self.builder = MockBuilder()
         self.asm = instantiate(AssemblerPPC)
@@ -94,7 +94,7 @@ class TestRegallocMov(object):
         big = 2 << 28
         self.asm.regalloc_mov(imm(big), r0)
 
-        exp_instr = [MI("load_imm", r10, 5), 
+        exp_instr = [MI("load_imm", r10, 5),
                      MI("load_imm", r0, big)]
         assert self.asm.mc.instrs == exp_instr
 

@@ -22,7 +22,7 @@ def test_proc_tp_simple():
     assert rffi_source.compiled()
 
 def test_proc_tp_complicated():
-    rffi_source = RffiSource()    
+    rffi_source = RffiSource()
     assert rffi_source.proc_tp(ctypes.POINTER(ctypes.c_uint)) == \
            "lltype.Ptr(lltype.Array(rffi.UINT_real, hints={'nolength': True}))"
     src = rffi_source.proc_tp(random_structure)
@@ -77,7 +77,7 @@ class TestMkrffi(object):
         libname = platform.compile([c_file], eci,
                                    standalone=False)
         cls.lib = ctypes.CDLL(str(libname))
-    
+
     def test_single_func(self):
         func = self.lib.int_to_void_p
         func.argtypes = [ctypes.c_int]
@@ -107,4 +107,4 @@ class TestMkrffi(object):
         src = rffi_source.source
         assert src.strip() == _src.strip(), str(src) + "\n" + str(_src)
         assert rffi_source.compiled()
-        
+

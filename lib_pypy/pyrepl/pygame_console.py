@@ -89,7 +89,7 @@ class PyGameConsole(Console):
     height,
     width,
     """
-    
+
     def __init__(self):
         self.pygame_screen = pygame.display.set_mode((800, 600))
         pygame.font.init()
@@ -105,7 +105,7 @@ class PyGameConsole(Console):
         pygame.display.update()
         pygame.event.set_allowed(None)
         pygame.event.set_allowed(KEYDOWN)
-        
+
     def install_keymap(self, keymap):
         """Install a given keymap.
 
@@ -284,7 +284,7 @@ class PyGameConsole(Console):
         """Forget all pending, but not yet processed input."""
         while pygame.event.poll().type <> NOEVENT:
             pass
-    
+
     def getpending(self):
         """Return the characters that have been typed but not yet
         processed."""

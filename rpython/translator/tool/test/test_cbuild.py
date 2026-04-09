@@ -16,7 +16,7 @@ class TestEci:
         '''))
         cls.modfile = c_file
         cls.tmpdir = tmpdir
-    
+
     def test_merge(self):
         e1 = ExternalCompilationInfo(
             pre_include_bits   = ['1'],
@@ -144,7 +144,7 @@ class TestEci:
         class Maemo(Platform):
             def __init__(self, cc=None):
                 self.cc = cc
-        
+
         eci = ExternalCompilationInfo(platform=Maemo())
         eci2 = ExternalCompilationInfo()
         assert eci != eci2

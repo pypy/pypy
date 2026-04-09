@@ -118,7 +118,7 @@ def test_getslice_bug():
 
 def test_getslice_step():
     s1 = (LiteralStringNode("abcde") + LiteralStringNode("fghijklm") +
-          LiteralStringNode("nopqrstu") + LiteralStringNode("vwxyz") + 
+          LiteralStringNode("nopqrstu") + LiteralStringNode("vwxyz") +
           LiteralStringNode("zyxwvut") + LiteralStringNode("srqpomnlk"))
     s2 = s1.rebalance()
     result = s1.flatten_string()
@@ -133,7 +133,7 @@ def test_getslice_step_unicode():
     s1 = (LiteralUnicodeNode(u"\uaaaa") +
           LiteralUnicodeNode(u"\ubbbb" * 5) +
           LiteralUnicodeNode(u"\uaaaa\ubbbb\u1000\u2000") +
-          LiteralUnicodeNode(u"vwxyz") + 
+          LiteralUnicodeNode(u"vwxyz") +
           LiteralUnicodeNode(u"zyxwvu\u1234" * 2) +
           LiteralUnicodeNode(u"12355"))
     s2 = s1.rebalance()
@@ -852,7 +852,7 @@ def test_decode_utf8():
     # binary node, incomplete data
     node = BinaryConcatNode(LiteralStringNode('ab\xef'),
                             LiteralStringNode('\xbf'))
-    
+
     res = str_decode_utf8(node)
     assert res is None
 

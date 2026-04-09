@@ -574,8 +574,8 @@ class Test_rbigint(object):
                 f2 = rbigint.fromlong(y)
                 result = f1.add(f2)
                 assert result.tolong() == x + y
-            
-        
+
+
 
     def test_add(self):
         for x in gen_signs(long_vals):

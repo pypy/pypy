@@ -34,7 +34,7 @@ def newlist_and_gc_store(TYPE, value):
 
 
 class BaseLLOpTest(object):
-    
+
     def test_gc_load_indexed(self):
         buf = struct.pack('dfi', 123.456, 123.456, 0x12345678)
         val = self.gc_load_from_string(rffi.DOUBLE, buf, 0)

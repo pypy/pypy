@@ -58,7 +58,7 @@ hqre = re.compile(r'[^-a-zA-Z0-9!*+/ ]')
 bqre = re.compile(r'[^ !-<>-~\t]')
 
 
-
+
 # Helpers
 def header_quopri_check(c):
     """Return True if the character should be escaped with header quopri."""
@@ -110,7 +110,7 @@ def quote(c):
     return "=%02X" % ord(c)
 
 
-
+
 def header_encode(header, charset="iso-8859-1", keep_eols=False,
                   maxlinelen=76, eol=NL):
     """Encode a single header line with quoted-printable (like) encoding.
@@ -174,7 +174,7 @@ def header_encode(header, charset="iso-8859-1", keep_eols=False,
     return joiner.join(['=?%s?q?%s?=' % (charset, line) for line in quoted])
 
 
-
+
 def encode(body, binary=False, maxlinelen=76, eol=NL):
     """Encode with quoted-printable, wrapping at maxlinelen characters.
 
@@ -262,7 +262,7 @@ body_encode = encode
 encodestring = encode
 
 
-
+
 # BAW: I'm not sure if the intent was for the signature of this function to be
 # the same as base64MIME.decode() or not...
 def decode(encoded, eol=NL):
@@ -317,7 +317,7 @@ body_decode = decode
 decodestring = decode
 
 
-
+
 def _unquote_match(match):
     """Turn a match in the form =AB to the ASCII character with value 0xab"""
     s = match.group(0)

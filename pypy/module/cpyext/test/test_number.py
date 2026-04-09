@@ -246,4 +246,4 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
         assert mod.to_ssize_t(12) == 12
         raises(TypeError, mod.to_ssize_t, 2 ** 68, TypeError)
 
- 
+

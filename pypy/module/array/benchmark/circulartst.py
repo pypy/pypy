@@ -7,7 +7,7 @@ class Circular(array):
         self = array.__new__(cls, 'd', range(65536))
         return self
     def __getitem__(self, i):
-        assert len(self) == 65536 
+        assert len(self) == 65536
         return array.__getitem__(self, i & 65535)
 
 import sys

@@ -47,7 +47,7 @@ def create_tex_eps(dot, temppath):
     epscontent = py.process.cmdexec("dot -Tps %s" % (tempdot, ))
     eps.write(re.sub("\n\[.*\]\nxshow", "\nshow", epscontent))
     return tex, eps
- 
+
 def process_dot(dot):
     temppath = py.test.ensuretemp("dot")
     tex, texcontent = create_tex_eps(dot, temppath)

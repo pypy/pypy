@@ -717,7 +717,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         #ensure all the ptr fields are zeroed
         assert p.prev == lltype.nullptr(S)
         assert p.next == lltype.nullptr(S)
-    
+
     def test_malloc_varsize_no_cleanup(self):
         x = lltype.Signed
         VAR1 = lltype.GcArray(x)

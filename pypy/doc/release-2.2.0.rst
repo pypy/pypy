@@ -6,7 +6,7 @@ We're pleased to announce PyPy 2.2, which targets version 2.7.3 of the Python
 language. This release main highlight is the introduction of the incremental
 garbage collector, sponsored by the `Raspberry Pi Foundation`_.
 
-This release also contains several bugfixes and performance improvements. 
+This release also contains several bugfixes and performance improvements.
 
 You can download the PyPy 2.2 release here:
 

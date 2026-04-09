@@ -1066,7 +1066,7 @@ def setgroups(space, w_list):
 @unwrap_spec(username='text', gid=c_gid_t)
 def initgroups(space, username, gid):
     """ initgroups(username, gid) -> None
-    
+
     Call the system initgroups() to initialize the group access list with all of
     the groups of which the specified username is a member, plus the specified
     group id.
@@ -1233,7 +1233,7 @@ def setresuid(space, ruid, euid, suid):
 @unwrap_spec(rgid=c_gid_t, egid=c_gid_t, sgid=c_gid_t)
 def setresgid(space, rgid, egid, sgid):
     """ setresgid(rgid, egid, sgid)
-    
+
     Set the current process's real, effective, and saved group ids.
     """
     try:

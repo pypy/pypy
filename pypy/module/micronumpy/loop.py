@@ -232,7 +232,7 @@ def call_many_to_many(space, shape, func, in_dtypes, out_dtypes, in_args, out_ar
             vals[i] = in_dtypes[i].coerce(space, in_iters[i].getitem(in_states[i]))
         w_arglist = space.newlist(vals)
         w_outvals = space.call_args(func, Arguments.frompacked(space, w_arglist))
-        # w_outvals should be a tuple, but func can return a single value as well 
+        # w_outvals should be a tuple, but func can return a single value as well
         if space.isinstance_w(w_outvals, space.w_tuple):
             batch = space.listview(w_outvals)
             for i in range(len(batch)):

@@ -104,10 +104,10 @@ An example ``AbstractStrategy`` class, which also stores an additional ``space``
         __metaclass__ = rstrat.StrategyMetaclass
         import_from_mixin(rstrat.AbstractStrategy)
         import_from_mixin(rstrategies.SafeIndexingMixin)
-        
+
         def __init__(self, space):
             self.space = space
-        
+
         def strategy_factory(self):
             return self.space.strategy_factory
 
@@ -191,14 +191,14 @@ An example strategy factory for the ``AbstractStrategy`` class above could look 
     class StrategyFactory(rstrategies.StrategyFactory):
         _attrs_ = ['space']
         _immutable_fields_ = ['space']
-        
+
         def __init__(self, space):
             self.space = space
             rstrat.StrategyFactory.__init__(self, AbstractStrategy)
-        
+
         def instantiate_strategy(self, strategy_type):
             return strategy_type(self.space)
-        
+
         def strategy_type_for(self, list_w, weak=False):
             """
             Helper method for handling weak objects specially
@@ -206,4 +206,3 @@ An example strategy factory for the ``AbstractStrategy`` class above could look 
             if weak:
                 return WeakListStrategy
         return rstrategies.StrategyFactory.strategy_type_for(self, list_w)
-    

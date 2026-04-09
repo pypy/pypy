@@ -117,6 +117,6 @@ class TestMakefile(object):
 
         # Check the manifests
         for v in [target, targetw, debug_target]:
-            manifest = get_manifest(v)        
+            manifest = get_manifest(v)
             assert "asInvoker" in manifest
             assert "longPathAware" in manifest

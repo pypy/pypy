@@ -33,7 +33,7 @@ from rpython.jit.backend.ppc.vector_ext import VectorAssembler
 from rpython.rlib.rjitlog import rjitlog as jl
 
 class IntOpAssembler(object):
-        
+
     _mixin_ = True
 
     def emit_int_add(self, op, arglocs, regalloc):
@@ -53,7 +53,7 @@ class IntOpAssembler(object):
             self.mc.subi(res.value, l0.value, l1.value)
         else:
             self.mc.sub(res.value, l0.value, l1.value)
- 
+
     def emit_int_mul(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         assert not l0.is_imm()
@@ -99,7 +99,7 @@ class IntOpAssembler(object):
     def emit_int_xor(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.xor(res.value, l0.value, l1.value)
-        
+
     def emit_int_lshift(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if IS_PPC_32:
@@ -1168,7 +1168,7 @@ class AllocOpAssembler(object):
 class ForceOpAssembler(object):
 
     _mixin_ = True
-    
+
     def emit_force_token(self, op, arglocs, regalloc):
         res_loc = arglocs[0]
         self.mc.mr(res_loc.value, r.SPP.value)

@@ -169,7 +169,7 @@ PyPy2.7.
 Python 3.7+ bugfixes
 --------------------
 - Fix MemoryError on zip.read in shutil._unpack_zipfile for large files `bpo
-  43650`_ 
+  43650`_
 - Fix some issues around the ``obj`` field of ``memoryview``, and add missing
   ``toreadonly``.
 - Fix ``re.sub()`` with no match and with unusual types of arguments (issue

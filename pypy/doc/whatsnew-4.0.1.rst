@@ -31,5 +31,5 @@ Support common use-cases for __array_interface__, passes upstream tests
 
 .. branch: no-class-specialize
 
-Some refactoring of class handling in the annotator. 
+Some refactoring of class handling in the annotator.
 Remove class specialisation and _settled_ flag.

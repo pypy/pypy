@@ -188,7 +188,7 @@ class TestAssemble(object):
         a = PPCBuilder()
 
         # NOW EXPLICITLY:
-        # 
+        #
         # - Load the address of the function to call into a register x
         # - Move the content of this register x into CTR
         # - Set the LR manually (or with bctrl)
@@ -237,7 +237,7 @@ class TestAssemble(object):
         a.load_imm(r11, 7)
         a.nand(3, 10, 11)
         a.load_imm(r12, 0x0000000F) # zero out first 28 bits
-        a.and_(3, 3, 12)            # 
+        a.and_(3, 3, 12)            #
         a.blr()
 
     @asmtest(expected=1)
@@ -246,7 +246,7 @@ class TestAssemble(object):
         a.load_imm(r11, 6)
         a.nor(3, 10, 11)
         a.load_imm(r12, 0x0000000F) # zero out first 28 bits
-        a.and_(3, 3, 12)            # 
+        a.and_(3, 3, 12)            #
         a.blr()
 
     @asmtest(expected=5)
@@ -302,7 +302,7 @@ class TestAssemble(object):
 
     def test_load_from(self):
         a = PPCBuilder()
-        
+
         p = lltype.malloc(rffi.CArray(rffi.LONG), 1, flavor="raw")
         addr = rffi.cast(lltype.Signed, p)
         p[0] = rffi.cast(rffi.LONG, 200)

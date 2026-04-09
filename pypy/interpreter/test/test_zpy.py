@@ -51,7 +51,7 @@ def test_argv_command():
     output = run(sys.executable, pypypath, '-S',
                  "-c", "import sys;print sys.argv", "hello")
     assert output.splitlines()[-1] == str(['-c','hello'])
-    
+
     # test 3 : additionnal pypy parameters
     output = run(sys.executable, pypypath, '-S',
                  "-O", "-c", "import sys;print sys.argv", "hello")
@@ -70,15 +70,15 @@ def test_scripts():
     # test 1 : no arguments
     output = run(sys.executable, pypypath, '-S', tmpfilepath)
     assert output.splitlines()[-1] == str([tmpfilepath])
-    
+
     # test 2 : some arguments after
     output = run(sys.executable, pypypath, '-S', tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
-    
+
     # test 3 : additionnal pypy parameters
     output = run(sys.executable, pypypath, '-S', "-O", tmpfilepath, "hello")
     assert output.splitlines()[-1] == str([tmpfilepath,'hello'])
-    
+
 
 TB_NORMALIZATION_CHK= """
 class K(object):

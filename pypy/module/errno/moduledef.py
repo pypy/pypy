@@ -18,7 +18,7 @@ class Module(MixedModule):
 
     appleveldefs = {}
     interpleveldefs = {"errorcode": "interp_errno.get_errorcode(space)"}
-    
+
 for name in dir(errno):
     if name.startswith('__') or name in Module.interpleveldefs:
         continue

@@ -147,4 +147,4 @@ class AppTestFlagsObj(BaseNumpyAppTest):
         # Test ravel and squeeze.
         check_contig(a.ravel(), True, True)
         check_contig(np.ones((1, 3, 1)).squeeze(), True, True)
- 
+

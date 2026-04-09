@@ -41,7 +41,7 @@ class TestMinMax(BaseTestPyPyC):
             p76 = call_may_force_r(_, _, _, _, descr=...)
             ...
         """)
-        
+
         #----- the following logic used to check the content of the assembly
         #----- generated for the loop in max(), but now we no longer produce
         #----- any custom assembly in this case.  It used to say

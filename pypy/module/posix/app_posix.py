@@ -51,7 +51,7 @@ class stat_result:
         st_rdev = structseqfield(22, "device ID (if special file)")
     if "st_flags" in posix._statfields:
         st_flags = structseqfield(23, "user defined flags for file")
- 
+
     if osname == 'nt':
         st_file_attributes = structseqfield(30, "Windows file attribute bits")
         st_reparse_tag = structseqfield(31, "Windows reparse tag")

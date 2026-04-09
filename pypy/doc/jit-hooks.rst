@@ -7,19 +7,19 @@ There are several hooks in the ``pypyjit`` module that may help you with
 understanding what pypy's JIT is doing while running your program:
 
 .. function:: dont_trace_here(next_instr, is_being_profiled, pycode)
-    
+
 .. function:: get_jitcell_at_key(next_instr, is_being_profiled, pycode)
-    
+
 .. function:: get_stats_asmmemmgr()
 
     Returns the raw memory currently used by the JIT backend,
     as a pair (total_memory_allocated, memory_in_use).
-    
+
 .. function:: residual_call(callable, *args, **keywords)
 
     For testing.  Invokes callable(...), but without letting
     the JIT follow the call.
- 
+
 .. function:: set_compile_hook(callable, operations=True)
 
     Set a compiling hook that will be called each time a loop is compiled.
@@ -46,13 +46,13 @@ understanding what pypy's JIT is doing while running your program:
     as attributes on JitLoopInfo object
 
 .. function:: set_trace_too_long_hook(hook)
-        
+
     Set a hook (callable) that will be called each time we abort
     tracing because the trace is too long.
-    
+
     The hook will be called with the signature:
     ``hook(jitdriver_name, greenkey)``
- 
+
 
 .. function:: enable_debug()
 
@@ -129,4 +129,4 @@ Resetting the JIT
     * ``set_param("off")`` disable the jit
 
     * ``set_param("default")`` restore all defaults
-   
+

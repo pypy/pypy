@@ -1035,7 +1035,7 @@ if _WIN32:
                 /* convert from wchar_t to char */
                 size_t origsize = wcslen(buf) + 1;
                 size_t newsize = origsize * 2 + 2;
-                size_t convertedChars = 0; 
+                size_t convertedChars = 0;
                 out[i].if_name = malloc(newsize);
                 out[i].if_name[0] = '\\0';
                 wcstombs_s(&convertedChars, out[i].if_name, newsize, buf, newsize - 1);
@@ -1045,7 +1045,7 @@ if _WIN32:
             out[i].if_index = 0;
             return out;
         }
- 
+
         RPY_EXTERN
         void if_freenameindex(struct if_nameindex *ptr) {
             if (ptr == NULL) return;

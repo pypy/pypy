@@ -18482,7 +18482,7 @@ def lookup_charcode(c):
 
 def dawg_lookup(n):
     return pos_to_code(_dawg_lookup(packed_dawg, n))
-    
+
 # estimated 0.2 KiB
 __charcode_to_pos_32 = [
 11219, 5323, 10738, 10335, 4906, 10647, 14, 103, 8440, 10803, 1131, 10661, 4215, 6865, 5359, 11205,
@@ -34503,7 +34503,7 @@ def _get_char_list(length, start):
     for i in range(length):
         res[i] = char_list_data(start + i)
     return res
-    
+
 # estimated 4.62 KiB
 __comp_pairs_pgtbl = [
 0, 1, 2, 2, 3, 4, 5, 6, 7, 2, 2, 2, 2, 8, 9, 10,

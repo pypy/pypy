@@ -268,7 +268,7 @@ def _get_dllhandle(space):
 
 getsizeof_missing = """getsizeof(...)
     getsizeof(object, default) -> int
-    
+
     Return the size of object in bytes.
 
 sys.getsizeof(object, default) will always return default on PyPy, and

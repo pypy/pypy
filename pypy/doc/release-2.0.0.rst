@@ -62,7 +62,7 @@ Highlights
 
 * Refactoring much of the numpypy array classes, which resulted in removal of
   lazy expression evaluation. On the other hand, we now have more complete
-  dtype support and support more array attributes.  
+  dtype support and support more array attributes.
 
 .. _`pypycore`: https://github.com/gevent-on-pypy/pypycore/
 .. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks

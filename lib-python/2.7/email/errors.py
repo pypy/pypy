@@ -5,7 +5,7 @@
 """email package exception classes."""
 
 
-
+
 class MessageError(Exception):
     """Base class for errors in the email package."""
 
@@ -30,7 +30,7 @@ class CharsetError(MessageError):
     """An illegal charset was given."""
 
 
-
+
 # These are parsing defects which the parser was able to work around.
 class MessageDefect:
     """Base class for a message defect."""

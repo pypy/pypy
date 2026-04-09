@@ -2,7 +2,7 @@ from rpython.jit.backend.x86.regloc import *
 from rpython.jit.metainterp.history import ConstFloat
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.rtyper.lltypesystem import llmemory, rffi
-from rpython.jit.backend.detect_cpu import getcpuclass 
+from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.codewriter import longlong
 import ctypes
 import py

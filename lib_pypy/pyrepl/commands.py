@@ -242,7 +242,7 @@ class down(MotionCommand):
 class left(MotionCommand):
     def do(self):
         r = self.reader
-        for i in range(r.get_arg()):        
+        for i in range(r.get_arg()):
             p = r.pos - 1
             if p >= 0:
                 r.pos = p
@@ -272,17 +272,17 @@ class end_of_line(MotionCommand):
 class home(MotionCommand):
     def do(self):
         self.reader.pos = 0
-        
+
 class end(MotionCommand):
     def do(self):
         self.reader.pos = len(self.reader.buffer)
-        
+
 class forward_word(MotionCommand):
     def do(self):
         r = self.reader
         for i in range(r.get_arg()):
             r.pos = r.eow()
-    
+
 class backward_word(MotionCommand):
     def do(self):
         r = self.reader

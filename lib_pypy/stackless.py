@@ -238,7 +238,7 @@ class channel(object):
     def close(self):
         """
         channel.close() -- stops the channel from enlarging its queue.
-        
+
         If the channel is not empty, the flag 'closing' becomes true.
         If the channel is empty, the flag 'closed' becomes true.
         """
@@ -294,7 +294,7 @@ class channel(object):
             source.tempval, target.tempval = target.tempval, source.tempval
             target.blocked = 0
             if self.schedule_all:
-                # always schedule 
+                # always schedule
                 _scheduler_append(target)
                 do_schedule = True
             elif self.preference == -d:
@@ -498,7 +498,7 @@ def run():
         assert not _squeue
     finally:
         _scheduler_append(curr)
-    
+
 def schedule_remove(retval=None):
     """
     schedule(retval=stackless.current) -- switch to the next runnable tasklet.
@@ -527,7 +527,7 @@ def schedule(retval=None):
             if _squeue[0] is curr:
                 # If the current is at the head, skip it.
                 _squeue.rotate(-1)
-                
+
             task = _squeue[0]
             #_squeue.rotate(-1)
         elif _run_calls:

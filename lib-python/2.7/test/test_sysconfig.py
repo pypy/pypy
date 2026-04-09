@@ -222,15 +222,15 @@ class TestSysConfig(unittest.TestCase):
                                            '-dynamic -DNDEBUG -g -O3'%(arch,))
 
             self.assertEqual(get_platform(), 'macosx-10.4-%s'%(arch,))
-        
+
         # macosx with ARCHFLAGS set and empty _CONFIG_VARS
         os.environ['ARCHFLAGS'] = '-arch i386'
         sysconfig._CONFIG_VARS = None
-        
-        # this will attempt to recreate the _CONFIG_VARS based on environment 
+
+        # this will attempt to recreate the _CONFIG_VARS based on environment
         # variables; used to check a problem with the PyPy's _init_posix
         # implementation; see: issue 705
-        get_config_vars() 
+        get_config_vars()
 
         # linux debian sarge
         os.name = 'posix'

@@ -33,7 +33,7 @@ def gen_float_comp_op(name, flag):
         self.emit_float_comp_op(op, l0, l1)
         self.mc.CSET_r_flag(res.value, c.get_opposite_of(flag))
     emit_op.__name__ = name
-    return emit_op        
+    return emit_op
 
 def gen_float_comp_op_cc(name, flag):
     def emit_op(self, op, arglocs):
@@ -41,7 +41,7 @@ def gen_float_comp_op_cc(name, flag):
         self.emit_float_comp_op(op, l0, l1)
         return flag
     emit_op.__name__ = name
-    return emit_op        
+    return emit_op
 
 class ResOpAssembler(BaseAssembler):
     def imm(self, v):
@@ -275,11 +275,11 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_float_sub(self, op, arglocs):
         arg1, arg2, res = arglocs
-        self.mc.FSUB_dd(res.value, arg1.value, arg2.value)    
+        self.mc.FSUB_dd(res.value, arg1.value, arg2.value)
 
     def emit_op_float_mul(self, op, arglocs):
         arg1, arg2, res = arglocs
-        self.mc.FMUL_dd(res.value, arg1.value, arg2.value)    
+        self.mc.FMUL_dd(res.value, arg1.value, arg2.value)
 
     def emit_op_float_truediv(self, op, arglocs):
         arg1, arg2, res = arglocs
@@ -320,7 +320,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_float_abs(self, op, arglocs):
         arg, res = arglocs
-        self.mc.FABS_d(res.value, arg.value)        
+        self.mc.FABS_d(res.value, arg.value)
 
     def emit_op_cast_float_to_int(self, op, arglocs):
         arg, res = arglocs
@@ -353,7 +353,7 @@ class ResOpAssembler(BaseAssembler):
 
     def emit_op_debug_merge_point(self, op, arglocs):
         pass
-    
+
     emit_op_jit_debug = emit_op_debug_merge_point
     emit_op_keepalive = emit_op_debug_merge_point
     emit_op_enter_portal_frame = emit_op_debug_merge_point
@@ -630,7 +630,7 @@ class ResOpAssembler(BaseAssembler):
             self.mc.LDR_ri(r.ip0.value, arglocs[0].value, offset)
             self.mc.gen_load_int_full(r.ip1.value, arglocs[1].value)
             self.mc.CMP_rr(r.ip0.value, r.ip1.value)
-            self._emit_guard(op, c.EQ, arglocs[2:])     
+            self._emit_guard(op, c.EQ, arglocs[2:])
         else:
             self.mc.CMP_ri(arglocs[0].value, 0)
             extra_offset = self.mc.currpos()

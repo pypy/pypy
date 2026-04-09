@@ -9,7 +9,7 @@ It also brings an improved situation on Windows and OS X.
 
 You can download the PyPy 1.9 release here:
 
-    https://pypy.org/download.html 
+    https://pypy.org/download.html
 
 .. _`numpypy`: https://pypy.org/numpydonate.html
 

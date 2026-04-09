@@ -72,7 +72,7 @@ class CompiledVmprofTest(CCompiledMixin):
             rvmprof.disable()
             os.close(fd)
             return 0
-        
+
         def check_vmprof_output():
             from vmprof import read_profile
             tmpfile = str(udir.join('test_rvmprof'))

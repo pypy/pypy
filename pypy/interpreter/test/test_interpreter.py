@@ -1,8 +1,8 @@
-import py 
+import py
 import sys
 from pypy.interpreter import gateway, module, error
 
-class TestInterpreter: 
+class TestInterpreter:
 
     def codetest(self, source, functionname, args):
         """Compile and run the given code string, and then call its function
@@ -12,7 +12,7 @@ class TestInterpreter:
         source = str(py.code.Source(source).strip()) + '\n'
 
         w = space.wrap
-        w_code = space.builtin.call('compile', 
+        w_code = space.builtin.call('compile',
                 w(source), w('<string>'), w('exec'), w(0), w(0))
 
         tempmodule = module.Module(space, w("__temp__"))
@@ -205,7 +205,7 @@ class TestInterpreter:
         assert self.codetest(code, 'f38', [117]) == [234]*19
 
     def test_star_arg(self):
-        code = ''' 
+        code = '''
             def f(x, *y):
                 return y
             def g(u, v):
@@ -241,7 +241,7 @@ class TestInterpreter:
         assert self.codetest(code, 'f', []) == os.name
 
 
-class AppTestInterpreter: 
+class AppTestInterpreter:
     def test_trivial(self):
         x = 42
         assert x == 42
@@ -256,7 +256,7 @@ class AppTestInterpreter:
 
     def test_print(self):
         import sys
-        save = sys.stdout 
+        save = sys.stdout
         class Out(object):
             def __init__(self):
                 self.args = []

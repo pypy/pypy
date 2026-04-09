@@ -289,7 +289,7 @@ class StdStringExecutor(InstancePtrExecutor):
         cstr, cstr_len = capi.c_call_s(space, cppmethod, cppthis, num_args, args)
         pystr = rffi.charpsize2str(cstr, cstr_len)
         capi.c_free(space, rffi.cast(rffi.VOIDP, cstr))
-        return space.newbytes(pystr) 
+        return space.newbytes(pystr)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
@@ -441,7 +441,7 @@ def get_executor(space, name):
 
     # currently used until proper lazy instantiation available in interp_cppyy
     return Executor(space, None)
- 
+
 
 _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor

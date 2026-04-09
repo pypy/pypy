@@ -320,7 +320,7 @@ def test_merge_if_blocks_bug():
         elif n == 4: return -123
         elif n == 5: return 12973
         else: return n
-    
+
     graph, t = get_graph(fn, [int])
     from rpython.translator.backendopt.removenoops import remove_same_as
     from rpython.translator.backendopt import merge_if_blocks
@@ -339,7 +339,7 @@ def test_merge_if_blocks_bug_2():
         elif n == 4: return -123
         elif n == 5: return 12973
         else: return n
-    
+
     graph, t = get_graph(fn, [])
     from rpython.translator.backendopt.removenoops import remove_same_as
     from rpython.translator.backendopt import merge_if_blocks

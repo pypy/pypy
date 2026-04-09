@@ -780,7 +780,7 @@ class TestNonInteractive:
         assert 'hello world\n' in data
         assert '42\n' in data
 
-    @py.test.mark.skipif('sys.platform=="win32"', reason="windows, sendata, and quoting problems")  
+    @py.test.mark.skipif('sys.platform=="win32"', reason="windows, sendata, and quoting problems")
     def test_putenv_fires_interactive_within_process(self):
         try:
             import __pypy__

@@ -13,7 +13,7 @@ class Descr(AbstractDescr):
 class Opt(object):
     def __init__(self, oplist):
         self.oplist = oplist
-    
+
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.oplist:
             if isinstance(op, tuple):

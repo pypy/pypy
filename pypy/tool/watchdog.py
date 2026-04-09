@@ -43,7 +43,7 @@ if __name__ == '__main__':
             if timedout and sign == signal.SIGTERM:
                 sys.exit(1)
             signame = getsignalname(sign)
-            sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")        
+            sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")
             sys.stderr.write("="*25 + " %-08s " %  signame + "="*25 + "\n")
             sys.exit(1)
 

@@ -4,7 +4,7 @@ import os
 import sys
 import imp
 import os.path
-# virtualenv when run with -S for instance does not have the types module. 
+# virtualenv when run with -S for instance does not have the types module.
 # Instead, copy the code to create
 # the needed type to be checked.
 

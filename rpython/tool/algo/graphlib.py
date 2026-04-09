@@ -122,7 +122,7 @@ def all_cycles(root, vertices, edges):
             pending.append(next(generator))
         except StopIteration:
             pending.pop()
-    return result        
+    return result
 
 
 def find_roots(vertices, edges):

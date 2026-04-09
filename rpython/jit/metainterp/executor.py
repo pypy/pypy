@@ -240,7 +240,7 @@ def do_raw_store(cpu, _, addrbox, offsetbox, valuebox, arraydescr):
         cpu.bh_raw_store_i(addr, offset, valuebox.getint(), arraydescr)
 
 def do_raw_load(cpu, _, addrbox, offsetbox, arraydescr):
-    raise Exception("implement me")    
+    raise Exception("implement me")
     xxx
     addr = addrbox.getint()
     offset = offsetbox.getint()
@@ -551,7 +551,7 @@ def constant_from_op(op):
         return ConstFloat(op.getfloatstorage())
 
 unrolled_range = unrolling_iterable(range(rop._LAST))
-    
+
 def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
                           type='i'):
     for num in unrolled_range:
@@ -562,7 +562,7 @@ def execute_nonspec_const(cpu, metainterp, opnum, argboxes, descr=None,
 
 @specialize.arg(2)
 def _execute_arglist(cpu, metainterp, opnum, argboxes, descr=None):
-    arity = resoperation.oparity[opnum]    
+    arity = resoperation.oparity[opnum]
     assert arity == -1 or len(argboxes) == arity
     if resoperation.opwithdescr[opnum]:
         check_descr(descr)

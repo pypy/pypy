@@ -7,7 +7,7 @@ from rpython.jit.tl import tlc
 class TestTL(JitARMMixin, TLCTests):
     # for the individual tests see
     # ====> ../../test/test_tlc.py
-    
+
     def test_accumulator(self):
         py.test.skip("investigate, maybe")
         path = py.path.local(tlc.__file__).dirpath('accumulator.tlc.src')

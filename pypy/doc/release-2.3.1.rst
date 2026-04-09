@@ -13,7 +13,7 @@ You can download the PyPy 2.3.1 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
-We've shown quite a bit of progress 
+We've shown quite a bit of progress
 but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
 so we can finish those projects!  The three sub-projects are:
@@ -25,7 +25,7 @@ so we can finish those projects!  The three sub-projects are:
 
 .. _`STM`: https://pypy.org/tmdonate2.html
 .. _`NumPy`: https://pypy.org/numpydonate.html
-.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy   
+.. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 What is PyPy?
 =============
@@ -37,7 +37,7 @@ due to its integrated tracing JIT compiler.
 
 This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows,
 and OpenBSD,
-as well as newer ARM hardware (ARMv6 or ARMv7, with VFPv3) running Linux. 
+as well as newer ARM hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 
 While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer

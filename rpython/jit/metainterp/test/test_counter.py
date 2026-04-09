@@ -89,7 +89,7 @@ def test_install_new_chain():
     #
     jc = JitCounter()
     assert jc.lookup_chain(104) is None
-    d1 = Dead() 
+    d1 = Dead()
     jc.install_new_cell(104, d1)
     assert jc.lookup_chain(104) is d1
     d2 = Dead()

@@ -62,7 +62,7 @@ def test_bad():
     r1 = Rule("S", [["x", "S", "x"], ["x"]])
     p = PackratParser([r1], "S")
     assert p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("xxxxxxxxxxxxxxx")]) is not None
-    
+
 def test_leftrecursion_detection():
     r1 = Rule("A", [["A"]])
     py.test.raises(AssertionError, PackratParser, [r1], "A")

@@ -9,7 +9,7 @@ def test_init():
 def test_init_dir_name():
     simple = isolate.Isolate((os.path.dirname(__file__), 'isolate_simple'))
     isolate.close_isolate(simple)
-    
+
 def test_simple():
     simple = isolate.Isolate('pypy.tool.test.isolate_simple')
     f = simple.f

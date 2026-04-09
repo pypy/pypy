@@ -87,7 +87,7 @@ class AppTestCodeIntrospection:
             ]
 
         import sys
-        if hasattr(sys, 'pypy_objspaceclass'): 
+        if hasattr(sys, 'pypy_objspaceclass'):
             testcases += [
                 (abs.func_code, {'co_name': 'abs',
                                  'co_varnames': ('val',),
@@ -129,9 +129,9 @@ class AppTestCodeIntrospection:
 
     def test_code(self):
         import sys
-        try: 
+        try:
             import new
-        except ImportError: 
+        except ImportError:
             skip("could not import new module")
         codestr = "global c\na = 1\nb = 2\nc = a + b\n"
         ccode = compile(codestr, '<string>', 'exec')

@@ -447,7 +447,7 @@ class AssemblerARM64(ResOpAssembler):
         # and the expected_size pushed in _check_stack_frame
         # pop the values passed on the stack, gcmap -> r0, expected_size -> r1
         mc.LDP_rri(r.x0.value, r.x1.value, r.sp.value, 0)
-        
+
         mc.STR_ri(r.lr.value, r.sp.value, 0)
 
         # store the current gcmap(r0) in the jitframe
@@ -490,7 +490,7 @@ class AssemblerARM64(ResOpAssembler):
         mc.LDR_ri(r.lr.value, r.sp.value, 0)
         mc.ADD_ri(r.sp.value, r.sp.value, 2*WORD)
         mc.RET_r(r.lr.value)
-        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])        
+        self._frame_realloc_slowpath = mc.materialize(self.cpu, [])
 
     def _load_shadowstack_top(self, mc, reg, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
@@ -1044,7 +1044,7 @@ class AssemblerARM64(ResOpAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        size = self.mc.get_relative_pos() 
+        size = self.mc.get_relative_pos()
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
         self.cpu.codemap.register_codemap(
@@ -1124,7 +1124,7 @@ class AssemblerARM64(ResOpAssembler):
 
         if self.cpu.translate_support_code:
             self._call_header_vmprof()
-        
+
         self.saved_threadlocal_addr = 3 * WORD   # at offset 3 from location 'sp'
         self.mc.STR_ri(r.x1.value, r.sp.value, 3 * WORD)
 
@@ -1184,7 +1184,7 @@ class AssemblerARM64(ResOpAssembler):
                 regalloc.possibly_free_vars_for_op(op)
             elif not we_are_translated() and op.getopnum() == rop.FORCE_SPILL:
                 regalloc.force_spill_var(op.getarg(0))
-            elif ((rop.returns_bool_result(opnum) or op.is_ovf()) and 
+            elif ((rop.returns_bool_result(opnum) or op.is_ovf()) and
                   i < len(operations) - 1 and
                   regalloc.next_op_can_accept_cc(operations, i) or
                                                operations[i].is_ovf()):

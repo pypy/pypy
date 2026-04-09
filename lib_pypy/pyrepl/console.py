@@ -35,7 +35,7 @@ class Console:
     height,
     width,
     """
-    
+
     def refresh(self, screen, xy):
         pass
 

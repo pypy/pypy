@@ -312,7 +312,7 @@ class StackEntry(object):
             self.node = Nonterminal1(self.dfa.grammar, self.dfa.symbol_id, child)
         elif isinstance(node, Nonterminal1):
             newnode = self.node = Nonterminal(
-                    self.dfa.grammar, 
+                    self.dfa.grammar,
                     self.dfa.symbol_id, [node._child, child])
         else:
             self.node.append_child(child)

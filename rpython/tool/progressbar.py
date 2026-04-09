@@ -6,17 +6,17 @@ Usage:
     p = ProgressBar("blue")
     p.render(percentage, message)
 """
- 
+
 from rpython.tool import terminal
 import sys
- 
+
 class ProgressBar(object):
     """Terminal progress bar class"""
     TEMPLATE = (
      '%(percent)-2s%% %(color)s%(progress)s%(normal)s%(empty)s %(message)s\n'
     )
     PADDING = 7
- 
+
     def __init__(self, color=None, width=None, block='.', empty=' '):
         """
         color -- color name (BLUE GREEN CYAN RED MAGENTA YELLOW WHITE BLACK)
@@ -37,7 +37,7 @@ class ProgressBar(object):
         self.empty = empty
         self.progress = None
         self.lines = 0
- 
+
     def render(self, percent, message = ''):
         """Print the progress bar
         percent -- the progress percentage %
@@ -53,7 +53,7 @@ class ProgressBar(object):
             bar_width = terminal.COLUMNS - inline_msg_len -self.PADDING
         else:
             bar_width = self.width
- 
+
         # Check if render is called for the first time
         if self.progress != None:
             self.clear()
@@ -70,7 +70,7 @@ class ProgressBar(object):
         sys.stdout.flush()
         # The number of lines printed
         self.lines = len(data.splitlines())
- 
+
     def clear(self):
         """Clear all printed lines"""
         sys.stdout.write(

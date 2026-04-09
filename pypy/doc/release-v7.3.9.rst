@@ -22,7 +22,7 @@ updates ``sqlite3`` to 3.38.2. It includes:
   - PyPy3.9, which is an interpreter supporting the syntax and the features of
     Python 3.9, including the stdlib for CPython 3.9.12. We relate to this as
     "beta" quality. We welcome testing of this version, if you discover
-    incompatibilities, please report them so we can gain confidence in the version. 
+    incompatibilities, please report them so we can gain confidence in the version.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3

@@ -305,7 +305,7 @@ class TestOwnLib(object):
                 long right;
                 long bottom;
             } RECT;
-            
+
             extern long left, top, right, bottom;
 
             RECT ReturnRect(int i, RECT ar, RECT* br, POINT cp, RECT dr,
@@ -321,7 +321,7 @@ class TestOwnLib(object):
         rect[0].right = ownlib.right
         rect[0].top = ownlib.top
         rect[0].bottom = ownlib.bottom
-        
+
         for i in range(4):
             ret = ownlib.ReturnRect(i, rect[0], rect, pt[0], rect[0],
                                     rect, pt[0], rect[0])

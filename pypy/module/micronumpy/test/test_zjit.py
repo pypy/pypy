@@ -894,7 +894,7 @@ class TestNumpyJit(LLJitMixin):
         self.check_trace_count(3)
         # ::2 creates a view object -> needs an inner loop
         # that iterates continous chunks of the matrix
-        self.check_vectorized(1,0) 
+        self.check_vectorized(1,0)
 
     def define_dot_matrix():
         return """
@@ -929,7 +929,7 @@ class TestNumpyJit(LLJitMixin):
         a = astype(|30|, int)
         b = astype([2], int)
         c = a ** b
-        c -> 15 
+        c -> 15
         """
 
     def test_pow_int(self):

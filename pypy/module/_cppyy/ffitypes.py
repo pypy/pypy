@@ -35,7 +35,7 @@ class State(object):
         self.c_float   = nt.new_primitive_type(space, 'float')
         self.c_double  = nt.new_primitive_type(space, 'double')
         self.c_ldouble = nt.new_primitive_type(space, 'long double')
-        
+
         # pointer types
         self.c_ccharp = nt.new_pointer_type(space, self.c_char)
         self.c_voidp  = nt.new_pointer_type(space, self.c_void)

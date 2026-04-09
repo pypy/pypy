@@ -96,7 +96,7 @@ def gen_cells(data):
             parts.append(cell % (i, j, attr, val))
     parts.append('      </gnm:Cells>')
     return '\n'.join(parts)
-    
+
 
 # ========================================================================
 # functions to extract various data from the logs

@@ -7,7 +7,7 @@ This new PyPy2.7 release includes the upstream stdlib version 2.7.12.
 
 We continue to make incremental improvements to our C-API
 compatibility layer (cpyext). We pass all but a few of the tests in the
-upstream numpy test suite. 
+upstream numpy test suite.
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, and some of those
@@ -59,13 +59,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This release supports: 
+This release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -140,12 +140,12 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * In JIT residual calls, if the called function starts with a fast-path like
     ``if x.foo != 0: return x.foo``, then inline the check before doing the
     ``CALL``.
-  * Ensure ``make_inputargs`` fails properly when given arguments with type 
+  * Ensure ``make_inputargs`` fails properly when given arguments with type
     information
   * Makes ``optimiseopt`` iterative instead of recursive so it can be reasoned
     about more easily and debugging is faster
   * Refactor and remove dead code from ``optimizeopt``, ``resume``
-  
+
 
 .. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.6.0.html
 

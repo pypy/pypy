@@ -63,7 +63,7 @@ def PyUnicode_CheckExact(space, ref):
     w_obj = from_ref(space, rffi.cast(PyObject, ref))
     w_obj_type = space.type(w_obj)
     return space.is_w(w_obj_type, space.w_unicode)
- 
+
 
 def new_empty_unicode(space, length):
     """

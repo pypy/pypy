@@ -14,7 +14,7 @@ numerous improvements to the numpy in pypy effort, cpyext and performance.
 
 You can download the PyPy 2.0 beta 1 release here:
 
-    https://pypy.org/download.html 
+    https://pypy.org/download.html
 
 What is PyPy?
 =============

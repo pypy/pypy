@@ -1,4 +1,4 @@
-import py 
+import py
 
 _time_desc = {
          1 : 'second', 60 : 'minute', 3600 : 'hour', 86400 : 'day',

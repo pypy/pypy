@@ -1367,7 +1367,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                 else:
                     # 64 bit unsigned
                     self.cmpld(block, a, b)
-                
+
     def alloc_scratch_reg(self):
         pass
         #assert not self.r0_in_use
@@ -1412,7 +1412,7 @@ class BranchUpdater(PPCAssembler):
     def write_to_mem(self, addr):
         self.assemble()
         self.copy_to_raw_memory(addr)
-        
+
     def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
         insns = self.assemble0(dump)
         for i in insns:

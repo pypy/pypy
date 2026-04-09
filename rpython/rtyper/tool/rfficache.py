@@ -68,7 +68,7 @@ class Platform:
     def __init__(self):
         self.types = {}
         self.numbertype_to_rclass = {}
-    
+
     def inttype(self, name, c_name, signed, **kwds):
         try:
             return self.types[name]

@@ -26,11 +26,11 @@ class TBRequestHandler(BaseHTTPRequestHandler):
             self.wfile.write('traceback named %r not found' % tb_name)
         else:
             tbview = self.views[tb_name]
-            s = tbview.render(self.path) 
+            s = tbview.render(self.path)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()
-            self.wfile.write(unicode(s).encode('utf8')) 
+            self.wfile.write(unicode(s).encode('utf8'))
 
     def log_message(self, format, *args):
         pass
@@ -86,11 +86,11 @@ def wait_until_interrupt():
 
 def publish_exc(exc):
     if server_thread is None:
-        return 
+        return
     from pypy.tool.tb_server.render import TracebackView
     x = TracebackView(exc)
     print "traceback is at http://localhost:%d/%s" % (server_port, x.name)
 
 if __name__ == "__main__":
-    t = start() 
+    t = start()
     wait_until_interrupt()

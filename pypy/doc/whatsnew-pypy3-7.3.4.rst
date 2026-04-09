@@ -23,7 +23,7 @@ Fix rsre module for python 3.7
 
 .. branch: incremental_decoder
 
-Fix utf_8_decode for final=False 
+Fix utf_8_decode for final=False
 
 
 .. branch: refactor-posonly
@@ -69,7 +69,7 @@ Re-enable ``_io.win32console`` on windows
 
 Implement METH_FASTCALL
 
-.. branch: py3.7-win64-cpyext-longobject 
+.. branch: py3.7-win64-cpyext-longobject
 
 Fix ``cpyext.longobject`` for win64
 

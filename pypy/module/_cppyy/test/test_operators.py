@@ -193,4 +193,4 @@ class AppTestOPERATORS:
         assert d1 == b1
         assert not b1 == d2
         assert not d2 == b1
-        
+

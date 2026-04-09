@@ -68,7 +68,7 @@ class AppTestStruct(BaseAppTestFFI):
         dummy_type.c_type = rffi.cast(rffi.USHORT, 0)
         cls.w_dummy_type = W_FFIType('dummy', dummy_type)
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
-        
+
     def test__StructDescr(self):
         from _rawffi.alt import _StructDescr, Field, types
         longsize = types.slong.sizeof()
@@ -190,7 +190,7 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('unichar') == u'\u1234'
         struct.setfield('ptr', -1)
         assert struct.getfield('ptr') == sys.maxint*2 + 1
-    
+
     def test_getfield_setfield_longlong(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
@@ -204,7 +204,7 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('slonglong', 9223372036854775808)
         assert struct.getfield('slonglong') == -9223372036854775808
         struct.setfield('ulonglong', -1)
-        assert struct.getfield('ulonglong') == 18446744073709551615        
+        assert struct.getfield('ulonglong') == 18446744073709551615
         mem = self.read_raw_mem(struct.getaddr(), 'c_longlong', 2)
         assert mem == [-9223372036854775808, -1]
 

@@ -95,7 +95,7 @@ class RffiSource(object):
         self.source = py.code.Source(self.source, src)
         self.forward_refs_to_consider[tp] = name
         return name
-        
+
     def proc_tp(self, tp):
         try:
             return SIMPLE_TYPE_MAPPING[tp]
@@ -132,7 +132,7 @@ class RffiSource(object):
     def proc_namespace(self, ns):
         exempt = set(id(value) for value in ctypes.__dict__.values())
         for key, value in ns.items():
-            if id(value) in exempt: 
+            if id(value) in exempt:
                 continue
             if isinstance(value, ctypes._CFuncPtr):
                 self.proc_func(value)

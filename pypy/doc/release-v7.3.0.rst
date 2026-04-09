@@ -10,7 +10,7 @@ two different interpreters:
 
   - PyPy3.6: which is an interpreter supporting the syntax and the features of
     Python 3.6, including the stdlib for CPython 3.6.9.
-    
+
 The interpreters are based on much the same codebase, thus the double
 release.
 
@@ -19,7 +19,7 @@ building third party packages for python, so this release changes the ABI tag
 for PyPy.
 
 Based on the great work done in `portable-pypy`_, the linux x86 downloads we
-provide are now built on top of the `manylinux2010`_ CentOS6 docker image. 
+provide are now built on top of the `manylinux2010`_ CentOS6 docker image.
 The tarballs include the needed shared objects to run on any platform that
 supports manylinux2010 wheels, which should include all supported versions of
 debian- and RedHat-based distributions (including Ubuntu, CentOS, and Fedora).
@@ -95,7 +95,7 @@ This PyPy release supports:
 
 Unfortunately at the moment of writing our ARM buildbots are out of service,
 so for now we are **not** releasing any binary for the ARM architecture (32
-bit), although PyPy does support ARM 32 bit processors. 
+bit), although PyPy does support ARM 32 bit processors.
 
 .. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html

@@ -38,9 +38,9 @@ def _run_pip(args, additional_paths=None):
         return e.code
     finally:
         sys.argv[:] = backup_argv
- 
+
     raise SystemError("pip have not exited, that should never happen")
- 
+
 def version():
     """
     Returns a string specifying the bundled version of pip.

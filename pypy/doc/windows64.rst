@@ -37,8 +37,8 @@ First the tests in
 ``test_newgc.py`` were made to pass on top of CPython64/64.
 
 This runs small translations, and some details were
-wrong.  The most obvious one is to make 
-the integer type ``Signed`` 
+wrong.  The most obvious one is to make
+the integer type ``Signed``
 equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
@@ -82,4 +82,4 @@ supposed to never be broken by newer versions of Windows.
 Happy hacking :-)
 
 .. _`nulano's branch of cpython`: https://github.com/nulano/cpython
-.. 
+..

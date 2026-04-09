@@ -21,7 +21,7 @@ class TestFakeVMProf(object):
         assert fake.is_sampling_enabled
         #
         pytest.raises(AssertionError, "fake.start_sampling()")
-    
+
     def test_check_status(self):
         fake = FakeVMProf()
         fake.stop_sampling()

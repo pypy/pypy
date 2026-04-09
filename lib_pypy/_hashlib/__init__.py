@@ -41,7 +41,7 @@ class HASH(object):
                 lib.EVP_DigestInit_ex(ctx, digest_type, ffi.NULL)
             self.ctx = ctx
         except:
-            # no need to gc ctx! 
+            # no need to gc ctx!
             raise
 
     def digest_type_by_name(self):

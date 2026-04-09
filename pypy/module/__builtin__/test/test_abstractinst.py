@@ -205,7 +205,7 @@ class AppTestAbstractInst:
 
     def test_dont_call_instancecheck_fast_path(self):
         called = []
-        
+
         class M(type):
             def __instancecheck__(self, obj):
                 called.append("called")
@@ -290,4 +290,4 @@ class AppTestAbstractInst:
         assert e is RuntimeError, str(e)
         assert "maximum recursion depth exceeded" in str(v)
 
- 
+

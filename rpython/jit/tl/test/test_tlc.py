@@ -2,7 +2,7 @@ import py
 from rpython.jit.tl.tlopcode import compile, NEW, RETURN
 from rpython.jit.tl.test import test_tl
 from rpython.jit.tl.tlc import ConstantPool
-    
+
 def test_constant_pool():
     pool = ConstantPool()
     bytecode = compile("""
@@ -85,7 +85,7 @@ class TestTLC(object):
         assert res == 4
 
         py.test.raises(IndexError, self.interp, bytecode, 0, 3)
-            
+
     def test_concat(self):
         bytecode = compile("""
             NIL

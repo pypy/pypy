@@ -50,7 +50,7 @@ def main(cffi_dir):
 if __name__ == '__main__':
     if sys.version_info > (3, 0):
         print(__doc__)
-        print("must use python2") 
+        print("must use python2")
         sys.exit(2)
     if len(sys.argv) != 2:
         print(__doc__)

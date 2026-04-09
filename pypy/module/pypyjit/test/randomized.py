@@ -23,7 +23,7 @@ class RandomCode(object):
             return self.chose(self.variable, self.constant)
         else:
             return self.chose(self.variable, self.opperation, self.constant)
-        
+
     def variable(self):
         return self.sample(self.vars)
 
@@ -44,7 +44,7 @@ class RandomCode(object):
 
     def depth(self):
         return len(inspect.getouterframes(inspect.currentframe()))
-        
+
     def statement(self):
         if self.depth() > self.maxifdepth:
             return self.assignment()
@@ -61,7 +61,7 @@ class RandomCode(object):
         lines = s.split('\n')
         lines = ['    ' + l for l in lines[:-1]]
         return '\n'.join(lines) + '\n'
-    
+
     def ifstatement(self):
         return 'if ' + self.test() + ':\n' + self.indent(self.block(5))
 
@@ -82,12 +82,12 @@ class RandomCode(object):
 
     def return_statement(self):
         return 'return (' + ', '.join(self.vars) + ')\n'
-        
+
 
 class IntBounds(RandomCode):
     opperators = ('+', '-', '*', '/', '>>', '<<')
     tests = ('<', '>', '<=', '>=', '==', '!=', None)
-    constants = range(-3,4) 
+    constants = range(-3,4)
     varnames = 'abcd'
 
     def function(self, name='f'):
@@ -130,5 +130,5 @@ print f()
         f.write(rapport)
         f.close()
         print rapport
-        
+
 

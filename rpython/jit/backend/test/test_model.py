@@ -29,4 +29,4 @@ def test_redirect_loop_token():
     c3.update_frame_info(c2, 0)
     assert c.frame_info.jfi_frame_depth == 3
     assert c2.frame_info.jfi_frame_depth == 3
-    
+

@@ -22,7 +22,7 @@ wish to share. The release includes four different interpreters:
     Python 3.9, including the stdlib for CPython 3.9.10. As this is our first
     release of this interpreter, we relate to this as "beta" quality. We
     welcome testing of this version, if you discover incompatibilities, please
-    report them so we can gain confidence in the version. 
+    report them so we can gain confidence in the version.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3

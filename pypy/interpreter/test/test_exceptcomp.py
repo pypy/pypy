@@ -3,7 +3,7 @@
 New for PyPy - Could be incorporated into CPython regression tests.
 """
 
-class AppTestExceptionComp: 
+class AppTestExceptionComp:
 
     def test_exception(self):
         try:
@@ -11,7 +11,7 @@ class AppTestExceptionComp:
         except TypeError:
             pass
         except:
-            self.fail("Identical exceptions do not match.") 
+            self.fail("Identical exceptions do not match.")
 
     def test_exceptionfail(self):
         try:
@@ -22,7 +22,7 @@ class AppTestExceptionComp:
             pass
         except:
             self.fail("Unanticipated value for exception raise.")
-            
+
 
     def test_called(self):
         try:
@@ -30,19 +30,19 @@ class AppTestExceptionComp:
         except SyntaxError:
             pass
         except:
-            self.fail("Instantiated exception does not match parent class.") 
+            self.fail("Instantiated exception does not match parent class.")
 
     def test_calledfail(self):
         try:
             raise SyntaxError("Invalid")
         except ZeroDivisionError:
-            self.fail("Instantiated exception matches different parent class.") 
+            self.fail("Instantiated exception matches different parent class.")
         except SyntaxError:
             pass
         except:
             self.fail("Unanticpated value for exception raise.")
-            
-        
+
+
     def test_userclass(self):
         class UserExcept(Exception):
             pass
@@ -51,15 +51,15 @@ class AppTestExceptionComp:
         except UserExcept:
             pass
         except:
-            self.fail("User defined class exceptions do not match.") 
-            
+            self.fail("User defined class exceptions do not match.")
+
     def test_subclass(self):
         try:
             raise KeyError("key")
         except LookupError:
             pass
         except:
-            self.fail("Exception does not match parent class.") 
+            self.fail("Exception does not match parent class.")
 
     def test_deepsubclass(self):
         try:
@@ -67,7 +67,7 @@ class AppTestExceptionComp:
         except Exception:
             pass
         except:
-            self.fail("Exception does not match grandparent class.") 
+            self.fail("Exception does not match grandparent class.")
 
     def test_tuple(self):
         try:
@@ -75,7 +75,7 @@ class AppTestExceptionComp:
         except (ZeroDivisionError, ArithmeticError):
             pass
         except:
-            self.fail("Exception does not match self in tuple.") 
+            self.fail("Exception does not match self in tuple.")
 
     def test_parenttuple(self):
         try:
@@ -83,7 +83,7 @@ class AppTestExceptionComp:
         except (StandardError, SystemExit):
             pass
         except:
-            self.fail("Exception does not match parent in tuple.") 
+            self.fail("Exception does not match parent in tuple.")
 
     def test_nestedtuples(self):
         try:
@@ -91,7 +91,7 @@ class AppTestExceptionComp:
         except (SystemExit, (KeyboardInterrupt, AssertionError)):
             pass
         except:
-            self.fail("Exception does not match self in nested tuple.") 
+            self.fail("Exception does not match self in nested tuple.")
 
     def test_deeptuples(self):
         try:

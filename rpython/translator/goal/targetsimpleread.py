@@ -2,12 +2,12 @@ import os
 
 def main(iterations=1):
     source = os.open('/dev/zero', os.O_RDWR, 0777)
-    
+
     for x in xrange(1024 * 1024 * iterations):
         payload = os.read(source, 1024)
 
     os.close(source)
-    
+
 def entry_point(argv):
     if len(argv) > 1:
         n = int(argv[1])

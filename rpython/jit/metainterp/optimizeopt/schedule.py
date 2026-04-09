@@ -65,7 +65,7 @@ class SchedulerState(object):
                     opindexvar = indexvars[op]
                     # there might be a variable already, that
                     # calculated the index variable, thus just reuse it
-                    for var, indexvar in indexvars.items(): 
+                    for var, indexvar in indexvars.items():
                         if indexvar == opindexvar and var in self.seen:
                             self.renamer.start_renaming(op, var)
                             break
@@ -84,7 +84,7 @@ class SchedulerState(object):
                             self.renamer.start_renaming(op, last)
                             self.seen[op] = None
                             self.seen[last] = None
-                else: 
+                else:
                     self.resolve_delayed(needs_resolving, delayed, op)
                     self.append_to_oplist(op)
                     self.seen[op] = None
@@ -825,7 +825,7 @@ class Pack(object):
 
     def output_byte_size(self):
         """ The amount of bytes the operations need with the current
-            entries in self.operations. E.g. vec_load(..., descr=short) 
+            entries in self.operations. E.g. vec_load(..., descr=short)
             with 10 operations returns 20
         """
         return self._byte_size(self.output_type)

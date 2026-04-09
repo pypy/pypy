@@ -37,7 +37,7 @@ Update standard library to version 3.6.9
 
 .. branch: __debug__-optimize
 
-Fix handling of __debug__, sys.flags.optimize, and '-O' command-line flag to 
+Fix handling of __debug__, sys.flags.optimize, and '-O' command-line flag to
 match CPython 3.6.
 
 .. branch: more-cpyext

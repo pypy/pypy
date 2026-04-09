@@ -639,9 +639,9 @@ if WIN32:
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     # Don't save the err since this is called before checking err in rdynload
-    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
+    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT)
 
-    # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
+    # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer,
     #                  wchar_t **result);
     # returns the number of wchar_t chars in result, -1 if error, for a given
     # path_to_check. The result pointer will be somewhere inside the pre-allocated

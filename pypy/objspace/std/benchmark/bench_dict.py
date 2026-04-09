@@ -31,7 +31,7 @@ def bench_simple_dict(SIZE = 10000):
 
     lookup_keys = random.sample(keys, 1000)
     random_keys = [get_random_string(20) for i in xrange(1000)]
-    
+
     test_d = count_operation("Creation", lambda : dict(zip(keys, values)))
 
     def rand_keys(keys):
@@ -40,7 +40,7 @@ def bench_simple_dict(SIZE = 10000):
                 test_d[key]
             except KeyError:
                 pass
-    
+
     count_operation("Random key access", lambda : rand_keys(random_keys))
     count_operation("Existing key access", lambda : rand_keys(lookup_keys))
     return test_d

@@ -35,7 +35,7 @@ if sys.platform == 'win32':
     def urandom(n, signal_checker=None):
         # NOTE: no dictionaries here: rsiphash24 calls this to
         # initialize the random seed of string hashes
-        
+
         BCRYPT_USE_SYSTEM_PREFERRED_RNG = 0x00000002
 
         with lltype.scoped_alloc(rffi.CArray(rwin32.BYTE), n,

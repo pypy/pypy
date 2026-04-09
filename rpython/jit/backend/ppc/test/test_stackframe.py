@@ -3,8 +3,8 @@
                 PyPy PPC Stackframe
 
                                                                                OLD  FRAME
-            |         BACK CHAIN      |                                        
-  - - - - - --------------------------- - - - - -- - - - - - - - - - 
+            |         BACK CHAIN      |
+  - - - - - --------------------------- - - - - -- - - - - - - - - -
             |                         |          |                             CURRENT FRAME
             |      FPR SAVE AREA      |          |>> len(NONVOLATILES_FPR) * DOUBLEWORD
             |                         |          |
@@ -35,7 +35,7 @@
             ---------------------------         --
             |                         |          |
   (64 Bit)  |  RESERVED FOR COMPILER  |          |>> 2 * WORD
-            |       AND LINKER        |          |  
+            |       AND LINKER        |          |
             ---------------------------         --
             |         SAVED LR        | WORD     |
             ---------------------------          |>> 3 WORDS (64 Bit)
@@ -48,8 +48,8 @@
 Minimum PPC64 ABI stack frame:
 
                                                                                OLD  FRAME
-            |         BACK CHAIN      |                                        
-  - - - - - --------------------------- - - - - -- - - - - - - - - - 
+            |         BACK CHAIN      |
+  - - - - - --------------------------- - - - - -- - - - - - - - - -
             |                         |          |                             CURRENT FRAME
             |  PARAMETER SAVE AREA    |          |>> max_stack_params * WORD
             |                         |          |
@@ -58,7 +58,7 @@ Minimum PPC64 ABI stack frame:
             ---------------------------         --
             |                         |          |
   (64 Bit)  |  RESERVED FOR COMPILER  |          |>> 2 * WORD
-            |       AND LINKER        |          |  
+            |       AND LINKER        |          |
             ---------------------------         --
             |         SAVED LR        | WORD     |
             ---------------------------          |>> 3 WORDS (64 Bit)

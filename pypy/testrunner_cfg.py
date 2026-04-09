@@ -11,7 +11,7 @@ IS_PYPY_MACOS_ARM64 = IS_ARM64 and IS_MACOS and IS_PYPY
 DIRS_SPLIT = [
     'translator/c', 'rlib',
     'memory/test', 'jit/metainterp',
-    'jit/backend/aarch64', 
+    'jit/backend/aarch64',
     'jit/backend/x86',
     'module/cpyext/test',
     'module/_hpy_universal/test/_vendored',

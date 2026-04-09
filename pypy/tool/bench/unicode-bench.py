@@ -65,7 +65,7 @@ def indexing(main_l):
 def isspace(main_l):
     l = [None]
     for i in xrange(RANGE // 10000):
-        l[0] = main_l[i % 100].isspace()    
+        l[0] = main_l[i % 100].isspace()
 
 for func in [isspace]:#, lower, isupper, islower]:
     t0 = time.time()

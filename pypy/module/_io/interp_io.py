@@ -59,7 +59,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         flag = mode[i]
         if mode.find(flag, 0, i) != -1:
             raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
-            
+
     for flag in mode:
         if flag == "r":
             reading = True

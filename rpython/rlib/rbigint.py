@@ -2740,7 +2740,7 @@ def _bitcount64_ops(x, K1=BITCOUNT_K1, K2=BITCOUNT_K2, K4=BITCOUNT_K4, KF=BITCOU
     # this is a separate function for Z3 testing
     x -= (x >> 1) & K1
     x = (x & K2) + ((x >> 2) & K2)
-    x = (x + (x >> 4)) & K4 
+    x = (x + (x >> 4)) & K4
     return (x * KF) >> 56
 
 def _truediv_result(result, negate):

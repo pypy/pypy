@@ -137,7 +137,7 @@ def _parse_key1(key, s):
                 if t == -1:
                     raise KeySpecError, \
                               "unterminated \\< starting at char %d of %s"%(
-                        s + 1, repr(key))                        
+                        s + 1, repr(key))
                 ret = key[s+2:t].lower()
                 if ret not in _keynames:
                     raise KeySpecError, \

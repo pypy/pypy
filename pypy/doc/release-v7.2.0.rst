@@ -10,7 +10,7 @@ two different interpreters:
 
   - PyPy3.6: which is an interpreter supporting the syntax and the features of
     Python 3.6, including the stdlib for CPython 3.6.9.
-    
+
 The interpreters are based on much the same codebase, thus the double
 release.
 
@@ -108,7 +108,7 @@ This PyPy release supports:
 
 Unfortunately at the moment of writing our ARM buildbots are out of service,
 so for now we are **not** releasing any binary for the ARM architecture (32
-bit), although PyPy does support ARM 32 bit processors. 
+bit), although PyPy does support ARM 32 bit processors.
 
 .. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
@@ -209,7 +209,7 @@ Changes shared across versions
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp`` to the 
+* Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp`` to the
   ``PyDateTime_CAPI`` struct
 
 * Add constants and macros needed to build opencv2_ with PyPy2.7

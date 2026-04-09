@@ -18,7 +18,7 @@ except LookupError:
     raise unittest.SkipTest
 
 
-
+
 class TestEmailAsianCodecs(TestEmailBase):
     def test_japanese_codecs(self):
         eq = self.ndiffAssertEqual
@@ -61,7 +61,7 @@ Hello World! =?iso-2022-jp?b?GyRCJU8lbSE8JW8hPCVrJUkhKhsoQg==?=
         self.assertEqual(jhello, ustr.encode(jcode))
 
 
-
+
 def suite():
     suite = unittest.TestSuite()
     suite.addTest(unittest.makeSuite(TestEmailAsianCodecs))
@@ -72,6 +72,6 @@ def test_main():
     run_unittest(TestEmailAsianCodecs)
 
 
-
+
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

@@ -2,7 +2,7 @@ import sys
 if len(sys.argv) >= 4 and sys.argv[1] == '--sub':
     sys.path[:] = eval(sys.argv[2])      # hacks for test_integration
     # XXX we don't invokve py.test machinery but try to make sure
-    # pypy support code sees the test options from the invoking 
+    # pypy support code sees the test options from the invoking
     # process
     import rpython.conftest
     class opt:
@@ -200,7 +200,7 @@ class _TestIntegration(LLJitMixin):
             for i in range(10):
                 g(1)   # g(1) gets a loop with an entry bridge
                 g(2)   # and an exit bridge, stays alive
-                g(1)   
+                g(1)
                 g(3)
                 g(1)
                 g(4)   # g(2), g(3), g(4), g(5) are thrown away every iteration
@@ -281,4 +281,4 @@ if __name__ == '__main__':
         finally:
             if hasattr(test, 'teardown_class'):
                 test.teardown_class()
-            
+

@@ -188,7 +188,7 @@ class TestFloatPacking:
             a = ieee.float_unpack(val_to_preserve, 8)
             assert math.isnan(a), 'i %d, maxmant %s' % (i, hex(val_to_preserve))
             b = ieee.float_pack(a, 8)
-            assert b == val_to_preserve, 'i %d, val %s b %s' % (i, hex(val_to_preserve), hex(b)) 
+            assert b == val_to_preserve, 'i %d, val %s b %s' % (i, hex(val_to_preserve), hex(b))
             b = ieee.float_pack(a, 2)
             assert b == 0xffff - i, 'i %d, b%s' % (i, hex(b))
 

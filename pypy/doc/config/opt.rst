@@ -30,7 +30,7 @@ smaller but slower.  The other levels use one of our built-in `custom
 garbage collectors`_.
 
 .. _`(**)`:
-    
+
 `(**)`: The level `3` enables gcc profile-driven recompilation when
 translating PyPy.
 

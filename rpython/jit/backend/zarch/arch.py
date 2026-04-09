@@ -73,7 +73,7 @@ assert STD_FRAME_SIZE_IN_BYTES % 2 == 0
 #     +------------------------------+
 #     | BRANCH TO r0                 |
 #     +------------------------------+
-#    
+#
 
 RECOVERY_TARGET_POOL_OFFSET = 0
 RECOVERY_GCMAP_POOL_OFFSET = 8

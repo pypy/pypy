@@ -10,7 +10,7 @@ the previous release on Feb 6, 2025.
 This release includes a python 3.11 interpreter. There were bugs in the first
 beta that could prevent its wider use, so we are continuing to call this
 release "beta". In the next release we will drop 3.10 and remove the "beta"
-label. 
+label.
 
 The release includes three different interpreters:
 

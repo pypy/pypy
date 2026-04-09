@@ -119,7 +119,7 @@ Current status (stmgc-c7)
 -------------------------
 
 .. warning::
-    
+
     THIS PAGE IS OLD, THE REST IS ABOUT STMGC-C7 WHEREAS THE CURRENT
     DEVELOPMENT WORK IS DONE ON STMGC-C8
 

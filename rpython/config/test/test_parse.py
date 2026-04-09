@@ -5,7 +5,7 @@ def test_parse_new_format():
     assert (parse_info("[foo]\n"
                        "    bar = True\n")
             == {'foo.bar': True})
-    
+
     assert (parse_info("[objspace]\n"
                        "    x = 'hello'\n"
                        "[translation]\n"

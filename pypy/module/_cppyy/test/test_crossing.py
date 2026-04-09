@@ -96,7 +96,7 @@ class AppTestCrossing:
             #if PY_MAJOR_VERSION >= 3
             PyInit_%(name)s(void)
             #else
-            init%(name)s(void) 
+            init%(name)s(void)
             #endif
             {
             %(init)s

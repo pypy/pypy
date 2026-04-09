@@ -10,7 +10,7 @@ two different interpreters:
 
   - PyPy3.6: which is an interpreter supporting the syntax and the features of
     Python 3.6, including the stdlib for CPython 3.6.9.
-    
+
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, no APIs have changed since the 7.3.0 release
 in December, but read on to find out what is new.
@@ -112,7 +112,7 @@ This PyPy release supports:
 
 Unfortunately at the moment of writing our ARM32 buildbots are out of service,
 so for now we are **not** releasing any binaries for that architecture,
-although PyPy does support ARM 32 bit processors. 
+although PyPy does support ARM 32 bit processors.
 
 .. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
@@ -134,7 +134,7 @@ Changes shared across versions
 - Fix `issue 3140`_: add ``$dist_name`` to ``include`` path when using
   ``setup.py install``
 - Fix `issue 3146`_: using a jsonDict as an instance `__dict__` would segfault
-- Fix `issue 3144`_: using `wch` in the curses CFFI module 
+- Fix `issue 3144`_: using `wch` in the curses CFFI module
 - Fix `issue 3149`_ which is related to the still-open CPython issue 12029_
   around Exceptions, metaclasses, ``__instancecheck__`` and ``__subclasscheck__``
 - Fix a corner case in ``multibytecodec``: for stateful codecs, when encoding
@@ -174,7 +174,7 @@ Changes shared across versions
 - Update ``pip`` and ``setuptools`` in ``ensurepip`` to 20.0.2 and 44.0.0
   respectively
 - Fix potential segfault in the zipimporter
-- Fixes in the JIT backend for PowerPC 
+- Fixes in the JIT backend for PowerPC
 - Update the statically-linked openssl to 1.1.1f on macOS.
 - Fix `re` grouprefs which were broken for unicode
 

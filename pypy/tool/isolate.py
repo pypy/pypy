@@ -6,14 +6,14 @@ class IsolateException(Exception):
 
 class IsolateInvoker(object):
     # to have a nice repr
-    
+
     def __init__(self, isolate, name):
         self.isolate = isolate
         self.name = name
 
     def __call__(self, *args):
         return self.isolate._invoke(self.name, args)
-        
+
     def __repr__(self):
         return "<invoker for %r . %r>" % (self.isolate.module, self.name)
 
@@ -50,7 +50,7 @@ class Isolate(object):
             if exc_type_module == 'exceptions':
                 raise getattr(exceptions, exc_type_name)
             else:
-                raise IsolateException("%s.%s" % value) 
+                raise IsolateException("%s.%s" % value)
 
     def _close(self):
         if not self._closed:

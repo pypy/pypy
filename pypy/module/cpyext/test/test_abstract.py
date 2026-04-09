@@ -146,7 +146,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                                          self.mview.format, self.mview.shape)
 
         s = b'abc'
-        m = memoryview(s) 
+        m = memoryview(s)
         buf = MyBuf(m)
         buffer_support = self.get_buffer_support()
         assert buffer_support.check_readbuffer(buf)

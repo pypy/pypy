@@ -41,7 +41,7 @@ def setupterm(space, w_termname=None, fd=-1):
         with rffi.scoped_str2charp(termname) as ll_term:
             _fd = rffi.cast(rffi.INT_real, _fd)
             errval = fficurses.setupterm(ll_term, _fd, p_errret)
-            
+
         if errval == -1:
             errret = widen(p_errret[0])
             if errret == 0:

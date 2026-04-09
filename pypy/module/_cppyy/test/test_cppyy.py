@@ -231,7 +231,7 @@ class AppTestCPPYY:
         assert round(t2.get_overload("getData")(pl)-50., 8) == 0
 
         e.__destruct__()
-        pl.__destruct__() 
+        pl.__destruct__()
         assert t1.get_overload("getCount")() == 0
 
     def test09_return_object_by_pointer(self):
@@ -251,5 +251,5 @@ class AppTestCPPYY:
         assert round(t2.get_overload("getData")(pl2)-50., 8) == 0
 
         e.__destruct__()
-        pl1.__destruct__() 
+        pl1.__destruct__()
         assert t1.get_overload("getCount")() == 0

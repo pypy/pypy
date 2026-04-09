@@ -47,7 +47,7 @@ def test_varinmorethanoneblock():
     g.startblock.closeblock(Link([v], b))
     b.closeblock(Link([v], g.returnblock))
     py.test.raises(AssertionError, checkgraph, g)
-    
+
 def test_useundefinedvar():
     v = Variable()
     g = FunctionGraph("g", Block([]))

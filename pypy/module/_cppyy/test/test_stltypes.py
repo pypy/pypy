@@ -41,7 +41,7 @@ class AppTestSTLVECTOR:
             assert tv1 is tv2
             assert tv1.iterator is cppyy.gbl.std.vector(p_type).iterator
 
-            #----- 
+            #-----
             v = tv1(); v += range(self.N)
             if p_type == int:
                 assert v.begin().__eq__(v.begin())

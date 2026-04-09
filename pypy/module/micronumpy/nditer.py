@@ -9,7 +9,7 @@ from pypy.module.micronumpy.descriptor import decode_w_dtype
 from pypy.module.micronumpy.iterators import ArrayIter
 from pypy.module.micronumpy.strides import (calculate_broadcast_strides,
                                             shape_agreement, shape_agreement_multiple)
-from pypy.module.micronumpy.casting import (find_binop_result_dtype, 
+from pypy.module.micronumpy.casting import (find_binop_result_dtype,
                     can_cast_array, can_cast_type)
 import pypy.module.micronumpy.constants as NPY
 from pypy.module.micronumpy.converters import order_converter
@@ -454,9 +454,9 @@ class W_NDIter(W_NumpyObject):
                         except OperationError as e:
                             raise oefmt(space.w_ValueError, "non-broadcastable"
                                 " output operand with shape %s doesn't match "
-                                "the broadcast shape %s", 
+                                "the broadcast shape %s",
                                 str(self.seq[i].get_shape()),
-                                str(self.shape)) 
+                                str(self.shape))
 
         if self.tracked_index != "":
             order = self.order
@@ -532,7 +532,7 @@ class W_NDIter(W_NumpyObject):
             # Special case, always return a memory-ordered iterator
             stride = imp.dtype.elsize
             backstride = imp.size * stride - stride
-            return ConcreteIter(imp, imp.get_size(), 
+            return ConcreteIter(imp, imp.get_size(),
                 [support.product(shape)], [stride], [backstride],
                             self.op_flags[i], self)
         backward = imp.order != self.order
@@ -735,7 +735,7 @@ class W_NDIter(W_NumpyObject):
 def descr_new_nditer(space, w_subtype, w_seq, w_flags, w_op_flags, w_op_dtypes,
                  w_casting, w_op_axes, w_itershape, w_buffersize, w_order):
     npy_order = order_converter(space, w_order, NPY.KEEPORDER)
-    buffersize = space.int_w(w_buffersize) 
+    buffersize = space.int_w(w_buffersize)
     return W_NDIter(space, w_seq, w_flags, w_op_flags, w_op_dtypes, w_casting, w_op_axes,
                     w_itershape, buffersize, npy_order)
 

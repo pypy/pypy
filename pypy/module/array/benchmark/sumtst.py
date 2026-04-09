@@ -10,7 +10,7 @@ def f(img):
     return l
 
 img=array('d', (0,)) * (640*480)
-    
+
 for l in range(500): f(img)
 
 #           C          pypy-simple pypy        cpython

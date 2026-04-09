@@ -27,7 +27,7 @@ def test_dirent():
            };
                                        """,
                                        [("d_reclen", rffi.USHORT)])
-    
+
     assert isinstance(dirent, lltype.Struct)
     # check that we have the desired field
     assert dirent.c_d_reclen is rffi.USHORT

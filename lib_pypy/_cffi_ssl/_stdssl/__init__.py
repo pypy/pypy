@@ -93,7 +93,7 @@ if OPENSSL_VERSION_INFO > (1, 1, 0, 0, 0):
     # XXX should be conditionally compiled into lib
     OP_ENABLE_MIDDLEBOX_COMPAT = 0x00100000
 
- 
+
 
 SSL_CLIENT = 0
 SSL_SERVER = 1
@@ -110,7 +110,7 @@ if lib.Cryptography_HAS_SSL3_METHOD:
         PROTOCOL_SSLv3  = 1
         lib.SSL_CTX_free(ctx)
         SSLv3_method_ok = True
-        
+
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -209,7 +209,7 @@ def _PySSL_errno(failed, ssl, retcode):
         err.c = ffi.errno
         err.ssl = lib.SSL_get_error(ssl, retcode)
         return err
-    return NO_ERROR 
+    return NO_ERROR
 
 
 def check_signals():
@@ -1124,7 +1124,7 @@ class _SSLContext(object):
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
         self._set_verify_mode(n)
-        
+
     @property
     def verify_flags(self):
         param = lib.SSL_CTX_get0_param(self.ctx)
@@ -1190,7 +1190,7 @@ class _SSLContext(object):
         @maximum_version.setter
         def maximum_version(self, arg):
             return self.set_min_max_proto_version(arg, 1);
-         
+
 
     @property
     def protocol(self):

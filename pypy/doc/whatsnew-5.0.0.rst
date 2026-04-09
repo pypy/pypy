@@ -25,7 +25,7 @@ Refactor and improve exception analysis in the annotator.
 
 .. branch: posita/2193-datetime-timedelta-integrals
 
-Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)`` 
+Fix issue #2193. ``isinstance(..., int)`` => ``isinstance(..., numbers.Integral)``
 to allow for alternate ``int``-like implementations (e.g., ``future.types.newint``)
 
 .. branch: faster-rstruct
@@ -79,8 +79,8 @@ commonly known loading operations
 
 .. branch: more-rposix
 
-Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and 
-turn them into regular RPython functions. Most RPython-compatible `os.*` 
+Move wrappers for OS functions from `rpython/rtyper` to `rpython/rlib` and
+turn them into regular RPython functions. Most RPython-compatible `os.*`
 functions are now directly accessible as `rpython.rposix.*`.
 
 .. branch: always-enable-gil
@@ -152,7 +152,7 @@ Refactor vmprof to work cross-operating-system.
 .. branch: seperate-strucmember_h
 
 Separate structmember.h from Python.h Also enhance creating api functions
-to specify which header file they appear in (previously only pypy_decl.h) 
+to specify which header file they appear in (previously only pypy_decl.h)
 
 .. branch: llimpl
 

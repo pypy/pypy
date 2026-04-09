@@ -240,7 +240,7 @@ class TestLibffiCall(BaseFfiTest):
             #del cls.dll
 
     def get_libfoo(self):
-        return self.dll    
+        return self.dll
 
     def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
@@ -648,4 +648,4 @@ class TestLibffiCall(BaseFfiTest):
             assert 24 == f_by_ordinal.call(chain, rffi.INT, is_struct=False)
 
 
-        
+

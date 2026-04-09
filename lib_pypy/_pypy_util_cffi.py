@@ -9,7 +9,7 @@ class StackNew(object):
             if tp.endswith("[]"):
                 total_size = ffi.sizeof(tp[:-2] + "[1]") * size
             else:
-                total_size = ffi.sizeof(tp) * size                
+                total_size = ffi.sizeof(tp) * size
         if tp.endswith("[]"):
             tp = tp[:-2] + "*" # XXX dodgu?
         self._p = ffi.cast(tp, lib.malloc(total_size))

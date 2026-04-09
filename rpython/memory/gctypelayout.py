@@ -232,7 +232,7 @@ def get_memory_pressure_ofs(TYPE):
             return llmemory.offsetof(T, 'special_memory_pressure')
         if 'super' not in T._flds:
             assert False, "get_ and has_memory_pressure disagree"
-        T = T._flds['super']    
+        T = T._flds['super']
 
 def encode_type_shape(builder, info, TYPE, index):
     """Encode the shape of the TYPE into the TYPE_INFO structure 'info'."""

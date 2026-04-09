@@ -61,7 +61,7 @@ else:
                       DeprecationWarning, stacklevel=2)
         return _realssl.sslwrap_simple(sock, keyfile, certfile)
 
-    # we need to import the same constants we used to, 
+    # we need to import the same constants we used to,
     # see lib_pypy/_cffi_ssl/_stdssl/error.py and __init__.py to prevent
     # circular import
     # from _ssl import SSLError as sslerror

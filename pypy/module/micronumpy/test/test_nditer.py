@@ -188,7 +188,7 @@ class AppTestNDIter(BaseNumpyAppTest):
         for a in [ array([]), array([1]), array([1, 2]) ]:
             buffersize = max(16 * 1024 ** 2 // a.itemsize, 1)
             r = []
-            for chunk in nditer(a, 
+            for chunk in nditer(a,
                     flags=['external_loop', 'buffered', 'zerosize_ok'],
                     buffersize=buffersize, order='C'):
                 r.append(chunk)

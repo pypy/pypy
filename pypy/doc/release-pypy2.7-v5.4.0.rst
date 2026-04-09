@@ -6,7 +6,7 @@ We have released PyPy2.7 v5.4, a little under two months after PyPy2.7 v5.3.
 This new PyPy2.7 release includes incremental improvements to our C-API
 compatibility layer (cpyext), enabling us to pass over 99% of the upstream
 numpy test suite. We updated built-in cffi_ support to version 1.8,
-which now supports the "limited API" mode for c-extensions on 
+which now supports the "limited API" mode for c-extensions on
 CPython >=3.2.
 
 We improved tooling for the PyPy JIT_, and expanded VMProf
@@ -45,13 +45,13 @@ due to its integrated tracing JIT compiler.
 We also welcome developers of other `dynamic languages`_ to see what RPython
 can do for them.
 
-This release supports: 
+This release supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD)
-  
+
   * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -108,7 +108,7 @@ Other Highlights (since 5.3 released in June 2016)
 
   * (RPython) add `rposix_scandir` portably, needed for Python 3.5
 
-  * Increased but incomplete support for memoryview attributes (format, 
+  * Increased but incomplete support for memoryview attributes (format,
     itemsize, ...) which also adds support for `PyMemoryView_FromObject`
 
 * Bug Fixes
@@ -207,7 +207,7 @@ Other Highlights (since 5.3 released in June 2016)
     makes the generated C code a few percent smaller
 
   * Refactor the `uid_t/gid_t` handling in `rlib.rposix` and in
-    `interp_posix.py`, based on the clean-up of CPython 2.7.x 
+    `interp_posix.py`, based on the clean-up of CPython 2.7.x
 
 .. _`JIT logging`: https://morepypy.blogspot.com/2016/08/pypy-tooling-upgrade-jitviewer-and.html
 .. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.4.0.html

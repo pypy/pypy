@@ -13,7 +13,7 @@ from email.feedparser import FeedParser
 from email.message import Message
 
 
-
+
 class Parser:
     def __init__(self, *args, **kws):
         """Parser of RFC 2822 and MIME email messages.
@@ -82,7 +82,7 @@ class Parser:
         return self.parse(StringIO(text), headersonly=headersonly)
 
 
-
+
 class HeaderParser(Parser):
     def parse(self, fp, headersonly=True):
         return Parser.parse(self, fp, True)

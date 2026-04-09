@@ -3,7 +3,7 @@ from array import array
 
 def f(img, intimg):
     l=0
-    i=640    
+    i=640
     while i<640*480:
         l+=img[i]
         intimg[i]=intimg[i-640]+l
