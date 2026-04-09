@@ -101,5 +101,5 @@ void jitlog_write_marked(char * text, int length)
 {
     if (!jitlog_ready) { return; }
 
-    write(jitlog_fd, text, length);
+    if (write(jitlog_fd, text, length) < 0) { /* best-effort write; ignore error */ }
 }

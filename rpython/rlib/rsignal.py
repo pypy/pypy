@@ -117,7 +117,7 @@ pypysig_check_and_reset = external('pypysig_check_and_reset', [],
                                    lltype.Bool, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
-c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
+c_siginterrupt = external('pypysig_siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 c_raise = external('raise', [rffi.INT], rffi.INT)
 

@@ -75,7 +75,7 @@ We are using
 **strings**
 
   a lot of, but not all string methods are supported and those that are
-  supported, not necesarilly accept all arguments.  Indexes can be
+  supported, not necessarily accept all arguments.  Indexes can be
   negative.  In case they are not, then you get slightly more efficient
   code if the translator can prove that they are non-negative.  When
   slicing a string it is necessary to prove that the slice start and

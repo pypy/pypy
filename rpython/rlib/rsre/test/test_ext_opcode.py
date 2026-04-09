@@ -33,6 +33,21 @@ def test_possessive_repeat_one():
     r = [POSSESSIVE_REPEAT_ONE, 6, 0, MAXREPEAT, LITERAL, ord('a'), SUCCESS, LITERAL, ord('a'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaaa") is None
 
+def test_possessive_repeat_one_min_count():
+    # x++ (min=1): match must fail when the starting position has zero
+    # repetitions, even though the tail (SUCCESS) would accept zero chars.
+    # Regression test for missing "if ptr < minptr: return" guard.
+    r = [POSSESSIVE_REPEAT_ONE, 5, 1, MAXREPEAT, LITERAL, ord('x'), SUCCESS, SUCCESS]
+    # 'axx' - position 0 has no 'x', so match at 0 must fail
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "axx") is None
+    # search must skip position 0 and find the run at position 1
+    ctx = rsre_core.search(rsre_core.CompiledPattern(r, 0), "axx")
+    assert ctx is not None
+    assert ctx.match_start == 1
+    assert ctx.match_end == 3
+    # 'xx' at position 0 - match must succeed consuming both chars
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "xx").match_end == 2
+
 def test_possessive_repeat():
     r = ab_plus_plus_bb
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababbb").match_end == 12

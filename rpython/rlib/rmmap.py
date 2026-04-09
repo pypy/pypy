@@ -353,7 +353,7 @@ class MMap(object):
             to_close = self.closed
 
         if to_close:
-            raise RValueError("map closed or invalid")
+            raise RValueError("mmap closed or invalid")
 
     def check_writeable(self):
         if not (self.access != ACCESS_READ):

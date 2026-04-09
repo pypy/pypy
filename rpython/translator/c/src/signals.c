@@ -222,6 +222,27 @@ int pypysig_poll(void)
     return -1;  /* no pending signal */
 }
 
+#ifndef _WIN32
+/* siginterrupt(2) is deprecated on Linux (glibc 2.21+); implement the
+ * same semantics via sigaction so we avoid the -Wdeprecated-declarations
+ * warning.  Falls back to the raw syscall on platforms without SA_RESTART. */
+int pypysig_siginterrupt(int sig, int flag)
+{
+#ifdef SA_RESTART
+    struct sigaction act;
+    if (sigaction(sig, NULL, &act) < 0)
+        return -1;
+    if (flag)
+        act.sa_flags &= ~SA_RESTART;
+    else
+        act.sa_flags |= SA_RESTART;
+    return sigaction(sig, &act, NULL);
+#else
+    return siginterrupt(sig, flag);
+#endif
+}
+#endif
+
 int pypysig_set_wakeup_fd(int fd, int send_flags)
 {
   int old_fd = wakeup_fd;

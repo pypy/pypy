@@ -1278,6 +1278,7 @@ class rbigint(object):
         # wordshift, remshift = divmod(int_other, SHIFT)
         wordshift = int_other // SHIFT
         remshift = int_other - wordshift * SHIFT
+        hishift = SHIFT - remshift
 
         if not remshift:
             # So we can avoid problems with eq, AND avoid the need for normalize.
@@ -1286,18 +1287,19 @@ class rbigint(object):
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, selfsign, newsize)
-        accum = _unsigned_widen_digit(0)
         j = 0
+        prevdigit = NULLDIGIT
         while j < oldsize:
-            accum += self.uwidedigit(j) << remshift
-            z.setdigit(wordshift, accum)
-            accum >>= SHIFT
+            digit = self.udigit(j)
+            newdigit = (digit << remshift) | (prevdigit >> hishift)
+            z.setdigit(wordshift, newdigit)
+            prevdigit = digit
             wordshift += 1
             j += 1
 
         newsize -= 1
         assert newsize >= 0
-        z.setdigit(newsize, accum)
+        z.setdigit(newsize, prevdigit >> hishift)
 
         z._normalize()
         return z
@@ -1312,14 +1314,16 @@ class rbigint(object):
         selfsign = self.get_sign()
 
         z = rbigint([NULLDIGIT] * (oldsize + 1), selfsign, (oldsize + 1))
-        accum = _unsigned_widen_digit(0)
         i = 0
+        hishift = SHIFT - int_other
+        prevdigit = NULLDIGIT
         while i < oldsize:
-            accum += self.uwidedigit(i) << int_other
-            z.setdigit(i, accum)
-            accum >>= SHIFT
+            digit = self.udigit(i)
+            newdigit = (digit << int_other) | (prevdigit >> hishift)
+            z.setdigit(i, newdigit)
+            prevdigit = digit
             i += 1
-        z.setdigit(oldsize, accum)
+        z.setdigit(oldsize, prevdigit >> hishift)
         z._normalize()
         return z
     lqshift._always_inline_ = True # It's so fast that it's always beneficial.
@@ -2479,6 +2483,7 @@ def _divmod_fast_pos(a, b):
         index += 1
 
     a_digits_index = len(a_digits_base_two_pow_n) - 1
+    assert a_digits_index >= 0
     if a_digits_base_two_pow_n[a_digits_index].ge(b):
         r = NULLRBIGINT
     else:
@@ -3659,4 +3664,93 @@ def gcd_lehmer(a, b):
 # Also, if it has less digits than this, then it must be <=sys.maxint in
 # absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+
+
+# _________________________________________________________________
+# tobytes and frombytes for integers
+
+@jit.elidable
+def frombytes_int(s, byteorder, signed):
+    """ like rbigint.frombytes but returns an int. raises OverflowError if not
+    possible """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not s:
+        return 0
+
+    if byteorder == 'big':
+        msb = ord(s[0])
+        itr = range(len(s)-1, -1, -1)
+    else:
+        msb = ord(s[-1])
+        itr = range(0, len(s))
+
+    sign = -1 if msb >= 0x80 and signed else 1
+    result = r_uint(0)
+    bitpos = 0
+    pad_byte = 0xdead
+
+    for i in itr:
+        c = r_uint(ord(s[i]))
+        if bitpos == LONG_BIT - 8:
+            if signed and c & (1 << 7): # signed and negative
+                pad_byte = 0xff
+            else:
+                pad_byte = 0x00
+
+        if bitpos >= LONG_BIT:
+            # Extra bytes are only OK if they're padding (0x00 or 0xff)
+            if c != pad_byte:
+                raise OverflowError("value does not fit in int")
+        else:
+            result |= c << bitpos
+        bitpos += 8
+    if signed and bitpos <= LONG_BIT:
+        # sign extend
+        m = r_uint(1) << (bitpos - 1)
+        result = (result ^ m) - m
+
+    result = intmask(result)
+
+    if sign == -1:
+        assert result < 0
+    elif not signed and result < 0:
+        raise OverflowError("value does not fit in int")
+
+    return result
+
+
+@jit.elidable
+def tobytes_int(intval, nbytes, byteorder, signed):
+    """ like rbigint.tobytes, but starts from an int """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not signed and intval < 0:
+        raise InvalidSignednessError()
+
+    bswap = byteorder == 'big'
+    result = StringBuilder(nbytes)
+
+    currval = intval
+    byte = 0
+    for i in range(nbytes):
+        byte = currval & 0xff
+        result.append(chr(byte))
+        currval >>= 8
+    if currval != 0 and currval != -1:
+        raise OverflowError
+
+    digits = result.build()
+    if nbytes > 0 and signed:
+        # If not already set, we cannot contain the sign bit
+        if (intval < 0) != (byte >= 0x80):
+            raise OverflowError()
+
+    if bswap:
+        # Bah, this is very inefficient. At least it's not
+        # quadratic.
+        length = len(digits)
+        if length >= 0:
+            digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
+    return digits
 
