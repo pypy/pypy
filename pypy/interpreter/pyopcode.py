@@ -699,6 +699,18 @@ class __extend__(pyframe.PyFrame):
             if last_operr is None:
                 raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
+            # sync the exceptions __traceback__ back to the
+            # OperationError, in case user code modified it
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            w_value = last_operr._w_value
+            if w_value is not None and isinstance(w_value, W_BaseException):
+                w_tb = w_value.w_traceback
+                if w_tb is None or space.is_w(w_tb, space.w_None):
+                    last_operr.set_traceback(None)
+                else:
+                    from pypy.interpreter.pytraceback import PyTraceback
+                    if isinstance(w_tb, PyTraceback):
+                        last_operr.set_traceback(w_tb)
             # re-raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(last_operr)
         if nbargs == 2:
