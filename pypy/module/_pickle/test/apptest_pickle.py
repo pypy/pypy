@@ -806,3 +806,8 @@ def test_unpickle_crash1():
     b = b'\x98\x1f\x1c\x8f\xe1P\xf8n\xa7R\xe8\xc3\x8c\x9d\xc6'
     with raises(pickle.UnpicklingError):
         pickle.loads(b)
+
+def test_unpickle_crash2():
+    b = b'p\n'
+    with raises(ValueError):
+        pickle.loads(b)

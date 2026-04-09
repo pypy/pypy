@@ -2651,7 +2651,10 @@ class W_Unpickler(W_Root):
 
     def load_put(self):
         data = self.readline()
-        i = int(data)
+        try:
+            i = int(data)
+        except ValueError:
+            raise oefmt(self.space.w_ValueError, "invalid int literal %s", data)
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative PUT argument")
         w_val = self._stack_top("PUT")
