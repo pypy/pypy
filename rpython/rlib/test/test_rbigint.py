@@ -1160,6 +1160,15 @@ def test_frombytes_int():
     with pytest.raises(OverflowError):
         frombytes_int(s, byteorder='little', signed=True)
 
+    # unsigned value with high bit set (e.g. 2**63 on 64-bit) must overflow,
+    # not silently wrap to a negative int via intmask
+    s_big = b'\x80' + b'\x00' * (nbytes - 1)
+    s_little = b'\x00' * (nbytes - 1) + b'\x80'
+    with pytest.raises(OverflowError):
+        frombytes_int(s_big, byteorder='big', signed=False)
+    with pytest.raises(OverflowError):
+        frombytes_int(s_little, byteorder='little', signed=False)
+
 
 @given(ints, strategies.booleans(), strategies.booleans(), strategies.integers(0, 1000))
 def test_tobytes_frombytes_int_hypothesis(value, big, signed, extra_size):
