@@ -2632,7 +2632,11 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.DUP[0])] = load_dup
 
     def load_get(self):
-        i = int(self.readline())
+        data = self.readline()
+        try:
+            i = int(data)
+        except ValueError:
+            raise oefmt(self.space.w_ValueError, "invalid int literal %s", data)
         try:
             self.append(self.memo[i])
         except IndexError:
