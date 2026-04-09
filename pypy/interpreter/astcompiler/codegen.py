@@ -601,7 +601,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
-            for i in range(len(func.decorator_list)):
+            n = len(func.decorator_list)
+            for i in range(n):
+                self.update_position(func.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         self.name_op(func.name, ast.Store, func)
 
@@ -644,7 +646,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
         if cls.decorator_list:
-            for i in range(len(cls.decorator_list)):
+            n = len(cls.decorator_list)
+            for i in range(n):
+                self.update_position(cls.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
         # 7. store into <name>
         self.name_op(cls.name, ast.Store, cls)

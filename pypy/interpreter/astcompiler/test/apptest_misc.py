@@ -89,6 +89,37 @@ def test_compile_nonascii_char_in_bytes_error():
     assert excinfo.value.filename == "long-filename.py"
     assert excinfo.value.msg == "bytes can only contain ASCII literal characters"
 
+def test_decorator_error_lineno():
+    # The traceback for a failing decorator should point to the decorator
+    # line, not the def line. See https://github.com/pypy/pypy/issues/5213
+    import traceback
+
+    def dec_error(func):
+        raise TypeError("boom")
+    def dec_fine(func):
+        return func
+
+    def applydecs():
+        @dec_error      # line 12 relative to start of applydecs body
+        @dec_fine
+        def g(): pass
+
+    try:
+        applydecs()
+    except TypeError:
+        tb = traceback.extract_tb(__import__('sys').exc_info()[2])
+    else:
+        assert False, "expected TypeError"
+
+    # find the frame for applydecs
+    frame = [f for f in tb if f.name == 'applydecs']
+    assert len(frame) == 1, frame
+    # The line text should be the decorator, not the def
+    assert frame[0].line is not None
+    assert frame[0].line.strip().startswith('@dec_error'), (
+        "expected decorator line, got: %r" % frame[0].line)
+
+
 def test_star_in_slice():
     class A:
         def __getitem__(self, index):
