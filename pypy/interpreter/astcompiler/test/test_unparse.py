@@ -149,6 +149,12 @@ class TestAstUnparser:
         self.check('lambda *, m, l=5: 1')
         self.check('lambda **foo: 1')
         self.check('lambda a, **b: 45')
+        # positional-only parameters
+        self.check('lambda a, /: 1')
+        self.check('lambda a, /, b: 1')
+        self.check('lambda a=1, /: 1')
+        self.check('lambda a, /, b=2: 1')
+        self.check("lambda a, /, b, c=True, *vararg, d, e='str', **kwargs: a + b")
 
     def test_fstrings(self):
         self.check('f"abc"', "'abc'")
@@ -185,11 +191,11 @@ class TestAstUnparseAnnotations(object):
         res = unparse_annotations(self.space, ast)
         assert self.space.text_w(res.body[0].annotation.value) == 'list[int]'
 
-    def test_await(self):
-        ast = self.get_ast("""def f() -> await some.complicated[0].call(with_args=True or 1 is not 1): pass""")
+    def test_await_not_allowed(self):
+        ast = self.get_ast("""def f() -> await x: pass""")
         func = ast.body[0]
-        res = unparse_annotations(self.space, func)
-        assert self.space.text_w(res.returns.value) == "await some.complicated[0].call(with_args=True or 1 is not 1)"
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
 
     def test_yield_not_allowed(self):
         ast = self.get_ast("""def f():\n    a: (yield)""")

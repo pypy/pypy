@@ -404,23 +404,28 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_Lambda(self, node):
         with self.maybe_parenthesize(PRIORITY_TEST):
             args = node.args
-            if not args.args and not args.vararg and not args.kwarg and not args.kwonlyargs:
+            posonlyargs = args.posonlyargs if args.posonlyargs else []
+            posargs = args.args if args.args else []
+            if (not posonlyargs and not posargs and not args.vararg
+                    and not args.kwarg and not args.kwonlyargs):
                 self.append_ascii("lambda: ")
             else:
                 self.append_ascii("lambda ")
                 first = True
-                if args.defaults:
-                    default_count = len(args.defaults)
-                else:
-                    default_count = 0
-                if args.args:
-                    for i, arg in enumerate(args.args):
-                        first = self.append_if_not_first(first, ', ')
-                        di = i - (len(args.args) - default_count)
-                        self.append_expr(arg)
-                        if di >= 0:
-                            self.append_ascii('=')
-                            self.append_expr(args.defaults[di])
+                all_pos = posonlyargs + posargs
+                defaults = args.defaults if args.defaults else []
+                total_pos = len(all_pos)
+                default_count = len(defaults)
+                for i, arg in enumerate(all_pos):
+                    first = self.append_if_not_first(first, ', ')
+                    di = i - (total_pos - default_count)
+                    self.append_expr(arg)
+                    if di >= 0:
+                        self.append_ascii('=')
+                        self.append_expr(defaults[di])
+                    if i + 1 == len(posonlyargs):
+                        self.append_ascii(', /')
+                        first = False
                 if args.vararg or args.kwonlyargs:
                     first = self.append_if_not_first(first, ', ')
                     self.append_ascii('*')
@@ -429,7 +434,6 @@ class UnparseVisitor(Utf8BuilderVisitor):
                 if args.kwonlyargs:
                     for i, arg in enumerate(args.kwonlyargs):
                         first = self.append_if_not_first(first, ', ')
-                        di = i - (len(args.kwonlyargs) - default_count)
                         self.append_expr(arg)
                         default = args.kw_defaults[i]
                         if default:
@@ -456,9 +460,7 @@ class UnparseVisitor(Utf8BuilderVisitor):
         self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
     def visit_Await(self, node):
-        with self.maybe_parenthesize(PRIORITY_AWAIT):
-            self.append_ascii("await ")
-            self.append_expr(node.value)
+        raise SyntaxError.fromast("'await' expression cannot be used within an annotation", node)
 
 
 class FstringVisitor(Utf8BuilderVisitor):
