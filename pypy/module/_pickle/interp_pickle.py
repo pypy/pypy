@@ -2156,10 +2156,7 @@ class W_Unpickler(W_Root):
             from rpython.rlib.rbigint import rbigint
             try:
                 ival = int(data)
-                if -(sys.maxint + 1) <= ival <= sys.maxint:
-                    w_val = space.newint(ival)
-                else:
-                    w_val = space.newlong_from_rbigint(rbigint.fromstr(data))
+                w_val = space.newint(ival)
             except OverflowError:
                 w_val = space.newlong_from_rbigint(rbigint.fromstr(data))
             except ValueError:
@@ -2440,7 +2437,7 @@ class W_Unpickler(W_Root):
 
     def load_frozenset(self):
         items = self.pop_mark()
-        items_copy_w = [w_item for w_item in items]
+        items_copy_w = items[:]
         w_frozenset = self.space.newfrozenset(items_copy_w)
         self.append(w_frozenset)
     dispatch[ord(op.FROZENSET[0])] = load_frozenset
@@ -2718,7 +2715,7 @@ class W_Unpickler(W_Root):
                         ascii_strs = None
                         break
                     utf8 = w._utf8
-                    if w._length != len(utf8):  # not ASCII
+                    if not w.is_ascii():  # not ASCII
                         ascii_strs = None
                         break
                     ascii_strs[i] = utf8
