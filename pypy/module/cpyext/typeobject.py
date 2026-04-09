@@ -208,7 +208,8 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     object. The values must not be modified.
     """
     py_getsetdescr = cts.cast('PyGetSetDescrObject*', py_obj)
-    if isinstance(w_obj, GetSetProperty):
+    if not isinstance(w_obj, W_GetSetPropertyEx):
+        assert isinstance(w_obj, GetSetProperty)
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)

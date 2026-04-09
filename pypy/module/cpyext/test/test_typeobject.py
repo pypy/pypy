@@ -1360,13 +1360,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass(self):
-        import datetime
-        module = self.import_module(name='foo3')
-        module.footype("X", (object,), {})
-        a = module.datetimetype(1, 1, 1)
-        assert isinstance(a, module.datetimetype)
-
     def test_app_subclass_of_c_type(self):
         import sys
         module = self.import_module(name='foo')
@@ -2621,3 +2614,11 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.B.__bases__ == (module.A,)
         with raises(TypeError):
             module.B()
+
+    # messes with leak detection, leave at the end of the tests
+    def test_tp_new_in_subclass(self):
+        import datetime
+        module = self.import_module(name='foo3')
+        module.footype("X", (object,), {})
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
