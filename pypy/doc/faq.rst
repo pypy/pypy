@@ -66,10 +66,10 @@ Extension module using unsupported features.  `See below.`_
 
 Alternatively, if either the module xyz is not available on PyPI or you
 don't want to use virtualenv, then download the source code of xyz,
-decompress the zip/tarball, and run the standard command: ``pypy
-setup.py install``.  (Note: ``pypy`` here instead of ``python``.)  As usual
-you may need to run the command with ``sudo`` for a global installation.
-The other commands of ``setup.py`` are available too, like ``build``.
+decompress the zip/tarball, and run the standard command: ``pypy -mpip
+install .`` from inside the source directory.  (Note: ``pypy`` here instead
+of ``python``.)  As usual you may need to run the command with ``sudo`` for
+a global installation.
 
 .. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
