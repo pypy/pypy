@@ -2366,9 +2366,10 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
         #    - We don't strip first bound argument if
         #      skip_bound_arg is False.
         assert parameters
-        _self = getattr(obj, '__self__', None)
-        self_isbound = _self is not None
-        self_ismodule = ismodule(_self)
+        _not_found = object()
+        _self = getattr(obj, '__self__', _not_found)
+        self_isbound = _self is not _not_found
+        self_ismodule = ismodule(_self) if self_isbound else False
         if self_isbound and (self_ismodule or skip_bound_arg):
             parameters.pop(0)
         else:

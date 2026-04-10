@@ -1171,7 +1171,15 @@ class interp2app(W_Root):
         posonlyargcount = sig.posonlyargcount
         parts = []
         if self.self_type is None:
-            parts.append('$module')
+            if getattr(self, '_is_type_method', False) and pos_argnames:
+                # Installed as a method via TypeDef: mark the first real
+                # positional arg as implicit with $, matching CPython's
+                # $self/$module convention so inspect.py strips it correctly
+                # when the method is bound.
+                parts.append('$' + pos_argnames[0])
+                pos_argnames = list(pos_argnames[1:])
+            else:
+                parts.append('$module')
         posonly_slash_added = False
         for i, name in enumerate(pos_argnames):
             if self.self_type is not None and i == 0 and name == 'self':

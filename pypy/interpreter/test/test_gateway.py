@@ -1025,6 +1025,39 @@ class TestGateway:
         assert w_m.w_text_signature is not None
         assert space.text_w(w_m.w_text_signature) == '($self, x, /)'
 
+    def test_text_signature_type_method(self):
+        # When installed via TypeDef.add_entries, interp2app functions get
+        # _is_type_method=True and _generate_text_signature uses CPython's
+        # $first_arg convention instead of $module + first_arg.
+        # This means inspect.py's standard single-strip correctly handles
+        # both the unbound case (signature(object.__dir__) → (obj, /)) and
+        # the bound case (signature(None.__dir__) → ()).
+        from pypy.interpreter.typedef import TypeDef
+        space = self.space
+        def descr_method(space, w_obj):
+            return w_obj
+        ia = gateway.interp2app_temp(descr_method)
+        # simulate TypeDef.add_entries setting _is_type_method
+        ia._is_type_method = True
+        w_f = space.wrap(ia)
+        assert w_f.w_text_signature is not None
+        assert space.text_w(w_f.w_text_signature) == '($obj, /)'
+
+        # Without TypeDef registration, still emits $module + arg
+        def descr_module_fn(space, w_obj):
+            return w_obj
+        ia2 = gateway.interp2app_temp(descr_module_fn)
+        w_f2 = space.wrap(ia2)
+        assert space.text_w(w_f2.w_text_signature) == '($module, obj, /)'
+
+        # Multi-arg: only first arg gets $
+        def descr_method2(space, w_obj, w_proto):
+            return w_obj
+        ia3 = gateway.interp2app_temp(descr_method2)
+        ia3._is_type_method = True
+        w_f3 = space.wrap(ia3)
+        assert space.text_w(w_f3.w_text_signature) == '($obj, proto, /)'
+
     def test_text_signature_text_default(self):
         space = self.space
         from pypy.interpreter.gateway import Unwrapper

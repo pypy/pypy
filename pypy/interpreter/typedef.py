@@ -60,6 +60,11 @@ class TypeDef(object):
         for key, value in rawdict.items():
             if isinstance(value, (interp2app, GetSetProperty)):
                 value.name = key
+            if isinstance(value, interp2app):
+                # Mark as a type method so _generate_text_signature uses
+                # CPython-compatible $first_arg convention instead of
+                # $module + first_arg.
+                value._is_type_method = True
         self.rawdict.update(rawdict)
 
     def _freeze_(self):
