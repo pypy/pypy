@@ -52,7 +52,11 @@ def f_string_compile(astbuilder, source, token, fstr, start_offset, nextchar):
         if c not in ' \t\n\r\v\f':
             break
     else:
-        astbuilder.raise_syntax_error_known_location("f-string: expression required before '%s'" % nextchar, token)
+        if nextchar == '}':
+            msg = "f-string: empty expression not allowed"
+        else:
+            msg = "f-string: expression required before '%s'" % nextchar
+        astbuilder.raise_syntax_error_known_location(msg, token)
 
     assert isinstance(source, str)    # utf-8 encoded
 

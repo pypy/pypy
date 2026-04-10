@@ -384,3 +384,9 @@ def test_empty_expression_error():
         eval(s)
     assert str(info.value).startswith("f-string: expression required before '!'")
 
+def test_empty_expression_closing_brace():
+    for s in ["f'{}'", "f'{ }'", "f' {} '"]:
+        with raises(SyntaxError) as info:
+            eval(s)
+        assert str(info.value).startswith("f-string: empty expression not allowed")
+

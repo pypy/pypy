@@ -657,10 +657,7 @@ x = (
         self.assertEqual(f'{x} {x}', '1 2')
 
     def test_missing_expression(self):
-        if sys.implementation.name == 'pypy':
-            msg = "f-string: expression required before '}'"
-        else:
-            msg = 'f-string: empty expression not allowed'
+        msg = 'f-string: empty expression not allowed'
         self.assertAllRaise(SyntaxError, msg,
                             ["f'{}'",
                              "f'{ }'",
