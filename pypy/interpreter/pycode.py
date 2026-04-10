@@ -40,7 +40,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 416 # bump it by 16
+pypy_incremental_magic = 432 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -78,7 +78,7 @@ def replace(self, kwds):
                  "co_nlocals", "co_stacksize", "co_flags", "co_code",
                  "co_consts", "co_names", "co_varnames", "co_filename",
                  "co_name", "co_qualname", "co_firstlineno", "co_linetable", "co_freevars",
-                 "co_cellvars"):
+                 "co_cellvars", "co_exceptiontable"):
         if attr not in kwds:
             args.append(getattr(self, attr))
         else:
@@ -101,6 +101,7 @@ class PyCode(eval.Code):
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]",
                           "co_linetable",
+                          "co_exceptiontable",
                           "w_globals?",
                           "cell_families[*]"]
 
@@ -108,7 +109,8 @@ class PyCode(eval.Code):
                      nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, qualname, firstlineno, linetable, freevars, cellvars,
-                     hidden_applevel=False, magic=default_magic):
+                     hidden_applevel=False, magic=default_magic,
+                     exceptiontable=''):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
@@ -140,6 +142,7 @@ class PyCode(eval.Code):
         assert isinstance(firstlineno, int)
         self.co_firstlineno = firstlineno
         self.co_linetable = linetable
+        self.co_exceptiontable = exceptiontable
         # store the first globals object that the code object is run in in
         # here. if a frame is run in that globals object, it does not need to
         # store it at all
@@ -399,14 +402,14 @@ class PyCode(eval.Code):
                  nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
                  filename='fsencode', name='text', qualname='text', firstlineno=int,
-                 linetable='bytes', magic=int)
+                 linetable='bytes', exceptiontable='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, posonlyargcount, kwonlyargcount,
                           nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, qualname, firstlineno,
                           linetable, w_freevars=None, w_cellvars=None,
-                          magic=default_magic):
+                          exceptiontable='', magic=default_magic):
         if argcount < 0:
             raise oefmt(space.w_ValueError,
                         "code: argcount must not be negative")
@@ -434,7 +437,8 @@ class PyCode(eval.Code):
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
-                      varnames, filename, name, qualname, firstlineno, linetable, freevars, cellvars, magic=magic)
+                      varnames, filename, name, qualname, firstlineno, linetable, freevars, cellvars, magic=magic,
+                      exceptiontable=exceptiontable)
         return code
 
     def descr__reduce__(self, space):
@@ -460,6 +464,7 @@ class PyCode(eval.Code):
             space.newbytes(self.co_linetable),
             space.newtuple([space.newtext(v) for v in self.co_freevars]),
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
+            space.newbytes(self.co_exceptiontable),
             space.newint(self.magic),
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
@@ -496,7 +501,7 @@ class PyCode(eval.Code):
 
 
     def descr_replace(self, space, __args__):
-        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_linetable=None)
+        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_linetable=None, co_exceptiontable=None)
  |      Return a new code object with new specified fields.
         """
         w_args, w_kwds = __args__.topacked()
