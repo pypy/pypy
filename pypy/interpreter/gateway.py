@@ -1506,7 +1506,9 @@ def descr_function_get(space, w_function, w_instance, w_owner=None):
     """functionobject.__get__(instance, owner=None, /) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
-    if w_instance is None or space.is_w(w_instance, space.w_None):
+    if space.is_none(w_instance):
+        if space.is_none(w_owner):
+            raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
         return w_function
     else:
         return Method(space, w_function, w_instance)
