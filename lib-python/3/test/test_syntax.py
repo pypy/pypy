@@ -1529,7 +1529,7 @@ Custom exception for 'except*' without an exception type
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated: 'a'
+SyntaxError: keyword argument repeated: a
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):
@@ -1565,7 +1565,7 @@ SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
 
 >>> {z=3}
 Traceback (most recent call last):
-SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+SyntaxError: ':' expected after dictionary key
 
 >>> from t import x,
 Traceback (most recent call last):
