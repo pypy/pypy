@@ -2963,6 +2963,12 @@ class AppTestCompiler:
             assert issubclass(w[-1].category, SyntaxWarning)
             assert "assertion is always true" in w[-1].message.args[0]
 
+    def test_syntax_warnings_invalid_literal_as_error(self):
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error', category=SyntaxWarning)
+            raises(SyntaxError, compile, '9and x', '<testcase>', 'exec')
+
     def test_syntax_warnings_false_positives(self):
         import warnings
 

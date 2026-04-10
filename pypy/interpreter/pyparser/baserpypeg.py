@@ -397,6 +397,9 @@ class Parser:
         return self._tokens[self._index]
 
     def diagnose(self):
+        # _highwatermark can == len(_tokens) after a successful parse consumes the last token
+        if self._highwatermark >= len(self._tokens):
+            self._highwatermark = len(self._tokens) - 1
         return self._tokens[self._highwatermark]
 
     def get_last_non_whitespace_token(self):
