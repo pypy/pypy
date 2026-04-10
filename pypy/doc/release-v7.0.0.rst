@@ -115,7 +115,7 @@ If not specified, the changes are shared across versions
   for the v7.0.0 release.  For more information, see
   https://bitbucket.org/pypy/revdb
 * Support underscores in numerical literals like ``'4_2'`` (Py3.6)
-* Pre-emptively raise MemoryError if the size of dequeue in ``_collections.deque``
+* Preemptively raise MemoryError if the size of dequeue in ``_collections.deque``
   is too large (Py3.5)
 * Fix multithreading issues in calls to ``os.setenv``
 * Add missing defines and typedefs for numpy and pandas on MSVC
