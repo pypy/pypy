@@ -257,6 +257,7 @@ Signed RPyGilYieldThread(void)
 
 void RPyGilReleaseSignal(void)
 {
+#ifdef _WIN32
     /* Called after the fast-path GIL release (rpy_fastgil set to 0) to wake
        any stealer thread that is sleeping in mutex2_lock_timeout().  Without
        this, the stealer must wait for its timed-wait to expire, which on
@@ -264,10 +265,14 @@ void RPyGilReleaseSignal(void)
        latency for any code that releases the GIL (e.g. os.stat, lock.acquire).
        A missed wakeup (due to the signal arriving before the stealer enters its
        timed-wait) is benign: the stealer will still wake up on its timeout and
-       then immediately acquire the GIL via the fast path. */
+       then immediately acquire the GIL via the fast path.
+       On POSIX, the 0.1ms timeout in mutex2_lock_timeout() is short enough
+       that the extra wakeup is not needed and causes test_interrupt_non_main
+       to hang due to scheduling interference. */
     if (rpy_waiting_threads > 0) {
         mutex2_signal(&mutex_gil);
     }
+#endif
 }
 
 /********** for tests only **********/
