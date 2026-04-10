@@ -775,7 +775,7 @@ def test_pseudo_encoding_locale():
     r = _io.BytesIO(b"\xc3\xa9\n\n")
     t1 = _io.TextIOWrapper(r, encoding="locale")
     t2 = _io.TextIOWrapper(r)
-    assert t1.encoding.lower() == t2.encoding
+    assert t1.encoding.lower() == t2.encoding.lower()
 
 def test_bug_write_during_flush():
     # from https://github.com/python/cpython/issues/119506
