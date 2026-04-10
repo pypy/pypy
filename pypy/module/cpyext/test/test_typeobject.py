@@ -2622,3 +2622,56 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module.footype("X", (object,), {})
         a = module.datetimetype(1, 1, 1)
         assert isinstance(a, module.datetimetype)
+    def test_tp_new_mixin_before_ctype(self):
+        # A C type with explicit tp_new (like Cython-generated types) must
+        # still be called when a Python mixin appears BEFORE it in bases:
+        #   class Mixed(PythonMixin, CType): ...
+        # The bug: find_best_base() returns PythonMixin when both it and CType
+        # share object's layout (tp_basicsize == sizeof(PyObject)), so
+        # _find_which_tp_new_to_call() follows PythonMixin.__new__ ->
+        # object.__new__ and raises TypeError on extra args.
+        # See https://github.com/pypy/pypy/issues/5418
+        module = self.import_extension('foo_tp_new_mixin', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+            ''')],
+            prologue='''
+            static PyObject *
+            Foo_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                /* tp_new that accepts any args, like Cython-generated types */
+                return type->tp_alloc(type, 0);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_mixin.Foo",  /* tp_name */
+                sizeof(PyObject),        /* tp_basicsize: same as PyObject -> shares object layout */
+                0,                       /* tp_itemsize */
+                0,                       /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags */
+            };
+            ''',
+            more_init='''
+                Foo_Type.tp_new = Foo_new;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class PythonMixin:
+            pass
+
+        class Mixed(PythonMixin, CBase):
+            def __init__(self, value):
+                self.value = value
+
+        class SubMixed(Mixed):
+            pass
+
+        # Must call Foo_new (not object.__new__) even with extra args
+        obj = Mixed(42)
+        assert obj.value == 42
+        obj2 = SubMixed(99)
+        assert obj2.value == 99
