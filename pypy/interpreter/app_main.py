@@ -785,6 +785,9 @@ def _parse_command_line(argv):
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
+    if readenv and getenv('PYTHONNODEBUGRANGES'):
+        sys._xoptions['no_debug_ranges'] = True
+
     config_init_int_max_str_digits(
         getenv("PYTHONINTMAXSTRDIGITS") if readenv else None,
         sys._xoptions.get('int_max_str_digits', None),

@@ -917,6 +917,19 @@ class TestNonInteractive:
         assert "__init__ argv: ['-m', 'extra']" in data
         assert "__main__ argv: [%r, 'extra']" % p in data
 
+    def test_no_debug_ranges_xoption(self):
+        data = self.run('-X no_debug_ranges '
+                        '-c "import sys; print(sys._xoptions.get(\'no_debug_ranges\'))"')
+        assert 'True' in data
+
+    def test_no_debug_ranges_envvar(self):
+        import os
+        env = os.environ.copy()
+        env['PYTHONNODEBUGRANGES'] = '1'
+        data = self.run('-c "import sys; print(sys._xoptions.get(\'no_debug_ranges\'))"',
+                        env=env)
+        assert 'True' in data
+
     def test_xoptions(self):
         data = self.run('-Xfoo -Xbar=baz -Xquux=cdrom.com=FreeBSD -Xx=X,d=e '
                         '-c "import sys;print(sorted(sys._xoptions.items()))"')
