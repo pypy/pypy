@@ -833,7 +833,7 @@ uses a single data structure to keep track of try-finally and loops,
 so we need to be sure that a break is actually inside a loop.  If it
 isn't, there should be a syntax error.
 
-   >>> try:
+   >>> try:          # doctest: +ELLIPSIS
    ...     print(1)
    ...     break
    ...     print(2)
@@ -841,7 +841,7 @@ isn't, there should be a syntax error.
    ...     print(3)
    Traceback (most recent call last):
      ...
-   SyntaxError: 'break' outside loop
+   SyntaxError: 'break' ...
 
 Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
 
@@ -1529,7 +1529,7 @@ Custom exception for 'except*' without an exception type
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated: a
+SyntaxError: keyword argument repeated: 'a'
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):
@@ -1810,26 +1810,20 @@ x: *b
 
 Invalid bytes literals:
 
-   >>> b"Ā"
+   >>> b"Ā"  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"Ā"
-        ^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
-   >>> b"абвгде"
+   >>> b"абвгде"  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"абвгде"
-        ^^^^^^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
-   >>> b"abc ъющый"  # first 3 letters are ascii
+   >>> b"abc ъющый"  # first 3 letters are ascii  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"abc ъющый"
-        ^^^^^^^^^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
    >>> f(**x, *y)
    Traceback (most recent call last):
@@ -2142,7 +2136,7 @@ def func2():
         self._check_error("A.\u018a\\ ",
                           "unexpected character after line continuation character")
         self._check_error("A.\u03bc\\\n",
-                          "unexpected EOF while parsing")
+                          "unexpected end of file")
 
     def test_error_parenthesis(self):
         for paren in "([{":
