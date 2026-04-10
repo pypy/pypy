@@ -134,7 +134,7 @@ class TestLiterals(unittest.TestCase):
         # Check that the warning is raised ony once if there are syntax errors
         # PyPy: skipped as the parser raises SyntaxError during tokenization
         # before the AST builder gets a chance to emit the deprecation warning
-        if sys.implementation.name == 'cpython':
+        with self.assertRaises(AssertionError):
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter('always', category=DeprecationWarning)
                 with self.assertRaises(SyntaxError) as cm:
