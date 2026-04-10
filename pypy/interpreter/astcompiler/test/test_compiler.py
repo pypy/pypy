@@ -2226,6 +2226,20 @@ x = [c for c in f.__code__.co_lnotab]
 '''
         self.st(func, 'x', [0, 1, 2, 2, 2, 255, 6, 255])
 
+    def test_lineno_crash(self):
+        func = '''
+def ie(c, r, fg, cc):
+    tc = True if cc is False else c in Cc and r in Rc
+    if tc:
+        (print("wut") if fg is not None
+         else None)
+import dis
+co = ie.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+'''
+        self.st(func, 'x', [3, 4, 5, 6, 4])
+
 
     def test_revdb_metavar(self):
         self.error_test("7 * $0", SyntaxError)
