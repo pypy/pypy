@@ -30,6 +30,7 @@ from .reader import Reader
 # types
 Command = commands.Command
 if False:
+    from collections.abc import Callable
     from .types import KeySpec, CommandName
 
 
@@ -189,9 +190,17 @@ class complete(commands.Command):
             if last_is_completer:
                 r.cmpltn_menu_visible = True
                 r.cmpltn_message_visible = False
-                r.cmpltn_menu, r.cmpltn_menu_end = build_menu(
-                    r.console, completions, r.cmpltn_menu_end,
-                    r.use_brackets, r.sort_in_column)
+                hook = r.get_completion_display_matches_hook()
+                if hook is not None:
+                    r.console.restore_output()
+                    try:
+                        hook(stem, completions, max(len(c) for c in completions))
+                    finally:
+                        r.console.prepare_output()
+                else:
+                    r.cmpltn_menu, r.cmpltn_menu_end = build_menu(
+                        r.console, completions, r.cmpltn_menu_end,
+                        r.use_brackets, r.sort_in_column)
                 r.dirty = True
             elif not r.cmpltn_menu_visible:
                 r.cmpltn_message_visible = True
@@ -288,3 +297,6 @@ class CompletingReader(Reader):
 
     def get_completions(self, stem: str) -> list[str]:
         return []
+
+    def get_completion_display_matches_hook(self) -> Callable | None:
+        return None
