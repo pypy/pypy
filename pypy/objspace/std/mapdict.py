@@ -1515,7 +1515,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 # we have a data descriptor, which means the dictionary value
                 # (if any) has no relevance.
                 from pypy.interpreter.typedef import Member
-                if isinstance(w_descr, Member):    # it is a slot -- easy case
+                if isinstance(w_descr, Member) and space.issubtype_w(w_type, w_descr.w_cls):
+                    # it is a slot that belongs to this type -- easy case
                     attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             elif not space.type(w_descr).is_heaptype():
                 # There is a non-data descriptor in the class. This would mean
@@ -1623,7 +1624,8 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
                 pass # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
                 from pypy.interpreter.typedef import Member
-                if isinstance(w_descr, Member):    # it is a slot -- easy case
+                if isinstance(w_descr, Member) and space.issubtype_w(w_type, w_descr.w_cls):
+                    # it is a slot that belongs to this type -- easy case
                     attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             if attrkind != INVALID:
                 attr = map.find_map_attr(attrname, attrkind)
