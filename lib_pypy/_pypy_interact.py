@@ -67,6 +67,8 @@ def run_simple_interactive_console(mainmodule):
             except EOFError:
                 console.write("\n")
                 break
+            except OSError:
+                break
             else:
                 more = console.push(line)
         except KeyboardInterrupt:
