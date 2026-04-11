@@ -605,6 +605,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             for i in range(n):
                 self.update_position(func.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            self.update_position(func)
         self.name_op(func.name, ast.Store, func)
 
     def visit_FunctionDef(self, func):

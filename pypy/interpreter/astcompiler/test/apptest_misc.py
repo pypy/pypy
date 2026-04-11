@@ -120,6 +120,42 @@ def test_decorator_error_lineno():
         "expected decorator line, got: %r" % frame[0].line)
 
 
+def test_decorated_function_store_on_def_line():
+    # After applying all decorators, the STORE instruction for the function
+    # name should be attributed to the 'def' line, not the outermost decorator.
+    # This matches CPython's behaviour and makes sys.settrace count the def
+    # line twice per decorated function definition.
+    import sys
+
+    src = """\
+def id1(f): return f
+def id2(f): return f
+@id1
+@id2
+def g(): pass
+"""
+    ns = {}
+    traced_lines = []
+    code = compile(src, '<test_decorated_store>', 'exec')
+
+    def tracer(frame, event, arg):
+        if event == 'line' and frame.f_code is code:
+            traced_lines.append(frame.f_lineno)
+        return tracer
+
+    sys.settrace(tracer)
+    try:
+        exec(code, ns)
+    finally:
+        sys.settrace(None)
+
+    # line 5 is 'def g(): pass'
+    # it should be traced twice: once for MAKE_FUNCTION and once for STORE_NAME
+    assert traced_lines.count(5) == 2, (
+        "expected 'def g' line (5) traced twice (MAKE_FUNCTION + STORE_NAME), "
+        "got traced_lines=%r" % (traced_lines,))
+
+
 def test_star_in_slice():
     class A:
         def __getitem__(self, index):

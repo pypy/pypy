@@ -2224,7 +2224,7 @@ x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
         pass
 x = [c for c in f.__code__.co_lnotab]
 '''
-        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 6, 255])
+        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 6, 255, 2, 1])
 
     def test_lineno_crash(self):
         func = '''
