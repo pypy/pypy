@@ -2675,3 +2675,241 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert obj.value == 42
         obj2 = SubMixed(99)
         assert obj2.value == 99
+
+    def test_tp_new_mixin_intermediate_python_class(self):
+        # Like test_tp_new_mixin_with_struct_backing but with an intermediate
+        # Python class between the user's class and the C extension type,
+        # mimicking the pandas hierarchy:
+        #   NumpyBlock(BlockPython) where BlockPython(Mixin, CBase)
+        # MRO: [NumpyBlock, BlockPython, Mixin, CBase, object]
+        # This exercises the two-level recursion in _find_which_tp_new_to_call:
+        #   NumpyBlock -> best_base=BlockPython -> lookup finds CBase.__new__
+        #   -> recurse into BlockPython -> best_base=CBase -> terminate
+        module = self.import_extension('foo_tp_new_interm', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&FooInterm_Type);
+                return (PyObject *)&FooInterm_Type;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+                int extra_field2;
+            } FooIntermObject;
+
+            static PyObject *
+            FooInterm_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooIntermObject *obj = (FooIntermObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                obj->extra_field = 42;
+                obj->extra_field2 = 99;
+                /* Trigger create_ref path like BlockValuesRefs_add_reference */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooInterm_dealloc(FooIntermObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            static PyTypeObject FooInterm_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_interm.FooInterm",  /* tp_name */
+                sizeof(FooIntermObject),         /* tp_basicsize > sizeof(PyObject) */
+                0,                               /* tp_itemsize */
+                (destructor)FooInterm_dealloc,   /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+            };
+            ''',
+            more_init='''
+                FooInterm_Type.tp_new = FooInterm_new;
+                if (PyType_Ready(&FooInterm_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class Mixin:
+            pass
+
+        # Intermediate Python class (Block_Python analog)
+        # MRO: [BlockPython, Mixin, CBase, object]
+        class BlockPython(Mixin, CBase):
+            pass
+
+        # User's instantiated class (NumpyBlock analog)
+        # MRO: [NumpyBlock, BlockPython, Mixin, CBase, object]
+        class NumpyBlock(BlockPython):
+            def __init__(self, value):
+                self.value = value
+
+        # CBase's tp_new must be called with type=NumpyBlock; if tp_basicsize
+        # is not propagated correctly the two extra_field writes corrupt the heap
+        obj = NumpyBlock(42)
+        assert obj.value == 42
+        obj2 = NumpyBlock(99)
+        assert obj2.value == 99
+
+    def test_tp_new_mixin_with_struct_backing(self):
+        # Like test_tp_new_mixin_before_ctype but with tp_basicsize >
+        # sizeof(PyObject).  When the C type has its own layout
+        # (force_new_layout=True), find_best_base() returns the C type rather
+        # than PythonMixin, so _find_which_tp_new_to_call() takes the
+        # recursive branch (elif is_tp_new_wrapper) instead of the
+        # "skip object.__new__" branch.
+        #
+        # The tp_new also calls PyObject_GetAttr on the freshly allocated
+        # object, exercising the cpyext_tp_getattro_object -> create_ref path
+        # that appears in the pandas crash trace.
+        module = self.import_extension('foo_tp_new_struct', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&FooStruct_Type);
+                return (PyObject *)&FooStruct_Type;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+            } FooStructObject;
+
+            static PyObject *
+            FooStruct_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooStructObject *obj = (FooStructObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                obj->extra_field = 42;
+                /* Trigger cpyext_tp_getattro_object -> create_ref path */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooStruct_dealloc(FooStructObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            static PyTypeObject FooStruct_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_struct.FooStruct", /* tp_name */
+                sizeof(FooStructObject),        /* tp_basicsize > sizeof(PyObject) */
+                0,                              /* tp_itemsize */
+                (destructor)FooStruct_dealloc,  /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+            };
+            ''',
+            more_init='''
+                FooStruct_Type.tp_new = FooStruct_new;
+                if (PyType_Ready(&FooStruct_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class PythonMixin:
+            pass
+
+        class Mixed(PythonMixin, CBase):
+            def __init__(self, value):
+                self.value = value
+
+        class SubMixed(Mixed):
+            pass
+
+        obj = Mixed(42)
+        assert obj.value == 42
+        obj2 = SubMixed(99)
+        assert obj2.value == 99
+
+    def test_tp_new_mixin_from_spec(self):
+        # Regression test for the PyType_FromModuleAndSpec / PyType_FromSpecWithBases
+        # new_layout bug: when flag_heaptype=True (set by the spec API),
+        # PyPy incorrectly uses sizeof(PyHeapTypeObject) as minsize, so a type
+        # with basicsize < sizeof(PyHeapTypeObject) gets new_layout=False.
+        # That makes find_best_base() prefer the Python mixin over the C type,
+        # so Python subclasses inherit tp_basicsize=24 (object) instead of
+        # the struct size, causing tp_alloc to under-allocate and writes to
+        # extra fields corrupt the heap.
+        #
+        # Mirrors the pandas pattern:
+        #   libinternals.Block  <- PyType_FromSpecWithBases (struct with extra fields)
+        #   Block(PandasObject, libinternals.Block)  <- intermediate Python class
+        #   NumpyBlock(Block)  <- user-instantiated subclass
+        module = self.import_extension('foo_spec_mixin', [
+           ("get_type", "METH_NOARGS",
+            '''
+                static PyType_Slot FooSpec_slots[] = {
+                    {Py_tp_new,     FooSpec_new},
+                    {Py_tp_dealloc, FooSpec_dealloc},
+                    {0, 0}
+                };
+                static PyType_Spec FooSpec_spec = {
+                    "foo_spec_mixin.FooSpec",
+                    sizeof(FooSpecObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    FooSpec_slots
+                };
+                PyObject *tp = PyType_FromSpecWithBases(&FooSpec_spec, NULL);
+                return tp;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+                int extra_field2;
+            } FooSpecObject;
+
+            static PyObject *
+            FooSpec_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooSpecObject *obj = (FooSpecObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                /* Write to extra fields; if tp_basicsize was not propagated
+                   correctly these writes corrupt the malloc heap. */
+                obj->extra_field  = 111;
+                obj->extra_field2 = 222;
+                /* Trigger cpyext_tp_getattro -> create_ref path */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooSpec_dealloc(FooSpecObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            ''')
+        CBase = module.get_type()
+        # CBase was created via PyType_FromSpecWithBases — it carries
+        # Py_TPFLAGS_HEAPTYPE; the bug triggers when building the Python
+        # subclass hierarchy below.
+        assert CBase.__new__ is not object.__new__
+
+        class Mixin:
+            pass
+
+        # Intermediate Python class (pandas Block analog)
+        class BlockPython(Mixin, CBase):
+            pass
+
+        # User class (pandas NumpyBlock analog)
+        class NumpyBlock(BlockPython):
+            def __init__(self, value):
+                self.value = value
+
+        # If tp_basicsize was not propagated, these writes corrupt malloc
+        # metadata and either crash here or in a later allocation.
+        obj = NumpyBlock(42)
+        assert obj.value == 42
+        obj2 = NumpyBlock(99)
+        assert obj2.value == 99
