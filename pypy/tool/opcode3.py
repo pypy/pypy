@@ -86,7 +86,8 @@ def_op('MATCH_MAPPING', 31)
 def_op('MATCH_SEQUENCE', 32)
 def_op('MATCH_KEYS', 33)
 def_op('COPY_DICT_WITHOUT_KEYS', 34)
-
+def_op('PUSH_EXC_INFO', 35)
+def_op('CHECK_EXC_MATCH', 36)
 def_op('CHECK_EG_MATCH', 37)
 
 def_op('WITH_EXCEPT_START', 49)

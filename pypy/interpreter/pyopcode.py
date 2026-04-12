@@ -268,6 +268,8 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_METHOD_KW(oparg, next_instr)
             elif opcode == opcodedesc.CHECK_EG_MATCH.index:
                 self.CHECK_EG_MATCH(oparg, next_instr)
+            elif opcode == opcodedesc.CHECK_EXC_MATCH.index:
+                self.CHECK_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.IS_OP.index:
@@ -372,6 +374,8 @@ class __extend__(pyframe.PyFrame):
                 self.PREP_RERAISE_STAR(oparg, next_instr)
             elif opcode == opcodedesc.PRINT_EXPR.index:
                 self.PRINT_EXPR(oparg, next_instr)
+            elif opcode == opcodedesc.PUSH_EXC_INFO.index:
+                self.PUSH_EXC_INFO(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
             elif opcode == opcodedesc.ROT_FOUR.index:
@@ -807,6 +811,18 @@ class __extend__(pyframe.PyFrame):
                 # for hidden frames, a more limited solution should be
                 # enough: store away the exception on the frame
                 self.getorcreatedebug().hidden_operationerr = operationerr
+
+    def PUSH_EXC_INFO(self, oparg, next_instr):
+        w_exc = self.popvalue()
+        ec = self.space.getexecutioncontext()
+        prev_operr = ec.current_exception()
+        if prev_operr is not None:
+            w_prev = prev_operr.normalize_exception(self.space)
+        else:
+            w_prev = self.space.w_None
+        ec.set_sys_exc_info3(w_exc)
+        self.pushvalue(w_prev)
+        self.pushvalue(w_exc)
 
     @jit.unroll_safe
     def _any_except_or_finally_handler(self):
@@ -1817,6 +1833,12 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_match)
             ec = space.getexecutioncontext()
             ec.set_sys_exc_info3(w_match)
+
+    def CHECK_EXC_MATCH(self, oparg, next_instr):
+        w_right = self.popvalue()   # type(s) - TOS
+        w_left = self.peekvalue(0)  # exception instance - stays on stack
+        res = self.cmp_exc_match(w_left, w_right)
+        self.pushvalue(self.space.newbool(res))
 
     def PREP_RERAISE_STAR(self, oparg, next_instr):
         space = self.space

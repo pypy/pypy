@@ -1071,6 +1071,8 @@ _static_opcode_stack_effects = {
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: 0,
+    ops.PUSH_EXC_INFO: 1,
+    ops.CHECK_EXC_MATCH: 0,
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
