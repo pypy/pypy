@@ -2890,7 +2890,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             }
             ''')
         CBase = module.get_type()
-        # CBase was created via PyType_FromSpecWithBases — it carries
+        # CBase was created via PyType_FromSpecWithBases - it carries
         # Py_TPFLAGS_HEAPTYPE; the bug triggers when building the Python
         # subclass hierarchy below.
         assert CBase.__new__ is not object.__new__
