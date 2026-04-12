@@ -395,7 +395,13 @@ class ExecutionContext(object):
                     raise
             finally:
                 if d.f_lineno == lineno:
-                    d.f_lineno = old_lineno
+                    # For generator/coroutine resumptions (last_instr >= 0 at
+                    # call time), keep d.f_lineno at the yield line so the
+                    # instruction immediately after YIELD_VALUE (still on the
+                    # same source line) does not fire a spurious line event.
+                    # This mirrors CPython's RESUME instruction behaviour.
+                    if event != 'call' or frame.last_instr < 0:
+                        d.f_lineno = old_lineno
                 self.is_tracing -= 1
                 d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:

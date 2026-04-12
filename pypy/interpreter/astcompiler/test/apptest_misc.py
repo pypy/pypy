@@ -156,6 +156,65 @@ def g(): pass
         "got traced_lines=%r" % (traced_lines,))
 
 
+def test_gen_resume_no_spurious_line_event():
+    # After resuming a generator (which fires a 'call' event at the yield line),
+    # the first line event should be for the line AFTER the yield, not the yield
+    # line itself.  This matches CPython's RESUME instruction behaviour.
+    #
+    # The bug triggers only when the generator was previously entered under a
+    # tracer that returned None for the call event (creating debugdata with
+    # f_lineno=-1 but no local trace, so line events never updated d.f_lineno).
+    # On the next resumption with a full tracer, old_lineno=-1 is restored after
+    # the call event, causing a spurious line event on the POP_TOP that follows
+    # YIELD_VALUE (same source line as the yield).
+    import sys
+
+    def gen():
+        yield 1
+        yield 2
+
+    gen_lineno_yield1 = gen.__code__.co_firstlineno + 1
+    gen_lineno_yield2 = gen.__code__.co_firstlineno + 2
+
+    first_gen_line = []
+
+    # Phase 1: run gen's first next() under a tracer that returns None for gen.
+    # This creates gen's debugdata via the call event but leaves f_lineno=-1
+    # (no local trace means no line events update it).
+    def non_stepping_tracer(frame, event, arg):
+        if frame.f_code is gen.__code__:
+            return None   # no local trace -- debugdata.f_lineno stays -1
+        return non_stepping_tracer
+
+    # Phase 2: resume gen under a full tracer, record first line event in gen.
+    def stepping_tracer(frame, event, arg):
+        if event == 'line' and frame.f_code is gen.__code__:
+            if not first_gen_line:
+                first_gen_line.append(frame.f_lineno)
+        return stepping_tracer
+
+    g = gen()
+
+    sys.settrace(non_stepping_tracer)
+    next(g)          # runs to yield 1; creates debugdata with f_lineno=-1
+    sys.settrace(None)
+
+    # Phase 2: resume gen -- call event fires at yield-1 line; first subsequent
+    # line event must be the yield-2 line, not yield-1 again.
+    sys.settrace(stepping_tracer)
+    try:
+        next(g)      # runs from after yield 1 to yield 2
+    except StopIteration:
+        pass
+    sys.settrace(None)
+
+    assert first_gen_line, "expected a line event inside gen, got none"
+    assert first_gen_line[0] != gen_lineno_yield1, (
+        "first line event after resumption was yield-1 line again "
+        "(lineno %d); expected yield-2 line (%d)"
+        % (first_gen_line[0], gen_lineno_yield2))
+
+
 def test_star_in_slice():
     class A:
         def __getitem__(self, index):
