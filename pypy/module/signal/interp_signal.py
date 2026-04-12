@@ -64,6 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
+        self._in_poll = False
 
         @rgc.no_collect
         def _after_thread_switch():
@@ -99,6 +100,16 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     @jit.dont_look_inside
     def _poll_for_signals(self):
+        if self._in_poll:
+            return
+        self._in_poll = True
+        try:
+            self._poll_for_signals_unlocked()
+        finally:
+            self._in_poll = False
+
+    @jit.dont_look_inside
+    def _poll_for_signals_unlocked(self):
         # Report any wakeup-fd write error that occurred in the C signal handler
         e = pypysig_get_wakeup_fd_write_errno()
         if e != 0:
@@ -156,7 +167,12 @@ def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
 
 def _report_wakeup_fd_error(space, errno_val):
+    # Call write_unraisable_default directly, bypassing sys.unraisablehook
+    # like CPython.
+    # The re-entrancy guard in _poll_for_signals ensures that the appexec inside
+    # write_unraisable_default cannot re-trigger signal processing.
     from pypy.interpreter.error import OperationError, strerror
+    from pypy.interpreter.pytraceback import PyTraceback
     try:
         try:
             msg, lgt = strerror(errno_val)
@@ -165,11 +181,15 @@ def _report_wakeup_fd_error(space, errno_val):
             lgt = len(msg)
         w_exc = space.call_function(space.w_OSError, space.newint(errno_val),
                                     space.newtext(msg, lgt))
-        operr = OperationError(space.w_OSError, w_exc)
-        operr.write_unraisable(
-            space,
-            "when trying to write to the signal wakeup fd",
-            with_traceback=True)
+        frame = space.getexecutioncontext().gettopframe_nohidden()
+        if frame is not None:
+            w_tb = PyTraceback(space, frame, frame.last_instr, None)
+        else:
+            w_tb = space.w_None
+        OperationError.write_unraisable_default(
+            space, space.w_OSError, w_exc, w_tb,
+            'Exception ignored when trying to write to the signal wakeup fd:',
+            space.w_None, '')
     except Exception:
         pass
 
@@ -560,6 +580,8 @@ def raise_signal(space, signalnum):
         err = c_raise(signalnum)
     if err != 0:
         raise exception_from_saved_errno(space, space.w_OSError)
+    # the signal may have been sent to the current thread
+    space.getexecutioncontext().checksignals()
 
 @unwrap_spec(signalnum=int)
 def strsignal(space, signalnum):
