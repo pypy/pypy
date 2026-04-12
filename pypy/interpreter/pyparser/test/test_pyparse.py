@@ -457,6 +457,17 @@ if 1:
         info = pytest.raises(SyntaxError, self.parse, "#\x00\n")
         assert "source code cannot contain null bytes" in info.value.msg
 
+    def test_null_bytes_lineno_and_text(self):
+        # Error should report the line containing the null byte, truncated at it
+        info = pytest.raises(SyntaxError, self.parse, "x = '\x00' rest\n")
+        assert info.value.lineno == 1
+        assert info.value.text == "x = '\n"
+
+    def test_null_bytes_multiline_lineno_and_text(self):
+        info = pytest.raises(SyntaxError, self.parse, "\n'''\nmultilinestring\x00\n'''")
+        assert info.value.lineno == 3
+        assert info.value.text == "multilinestring\n"
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}

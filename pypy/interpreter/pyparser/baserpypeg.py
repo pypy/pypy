@@ -883,8 +883,13 @@ class Parser:
 
         if line_from_token:
             line = tok.line
+        elif end_lineno > start_lineno:
+            # For multi-line spans, use the end line (matches CPython behaviour)
+            lines = self.get_lines(range(end_lineno, end_lineno + 1))
+            line = lines[0] if lines else ""
+            start_lineno = end_lineno
+            start_col_offset = end_col_offset
         else:
-            # End is used only to get the proper text
             line = "".join(
                 self.get_lines(range(start_lineno, end_lineno + 1))
             )

@@ -178,7 +178,16 @@ class PegParser(object):
         tree is handled here.
         """
         if '\x00' in bytessrc:
+            null_pos = bytessrc.find('\x00')
+            assert null_pos >= 0
+            text_before = bytessrc[:null_pos]
+            lineno = text_before.count('\n') + 1
+            line_start = text_before.rfind('\n') + 1
+            assert line_start >= 0
+            line_text = text_before[line_start:] + '\n'
             raise error.SyntaxError("source code cannot contain null bytes",
+                                    lineno=lineno,
+                                    text=line_text,
                                     filename=compile_info.filename)
         textsrc = PythonParser._handle_encoding(bytessrc, compile_info, self.space)
         return self._parse(textsrc, compile_info)
