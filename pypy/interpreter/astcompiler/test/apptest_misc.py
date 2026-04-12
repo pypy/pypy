@@ -156,6 +156,36 @@ def g(): pass
         "got traced_lines=%r" % (traced_lines,))
 
 
+def test_prep_reraise_star_no_import_trace():
+    # PREP_RERAISE_STAR must not trigger import-machinery trace events.
+    # If it calls app-level __import__, sys.settrace will fire call/line events
+    # inside <frozen importlib._bootstrap>, confusing pdb (GH-101517).
+    import sys
+
+    call_events = []
+
+    def tracer(frame, event, arg):
+        if event == 'call':
+            call_events.append(frame.f_code.co_filename)
+        return tracer
+
+    def func_with_except_star():
+        try:
+            raise KeyError("test")
+        except* Exception:
+            pass
+
+    sys.settrace(tracer)
+    try:
+        func_with_except_star()
+    finally:
+        sys.settrace(None)
+
+    import_calls = [f for f in call_events if 'importlib' in f or 'frozen' in f]
+    assert not import_calls, (
+        "PREP_RERAISE_STAR triggered import-machinery trace events: %r" % import_calls)
+
+
 def test_gen_resume_no_spurious_line_event():
     # After resuming a generator (which fires a 'call' event at the yield line),
     # the first line event should be for the line AFTER the yield, not the yield
