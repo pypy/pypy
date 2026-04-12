@@ -174,7 +174,11 @@ class CAPITest(unittest.TestCase):
         class Z(object):
             def __len__(self):
                 return 1
-        with self.assertRaisesRegex(TypeError, 'indexing'):
+        if sys.implementation.name == 'pypy':
+            msg = "iterable"
+        else:
+            msg = "indexing"
+        with self.assertRaisesRegex(TypeError, msg):
             _posixsubprocess.fork_exec(
                           1,Z(),True,(1, 2),5,6,7,8,9,10,11,12,13,14,True,True,17,False,19,20,21,22,False)
         # Issue #15736: overflow in _PySequence_BytesToCharpArray()
