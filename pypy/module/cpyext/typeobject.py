@@ -616,8 +616,6 @@ class W_PyCTypeObject(W_TypeObject):
                 key = space.text_w(w_key)
                 dict_w[key] = space.getitem(w_dict, w_key)
 
-        # Determine whether this type introduces a new memory layout.
-        #
         # Manual heaptypes (allocated via PyType_Type.tp_alloc, then PyType_Ready)
         # set tp_basicsize = sizeof(PyHeapTypeObject).  For those, new_layout is
         # True only when the type adds fields *beyond* PyHeapTypeObject.
@@ -626,14 +624,10 @@ class W_PyCTypeObject(W_TypeObject):
         # also carry Py_TPFLAGS_HEAPTYPE but their tp_basicsize is the *instance*
         # struct size, which is always smaller than sizeof(PyHeapTypeObject).
         # Using sizeof(PyHeapTypeObject) as minsize for those types incorrectly
-        # gives new_layout=False, causing find_best_base() to prefer a Python
-        # mixin over the C type and propagating the wrong (too small) tp_basicsize
-        # to Python subclasses — resulting in heap corruption on instance creation.
+        # gives new_layout=False, causing find_best_base() to prefer any Python
+        # type over a C type, giving a too-small minsize
         #
         # Distinguish the two cases by the magnitude of tp_basicsize:
-        # >= sizeof(PyHeapTypeObject) → manual heaptype, compare against that;
-        # <  sizeof(PyHeapTypeObject) → spec type or static type, compare against
-        #    sizeof(PyObject) so any user-defined extra fields force new_layout.
         if flag_heaptype and (pto.c_tp_basicsize >=
                               rffi.sizeof(PyHeapTypeObject.TO)):
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
