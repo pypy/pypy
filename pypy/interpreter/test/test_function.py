@@ -224,6 +224,74 @@ def f(self, a, b):
 
 class TestFunction:
 
+    def test_doc_synthesized_from_text_signature(self):
+        """When a builtin has __text_signature__ but no __doc__, synthesize
+        a CPython-compatible docstring: 'name(sig)\n--\n\n'.
+        Fails before the fix; passes after."""
+        from pypy.interpreter import gateway
+        space = self.space
+
+        # Builtin with a visible argument (auto-generates __text_signature__)
+        # but no docstring.
+        def g(space, w_x):
+            pass
+        app_g = gateway.interp2app_temp(g)
+        w_g = space.wrap(app_g)
+
+        # Gateway automatically sets __text_signature__ -- verify it did.
+        w_tsig = space.getattr(w_g, space.wrap('__text_signature__'))
+        assert not space.is_w(w_tsig, space.w_None)
+
+        # The synthesized __doc__ must be 'name(sig)\n--\n\n'.
+        w_doc = space.getattr(w_g, space.wrap('__doc__'))
+        assert not space.is_w(w_doc, space.w_None)
+        doc = space.text_w(w_doc)
+        assert '\n--\n\n' in doc, repr(doc)
+        assert doc.startswith('g('), repr(doc)
+
+    def test_explicit_doc_not_overridden_by_text_signature(self):
+        """A builtin with an explicit __doc__ keeps it even if __text_signature__
+        is also set. Passes both before and after the fix."""
+        from pypy.interpreter import gateway
+        space = self.space
+
+        def g(space, w_x):
+            "My explicit docstring."
+        app_g = gateway.interp2app_temp(g)
+        w_g = space.wrap(app_g)
+
+        # Gateway still sets __text_signature__ automatically.
+        w_tsig = space.getattr(w_g, space.wrap('__text_signature__'))
+        assert not space.is_w(w_tsig, space.w_None)
+
+        # Explicit doc must be preserved unchanged.
+        w_doc = space.getattr(w_g, space.wrap('__doc__'))
+        doc = space.text_w(w_doc)
+        assert doc == "My explicit docstring.", repr(doc)
+
+    def test_text_signature_not_modified_when_synthesizing_doc(self):
+        """Synthesizing __doc__ must not touch __text_signature__.
+        Passes both before and after the fix (we never modify text_signature)."""
+        from pypy.interpreter import gateway
+        space = self.space
+
+        def g(space, w_x):
+            pass
+        app_g = gateway.interp2app_temp(g)
+        w_g = space.wrap(app_g)
+
+        w_tsig_before = space.getattr(w_g, space.wrap('__text_signature__'))
+        assert not space.is_w(w_tsig_before, space.w_None)
+        tsig_before = space.text_w(w_tsig_before)
+
+        # Access __doc__ (may synthesize it after the fix).
+        space.getattr(w_g, space.wrap('__doc__'))
+
+        # __text_signature__ must be identical.
+        w_tsig_after = space.getattr(w_g, space.wrap('__text_signature__'))
+        tsig_after = space.text_w(w_tsig_after)
+        assert tsig_before == tsig_after, (tsig_before, tsig_after)
+
     def test_func_defaults(self):
         from pypy.interpreter import gateway
         def g(w_a=None):

@@ -1327,6 +1327,8 @@ class GatewayCache(SpaceCache):
         text_sig = gateway._generate_text_signature()
         if text_sig:
             fn.w_text_signature = space.newtext(text_sig)
+            if not code.docstring:
+                code.docstring = '%s%s\n--\n\n' % (gateway.name, text_sig)
         if gateway.as_classmethod:
             fn = ClassMethod(fn)
         #
