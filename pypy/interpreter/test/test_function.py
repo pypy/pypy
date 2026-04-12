@@ -226,8 +226,7 @@ class TestFunction:
 
     def test_doc_synthesized_from_text_signature(self):
         """When a builtin has __text_signature__ but no __doc__, synthesize
-        a CPython-compatible docstring: 'name(sig)\n--\n\n'.
-        Fails before the fix; passes after."""
+        a CPython-compatible docstring: 'name(sig)\n--\n\n'."""
         from pypy.interpreter import gateway
         space = self.space
 
@@ -238,7 +237,6 @@ class TestFunction:
         app_g = gateway.interp2app_temp(g)
         w_g = space.wrap(app_g)
 
-        # Gateway automatically sets __text_signature__ -- verify it did.
         w_tsig = space.getattr(w_g, space.wrap('__text_signature__'))
         assert not space.is_w(w_tsig, space.w_None)
 
