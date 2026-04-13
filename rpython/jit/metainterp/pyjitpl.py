@@ -2371,6 +2371,8 @@ class MetaInterpStaticData(object):
                     # value of the vtable
                     d[ConstInt(vtable)._get_hash_()] = typeid
             self.globaldata.vtable2typeid = d
+        if not d: # happens in a few backend tests eg test_ztranslation_jit_stats.py
+            raise KeyError
         return d[known_class._get_hash_()]
 
 # ____________________________________________________________
