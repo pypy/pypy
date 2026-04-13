@@ -292,6 +292,9 @@ def write_memory(pid, address, content):
 
 
 def _read_and_parse_maps(pid='self', filter=None):
+    if filter is not None and os.path.isabs(filter):
+        # follow symlinks
+        filter = os.path.realpath(filter)
     with open('/proc/%s/maps' % pid) as f:
         return _parse_maps(f, filter)
 

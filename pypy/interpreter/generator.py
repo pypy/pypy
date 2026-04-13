@@ -201,7 +201,11 @@ return next yielded value or raise StopIteration."""
                 "exceptions must be classes or instances deriving from "
                 "BaseException, not %N", space.type(w_type))
         operr = OperationError(w_type, w_val, tb)
-        w_value = operr.normalize_exception(space)
+        try:
+            w_value = operr.normalize_exception(space)
+        except OperationError:
+            self.frame_is_finished()
+            raise
 
         # note: _w_yielded_from is always None if 'self.running'
         if (self.get_delegate() is not None and
@@ -251,8 +255,13 @@ return next yielded value or raise StopIteration."""
                 return space.w_None
             raise
         else:
-            raise oefmt(space.w_RuntimeError,
+            from pypy.interpreter.pytraceback import record_application_traceback
+            err = oefmt(space.w_RuntimeError,
                         "%s ignored GeneratorExit", self.KIND)
+            frame = self.frame
+            if frame is not None:
+                record_application_traceback(space, err, frame, frame.last_instr)
+            raise err
 
     def descr_gicr_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:

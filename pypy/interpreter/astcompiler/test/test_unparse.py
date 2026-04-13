@@ -209,3 +209,16 @@ class TestAstUnparseAnnotations(object):
         with pytest.raises(SyntaxError):
             unparse_annotations(self.space, func)
 
+    def test_namedexpr_not_allowed(self):
+        ast = self.get_ast("""async def f() -> something((a := b)): pass""")
+        func = ast.body[0]
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
+
+    def test_fstring_no_formatted_values_preserves_f_prefix(self):
+        ast = self.get_ast("""def f(x: f'just a string') -> None: pass""")
+        func = ast.body[0]
+        res = unparse_annotations(self.space, func)
+        annotation = res.args.args[0].annotation.value
+        assert self.space.text_w(annotation) == "f'just a string'"
+

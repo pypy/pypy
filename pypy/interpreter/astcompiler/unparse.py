@@ -363,6 +363,9 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_YieldFrom(self, node):
         raise SyntaxError.fromast("'yield from' expression cannot be used in annotation", node)
 
+    def visit_NamedExpr(self, node):
+        raise SyntaxError.fromast("'named expression' can not be used within an annotation", node)
+
     def visit_Call(self, node):
         self.append_expr(node.func, PRIORITY_ATOM)
         args = node.args
@@ -463,6 +466,27 @@ class UnparseVisitor(Utf8BuilderVisitor):
         raise SyntaxError.fromast("'await' expression cannot be used within an annotation", node)
 
 
+class AnnotationUnparseVisitor(UnparseVisitor):
+    """UnparseVisitor variant for annotation stringification.
+
+    Differences from regular unparse:
+    - JoinedStr (f-string) always gets the 'f' prefix, even without formatted values
+    - NamedExpr raises SyntaxError instead of SystemError
+    """
+
+    def visit_NamedExpr(self, node):
+        raise SyntaxError.fromast("'named expression' can not be used within an annotation", node)
+
+    def visit_JoinedStr(self, node):
+        subvisitor = FstringVisitor(self.space)
+        for elt in node.values:
+            elt.walkabout(subvisitor)
+        s = subvisitor.builder.build()
+        l = subvisitor.builder.getlength()
+        self.append_ascii("f")
+        self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
+
+
 class FstringVisitor(Utf8BuilderVisitor):
 
     def default_visitor(self, node):
@@ -515,6 +539,11 @@ def w_unparse(space, ast, level=PRIORITY_TEST):
     ast.walkabout(visitor)
     return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
 
+def w_unparse_annotation(space, ast, level=PRIORITY_TEST):
+    visitor = AnnotationUnparseVisitor(space, level)
+    ast.walkabout(visitor)
+    return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
+
 class UnparseAnnotationsVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
@@ -525,7 +554,7 @@ class UnparseAnnotationsVisitor(ast.ASTVisitor):
 
     def unparse(self, node):
         return ast.Constant(
-                    w_unparse(self.space, node),
+                    w_unparse_annotation(self.space, node),
                     self.space.w_None,
                     node.lineno,
                     node.col_offset,

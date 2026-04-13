@@ -132,3 +132,80 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
             module.test_capsule()
         finally:
             gc.collect = _collect
+
+    def test_capsule_destructor_via_gc_collect(self):
+        # Like test_capsule_set but the C code calls PyGC_Collect() directly
+        # instead of going through Python's gc.collect. This mirrors what
+        # _testcapimodule.c does in its test_capsule() function.
+        # On CPython, Py_DECREF immediately calls tp_dealloc so PyGC_Collect
+        # is a no-op for refcounted objects. On PyPy, PyGC_Collect() must
+        # trigger rawrefcount collection for the destructor to be called.
+        module = self.import_extension('foo_cap_gc', [
+            ("test_capsule_gc", "METH_NOARGS",
+            """
+                PyObject *object;
+                const char *error = NULL;
+            #define FAIL(x) { error = (x); goto exit; }
+            #define CHECK_DESTRUCTOR                              \\
+                PyGC_Collect();                                   \\
+                PyGC_Collect();                                   \\
+                if (cap_error) {                                  \\
+                    FAIL(cap_error);                              \\
+                }                                                 \\
+                else if (!cap_destructor_count) {                 \\
+                    FAIL("destructor not called!");               \\
+                }                                                 \\
+                cap_destructor_count = 0;
+
+                object = PyCapsule_New(cap_pointer, cap_name, cap_destructor);
+                PyCapsule_SetContext(object, cap_context);
+                cap_destructor(object);
+                CHECK_DESTRUCTOR;
+                Py_DECREF(object);
+                CHECK_DESTRUCTOR;
+
+                object = PyCapsule_New(cap_pointer, "ignored", NULL);
+                PyCapsule_SetPointer(object, cap_pointer);
+                PyCapsule_SetName(object, cap_name);
+                PyCapsule_SetDestructor(object, cap_destructor);
+                PyCapsule_SetContext(object, cap_context);
+                cap_destructor(object);
+                CHECK_DESTRUCTOR;
+                PyCapsule_SetDestructor(object, NULL);
+                Py_DECREF(object);
+                if (cap_destructor_count) {
+                    FAIL("destructor called when it should not have been!");
+                }
+
+              exit:
+                if (error) {
+                    PyErr_Format(PyExc_RuntimeError, "test_capsule: %s", error);
+                    return NULL;
+                }
+                Py_RETURN_NONE;
+            #undef FAIL
+            #undef CHECK_DESTRUCTOR
+            """),
+        ], prologue="""
+            #include <Python.h>
+            static const char *cap_name = "capsule name";
+            static       char *cap_pointer = "capsule pointer";
+            static       char *cap_context = "capsule context";
+            static const char *cap_error = NULL;
+            static int cap_destructor_count = 0;
+
+            static void
+            cap_destructor(PyObject *o) {
+                cap_destructor_count++;
+                if (PyCapsule_GetContext(o) != cap_context) {
+                    cap_error = "context did not match in destructor!";
+                } else if (PyCapsule_GetDestructor(o) != cap_destructor) {
+                    cap_error = "destructor did not match in destructor!  (woah!)";
+                } else if (PyCapsule_GetName(o) != cap_name) {
+                    cap_error = "name did not match in destructor!";
+                } else if (PyCapsule_GetPointer(o, cap_name) != cap_pointer) {
+                    cap_error = "pointer did not match in destructor!";
+                }
+            }
+        """)
+        module.test_capsule_gc()

@@ -19,6 +19,7 @@ class TypeDef(object):
                  __buffer=None, __confirm_applevel_del__=False,
                  _text_signature_=None, variable_sized=False,
                  __rpython_level_class__=None,
+                 method_descriptor=False,
                   **rawdict):
         "initialization-time only"
         self.name = __name
@@ -53,6 +54,7 @@ class TypeDef(object):
         assert __total_ordering__ in (None, ), "__total_ordering__ was buggy, mostly unused, and has been removed"
         self.variable_sized = variable_sized
         self.rpy_cls = __rpython_level_class__
+        self.method_descriptor = method_descriptor
         self._install_shortcuts()
 
     def add_entries(self, **rawdict):
@@ -795,7 +797,7 @@ getset_func_annotations = GetSetProperty(Function.fget_func_annotations,
 
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
-Function.typedef = TypeDef("function",
+Function.typedef = TypeDef("function", method_descriptor=True,
     __new__ = interp2app(Function.descr_function__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
                           descrmismatch='__call__'),

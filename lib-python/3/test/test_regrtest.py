@@ -2125,7 +2125,7 @@ class ArgsTestCase(BaseTestCase):
             use_environment = (support.is_emscripten or support.is_wasi)
 
             class WorkerTests(unittest.TestCase):
-                @unittest.skipUnless(get_config is None, 'need get_config()')
+                @unittest.skipUnless(get_config is not None, 'need get_config()')
                 def test_config(self):
                     config = get_config()['config']
                     # -u option
