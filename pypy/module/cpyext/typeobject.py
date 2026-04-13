@@ -21,6 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
+    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR,
     PyObject, PyVarObject,
     )
 
@@ -506,6 +507,24 @@ def inherit_special(space, pto, w_obj, base_pto):
         flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
+
+    # Inherit Py_TPFLAGS_METHOD_DESCRIPTOR for non-heap static types
+    if not (flags & Py_TPFLAGS_HEAPTYPE):
+        if widen(base_pto.c_tp_flags) & Py_TPFLAGS_METHOD_DESCRIPTOR:
+            flags |= Py_TPFLAGS_METHOD_DESCRIPTOR
+
+    # Inherit Py_TPFLAGS_HAVE_VECTORCALL for non-heap static types that do
+    # not override tp_vectorcall_offset or tp_call.
+    # Note: inherit_slots runs after inherit_special, so a zero offset here
+    # means "not overridden" and will be inherited from base.
+    if not (flags & Py_TPFLAGS_HEAPTYPE):
+        if widen(base_pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL:
+            same_offset = (pto.c_tp_vectorcall_offset == 0 or
+                           pto.c_tp_vectorcall_offset == base_pto.c_tp_vectorcall_offset)
+            if (same_offset
+                    and (not pto.c_tp_call or pto.c_tp_call == base_pto.c_tp_call)):
+                flags |= Py_TPFLAGS_HAVE_VECTORCALL
+
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):

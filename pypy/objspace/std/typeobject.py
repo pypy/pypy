@@ -167,6 +167,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_patma_collection?",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
+                          "flag_method_descriptor",
                           "compares_by_identity_status?",
                           'hasuserdel',
                           'weakrefable',
@@ -192,6 +193,8 @@ class W_TypeObject(W_Root):
 
     # set to True by cpyext _before_ it even calls __init__() below
     flag_cpytype = False
+
+    flag_method_descriptor = False
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
@@ -250,6 +253,7 @@ class W_TypeObject(W_Root):
         # management, which means from the point of view of mapdict there is no
         # dict.
         typedef = self.layout.typedef
+        self.flag_method_descriptor = typedef.method_descriptor
         if (self.hasdict and not typedef.hasdict):
             self.terminator = DictTerminator(space, self)
         else:
@@ -880,6 +884,8 @@ class W_TypeObject(W_Root):
             flags |= PATMA_MAPPING
         elif self.flag_patma_collection == "S":
             flags |= PATMA_SEQUENCE
+        if self.flag_method_descriptor:
+            flags |= 1 << 17  # Py_TPFLAGS_METHOD_DESCRIPTOR
         return flags
 
 def descr__new__(space, w_typetype, __args__):

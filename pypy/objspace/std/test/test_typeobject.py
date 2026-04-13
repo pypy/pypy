@@ -98,6 +98,15 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_method_descriptor_flag(self):
+        # Replicates test.test_call.TestPEP590.test_method_descriptor_flag
+        Py_TPFLAGS_METHOD_DESCRIPTOR = 1 << 17
+        assert type(list.append).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert type(list.__add__).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert not (type(repr).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        # Mutable heap types should not have Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert not (type.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+
     def test_is_abstract_flag(self):
         # IS_ABSTRACT flag should always be in sync with
         # cls.__dict__['__abstractmethods__']

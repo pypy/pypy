@@ -2017,7 +2017,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             return module.pyobject_vectorcall(func, args, kwnames)
 
         for (func, args, kwargs, expected) in calls:
-            print(func, args, kwargs, expected)
             if not kwargs:
                 assert expected == module.pyvectorcall_call(func, args)
             assert expected == module.pyvectorcall_call(func, args, kwargs)
@@ -2064,6 +2063,19 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         Py_TPFLAGS_HAVE_VECTORCALL = 1 << 11
         assert module.MethodDescriptor2.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+
+        # test_vectorcall_flag: derived static type should inherit Py_TPFLAGS_HAVE_VECTORCALL
+        assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+        assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+        class MethodDescriptorHeap(module.MethodDescriptorBase):
+            pass
+        assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
+
+        # test_method_descriptor_flag: Py_TPFLAGS_METHOD_DESCRIPTOR on C extension types
+        Py_TPFLAGS_METHOD_DESCRIPTOR = 1 << 17
+        assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
 
     def test_fastcall(self):
         module = self.import_extension('foo', [
