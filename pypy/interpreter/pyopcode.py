@@ -854,7 +854,12 @@ class __extend__(pyframe.PyFrame):
         else:
             prev_operr = self.getorcreatedebug().hidden_operationerr
         if prev_operr is not None:
-            w_prev = prev_operr.normalize_exception(self.space)
+            # Use get_w_value, not normalize_exception: normalizing would
+            # overwrite w_exc.w_traceback with the stale traceback from
+            # prev_operr, clobbering any more-complete traceback already set.
+            w_prev = prev_operr.get_w_value(self.space)
+            if w_prev is None:
+                w_prev = self.space.w_None
         else:
             w_prev = self.space.w_None
         # Push a SysExcInfoRestorer so handle_operation_error can restore
@@ -1424,8 +1429,13 @@ class __extend__(pyframe.PyFrame):
             w_value = space.interp_w(W_BaseException, w_exc)
             w_type = space.type(w_exc)
             operr = OperationError(w_type, w_exc, w_value.w_traceback)
-            ec = self.space.getexecutioncontext()
-            return self.handle_operation_error(ec, operr, attach_tb=False)
+            # Raise as RaiseWithExplicitTraceback so that handle_bytecode
+            # dispatches via its 'except RaiseWithExplicitTraceback' branch
+            # (calling handle_operation_error with attach_tb=False).  This
+            # avoids a spurious traceback entry and exception_trace call that
+            # would occur if the OperationError bubbled up to the plain
+            # 'except OperationError' branch in handle_bytecode.
+            raise RaiseWithExplicitTraceback(operr)
 
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments

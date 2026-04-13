@@ -4,10 +4,7 @@
 
 import sys
 import gc
-import difflib
-import asyncio
 import pytest
-from functools import wraps
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +68,7 @@ class Tracer:
 
 
 def compare_events(line_offset, events, expected_events):
+    import difflib
     events = [(l - line_offset, e) for (l, e) in events]
     if events != expected_events:
         raise AssertionError(
@@ -1537,6 +1535,7 @@ def run_jump_test(func, jumpFrom, jumpTo, expected, error=None, event='line'):
 
 
 def run_jump_async_test(func, jumpFrom, jumpTo, expected, error=None, event='line'):
+    import asyncio
     tracer = JumpTracer(func, jumpFrom, jumpTo, event)
     sys.settrace(tracer.trace)
     output = []
