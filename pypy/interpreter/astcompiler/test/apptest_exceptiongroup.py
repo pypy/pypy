@@ -328,6 +328,33 @@ def test_except_star_cleanup_lineno():
             "LIST_APPEND 1 lineno=%r, expected except* clause line %r" %
             (i.positions.lineno, except_star_line))
 
+def test_traceback_frames_preserved_through_except_star():
+    # When an exception raised inside except* propagates through call frames,
+    # all intermediate frames must appear in the traceback.
+    import traceback
+
+    def inner():
+        try:
+            raise ExceptionGroup("group", [ValueError(1)])
+        except* ValueError:
+            raise ValueError(2)
+
+    def outer():
+        try:
+            raise ExceptionGroup("group", [TypeError(1)])
+        except* TypeError:
+            inner()
+
+    try:
+        outer()
+    except ValueError as e:
+        tb_frames = [frame.f_code.co_name for frame, _ in traceback.walk_tb(e.__traceback__)]
+
+    # must include both outer() and inner(), not just the outermost frame
+    assert 'inner' in tb_frames, "inner() missing from traceback: %r" % tb_frames
+    assert 'outer' in tb_frames, "outer() missing from traceback: %r" % tb_frames
+
+
 def test_except_star_trace_return_lineno():
     """The 'return' trace event after an except* block should report the except*
     clause line, not co_firstlineno (which was the wrong pre-fix behaviour)."""
