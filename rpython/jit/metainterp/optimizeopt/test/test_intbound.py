@@ -1400,7 +1400,7 @@ def test_intbound_str():
     if LONG_BIT == 64:
         assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 0x49580479)'
     else:
-        assert str(b) == '(0 <= 0b0?...? = 0x49580479)'
+        assert str(b) == '(0 <= 0b0?...? <= 0x49580479)'
     b = IntBound.from_constant(MININT)
     assert str(b) == '(MININT)'
     b = IntBound.from_constant(-56)
