@@ -513,12 +513,13 @@ def PyGC_Collect(space):
     from rpython.rlib.objectmodel import we_are_translated
     from rpython.rlib import rawrefcount
     from pypy.module.cpyext.state import _rawrefcount_perform
-    import gc
     if not we_are_translated():
+        from pypy.module.gc.interp_gc import _run_finalizers
         rawrefcount._collect()
-        space.user_del_action._run_finalizers()
+        _run_finalizers(space)
         rawrefcount._collect()
     else:
+        import gc
         gc.collect()
         _rawrefcount_perform(space)
     return 0

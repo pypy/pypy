@@ -134,7 +134,7 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     w_type = space.type(w_obj)
     if w_type.has_object_getattribute():
         w_descr = space.lookup(w_obj, methname)
-        if space.type(w_descr).flag_method_descriptor:
+        if w_descr is not None and space.type(w_descr).flag_method_descriptor:
             w_value = w_obj.getdictvalue(space, methname)
             if w_value is None:
                 # fast method path: a method descriptor in the class,
