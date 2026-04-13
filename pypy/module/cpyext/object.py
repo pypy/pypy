@@ -510,6 +510,15 @@ def Py_Is(space, w_obj1, w_obj2):
 
 @cpython_api([], rffi.INT_real, error = -1)
 def PyGC_Collect(space):
+    from rpython.rlib.objectmodel import we_are_translated
+    from rpython.rlib import rawrefcount
+    from pypy.module.cpyext.state import _rawrefcount_perform
     import gc
-    gc.collect()
+    if not we_are_translated():
+        rawrefcount._collect()
+        space.user_del_action._run_finalizers()
+        rawrefcount._collect()
+    else:
+        gc.collect()
+        _rawrefcount_perform(space)
     return 0
