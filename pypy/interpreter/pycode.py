@@ -226,6 +226,7 @@ class PyCode(eval.Code):
     def signature(self):
         return self._signature
 
+    @jit.elidable
     def lookup_exceptiontable(self, instr_offset):
         """Search co_exceptiontable for a handler covering instr_offset.
         Returns (target, depth, lasti) as (r_uint, int, bool).
@@ -237,37 +238,13 @@ class PyCode(eval.Code):
         i = 0
         n = len(table)
         while i < n:
-            b = ord(table[i]); i += 1
-            start = b & 63
-            shift = 6
-            while b & 64:
-                b = ord(table[i]); i += 1
-                start |= (b & 63) << shift
-                shift += 6
-            start *= 2
-            b = ord(table[i]); i += 1
-            length = b & 63
-            shift = 6
-            while b & 64:
-                b = ord(table[i]); i += 1
-                length |= (b & 63) << shift
-                shift += 6
-            length *= 2
-            b = ord(table[i]); i += 1
-            target = b & 63
-            shift = 6
-            while b & 64:
-                b = ord(table[i]); i += 1
-                target |= (b & 63) << shift
-                shift += 6
-            target *= 2
-            b = ord(table[i]); i += 1
-            dl = b & 63
-            shift = 6
-            while b & 64:
-                b = ord(table[i]); i += 1
-                dl |= (b & 63) << shift
-                shift += 6
+            start_raw, i = _decode_varint(table, i)
+            start = start_raw * 2
+            length_raw, i = _decode_varint(table, i)
+            length = length_raw * 2
+            target_raw, i = _decode_varint(table, i)
+            target = target_raw * 2
+            dl, i = _decode_varint(table, i)
             depth = dl >> 1
             lasti = bool(dl & 1)
             if start <= instr_offset < start + length:
@@ -701,6 +678,19 @@ class W_LineIterator(W_Root):
             space.newint(lineno) if lineno != -1 else space.w_None,
         ])
         return w_res
+
+def _decode_varint(table, i):
+    """Decode one CPython-3.11-compatible varint from table at byte position i.
+    Returns (value, new_i).  Reads 6 bits per byte; bit 6 is a continuation flag."""
+    b = ord(table[i]); i += 1
+    value = b & 63
+    shift = 6
+    while b & 64:
+        b = ord(table[i]); i += 1
+        value |= (b & 63) << shift
+        shift += 6
+    return value, i
+
 
 def _compute_args_as_cellvars(varnames, cellvars, argcount):
     # Cell vars could shadow already-set arguments.

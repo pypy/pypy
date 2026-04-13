@@ -118,6 +118,7 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
+    # XXX remove this
     @jit.dont_look_inside
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:

@@ -1,4 +1,9 @@
-from pypy.interpreter.astcompiler.assemble import Instruction, _remove_redundant_nops, Block
+from hypothesis import given, settings
+import hypothesis.strategies as st
+
+from pypy.interpreter.astcompiler.assemble import (
+    Instruction, _remove_redundant_nops, Block, _encode_varint)
+from pypy.interpreter.pycode import _decode_varint
 from pypy.tool import stdlib_opcode as ops
 
 
@@ -67,6 +72,31 @@ def test_remove_redundant_nops():
         ops.POP_TOP, 1,
     )
     check(block, ops.POP_TOP, 1)
+
+
+# varint encode/decode round-trip tests
+
+@given(st.integers(min_value=0, max_value=2**30))
+def test_varint_roundtrip(value):
+    result = []
+    _encode_varint(result, value)
+    decoded, new_i = _decode_varint(''.join(result), 0)
+    assert decoded == value
+    assert new_i == len(result)
+
+
+@given(st.lists(st.integers(min_value=0, max_value=2**30), min_size=1, max_size=8))
+def test_varint_sequence_roundtrip(values):
+    # Encode a sequence of varints and decode them back in order.
+    result = []
+    for v in values:
+        _encode_varint(result, v)
+    table = ''.join(result)
+    i = 0
+    for v in values:
+        decoded, i = _decode_varint(table, i)
+        assert decoded == v
+    assert i == len(table)
 
 
 # tests that do precise checks on the shape of generated assembly

@@ -749,18 +749,6 @@ class PythonCodeMaker(ast.ASTVisitor):
             end_block = handler_block
         self.exception_table_entries.append((start_block, end_block, handler_block, lasti))
 
-    def _encode_varint(self, result, value):
-        """Append a CPython-3.11-compatible varint encoding of value to result."""
-        # Encode 6 bits per byte; bit 6 of each byte is a continuation flag.
-        while True:
-            chunk = value & 63
-            value >>= 6
-            if value:
-                chunk |= 64   # more bytes follow
-            result.append(chr(chunk))
-            if not value:
-                break
-
     def _build_exceptiontable(self):
         """Encode self.exception_table_entries into co_exceptiontable bytes."""
         if not self.exception_table_entries:
@@ -778,11 +766,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             depth = handler_block.initial_depth - 1
             if depth < 0:
                 continue   # handler unreachable; skip
-            self._encode_varint(result, start // 2)
-            self._encode_varint(result, (end - start) // 2)
-            self._encode_varint(result, target // 2)
+            _encode_varint(result, start // 2)
+            _encode_varint(result, (end - start) // 2)
+            _encode_varint(result, target // 2)
             dl = (depth << 1) | (1 if lasti else 0)
-            self._encode_varint(result, dl)
+            _encode_varint(result, dl)
         return ''.join(result)
 
     def assemble(self):
@@ -1054,6 +1042,19 @@ def remove_redundant_nops(blocks):
     if mininum_lineno == sys.maxint:
         mininum_lineno = 1
     return mininum_lineno
+
+def _encode_varint(result, value):
+    """Append a CPython-3.11-compatible varint encoding of value to result.
+    Encodes 6 bits per byte; bit 6 is a continuation flag."""
+    while True:
+        chunk = value & 63
+        value >>= 6
+        if value:
+            chunk |= 64   # more bytes follow
+        result.append(chr(chunk))
+        if not value:
+            break
+
 
 def _list_from_dict(d, offset=0):
     result = [None] * len(d)
