@@ -118,6 +118,7 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
+    @jit.dont_look_inside
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
             if 1:
@@ -148,8 +149,8 @@ class __extend__(pyframe.PyFrame):
             ec.exception_trace(self, operr)
 
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
-        if entry is not None:
-            target, depth, lasti = entry
+        target, depth, lasti = entry
+        if depth >= 0:
             # Pop any SysExcInfoRestorer or matching FinallyBlock pushed
             # by a SETUP_FINALLY that serves as a dummy _stacksize hint.
             while self.blockstack_non_empty():
@@ -820,8 +821,12 @@ class __extend__(pyframe.PyFrame):
 
     def POP_EXCEPT(self, oparg, next_instr):
         w_prev_exc = self.popvalue()
-        ec = self.space.getexecutioncontext()
-        ec.set_sys_exc_info3(w_prev_exc)
+        # Pop the SysExcInfoRestorer that PUSH_EXC_INFO placed on the block stack,
+        # and use it to restore the previous exception state.
+        block = self.lastblock
+        assert isinstance(block, SysExcInfoRestorer)
+        self.lastblock = block.previous
+        block.cleanupstack(self)
 
     def POP_BLOCK(self, oparg, next_instr):
         self.pop_block()
@@ -842,12 +847,28 @@ class __extend__(pyframe.PyFrame):
     def PUSH_EXC_INFO(self, oparg, next_instr):
         w_exc = self.popvalue()
         ec = self.space.getexecutioncontext()
-        prev_operr = ec.current_exception()
+        # Read the previous "current exception" from the appropriate location.
+        if not self.hide():
+            prev_operr = ec.current_exception()
+        else:
+            prev_operr = self.getorcreatedebug().hidden_operationerr
         if prev_operr is not None:
             w_prev = prev_operr.normalize_exception(self.space)
         else:
             w_prev = self.space.w_None
-        ec.set_sys_exc_info3(w_exc)
+        # Push a SysExcInfoRestorer so handle_operation_error can restore
+        # sys.exc_info if an exception propagates out of this handler block.
+        block = SysExcInfoRestorer(prev_operr, self.lastblock, self.last_instr)
+        self.lastblock = block
+        # Set the new current exception in the appropriate location.
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        space = self.space
+        w_exc_val = space.interp_w(W_BaseException, w_exc)
+        operr = OperationError(space.type(w_exc), w_exc, w_exc_val.w_traceback)
+        if not self.hide():
+            ec.set_sys_exc_info(operr)
+        else:
+            self.getorcreatedebug().hidden_operationerr = operr
         self.pushvalue(w_prev)
         self.pushvalue(w_exc)
 
@@ -1350,10 +1371,10 @@ class __extend__(pyframe.PyFrame):
         w_top = self.peekvalue(0)
         if isinstance(w_top, SApplicationException):
             # old block-stack mode: stack is [..., __exit__, unroller]
-            w_unroller = self.popvalue()
+            self.popvalue()             # == w_top
             w_exitfunc = self.popvalue()
-            self.pushvalue(w_unroller)
-            operr = w_unroller.operr
+            self.pushvalue(w_top)
+            operr = w_top.operr
             w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
@@ -2012,7 +2033,10 @@ class SysExcInfoRestorer(FrameBlock):
 
     def cleanupstack(self, frame):
         ec = frame.space.getexecutioncontext()
-        ec.set_sys_exc_info(self.operr)
+        if not frame.hide():
+            ec.set_sys_exc_info(self.operr)
+        else:
+            frame.getorcreatedebug().hidden_operationerr = self.operr
 
 
 class ExceptBlock(FrameBlock):

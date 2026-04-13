@@ -228,13 +228,14 @@ class PyCode(eval.Code):
 
     def lookup_exceptiontable(self, instr_offset):
         """Search co_exceptiontable for a handler covering instr_offset.
-        Returns (target, depth, lasti) as (r_uint, int, bool), or None."""
+        Returns (target, depth, lasti) as (r_uint, int, bool).
+        depth == -1 means no handler was found (sentinel for not-found)."""
         table = self.co_exceptiontable
+        best = (r_uint(0), -1, False)
         if not table:
-            return None
+            return best
         i = 0
         n = len(table)
-        best = None
         while i < n:
             b = ord(table[i]); i += 1
             start = b & 63
@@ -273,7 +274,7 @@ class PyCode(eval.Code):
                 best = (r_uint(target), depth, lasti)
             elif start > instr_offset:
                 break
-        return best
+        return best  # depth == -1 means not found
 
     def _compute_flatcall(self):
         # Speed hack!

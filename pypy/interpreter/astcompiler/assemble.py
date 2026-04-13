@@ -735,14 +735,19 @@ class PythonCodeMaker(ast.ASTVisitor):
         size = self._resolve_block_targets(blocks)
         return blocks, size
 
-    def emit_exception_table_entry(self, start_block, handler_block, lasti=False):
-        """Record an (start_block, handler_block, lasti) exception table entry.
-        The protected range is [start_block.offset, handler_block.offset).
+    def emit_exception_table_entry(self, start_block, handler_block, lasti=False,
+                                   end_block=None):
+        """Record an exception table entry.
+        The protected range is [start_block.offset, end_block.offset).
+        If end_block is None, handler_block is used as the end (its offset is
+        the exclusive end of the range).
         handler_block must start with PUSH_EXC_INFO.  depth is derived from
         handler_block.initial_depth (set by _stacksize) as initial_depth - 1.
         Call emit_exception_table_entry BEFORE _stacksize has run; the entry
         is encoded in _build_exceptiontable which runs after _stacksize."""
-        self.exception_table_entries.append((start_block, handler_block, lasti))
+        if end_block is None:
+            end_block = handler_block
+        self.exception_table_entries.append((start_block, end_block, handler_block, lasti))
 
     def _encode_varint(self, result, value):
         """Append a CPython-3.11-compatible varint encoding of value to result."""
@@ -761,11 +766,10 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not self.exception_table_entries:
             return ''
         result = []
-        entries = sorted(self.exception_table_entries,
-                         key=lambda e: e[0].offset)
-        for start_block, handler_block, lasti in entries:
+        # entries are appended in bytecode order, so start_block.offset is non-decreasing
+        for start_block, end_block, handler_block, lasti in self.exception_table_entries:
             start = start_block.offset
-            end = handler_block.offset   # exclusive end = handler start
+            end = end_block.offset       # exclusive end of protected range
             target = handler_block.offset
             if end <= start:
                 continue   # empty range, skip

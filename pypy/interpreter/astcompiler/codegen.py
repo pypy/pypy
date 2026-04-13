@@ -1436,8 +1436,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
             fblock_kind = F_ASYNC_WITH
 
+        normal_exit = self.new_block()
         body_block = self.use_next_block(body_block)
-        self.emit_exception_table_entry(body_block, cleanup)
+        self.emit_exception_table_entry(body_block, cleanup, end_block=normal_exit)
         self.push_frame_block(fblock_kind, body_block, cleanup, witem)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
@@ -1451,6 +1452,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(fblock_kind, body_block)
+        # exception table range ends here; call_exit_with_nones is not protected
+        self.use_next_block(normal_exit)
 
         self.update_position(wih)
         # end of body, successful outcome, start cleanup

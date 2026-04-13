@@ -214,7 +214,6 @@ class ExecutionContext(object):
         "Trace function called upon OperationError."
         if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
-        #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self):
         """Implements sys.exc_info().
