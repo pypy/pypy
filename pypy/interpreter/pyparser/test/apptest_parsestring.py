@@ -54,6 +54,20 @@ def test_fstring_invalid_escape():
     assert not w
     assert excinfo.value.filename == '<string>'
 
+def test_invalid_escape_syntax_error_span():
+    # When -Werror promotes the DeprecationWarning to a SyntaxError, the
+    # error should highlight the full string token, not just one character.
+    # E.g. for '"""\q"""' (8 chars) the end offset must be start+8.
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('error', category=DeprecationWarning)
+        with raises(SyntaxError) as excinfo:
+            eval('"""\\q"""')
+    assert not w
+    exc = excinfo.value
+    # offset is 1-based column of opening quote; end_offset covers
+    # the full token '"""\q"""' (8 chars).
+    assert exc.end_offset - exc.offset == len('"""\\q"""')
+
 def test_invalid_escape_plus_syntax_error_single_warning():
     # When a string literal contains an invalid escape sequence AND the
     # surrounding expression is a SyntaxError, the DeprecationWarning must

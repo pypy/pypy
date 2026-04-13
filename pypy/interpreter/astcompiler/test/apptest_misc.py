@@ -261,3 +261,9 @@ def test_star_in_slice():
     assert a.index == (1, 2, 3)
     del a[*(1, 2, 8)]
     assert a.delindex == (1, 2, 8)
+
+def test_named_expr_in_fstring_annotation_forbidden():
+    # NamedExpr (walrus) inside an f-string format value inside an annotation
+    # must raise SyntaxError, not SystemError (regression: PyPy hit default_visitor).
+    with pytest.raises(SyntaxError):
+        exec("from __future__ import annotations\ntest: f'{(x := 10):=10}'\n")

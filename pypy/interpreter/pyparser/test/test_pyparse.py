@@ -634,3 +634,18 @@ class TestIncompleteInput(object):
         self.check_incomplete("for x in y:\n")
         self.check_incomplete("def f():\n")
 
+    def test_def_blank_line_unindented_body_is_invalid(self):
+        # "def x():\n\npass\n": a blank line then 'pass' at col 0 means the
+        # function body is empty. This is definitively invalid (not incomplete).
+        msg = self.check_error("def x():\n\npass\n")
+        assert "incomplete input" not in msg, msg
+
+    def test_eval_mode_empty_is_incomplete(self):
+        # compile("\n", "<input>", "eval", PyCF_ALLOW_INCOMPLETE_INPUT|...)
+        # should report incomplete input, not plain "invalid syntax".
+        # codeop._maybe_compile relies on this to return None for empty eval.
+        info = pyparse.CompileInfo("<test>", "eval", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parser.parse_source("\n", info)
+        assert "incomplete input" in excinfo.value.msg, excinfo.value.msg
+

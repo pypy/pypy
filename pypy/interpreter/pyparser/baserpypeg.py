@@ -272,11 +272,12 @@ class Parser:
         if res is None:
             tok = self.diagnose()
             if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT):
+                    (self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT or
+                     self.compile_info.mode == "eval")):
                 # bit of a heuristic: if the source does not end with a newline
-                # (PyCF_DONT_IMPLY_DEDENT is set) and the remaining tokens are
-                # ENDMARKER, NEWLINE, DEDENT then more input could fix things,
-                # so we raise "incomplete input"
+                # (PyCF_DONT_IMPLY_DEDENT is set) or we are in eval mode, and
+                # the remaining tokens are ENDMARKER, NEWLINE, DEDENT then more
+                # input could fix things, so we raise "incomplete input"
                 for index in range(self._highwatermark, len(self._tokens)):
                     typ = self._tokens[index].token_type
                     if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
@@ -327,11 +328,10 @@ class Parser:
                 )
         except error.OperationError as e:
             if e.match(space, space.w_DeprecationWarning):
-                # Use only the start position: the error points to the opening
-                # quote of the string literal (matching CPython), not its end.
                 start_lineno, start_col_offset = self.extract_pos_start(tok)
+                end_lineno, end_col_offset = self.extract_pos_end(tok)
                 self._raise_syntax_error(msg, start_lineno, start_col_offset,
-                                         start_lineno, start_col_offset)
+                                         end_lineno, end_col_offset)
             else:
                 raise
 
@@ -579,7 +579,16 @@ class Parser:
             # written but its body was not yet provided. Report "incomplete
             # input" so that codeop._maybe_compile can detect it and return
             # None rather than raising SyntaxError.
-            msg = "incomplete input"
+            # But only if no meaningful token follows: e.g. "def x():\n\npass\n"
+            # has 'pass' at col 0 after the blank line, which closes the block
+            # definitively -- that is invalid, not merely incomplete.
+            for index in range(self._index, len(self._tokens)):
+                typ = self._tokens[index].token_type
+                if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
+                        typ != tokens.DEDENT):
+                    break
+            else:
+                msg = "incomplete input"
         self._raise_syntax_error(msg, cls=IndentationError)
 
     def get_expr_name(self, node):

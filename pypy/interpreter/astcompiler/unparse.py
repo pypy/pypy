@@ -363,6 +363,9 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_YieldFrom(self, node):
         raise SyntaxError.fromast("'yield from' expression cannot be used in annotation", node)
 
+    def visit_NamedExpr(self, node):
+        raise SyntaxError.fromast("'named expression' can not be used within an annotation", node)
+
     def visit_Call(self, node):
         self.append_expr(node.func, PRIORITY_ATOM)
         args = node.args
