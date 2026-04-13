@@ -955,3 +955,51 @@ def test_throw_bad_new_returns_non_instance():
     with raises(TypeError) as cm:
         g.throw(E)
     assert "should have returned an instance of BaseException" in str(cm.value)
+
+def test_throw_bad_new_closes_generator():
+    # After throw() raises TypeError due to __new__ returning a non-instance,
+    # the generator must be exhausted (next() raises StopIteration).
+    class E(Exception):
+        def __new__(cls, *args, **kwargs):
+            return cls
+
+    def f():
+        yield
+
+    g = f()
+    with raises(TypeError):
+        g.throw(E)
+    with raises(StopIteration):
+        next(g)
+
+def test_generatorexit_unraisable_has_traceback():
+    # When a generator is GC'd while suspended and its close() raises
+    # RuntimeError("generator ignored GeneratorExit"), the unraisable exception
+    # must carry a non-None traceback.
+    import gc
+
+    def f():
+        try:
+            yield
+        except GeneratorExit:
+            yield "ignored!"
+
+    unraisables = []
+    import sys
+    old_hook = sys.unraisablehook
+    def hook(info):
+        unraisables.append(info)
+    sys.unraisablehook = hook
+    try:
+        g = f()
+        next(g)
+        del g
+        gc.collect()
+    finally:
+        sys.unraisablehook = old_hook
+
+    assert len(unraisables) == 1
+    info = unraisables[0]
+    assert info.exc_type is RuntimeError
+    assert "generator ignored GeneratorExit" in str(info.exc_value)
+    assert info.exc_traceback is not None
