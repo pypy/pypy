@@ -1125,11 +1125,17 @@ def test_tobytes_int():
 def test_frombytes_int():
     val = frombytes_int('', byteorder='big', signed=True)
     assert val == 0
-    s = "\xFF\x12\x34\x56"
+    s = "\x12\x34\x56"
     val = frombytes_int(s, byteorder="big", signed=False)
-    assert val == 0xFF123456
+    assert val == 0x123456
     val = frombytes_int(s, byteorder="little", signed=False)
-    assert val == 0x563412FF
+    assert val == 0x563412
+    if LONG_BIT == 64:
+        s = "\xFF\x12\x34\x56"
+        val = frombytes_int(s, byteorder="big", signed=False)
+        assert val == 0xFF123456
+        val = frombytes_int(s, byteorder="little", signed=False)
+        assert val == 0x563412FF
     with pytest.raises(InvalidEndiannessError):
         frombytes_int('\xFF', 'foo', signed=True)
     val = frombytes_int('\x82', byteorder='big', signed=True)

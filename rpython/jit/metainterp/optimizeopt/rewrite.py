@@ -225,6 +225,16 @@ class OptRewrite(Optimization):
             if info.get_descr().get_type_id() != op.getarg(1).getint():
                 raise InvalidLoop("wrong GC types passed around!")
             return
+        if info is not None and info.is_about_object():
+            known_class = info.get_known_class(self.optimizer.cpu)
+            if known_class:
+                try:
+                    tid = self.optimizer.metainterp_sd._try_find_typeid_for_vtable(known_class)
+                except KeyError:
+                    pass
+                else:
+                    if tid != op.getarg(1).getint():
+                        raise InvalidLoop("guard_class and guard_gc_type contradict each other")
         return self.emit(op)
 
     def optimize_GUARD_SUBCLASS(self, op):

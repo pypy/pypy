@@ -18,7 +18,7 @@ class TestOptimizeBridge(BaseTest):
         mid_label_descr.short_preamble = info.short_preamble
         mid_label_descr.virtual_state = info.virtual_state
         start_label_descr = TargetToken(jitcell_token)
-        jitcell_token.target_tokens = [mid_label_descr, start_label_descr]
+        jitcell_token.target_tokens = [start_label_descr, mid_label_descr]
         loop.operations[0].setdescr(mid_label_descr)
         loop.operations[-1].setdescr(mid_label_descr)
         info.preamble.operations[0].setdescr(start_label_descr)
@@ -118,3 +118,35 @@ class TestOptimizeBridge(BaseTest):
         self.optimize(loop, bridge, expected,
                       jump_values=[None, self.simpleaddr],
                       bridge_values=[None, self.simpleaddr])
+
+    def test_bridge_wrong_type(self):
+        loop = """
+        [p1, i0]
+        i10 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i10, 5) []
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        i2 = getarrayitem_gc_i(p2, 0, descr=arraydescr)
+        i6 = int_add(i0, i2)
+        guard_true(i6) []
+        jump(p1, i6)
+        """
+        bridge = """
+        [p1]
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        guard_class(p2, ConstClass(node_vtable2)) []
+        jump(p1, 1)
+        """
+
+        # this bridge jumps to the preamble, because the guard_gc_type of the
+        # short preamble (which checks that p2 is an array) contradicts the
+        # guard_class.
+        expected = """
+        [p1]
+        p2 = getfield_gc_r(p1, descr=otherdescr)
+        guard_class(p2, ConstClass(node_vtable2)) []
+        i10 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i10, 5) []
+        jump(p1, 1)
+        """
+        self.optimize(loop, bridge, expected)
+

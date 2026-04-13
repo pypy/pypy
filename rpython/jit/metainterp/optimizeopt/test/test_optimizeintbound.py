@@ -1105,16 +1105,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         ops = """
         [i1]
-        i2 = int_lshift(i1, 30)
-        i3 = uint_rshift(i2, 30)
+        i2 = int_lshift(i1, 15)
+        i3 = uint_rshift(i2, 15)
         jump(i3) # equal
         """
+        mask = (2 ** LONG_BIT - 1)
         expected = """
         [i1]
-        i2 = int_lshift(i1, 30) # dead, removed by backend
-        i3 = int_and(i1, 17179869183)
+        i2 = int_lshift(i1, 15) # dead, removed by backend
+        i3 = int_and(i1, %s)
         jump(i3) # equal
-        """
+        """ % (((mask << 15) & mask) >> 15)
         self.optimize_loop(ops, expected)
 
 
@@ -4326,20 +4327,21 @@ finish()
         ops = """
         [i1]
         i2 = uint_rshift(i1, 16)
-        i3 = int_and(i2, 65535)
+        i3 = int_and(i2, 4095)
         i4 = int_or(2293760, i3)
-        i5 = int_and(i4, 65535)
+        i5 = int_and(i4, 4095)
         jump(i5, i3) # equal
         """
         expected = """
         [i1]
         i2 = uint_rshift(i1, 16)
-        i3 = int_and(i2, 65535)
+        i3 = int_and(i2, 4095)
         i4 = int_or(2293760, i3) # dead
         jump(i3, i3) # equal
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif("LONG_BIT != 64")
     def test_and_or_and2(self):
         ops = """
         [i1]
@@ -4365,14 +4367,15 @@ finish()
     def test_and_add(self):
         ops = """
         [i1]
-        i2 = int_and(i1, 8589934591)
-        i3 = int_add(8589934591, i2)
-        i4 = int_and(i3, 8589934591)
+        i2 = int_and(i1, 255)
+        i3 = int_add(255, i2)
+        i4 = int_and(i3, 255)
         i5 = int_add(1, i4)
-        i6 = int_and(i5, 8589934591)
+        i6 = int_and(i5, 255)
         jump(i6, i2) # equal
         """
-        # tricky: this is (x - 1) + 1, but for 33 bit ints
+        # tricky: this is (x - 1) + 1, but for 8 bit ints. we don't optimize it
+        # so far
         expected = ops
         self.optimize_loop(ops, expected)
 
