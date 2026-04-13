@@ -2913,3 +2913,135 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert obj.value == 42
         obj2 = NumpyBlock(99)
         assert obj2.value == 99
+
+    def test_multiple_inheritance_ctypes_with_weakref_or_dict(self):
+        # taken from test_capi test_multiple_inheritance_ctypes_with_weakref_or_dict:
+        # types created via PyType_FromSpec that carry tp_dictoffset or
+        # tp_weaklistoffset should be combinable in multiple inheritance
+        # without raising "instance layout conflicts".
+        module = self.import_extension('foo_heapctype', [],
+            prologue="""
+                #include <structmember.h>
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *dict;
+                } HeapCTypeWithDictObject;
+
+                static void
+                heapctypewithdict_dealloc(HeapCTypeWithDictObject* self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    Py_XDECREF(self->dict);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyGetSetDef heapctypewithdict_getsetlist[] = {
+                    {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+                    {NULL}
+                };
+
+                static struct PyMemberDef heapctypewithdict_members[] = {
+                    {"dictobj", T_OBJECT, offsetof(HeapCTypeWithDictObject, dict)},
+                    {"__dictoffset__", T_PYSSIZET,
+                      offsetof(HeapCTypeWithDictObject, dict), READONLY},
+                    {NULL}
+                };
+
+                static PyType_Slot HeapCTypeWithDict_slots[] = {
+                    {Py_tp_members, heapctypewithdict_members},
+                    {Py_tp_getset, heapctypewithdict_getsetlist},
+                    {Py_tp_dealloc, heapctypewithdict_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithDict_spec = {
+                    "foo_heapctype.HeapCTypeWithDict",
+                    sizeof(HeapCTypeWithDictObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithDict_slots
+                };
+
+                static PyType_Spec HeapCTypeWithDict2_spec = {
+                    "foo_heapctype.HeapCTypeWithDict2",
+                    sizeof(HeapCTypeWithDictObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithDict_slots
+                };
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *weakreflist;
+                } HeapCTypeWithWeakrefObject;
+
+                static struct PyMemberDef heapctypewithweakref_members[] = {
+                    {"weakreflist", T_OBJECT,
+                      offsetof(HeapCTypeWithWeakrefObject, weakreflist)},
+                    {"__weaklistoffset__", T_PYSSIZET,
+                      offsetof(HeapCTypeWithWeakrefObject, weakreflist), READONLY},
+                    {NULL}
+                };
+
+                static void
+                heapctypewithweakref_dealloc(HeapCTypeWithWeakrefObject* self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    if (self->weakreflist != NULL)
+                        PyObject_ClearWeakRefs((PyObject *) self);
+                    Py_XDECREF(self->weakreflist);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyType_Slot HeapCTypeWithWeakref_slots[] = {
+                    {Py_tp_members, heapctypewithweakref_members},
+                    {Py_tp_dealloc, heapctypewithweakref_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithWeakref_spec = {
+                    "foo_heapctype.HeapCTypeWithWeakref",
+                    sizeof(HeapCTypeWithWeakrefObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithWeakref_slots
+                };
+
+                static PyType_Spec HeapCTypeWithWeakref2_spec = {
+                    "foo_heapctype.HeapCTypeWithWeakref2",
+                    sizeof(HeapCTypeWithWeakrefObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithWeakref_slots
+                };
+            """,
+            more_init="""
+                PyObject *t;
+                #define ADD_TYPE(spec, name)                         \\
+                    t = PyType_FromSpec(spec);                       \\
+                    if (t == NULL) INITERROR;                        \\
+                    PyModule_AddObject(mod, name, t);
+                ADD_TYPE(&HeapCTypeWithDict_spec, "HeapCTypeWithDict");
+                ADD_TYPE(&HeapCTypeWithDict2_spec, "HeapCTypeWithDict2");
+                ADD_TYPE(&HeapCTypeWithWeakref_spec, "HeapCTypeWithWeakref");
+                ADD_TYPE(&HeapCTypeWithWeakref2_spec, "HeapCTypeWithWeakref2");
+                #undef ADD_TYPE
+            """)
+        class Both1(module.HeapCTypeWithWeakref, module.HeapCTypeWithDict):
+            pass
+        class Both2(module.HeapCTypeWithDict, module.HeapCTypeWithWeakref):
+            pass
+        for cls in (module.HeapCTypeWithDict, module.HeapCTypeWithDict2,
+                    module.HeapCTypeWithWeakref, module.HeapCTypeWithWeakref2):
+            for cls2 in (module.HeapCTypeWithDict, module.HeapCTypeWithDict2,
+                         module.HeapCTypeWithWeakref, module.HeapCTypeWithWeakref2):
+                if cls is not cls2:
+                    class S(cls, cls2):
+                        pass
+            class B1(Both1, cls):
+                pass
+            class B2(Both2, cls):
+                pass

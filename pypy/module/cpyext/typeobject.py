@@ -633,7 +633,12 @@ class W_PyCTypeObject(W_TypeObject):
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
         else:
             minsize = rffi.sizeof(PyObject.TO)
-        new_layout = (pto.c_tp_basicsize > minsize or pto.c_tp_itemsize > 0)
+        extra = pto.c_tp_basicsize - minsize
+        if pto.c_tp_dictoffset > 0:
+            extra -= rffi.sizeof(rffi.VOIDP)
+        if pto.c_tp_weaklistoffset > 0:
+            extra -= rffi.sizeof(rffi.VOIDP)
+        new_layout = (extra > 0 or pto.c_tp_itemsize > 0)
         self.flag_cpytype = True
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
