@@ -147,6 +147,33 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
+        entry = self.getcode().lookup_exceptiontable(self.last_instr)
+        if entry is not None:
+            target, depth, lasti = entry
+            # Pop any SysExcInfoRestorer or matching FinallyBlock pushed
+            # by a SETUP_FINALLY that serves as a dummy _stacksize hint.
+            while self.blockstack_non_empty():
+                block = self.lastblock
+                if isinstance(block, SysExcInfoRestorer):
+                    self.pop_block()
+                    block.cleanupstack(self)
+                elif isinstance(block, FinallyBlock):
+                    if intmask(block.handlerposition) == intmask(target):
+                        self.pop_block()
+                        break
+                    else:
+                        break
+                else:
+                    break
+            # depth is relative (0 = empty value stack); convert to absolute.
+            code = self.getcode()
+            stackstart = (code.co_nlocals + len(code.co_cellvars) +
+                          len(code.co_freevars))
+            self.dropvaluesuntil(stackstart + depth)
+            w_exc = operr.normalize_exception(self.space)
+            self.pushvalue(w_exc)
+            return target
+
         block = self.unrollstack()
         if block is None:
             # no handler found for the OperationError
@@ -792,9 +819,9 @@ class __extend__(pyframe.PyFrame):
         code.exec_code(space, w_globals, w_locals, outer_func)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
+        w_prev_exc = self.popvalue()
+        ec = self.space.getexecutioncontext()
+        ec.set_sys_exc_info3(w_prev_exc)
 
     def POP_BLOCK(self, oparg, next_instr):
         self.pop_block()
@@ -1320,10 +1347,12 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def WITH_EXCEPT_START(self, oparg, next_instr):
-        w_unroller = self.popvalue()
-        w_exitfunc = self.popvalue()
-        self.pushvalue(w_unroller)
-        if isinstance(w_unroller, SApplicationException):
+        w_top = self.peekvalue(0)
+        if isinstance(w_top, SApplicationException):
+            # old block-stack mode: stack is [..., __exit__, unroller]
+            w_unroller = self.popvalue()
+            w_exitfunc = self.popvalue()
+            self.pushvalue(w_unroller)
             operr = w_unroller.operr
             w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
@@ -1332,24 +1361,49 @@ class __extend__(pyframe.PyFrame):
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
-            assert 0
+            # new exception-table mode: stack is [..., __exit__, prev_exc, exc]
+            w_exc = self.peekvalue(0)      # TOS
+            w_exitfunc = self.peekvalue(2) # TOS+2
+            space = self.space
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            w_value = space.interp_w(W_BaseException, w_exc)
+            w_type = space.type(w_exc)
+            w_traceback = w_value.w_traceback
+            if w_traceback is None:
+                w_traceback = space.w_None
+            w_res = self.call_contextmanager_exit_function(
+                w_exitfunc, w_type, w_exc, w_traceback)
         self.pushvalue(w_res)
 
     def RERAISE(self, reset_last_instr, next_instr):
-        unroller = self.popvalue()
-        if not isinstance(unroller, SApplicationException):
-            assert 0
-        if reset_last_instr:
-            block = self.lastblock
-            assert isinstance(block, SysExcInfoRestorer)
-            self.last_instr = block.last_instr
-        block = self.unrollstack()
-        if block is None:
-            w_result = unroller.reraise()
-            assert 0, "unreachable"
+        w_exc = self.popvalue()
+        if isinstance(w_exc, SApplicationException):
+            # old block-stack mode
+            unroller = w_exc
+            if reset_last_instr:
+                block = self.lastblock
+                assert isinstance(block, SysExcInfoRestorer)
+                self.last_instr = block.last_instr
+            block = self.unrollstack()
+            if block is None:
+                w_result = unroller.reraise()
+                assert 0, "unreachable"
+            else:
+                next_instr = block.handle(self, unroller)
+            return next_instr
         else:
-            next_instr = block.handle(self, unroller)
-        return next_instr
+            # new exception-table mode: w_exc is a BaseException instance
+            if reset_last_instr:
+                w_prev_exc = self.popvalue()
+                ec = self.space.getexecutioncontext()
+                ec.set_sys_exc_info3(w_prev_exc)
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            space = self.space
+            w_value = space.interp_w(W_BaseException, w_exc)
+            w_type = space.type(w_exc)
+            operr = OperationError(w_type, w_exc, w_value.w_traceback)
+            ec = self.space.getexecutioncontext()
+            return self.handle_operation_error(ec, operr, attach_tb=False)
 
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments

@@ -329,6 +329,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
+        self.exception_table_entries = []  # list of (start_block, end_block, handler_block, depth, lasti)
 
     def __repr__(self):
         return "<PythonCodeMaker %s in %s:%s>" % (self.name, self.compile_info.filename, self.first_lineno)
@@ -734,6 +735,52 @@ class PythonCodeMaker(ast.ASTVisitor):
         size = self._resolve_block_targets(blocks)
         return blocks, size
 
+    def emit_exception_table_entry(self, start_block, handler_block, lasti=False):
+        """Record an (start_block, handler_block, lasti) exception table entry.
+        The protected range is [start_block.offset, handler_block.offset).
+        handler_block must start with PUSH_EXC_INFO.  depth is derived from
+        handler_block.initial_depth (set by _stacksize) as initial_depth - 1.
+        Call emit_exception_table_entry BEFORE _stacksize has run; the entry
+        is encoded in _build_exceptiontable which runs after _stacksize."""
+        self.exception_table_entries.append((start_block, handler_block, lasti))
+
+    def _encode_varint(self, result, value):
+        """Append a CPython-3.11-compatible varint encoding of value to result."""
+        # Encode 6 bits per byte; bit 6 of each byte is a continuation flag.
+        while True:
+            chunk = value & 63
+            value >>= 6
+            if value:
+                chunk |= 64   # more bytes follow
+            result.append(chr(chunk))
+            if not value:
+                break
+
+    def _build_exceptiontable(self):
+        """Encode self.exception_table_entries into co_exceptiontable bytes."""
+        if not self.exception_table_entries:
+            return ''
+        result = []
+        entries = sorted(self.exception_table_entries,
+                         key=lambda e: e[0].offset)
+        for start_block, handler_block, lasti in entries:
+            start = start_block.offset
+            end = handler_block.offset   # exclusive end = handler start
+            target = handler_block.offset
+            if end <= start:
+                continue   # empty range, skip
+            # depth = stack depth just before handle_operation_error pushes exc.
+            # handler_block.initial_depth = depth + 1 (the +1 is handle_operation_error's push).
+            depth = handler_block.initial_depth - 1
+            if depth < 0:
+                continue   # handler unreachable; skip
+            self._encode_varint(result, start // 2)
+            self._encode_varint(result, (end - start) // 2)
+            self._encode_varint(result, target // 2)
+            dl = (depth << 1) | (1 if lasti else 0)
+            self._encode_varint(result, dl)
+        return ''.join(result)
+
     def assemble(self):
         """Build a PyCode object."""
         blocks, size = self._finalize_blocks()
@@ -750,6 +797,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
         if not we_are_translated():
             self._final_blocks = blocks
+        exceptiontable = self._build_exceptiontable()
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,
@@ -768,7 +816,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                       positions,
                       free_names,
                       cell_names,
-                      self.compile_info.hidden_applevel)
+                      self.compile_info.hidden_applevel,
+                      exceptiontable=exceptiontable)
 
     def duplicate_exits_without_lineno(self, blocks):
         from pypy.interpreter.astcompiler.codegen import view
@@ -1070,7 +1119,7 @@ _static_opcode_stack_effects = {
 
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
-    ops.POP_EXCEPT: 0,
+    ops.POP_EXCEPT: -1,
     ops.PUSH_EXC_INFO: 1,
     ops.CHECK_EXC_MATCH: 0,
     ops.SETUP_WITH: 1,
@@ -1144,7 +1193,7 @@ _static_opcode_stack_effects = {
 
     ops.RERAISE: -1,
 
-    ops.WITH_EXCEPT_START: 0,
+    ops.WITH_EXCEPT_START: 1,
 
     ops.GET_LEN: 1,
     ops.MATCH_MAPPING: 1,

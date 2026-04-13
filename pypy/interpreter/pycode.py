@@ -226,6 +226,55 @@ class PyCode(eval.Code):
     def signature(self):
         return self._signature
 
+    def lookup_exceptiontable(self, instr_offset):
+        """Search co_exceptiontable for a handler covering instr_offset.
+        Returns (target, depth, lasti) as (r_uint, int, bool), or None."""
+        table = self.co_exceptiontable
+        if not table:
+            return None
+        i = 0
+        n = len(table)
+        best = None
+        while i < n:
+            b = ord(table[i]); i += 1
+            start = b & 63
+            shift = 6
+            while b & 64:
+                b = ord(table[i]); i += 1
+                start |= (b & 63) << shift
+                shift += 6
+            start *= 2
+            b = ord(table[i]); i += 1
+            length = b & 63
+            shift = 6
+            while b & 64:
+                b = ord(table[i]); i += 1
+                length |= (b & 63) << shift
+                shift += 6
+            length *= 2
+            b = ord(table[i]); i += 1
+            target = b & 63
+            shift = 6
+            while b & 64:
+                b = ord(table[i]); i += 1
+                target |= (b & 63) << shift
+                shift += 6
+            target *= 2
+            b = ord(table[i]); i += 1
+            dl = b & 63
+            shift = 6
+            while b & 64:
+                b = ord(table[i]); i += 1
+                dl |= (b & 63) << shift
+                shift += 6
+            depth = dl >> 1
+            lasti = bool(dl & 1)
+            if start <= instr_offset < start + length:
+                best = (r_uint(target), depth, lasti)
+            elif start > instr_offset:
+                break
+        return best
+
     def _compute_flatcall(self):
         # Speed hack!
         self.fast_natural_arity = eval.Code.HOPELESS
