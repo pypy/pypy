@@ -63,11 +63,10 @@ def LOAD_METHOD(f, nameindex, *ignored):
             w_value = w_obj.getdictvalue(space, name)
             # xxx we could also use the mapdict cache in that case, probably
         else:
-            typ = type(w_descr)
-            if typ is function.Function or typ is function.FunctionWithFixedCode:
+            if space.type(w_descr).flag_method_descriptor:
                 w_value = w_obj.getdictvalue(space, name)
                 if w_value is None:
-                    # fast method path: a function object in the class,
+                    # fast method path: a method descriptor in the class,
                     # nothing in the instance
                     f.pushvalue(w_descr)
                     f.pushvalue(w_obj)
@@ -135,11 +134,10 @@ def call_method_opt(space, w_obj, methname, *arg_w):
     w_type = space.type(w_obj)
     if w_type.has_object_getattribute():
         w_descr = space.lookup(w_obj, methname)
-        typ = type(w_descr)
-        if typ is function.Function or typ is function.FunctionWithFixedCode:
+        if space.type(w_descr).flag_method_descriptor:
             w_value = w_obj.getdictvalue(space, methname)
             if w_value is None:
-                # fast method path: a function object in the class,
+                # fast method path: a method descriptor in the class,
                 # nothing in the instance
                 return space.call_function(w_descr, w_obj, *arg_w)
     w_name = space.newtext(methname)
