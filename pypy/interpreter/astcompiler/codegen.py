@@ -889,6 +889,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._visit_body(wh.orelse)
             self.use_next_block(end)
 
+    def _nearest_with_handler(self):
+        # Return the handler block of the nearest enclosing with/async-with,
+        # or None if there is none or if cleanup_end is already covered by an
+        # outer exception table entry (F_TRY_EXCEPT body or F_FINALLY_TRY).
+        for i in range(len(self.frame_blocks) - 1, -1, -1):
+            fblock = self.frame_blocks[i]
+            if fblock.kind == F_WITH or fblock.kind == F_ASYNC_WITH:
+                return fblock.end
+            if fblock.kind == F_TRY_EXCEPT or fblock.kind == F_FINALLY_TRY:
+                # An enclosing try body's table entry already covers cleanup_end.
+                return None
+            # F_EXCEPTION_HANDLER, F_HANDLER_CLEANUP, loops, etc: keep scanning.
+        return None
+
     def _visit_try_except(self, tr):
         body = self.new_block()
         exc = self.new_block()
@@ -952,6 +966,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.name_op(handler.name, ast.Del, handler)
                 self.emit_op(ops.POP_EXCEPT)
                 self.emit_jump(ops.JUMP_FORWARD, end)
+
+                # If cleanup_end is directly inside a with block (no intervening
+                # try body), cover it so RERAISE 1 dispatches to the with handler
+                # instead of falling through to the block stack.
+                with_handler = self._nearest_with_handler()
+                if with_handler is not None:
+                    self.emit_exception_table_entry(
+                        cleanup_end, with_handler, lasti=True,
+                        end_block=next_except)
 
                 self.use_next_block(cleanup_end)
                 self.no_position_info()

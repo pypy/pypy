@@ -1,6 +1,44 @@
 import sys, dis
 from pytest import raises
 
+
+def test_with_try_except_as_reraise():
+    """with + try/except T as name where the handler raises: the new exception
+    must propagate through the with block's __exit__ without crashing.
+    Mirrors import_helper.import_module: with CM(): try: ... except E as msg: raise Other"""
+    class CM:
+        def __init__(self): self.exited = False; self.exc_type = None
+        def __enter__(self): return self
+        def __exit__(self, tp, val, tb):
+            self.exited = True
+            self.exc_type = tp
+            return False  # do not suppress
+
+    cm = CM()
+
+    # normal_return=True exercises the normal-exit path so POP_BLOCK fires,
+    # mirroring import_helper.import_module which also has a normal return.
+    def inner(cm, raise_in_handler):
+        with cm:
+            try:
+                if raise_in_handler:
+                    raise ValueError("original")
+                return "ok"
+            except ValueError as e:
+                raise TypeError("new")
+
+    print("=== dis(inner) ===")
+    dis.dis(inner)
+    # Normal path should work
+    assert inner(cm, False) == "ok"
+    # Exception path: TypeError must propagate through __exit__
+    try:
+        inner(cm, True)
+    except TypeError:
+        pass
+    assert cm.exited, "__exit__ was not called"
+    assert cm.exc_type is TypeError, "wrong exc type to __exit__: %r" % cm.exc_type
+
 def test_simple():
     try:
         raise TypeError()
