@@ -34,8 +34,6 @@ Adopting CPython's model might improve JIT output. Three reasons:
 
 **Highest-risk point:** `handle_operation_error` rewrite. It has subtle interactions with generators, coroutines, `sys.exc_info()` save/restore, the `hidden_operationerr` mechanism, and JIT blackhole behavior.
 
-**Estimated complexity:** Multi-month project. The compiler changes alone (all `try`/`except`/`finally`/`with`/`except*` patterns in `codegen.py`) are the bulk of the work.
-
 ---
 
 ## Phases 2+3  -- Implementation Notes
@@ -83,17 +81,6 @@ Dual-mode:
 Dual-mode (detected via `isinstance(TOS, SApplicationException)`):
 - Old path: `[..., __exit__, unroller]` on stack  -- extract exception from `unroller.operr`.
 - New path: `[..., __exit__, prev_exc, exc]` on stack  -- `exc` is TOS, `__exit__` is at offset 2.
-
-### Translation issues encountered and fixed
-
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `NoSuchAttrError: 'operr' on W_Root` in `WITH_EXCEPT_START` | `popvalue()` returns `W_Root`; annotator didn't narrow it | Reuse `w_top` (already narrowed by `isinstance` check) |
-| `UnionError: SomeTuple vs SomeNone` in `lookup_exceptiontable` | Initial `best = None` vs tuple return | Use sentinel tuple `(r_uint(0), -1, False)`; caller checks `depth >= 0` |
-| `AnnotatorError: sorted is not RPython` in `_build_exceptiontable` | `sorted(..., key=lambda)` not supported | Iterate directly (entries are naturally in bytecode order) |
-| `ValueError: access_directly on function we don't see handle_operation_error__AccessDirect_None` | New loop in `handle_operation_error` body + virtualizable `self` access | Add `@jit.dont_look_inside` to `handle_operation_error` |
-
----
 
 ## Compiler patterns (Phase 3)
 

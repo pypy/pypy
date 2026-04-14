@@ -1952,19 +1952,7 @@ class __extend__(pyframe.PyFrame):
         w_orig = self.popvalue()
         from pypy.module.exceptions.interp_group import prep_reraise_star
         w_eg_or_None = prep_reraise_star(space, w_orig, w_res)
-        if space.is_w(w_eg_or_None, space.w_None):
-            w_push = space.w_None
-        else:
-            operr = OperationError(space.type(w_eg_or_None), w_eg_or_None)
-            from pypy.module.exceptions.interp_exceptions import W_BaseException
-            if isinstance(w_eg_or_None, W_BaseException):
-                tb = w_eg_or_None.w_traceback
-                if tb is not None:
-                    from pypy.interpreter.pytraceback import PyTraceback
-                    if isinstance(tb, PyTraceback):
-                        operr.set_traceback(tb)
-            w_push = SApplicationException(operr)
-        self.pushvalue(w_push)
+        self.pushvalue(w_eg_or_None)
 
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):

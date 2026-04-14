@@ -820,9 +820,16 @@ class PythonCodeMaker(ast.ASTVisitor):
             all_entries.append(entry)
         if not all_entries:
             return ''
-        # Sort by start offset; lookup_exceptiontable returns the last match,
-        # so innermost (higher start) handlers naturally win over outer ones.
-        all_entries.sort(key=lambda e: e[0])
+        # Sort entries by start offset (insertion sort -- RPython-compatible, list is small).
+        i = 1
+        while i < len(all_entries):
+            key = all_entries[i]
+            j = i - 1
+            while j >= 0 and all_entries[j][0] > key[0]:
+                all_entries[j + 1] = all_entries[j]
+                j -= 1
+            all_entries[j + 1] = key
+            i += 1
         result = []
         for start, end, handler_block, lasti in all_entries:
             if end <= start:
