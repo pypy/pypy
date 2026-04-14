@@ -508,10 +508,12 @@ def inherit_special(space, pto, w_obj, base_pto):
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
 
-    # Inherit Py_TPFLAGS_METHOD_DESCRIPTOR for non-heap static types
+    # Inherit Py_TPFLAGS_METHOD_DESCRIPTOR for non-heap static types,
+    # but only when tp_descr_get is also inherited (not overridden).
     if not (flags & Py_TPFLAGS_HEAPTYPE):
         if widen(base_pto.c_tp_flags) & Py_TPFLAGS_METHOD_DESCRIPTOR:
-            flags |= Py_TPFLAGS_METHOD_DESCRIPTOR
+            if not pto.c_tp_descr_get or pto.c_tp_descr_get == base_pto.c_tp_descr_get:
+                flags |= Py_TPFLAGS_METHOD_DESCRIPTOR
 
     # Inherit Py_TPFLAGS_HAVE_VECTORCALL for non-heap static types that do
     # not override tp_vectorcall_offset or tp_call.

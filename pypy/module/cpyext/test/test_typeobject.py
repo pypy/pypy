@@ -1915,6 +1915,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return PyMethod_New(func, obj);
                 }
 
+                static PyObject *
+                nop_descr_get(PyObject *func, PyObject *obj, PyObject *type)
+                {
+                    Py_INCREF(func);
+                    return func;
+                }
+
+                static PyObject *
+                call_return_args(PyObject *self, PyObject *args, PyObject *kwargs)
+                {
+                    Py_INCREF(args);
+                    return args;
+                }
+
                 static PyTypeObject MethodDescriptorBase_Type = {
                     PyVarObject_HEAD_INIT(NULL, 0)
                     "MethodDescriptorBase",
@@ -1957,6 +1971,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
                 };
 
+                static PyTypeObject MethodDescriptorNopGet_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "MethodDescriptorNopGet",
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    .tp_call = call_return_args,
+                    .tp_descr_get = nop_descr_get,
+                };
 
             """,
             more_init="""
@@ -1977,6 +1998,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
                 Py_INCREF(&MethodDescriptor2_Type);
                 PyModule_AddObject(mod, "MethodDescriptor2", (PyObject *)&MethodDescriptor2_Type);
+
+                MethodDescriptorNopGet_Type.tp_base = &MethodDescriptorBase_Type;
+                if (PyType_Ready(&MethodDescriptorNopGet_Type) < 0)
+                    INITERROR;
+                Py_INCREF(&MethodDescriptorNopGet_Type);
+                PyModule_AddObject(mod, "MethodDescriptorNopGet",
+                                   (PyObject *)&MethodDescriptorNopGet_Type);
             """)
         def pyfunc(arg1, arg2):
             return [arg1, arg2]
@@ -2076,6 +2104,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
         assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
         assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        assert not (module.MethodDescriptorNopGet.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
 
     def test_fastcall(self):
         module = self.import_extension('foo', [
