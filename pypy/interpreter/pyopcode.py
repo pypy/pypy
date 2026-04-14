@@ -171,6 +171,14 @@ class __extend__(pyframe.PyFrame):
         target, depth, lasti = entry
         if depth >= 0:
             self._pop_legacy_exc_blocks(target)
+            # lasti=True means this handler may RERAISE; track the original
+            # raise offset so f_lineno is correct if the exception propagates.
+            # Mirrors CPython's frame->prev_instr restoration in RERAISE.
+            if lasti:
+                if self._reraise_saved_lasti < 0:
+                    self._reraise_saved_lasti = intmask(self.last_instr)
+            else:
+                self._reraise_saved_lasti = -1
             # depth is relative (0 = empty value stack); convert to absolute.
             code = self.getcode()
             stackstart = (code.co_nlocals + len(code.co_cellvars) +
@@ -182,7 +190,12 @@ class __extend__(pyframe.PyFrame):
 
         block = self.unrollstack()
         if block is None:
-            # no handler found for the OperationError
+            # no handler found for the OperationError; restore last_instr to
+            # the original raise site if a lasti=True handler saved it, so
+            # that f_lineno reflects where the exception was originally raised.
+            if self._reraise_saved_lasti >= 0:
+                self.last_instr = self._reraise_saved_lasti
+                self._reraise_saved_lasti = -1
             if we_are_translated():
                 raise operr
             else:
@@ -191,6 +204,7 @@ class __extend__(pyframe.PyFrame):
                 tb = sys.exc_info()[2]
                 raise OperationError, operr, tb
         else:
+            self._reraise_saved_lasti = -1
             unroller = SApplicationException(operr)
             next_instr = block.handle(self, unroller)
             return next_instr
@@ -832,6 +846,8 @@ class __extend__(pyframe.PyFrame):
         assert isinstance(block, SysExcInfoRestorer)
         self.lastblock = block.previous
         block.cleanupstack(self)
+        # Exception was handled normally; discard any saved lasti.
+        self._reraise_saved_lasti = -1
 
     def POP_BLOCK(self, oparg, next_instr):
         self.pop_block()

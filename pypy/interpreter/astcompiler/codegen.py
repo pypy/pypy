@@ -940,7 +940,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # inner dummy SETUP_FINALLY for cleanup_end._stacksize depth
                 self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
                 cleanup_body = self.use_next_block()
-                self.emit_exception_table_entry(cleanup_body, cleanup_end)
+                self.emit_exception_table_entry(cleanup_body, cleanup_end, lasti=True)
                 self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body, None, handler)
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
@@ -1438,7 +1438,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         normal_exit = self.new_block()
         body_block = self.use_next_block(body_block)
-        self.emit_exception_table_entry(body_block, cleanup, end_block=normal_exit)
+        self.emit_exception_table_entry(body_block, cleanup, end_block=normal_exit, lasti=True)
         self.push_frame_block(fblock_kind, body_block, cleanup, witem)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)

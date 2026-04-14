@@ -1,5 +1,48 @@
 import pytest
 
+def _lineno_after_raise(f, *expected):
+    try:
+        f()
+    except Exception as ex:
+        t = ex.__traceback__
+    else:
+        assert False, "No exception raised"
+    lines = []
+    t = t.tb_next  # skip _lineno_after_raise frame
+    while t:
+        frame = t.tb_frame
+        lines.append(
+            None if frame.f_lineno is None else
+            frame.f_lineno - frame.f_code.co_firstlineno
+        )
+        t = t.tb_next
+    assert tuple(lines) == expected
+
+def test_lineno_in_named_except():
+    # PEP 626: traceback lineno should point at the re-raise inside except,
+    # not at the implicit cleanup code generated for "except X as name"
+    def in_named_except():
+        try:
+            1/0
+        except Exception as ex:
+            1/0
+            pass
+    _lineno_after_raise(in_named_except, 4)
+
+def test_lineno_after_with():
+    # PEP 626: traceback lineno after a with block should point at the line
+    # after the with suite, not at the implicit __exit__ call
+    class Noop:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+    def after_with():
+        with Noop():
+            1/0
+            pass
+    _lineno_after_raise(after_with, 2)
+
 def test_yield_in_nested_try_excepts():
     #Issue #25612
     class MainError(Exception):

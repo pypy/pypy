@@ -75,6 +75,7 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     w_yielding_from = None
     last_instr               = -1
+    _reraise_saved_lasti     = -1  # original raise offset saved by lasti=True handlers
     f_backref                = jit.vref_None
 
     escaped                  = False  # see mark_as_escaped()
