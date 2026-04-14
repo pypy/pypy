@@ -1438,7 +1438,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         normal_exit = self.new_block()
         body_block = self.use_next_block(body_block)
-        self.emit_exception_table_entry(body_block, cleanup, end_block=normal_exit, lasti=True)
         self.push_frame_block(fblock_kind, body_block, cleanup, witem)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)

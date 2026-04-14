@@ -101,6 +101,28 @@ def test_raise_in_generator():
             next(i)
             next(i)
 
+def test_with_break_exit_raises():
+    # sync with whose __exit__ raises, body exits via break.
+    # The exception from __exit__ should propagate; __exit__ must not be called twice.
+    called = []
+    class CM:
+        def __enter__(self): return self
+        def __exit__(self, *e):
+            called.append(1)
+            raise ValueError("exit raised")
+
+    def foo():
+        for i in range(2):
+            with CM():
+                break
+
+    try:
+        foo()
+        assert False, "expected ValueError"
+    except ValueError as e:
+        assert str(e) == "exit raised"
+    assert called == [1], "expected __exit__ called exactly once, got %r" % called
+
 def test_assertion_error_global_ignored():
     if hasattr(pytest, 'py3k_skip'):
         pytest.py3k_skip('only untranslated')

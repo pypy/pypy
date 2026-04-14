@@ -749,26 +749,92 @@ class PythonCodeMaker(ast.ASTVisitor):
             end_block = handler_block
         self.exception_table_entries.append((start_block, end_block, handler_block, lasti))
 
-    def _build_exceptiontable(self):
-        """Encode self.exception_table_entries into co_exceptiontable bytes."""
-        if not self.exception_table_entries:
-            return ''
-        result = []
-        # entries are appended in bytecode order, so start_block.offset is non-decreasing
+    def _label_exception_targets(self, blocks):
+        """Walk blocks linearly and build exception table entries for
+        SETUP_WITH / SETUP_ASYNC_WITH ranges.  Returns a list of
+        (start_offset, end_offset, handler_block, lasti) tuples.
+
+        SETUP_WITH/SETUP_ASYNC_WITH push a handler; POP_BLOCK pops it.
+        Inline cleanup code emitted after POP_BLOCK (e.g. for break/return)
+        is therefore NOT covered by the with-block handler -- this prevents
+        WITH_EXCEPT_START from seeing a wrong stack layout when GET_AWAITABLE
+        raises inside the break/return cleanup path."""
+        entries = []
+        # stack items: (handler_block_or_None, lasti, start_offset)
+        # SETUP_WITH/SETUP_ASYNC_WITH push real handlers (handler_block set).
+        # SETUP_FINALLY/SETUP_EXCEPT push placeholders (handler_block=None) so
+        # that their POP_BLOCK does not prematurely consume a with-handler --
+        # e.g. "with CM(): try: ... finally: ..." has try's POP_BLOCK before
+        # with's POP_BLOCK in the linear layout; without the placeholder, try's
+        # POP_BLOCK would end the with-handler range too early.
+        handler_stack = []
+        offset = 0
+        for block in blocks:
+            for instr in block.instructions:
+                if instr.opcode in (ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                    start = offset + instr.size()
+                    handler_stack.append((instr.jump, True, start))
+                elif instr.opcode in (ops.SETUP_FINALLY, ops.SETUP_EXCEPT):
+                    handler_stack.append((None, False, 0))
+                elif instr.opcode == ops.POP_BLOCK and handler_stack:
+                    handler_block, lasti, start = handler_stack.pop()
+                    if handler_block is not None:
+                        # Protected range must end before the cleanup block.
+                        # For break/continue/return, POP_BLOCK is emitted inline
+                        # before the cleanup block (offset < handler_block.offset),
+                        # so offset is the right bound.
+                        # For normal exit in PyPy's layout, POP_BLOCK ends up in
+                        # a block after the cleanup block (offset > handler_block.offset),
+                        # so handler_block.offset is the right bound.
+                        # Taking the minimum handles both cases correctly.
+                        end = min(offset, handler_block.offset)
+                        if end > start:
+                            entries.append((start, end, handler_block, lasti))
+                offset += instr.size()
+        # Any with-handlers still on the stack have no live POP_BLOCK because
+        # every path through the body unconditionally raises or returns.
+        # In that case normal_exit is unreachable (empty after dead-code
+        # elimination), so handler_block.offset == end-of-body.  Emit entries
+        # using the cleanup block's own offset as the exclusive end.
+        for handler_block, lasti, start in handler_stack:
+            if handler_block is not None:
+                end = handler_block.offset
+                if end > start:
+                    entries.append((start, end, handler_block, lasti))
+        return entries
+
+    def _build_exceptiontable(self, blocks):
+        """Encode exception table entries into co_exceptiontable bytes.
+
+        Combines entries from emit_exception_table_entry (try/except/finally)
+        and _label_exception_targets (with/async-with).  Sorted by start
+        offset so that lookup_exceptiontable (which keeps the last match)
+        naturally picks the innermost handler for nested constructs."""
+        # Convert block-based entries to (start, end, handler_block, lasti)
+        all_entries = []
         for start_block, end_block, handler_block, lasti in self.exception_table_entries:
-            start = start_block.offset
-            end = end_block.offset       # exclusive end of protected range
-            target = handler_block.offset
+            all_entries.append(
+                (start_block.offset, end_block.offset, handler_block, lasti))
+        # Add per-instruction entries for with/async-with blocks
+        for entry in self._label_exception_targets(blocks):
+            all_entries.append(entry)
+        if not all_entries:
+            return ''
+        # Sort by start offset; lookup_exceptiontable returns the last match,
+        # so innermost (higher start) handlers naturally win over outer ones.
+        all_entries.sort(key=lambda e: e[0])
+        result = []
+        for start, end, handler_block, lasti in all_entries:
             if end <= start:
                 continue   # empty range, skip
             # depth = stack depth just before handle_operation_error pushes exc.
-            # handler_block.initial_depth = depth + 1 (the +1 is handle_operation_error's push).
+            # handler_block.initial_depth = depth + 1 (the PUSH_EXC_INFO at entry).
             depth = handler_block.initial_depth - 1
             if depth < 0:
                 continue   # handler unreachable; skip
             _encode_varint(result, start // 2)
             _encode_varint(result, (end - start) // 2)
-            _encode_varint(result, target // 2)
+            _encode_varint(result, handler_block.offset // 2)
             dl = (depth << 1) | (1 if lasti else 0)
             _encode_varint(result, dl)
         return ''.join(result)
@@ -789,7 +855,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         flags |= (self.compile_info.flags & consts.PyCF_MASK)
         if not we_are_translated():
             self._final_blocks = blocks
-        exceptiontable = self._build_exceptiontable()
+        exceptiontable = self._build_exceptiontable(blocks)
         return PyCode(self.space,
                       self.argcount,
                       self.posonlyargcount,
