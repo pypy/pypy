@@ -25,7 +25,7 @@ class TestModuleObject(BaseApiTest):
 
 
 class AppTestModuleObject(AppTestCpythonExtensionBase):
-    def test_getdef(self):
+    def test_getdef_basic(self):
         module = self.import_extension('foo', [
             ("check_getdef_same", "METH_NOARGS",
              """
@@ -35,6 +35,9 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             static struct PyModuleDef moduledef;
             """)
         assert module.check_getdef_same()
+        # module-level functions must have __self__ set to the module
+        # so that inspect.signature() can strip the $module parameter (issue 5368)
+        assert module.check_getdef_same.__self__ is module
 
     def test_getstate(self):
         module = self.import_extension('foo', [

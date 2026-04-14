@@ -434,6 +434,7 @@ W_PyCFunctionObject.typedef = TypeDef(
         wrapfn="newtext_or_none"),
     __qualname__ = interp_attrproperty('qualname', cls=W_PyCFunctionObject,
         wrapfn="newtext_or_none"),
+    __self__ = interp_attrproperty_w('w_self', cls=W_PyCFunctionObject),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
