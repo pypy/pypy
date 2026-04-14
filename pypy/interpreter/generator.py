@@ -200,12 +200,20 @@ return next yielded value or raise StopIteration."""
             raise oefmt(space.w_TypeError,
                 "exceptions must be classes or instances deriving from "
                 "BaseException, not %N", space.type(w_type))
+        # Raise directly to caller (not into the generator) when an exception
+        # instance is thrown together with a separate value -- this is a usage
+        # error in the throw() call itself, not an exception to be delivered.
+        if (not space.exception_is_valid_obj_as_class_w(w_type) and
+                not space.is_w(w_val, space.w_None)):
+            raise oefmt(space.w_TypeError,
+                "instance exception may not have a separate value")
         operr = OperationError(w_type, w_val, tb)
         try:
             w_value = operr.normalize_exception(space)
-        except OperationError:
-            self.frame_is_finished()
-            raise
+        except OperationError as e:
+            # Normalization failed (e.g. __new__ returned non-instance).
+            # Deliver the error into the generator rather than killing it.
+            return self.send_error(e)
 
         # note: _w_yielded_from is always None if 'self.running'
         if (self.get_delegate() is not None and

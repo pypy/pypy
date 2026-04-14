@@ -228,6 +228,90 @@ def test_throw_context():
         except ValueError:
             assert exc2.__context__ is exc1
 
+def test_throw_bad_new_delivered_to_generator():
+    # When E.__new__ returns the class itself instead of an instance,
+    # the resulting TypeError should be delivered into the generator,
+    # not raised directly to the throw() caller.
+    class E(Exception):
+        def __new__(cls, *args, **kwargs):
+            return cls  # returns the class, not an instance
+
+    # Case 1: generator does not catch TypeError -> TypeError propagates to caller
+    def boring_generator():
+        yield
+
+    gen = boring_generator()
+    with raises(TypeError, match='should have returned an instance of BaseException'):
+        gen.throw(E)
+    # After the throw, generator must be finished
+    with raises(StopIteration):
+        next(gen)
+
+    # Case 2: generator catches TypeError at the yield point
+    caught = []
+
+    def catching_generator():
+        try:
+            yield
+        except TypeError as exc:
+            caught.append(str(exc))
+
+    gen = catching_generator()
+    next(gen)  # advance to the yield
+    # throw E: TypeError from bad __new__ must be delivered into the generator;
+    # the generator catches it, then finishes -> StopIteration
+    with raises(StopIteration):
+        gen.throw(E)
+    assert len(caught) == 1
+    assert 'should have returned an instance of BaseException' in caught[0]
+
+
+def test_throw_invalid_args_do_not_kill_generator():
+    # gen.throw(instance, bad_value) and gen.throw(type, val, bad_tb) should
+    # raise TypeError to the caller but must NOT kill the generator.
+    # This matches the CPython coroutine doctest scenario where after bad
+    # throw args, the generator must still be usable.
+    results = []
+
+    def f():
+        while True:
+            try:
+                results.append((yield))
+            except ValueError as v:
+                results.append('caught:%s' % str(v))
+
+    g = f()
+    next(g)  # advance to yield
+
+    # throw with instance + separate value -> TypeError to caller, generator alive
+    with raises(TypeError, match='instance exception may not have a separate value'):
+        g.throw(ValueError(1), "bad")
+
+    # generator must still be alive
+    assert g.gi_frame is not None
+
+    # generator must still catch exceptions thrown into it
+    g.throw(ValueError("ok"))
+    assert results == ['caught:ok']
+
+    # throw with mismatched third arg -> TypeError, generator alive
+    with raises(TypeError, match='throw\\(\\) third argument must be a traceback object'):
+        g.throw(ValueError, "foo", 23)
+
+    assert g.gi_frame is not None
+
+    # now throw ValueError with traceback from sys.exc_info()
+    try:
+        raise ValueError
+    except Exception:
+        g.throw(*sys.exc_info())
+    assert results == ['caught:ok', 'caught:']
+
+    # generator must still be alive and accept sends
+    g.send(42)
+    assert results == ['caught:ok', 'caught:', 42]
+
+
 def test_close():
     def f():
         yield 1
