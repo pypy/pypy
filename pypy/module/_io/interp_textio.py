@@ -1006,6 +1006,9 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
         self._check_closed(space)
         self._writeflush(space)
+        if space.is_w(w_limit, space.w_None):
+            raise oefmt(space.w_TypeError,
+                        "'NoneType' object cannot be interpreted as an integer")
         limit = convert_size(space, w_limit)
         text, lgt = self._readline(space, limit)
         return space.newutf8(text, lgt)

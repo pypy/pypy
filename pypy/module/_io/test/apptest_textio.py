@@ -239,8 +239,13 @@ def test_newlines():
                     assert got_line == exp_line
                 assert len(got_lines) == len(exp_lines)
 
+def test_readline_none():
+    import _io
+    t = _io.TextIOWrapper(_io.BytesIO(b"hello\nworld"))
+    raises(TypeError, t.readline, None)
+
 def test_readline():
-    
+
 
     s = b"AAA\r\nBBB\rCCC\r\nDDD\nEEE\r\n"
     r = "AAA\nBBB\nCCC\nDDD\nEEE\n"
