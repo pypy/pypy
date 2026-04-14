@@ -118,8 +118,26 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
-    # XXX remove this
     @jit.dont_look_inside
+    def _pop_legacy_exc_blocks(self, target):
+        # Temporary helper; will be removed in Phase 6 when the block stack
+        # is gone entirely.
+        # Pop SysExcInfoRestorer and matching FinallyBlock entries that sit
+        # between the current block stack top and a table-found handler.
+        # Isolated here so that handle_operation_error stays loop-free and
+        # transparent to the JIT.
+        while self.blockstack_non_empty():
+            block = self.lastblock
+            if isinstance(block, SysExcInfoRestorer):
+                self.pop_block()
+                block.cleanupstack(self)
+            elif isinstance(block, FinallyBlock):
+                if intmask(block.handlerposition) == intmask(target):
+                    self.pop_block()
+                break
+            else:
+                break
+
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
             if 1:
@@ -152,21 +170,7 @@ class __extend__(pyframe.PyFrame):
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
         if depth >= 0:
-            # Pop any SysExcInfoRestorer or matching FinallyBlock pushed
-            # by a SETUP_FINALLY that serves as a dummy _stacksize hint.
-            while self.blockstack_non_empty():
-                block = self.lastblock
-                if isinstance(block, SysExcInfoRestorer):
-                    self.pop_block()
-                    block.cleanupstack(self)
-                elif isinstance(block, FinallyBlock):
-                    if intmask(block.handlerposition) == intmask(target):
-                        self.pop_block()
-                        break
-                    else:
-                        break
-                else:
-                    break
+            self._pop_legacy_exc_blocks(target)
             # depth is relative (0 = empty value stack); convert to absolute.
             code = self.getcode()
             stackstart = (code.co_nlocals + len(code.co_cellvars) +
