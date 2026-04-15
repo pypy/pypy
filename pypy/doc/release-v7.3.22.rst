@@ -147,14 +147,14 @@ Bugfixes including missing compatibility with CPython 3.11
  - Fixed pyrepl and ``pdb`` compatibility
  - cpyext: fix exposing ``__self__`` attribute on cpyext methods (:issue:`5368`)
  - cpyext: fix ``getsetdescr_attach`` to avoid redundantly rebuilding
-  descriptors (:issue:`5402`)
+   descriptors (:issue:`5402`)
  - cpyext: when checking for ``tp_new``, ignore ``object.__new__``
    (:issue:`5418`)
  - cpyext: fix flag propagation via inheritance and add flags to type objects
  - cpyext: fix ``tp_basicsize`` computation for mixed python/c-extension MRO
    types (:issue:`5402`)
  - cpyext: fix type layouts for types with ``tp_dictoffset`` or
-  ``tp_weaklistoffset`` (:issue:`5402`)
+   ``tp_weaklistoffset`` (:issue:`5402`)
  - cpyext: fix ``PyGC_Collect`` to better mimic a full collection cycle
  - Fix ``TextIOWrapper.readline(None)`` (:issue:`5379`)
  - Fix ``PREP_RERAISE_STAR`` dropping the current traceback (:issue:`5338`)
