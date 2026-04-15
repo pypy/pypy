@@ -115,9 +115,9 @@ Bugfixes
 ~~~~~~~~
 
  - Fix JIT invalidation logic of array items at a variable index, which could
-  lead to incorrect results (:issue:`5389`)
+   lead to incorrect results (:issue:`5389`)
  - Disallow whitespace after sign character in ``int``/``float`` string parsing
-  (:issue:`3927`)
+   (:issue:`3927`)
  - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
  - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
 
@@ -143,16 +143,16 @@ Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
  - Fixed line number output for function definitions with multiple decorators,
-  f-strings, and related edge cases in ``dis`` output
+   f-strings, and related edge cases in ``dis`` output
  - Fixed pyrepl and ``pdb`` compatibility
  - cpyext: fix exposing ``__self__`` attribute on cpyext methods (:issue:`5368`)
  - cpyext: fix ``getsetdescr_attach`` to avoid redundantly rebuilding
   descriptors (:issue:`5402`)
  - cpyext: when checking for ``tp_new``, ignore ``object.__new__``
-  (:issue:`5418`)
+   (:issue:`5418`)
  - cpyext: fix flag propagation via inheritance and add flags to type objects
  - cpyext: fix ``tp_basicsize`` computation for mixed python/c-extension MRO
-  types (:issue:`5402`)
+   types (:issue:`5402`)
  - cpyext: fix type layouts for types with ``tp_dictoffset`` or
   ``tp_weaklistoffset`` (:issue:`5402`)
  - cpyext: fix ``PyGC_Collect`` to better mimic a full collection cycle
@@ -180,7 +180,7 @@ Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
  - pyrepl: implement ``set_completion_display_matches_hook``, ``parse_and_bind``,
-  and ``set_pre_input_hook``
+   and ``set_pre_input_hook``
  - Generate default docstring from ``__text_signature__`` at ``interp2app``
  - Emit ``($self ...)`` for method signatures, used by ``inspect``
  - Make the first build of lib_pypy cffi modules quieter (:issue:`5428`)
