@@ -119,16 +119,20 @@ class __extend__(pyframe.PyFrame):
         return self.handle_operation_error(ec, operr)
 
     @jit.dont_look_inside
-    def _pop_legacy_exc_blocks(self, target):
+    def _pop_legacy_exc_blocks(self, target, body_start):
         # Temporary helper; will be removed in Phase 6 when the block stack
         # is gone entirely.
         # Pop SysExcInfoRestorer and matching FinallyBlock entries that sit
         # between the current block stack top and a table-found handler.
+        # Only pop SysExcInfoRestorers that were pushed inside the body range
+        # (last_instr >= body_start); those from outer handlers must survive.
         # Isolated here so that handle_operation_error stays loop-free and
         # transparent to the JIT.
         while self.blockstack_non_empty():
             block = self.lastblock
             if isinstance(block, SysExcInfoRestorer):
+                if intmask(block.last_instr) < body_start:
+                    break   # outer handler's restorer; do not pop
                 self.pop_block()
                 block.cleanupstack(self)
             elif isinstance(block, FinallyBlock):
@@ -168,9 +172,9 @@ class __extend__(pyframe.PyFrame):
             ec.exception_trace(self, operr)
 
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
-        target, depth, lasti = entry
+        target, depth, lasti, body_start = entry
         if depth >= 0:
-            self._pop_legacy_exc_blocks(target)
+            self._pop_legacy_exc_blocks(target, body_start)
             # lasti=True means this handler may RERAISE; track the original
             # raise offset so f_lineno is correct if the exception propagates.
             # Mirrors CPython's frame->prev_instr restoration in RERAISE.
@@ -1373,9 +1377,7 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
+        pass  # dummy marker; no longer pushes a block (Phase 5)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()

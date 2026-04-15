@@ -291,9 +291,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif kind == F_WHILE_LOOP or kind == F_EXCEPTION_HANDLER or kind == F_EXCEPTION_GROUP_HANDLER:
             pass
         elif kind == F_TRY_EXCEPT:
-            self.emit_op(ops.POP_BLOCK)
+            self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         elif kind == F_FINALLY_TRY:
-            self.emit_op(ops.POP_BLOCK)
+            self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
             if preserve_tos:
                 self.push_frame_block(F_POP_VALUE, None)
             # emit the finally block, restoring the line number when done
@@ -328,7 +328,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.no_position_info()
         elif kind == F_HANDLER_CLEANUP:
             if fblock.datum:
-                self.emit_op(ops.POP_BLOCK)
+                self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
             # new-mode: prev_exc is on value stack below tos (if preserve_tos)
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)  # bring prev_exc to TOS
@@ -852,7 +852,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        self.emit_op(ops.POP_BLOCK)
+        self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         self.use_next_block(b_after_yield)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
@@ -957,7 +957,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(tr.body)
         self.pop_frame_block(F_TRY_EXCEPT, body)
         self.no_position_info()
-        self.emit_op(ops.POP_BLOCK)
+        self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         # stack: [..., prev_exc, exc]  (after PUSH_EXC_INFO executed at handler entry)
@@ -999,7 +999,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self._visit_body(handler.body)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 self.no_position_info()
-                self.emit_op(ops.POP_BLOCK)
+                self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
                 # name = None; del name
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store, handler)
@@ -1048,11 +1048,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         body = self.new_block()
         end = self.new_block()
         exit = self.new_block()
+        # finally_normal marks the start of the unexceptional finally body.
+        # The exception table entry for the try block must end here, not at
+        # end.offset, so that exceptions raised in the normal finally path are
+        # not caught by the try/finally's own handler (matching CPython's
+        # compiler_pop_fblock(FINALLY_TRY) before VISIT_SEQ(finalbody)).
+        finally_normal = self.new_block()
 
         # try block: SETUP_FINALLY is a dummy for _stacksize; exception table does dispatch
         self.emit_jump(ops.SETUP_FINALLY, end)
         body = self.use_next_block(body)
-        self.emit_exception_table_entry(body, end)
+        self.emit_exception_table_entry(body, end, end_block=finally_normal)
         self.push_frame_block(F_FINALLY_TRY, body, end, tr)
         if has_handlers:
             if isinstance(tr, ast.Try):
@@ -1063,10 +1069,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self._visit_body(trybody)
         self.no_position_info()
-        self.emit_op(ops.POP_BLOCK)
+        self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
 
         # finally block, unexceptional case
         self.pop_frame_block(F_FINALLY_TRY, body)
+        self.use_next_block(finally_normal)
         self._visit_body(finalbody)
         self.emit_jump(ops.JUMP_FORWARD, exit)
 
@@ -1163,7 +1170,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(tr.body)
         self.pop_frame_block(F_TRY_EXCEPT, body)
         self.no_position_info()
-        self.emit_op(ops.POP_BLOCK)
+        self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         self.emit_op(ops.PUSH_EXC_INFO)
@@ -1211,7 +1218,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             cleanup_body = self.use_next_block(cleanup_body)
             self.emit_exception_table_entry(cleanup_body, exception_in_exc_body)
             self._visit_body(handler.body)
-            self.emit_op(ops.POP_BLOCK)
+            self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
             if handler.name:
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store, handler)
@@ -2074,7 +2081,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        self.emit_op(ops.POP_BLOCK)
+        self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         self.use_next_block(b_after_yield)
         gen.target.walkabout(self)
 

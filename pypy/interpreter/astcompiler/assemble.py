@@ -237,7 +237,7 @@ class Block(object):
                 # the target of the jump have the same lineno, so it's safe to
                 # skip the jump
                 pass
-            elif target_lineno != instr_lineno and target_lineno != -1 and instr_lineno != -1:
+            elif target_lineno != -1 and target_lineno != instr_lineno:
                 continue # don't jump thread to not lose lines
             if target_instr is instr:
                 continue # it's the same instruction (ie an infinite loop)

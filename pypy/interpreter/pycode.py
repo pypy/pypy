@@ -229,10 +229,10 @@ class PyCode(eval.Code):
     @jit.elidable
     def lookup_exceptiontable(self, instr_offset):
         """Search co_exceptiontable for a handler covering instr_offset.
-        Returns (target, depth, lasti) as (r_uint, int, bool).
+        Returns (target, depth, lasti, body_start) as (r_uint, int, bool, int).
         depth == -1 means no handler was found (sentinel for not-found)."""
         table = self.co_exceptiontable
-        best = (r_uint(0), -1, False)
+        best = (r_uint(0), -1, False, 0)
         if not table:
             return best
         i = 0
@@ -248,7 +248,7 @@ class PyCode(eval.Code):
             depth = dl >> 1
             lasti = bool(dl & 1)
             if start <= instr_offset < start + length:
-                best = (r_uint(target), depth, lasti)
+                best = (r_uint(target), depth, lasti, start)
             elif start > instr_offset:
                 break
         return best  # depth == -1 means not found
