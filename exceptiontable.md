@@ -222,5 +222,46 @@ inherits the current TOS as its handler. Gaps are structurally impossible.
 **Prerequisite:** Phase 6 (dead code removal) -- `SETUP_FINALLY` and `POP_BLOCK` must be
 purely dummy instructions before this refactor makes sense.
 
-### Next step  -- Phase 4 then Phase 5
-Run `test_coroutines` against the translated binary to establish its baseline. Then proceed with Phase 4 (remove `lastblock` from `_virtualizable_`) which is low-risk and self-contained. Follow immediately with Phase 5 (`fset_f_lineno` rewrite) to unblock `test_sys_settrace`. Phase 6 (dead code removal) can then close out the migration.
+**Remaining gap after Phase 8:** `duplicate_exits_without_lineno` appends copied blocks
+(`newtarget`) after all POP_BLOCKs in the linear layout.  The Phase 8 scan has already
+popped the enclosing handler by the time it reaches those copies, so they receive no
+exception table coverage.  Phase 6 removing `FinallyBlock` from the block stack eliminates
+the `SApplicationException` crash, but replaces it with a different wrong behaviour:
+exceptions in `newtarget` propagate out of the frame, silently bypassing any same-frame
+`try/except` that should have caught them.  Phase 9 closes this gap.
+
+### Phase 9  -- Flow-graph-based exception table (adopt CPython model)
+
+**Background:** CPython 3.11's compiler assigns each basic block an `except_stack` depth
+at graph-construction time.  Duplicated blocks inherit this depth from the original, so the
+exception table is always complete regardless of where copies are placed in the final layout.
+PyPy's Phase 8 linear scan cannot achieve this because it operates on the final flat
+instruction stream, after `duplicate_exits_without_lineno` has already appended copies past
+all the SETUP/POP_BLOCK pairs that defined their original scope.
+
+**Goal:** Replace Phase 8's linear scan with a flow-graph traversal that propagates handler
+coverage through jump edges:
+1. After `_finalize_blocks` (which runs `duplicate_exits_without_lineno`) but before
+   `_build_code`, traverse the block graph from `first_block` following both fall-through
+   (`next_block`) and explicit jump edges.  Maintain a handler stack at each block, seeded
+   from the block's predecessor(s).
+2. Each block records the handler that was active when it was first visited.  For a block
+   with multiple predecessors, all predecessors must agree on the handler (they will, because
+   `duplicate_exits_without_lineno` only copies blocks whose predecessors are all within the
+   same handler scope).
+3. Build the exception table from the per-block handler assignments rather than from the
+   flat instruction stream.
+
+**Effect on `duplicate_exits_without_lineno`:** `newtarget` is jumped to from `end_inner`,
+which is inside the outer `try/except` scope.  The flow-graph traversal follows that edge
+and assigns the outer handler to `newtarget`.  RERAISE in `newtarget` then dispatches
+correctly to the outer except block -- the same behaviour as if `newtarget` had never been
+copied out of range.  The per-case patches in `duplicate_exits_without_lineno` (e.g. the
+RERAISE-only block guard) can be removed once Phase 9 is in place.
+
+**Prerequisite:** Phase 8 -- the per-instruction SETUP/POP_BLOCK markers that Phase 8
+introduces are what makes the per-block handler assignment unambiguous.
+
+### Next step  -- Phase 5
+`test_coroutines` passes. Phase 4 (`lastblock` removed from `_virtualizable_`) is done.
+Proceed with Phase 5 (`fset_f_lineno` rewrite) to unblock `test_sys_settrace`.
