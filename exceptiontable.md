@@ -196,5 +196,31 @@ Because `exception_unwind` uses the local `next_instr`, RERAISE can freely overw
 
 **Risk:** `last_instr` is read by `bytecode_trace` and `get_last_lineno`  -- decoupling those uses requires care. Must benchmark before and after on pypy-benchmarks to confirm the per-instruction write reduction outweighs refactor complexity. Do not land without benchmark data.
 
+### Phase 8  -- Per-instruction exception table compiler (adopt CPython model)
+
+**Background:** PyPy's compiler builds exception table entries in two separate ways:
+`emit_exception_table_entry` calls scattered through `codegen.py` (for try/except/finally/cleanup),
+and the range-based `_label_exception_targets` pass in `assemble.py` (for with/async-with).
+This split makes it easy to leave gaps (the `cleanup_end` bug was one such gap).
+
+CPython uses a single uniform approach: after all code is emitted, `label_exception_targets`
+does one linear pass over all instructions maintaining an except stack. Each instruction
+inherits the current TOS as its handler. Gaps are structurally impossible.
+
+**Goal:** Replace both mechanisms with a single linear scan in `assemble.py`:
+1. Add `SETUP_CLEANUP` as a distinct opcode (separate from `SETUP_FINALLY`). `SETUP_CLEANUP`
+   is emitted by `_visit_try_except` for except-as cleanup blocks and sets `lasti=True`;
+   `SETUP_FINALLY` continues to be used for try/finally and sets `lasti=False`.
+   `SETUP_WITH`/`SETUP_ASYNC_WITH` remain unchanged (already set `lasti=True`).
+2. In `assemble.py`, replace `emit_exception_table_entry` + `_label_exception_targets` with
+   a single pass: walk all instructions linearly, push handler on `SETUP_FINALLY`/
+   `SETUP_CLEANUP`/`SETUP_WITH`/`SETUP_ASYNC_WITH`, pop on `POP_BLOCK`, assign current TOS
+   to each instruction. Build table entries from runs of consecutive same-handler instructions.
+3. Remove all `emit_exception_table_entry` calls from `codegen.py`; remove
+   `_nearest_with_handler` (no longer needed); remove `exception_table_entries` list.
+
+**Prerequisite:** Phase 6 (dead code removal) -- `SETUP_FINALLY` and `POP_BLOCK` must be
+purely dummy instructions before this refactor makes sense.
+
 ### Next step  -- Phase 4 then Phase 5
 Run `test_coroutines` against the translated binary to establish its baseline. Then proceed with Phase 4 (remove `lastblock` from `_virtualizable_`) which is low-risk and self-contained. Follow immediately with Phase 5 (`fset_f_lineno` rewrite) to unblock `test_sys_settrace`. Phase 6 (dead code removal) can then close out the migration.
