@@ -821,3 +821,22 @@ def test_unpickle_crash4():
     b = b'g\n'
     with raises(ValueError):
         pickle.loads(b)
+
+def test_memoize_and_binput_index_collision():
+    # original pickle: EMPTY_LIST + MEMOIZE (index 0), then 'spam' + BINPUT 1,
+    # then 'ham' + MEMOIZE (index 1 via memo_index -- collides with BINPUT 1),
+    # then BINGET 2 (beyond memo_index, was None -> segfault)
+    pickled = (b'\x80\x04\x95\x15\x00\x00\x00\x00\x00\x00\x00'
+               b']\x94(\x8c\x04spamq\x01\x8c\x03ham\x94h\x02e.')
+    unpickled = pickle.loads(pickled)
+    assert unpickled == ['spam', 'ham', 'ham']
+    assert unpickled[1] is unpickled[2]
+
+    # same pickle after pickletools.optimize: unused PUTs removed, GETs renumbered
+    # EMPTY_LIST (not memoized), 'spam' (not memoized), 'ham' + MEMOIZE -> memo[0],
+    # BINGET 0, APPENDS
+    pickled2 = (b'\x80\x04\x95\x12\x00\x00\x00\x00\x00\x00\x00'
+                b'](\x8c\x04spam\x8c\x03ham\x94h\x00e.')
+    unpickled2 = pickle.loads(pickled2)
+    assert unpickled2 == ['spam', 'ham', 'ham']
+    assert unpickled2[1] is unpickled2[2]

@@ -2063,10 +2063,11 @@ class W_Unpickler(W_Root):
         while i >= len(self.memo):
             self.memo += [None] * len(self.memo)
         self.memo[i] = w_val
+        if i >= self.memo_index:
+            self.memo_index = i + 1
 
     def _memo_append(self, w_val):
         self._memo_put(self.memo_index, w_val)
-        self.memo_index += 1
 
     def _stack_top(self, opcode_name):
         """Return the top of the stack, raising an error if the stack is empty."""

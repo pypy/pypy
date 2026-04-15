@@ -3,7 +3,6 @@ import pickletools
 from test import support
 from test.pickletester import AbstractPickleTests
 import doctest
-import sys
 import unittest
 
 class OptimizedPickleTests(AbstractPickleTests, unittest.TestCase):
@@ -20,12 +19,6 @@ class OptimizedPickleTests(AbstractPickleTests, unittest.TestCase):
     # Test relies on writing by chunks into a file object.
     test_framed_write_sizes_with_delayed_writer = None
 
-    @unittest.skipIf(
-        getattr(sys, 'pypy_version_info', None) in (
-            (7, 3, 21, 'final', 0),
-            (7, 3, 22, 'alpha', 0),
-        ),
-        "segfaults on PyPy 7.3.21 and 7.3.22a0")
     def test_optimize_long_binget(self):
         data = [str(i) for i in range(257)]
         data.append(data[-1])
@@ -42,12 +35,6 @@ class OptimizedPickleTests(AbstractPickleTests, unittest.TestCase):
             self.assertNotIn(pickle.LONG_BINGET, pickled2)
             self.assertNotIn(pickle.LONG_BINPUT, pickled2)
 
-    @unittest.skipIf(
-        getattr(sys, 'pypy_version_info', None) in (
-            (7, 3, 21, 'final', 0),
-            (7, 3, 22, 'alpha', 0),
-        ),
-        "segfaults on PyPy 7.3.21 and 7.3.22a0")
     def test_optimize_binput_and_memoize(self):
         pickled = (b'\x80\x04\x95\x15\x00\x00\x00\x00\x00\x00\x00'
                    b']\x94(\x8c\x04spamq\x01\x8c\x03ham\x94h\x02e.')
