@@ -429,3 +429,107 @@ def test_except_star_trace_return_lineno():
     assert ret_events[-1] == except_star_line, (
         "return event at line %d, expected except* clause line %d" %
         (ret_events[-1], except_star_line))
+
+
+# ---------------------------------------------------------------------------
+# Bug 1: async for inside async with -- StopAsyncIteration bypasses ExceptBlock
+# ---------------------------------------------------------------------------
+
+def _run_coro(coro):
+    """Drive a coroutine to completion without asyncio."""
+    try:
+        coro.send(None)
+        while True:
+            coro.send(None)
+    except StopIteration as e:
+        return e.value
+
+
+def test_async_for_inside_async_with_exits_once():
+    """StopAsyncIteration that ends an async for loop must not be delivered
+    to the enclosing async with's __aexit__.  Before the fix, handle_operation_error
+    found the async-with's exception table entry instead of routing through the
+    ExceptBlock pushed by SETUP_EXCEPT for the async iterator, so __aexit__ was
+    called with StopAsyncIteration and then called a second time on normal exit."""
+    exit_calls = []
+
+    class ACM:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, tp, val, tb):
+            exit_calls.append(tp)
+            return False
+
+    class AIter:
+        def __init__(self, n):
+            self.i = 0
+            self.n = n
+        def __aiter__(self):
+            return self
+        async def __anext__(self):
+            if self.i >= self.n:
+                raise StopAsyncIteration
+            self.i += 1
+            return self.i
+
+    async def main():
+        async with ACM():
+            async for _ in AIter(3):
+                pass
+
+    _run_coro(main())
+    assert exit_calls == [None], \
+        "__aexit__ call list wrong: %r (expected [None])" % exit_calls
+
+
+# ---------------------------------------------------------------------------
+# Bug 2: SApplicationException leaking out of try/finally inside a generator.
+# When an exception is raised inside a try/finally body that contains a with
+# statement (even if the with block is never entered), the exception must
+# propagate through the finally block and be caught by the enclosing except.
+
+def test_generator_exception_in_enter():
+    """The exception is raised inside __enter__ (after the
+    CM expression succeeds)."""
+    log = []
+
+    class CM:
+        def __enter__(self):
+            log.append(('enter'))
+            raise OSError("enter failed")
+            return self
+
+        def __exit__(self, tp, val, tb):
+            log.append(('exit'))
+            return False
+
+        def __iter__(self):
+            log.append(('exit'))
+            return self
+
+        def __next__(self):
+            raise OSError("enter failed")
+        
+
+    def gen(dummy):
+        try:
+            try:
+                with CM() as it:
+                    for x in it:
+                        yield x
+            except OSError:
+                raise
+            finally:
+                if not dummy:
+                    log.append('finally')
+        except OSError:
+            log.append('caught')
+            return
+
+    if 0:
+        import dis
+        print("========= gen ============ ")
+        print(dis.dis(gen)) 
+        print("========= gen ============ ")
+    list(gen(True))
+    assert log == ['enter', 'caught'], "log=%r" % log

@@ -961,6 +961,23 @@ class PythonCodeMaker(ast.ASTVisitor):
                         block.emit_instr(instr)
 
                 elif (target.marked >> 1) > 1:
+                    # Don't copy blocks whose only instructions are RERAISE.
+                    # Such blocks live inside exception-handler bodies emitted by
+                    # _visit_try_finally (after no_position_info()).  Copying them
+                    # appends the copy after all handler blocks, placing the RERAISE
+                    # outside the enclosing try/except exception-table range.
+                    # handle_operation_error then falls back to the block stack and
+                    # creates a SApplicationException that breaks PUSH_EXC_INFO.
+                    # Leaving the original block in place keeps it within range.
+                    # Position accuracy is unaffected: RERAISE uses attach_tb=False
+                    # so no traceback entry is ever generated at the RERAISE site.
+                    reraise_only = True
+                    for _instr in target.instructions:
+                        if _instr.opcode != ops.RERAISE:
+                            reraise_only = False
+                            break
+                    if reraise_only:
+                        continue
                     # copy the block, it has more than one predecessor
                     target.marked -= 2 # one fewer incoming links for old target
                     newtarget = target.copy()

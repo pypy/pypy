@@ -829,6 +829,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.error("'async for' outside async function", fr)
         b_start = self.new_block()
         b_except = self.new_block()
+        b_reraise = self.new_block()
         b_end = self.new_block()
 
         fr.iter.walkabout(self)
@@ -837,23 +838,62 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(b_start)
         self.push_frame_block(F_FOR_LOOP, b_start, b_end)
 
-        self.emit_jump(ops.SETUP_EXCEPT, b_except)
+        # Dummy SETUP_FINALLY so _stacksize propagates the right initial_depth
+        # to b_except.  At runtime this pushes a FinallyBlock that POP_BLOCK
+        # removes; exception dispatch uses the exception table entry below.
+        self.emit_jump(ops.SETUP_FINALLY, b_except)
+        b_anext = self.use_next_block()
+        b_after_yield = self.new_block()
+        # Narrow exception table entry covering only GET_ANEXT/YIELD_FROM.
+        # Because b_anext starts inside any enclosing async-with body,
+        # lookup_exceptiontable's "last match wins" rule picks this as the
+        # innermost handler, beating the outer async-with entry.
+        self.emit_exception_table_entry(b_anext, b_except, end_block=b_after_yield)
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_BLOCK)
+        self.use_next_block(b_after_yield)
         fr.target.walkabout(self)
         self._visit_body(fr.body)
         self.no_position_info()
         self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
         self.pop_frame_block(F_FOR_LOOP, b_start)
 
-        # except block for errors from __anext__
+        self._emit_async_for_handler(b_except, b_reraise, b_end,
+                                     position_node=fr.iter, orelse=fr.orelse)
+
+    def _emit_async_for_handler(self, b_except, b_reraise, b_end,
+                                position_node=None, orelse=None):
+        """Emit the StopAsyncIteration-checking exception handler block shared
+        by visit_AsyncFor and _comp_async_generator.
+
+        Covers: use_next_block(b_except) ... use_next_block(b_end).
+        position_node: if given, update source position before PUSH_EXC_INFO.
+        orelse: if given, visit those nodes before jumping to b_end."""
+        # Exception table handler for GET_ANEXT / YIELD_FROM.
+        # Entry stack (from table dispatch): [..., aiter, w_exc].
         self.use_next_block(b_except)
-        # use the 'for' as the position of END_ASYNC_FOR
-        self.update_position(fr.iter)
-        self.emit_op(ops.END_ASYNC_FOR)
-        self._visit_body(fr.orelse)
+        if position_node is not None:
+            self.update_position(position_node)
+        self.emit_op(ops.PUSH_EXC_INFO)
+        # Stack: [..., aiter, w_prev, w_exc]
+        # StopAsyncIteration is a builtin; emit LOAD_GLOBAL directly because
+        # this name is not in the scope table (user code never wrote it).
+        self.emit_op_arg(ops.LOAD_GLOBAL, self.add_name(self.names, "StopAsyncIteration"))
+        self.emit_op(ops.CHECK_EXC_MATCH)
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_reraise)
+        # StopAsyncIteration: normal end of iteration.
+        self.emit_op(ops.POP_TOP)    # pop w_exc
+        self.emit_op(ops.POP_EXCEPT) # pop w_prev, restore sys.exc_info
+        self.emit_op(ops.POP_TOP)    # pop aiter
+        if orelse is not None:
+            self._visit_body(orelse)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_end)
+
+        # Non-StopAsyncIteration: re-raise into the enclosing handler.
+        self.use_next_block(b_reraise)
+        self.emit_op_arg(ops.RERAISE, 1)
 
         self.use_next_block(b_end)
 
@@ -2010,7 +2050,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _comp_async_generator(self, node, generators, gen_index, built_object_stackdepth):
         b_start = self.new_block()
         b_except = self.new_block()
+        b_reraise = self.new_block()
         b_if_cleanup = self.new_block()
+        b_end = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         if gen_index > 0:
@@ -2019,11 +2061,21 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.use_next_block(b_start)
 
-        self.emit_jump(ops.SETUP_EXCEPT, b_except)
+        # Dummy SETUP_FINALLY so _stacksize propagates the right initial_depth
+        # to b_except.  At runtime this pushes a FinallyBlock that POP_BLOCK
+        # removes; exception dispatch uses the exception table entry below.
+        self.emit_jump(ops.SETUP_FINALLY, b_except)
+        b_anext = self.use_next_block()
+        b_after_yield = self.new_block()
+        # Narrow exception table entry covering only GET_ANEXT/YIELD_FROM.
+        # Starts inside any enclosing async-with body, so it wins over the
+        # outer entry when lookup_exceptiontable picks the last match.
+        self.emit_exception_table_entry(b_anext, b_except, end_block=b_after_yield)
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_BLOCK)
+        self.use_next_block(b_after_yield)
         gen.target.walkabout(self)
 
         if gen.ifs:
@@ -2041,8 +2093,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(b_if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
 
-        self.use_next_block(b_except)
-        self.emit_op(ops.END_ASYNC_FOR)
+        self._emit_async_for_handler(b_except, b_reraise, b_end)
 
     def _compile_comprehension(self, node, name, sub_scope):
         is_async_function = self.scope.is_coroutine
