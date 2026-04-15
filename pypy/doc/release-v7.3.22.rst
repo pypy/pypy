@@ -21,12 +21,15 @@ compatibility around line numbers in dis.dis, signatures and objclass
 attributes for builtins, and other quality of life features.
 
 There is now an RPython ``_pickle`` module that mirrors
-the CPython one, greatly speeding up pickling operations. While not faster than
-CPython in all real-life situations, PyPy is now about 2x CPython's speed in the
-``json_bench`` benchmark in ``pyperformance``. We also added pypy pickler
-extensions to dump and load lists using list strategies, and enabled them in
-the ``ForkingPickler`` used by multiprocessing, speeding up cases where such
-objects are passed between PyPy multiprocessing instances.
+the CPython one, greatly speeding up pickling operations. Where before PyPy was
+5.7x slower than CPython on the pickle benchmark from the pyperformance
+benchmark suite, now it is only 1.6x slower [0]_. We also added pypy
+pickler extensions to dump and load lists using list strategies, and enabled
+them in the ``ForkingPickler`` used by multiprocessing, speeding up cases where
+such objects are passed between PyPy multiprocessing instances.
+
+We also added an RPython json encoder, speeding up json_bench from being 2.6x
+CPython to being 0.7x (meaning faster).
 
 The release includes two different interpreters:
 
@@ -60,6 +63,10 @@ If you are a python library maintainer and use C-extensions, please consider
 making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
 on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
+.. rubric:: Footnotes
+
+.. [0] Once `a PR to pyperformance`_ to use the _pickle module on PyPy is accepted
+
 .. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
@@ -69,7 +76,7 @@ on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
-
+.. _`a PR to pyperformance`: https://github.com/python/pyperformance/pull/461
 
 What is PyPy?
 =============
