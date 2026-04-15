@@ -675,7 +675,7 @@ class OptHeap(Optimization):
         cf.do_setfield(self, op)
 
     def optimize_GETARRAYITEM_GC_I(self, op):
-        arrayinfo = self.ensure_ptr_info_arg0(op)
+        arrayinfo = self.ensure_ptr_info_arg0_array(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
@@ -706,7 +706,7 @@ class OptHeap(Optimization):
 
     def postprocess_GETARRAYITEM_GC_I(self, op):
         # then remember the result of reading the array item
-        arrayinfo = self.ensure_ptr_info_arg0(op)
+        arrayinfo = self.ensure_ptr_info_arg0_array(op)
         indexb = self.getintbound(op.getarg(1))
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
             index = indexb.get_constant_int()
@@ -726,7 +726,7 @@ class OptHeap(Optimization):
     postprocess_GETARRAYITEM_GC_F = postprocess_GETARRAYITEM_GC_I
 
     def optimize_GETARRAYITEM_GC_PURE_I(self, op):
-        arrayinfo = self.ensure_ptr_info_arg0(op)
+        arrayinfo = self.ensure_ptr_info_arg0_array(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
@@ -750,7 +750,7 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
-        arrayinfo = self.ensure_ptr_info_arg0(op)
+        arrayinfo = self.ensure_ptr_info_arg0_array(op)
         submap = self.arrayitem_submap(op.getdescr())
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
             index = indexb.get_constant_int()

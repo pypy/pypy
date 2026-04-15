@@ -938,7 +938,7 @@ class MapdictStorageMixin(object):
             self.storage = self.storage[:storage_needed]
         self._set_mapdict_map(map)
 
-    @jit.unroll_safe
+    @jit.look_inside_iff(lambda self, map, value: jit.isconstant(map))
     def _set_mapdict_increase_storage1(self, map, value):
         """ increase storage size by 1, adding value """
         current_map = self._get_mapdict_map()
@@ -1094,7 +1094,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                     setattr(self, "_value%s" % nmin1, erase_list(storage_list[:-1]))
             self._set_mapdict_map(map)
 
-        @jit.unroll_safe
+        @jit.look_inside_iff(lambda self, map, value: jit.isconstant(map))
         def _set_mapdict_increase_storage1(self, map, value):
             storage_needed = map.storage_needed()
             prev_storage_size = self.map.storage_needed()

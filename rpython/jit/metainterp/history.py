@@ -116,6 +116,13 @@ class AbstractDescr(AbstractValue):
     def get_vinfo(self):
         raise NotImplementedError
 
+    def get_type_id(self):
+        return -1
+
+    def get_vtable(self):
+        from rpython.rtyper import rclass
+        return ptr2int(lltype.nullptr(rclass.OBJECT_VTABLE))
+
 DONT_CHANGE = AbstractDescr()
 
 class AbstractFailDescr(AbstractDescr):
