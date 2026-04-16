@@ -184,26 +184,21 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_exc)
             return target
 
-        block = self.unrollstack()
-        if block is None:
-            # no handler found for the OperationError; restore last_instr to
-            # the original raise site if a lasti=True handler saved it, so
-            # that f_lineno reflects where the exception was originally raised.
-            if self._reraise_saved_lasti >= 0:
-                self.last_instr = self._reraise_saved_lasti
-                self._reraise_saved_lasti = -1
-            if we_are_translated():
-                raise operr
-            else:
-                # try to preserve the CPython-level traceback
-                import sys
-                tb = sys.exc_info()[2]
-                raise OperationError, operr, tb
-        else:
+        # No exception table entry: clean up SysExcInfoRestorer blocks
+        # (restoring sys.exc_info) and propagate the exception out of the frame.
+        self.unrollstack()
+        # Restore last_instr to the original raise site if a lasti=True handler
+        # saved it, so that f_lineno reflects where the exception was raised.
+        if self._reraise_saved_lasti >= 0:
+            self.last_instr = self._reraise_saved_lasti
             self._reraise_saved_lasti = -1
-            unroller = SApplicationException(operr)
-            next_instr = block.handle(self, unroller)
-            return next_instr
+        if we_are_translated():
+            raise operr
+        else:
+            # try to preserve the CPython-level traceback
+            import sys
+            tb = sys.exc_info()[2]
+            raise OperationError, operr, tb
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
