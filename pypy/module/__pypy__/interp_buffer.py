@@ -151,9 +151,10 @@ class W_PickleBuffer(W_Root):
         # call releasebuffer() on the result do not decrement the underlying
         # object's export counter.  The PickleBuffer itself owns the export and
         # releases it in descr_release / _finalize_.
-        if isinstance(self.buf, SimpleView):
-            return NonOwningView(self.buf.data, w_obj=self.buf.w_obj)
-        return self.buf
+        buf = self.buf
+        if isinstance(buf, SimpleView):
+            return NonOwningView(buf.data, w_obj=buf.w_obj)
+        return buf
 
     def descr_raw(self, space):
         """

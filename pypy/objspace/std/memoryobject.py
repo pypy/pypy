@@ -107,12 +107,13 @@ class W_MemoryView(W_Root):
         self.view = None
         if view is None:
             return
-        w_obj = view.w_obj
-        if space is not None and w_obj is not None and view.owns_export:
-            release_fn = space.lookup(w_obj, '__release_buffer__')
-            if release_fn is not None:
-                space.call_function(release_fn, w_obj, self)
-                return
+        if space is not None and view.owns_export:
+            w_obj = view.w_obj
+            if w_obj is not None:
+                release_fn = space.lookup(w_obj, '__release_buffer__')
+                if release_fn is not None:
+                    space.call_function(release_fn, w_obj, self)
+                    return
         # Fallback: no space (finalizer), non-owning view, or no __release_buffer__
         # use the internal releasebuffer() path directly.
         view.releasebuffer()
