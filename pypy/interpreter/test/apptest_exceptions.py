@@ -134,11 +134,15 @@ def test_with_try_except_reraise():
         def __enter__(self): pass
         def __exit__(self, *a): pass
 
-    with CM():
-        try:
-            raise ImportError("original")
-        except ImportError as e:
-            raise ValueError(str(e))
+    try:
+        with CM():
+            try:
+                raise ImportError("original")
+            except ImportError as e:
+                raise ValueError(str(e))
+    except ValueError:
+        pass  # expected: ValueError propagates through __exit__ correctly
+    # if TypeError raised instead, the bug is present (SApplicationException leaked)
 
 def test_assertion_error_global_ignored():
     if hasattr(pytest, 'py3k_skip'):

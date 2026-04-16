@@ -122,12 +122,8 @@ class __extend__(pyframe.PyFrame):
     def _pop_legacy_exc_blocks(self, target, body_start):
         # Temporary helper; will be removed in Phase 6 when the block stack
         # is gone entirely.
-        # Pop SysExcInfoRestorer and matching FinallyBlock entries that sit
-        # between the current block stack top and a table-found handler.
-        # Only pop SysExcInfoRestorers that were pushed inside the body range
+        # Pop SysExcInfoRestorers that were pushed inside the body range
         # (last_instr >= body_start); those from outer handlers must survive.
-        # Isolated here so that handle_operation_error stays loop-free and
-        # transparent to the JIT.
         while self.blockstack_non_empty():
             block = self.lastblock
             if isinstance(block, SysExcInfoRestorer):
@@ -135,10 +131,6 @@ class __extend__(pyframe.PyFrame):
                     break   # outer handler's restorer; do not pop
                 self.pop_block()
                 block.cleanupstack(self)
-            elif isinstance(block, FinallyBlock):
-                if intmask(block.handlerposition) == intmask(target):
-                    self.pop_block()
-                break
             else:
                 break
 
@@ -854,7 +846,7 @@ class __extend__(pyframe.PyFrame):
         self._reraise_saved_lasti = -1
 
     def POP_BLOCK(self, oparg, next_instr):
-        self.pop_block()
+        pass  # FinallyBlock removed in Phase 6; POP_BLOCK is a no-op
 
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
@@ -1390,9 +1382,6 @@ class __extend__(pyframe.PyFrame):
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
         self.pushvalue(w_result)
 
     def WITH_EXCEPT_START(self, oparg, next_instr):
@@ -1695,9 +1684,6 @@ class __extend__(pyframe.PyFrame):
 
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
         self.pushvalue(res)
 
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):

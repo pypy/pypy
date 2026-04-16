@@ -765,8 +765,7 @@ class PyFrame(W_Root):
                 self.lastblock = block.previous
                 block.cleanupstack(self)
             elif kind == _MS_WITH:
-                # pop FinallyBlock and pop __exit__ from value stack
-                self.pop_block()
+                # pop __exit__ from value stack; no FinallyBlock to pop (Phase 6)
                 self.popvalue()
             else:
                 # Iterator, Object: just discard
