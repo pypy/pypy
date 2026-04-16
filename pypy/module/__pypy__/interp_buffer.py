@@ -5,6 +5,7 @@ Allow use of the buffer interface from python
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.objspace.std.memoryobject import BufferViewND
+from pypy.interpreter.buffer import SimpleView, NonOwningView
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.typedef import make_weakref_descr
@@ -136,9 +137,23 @@ class W_PickleBuffer(W_Root):
     def __init__(self, space, w_obj):
         self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
 
+    def _finalize_(self):
+        if self.buf is not None:
+            self.buf.releasebuffer()
+            self.buf = None
+
     def check(self, space):
         if self.buf is None:
             raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+
+    def _nonowning_view(self):
+        # Return a non-owning view so callers (bytes(), memoryview(), etc.) that
+        # call releasebuffer() on the result do not decrement the underlying
+        # object's export counter.  The PickleBuffer itself owns the export and
+        # releases it in descr_release / _finalize_.
+        if isinstance(self.buf, SimpleView):
+            return NonOwningView(self.buf.data, w_obj=self.buf.w_obj)
+        return self.buf
 
     def descr_raw(self, space):
         """
@@ -146,18 +161,21 @@ class W_PickleBuffer(W_Root):
         Will raise BufferError is the buffer isn't contiguous.
         """
         self.check(space)
-        return self.buf.wrap(space)
+        return space.newmemoryview(self._nonowning_view())
 
     def descr_release(self, space):
         """
         Release the underlying buffer exposed by the PickleBuffer object.
         """
-        self.buf = None
+        if self.buf is not None:
+            self.buf.releasebuffer()
+            self.buf = None
 
     def buffer_w(self, space, flags):
         self.check(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        return self.buf
+        # Return a non-owning view: the PickleBuffer owns the export lifetime.
+        return self._nonowning_view()
 
 
 def descr_new_picklebuffer(space, w_type, w_obj):

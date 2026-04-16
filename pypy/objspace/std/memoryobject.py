@@ -113,7 +113,7 @@ class W_MemoryView(W_Root):
             if release_fn is not None:
                 space.call_function(release_fn, w_obj, self)
                 return
-        # Fallback: no space (finalizer), non-owning view, or no __release_buffer__ 
+        # Fallback: no space (finalizer), non-owning view, or no __release_buffer__
         # use the internal releasebuffer() path directly.
         view.releasebuffer()
 
