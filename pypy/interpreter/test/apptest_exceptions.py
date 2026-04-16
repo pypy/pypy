@@ -123,6 +123,23 @@ def test_with_break_exit_raises():
         assert str(e) == "exit raised"
     assert called == [1], "expected __exit__ called exactly once, got %r" % called
 
+def test_with_try_except_reraise():
+    # 'with' block containing try/except that catches one exception and raises
+    # another -- __exit__ must receive the new exception, not an internal wrapper.
+    # Root cause: SETUP_WITH FinallyBlock survives into the with-exception handler;
+    # RERAISE inside the handler re-enters via old block-stack mode with
+    # SApplicationException instead of propagating out of the frame.
+    # Fixed by Phase 6 (SETUP_WITH stops pushing FinallyBlock).
+    class CM:
+        def __enter__(self): pass
+        def __exit__(self, *a): pass
+
+    with CM():
+        try:
+            raise ImportError("original")
+        except ImportError as e:
+            raise ValueError(str(e))
+
 def test_assertion_error_global_ignored():
     if hasattr(pytest, 'py3k_skip'):
         pytest.py3k_skip('only untranslated')

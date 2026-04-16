@@ -79,6 +79,7 @@ def compare_events(line_offset, events, expected_events):
 
 def run_and_compare(func, expected_events):
     using_gc = gc.isenabled()
+    gc.collect()  # collect importlib generators before disabling GC (PyPy has no refcounting)
     gc.disable()
     try:
         tracer = Tracer()
@@ -435,7 +436,7 @@ def test_12_tighterloop():
 
 def test_13_genexp():
     using_gc = gc.isenabled()
-    if using_gc:
+    if not using_gc:
         gc.enable()
         gc.collect()
     try:
@@ -447,7 +448,7 @@ def test_13_genexp():
         compare_events(generator_example.__code__.co_firstlineno,
                        tracer.events, generator_example.events)
     finally:
-        if using_gc:
+        if not using_gc:
             gc.disable()
 
 
