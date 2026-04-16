@@ -329,7 +329,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
-        self.exception_table_entries = []  # list of (start_block, end_block, handler_block, depth, lasti)
+        self.exception_table_entries = []  # list of (start_block, end_block, handler_block, lasti, depth_block_or_None)
 
     def __repr__(self):
         return "<PythonCodeMaker %s in %s:%s>" % (self.name, self.compile_info.filename, self.first_lineno)
@@ -647,6 +647,12 @@ class PythonCodeMaker(ast.ASTVisitor):
             block.marked = 0
         self.first_block.marked = 1
         todo = [self.first_block]
+        # exception table handler blocks are reachable via dispatch,
+        # not via any jump instruction; mark them explicitly so that
+        # optimize_unreachable_code does not eliminate them.
+        for entry in self.exception_table_entries:
+            handler_block = entry[2]
+            increase_incoming(handler_block, todo)
         while todo:
             block = todo.pop()
             # mark next_block, but only if the edge can actually be taken
@@ -736,18 +742,21 @@ class PythonCodeMaker(ast.ASTVisitor):
         return blocks, size
 
     def emit_exception_table_entry(self, start_block, handler_block, lasti=False,
-                                   end_block=None):
+                                   end_block=None, depth_block=None):
         """Record an exception table entry.
         The protected range is [start_block.offset, end_block.offset).
         If end_block is None, handler_block is used as the end (its offset is
         the exclusive end of the range).
-        handler_block must start with PUSH_EXC_INFO.  depth is derived from
-        handler_block.initial_depth (set by _stacksize) as initial_depth - 1.
+        Normally handler_block starts with PUSH_EXC_INFO and depth is derived
+        as handler_block.initial_depth - 1.  If depth_block is provided,
+        depth = depth_block.initial_depth is used instead -- for secondary
+        with-except cleanup handlers whose first instruction is not PUSH_EXC_INFO.
         Call emit_exception_table_entry BEFORE _stacksize has run; the entry
         is encoded in _build_exceptiontable which runs after _stacksize."""
         if end_block is None:
             end_block = handler_block
-        self.exception_table_entries.append((start_block, end_block, handler_block, lasti))
+        self.exception_table_entries.append(
+            (start_block, end_block, handler_block, lasti, depth_block))
 
     def _label_exception_targets(self, blocks):
         """Walk blocks linearly and build exception table entries for
@@ -789,7 +798,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                         # Taking the minimum handles both cases correctly.
                         end = min(offset, handler_block.offset)
                         if end > start:
-                            entries.append((start, end, handler_block, lasti))
+                            entries.append((start, end, handler_block, lasti, None))
                 offset += instr.size()
         # Any with-handlers still on the stack have no live POP_BLOCK because
         # every path through the body unconditionally raises or returns.
@@ -800,7 +809,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if handler_block is not None:
                 end = handler_block.offset
                 if end > start:
-                    entries.append((start, end, handler_block, lasti))
+                    entries.append((start, end, handler_block, lasti, None))
         return entries
 
     def _build_exceptiontable(self, blocks):
@@ -812,9 +821,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         naturally picks the innermost handler for nested constructs."""
         # Convert block-based entries to (start, end, handler_block, lasti)
         all_entries = []
-        for start_block, end_block, handler_block, lasti in self.exception_table_entries:
+        for start_block, end_block, handler_block, lasti, depth_block in self.exception_table_entries:
             all_entries.append(
-                (start_block.offset, end_block.offset, handler_block, lasti))
+                (start_block.offset, end_block.offset, handler_block, lasti, depth_block))
         # Add per-instruction entries for with/async-with blocks
         for entry in self._label_exception_targets(blocks):
             all_entries.append(entry)
@@ -831,12 +840,20 @@ class PythonCodeMaker(ast.ASTVisitor):
             all_entries[j + 1] = key
             i += 1
         result = []
-        for start, end, handler_block, lasti in all_entries:
+        for start, end, handler_block, lasti, depth_block in all_entries:
             if end <= start:
                 continue   # empty range, skip
             # depth = stack depth just before handle_operation_error pushes exc.
-            # handler_block.initial_depth = depth + 1 (the PUSH_EXC_INFO at entry).
-            depth = handler_block.initial_depth - 1
+            # Normally handler_block starts with PUSH_EXC_INFO, so
+            # handler_block.initial_depth = depth + 1.
+            # For secondary with-cleanup handlers (depth_block provided),
+            # depth = depth_block.initial_depth directly (CPython stores
+            # c->u->u_depth at SETUP_CLEANUP time; depth_block.initial_depth
+            # is the deferred equivalent resolved after _stacksize).
+            if depth_block is not None:
+                depth = depth_block.initial_depth
+            else:
+                depth = handler_block.initial_depth - 1
             if depth < 0:
                 continue   # handler unreachable; skip
             _encode_varint(result, start // 2)

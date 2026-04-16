@@ -84,7 +84,6 @@ class PyFrame(W_Root):
     pycode = None # code object executed by that frame
     locals_cells_stack_w = None # the list of all locals, cells and the valuestack
     valuestackdepth = 0 # number of items on valuestack
-    lastblock = None
 
     # other fields:
 
@@ -184,35 +183,19 @@ class PyFrame(W_Root):
         """
         self.escaped = True
 
-    def append_block(self, block):
-        assert block.previous is self.lastblock
-        self.lastblock = block
-
-    def pop_block(self):
-        block = self.lastblock
-        self.lastblock = block.previous
-        return block
-
-    def blockstack_non_empty(self):
-        return self.lastblock is not None
-
-    def get_blocklist(self):
-        """Returns a list containing all the blocks in the frame"""
-        lst = []
-        block = self.lastblock
-        while block is not None:
-            lst.append(block)
-            block = block.previous
-        return lst
-
-    def set_blocklist(self, lst):
-        self.lastblock = None
-        i = len(lst) - 1
-        while i >= 0:
-            block = lst[i]
-            i -= 1
-            block.previous = self.lastblock
-            self.lastblock = block
+    def _restore_exc_info(self, w_prev):
+        """Restore sys.exc_info from w_prev (the value saved by PUSH_EXC_INFO)."""
+        space = self.space
+        if not self.hide():
+            space.getexecutioncontext().set_sys_exc_info3(w_prev)
+        else:
+            if space.is_none(w_prev):
+                self.getorcreatedebug().hidden_operationerr = None
+            else:
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                w_val = space.interp_w(W_BaseException, w_prev)
+                operr = OperationError(space.type(w_prev), w_prev, w_val.w_traceback)
+                self.getorcreatedebug().hidden_operationerr = operr
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:
@@ -754,16 +737,12 @@ class PyFrame(W_Root):
         if ord(_co_code[self.last_instr]) == YIELD_VALUE:
             start_stack = start_stack >> _MS_BITS
 
-        from pypy.interpreter.pyopcode import SysExcInfoRestorer
         while start_stack > best_stack:
             kind = start_stack & _MS_MASK
             if kind == _MS_EXCEPT:
                 # pop prev_exc from value stack and restore sys.exc_info
-                self.popvalue()
-                block = self.lastblock
-                assert isinstance(block, SysExcInfoRestorer)
-                self.lastblock = block.previous
-                block.cleanupstack(self)
+                w_prev = self.popvalue()
+                self._restore_exc_info(w_prev)
             elif kind == _MS_WITH:
                 # pop __exit__ from value stack; no FinallyBlock to pop (Phase 6)
                 self.popvalue()
@@ -859,7 +838,6 @@ class PyFrame(W_Root):
                 w_newvalue = None
             self.locals_cells_stack_w[i] = w_newvalue
         self.valuestackdepth = 0
-        self.lastblock = None    # the FrameBlock chained list
 
     def _convert_unexpected_exception(self, e):
         from pypy.interpreter import error

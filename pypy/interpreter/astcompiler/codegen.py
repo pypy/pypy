@@ -1533,6 +1533,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
         # exceptional outcome: stack [..., __exit__, prev_exc, exc] after PUSH_EXC_INFO
+        # with_cleanup handles __exit__ raising during WITH_EXCEPT_START: it restores
+        # sys.exc_info from w_prev (via RERAISE 1) before re-raising.  Mirrors CPython's
+        # SETUP_CLEANUP + COPY 3 + POP_EXCEPT + RERAISE 1 pattern.
+        # depth_block=cleanup tells _build_exceptiontable to use cleanup.initial_depth
+        # directly (= stack depth at cleanup entry = what CPython records at SETUP_CLEANUP
+        # time via c->u->u_depth).
+        with_cleanup = self.new_block()
         self.use_next_block(cleanup)
         self.update_position(wih)
         self.emit_op(ops.PUSH_EXC_INFO)
@@ -1541,8 +1548,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.GET_AWAITABLE, 2)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
+        rest_of_handler = self.new_block()
+        self.use_next_block(rest_of_handler)
         exit2 = self.new_block()
         self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2)
+        self.emit_op_arg(ops.RERAISE, 1)
+        self.emit_exception_table_entry(cleanup, with_cleanup, lasti=False,
+                                        end_block=rest_of_handler, depth_block=cleanup)
+        self.use_next_block(with_cleanup)
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)    # pop exc

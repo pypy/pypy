@@ -118,22 +118,6 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
-    @jit.dont_look_inside
-    def _pop_legacy_exc_blocks(self, target, body_start):
-        # Temporary helper; will be removed in Phase 6 when the block stack
-        # is gone entirely.
-        # Pop SysExcInfoRestorers that were pushed inside the body range
-        # (last_instr >= body_start); those from outer handlers must survive.
-        while self.blockstack_non_empty():
-            block = self.lastblock
-            if isinstance(block, SysExcInfoRestorer):
-                if intmask(block.last_instr) < body_start:
-                    break   # outer handler's restorer; do not pop
-                self.pop_block()
-                block.cleanupstack(self)
-            else:
-                break
-
     def handle_operation_error(self, ec, operr, attach_tb=True):
         if attach_tb:
             if 1:
@@ -164,9 +148,8 @@ class __extend__(pyframe.PyFrame):
             ec.exception_trace(self, operr)
 
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
-        target, depth, lasti, body_start = entry
+        target, depth, lasti = entry
         if depth >= 0:
-            self._pop_legacy_exc_blocks(target, body_start)
             # lasti=True means this handler may RERAISE; track the original
             # raise offset so f_lineno is correct if the exception propagates.
             # Mirrors CPython's frame->prev_instr restoration in RERAISE.
@@ -179,14 +162,16 @@ class __extend__(pyframe.PyFrame):
             code = self.getcode()
             stackstart = (code.co_nlocals + len(code.co_cellvars) +
                           len(code.co_freevars))
-            self.dropvaluesuntil(stackstart + depth)
+            target_abs_depth = stackstart + depth
+            self.dropvaluesuntil(target_abs_depth)
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
             return target
 
-        # No exception table entry: clean up SysExcInfoRestorer blocks
-        # (restoring sys.exc_info) and propagate the exception out of the frame.
-        self.unrollstack()
+        # No exception table entry: propagate out of the frame.
+        # sys.exc_info will be overwritten by the next PUSH_EXC_INFO in any
+        # catching handler; no explicit restoration needed (matches CPython).
+        self.frame_finished_execution = True  # allows frame.clear() after propagation
         # Restore last_instr to the original raise site if a lasti=True handler
         # saved it, so that f_lineno reflects where the exception was raised.
         if self._reraise_saved_lasti >= 0:
@@ -231,7 +216,6 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                assert not self.blockstack_non_empty()
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
@@ -503,17 +487,6 @@ class __extend__(pyframe.PyFrame):
 
             if jit.we_are_jitted():
                 return next_instr
-
-    @jit.unroll_safe
-    def unrollstack(self):
-        while self.blockstack_non_empty():
-            block = self.pop_block()
-            if not isinstance(block, SysExcInfoRestorer):
-                return block
-            block.cleanupstack(self)
-        self.frame_finished_execution = True  # for generators
-        return None
-
 
     ### accessor functions ###
 
@@ -831,12 +804,8 @@ class __extend__(pyframe.PyFrame):
 
     def POP_EXCEPT(self, oparg, next_instr):
         w_prev_exc = self.popvalue()
-        # Pop the SysExcInfoRestorer that PUSH_EXC_INFO placed on the block stack,
-        # and use it to restore the previous exception state.
-        block = self.lastblock
-        assert isinstance(block, SysExcInfoRestorer)
-        self.lastblock = block.previous
-        block.cleanupstack(self)
+        # Restore sys.exc_info to the value saved by PUSH_EXC_INFO.
+        self._restore_exc_info(w_prev_exc)
         # Exception was handled normally; discard any saved lasti.
         self._reraise_saved_lasti = -1
 
@@ -860,10 +829,6 @@ class __extend__(pyframe.PyFrame):
                 w_prev = self.space.w_None
         else:
             w_prev = self.space.w_None
-        # Push a SysExcInfoRestorer so handle_operation_error can restore
-        # sys.exc_info if an exception propagates out of this handler block.
-        block = SysExcInfoRestorer(prev_operr, self.lastblock, self.last_instr)
-        self.lastblock = block
         # Set the new current exception in the appropriate location.
         from pypy.module.exceptions.interp_exceptions import W_BaseException
         space = self.space
@@ -875,15 +840,6 @@ class __extend__(pyframe.PyFrame):
             self.getorcreatedebug().hidden_operationerr = operr
         self.pushvalue(w_prev)
         self.pushvalue(w_exc)
-
-    @jit.unroll_safe
-    def _any_except_or_finally_handler(self):
-        block = self.lastblock
-        while block is not None:
-            if isinstance(block, SysExcInfoRestorer):
-                return True
-            block = block.previous
-        return False
 
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
@@ -1703,27 +1659,22 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
     def END_ASYNC_FOR(self, oparg, next_instr):
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
-
+        # Stack: [..., aiter, w_prev, w_exc]  (PUSH_EXC_INFO pushed w_prev and w_exc)
         w_exc = self.popvalue()
+        w_prev = self.popvalue()
         if self.space.exception_match(self.space.type(w_exc), self.space.w_StopAsyncIteration):
-            self.popvalue() # unroller
-            self.popvalue() # aiter
+            self._restore_exc_info(w_prev)
+            self.popvalue()  # aiter
             return next_instr
         else:
-            unroller = self.peekvalue(0)
-            if not isinstance(unroller, SApplicationException):
-                raise oefmt(self.space.w_RuntimeError,
-                        "END_ASYNC_FOR found no exception")
-            block = self.unrollstack()
-            if block is None:
-                w_result = unroller.reraise()
-                assert 0, "unreachable"
-            else:
-                next_instr = block.handle(self, unroller)
-        return next_instr
+            # Non-StopAsyncIteration: re-raise via exception table (like RERAISE).
+            # dropvaluesuntil in handle_operation_error will discard aiter.
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            space = self.space
+            w_value = space.interp_w(W_BaseException, w_exc)
+            w_type = space.type(w_exc)
+            operr = OperationError(w_type, w_exc, w_value.w_traceback)
+            raise RaiseWithExplicitTraceback(operr)
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
@@ -1945,56 +1896,6 @@ class SApplicationException(W_Root):
         self.operr = operr
     def reraise(self):
         raise RaiseWithExplicitTraceback(self.operr)
-
-
-class FrameBlock(object):
-    """Abstract base class for frame blocks from the blockstack,
-    used by the SETUP_XXX and POP_BLOCK opcodes."""
-
-    _immutable_ = True
-
-    def __init__(self, valuestackdepth, handlerposition, previous):
-        self.handlerposition = handlerposition
-        self.valuestackdepth = valuestackdepth
-        self.previous = previous   # this makes a linked list of blocks
-
-    def cleanupstack(self, frame):
-        frame.dropvaluesuntil(self.valuestackdepth)
-
-    # internal pickling interface, not using the standard protocol
-    def _get_state_(self, space):
-        return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
-                               space.newint(self.valuestackdepth)])
-
-    def handle(self, frame, unroller):
-        """ Purely abstract method
-        """
-        raise NotImplementedError
-
-
-class SysExcInfoRestorer(FrameBlock):
-    """
-    This is a special, implicit block type which is created when entering a
-    finally or except handler. It does not belong to any opcode
-    """
-
-    _immutable_ = True
-    _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
-
-    def __init__(self, operr, previous, last_instr):
-        self.operr = operr
-        self.previous = previous
-        self.last_instr = last_instr
-
-    def handle(self, frame, unroller):
-        assert False # never called
-
-    def cleanupstack(self, frame):
-        ec = frame.space.getexecutioncontext()
-        if not frame.hide():
-            ec.set_sys_exc_info(self.operr)
-        else:
-            frame.getorcreatedebug().hidden_operationerr = self.operr
 
 
 def source_as_str(space, w_source, funcname, what, flags):
