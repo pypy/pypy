@@ -1385,68 +1385,39 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def WITH_EXCEPT_START(self, oparg, next_instr):
-        w_top = self.peekvalue(0)
-        if isinstance(w_top, SApplicationException):
-            # old block-stack mode: stack is [..., __exit__, unroller]
-            self.popvalue()             # == w_top
-            w_exitfunc = self.popvalue()
-            self.pushvalue(w_top)
-            operr = w_top.operr
-            w_traceback = operr.get_w_traceback(self.space)
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
-        else:
-            # new exception-table mode: stack is [..., __exit__, prev_exc, exc]
-            w_exc = self.peekvalue(0)      # TOS
-            w_exitfunc = self.peekvalue(2) # TOS+2
-            space = self.space
-            from pypy.module.exceptions.interp_exceptions import W_BaseException
-            w_value = space.interp_w(W_BaseException, w_exc)
-            w_type = space.type(w_exc)
-            w_traceback = w_value.w_traceback
-            if w_traceback is None:
-                w_traceback = space.w_None
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc, w_type, w_exc, w_traceback)
+        # exception-table mode: stack is [..., __exit__, prev_exc, exc]
+        w_exc = self.peekvalue(0)      # TOS
+        w_exitfunc = self.peekvalue(2) # TOS+2
+        space = self.space
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        w_value = space.interp_w(W_BaseException, w_exc)
+        w_type = space.type(w_exc)
+        w_traceback = w_value.w_traceback
+        if w_traceback is None:
+            w_traceback = space.w_None
+        w_res = self.call_contextmanager_exit_function(
+            w_exitfunc, w_type, w_exc, w_traceback)
         self.pushvalue(w_res)
 
     def RERAISE(self, reset_last_instr, next_instr):
+        # exception-table mode: w_exc is a BaseException instance
         w_exc = self.popvalue()
-        if isinstance(w_exc, SApplicationException):
-            # old block-stack mode
-            unroller = w_exc
-            if reset_last_instr:
-                block = self.lastblock
-                assert isinstance(block, SysExcInfoRestorer)
-                self.last_instr = block.last_instr
-            block = self.unrollstack()
-            if block is None:
-                w_result = unroller.reraise()
-                assert 0, "unreachable"
-            else:
-                next_instr = block.handle(self, unroller)
-            return next_instr
-        else:
-            # new exception-table mode: w_exc is a BaseException instance
-            if reset_last_instr:
-                w_prev_exc = self.popvalue()
-                ec = self.space.getexecutioncontext()
-                ec.set_sys_exc_info3(w_prev_exc)
-            from pypy.module.exceptions.interp_exceptions import W_BaseException
-            space = self.space
-            w_value = space.interp_w(W_BaseException, w_exc)
-            w_type = space.type(w_exc)
-            operr = OperationError(w_type, w_exc, w_value.w_traceback)
-            # Raise as RaiseWithExplicitTraceback so that handle_bytecode
-            # dispatches via its 'except RaiseWithExplicitTraceback' branch
-            # (calling handle_operation_error with attach_tb=False).  This
-            # avoids a spurious traceback entry and exception_trace call that
-            # would occur if the OperationError bubbled up to the plain
-            # 'except OperationError' branch in handle_bytecode.
-            raise RaiseWithExplicitTraceback(operr)
+        if reset_last_instr:
+            w_prev_exc = self.popvalue()
+            ec = self.space.getexecutioncontext()
+            ec.set_sys_exc_info3(w_prev_exc)
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        space = self.space
+        w_value = space.interp_w(W_BaseException, w_exc)
+        w_type = space.type(w_exc)
+        operr = OperationError(w_type, w_exc, w_value.w_traceback)
+        # Raise as RaiseWithExplicitTraceback so that handle_bytecode
+        # dispatches via its 'except RaiseWithExplicitTraceback' branch
+        # (calling handle_operation_error with attach_tb=False).  This
+        # avoids a spurious traceback entry and exception_trace call that
+        # would occur if the OperationError bubbled up to the plain
+        # 'except OperationError' branch in handle_bytecode.
+        raise RaiseWithExplicitTraceback(operr)
 
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
