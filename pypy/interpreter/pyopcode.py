@@ -841,20 +841,7 @@ class __extend__(pyframe.PyFrame):
         self._reraise_saved_lasti = -1
 
     def POP_BLOCK(self, oparg, next_instr):
-        pass  # FinallyBlock removed in Phase 6; POP_BLOCK is a no-op
-
-    def save_and_change_sys_exc_info(self, operationerr):
-        ec = self.space.getexecutioncontext()
-        last_exception = ec.current_exception()
-        block = SysExcInfoRestorer(last_exception, self.lastblock, self.last_instr)
-        self.lastblock = block
-        if operationerr is not None:   # otherwise, don't change sys_exc_info
-            if not self.hide():
-                ec.set_sys_exc_info(operationerr)
-            else:
-                # for hidden frames, a more limited solution should be
-                # enough: store away the exception on the frame
-                self.getorcreatedebug().hidden_operationerr = operationerr
+        pass  # no block-stack entry to pop; kept in bytecode as range marker
 
     def PUSH_EXC_INFO(self, oparg, next_instr):
         w_exc = self.popvalue()
@@ -1359,9 +1346,7 @@ class __extend__(pyframe.PyFrame):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self.valuestackdepth,
-                            next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
+        pass  # never emitted by the compiler; dead opcode
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
         pass  # dummy marker; no longer pushes a block (Phase 5)
@@ -2010,55 +1995,6 @@ class SysExcInfoRestorer(FrameBlock):
             ec.set_sys_exc_info(self.operr)
         else:
             frame.getorcreatedebug().hidden_operationerr = self.operr
-
-
-class ExceptBlock(FrameBlock):
-    """An try:except: block.  Stores the position of the exception handler."""
-
-    _immutable_ = True
-    _opname = 'SETUP_EXCEPT'
-
-    def handle(self, frame, unroller):
-        # push the exception to the value stack for inspection by the
-        # exception handler (the code after the except:)
-        self.cleanupstack(frame)
-        # the stack setup is slightly different than in CPython:
-        # instead of the traceback, we store the unroller object,
-        # wrapped.
-        assert isinstance(unroller, SApplicationException)
-        operationerr = unroller.operr
-        w_value = operationerr.normalize_exception(frame.space)
-        frame.pushvalue(unroller)
-        frame.pushvalue(w_value)
-        # set the current value of sys_exc_info to operationerr,
-        # saving the old value in a custom type of FrameBlock
-        frame.save_and_change_sys_exc_info(operationerr)
-        return r_uint(self.handlerposition)   # jump to the handler
-
-
-class FinallyBlock(FrameBlock):
-    """A try:finally: block.  Stores the position of the exception handler."""
-
-    _immutable_ = True
-    _opname = 'SETUP_FINALLY'
-
-    def handle(self, frame, unroller):
-        # any abnormal reason for unrolling a finally: triggers the end of
-        # the block unrolling and the entering the finally: handler.
-        # see comments in cleanup().
-        self.cleanupstack(frame)
-        operationerr = None
-        if isinstance(unroller, SApplicationException):
-            operationerr = unroller.operr
-            operationerr.normalize_exception(frame.space)
-        frame.pushvalue(unroller)
-        # set the current value of sys_exc_info to operationerr,
-        # saving the old value in a custom type of FrameBlock
-        frame.save_and_change_sys_exc_info(operationerr)
-        return r_uint(self.handlerposition)   # jump to the handler
-
-    def pop_block(self, frame):
-        pass
 
 
 def source_as_str(space, w_source, funcname, what, flags):

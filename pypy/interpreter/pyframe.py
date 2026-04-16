@@ -1038,7 +1038,7 @@ def mark_stacks(code):
                 new_stack = stack
                 kind = new_stack & _MS_MASK
                 if kind == _MS_WITH:
-                    # Normal with-body exit: FinallyBlock popped, __exit__ becomes Object.
+                    # Normal with-body exit: __exit__ becomes a plain Object on the stack.
                     new_stack = _ms_push(new_stack >> _MS_BITS, _MS_OBJECT)
                 if _ms_set(stacks, i + 1, new_stack):
                     changed = True
