@@ -100,18 +100,21 @@ class W_MemoryView(W_Root):
     def _release_underlying(self, space):
         # Call __release_buffer__ on the underlying object (Python 3.12 protocol),
         # falling back to view.releasebuffer() for objects that do not implement it.
+        # Only owning views (SimpleView but not NonOwningView) trigger
+        # __release_buffer__; borrowed views (casts, readonly wrappers, etc.)
+        # must not independently decrement the export counter.
         view = self.view
         self.view = None
         if view is None:
             return
         w_obj = view.w_obj
-        if space is not None and w_obj is not None:
+        if space is not None and w_obj is not None and view.owns_export:
             release_fn = space.lookup(w_obj, '__release_buffer__')
             if release_fn is not None:
                 space.call_function(release_fn, w_obj, self)
                 return
-        # Fallback: no space (finalizer) or no __release_buffer__ — use
-        # the internal releasebuffer() path directly.
+        # Fallback: no space (finalizer), non-owning view, or no __release_buffer__ 
+        # use the internal releasebuffer() path directly.
         view.releasebuffer()
 
     def getndim(self):
@@ -834,9 +837,6 @@ class IndirectView(BufferView):
 
     def as_writebuf(self):
         return self.parent.as_writebuf()
-
-    def releasebuffer(self):
-        self.parent.releasebuffer()
 
 class BufferView1D(IndirectView):
     _immutable_ = True

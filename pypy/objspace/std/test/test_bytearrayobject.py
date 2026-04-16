@@ -674,6 +674,33 @@ class AppTestBytesArray:
         b2.append(ord('!'))
         assert b2 == bytearray(b'hi!')
 
+    def test_exports_cast_release_then_original_gc(self):
+        # Releasing the cast must not decrement _exports on the bytearray;
+        # the GC finalizer of the original memoryview must do it exactly once.
+        import gc
+        b = bytearray(b'hello world')
+        m = memoryview(b)
+        cast = m.cast('B')
+        cast.release()         # must NOT decrement _exports
+        raises(BufferError, b.append, ord('!'))   # m still holds the export
+        del m
+        gc.collect()
+        b.append(ord('!'))     # must work now
+        assert b == bytearray(b'hello world!')
+
+    def test_exports_original_release_then_cast_gc(self):
+        # Releasing the original must decrement _exports; GC of cast must be no-op.
+        import gc
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        cast = m.cast('B')
+        m.release()            # decrements _exports to 0
+        b.append(ord('!'))     # must work immediately
+        del cast
+        gc.collect()           # cast GC must NOT double-decrement
+        b.append(ord('?'))
+        assert b == bytearray(b'hello!?')
+
     def test_decode(self):
         b = bytearray(b'abcdefghi')
         u = b.decode('utf-8')

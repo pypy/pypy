@@ -10,8 +10,14 @@ class BufferInterfaceNotFound(Exception):
 
 class BufferView(object):
     """Abstract base class for buffers."""
-    _attrs_ = ['readonly', 'w_obj']
+    _attrs_ = ['readonly', 'w_obj', 'owns_export']
     _immutable_ = True
+    # True only for views that directly hold an export reference-count increment
+    # (i.e. created by buffer_w() on an object that tracks exports).  All derived
+    # or borrowed views (NonOwningView, ReadonlyWrapper, IndirectView subclasses)
+    # leave owns_export = False so that _release_underlying() does not call
+    # __release_buffer__ on their behalf.
+    owns_export = False
 
     def getlength(self):
         """Returns the size in bytes (even if getitemsize() > 1)."""
@@ -253,6 +259,7 @@ class RawBufferView(RawBufferView_Base):
 class SimpleView(RawBufferView_Base):
     _attrs_ = ['readonly', 'data']
     _immutable_ = True
+    owns_export = True
 
     def __init__(self, data, w_obj=None):
         self.data = data
@@ -312,6 +319,7 @@ class NonOwningView(SimpleView):
     (the memoryview itself manages that lifetime via __release_buffer__).
     """
     _immutable_ = True
+    owns_export = False
 
     def releasebuffer(self):
         pass   # no-op: export ref-count was not incremented for this borrow
@@ -441,9 +449,6 @@ class ReadonlyWrapper(BufferView):
 
     def getstrides(self):
         return self.view.getstrides()
-
-    def releasebuffer(self):
-        return self.view.releasebuffer()
 
     def new_slice(self, start, step, slicelength):
         return ReadonlyWrapper(BufferSlice(self, start, step, slicelength, w_obj=self.w_obj))
