@@ -917,6 +917,12 @@ def first_line_not_before(lines, line):
         return -1
     return result
 
+def _ms_set(stacks, idx, s):
+    if stacks[idx] == _MS_UNINITIALIZED:
+        stacks[idx] = s
+        return True
+    return False
+
 def mark_stacks(code):
     """Compute abstract value-stack state at each instruction index.
 
@@ -944,96 +950,90 @@ def mark_stacks(code):
             # Handle EXTENDED_ARG: _get_arg reads at byte address i*2
             arg = _get_arg(code.co_code, i * 2)
 
-            def _set(idx, s):
-                if stacks[idx] == _MS_UNINITIALIZED:
-                    stacks[idx] = s
-                    return True
-                return False
-
             if opcode == RETURN_VALUE or opcode == RAISE_VARARGS or opcode == RERAISE:
                 pass  # terminal; no fall-through
             elif opcode == JUMP_FORWARD:
                 j = arg + i + 1   # instruction index
-                if _set(j, stack):
+                if _ms_set(stacks, j, stack):
                     changed = True
             elif opcode == JUMP_ABSOLUTE:
                 j = arg           # instruction index (arg*2 is byte offset, arg is instr index)
-                if _set(j, stack):
+                if _ms_set(stacks, j, stack):
                     changed = True
             elif (opcode == POP_JUMP_IF_FALSE or opcode == POP_JUMP_IF_TRUE):
                 # pop TOS (condition), branch or fall
                 popped = stack >> _MS_BITS
                 j = arg           # absolute instruction index
-                if _set(j, popped):
+                if _ms_set(stacks, j, popped):
                     changed = True
-                if _set(i + 1, popped):
+                if _ms_set(stacks, i + 1, popped):
                     changed = True
             elif (opcode == JUMP_IF_FALSE_OR_POP or opcode == JUMP_IF_TRUE_OR_POP):
                 j = arg           # absolute instruction index
                 # branch: TOS stays; fall-through: TOS popped
-                if _set(j, stack):
+                if _ms_set(stacks, j, stack):
                     changed = True
-                if _set(i + 1, stack >> _MS_BITS):
+                if _ms_set(stacks, i + 1, stack >> _MS_BITS):
                     changed = True
             elif opcode == JUMP_IF_NOT_EXC_MATCH:
                 # pops two values (exc + type), branches if no match
                 popped = stack >> (_MS_BITS * 2)
                 j = arg           # absolute instruction index
-                if _set(j, popped):
+                if _ms_set(stacks, j, popped):
                     changed = True
-                if _set(i + 1, popped):
+                if _ms_set(stacks, i + 1, popped):
                     changed = True
             elif opcode == FOR_ITER:
                 # fall-through: iterator still on stack, push Object (loop var)
                 ft = _ms_push(stack, _MS_OBJECT)
-                if _set(i + 1, ft):
+                if _ms_set(stacks, i + 1, ft):
                     changed = True
                 # branch (exhausted): pop iterator
                 j = arg + i + 1
-                if _set(j, stack >> _MS_BITS):
+                if _ms_set(stacks, j, stack >> _MS_BITS):
                     changed = True
             elif opcode == GET_ITER or opcode == GET_AITER:
                 # replace TOS Object with Iterator
                 new_stack = _ms_push(stack >> _MS_BITS, _MS_ITERATOR)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             elif opcode == END_ASYNC_FOR:
                 # pops 2: iterator + exception (or similar)
                 new_stack = stack >> (_MS_BITS * 2)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             elif opcode == PUSH_EXC_INFO:
                 # pops Object (new_exc), pushes prev_exc (Except) then new_exc (Object)
                 # net: replaces TOS Object with Except, pushes Object above it
                 below = stack >> _MS_BITS
                 new_stack = _ms_push(_ms_push(below, _MS_EXCEPT), _MS_OBJECT)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             elif opcode == POP_EXCEPT:
                 # pops the prev_exc (Except slot); also pops from block stack (not tracked here)
                 new_stack = stack >> _MS_BITS
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             elif opcode == SETUP_WITH or opcode == BEFORE_ASYNC_WITH:
                 # SETUP_WITH: __enter__ result was TOS Object; replace with WITH kind.
                 # Then push Object for the __enter__ return value above it.
                 below = stack >> _MS_BITS
                 new_stack = _ms_push(_ms_push(below, _MS_WITH), _MS_OBJECT)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             elif opcode == SETUP_ASYNC_WITH:
                 # SETUP_ASYNC_WITH has delta 0 in assemble.py; no stack change here.
-                if _set(i + 1, stack):
+                if _ms_set(stacks, i + 1, stack):
                     changed = True
             elif opcode == SETUP_FINALLY or opcode == SETUP_EXCEPT:
                 # Dummy marker; SETUP_FINALLY is now a NOP in the interpreter.
                 # No block pushed, no abstract stack change.
-                if _set(i + 1, stack):
+                if _ms_set(stacks, i + 1, stack):
                     changed = True
             elif opcode == EXTENDED_ARG:
                 # Prefix byte; no stack effect.  The real opcode that follows
                 # will be processed on the next iteration (i+1).
-                if _set(i + 1, stack):
+                if _ms_set(stacks, i + 1, stack):
                     changed = True
             elif opcode == POP_BLOCK:
                 new_stack = stack
@@ -1041,7 +1041,7 @@ def mark_stacks(code):
                 if kind == _MS_WITH:
                     # Normal with-body exit: FinallyBlock popped, __exit__ becomes Object.
                     new_stack = _ms_push(new_stack >> _MS_BITS, _MS_OBJECT)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             else:
                 delta = _opcode_stack_effect(opcode, arg)
@@ -1051,7 +1051,7 @@ def mark_stacks(code):
                 elif delta > 0:
                     for _ in range(delta):
                         new_stack = _ms_push(new_stack, _MS_OBJECT)
-                if _set(i + 1, new_stack):
+                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
         # Exception table scan: seed handler entries from the body-range start stack.
         # Must be inside the while-changed loop so stacks[start_raw] is initialized.

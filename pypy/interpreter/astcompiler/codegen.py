@@ -1241,16 +1241,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_FORWARD, next_except)
 
             self.use_next_block(pop_next_except)
-            self.update_position(handler)  # match CPython: cleanup at except* clause line
+            self.no_position_info()  # artificial, matches CPython UNSET_LOC
             self.emit_op(ops.POP_TOP)
 
             self.use_next_block(next_except)
-        # Reset position to the last except* clause so the post-loop cleanup
-        # opcodes (LIST_APPEND, PREP_RERAISE_STAR, RETURN_VALUE, etc.) are
-        # attributed to that line, matching CPython's behaviour and allowing
-        # pdb/tracing to stop correctly at the except* line.
-        if handler is not None:
-            self.update_position(handler)
+        # Mark the post-loop cleanup as artificial (no source line), matching
+        # CPython's UNSET_LOC before PREP_RERAISE_STAR.  These opcodes must not
+        # generate spurious line-trace events.
+        self.no_position_info()
         self.emit_op_arg(ops.LIST_APPEND, 1)
         self.emit_op(ops.PREP_RERAISE_STAR)
         self.emit_op(ops.DUP_TOP)
@@ -1263,8 +1261,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, end)
 
         self.use_next_block(reraise_block)
-        if handler is not None:
-            self.update_position(handler)
+        self.no_position_info()  # artificial, matches CPython UNSET_LOC
         self.pop_frame_block(F_EXCEPTION_GROUP_HANDLER, None)
         self.emit_op(ops.ROT_TWO)
         self.emit_op(ops.POP_EXCEPT)  # pop prev_exc, restore sys.exc_info

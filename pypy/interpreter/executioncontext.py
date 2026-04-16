@@ -189,7 +189,8 @@ class ExecutionContext(object):
         d = frame.getorcreatedebug()
         lastline = d.f_lineno
         lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
-        d.f_lineno = lineno
+        if lineno != -1:
+            d.f_lineno = lineno
         if d.f_trace_lines and lineno != -1:
             # when we are at a start of a line, or executing a backwards jump,
             # produce a line event
