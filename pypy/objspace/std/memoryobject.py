@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import BufferView, SubBuffer, ReadonlyWrapper
+from pypy.interpreter.buffer import BufferView, SubBuffer, ReadonlyWrapper, SimpleView, NonOwningView
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -93,6 +93,27 @@ class W_MemoryView(W_Root):
         self.flags = 0
         self._init_flags()
 
+    def _finalize_(self):
+        if self.view is not None:
+            self._release_underlying(None)
+
+    def _release_underlying(self, space):
+        # Call __release_buffer__ on the underlying object (Python 3.12 protocol),
+        # falling back to view.releasebuffer() for objects that do not implement it.
+        view = self.view
+        self.view = None
+        if view is None:
+            return
+        w_obj = view.w_obj
+        if space is not None and w_obj is not None:
+            release_fn = space.lookup(w_obj, '__release_buffer__')
+            if release_fn is not None:
+                space.call_function(release_fn, w_obj, self)
+                return
+        # Fallback: no space (finalizer) or no __release_buffer__ — use
+        # the internal releasebuffer() path directly.
+        view.releasebuffer()
+
     def getndim(self):
         return self.view.getndim()
 
@@ -141,7 +162,15 @@ class W_MemoryView(W_Root):
                     "memoryview: cannot cast to unsigned bytes if the format flag "
                     "is present");
             # self.view.strides = []
-        return self.view
+        # Return a non-owning wrapper so callers that call releasebuffer() on
+        # the result (transient internal use) do not touch the _exports counter
+        # that belongs to this memoryview's lifetime.  Only SimpleView carries
+        # an owned export ref-count; other BufferView subclasses already have
+        # a no-op releasebuffer() on the base class.
+        view = self.view
+        if isinstance(view, SimpleView):
+            return NonOwningView(view.data, w_obj=view.w_obj)
+        return view
 
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
@@ -171,6 +200,7 @@ class W_MemoryView(W_Root):
             else:
                 str1 = self.view.as_str()
                 str2 = view.as_str()
+                view.releasebuffer()
                 return space.newbool(getattr(operator, name)(str1, str2))
         descr__cmp.func_name = name
         return descr__cmp
@@ -331,9 +361,11 @@ class W_MemoryView(W_Root):
         elif step == 1:
             value = space.buffer_w(w_obj, space.BUF_CONTIG_RO)
             if value.getlength() != slicelength * itemsize:
+                value.releasebuffer()
                 raise oefmt(space.w_ValueError,
                             "cannot modify size of memoryview object")
             self.view.setbytes(start * itemsize, value.as_str())
+            value.releasebuffer()
         else:
             if self.getndim() != 1:
                 raise oefmt(space.w_NotImplementedError,
@@ -357,6 +389,7 @@ class W_MemoryView(W_Root):
             for i in range(src_shape0):
                 data.append(src.getbytes(off, itemsize))
                 off += src_stride0
+            src.releasebuffer()
             off = 0
             dst_stride0 = self.getstrides()[0] * step
             for dataslice in data:
@@ -428,15 +461,15 @@ class W_MemoryView(W_Root):
 
     def descr_release(self, space):
         'Release the underlying buffer exposed by the memoryview object.'
-        if self.view:
-            self.view.releasebuffer()
-        self.view = None
+        if self.view is not None:
+            self._release_underlying(space)
 
     def descr_release_buffer(self, space, w_view):
-        # assert view is w_view
-        if self.view:
-            self.view.releasebuffer()
-        self.view = None
+        # Called via bf_releasebuffer when C code releases a buffer it obtained
+        # from this memoryview (via PyObject_GetBuffer on the memoryview itself).
+        # W_MemoryView.buffer_w() does not increment the underlying object's
+        # _exports counter, so there is nothing to undo here.
+        pass
 
     def _check_released(self, space):
         if self.view is None:
@@ -448,9 +481,8 @@ class W_MemoryView(W_Root):
         return self
 
     def descr_exit(self, space, __args__):
-        if self.view:
-            self.view.releasebuffer()
-        self.view = None
+        if self.view is not None:
+            self._release_underlying(space)
         return space.w_None
 
     def descr_pypy_raw_address(self, space):
@@ -802,6 +834,9 @@ class IndirectView(BufferView):
 
     def as_writebuf(self):
         return self.parent.as_writebuf()
+
+    def releasebuffer(self):
+        self.parent.releasebuffer()
 
 class BufferView1D(IndirectView):
     _immutable_ = True

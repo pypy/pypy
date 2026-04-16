@@ -259,6 +259,9 @@ class SimpleView(RawBufferView_Base):
         self.readonly = self.data.readonly
         self.w_obj = w_obj
 
+    def releasebuffer(self):
+        self.data.releasebuffer()
+
     def getformat(self):
         return 'B'
 
@@ -299,6 +302,19 @@ class SimpleView(RawBufferView_Base):
     def setitem_w(self, space, idx, w_obj):
         idx = self.get_offset(space, 0, idx)
         self.data[idx] = space.byte_w(w_obj)
+
+
+class NonOwningView(SimpleView):
+    """A SimpleView that does not own the buffer export reference.
+
+    Used by W_MemoryView.buffer_w() so that transient callers can safely call
+    releasebuffer() without decrementing the underlying object's _exports counter
+    (the memoryview itself manages that lifetime via __release_buffer__).
+    """
+    _immutable_ = True
+
+    def releasebuffer(self):
+        pass   # no-op: export ref-count was not incremented for this borrow
 
 
 class BufferSlice(BufferView):

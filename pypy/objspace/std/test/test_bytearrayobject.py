@@ -578,6 +578,102 @@ class AppTestBytesArray:
         buf[4:6] = b'EF'
         assert b == b'abcDEFghi'
 
+    def test_buffer_export_locks_resize(self):
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        raises(BufferError, b.extend, b'x' * 100)
+        raises(BufferError, b.__iadd__, b'x')
+        raises(BufferError, b.append, ord('x'))
+        raises(BufferError, b.insert, 0, ord('x'))
+        raises(BufferError, b.pop)
+        raises(BufferError, b.remove, ord('h'))
+        raises(BufferError, b.clear)
+        m.release()
+        b.extend(b'x' * 100)
+
+    def test_buffer_release_unlocks_resize(self):
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        m.release()
+        b.append(ord('x'))
+        assert b == bytearray(b'hellox')
+
+    def test_buffer_gc_releases_export(self):
+        import gc
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        del m
+        gc.collect()
+        b.append(ord('x'))
+
+    def test_buffer_double_release_no_crash(self):
+        b = bytearray(b'hello')
+        m = memoryview(b)
+        m.release()
+        m.release()
+        b.append(ord('x'))
+
+    def test_buffer_memoryview_copy_gc(self):
+        import gc
+        b = bytearray(b'hello')
+        m1 = memoryview(b)
+        m2 = memoryview(m1)
+        del m1, m2
+        gc.collect()
+        b.append(ord('x'))
+
+    def test_buffer_context_manager_releases(self):
+        b = bytearray(b'hello')
+        with memoryview(b):
+            raises(BufferError, b.append, ord('x'))
+        b.append(ord('x'))
+
+    def test_exports_released_after_readbuf(self):
+        import os
+        b = bytearray(b"hello")
+        fd = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.write(fd, b)
+        finally:
+            os.close(fd)
+        del b[:3]
+        assert b == bytearray(b"lo")
+
+    def test_exports_released_after_bytes_concat(self):
+        b = bytearray(b'world')
+        _ = b'hello' + b
+        b.append(ord('!'))
+        assert b == bytearray(b'world!')
+
+    def test_exports_released_after_bytearray_concat_rhs(self):
+        b = bytearray(b'world')
+        _ = bytearray(b'hello') + b
+        b.append(ord('!'))
+
+    def test_exports_released_after_formatting(self):
+        b = bytearray(b'world')
+        _ = bytearray(b'hello %s') % b
+        b.append(ord('!'))
+        assert b == bytearray(b'world!')
+
+    def test_exports_released_after_bytesio_write(self):
+        import _io
+        b = bytearray(b'hello')
+        _io.BytesIO().write(b)
+        b.append(ord('!'))
+        assert b == bytearray(b'hello!')
+
+    def test_exports_released_after_pickle(self):
+        import _pickle
+        b = bytearray(b'hello')
+        _pickle.dumps(b, 5)
+        b.append(ord('!'))
+        assert b == bytearray(b'hello!')
+        b2 = bytearray(b'hi')
+        _pickle.dumps(b2, 4)
+        b2.append(ord('!'))
+        assert b2 == bytearray(b'hi!')
+
     def test_decode(self):
         b = bytearray(b'abcdefghi')
         u = b.decode('utf-8')

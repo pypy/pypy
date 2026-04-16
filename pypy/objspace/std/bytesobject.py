@@ -497,7 +497,10 @@ class W_BytesObject(W_AbstractBytesObject):
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
-        return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
+        buf = space.buffer_w(w_other, space.BUF_SIMPLE)
+        result = buf.as_str()
+        buf.releasebuffer()
+        return result
 
     def _chr(self, char):
         assert len(char) == 1
@@ -824,7 +827,9 @@ def _convert_from_buffer_or_iterable(space, w_source):
         if not e.match(space, space.w_TypeError):
             raise
     else:
-        return buf.as_str()
+        result = buf.as_str()
+        buf.releasebuffer()
+        return result
 
     if space.isinstance_w(w_source, space.w_unicode):
         raise oefmt(space.w_TypeError,

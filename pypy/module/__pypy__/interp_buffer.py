@@ -20,7 +20,10 @@ class W_Bufferable(W_Root):
 
     def readbuf_w(self, space):
         mv = space.call_method(self, '__buffer__', space.newint(0))
-        return mv.buffer_w(space, 0).as_readbuf()
+        buf = mv.buffer_w(space, 0)
+        result = buf.as_readbuf()
+        buf.releasebuffer()
+        return result
 
 W_Bufferable.typedef = TypeDef("Bufferable", None, None, 'read-write',
     __doc__ = """a helper class for a app-level class (like _ctypes.Array)
@@ -105,8 +108,13 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                       "shape %s and strides %s exceed object size %d",
                       shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
+    # Pass w_obj (the input, e.g. a memoryview) as the owning object, not
+    # view.w_obj (the underlying bytearray).  This keeps the input alive for
+    # as long as the returned memoryview lives, and ensures _release_underlying
+    # calls w_obj.__release_buffer__ (a no-op for memoryview) rather than
+    # bytearray.__release_buffer__ for an export that M2 never acquired.
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
-                                                  shape, strides, w_obj=view.w_obj))
+                                                  shape, strides, w_obj=w_obj))
 
 class FormatBufferViewND(BufferViewND):
     _immutable_ = True

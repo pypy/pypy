@@ -1664,14 +1664,20 @@ class ObjSpace(object):
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
-            return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
+            buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+            result = buf.as_readbuf()
+            buf.releasebuffer()
+            return result
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return self._try_buffer_w(w_obj, self.BUF_WRITABLE).as_writebuf()
+            buf = self._try_buffer_w(w_obj, self.BUF_WRITABLE)
+            result = buf.as_writebuf()
+            buf.releasebuffer()
+            return result
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 
@@ -1705,7 +1711,10 @@ class ObjSpace(object):
                 # NB. CPython forbids surrogates here
                 return StringBuffer(w_obj.text_w(self))
             try:
-                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
+                buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+                result = buf.as_readbuf()
+                buf.releasebuffer()
+                return result
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
@@ -1717,7 +1726,10 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
                 return w_obj.text_w(self)                 # surrogates here
             try:
-                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_str()
+                buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+                result = buf.as_str()
+                buf.releasebuffer()
+                return result
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
@@ -1926,7 +1938,9 @@ class ObjSpace(object):
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise
-            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
+            buf = self.buffer_w(w_obj, self.BUF_FULL_RO)
+            result = buf.as_str()
+            buf.releasebuffer()
         if '\x00' in result:
             raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
