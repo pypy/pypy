@@ -302,7 +302,10 @@ class SimpleView(RawBufferView_Base):
 
     def new_slice(self, start, step, slicelength):
         if step == 1:
-            return SimpleView(SubBuffer(self.data, start, slicelength), w_obj=self.w_obj)
+            # Slices borrow from the original view; only the original owns the
+            # export increment.  Use NonOwningView so the slice's releasebuffer()
+            # is a no-op and does not decrement _exports.
+            return NonOwningView(SubBuffer(self.data, start, slicelength), w_obj=self.w_obj)
         else:
             return BufferSlice(self, start, step, slicelength, w_obj=self.w_obj)
 
