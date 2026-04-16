@@ -26,9 +26,9 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 1 | `PUSH_EXC_INFO`, `CHECK_EXC_MATCH` opcodes | Medium | **Done** |
 | 2 | `handle_operation_error` -> table lookup, update `RERAISE`/`POP_EXCEPT`/`WITH_EXCEPT_START` | High | **Done** (translates) |
 | 3 | Compiler: stop emitting `SETUP_FINALLY`/`POP_BLOCK`, emit table entries | High | **Done** (translates) |
-| 4 | JIT: remove `lastblock` from `_virtualizable_`, update trace tests | Low | Not started |
-| 5 | `fset_f_lineno`: replace `markblocks`/`compatible_block_stack` with table-based validation | Medium | Not started |
-| 6 | Remove dead code (`FinallyBlock`, `ExceptBlock`, `SETUP_FINALLY`, etc.) | Low | Not started |
+| 4 | JIT: remove `lastblock` from `_virtualizable_`, update trace tests | Low | **Done** |
+| 5 | `fset_f_lineno`: replace `markblocks`/`compatible_block_stack` with table-based validation | Medium | **Done** |
+| 6 | Remove dead code (`FinallyBlock`, `ExceptBlock`, `SETUP_FINALLY`, etc.) | Low | **Done** |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
@@ -262,6 +262,8 @@ RERAISE-only block guard) can be removed once Phase 9 is in place.
 **Prerequisite:** Phase 8 -- the per-instruction SETUP/POP_BLOCK markers that Phase 8
 introduces are what makes the per-block handler assignment unambiguous.
 
-### Next step  -- Phase 5
-`test_coroutines` passes. Phase 4 (`lastblock` removed from `_virtualizable_`) is done.
-Proceed with Phase 5 (`fset_f_lineno` rewrite) to unblock `test_sys_settrace`.
+### Next step  -- Phase 8
+Phases 4, 5, and 6 are complete. The SysExcInfoRestorer simplification (block-stack removal
+for `PUSH_EXC_INFO`/`POP_EXCEPT`) is also done (no more block stack at all).
+Phase 7 (split `last_instr`) requires benchmark data before landing -- defer.
+Proceed with Phase 8 (per-instruction exception table compiler).

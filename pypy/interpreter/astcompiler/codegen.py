@@ -839,8 +839,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.push_frame_block(F_FOR_LOOP, b_start, b_end)
 
         # Dummy SETUP_FINALLY so _stacksize propagates the right initial_depth
-        # to b_except.  At runtime this pushes a FinallyBlock that POP_BLOCK
-        # removes; exception dispatch uses the exception table entry below.
+        # to b_except.  At runtime this is a NOP; exception dispatch uses the
+        # exception table entry below.
         self.emit_jump(ops.SETUP_FINALLY, b_except)
         b_anext = self.use_next_block()
         b_after_yield = self.new_block()
@@ -2077,8 +2077,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(b_start)
 
         # Dummy SETUP_FINALLY so _stacksize propagates the right initial_depth
-        # to b_except.  At runtime this pushes a FinallyBlock that POP_BLOCK
-        # removes; exception dispatch uses the exception table entry below.
+        # to b_except.  At runtime this is a NOP; exception dispatch uses the
+        # exception table entry below.
         self.emit_jump(ops.SETUP_FINALLY, b_except)
         b_anext = self.use_next_block()
         b_after_yield = self.new_block()
