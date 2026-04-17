@@ -304,6 +304,40 @@ that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://github.com/pypy/pypy/issues/1974
 
+Order of dictionary keys in instance dicts
+------------------------------------------
+
+Instance dictionaries are not always ordered by insertion in PyPy.
+Specifically, this can happen if the ``__init__`` of the class adds attributes
+in different orders. Here's an example::
+
+    >>>> class A:
+    ....     def __init__(self, a, b, reorder=False):
+    ....         if not reorder:
+    ....             self.a = a
+    ....             self.b = b
+    ....         else:
+    ....             self.b = b
+    ....             self.a = a
+    ....
+    >>>> print(A(1, 2).__dict__)
+    {'a': 1, 'b': 2}
+    >>>> print(A(1, 2, reorder=True).__dict__)
+    {'a': 1, 'b': 2}
+
+CPython prints ``{'b': 2, 'a': 1}`` in the last line.
+
+Background: In CPython 3.6, dictionaries became `ordered by insertion`__.
+This is also true for instance dictionaries. In PyPy, regular
+dictionaries have been ordered since 2015__. For instance dictionaries, this is
+not always possible, because they are represented using `Self-style maps/hidden
+classes`__, which are one of the cornerstones of PyPy's performance.
+
+.. __: https://docs.python.org/3/whatsnew/3.6.html#new-dict-implementation
+.. __: https://pypy.org/posts/2015/01/faster-more-memory-efficient-and-more-4096950404745375390.html#
+.. __: https://pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+
+
 Permitted ABI tags in extensions
 --------------------------------
 
@@ -406,7 +440,7 @@ There are bytecode differences between PyPy 3.11 and CPython 3.11:
   CPython 3.11 replaced ``CALL_FUNCTION``, ``CALL_FUNCTION_KW``,
   ``CALL_FUNCTION_EX``, and ``CALL_METHOD`` with a unified ``CALL`` instruction
   (preceded by ``PUSH_NULL`` or ``PRECALL``). PyPy retains the old behaviour. Note
-  that ``PRECALL`` i used by the specialiser to rewrite the call site.
+  that ``PRECALL`` is used by the specialiser to rewrite the call site.
 
   Visible effects: code that dispatches on opcode names or checks for ``PRECALL``
   will not find it in PyPy.
@@ -423,7 +457,7 @@ There are bytecode differences between PyPy 3.11 and CPython 3.11:
   CPython 3.11 embeds inline cache entries directly in the bytecode stream
   (``CACHE`` pseudo-instructions) to support the adaptive specialising
   interpreter. These inflate ``co_code`` considerably. PyPy has no adaptive
-  specialiser and no inline caches, so its code objects are smaller. Any test
+  specialiser and its inline caches are stored elsewhere, so its code objects are smaller. Any test
   that uses ``len(co_code)`` or ``log(len(co_code))`` as a proxy for stack
   depth will see different values.
 
