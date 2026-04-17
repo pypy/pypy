@@ -332,7 +332,7 @@ Background: In CPython 3.6, dictionaries became `ordered by insertion`__.
 This is also true for instance dictionaries. In PyPy, regular
 dictionaries have been ordered since 2015__. For instance dictionaries, this is
 not always possible, because they are represented using `Self-style maps/hidden
-classes`__, which is one of the cornerstones of PyPy's performance.
+classes`__, which are one of the cornerstones of PyPy's performance.
 
 .. __: https://docs.python.org/3/whatsnew/3.6.html#new-dict-implementation
 .. __: https://pypy.org/posts/2015/01/faster-more-memory-efficient-and-more-4096950404745375390.html#
