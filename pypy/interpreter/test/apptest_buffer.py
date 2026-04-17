@@ -67,6 +67,21 @@ def test_slice_gc_cycle():
     assert b[-1] == ord('Z')
 
 
+def test_re_finditer_keeps_buffer():
+    # Replica of lib-python test.test_re.ReTests.test_keep_buffer (bug 14212):
+    # a running re.finditer over a bytearray must hold a buffer export,
+    # preventing modification of the bytearray until the iterator is exhausted
+    # and collected.
+    import re
+    b = bytearray(b'x')
+    it = re.finditer(b'a', b)
+    raises(BufferError, b.extend, b'x' * 400)
+    list(it)
+    del it
+    gc.collect()
+    b.extend(b'x' * 400)  # must succeed now
+
+
 def test_original_release_then_slice_gc():
     # Releasing the original memoryview (decrementing _exports) and then
     # GC-ing the surviving slices must be a no-op for the slices.

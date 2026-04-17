@@ -114,8 +114,10 @@ class W_MemoryView(W_Root):
                 if release_fn is not None:
                     space.call_function(release_fn, w_obj, self)
                     return
-        # Fallback: no space (finalizer), non-owning view, or no __release_buffer__
-        # use the internal releasebuffer() path directly.
+        # Fallback: no space (finalizer), non-owning view, or no __release_buffer__.
+        # Use the internal releasebuffer() path directly.  For non-owning views
+        # this is a no-op; for owning views (SimpleView) it decrements the
+        # underlying object's export counter via e.g. BytearrayBuffer.releasebuffer.
         view.releasebuffer()
 
     def getndim(self):

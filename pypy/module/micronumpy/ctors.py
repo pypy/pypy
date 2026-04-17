@@ -531,6 +531,7 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
 
 
 def _getbuffer(space, w_buffer):
+    # XXX this is unsafe, nothing keeps the buffer alive
     try:
         return space.writebuf_w(w_buffer)
     except OperationError as e:

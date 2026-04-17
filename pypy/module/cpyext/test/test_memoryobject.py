@@ -222,6 +222,77 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
         foo.test_contiguous(contig)
 
 
+    def test_releasebuffer_gc(self):
+        # like test_releasebuffer below, but forces a gc before the first
+        # count check to expose premature release of the intermediate
+        # memoryview that wraps the CPyBuffer.
+        module = self.import_extension('foo', [
+            ("create_test", "METH_NOARGS",
+             """
+                PyObject *obj;
+                obj = PyObject_New(PyObject, (PyTypeObject*)type);
+                return obj;
+             """),
+            ("get_cnt", "METH_NOARGS",
+             'return PyLong_FromLong(cnt);'),
+            ("get_dealloc_cnt", "METH_NOARGS",
+             'return PyLong_FromLong(dealloc_cnt);'),
+        ],
+        prologue="""
+                static float test_data = 42.f;
+                static int cnt=0;
+                static int dealloc_cnt=0;
+                static PyHeapTypeObject * type=NULL;
+
+                void dealloc(PyObject *self) {
+                    dealloc_cnt++;
+                }
+                int getbuffer(PyObject *obj, Py_buffer *view, int flags) {
+                    cnt ++;
+                    memset(view, 0, sizeof(Py_buffer));
+                    view->obj = obj;
+                    Py_INCREF(obj);
+                    view->ndim = 0;
+                    view->buf = (void *) &test_data;
+                    view->itemsize = sizeof(float);
+                    view->len = 1;
+                    view->strides = NULL;
+                    view->shape = NULL;
+                    view->format = "f";
+                    return 0;
+                }
+
+                void releasebuffer(PyObject *obj, Py_buffer *view) {
+                    cnt --;
+                }
+            """, more_init="""
+                type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
+
+                type->ht_type.tp_name = "Test";
+                type->ht_type.tp_basicsize = sizeof(PyObject);
+                type->ht_name = PyUnicode_FromString("Test");
+                type->ht_type.tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                          Py_TPFLAGS_HEAPTYPE;
+                type->ht_type.tp_flags &= ~Py_TPFLAGS_HAVE_GC;
+
+                type->ht_type.tp_dealloc = dealloc;
+                type->ht_type.tp_as_buffer = &type->as_buffer;
+                type->as_buffer.bf_getbuffer = getbuffer;
+                type->as_buffer.bf_releasebuffer = releasebuffer;
+
+                if (PyType_Ready(&type->ht_type) < 0) INITERROR;
+            """, )
+        assert module.get_cnt() == 0
+        a = memoryview(module.create_test())
+        # force gc to trigger any stray finalizers on intermediate objects
+        self.debug_collect()
+        assert module.get_cnt() == 1
+        assert module.get_dealloc_cnt() == 0
+        del a
+        self.debug_collect()
+        assert module.get_cnt() == 0
+        assert module.get_dealloc_cnt() == 1
+
     def test_releasebuffer(self):
         module = self.import_extension('foo', [
             ("create_test", "METH_NOARGS",

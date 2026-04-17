@@ -109,10 +109,17 @@ def _get_common_types(space, w_dict):
 # ____________________________________________________________
 
 def _fetch_as_read_buffer(space, w_x):
-    return space.readbuf_w(w_x)
+    # Returns (w_memview, raw_buffer).  The memoryview holds the buffer
+    # export alive so the raw buffer's backing storage remains stable for
+    # the lifetime of the memoryview.
+    view = space.buffer_w(w_x, space.BUF_SIMPLE)
+    w_mv = space.newmemoryview(view)
+    return w_mv, view.as_readbuf()
 
 def _fetch_as_write_buffer(space, w_x):
-    return space.writebuf_w(w_x)
+    view = space.buffer_w(w_x, space.BUF_WRITABLE)
+    w_mv = space.newmemoryview(view)
+    return w_mv, view.as_writebuf()
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
 def from_buffer(space, w_ctype, w_x, require_writable=0):
@@ -125,9 +132,9 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
         raise oefmt(space.w_TypeError,
                 "from_buffer() cannot return the address of a unicode object")
     if require_writable:
-        buf = _fetch_as_write_buffer(space, w_x)
+        w_memview, buf = _fetch_as_write_buffer(space, w_x)
     else:
-        buf = _fetch_as_read_buffer(space, w_x)
+        w_memview, buf = _fetch_as_read_buffer(space, w_x)
     if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:
@@ -172,7 +179,7 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
                     "cannot be computed", w_ctype.name)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
-                                      w_ctype, buf, w_x)
+                                      w_ctype, buf, w_x, w_memview)
 
 # ____________________________________________________________
 
@@ -246,7 +253,7 @@ def memmove(space, w_dest, w_src, n):
             src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
             src_is_ptr = True
         else:
-            src_buf = _fetch_as_read_buffer(space, w_src)
+            _src_mv, src_buf = _fetch_as_read_buffer(space, w_src)
             try:
                 src_data = src_buf.get_raw_address()
                 src_is_ptr = True
@@ -267,7 +274,7 @@ def memmove(space, w_dest, w_src, n):
         dest_data = unsafe_escaping_ptr_for_ptr_or_array(w_dest)
         dest_is_ptr = True
     else:
-        dest_buf = _fetch_as_write_buffer(space, w_dest)
+        _dest_mv, dest_buf = _fetch_as_write_buffer(space, w_dest)
         try:
             dest_data = dest_buf.get_raw_address()
             dest_is_ptr = True

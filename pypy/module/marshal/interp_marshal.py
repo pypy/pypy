@@ -450,7 +450,14 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str, hidden_applevel=False):
         Unmarshaller.__init__(self, space, None)
-        self.buf = space.readbuf_w(w_str)
+        # Keep the buffer export alive for the lifetime of the unmarshaller
+        # by wrapping the BufferView in a W_MemoryView.  Otherwise readbuf_w
+        # would release the export immediately and the underlying object
+        # (e.g. a bytearray) could be mutated while self.buf holds a raw
+        # pointer into it.
+        view = space.buffer_w(w_str, space.BUF_SIMPLE)
+        self.w_memview = space.newmemoryview(view)
+        self.buf = view.as_readbuf()
         self.bufpos = 0
         self.limit = self.buf.getlength()
         self.hidden_applevel = hidden_applevel

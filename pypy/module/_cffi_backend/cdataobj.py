@@ -670,14 +670,20 @@ class W_CDataHandle(W_CData):
 
 
 class W_CDataFromBuffer(W_CData):
-    _attrs_ = ['buf', 'length', 'w_keepalive']
+    _attrs_ = ['buf', 'length', 'w_keepalive', 'w_memview']
     _immutable_fields_ = ['buf', 'length']
 
-    def __init__(self, space, cdata, length, ctype, buf, w_object):
+    def __init__(self, space, cdata, length, ctype, buf, w_object,
+                 w_memview=None):
         W_CData.__init__(self, space, cdata, ctype)
         self.buf = buf
         self.length = length
         self.w_keepalive = w_object
+        # Keep the underlying buffer export alive (if any).  Without this,
+        # the readbuf_w/writebuf_w call used to obtain 'buf' has already
+        # released the export, and the raw pointer in self._cdata could
+        # become unsafe if the backing object is mutated.
+        self.w_memview = w_memview
 
     def get_array_length(self):
         return self.length
@@ -704,6 +710,7 @@ class W_CDataFromBuffer(W_CData):
         # for now, limited effect on PyPy
         if exit_now:
             self.w_keepalive = None
+            self.w_memview = None
 
 
 class W_CDataGCP(W_CData):

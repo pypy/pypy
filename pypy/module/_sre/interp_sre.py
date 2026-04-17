@@ -54,6 +54,24 @@ class UnicodeAsciiMatchContext(rsre_core.StrMatchContext):
     pass
 
 
+class W_SRE_BufMatchContext(rsre_core.BufMatchContext):
+    """BufMatchContext that keeps a memoryview alive to retain the
+    underlying buffer export for the duration of the match context.
+    Without this, objects like bytearray would have their _exports
+    counter released before the match context (and its copies) are
+    collected, allowing the object to be mutated while rsre still
+    holds a raw pointer into it."""
+    _immutable_fields_ = ["w_buffer"]
+
+    def __init__(self, buf, match_start, end, w_buffer):
+        rsre_core.BufMatchContext.__init__(self, buf, match_start, end)
+        self.w_buffer = w_buffer
+
+    def fresh_copy(self, start):
+        return W_SRE_BufMatchContext(self._buffer, start, self.end,
+                                     self.w_buffer)
+
+
 def slice_w(space, ctx, start, end, w_default):
     # 'start' and 'end' are byte positions
     if ctx.ZERO <= start <= end:
@@ -275,14 +293,20 @@ class W_SRE_Pattern(W_Root):
                 endpos = length
             return rsre_core.StrMatchContext(string, pos, endpos)
         else:
-            buf = space.readbuf_w(w_string)
+            # Hold the buffer export for the lifetime of the match context
+            # by wrapping the BufferView in a W_MemoryView.  When the last
+            # reference to the match context (and any fresh copies of it)
+            # is released, the memoryview's finalizer releases the export.
+            view = space.buffer_w(w_string, space.BUF_SIMPLE)
+            w_mv = space.newmemoryview(view)
+            buf = view.as_readbuf()
             size = buf.getlength()
             assert size >= 0
             if pos > size:
                 pos = size
             if endpos > size:
                 endpos = size
-            return rsre_core.BufMatchContext(buf, pos, endpos)
+            return W_SRE_BufMatchContext(buf, pos, endpos, w_mv)
 
     def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
@@ -295,6 +319,9 @@ class W_SRE_Pattern(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             result = self._make_str_match_context(
                 ctx._string, ctx.match_start, ctx.end)
+        elif isinstance(ctx, W_SRE_BufMatchContext):
+            result = W_SRE_BufMatchContext(
+                ctx._buffer, ctx.match_start, ctx.end, ctx.w_buffer)
         elif isinstance(ctx, rsre_core.BufMatchContext):
             result = rsre_core.BufMatchContext(
                 ctx._buffer, ctx.match_start, ctx.end)

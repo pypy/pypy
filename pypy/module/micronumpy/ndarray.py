@@ -1420,6 +1420,7 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
         else:
             strides = None
 
+        # XXX this is unsafe, nothing keeps the buffer alive
         try:
             buf = space.writebuf_w(w_buffer)
         except OperationError:
