@@ -327,7 +327,6 @@ in different orders. Here's an example::
 
 CPython prints ``{'b': 2, 'a': 1}`` in the last line.
 
-Background: After CPython 3.6, dictionaries became `ordered by insertion
 Background: In CPython 3.6, dictionaries became `ordered by insertion`__.
 This is also true for instance dictionaries. In PyPy, regular
 dictionaries have been ordered since 2015__. For instance dictionaries, this is
