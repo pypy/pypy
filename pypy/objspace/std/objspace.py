@@ -380,7 +380,15 @@ class StdObjSpace(ObjSpace):
 
     def newmemoryview(self, view):
         mv = W_MemoryView(view)
-        mv.register_finalizer(self)
+        # Register a finalizer only when the view actually owns an export
+        # increment that needs to be released (e.g. a SimpleView backed by a
+        # bytearray).  Views such as CPyBuffer manage their own lifetime via a
+        # separate FinalizerQueue, and a NonOwningView has nothing to release;
+        # registering a finalizer for them would cause the memoryview's
+        # _finalize_ to run an extra release and in multi-memoryview scenarios
+        # prematurely decrement the underlying object's export counter.
+        if view.owns_export:
+            mv.register_finalizer(self)
         return mv
 
     def newbytes(self, s):
