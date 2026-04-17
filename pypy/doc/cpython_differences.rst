@@ -305,7 +305,7 @@ that there is a total order on floats, but that is wrong for NaNs).
 .. __: https://github.com/pypy/pypy/issues/1974
 
 Order of dictionary keys in instance dicts
---------------------------------------------
+------------------------------------------
 
 Instance dictionaries are not always ordered by insertion in PyPy.
 Specifically, this can happen if the ``__init__`` of the class adds attributes
