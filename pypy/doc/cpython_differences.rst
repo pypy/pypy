@@ -308,7 +308,7 @@ Order of dictionary keys in instance dicts
 --------------------------------------------
 
 Instance dictionaries are not always ordered by insertion in PyPy.
-Specifically, this can happens if the ``__init__`` of the class adds attributes
+Specifically, this can happen if the ``__init__`` of the class adds attributes
 in different orders. Here's an example::
 
     >>>> class A:
