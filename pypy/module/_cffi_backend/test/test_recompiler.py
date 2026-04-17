@@ -69,9 +69,17 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     sources = []
     if w_extra_source is not None:
         sources.append(space.text_w(w_extra_source))
-    kwargs = {}
+    # CFFI relies on several C compiler warnings *not* being errors (e.g.
+    # misdeclared field sizes, incompatible pointer types), which GCC 14+
+    # treats as errors by default.  Downgrade them to warnings so the
+    # runtime detection path still works.
+    extra_compile_args = [
+        '-Wno-error=incompatible-pointer-types',
+        '-Wno-error=int-conversion',
+    ]
     if w_extra_compile_args is not None:
-        kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
+        extra_compile_args += space.unwrap(w_extra_compile_args)
+    kwargs = {'extra_compile_args': extra_compile_args}
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
             export_symbols=['_cffi_pypyinit_' + base_module_name],
