@@ -150,20 +150,29 @@ class __extend__(pyframe.PyFrame):
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
         if depth >= 0:
-            # lasti=True means this handler may RERAISE; track the original
-            # raise offset so f_lineno is correct if the exception propagates.
-            # Mirrors CPython's frame->prev_instr restoration in RERAISE.
-            if lasti:
-                if self._reraise_saved_lasti < 0:
-                    self._reraise_saved_lasti = intmask(self.last_instr)
-            else:
-                self._reraise_saved_lasti = -1
             # depth is relative (0 = empty value stack); convert to absolute.
             code = self.getcode()
             stackstart = (code.co_nlocals + len(code.co_cellvars) +
                           len(code.co_freevars))
             target_abs_depth = stackstart + depth
             self.dropvaluesuntil(target_abs_depth)
+            # lasti=True: push the raise-site offset as an int below the
+            # exception, so RERAISE N can read it for traceback/f_lineno
+            # correctness.  If this dispatch was triggered by a RERAISE
+            # (self._reraise_lasti set), use the original raise-site lasti
+            # the RERAISE extracted from the stack; otherwise use the
+            # current instruction (the raising site itself).  Mirrors
+            # CPython's _PyInterpreterFrame_LASTI read in exception_unwind
+            # after RERAISE has updated prev_instr to lasti.
+            if lasti:
+                if self._reraise_lasti >= 0:
+                    lasti_value = self._reraise_lasti
+                else:
+                    lasti_value = intmask(self.last_instr)
+                self.pushvalue(self.space.newint(lasti_value))
+            # Clear the transient RERAISE lasti regardless of whether this
+            # entry uses lasti -- it applies only to the immediate unwind.
+            self._reraise_lasti = -1
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
             return target
@@ -171,12 +180,15 @@ class __extend__(pyframe.PyFrame):
         # No exception table entry: propagate out of the frame.
         # sys.exc_info will be overwritten by the next PUSH_EXC_INFO in any
         # catching handler; no explicit restoration needed (matches CPython).
+        # Before propagating, if this unwind was triggered by a RERAISE N
+        # (lasti captured in self._reraise_lasti), restore self.last_instr
+        # to the lasti value so frame.f_lineno on the escaped frame reports
+        # the original raise site, matching CPython's RERAISE which sets
+        # frame->prev_instr = first_instr + lasti.
+        if self._reraise_lasti >= 0:
+            self.last_instr = self._reraise_lasti
+            self._reraise_lasti = -1
         self.frame_finished_execution = True  # allows frame.clear() after propagation
-        # Restore last_instr to the original raise site if a lasti=True handler
-        # saved it, so that f_lineno reflects where the exception was raised.
-        if self._reraise_saved_lasti >= 0:
-            self.last_instr = self._reraise_saved_lasti
-            self._reraise_saved_lasti = -1
         if we_are_translated():
             raise operr
         else:
@@ -480,6 +492,8 @@ class __extend__(pyframe.PyFrame):
                 self.MATCH_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
                 self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
+            elif opcode == opcodedesc.COPY.index:
+                self.COPY(oparg, next_instr)
             elif opcode == opcodedesc.ROT_N.index:
                 self.ROT_N(oparg, next_instr)
             else:
@@ -633,6 +647,13 @@ class __extend__(pyframe.PyFrame):
 
     def DUP_TOP_TWO(self, oparg, next_instr):
         self.dupvalues(2)
+
+    def COPY(self, oparg, next_instr):
+        # CPython 3.11 COPY N: push a copy of the N-th stack element from the
+        # top (1-indexed).  COPY 1 duplicates TOS.  Stack effect: +1.
+        assert oparg >= 1
+        w_val = self.peekvalue(oparg - 1)
+        self.pushvalue(w_val)
 
     def DUP_TOPX(self, itemcount, next_instr):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
@@ -806,8 +827,6 @@ class __extend__(pyframe.PyFrame):
         w_prev_exc = self.popvalue()
         # Restore sys.exc_info to the value saved by PUSH_EXC_INFO.
         self._restore_exc_info(w_prev_exc)
-        # Exception was handled normally; discard any saved lasti.
-        self._reraise_saved_lasti = -1
 
     def POP_BLOCK(self, oparg, next_instr):
         pass  # no block-stack entry to pop; kept in bytecode as range marker
@@ -1321,9 +1340,9 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def WITH_EXCEPT_START(self, oparg, next_instr):
-        # exception-table mode: stack is [..., __exit__, prev_exc, exc]
-        w_exc = self.peekvalue(0)      # TOS
-        w_exitfunc = self.peekvalue(2) # TOS+2
+        # exception-table + lasti layout: [..., __exit__, lasti, prev_exc, exc]
+        w_exc = self.peekvalue(0)      # TOS = exc
+        w_exitfunc = self.peekvalue(3) # __exit__ is 4th from top
         space = self.space
         from pypy.module.exceptions.interp_exceptions import W_BaseException
         w_value = space.interp_w(W_BaseException, w_exc)
@@ -1335,13 +1354,28 @@ class __extend__(pyframe.PyFrame):
             w_exitfunc, w_type, w_exc, w_traceback)
         self.pushvalue(w_res)
 
-    def RERAISE(self, reset_last_instr, next_instr):
-        # exception-table mode: w_exc is a BaseException instance
+    def RERAISE(self, oparg, next_instr):
+        # CPython 3.11 RERAISE N semantics: if N > 0, read the lasti (int)
+        # from PEEK(N + 1) [i.e., N slots below TOS after pushing exc], set
+        # self.last_instr to it so the re-raised exception's traceback/lineno
+        # reflect the original raise site, then pop the exception and raise.
+        # N == 0 is a plain reraise of TOS.  Stack before: [..., lasti, exc]
+        # for N == 1; after: [..., lasti].  The surrounding handler is
+        # expected to have already done its POP_EXCEPT if sys.exc_info needs
+        # restoring (PyPy no longer bundles POP_EXCEPT into RERAISE 1).
+        if oparg:
+            # PEEK(oparg + 1): 0 == TOS (exc), oparg is the lasti slot.
+            w_lasti = self.peekvalue(oparg)
+            # Save lasti in a transient field for handle_operation_error to
+            # push onto the next handler's stack.  Crucially, do NOT modify
+            # self.last_instr: the table lookup must use the RERAISE site
+            # (via dispatch_bytecode's top-of-loop assignment), not lasti,
+            # to avoid dispatching back into the body range that originally
+            # raised.  Mirrors CPython: RERAISE sets frame->prev_instr for
+            # the lasti push, but exception_unwind looks up by next_instr,
+            # not prev_instr.
+            self._reraise_lasti = self.space.int_w(w_lasti)
         w_exc = self.popvalue()
-        if reset_last_instr:
-            w_prev_exc = self.popvalue()
-            ec = self.space.getexecutioncontext()
-            ec.set_sys_exc_info3(w_prev_exc)
         from pypy.module.exceptions.interp_exceptions import W_BaseException
         space = self.space
         w_value = space.interp_w(W_BaseException, w_exc)

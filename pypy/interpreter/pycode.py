@@ -681,14 +681,14 @@ class W_LineIterator(W_Root):
 
 def _decode_varint(table, i):
     """Decode one CPython-3.11-compatible varint from table at byte position i.
-    Returns (value, new_i).  Reads 6 bits per byte; bit 6 is a continuation flag."""
+    Returns (value, new_i).  Reads 6 bits per byte, MSB first.  Bit 6 is the
+    continuation flag; bit 7 is the start-of-entry marker which is ignored
+    here (masked off along with the continuation bit by ``& 63``)."""
     b = ord(table[i]); i += 1
     value = b & 63
-    shift = 6
     while b & 64:
         b = ord(table[i]); i += 1
-        value |= (b & 63) << shift
-        shift += 6
+        value = (value << 6) | (b & 63)
     return value, i
 
 

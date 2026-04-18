@@ -1031,8 +1031,8 @@ class TestPycStuff:
         # below, as well as incrementing the magic number in pycode.py
         with opcode_path.open("rb") as f:
             h.update(f.read())
-        assert h.hexdigest() == '74f2f0429909459939dac103871a4592f6953916'
-        assert default_magic == 0xa0d01a0
+        assert h.hexdigest() == 'a2b523bbf86b05b4236833e54019abcf5aba9689'
+        assert default_magic == 0xa0d01b0
 
 
 

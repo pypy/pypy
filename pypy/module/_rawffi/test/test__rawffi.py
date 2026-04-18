@@ -804,7 +804,7 @@ class AppTestFfi(object):
         cb.free()
 
     def test_raising_callback(self):
-        import _rawffi, sys
+        import _rawffi, sys, dis
         from io import StringIO
         lib = _rawffi.CDLL(self.lib_name)
         err = StringIO()
@@ -826,6 +826,19 @@ class AppTestFfi(object):
             assert res[0] == 0
         finally:
             sys.stderr = orig
+        # DEBUG: dump exception tables of the test fn and the inner callback
+        import io as _io
+        me_code = sys._getframe().f_code
+        _buf = _io.StringIO()
+        dis.dis(me_code, file=_buf)
+        sys.stdout.write('=== test_raising_callback code ===\n')
+        sys.stdout.write(_buf.getvalue())
+        sys.stdout.write('ET bytes: ' + me_code.co_exceptiontable.hex() + '\n')
+        _buf2 = _io.StringIO()
+        dis.dis(callback, file=_buf2)
+        sys.stdout.write('=== callback inner ===\n')
+        sys.stdout.write(_buf2.getvalue())
+        sys.stdout.write('ET bytes: ' + callback.__code__.co_exceptiontable.hex() + '\n')
 
     def test_setattr_struct(self):
         import _rawffi

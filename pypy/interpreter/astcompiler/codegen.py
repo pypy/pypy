@@ -892,8 +892,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_ABSOLUTE, b_end)
 
         # Non-StopAsyncIteration: re-raise into the enclosing handler.
+        # Stack: [..., aiter, prev, exc].  Restore sys.exc_info (POP_EXCEPT
+        # on prev), drop aiter, then RERAISE 0 with just exc on top.  Use
+        # ROT_THREE to move exc below aiter+prev, POP_EXCEPT prev, POP_TOP
+        # aiter, RERAISE 0 exc.
         self.use_next_block(b_reraise)
-        self.emit_op_arg(ops.RERAISE, 1)
+        self.emit_op(ops.ROT_THREE)  # [aiter, prev, exc] -> [exc, aiter, prev]
+        self.emit_op(ops.POP_EXCEPT)  # pop prev, restore sys.exc_info
+        self.emit_op(ops.POP_TOP)     # pop aiter
+        self.emit_op_arg(ops.RERAISE, 0)
 
         self.use_next_block(b_end)
 
@@ -944,10 +951,28 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         return None
 
     def _visit_try_except(self, tr):
+        # CPython 3.11-parity layout:
+        #
+        #   try_body              ; table: body -> exc          (lasti=False)
+        #   <exc handler entry>
+        #   PUSH_EXC_INFO                                       ; stack: [prev, exc]
+        #   (for each handler i:)
+        #     check_i             ; table entry i: check + STORE -> outer_cleanup (lasti=True)
+        #     body_i              ; table: body_i -> inner_cleanup_i (lasti=True)
+        #     POP_EXCEPT; LOAD None; STORE name; DEL name; JUMP end
+        #     inner_cleanup_i:    ; stack [prev, lasti, exc]
+        #        LOAD None; STORE name; DEL name
+        #        RERAISE 1
+        #   no_match:
+        #     RERAISE 0                                        ; caught by outer_cleanup
+        #                         ; table: inner_cleanup_last + no_match -> outer_cleanup (lasti=True)
+        #   outer_cleanup:        ; stack [prev, lasti, exc]
+        #     COPY 3; POP_EXCEPT; RERAISE 1                    ; restore exc_info, reraise up
         body = self.new_block()
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
+        outer_cleanup = self.new_block()
         # SETUP_FINALLY is a dummy instruction so _stacksize sets exc.initial_depth.
         # At runtime, handle_operation_error uses the exception table entry instead.
         self.emit_jump(ops.SETUP_FINALLY, exc)
@@ -960,9 +985,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
+        # Dummy SETUP_EXCEPT (+2 jump effect) seeds outer_cleanup.initial_depth
+        # with the lasti+exc slots it will receive from the exception table
+        # dispatch.  Mirrors CPython's SETUP_CLEANUP pseudo-instruction which
+        # also has stack effect +2 on the handler branch.
+        self.emit_jump(ops.SETUP_EXCEPT, outer_cleanup)
         # stack: [..., prev_exc, exc]  (after PUSH_EXC_INFO executed at handler entry)
         self.emit_op(ops.PUSH_EXC_INFO)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
+        # prev_check_start marks the start of the byte range that gets routed
+        # to outer_cleanup.  For the first handler it starts at `exc` (covers
+        # PUSH_EXC_INFO + first check); for later handlers it starts at the
+        # previous inner_cleanup (covers inner_cleanup body + next check).
+        prev_check_start = exc
         handler = None
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
@@ -976,70 +1011,77 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if i != len(tr.handlers) - 1:
                     self.error(
                         "bare 'except:' must be the last except block", handler)
+            cleanup_end = self.new_block()
             if handler.name:
-                ## except E as name: generates:
-                ##   STORE_NAME name          ; stack: [prev_exc]
-                ##   <inner dummy SETUP_FINALLY cleanup_end>
-                ##   <handler body>
-                ##   POP_BLOCK
-                ##   LOAD None; STORE name; DEL name
-                ##   POP_EXCEPT               ; pop prev_exc, restore sys.exc_info
-                ##   JUMP_FORWARD end
-                ## cleanup_end:
-                ##   PUSH_EXC_INFO            ; stack: [prev_exc, cleanup_exc]
-                ##   LOAD None; STORE name; DEL name
-                ##   RERAISE 1
-                cleanup_end = self.new_block()
                 self.name_op(handler.name, ast.Store, handler)
-                # inner dummy SETUP_FINALLY for cleanup_end._stacksize depth
-                self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
-                cleanup_body = self.use_next_block()
-                self.emit_exception_table_entry(cleanup_body, cleanup_end, lasti=True)
-                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body, None, handler)
-                self._visit_body(handler.body)
-                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
-                self.no_position_info()
-                self.emit_op(ops.NOP)   # SETUP_FINALLY is a NOP; no block to pop
-                # name = None; del name
-                self.load_const(self.space.w_None)
-                self.name_op(handler.name, ast.Store, handler)
-                self.name_op(handler.name, ast.Del, handler)
-                self.emit_op(ops.POP_EXCEPT)
-                self.emit_jump(ops.JUMP_FORWARD, end)
-
-                # If cleanup_end is directly inside a with block (no intervening
-                # try body), cover it so RERAISE 1 dispatches to the with handler
-                # instead of falling through to the block stack.
-                with_handler = self._nearest_with_handler()
-                if with_handler is not None:
-                    self.emit_exception_table_entry(
-                        cleanup_end, with_handler, lasti=True,
-                        end_block=next_except)
-
-                self.use_next_block(cleanup_end)
-                self.no_position_info()
-                self.emit_op(ops.PUSH_EXC_INFO)
-                # name = None; del name
-                self.load_const(self.space.w_None)
-                self.name_op(handler.name, ast.Store, handler)
-                self.name_op(handler.name, ast.Del, handler)
-                self.emit_op_arg(ops.RERAISE, 1)
             else:
                 self.emit_op(ops.POP_TOP)  # pop exc, stack: [prev_exc]
-                cleanup_body = self.use_next_block()
+            # SETUP_EXCEPT (+2 jump effect) seeds cleanup_end.initial_depth
+            # so _stacksize tracks the [prev, lasti, exc] stack shape that
+            # the exception-table dispatch will produce.  Matches CPython's
+            # SETUP_CLEANUP pseudo-op.
+            self.emit_jump(ops.SETUP_EXCEPT, cleanup_end)
+            cleanup_body = self.use_next_block()
+            # Outer-cleanup entry: byte range from start of previous
+            # check/cleanup region through the end of this handler's check
+            # block (up to but not including cleanup_body).
+            self.emit_exception_table_entry(
+                prev_check_start, outer_cleanup, lasti=True,
+                end_block=cleanup_body, depth_block=exc)
+            # Inner-cleanup entry: handler body range -> cleanup_end.
+            self.emit_exception_table_entry(cleanup_body, cleanup_end, lasti=True)
+            if handler.name:
+                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body, None, handler)
+            else:
                 self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body)
-                self._visit_body(handler.body)
-                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
-                self.no_position_info()
-                self.emit_op(ops.POP_EXCEPT)
-                self.emit_jump(ops.JUMP_FORWARD, end)
+            self._visit_body(handler.body)
+            self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+            self.no_position_info()
+            self.emit_op(ops.NOP)   # SETUP_EXCEPT is a NOP; no block to pop
+            if handler.name:
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
+            self.emit_op(ops.POP_EXCEPT)
+            self.emit_jump(ops.JUMP_FORWARD, end)
+
+            # cleanup_end (inner cleanup): reached by exception table when the
+            # handler body raises.  Stack [prev, lasti, exc].  Clear the name,
+            # then RERAISE 1 reads lasti, pops exc, reraises.  The reraise is
+            # caught by the next outer_cleanup table entry (added on the next
+            # loop iteration, or after the loop for the last handler).
+            self.use_next_block(cleanup_end)
+            self.no_position_info()
+            if handler.name:
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
+            self.emit_op_arg(ops.RERAISE, 1)
             #
+            prev_check_start = cleanup_end
             self.use_next_block(next_except)
         if handler is not None:
             self.update_position(handler)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
-        # no match: reraise with prev_exc restored
+        # no_match: fallthrough from the last POP_JUMP_IF_FALSE.  Stack
+        # [prev, lasti, exc].  RERAISE 0 pops exc and reraises without
+        # touching lasti; the enclosing outer_cleanup table entry catches it.
+        self.emit_op_arg(ops.RERAISE, 0)
+        # Final outer_cleanup entry: covers the last inner_cleanup + no_match
+        # fallthrough.  End offset is outer_cleanup itself.
+        self.emit_exception_table_entry(
+            prev_check_start, outer_cleanup, lasti=True, depth_block=exc)
+
+        # outer_cleanup: reached when a handler's code or the no-match path
+        # raises.  Stack [prev, lasti, exc].  COPY 3 duplicates prev,
+        # POP_EXCEPT pops the duplicate and restores sys.exc_info to prev,
+        # RERAISE 1 reads lasti and reraises exc upward.
+        self.use_next_block(outer_cleanup)
+        self.no_position_info()
+        self.emit_op_arg(ops.COPY, 3)
+        self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
+
         self.use_next_block(otherwise)
         self._visit_body(tr.orelse)
         self.use_next_block(end)
@@ -1048,6 +1090,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         body = self.new_block()
         end = self.new_block()
         exit = self.new_block()
+        # CPython 3.11-parity layout: body -> end (depth=0, no lasti), handler
+        # does PUSH_EXC_INFO + finally body + RERAISE 0.  An outer_cleanup
+        # covering the PUSH_EXC_INFO...RERAISE 0 range catches reraises from
+        # it and emits COPY 3; POP_EXCEPT; RERAISE 1 -- restoring sys.exc_info
+        # and propagating with the original raise site preserved in lasti.
+        outer_cleanup = self.new_block()
         # finally_normal marks the start of the unexceptional finally body.
         # The exception table entry for the try block must end here, not at
         # end.offset, so that exceptions raised in the normal finally path are
@@ -1077,15 +1125,29 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(finalbody)
         self.emit_jump(ops.JUMP_FORWARD, exit)
 
-        # finally block, exceptional case: stack has [..., prev_exc, exc]
+        # finally block, exceptional case: stack at entry is [exc] (depth 1).
+        # SETUP_EXCEPT(+2) seeds outer_cleanup.initial_depth = 1 + 2 = 3 for
+        # the [prev, lasti, exc] layout the outer_cleanup expects on re-entry.
         self.use_next_block(end)
+        self.emit_jump(ops.SETUP_EXCEPT, outer_cleanup)
         self.emit_op(ops.PUSH_EXC_INFO)
         self.push_frame_block(F_FINALLY_END, end)
         self._visit_body(finalbody)
         self.pop_frame_block(F_FINALLY_END, end)
-
-        # the RERAISE will be duplicated by duplicate_exits_without_lineno
+        # RERAISE 0 pops exc and reraises; caught by outer_cleanup via the
+        # lasti=True table entry below.
         self.no_position_info()
+        self.emit_op_arg(ops.RERAISE, 0)
+
+        # outer_cleanup: covers [end..outer_cleanup) with lasti=True.  On
+        # re-entry the stack is [prev, lasti, exc]; COPY 3 duplicates prev,
+        # POP_EXCEPT pops the copy and restores sys.exc_info, RERAISE 1 reads
+        # the real lasti and reraises.
+        self.emit_exception_table_entry(end, outer_cleanup, lasti=True)
+        self.use_next_block(outer_cleanup)
+        self.no_position_info()
+        self.emit_op_arg(ops.COPY, 3)
+        self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit)
 
@@ -1530,16 +1592,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         exit = self.new_block()
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
-        # exceptional outcome: stack [..., __exit__, prev_exc, exc] after PUSH_EXC_INFO
-        # with_cleanup handles __exit__ raising during WITH_EXCEPT_START: it restores
-        # sys.exc_info from w_prev (via RERAISE 1) before re-raising.  Mirrors CPython's
-        # SETUP_CLEANUP + COPY 3 + POP_EXCEPT + RERAISE 1 pattern.
-        # depth_block=cleanup tells _build_exceptiontable to use cleanup.initial_depth
-        # directly (= stack depth at cleanup entry = what CPython records at SETUP_CLEANUP
-        # time via c->u->u_depth).
+        # exceptional outcome: body's table entry is lasti=True (via
+        # _label_exception_targets for SETUP_WITH), so on exception the
+        # stack on entry to `cleanup` is [..., __exit__, lasti, exc].
+        # After PUSH_EXC_INFO: [..., __exit__, lasti, prev_exc, exc].
+        # WITH_EXCEPT_START peeks __exit__ at depth 3 and pushes __exit__'s
+        # return value.  If truthy: consume exc/prev/lasti/__exit__ (4 items)
+        # and restore exc_info.  If falsy: RERAISE 2 (reads lasti at PEEK 3,
+        # pops exc) to propagate -- caught by with_cleanup's lasti=True entry.
         with_cleanup = self.new_block()
         self.use_next_block(cleanup)
         self.update_position(wih)
+        # SETUP_EXCEPT(+2) seeds with_cleanup.initial_depth so _stacksize
+        # accounts for the lasti+exc pushed when an exception fires inside
+        # the PUSH_EXC_INFO..RERAISE 2 range.  At this point stack depth is
+        # cleanup.initial_depth (= SETUP_WITH's jump-effect seed), so
+        # with_cleanup.initial_depth = cleanup.initial_depth + 2.
+        self.emit_jump(ops.SETUP_EXCEPT, with_cleanup)
         self.emit_op(ops.PUSH_EXC_INFO)
         self.emit_op(ops.WITH_EXCEPT_START)
         if is_async:
@@ -1550,14 +1619,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(rest_of_handler)
         exit2 = self.new_block()
         self.emit_jump(ops.POP_JUMP_IF_TRUE, exit2)
-        self.emit_op_arg(ops.RERAISE, 1)
-        self.emit_exception_table_entry(cleanup, with_cleanup, lasti=False,
-                                        end_block=rest_of_handler, depth_block=cleanup)
+        # __exit__ returned false: propagate original exception.
+        self.emit_op_arg(ops.RERAISE, 2)
+        # with_cleanup covers [cleanup..with_cleanup) with lasti=True so that
+        # a raise inside PUSH_EXC_INFO / WITH_EXCEPT_START / the RERAISE 2
+        # arrives here with [__exit__, lasti, prev, lasti_new, exc_new] on
+        # the stack.  COPY 3 duplicates prev, POP_EXCEPT pops the copy and
+        # restores sys.exc_info, RERAISE 1 reads lasti_new and reraises.
+        self.emit_exception_table_entry(cleanup, with_cleanup, lasti=True,
+                                        end_block=rest_of_handler)
         self.use_next_block(with_cleanup)
+        self.emit_op_arg(ops.COPY, 3)
+        self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)    # pop exc
         self.emit_op(ops.POP_EXCEPT) # pop prev_exc, restore sys.exc_info
+        self.emit_op(ops.POP_TOP)    # pop lasti
         self.emit_op(ops.POP_TOP)    # pop __exit__
         self.use_next_block(exit)
 

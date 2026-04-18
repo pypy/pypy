@@ -769,13 +769,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         WITH_EXCEPT_START from seeing a wrong stack layout when GET_AWAITABLE
         raises inside the break/return cleanup path."""
         entries = []
-        # stack items: (handler_block_or_None, lasti, start_offset)
-        # SETUP_WITH/SETUP_ASYNC_WITH push real handlers (handler_block set).
-        # SETUP_FINALLY/SETUP_EXCEPT push placeholders (handler_block=None) so
-        # that their POP_BLOCK does not prematurely consume a with-handler --
-        # e.g. "with CM(): try: ... finally: ..." has try's POP_BLOCK before
-        # with's POP_BLOCK in the linear layout; without the placeholder, try's
-        # POP_BLOCK would end the with-handler range too early.
+        # stack items: (handler_block, lasti, start_offset)
+        # Only SETUP_WITH/SETUP_ASYNC_WITH push onto handler_stack, and only
+        # they are paired with POP_BLOCK.  SETUP_FINALLY/SETUP_EXCEPT are
+        # compile-time dummies (no block to pop; unwind_fblock emits NOP, not
+        # POP_BLOCK), so they do not participate in this pairing at all.
         handler_stack = []
         offset = 0
         for block in blocks:
@@ -783,22 +781,19 @@ class PythonCodeMaker(ast.ASTVisitor):
                 if instr.opcode in (ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
                     start = offset + instr.size()
                     handler_stack.append((instr.jump, True, start))
-                elif instr.opcode in (ops.SETUP_FINALLY, ops.SETUP_EXCEPT):
-                    handler_stack.append((None, False, 0))
                 elif instr.opcode == ops.POP_BLOCK and handler_stack:
                     handler_block, lasti, start = handler_stack.pop()
-                    if handler_block is not None:
-                        # Protected range must end before the cleanup block.
-                        # For break/continue/return, POP_BLOCK is emitted inline
-                        # before the cleanup block (offset < handler_block.offset),
-                        # so offset is the right bound.
-                        # For normal exit in PyPy's layout, POP_BLOCK ends up in
-                        # a block after the cleanup block (offset > handler_block.offset),
-                        # so handler_block.offset is the right bound.
-                        # Taking the minimum handles both cases correctly.
-                        end = min(offset, handler_block.offset)
-                        if end > start:
-                            entries.append((start, end, handler_block, lasti, None))
+                    # Protected range must end before the cleanup block.
+                    # For break/continue/return, POP_BLOCK is emitted inline
+                    # before the cleanup block (offset < handler_block.offset),
+                    # so offset is the right bound.
+                    # For normal exit in PyPy's layout, POP_BLOCK ends up in
+                    # a block after the cleanup block (offset > handler_block.offset),
+                    # so handler_block.offset is the right bound.
+                    # Taking the minimum handles both cases correctly.
+                    end = min(offset, handler_block.offset)
+                    if end > start:
+                        entries.append((start, end, handler_block, lasti, None))
                 offset += instr.size()
         # Any with-handlers still on the stack have no live POP_BLOCK because
         # every path through the body unconditionally raises or returns.
@@ -806,10 +801,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         # elimination), so handler_block.offset == end-of-body.  Emit entries
         # using the cleanup block's own offset as the exclusive end.
         for handler_block, lasti, start in handler_stack:
-            if handler_block is not None:
-                end = handler_block.offset
-                if end > start:
-                    entries.append((start, end, handler_block, lasti, None))
+            end = handler_block.offset
+            if end > start:
+                entries.append((start, end, handler_block, lasti, None))
         return entries
 
     def _build_exceptiontable(self, blocks):
@@ -843,20 +837,21 @@ class PythonCodeMaker(ast.ASTVisitor):
         for start, end, handler_block, lasti, depth_block in all_entries:
             if end <= start:
                 continue   # empty range, skip
-            # depth = stack depth just before handle_operation_error pushes exc.
-            # Normally handler_block starts with PUSH_EXC_INFO, so
-            # handler_block.initial_depth = depth + 1.
-            # For secondary with-cleanup handlers (depth_block provided),
-            # depth = depth_block.initial_depth directly (CPython stores
-            # c->u->u_depth at SETUP_CLEANUP time; depth_block.initial_depth
-            # is the deferred equivalent resolved after _stacksize).
+            # depth = stack depth just before handle_operation_error pushes
+            # lasti (if lasti=True) and the exception.  Normally handler_block
+            # starts with PUSH_EXC_INFO; its initial_depth equals depth + 1
+            # (for lasti=False) or depth + 2 (for lasti=True: lasti + exc).
+            # For secondary cleanup handlers (depth_block provided), depth =
+            # depth_block.initial_depth directly.
             if depth_block is not None:
                 depth = depth_block.initial_depth
+            elif lasti:
+                depth = handler_block.initial_depth - 2
             else:
                 depth = handler_block.initial_depth - 1
             if depth < 0:
                 continue   # handler unreachable; skip
-            _encode_varint(result, start // 2)
+            _encode_varint(result, start // 2, msb=0x80)
             _encode_varint(result, (end - start) // 2)
             _encode_varint(result, handler_block.offset // 2)
             dl = (depth << 1) | (1 if lasti else 0)
@@ -958,6 +953,22 @@ class PythonCodeMaker(ast.ASTVisitor):
 
                 # if it's an unconditional jump, duplicate it
                 if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+                    # Skip if target is a RERAISE-only block: duplicating it
+                    # INTO this block would place the RERAISE inside the byte
+                    # range of an enclosing try-body's exception-table entry
+                    # (body blocks emitted by _visit_try_except/_visit_try_finally
+                    # have a table entry body.offset..exc.offset, and the
+                    # duplicated RERAISE would incorrectly fall inside that
+                    # range, dispatching to the inner handler instead of the
+                    # outer reraise cleanup).  Mirrors the RERAISE-only skip
+                    # in the other branch below.
+                    reraise_only = bool(target.instructions)
+                    for _instr in target.instructions:
+                        if _instr.opcode != ops.RERAISE:
+                            reraise_only = False
+                            break
+                    if reraise_only:
+                        continue
                     assert block.cant_add_instructions
                     block.instructions.pop()
                     block.cant_add_instructions = False
@@ -1150,17 +1161,28 @@ def remove_redundant_nops(blocks):
         mininum_lineno = 1
     return mininum_lineno
 
-def _encode_varint(result, value):
+def _encode_varint(result, value, msb=0):
     """Append a CPython-3.11-compatible varint encoding of value to result.
-    Encodes 6 bits per byte; bit 6 is a continuation flag."""
-    while True:
-        chunk = value & 63
-        value >>= 6
-        if value:
-            chunk |= 64   # more bytes follow
-        result.append(chr(chunk))
-        if not value:
-            break
+    Encodes 6 bits per byte, MSB first.  Bit 6 (0x40) is the continuation
+    flag (set on every byte except the last).  Bit 7 (0x80) is the
+    start-of-entry marker; pass msb=0x80 only on the first byte of an
+    exception-table entry, 0 otherwise (matches CPython 3.11's
+    assemble_emit_exception_table_item)."""
+    assert value >= 0
+    # Find the highest non-zero 6-bit chunk (shift counted in bits).
+    shift = 0
+    v = value >> 6
+    while v:
+        shift += 6
+        v >>= 6
+    # Write from the most-significant chunk down; all but the last get
+    # the continuation bit.  msb (start marker) goes only on the first byte.
+    while shift > 0:
+        chunk = (value >> shift) & 63
+        result.append(chr(chunk | 64 | msb))
+        msb = 0
+        shift -= 6
+    result.append(chr((value & 63) | msb))
 
 
 def _list_from_dict(d, offset=0):
@@ -1179,6 +1201,7 @@ _static_opcode_stack_effects = {
     ops.ROT_FOUR: 0,
     ops.DUP_TOP: 1,
     ops.DUP_TOP_TWO: 2,
+    ops.COPY: 1,
 
     ops.UNARY_POSITIVE: 0,
     ops.UNARY_NEGATIVE: 0,
@@ -1421,9 +1444,15 @@ def _opcode_stack_effect_jump(op):
     elif op == ops.SETUP_EXCEPT:
         return 2
     elif op == ops.SETUP_WITH:
-        return 1
+        # +2 at the jump edge: cleanup handler's initial_depth includes the
+        # lasti int and the exc (pushed by handle_operation_error when the
+        # exception-table entry is lasti=True).  Fallthrough effect stays +1
+        # (via _static_opcode_stack_effects): SETUP_WITH pops the manager and
+        # pushes __exit__ + __enter__ result.
+        return 2
     elif op == ops.SETUP_ASYNC_WITH:
-        return 0
+        # Analogous to SETUP_WITH: +1 at the jump edge, 0 at fallthrough.
+        return 1
     elif op == ops.JUMP_IF_TRUE_OR_POP:
         return 0
     elif op == ops.JUMP_IF_FALSE_OR_POP:

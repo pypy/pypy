@@ -75,7 +75,14 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     w_yielding_from = None
     last_instr               = -1
-    _reraise_saved_lasti     = -1  # original raise offset saved by lasti=True handlers
+    # Transient field: set by RERAISE N (N > 0) to the lasti value it read
+    # from the stack, so that handle_operation_error can push that as the
+    # new handler's lasti (preserving the original raise site across
+    # re-raises).  Cleared by handle_operation_error after use.  -1 means
+    # "not set" -- use intmask(self.last_instr) instead.  Mirrors CPython's
+    # trick of setting frame->prev_instr = first_instr + lasti in RERAISE
+    # and then having exception_unwind read _PyInterpreterFrame_LASTI.
+    _reraise_lasti           = -1
     f_backref                = jit.vref_None
 
     escaped                  = False  # see mark_as_escaped()
@@ -865,6 +872,7 @@ _MS_ITERATOR      = 1   # iterator pushed by GET_ITER/GET_AITER
 _MS_EXCEPT        = 2   # prev_exc pushed by PUSH_EXC_INFO
 _MS_OBJECT        = 3   # ordinary value
 _MS_WITH          = 4   # __exit__ callable pushed by SETUP_WITH (PyPy-specific)
+_MS_LASTI         = 5   # raise-site offset pushed on lasti=True handler dispatch
 _MS_WILL_OVERFLOW = 1 << (20 * _MS_BITS)
 
 def _ms_push(stack, kind):
@@ -1039,10 +1047,14 @@ def mark_stacks(code):
             target_raw, pos = _decode_varint(raw, pos)
             dl, pos         = _decode_varint(raw, pos)
             depth = dl >> 1
+            lasti = dl & 1
             start_stack = stacks[start_raw]
             if start_stack != _MS_UNINITIALIZED:
                 handler_stack = _ms_pop_to_level(start_stack, depth)
-                # lasti not pushed: PyPy uses _reraise_saved_lasti frame field.
+                # CPython-parity dispatch: if lasti, push the raise-site
+                # offset int before pushing the exception.
+                if lasti:
+                    handler_stack = _ms_push(handler_stack, _MS_LASTI)
                 handler_stack = _ms_push(handler_stack, _MS_EXCEPT)
                 if stacks[target_raw] == _MS_UNINITIALIZED:
                     stacks[target_raw] = handler_stack

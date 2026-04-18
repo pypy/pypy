@@ -158,3 +158,91 @@ def test_assertion_error_global_ignored():
             exec("assert 0") # to stop the pytest ast rewriting from touching it
     finally:
         AssertionError = OrigAssertionError
+
+
+def test_sys_exc_info_restore_direct():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    try:
+        raise KeyError('foo')
+    except KeyError:
+        pass
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_restore_nested():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    def inner():
+        try:
+            raise KeyError('foo')
+        except KeyError:
+            pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+
+def test_sys_exc_info_restore_class_body():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    class Foo:
+        try:
+            raise KeyError('foo')
+        except KeyError:
+            pass
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_restore_reraise_caught():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    def inner():
+        try:
+            raise ValueError('outer')
+        except ValueError:
+            try:
+                raise KeyError('inner')
+            except KeyError:
+                pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_finally_reraise():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    def inner():
+        try:
+            try:
+                raise KeyError('a')
+            finally:
+                pass
+        except KeyError:
+            pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_finally_nested():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    def inner():
+        try:
+            try:
+                raise KeyError('a')
+            except KeyError:
+                raise ValueError('b')
+        except ValueError:
+            pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_finally_nested_as_name():
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    def inner():
+        try:
+            try:
+                raise KeyError('a')
+            except KeyError as k:
+                raise ValueError('b')
+        except ValueError:
+            pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()

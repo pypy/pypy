@@ -152,20 +152,6 @@ L_end:
 
 ---
 
-## Test status (post Phase 2+3, translated binary)
-
-| Test | Status |
-|------|--------|
-| test_with | PASS (50/50) |
-| test_trace | PASS |
-| test_contextlib | PASS |
-| test_generators | 2 failures (`test_except_throw_bad_exception`, `coroutine` doctest)  -- pre-existing, not a regression |
-| test_exceptions | PASS (PEP 626 lineno failures fixed) |
-| test_coroutines | not yet run |
-| test_sys_settrace | not yet run (failures expected; blocked on Phase 5) |
-
----
-
 ## Remaining work
 
 ### Phase 4  -- JIT cleanup
@@ -263,7 +249,5 @@ RERAISE-only block guard) can be removed once Phase 9 is in place.
 introduces are what makes the per-block handler assignment unambiguous.
 
 ### Next step  -- Phase 8
-Phases 4, 5, and 6 are complete. The SysExcInfoRestorer simplification (block-stack removal
-for `PUSH_EXC_INFO`/`POP_EXCEPT`) is also done (no more block stack at all).
 Phase 7 (split `last_instr`) requires benchmark data before landing -- defer.
 Proceed with Phase 8 (per-instruction exception table compiler).
