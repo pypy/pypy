@@ -1,3 +1,4 @@
+import sys
 import pytest
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
@@ -1059,6 +1060,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_ushift_lshift(self):
         ops = """
         [i0]
