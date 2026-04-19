@@ -435,14 +435,14 @@ class TestArgumentsNormal(object):
         space = DummySpace()
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg={"a": 2}, w_function=FakeFunc("foo"))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
     def test_starstararg_wrong_type(self):
         space = DummySpace()
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg="hello", w_function=FakeFunc("bar"))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "bar() argument after ** must be a mapping, not str"
 
     def test_unwrap_error(self):
@@ -450,7 +450,7 @@ class TestArgumentsNormal(object):
         valuedummy = object()
         with py.test.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"], [1], w_starstararg={None: 1}, w_function=FakeFunc("f1"))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert excinfo.value._w_value is None
 
     def test_blindargs(self):
@@ -528,7 +528,7 @@ class TestArgumentsNormal(object):
         with pytest.raises(OperationError) as excinfo:
             args.parse_obj("obj", "foo",
                            Signature(["a", "b"], None, None))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() msg"
 
 
@@ -584,7 +584,7 @@ class TestArgumentsNormal(object):
         with pytest.raises(OperationError) as excinfo:
             args.parse_into_scope("obj", [None, None], "foo",
                                   Signature(["a", "b"], None, None))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() msg"
 
     def test_topacked_frompacked(self):
@@ -652,13 +652,13 @@ class TestArgumentsNormal(object):
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"],
                       [1], w_starstararg=kwargs(["a"], [2]))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "got multiple values for keyword argument 'a'"
 
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"],
                       [1], w_starstararg=kwargs(["a"], [2]), w_function=FakeFunc("foo"))
-        assert excinfo.value.w_type is TypeError
+        assert excinfo.value.get_w_type(space) is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
     def test_posonly(self):

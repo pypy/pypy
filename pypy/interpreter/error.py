@@ -200,6 +200,8 @@ class OperationError(Exception):
         #  (inst, None)               (inst.__class__, inst)          no
         #
         w_type = self.w_type
+        if w_type is None:
+            return self._w_value   # already normalized
         w_value = self.get_w_value(space)
 
         if space.exception_is_valid_obj_as_class_w(w_type):
@@ -307,7 +309,7 @@ class OperationError(Exception):
                 except OperationError as e:
                     first_line = "Exception ignored in sys.unraisablehook"
                     w_object = w_hook
-                    w_type = e.w_type
+                    w_type = e.get_w_type(space)
                     w_value = e.get_w_value(space)
                     w_tb = e.get_w_traceback(space)
 

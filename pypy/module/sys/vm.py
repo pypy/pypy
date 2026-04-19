@@ -149,11 +149,11 @@ def exc_info_with_tb(space):
     if operror is None:
         return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
-        return space.newtuple([operror.w_type, operror.get_w_value(space),
+        return space.newtuple([operror.get_w_type(space), operror.get_w_value(space),
                                operror.get_w_traceback(space)])
 
 def exc_info_without_tb(space, operror):
-    return space.newtuple([operror.w_type, operror.get_w_value(space),
+    return space.newtuple([operror.get_w_type(space), operror.get_w_value(space),
                            space.w_None])
 
 def exc_info_direct(space, frame):

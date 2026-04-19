@@ -22,7 +22,7 @@ class TestIterator(BaseApiTest):
     def test_iternext_error(self, space):
         with pytest.raises(OperationError) as excinfo:
             PyIter_Next(space, space.w_None)
-        assert excinfo.value.w_type is space.w_TypeError
+        assert excinfo.value.get_w_type(space) is space.w_TypeError
 
 
     def test_reversed(self, space, api):

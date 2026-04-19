@@ -31,7 +31,7 @@ class TestLongObject(BaseApiTest):
         w_value = space.mul(w_value, space.wrap(2))
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLong(space, w_value)
-        assert excinfo.value.w_type is space.w_OverflowError
+        assert excinfo.value.get_w_type(space) is space.w_OverflowError
         msg = "Python int too large to convert to C long"
         print(space.text_w(excinfo.value.get_w_value(space)))
         assert space.text_w(excinfo.value.get_w_value(space)) == msg
@@ -73,18 +73,18 @@ class TestLongObject(BaseApiTest):
         assert PyLong_AsLongLong(space, space.wrap(1 << 62)) == 1 << 62
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLongLong(space, space.wrap(1 << 63))
-        assert excinfo.value.w_type is space.w_OverflowError
+        assert excinfo.value.get_w_type(space) is space.w_OverflowError
 
         assert PyLong_AsUnsignedLongLong(space, space.wrap(1 << 63)) == 1 << 63
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLongLong(space, space.wrap(1 << 64))
-        assert excinfo.value.w_type is space.w_OverflowError
+        assert excinfo.value.get_w_type(space) is space.w_OverflowError
 
         assert PyLong_AsUnsignedLongLongMask(space, space.wrap(1 << 64)) == 0
 
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLongLongMask(space, None)
-        assert excinfo.value.w_type is space.w_SystemError
+        assert excinfo.value.get_w_type(space) is space.w_SystemError
 
     def test_as_long_and_overflow(self, space, api):
         overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')

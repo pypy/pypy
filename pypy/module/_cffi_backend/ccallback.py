@@ -195,7 +195,7 @@ class W_ExternPython(W_CData):
         else:
             try:
                 e.normalize_exception(space)
-                w_t = e.w_type
+                w_t = e.get_w_type(space)
                 w_v = e.get_w_value(space)
                 w_tb = e.get_w_traceback(space)
                 w_res = space.call_function(self.w_onerror, w_t, w_v, w_tb)

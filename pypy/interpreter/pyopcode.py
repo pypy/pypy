@@ -1312,7 +1312,7 @@ class __extend__(pyframe.PyFrame):
             w_traceback = operr.get_w_traceback(self.space)
             w_res = self.call_contextmanager_exit_function(
                 w_exitfunc,
-                operr.w_type,
+                operr.get_w_type(self.space),
                 operr.get_w_value(self.space),
                 w_traceback)
         else:
@@ -1853,7 +1853,7 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
         # originally passed to throw().  In our case it is far removed.
         # Let's hope nobody will complain...
         w_val = operr.normalize_exception(space)
-        w_exc = operr.w_type
+        w_exc = operr.get_w_type(space)
         w_tb = operr.get_w_traceback(space)
         return space.call_function(w_meth, w_exc, w_val, w_tb)
     else:

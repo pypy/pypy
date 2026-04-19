@@ -47,7 +47,7 @@ def _current_exceptions(space):
         else:
             space.setitem(w_result, 
                           space.newint(thread_ident),
-                          space.newtuple([operror.w_type,
+                          space.newtuple([operror.get_w_type(space),
                                           operror.get_w_value(space),
                                           operror.get_w_traceback(space)]))
     return w_result

@@ -54,13 +54,13 @@ class TestExceptions(BaseApiTest):
         api.PyErr_SetNone(space.w_KeyError)
         state = space.fromcache(State)
         operror = state.get_exception()
-        assert space.eq_w(operror.w_type, space.w_KeyError)
+        assert space.eq_w(operror.get_w_type(space), space.w_KeyError)
         assert space.eq_w(operror.get_w_value(space), space.w_None)
         api.PyErr_Clear()
 
         api.PyErr_NoMemory()
         operror = state.get_exception()
-        assert space.eq_w(operror.w_type, space.w_MemoryError)
+        assert space.eq_w(operror.get_w_type(space), space.w_MemoryError)
         api.PyErr_Clear()
 
     def test_Warning(self, space, api, capfd):
@@ -113,7 +113,7 @@ class TestExceptions(BaseApiTest):
         # Fake a traceback.
         operror.set_traceback(space.w_True) # this doesn't really need to be a real traceback for this test.
 
-        w_type = operror.w_type
+        w_type = operror.get_w_type(space)
         w_value = operror.get_w_value(space)
         w_tb = operror.get_w_traceback(space)
 
@@ -732,8 +732,8 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         output = sys.stderr.getvalue()
         sys.stderr = old
         msg = output.strip().replace('\r', '').splitlines()
-        assert msg[0] == "Exception ignored in: 'location'"
-        assert msg[-1] == "ValueError: message"
+        assert msg[0] == "Exception ignored in: 'location'", repr(msg)
+        assert msg[-1] == "ValueError: message", repr(msg)
 
         # Taken from lib-python/3/test/audit-tests.py
         def unraisablehook(hookargs):

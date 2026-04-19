@@ -178,7 +178,7 @@ def HPyErr_ExceptionMatches(space, handles, ctx, h_exc):
     operror = state.get_exception()
     if operror is None:
         return 0
-    w_given = operror.w_type
+    w_given = operror.get_w_type(space)
     # this is taken from PyErr_GivenExceptionMatches
     if space.isinstance_w(w_given, space.w_BaseException):
         w_given_type = space.type(w_given)

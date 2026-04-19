@@ -128,7 +128,7 @@ def PyErr_Occurred(space):
     operror = state.get_exception()
     if operror is None:
         return None
-    return operror.w_type     # borrowed ref
+    return operror.get_w_type(space)     # borrowed ref
 
 @cpython_api([], lltype.Void)
 def PyErr_Clear(space):
@@ -147,7 +147,7 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        ptype[0] = make_ref(space, operror.w_type)
+        ptype[0] = make_ref(space, operror.get_w_type(space))
         pvalue[0] = make_ref(space, operror.get_w_value(space))
         ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:
@@ -202,7 +202,7 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
     w_value = operr.normalize_exception(space)
     decref(space, exc_p[0])
     decref(space, val_p[0])
-    exc_p[0] = make_ref(space, operr.w_type)
+    exc_p[0] = make_ref(space, operr.get_w_type(space))
     val_p[0] = make_ref(space, w_value)
 
 @cpython_api([], rffi.INT_real, error=0)
@@ -461,7 +461,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 
     operror = space.fromcache(State).clear_exception()
     w_value = operror.normalize_exception(space)
-    w_type = operror.w_type
+    w_type = operror.get_w_type(space)
     w_tb = operror.get_w_traceback(space)
 
     if rffi.cast(lltype.Signed, set_sys_last_vars):
@@ -560,7 +560,7 @@ def PyErr_GetExcInfo(space, ptype, pvalue, ptraceback):
     ec = space.getexecutioncontext()
     operror = ec.sys_exc_info()
     if operror:
-        ptype[0] = make_ref(space, operror.w_type)
+        ptype[0] = make_ref(space, operror.get_w_type(space))
         pvalue[0] = make_ref(space, operror.get_w_value(space))
         ptraceback[0] = make_ref(space, operror.get_w_traceback(space))
     else:

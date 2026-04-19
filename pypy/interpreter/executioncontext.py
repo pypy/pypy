@@ -358,7 +358,7 @@ class ExecutionContext(object):
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
                 w_value = operr.normalize_exception(space)
-                w_arg = space.newtuple([operr.w_type, w_value,
+                w_arg = space.newtuple([operr.get_w_type(space), w_value,
                                         operr.get_w_traceback(space)])
 
             lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
