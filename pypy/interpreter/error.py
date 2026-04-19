@@ -57,7 +57,7 @@ class OperationError(Exception):
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
-        return space.exception_match(self.w_type, w_check_class)
+        return space.exception_match(self.get_w_type(space), w_check_class)
 
     def async(self, space):
         "Check if this is an exception that should better not be caught."
@@ -95,7 +95,7 @@ class OperationError(Exception):
             exc_value = str(w_value)
         else:
             exc_typename = space.text_w(
-                space.getattr(self.w_type, space.newtext('__name__')))
+                space.getattr(self.get_w_type(space), space.newtext('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
@@ -248,7 +248,7 @@ class OperationError(Exception):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type = w_type
+        self.w_type = None
         self._w_value = w_value
         return w_value
 
@@ -267,7 +267,7 @@ class OperationError(Exception):
             w_value = self.normalize_exception(space)
         except OperationError:
             w_value = self.get_w_value(space)
-        w_type = self.w_type
+        w_type = self.get_w_type(space)
         w_tb = self.get_w_traceback(space)
         if w_object is None:
             w_object = space.w_None
@@ -284,7 +284,7 @@ class OperationError(Exception):
         else:
             first_line = ''
         info_w = [
-            self.w_type,
+            w_type,
             w_value,
             w_tb,
             space.newtext(first_line),
@@ -345,6 +345,12 @@ class OperationError(Exception):
             """)
         except OperationError:
             pass   # ignored
+
+    def get_w_type(self, space):
+        w_type = self.w_type
+        if w_type is not None:
+            return w_type
+        return space.type(self._w_value)
 
     def get_w_value(self, space):
         w_value = self._w_value
@@ -635,7 +641,7 @@ class OpErrFmtNoArgs(OperationError):
         # also matches a RuntimeError("maximum rec.") if the stack is
         # still almost full, because in this case it might be a better
         # idea to propagate the exception than eat it
-        if (self.w_type is space.w_RecursionError and
+        if (self.get_w_type(space) is space.w_RecursionError and
             self._value == "maximum recursion depth exceeded" and
             rstack.stack_almost_full()):
             return True

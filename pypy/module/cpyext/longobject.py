@@ -66,8 +66,8 @@ def PyLong_AsUnsignedLong(space, w_long):
         val = space.uint_w(space.index(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
-        if (e.match(space, space.w_OverflowError) and 
+            e = OperationError(space.w_OverflowError, e.get_w_value(space))
+        if (e.match(space, space.w_OverflowError) and
                 space.isinstance_w(w_long, space.w_int)):
             raise oefmt(space.w_OverflowError,
                 "Python int too large to convert to C unsigned long")
@@ -104,7 +104,7 @@ def PyLong_AsLong(space, w_long):
         val = space.int_w(space.index(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
+            e = OperationError(space.w_OverflowError, e.get_w_value(space))
         if (e.match(space, space.w_OverflowError) and
                 space.isinstance_w(w_long, space.w_int)):
             raise oefmt(space.w_OverflowError,
@@ -127,7 +127,7 @@ def _PyLong_AsInt(space, w_long):
         val = space.int_w(space.index(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
+            e = OperationError(space.w_OverflowError, e.get_w_value(space))
         if (e.match(space, space.w_OverflowError) and
                 space.isinstance_w(w_long, space.w_int)):
             raise oefmt(space.w_OverflowError,
@@ -177,7 +177,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
         if e.match(space, space.w_ValueError):
             if not w_long:
                 raise
-            e.w_type = space.w_OverflowError
+            raise OperationError(space.w_OverflowError, e.get_w_value(space))
         raise
 
 @cts.decl("unsigned long long PyLong_AsUnsignedLongLongMask(PyObject *val)", error=-1)
