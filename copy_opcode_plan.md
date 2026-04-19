@@ -101,6 +101,42 @@ Source of truth: `~/oss/cpython/Python/ceval.c` `TARGET(COPY)`.
     Plan B converge — the fix to the `sys.exc_info` bug is the same user-
     visible change, differing only in what opcodes implement the cleanup.
 
+### 6.5. Fine-grained with exception-table entries
+
+Currently `_label_exception_targets` in `assemble.py` derives a single coarse
+exception-table entry per with-statement, spanning everything from
+`SETUP_WITH` to `POP_BLOCK`. CPython emits finer-grained entries split at
+natural boundaries (body, inner `call_exit_with_nones`, `cleanup`→
+`with_cleanup`, `exit2`'s trailing POP_TOP, etc.), each with its own depth
+and handler.
+
+Why do this between step 6 and step 7:
+- Step 7's `dis.dis` / exception-table round-trip against CPython will
+  otherwise show a long list of table-byte mismatches that are hard to
+  triage; fixing ranges first turns step 7 into verification.
+- Closes the `test_context_with_suppressed`-class of bugs: the recent fix
+  (dropping SETUP_EXCEPT placeholder pushes) was a narrow correctness
+  patch; fine-grained ranges remove the whole hazard — the outer with's
+  own `call_exit_with_nones` gets its own entry pointing to the outer
+  handler (CPython's `122 to 144 -> 194 [1]` pattern), instead of being
+  accidentally covered by the inner body range.
+- Unblocks step 10 cleanup: once ranges are explicit, `POP_BLOCK` has no
+  compile-time role and `SETUP_WITH`'s range-marker use disappears —
+  removing those dummy opcodes becomes safe.
+
+Scope:
+- Delete `_label_exception_targets` (assemble.py:761-809).
+- In `handle_withitem` (codegen.py:1547-1640) emit explicit
+  `emit_exception_table_entry` calls for each region matching CPython's
+  boundaries.
+- `POP_BLOCK` stays as a runtime no-op for now; `SETUP_WITH` unchanged.
+- No opcode renumbering, no JIT work, no `BEFORE_WITH` migration.
+
+Tests:
+- Full `pypy/interpreter/test/` must still pass.
+- `dis.dis` comparison (same apptest pattern used in step 6 debugging) of
+  nested with over CPython 3.11 shows matching exception tables.
+
 ### 7. `dis.dis` / exception table display
 
 - Verify `lib-python/3/dis.py` already knows `COPY` (it does — shipped with
@@ -175,4 +211,5 @@ Recommendation: default to Plan B unless a blocking issue appears in step 4
 
 ## We chose Plan B
 
-Status: completed steps 1,2,3,4,5. Working on step 6
+Status: completed steps 1,2,3,4,5,6. Next: step 6.5 (fine-grained with
+exception-table entries), then step 7.

@@ -246,3 +246,25 @@ def test_sys_exc_info_finally_nested_as_name():
             pass
     inner()
     assert sys.exc_info() == (None, None, None), sys.exc_info()
+
+def test_sys_exc_info_with_propagates():
+    # Regression: a with-statement whose __exit__ returns falsy must not
+    # leak sys.exc_info when the body raises and the outer frame catches.
+    # The exception-table entry for the with-cleanup block must cover the
+    # RERAISE 2 instruction so the outer_cleanup (COPY 3; POP_EXCEPT;
+    # RERAISE 1) runs and restores sys.exc_info before re-raising.
+    import sys
+    assert sys.exc_info() == (None, None, None)
+    class CM:
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            return False  # propagate
+    def inner():
+        try:
+            with CM():
+                raise ImportError("boom")
+        except ImportError:
+            pass
+    inner()
+    assert sys.exc_info() == (None, None, None), sys.exc_info()

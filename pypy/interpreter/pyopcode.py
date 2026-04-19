@@ -189,13 +189,7 @@ class __extend__(pyframe.PyFrame):
             self.last_instr = self._reraise_lasti
             self._reraise_lasti = -1
         self.frame_finished_execution = True  # allows frame.clear() after propagation
-        if we_are_translated():
-            raise operr
-        else:
-            # try to preserve the CPython-level traceback
-            import sys
-            tb = sys.exc_info()[2]
-            raise OperationError, operr, tb
+        raise operr
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)

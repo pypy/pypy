@@ -1626,8 +1626,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # arrives here with [__exit__, lasti, prev, lasti_new, exc_new] on
         # the stack.  COPY 3 duplicates prev, POP_EXCEPT pops the copy and
         # restores sys.exc_info, RERAISE 1 reads lasti_new and reraises.
-        self.emit_exception_table_entry(cleanup, with_cleanup, lasti=True,
-                                        end_block=rest_of_handler)
+        self.emit_exception_table_entry(cleanup, with_cleanup, lasti=True)
         self.use_next_block(with_cleanup)
         self.emit_op_arg(ops.COPY, 3)
         self.emit_op(ops.POP_EXCEPT)
