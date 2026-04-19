@@ -120,6 +120,153 @@ class TestFunctionObject(BaseApiTest):
         assert PyCode_Addr2Line(space, w_code, -1) == -1
         assert PyCode_Addr2Line(space, w_code, 100) == -1
 
+class AppTestPickleCpyextFunction(AppTestCpythonExtensionBase):
+    def test_pickle_cpyext_function_directly(self):
+        # Regression for issue #5445.
+        # pickle.py registered _Pickler.save_global (an unbound method needing
+        # self and obj) in copyreg.dispatch_table for cpyext.FunctionType.
+        # Pickling any cpyext function raised:
+        #   TypeError: _Pickler.save_global() missing 1 required positional argument: 'obj'
+        module = self.import_extension('pickle_cpyext_test', [
+            ("identity", "METH_O",
+             """
+                Py_INCREF(args);
+                return args;
+             """),
+        ])
+        import _pickle
+        for proto in range(6):
+            data = _pickle.dumps(module.identity, proto)
+            result = _pickle.loads(data)
+            assert result is module.identity
+
+    def test_pickle_reduce_returning_cpyext_function(self):
+        # Regression for issue #5445: object whose __reduce__ returns a cpyext
+        # function as the callable also triggered the TypeError.
+        module = self.import_extension('pickle_cpyext_reduce_test', [
+            ("add_one", "METH_O",
+             """
+                long n = PyLong_AsLong(args);
+                if (n == -1 && PyErr_Occurred()) return NULL;
+                return PyLong_FromLong(n + 1);
+             """),
+        ])
+        import _pickle
+
+        class Container:
+            def __reduce__(self):
+                return module.add_one, (41,)
+
+        for proto in range(6):
+            result = _pickle.loads(_pickle.dumps(Container(), proto))
+            assert result == 42
+
+
+    def test_pickle_method_descriptor(self):
+        # method_descriptor (W_PyCMethodObject): unbound method on a C extension type,
+        # e.g. MyType.my_method.  Should pickle as (getattr, (MyType, 'my_method')).
+        module = self.import_extension('pickle_method_desc', [
+            ("new_obj", "METH_NOARGS",
+             """
+                PyObject *obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+             """),
+        ], prologue="""
+            static PyObject *
+            foo_greet(PyObject *self, PyObject *args)
+            {
+                return PyLong_FromLong(42);
+            }
+            static PyMethodDef foo_methods[] = {
+                {"greet", foo_greet, METH_NOARGS, NULL},
+                {NULL}
+            };
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "pickle_method_desc.Foo",
+            };
+        """, more_init="""
+            Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+            Foo_Type.tp_methods = foo_methods;
+            if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Foo", (PyObject *)&Foo_Type);
+        """)
+        import _pickle
+        # module.Foo.greet is a method_descriptor (W_PyCMethodObject)
+        for proto in range(6):
+            data = _pickle.dumps(module.Foo.greet, proto)
+            result = _pickle.loads(data)
+            assert result is module.Foo.greet
+
+    def test_pickle_classmethod_descriptor(self):
+        # classmethod on a C extension type (W_PyCClassMethodObject).
+        # Should pickle as (getattr, (MyType, 'from_int')).
+        module = self.import_extension('pickle_classmethod_desc', [
+            ("new_obj", "METH_NOARGS",
+             """
+                PyObject *obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+             """),
+        ], prologue="""
+            static PyObject *
+            foo_from_int(PyObject *cls, PyObject *args)
+            {
+                return PyLong_FromLong(99);
+            }
+            static PyMethodDef foo_methods[] = {
+                {"from_int", foo_from_int, METH_NOARGS | METH_CLASS, NULL},
+                {NULL}
+            };
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "pickle_classmethod_desc.Foo",
+            };
+        """, more_init="""
+            Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+            Foo_Type.tp_methods = foo_methods;
+            if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Foo", (PyObject *)&Foo_Type);
+        """)
+        import _pickle
+        # module.Foo.from_int is a W_PyCClassMethodObject
+        for proto in range(6):
+            data = _pickle.dumps(module.Foo.from_int, proto)
+            result = _pickle.loads(data)
+            assert result.__qualname__ == "Foo.from_int"
+
+    def test_pickle_wrapper_descriptor(self):
+        # wrapper_descriptor (W_PyCWrapperObject): slot wrapper on a C extension
+        # type, e.g. MyType.__repr__.  Should pickle as (getattr, (MyType, '__repr__')).
+        module = self.import_extension('pickle_wrapper_desc', [
+            ("new_obj", "METH_NOARGS",
+             """
+                PyObject *obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+             """),
+        ], prologue="""
+            static PyObject *
+            foo_repr(PyObject *self)
+            {
+                return PyUnicode_FromString("<Foo>");
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "pickle_wrapper_desc.Foo",
+            };
+        """, more_init="""
+            Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+            Foo_Type.tp_repr = foo_repr;
+            if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Foo", (PyObject *)&Foo_Type);
+        """)
+        import _pickle
+        # module.Foo.__repr__ is a wrapper_descriptor (W_PyCWrapperObject)
+        for proto in range(6):
+            data = _pickle.dumps(module.Foo.__repr__, proto)
+            result = _pickle.loads(data)
+            assert result is module.Foo.__repr__
+
+
 class AppTestCall(AppTestCpythonExtensionBase):
     def test_code_new_empty(self):
         module = self.import_extension('foo', [

@@ -238,6 +238,29 @@ class W_PyCFunctionObject(W_Root):
     def fdel_module(self, space):
         self.w_module = space.w_None
 
+    def descr_reduce(self, space):
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_getattr = space.getattr(w_builtins, space.newtext('getattr'))
+        w_mod = self.w_module
+        if w_mod is None or space.is_none(w_mod):
+            raise oefmt(space.w_TypeError,
+                        "cannot pickle built-in function '%s': no __module__",
+                        self.name)
+        # __module__ is stored as a string; resolve it via sys.modules
+        if space.isinstance_w(w_mod, space.w_unicode):
+            w_sys = space.getbuiltinmodule('sys')
+            w_modules = space.getattr(w_sys, space.newtext('modules'))
+            try:
+                w_mod = space.getitem(w_modules, w_mod)
+            except OperationError as e:
+                if not e.match(space, space.w_KeyError):
+                    raise
+                raise oefmt(space.w_TypeError,
+                            "cannot pickle built-in function '%s': "
+                            "module not in sys.modules", self.name)
+        return space.newtuple2(w_getattr,
+                               space.newtuple([w_mod, space.newtext(self.name)]))
+
 class W_PyCMethodObject(W_PyCFunctionObject):
 
     def __init__(self, space, ml, w_self, w_module, w_type, type_name):
@@ -273,6 +296,13 @@ class W_PyCMethodObject(W_PyCFunctionObject):
         # CCC: we can surely do better than this
         __args__ = __args__.replace_arguments(__args__.arguments_w[1:])
         return self.call(space, w_instance, __args__)
+
+    def descr_reduce(self, space):
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_getattr = space.getattr(w_builtins, space.newtext('getattr'))
+        return space.newtuple2(w_getattr,
+                               space.newtuple([self.w_objclass,
+                                               space.newtext(self.name)]))
 
 # PyPy addition, for Cython
 _, _ = build_type_checkers("MethodDescr", W_PyCMethodObject)
@@ -363,6 +393,13 @@ class W_PyCWrapperObject(W_Root):
                                   (self.method_name,
                                    self.w_objclass.name))
 
+    def descr_reduce(self, space):
+        w_builtins = space.getbuiltinmodule('builtins')
+        w_getattr = space.getattr(w_builtins, space.newtext('getattr'))
+        return space.newtuple2(w_getattr,
+                               space.newtuple([self.w_objclass,
+                                               space.newtext(self.method_name)]))
+
     def descr_get_doc(self, space):
         py_obj = make_ref(space, self)
         py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
@@ -435,6 +472,7 @@ W_PyCFunctionObject.typedef = TypeDef(
     __qualname__ = interp_attrproperty('qualname', cls=W_PyCFunctionObject,
         wrapfn="newtext_or_none"),
     __self__ = interp_attrproperty_w('w_self', cls=W_PyCFunctionObject),
+    __reduce__ = interp2app(W_PyCFunctionObject.descr_reduce),
     )
 W_PyCFunctionObject.typedef.acceptable_as_base_class = False
 
@@ -448,6 +486,7 @@ W_PyCMethodObject.typedef = TypeDef(
         wrapfn="newtext_or_none"),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCMethodObject),
     __repr__ = interp2app(W_PyCMethodObject.descr_method_repr),
+    __reduce__ = interp2app(W_PyCMethodObject.descr_reduce),
     )
 W_PyCMethodObject.typedef.acceptable_as_base_class = False
 
@@ -477,6 +516,7 @@ W_PyCWrapperObject.typedef = TypeDef(
     __doc__ = GetSetProperty(W_PyCWrapperObject.descr_get_doc),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
+    __reduce__ = interp2app(W_PyCWrapperObject.descr_reduce),
     # XXX missing: __getattribute__
     )
 W_PyCWrapperObject.typedef.acceptable_as_base_class = False
