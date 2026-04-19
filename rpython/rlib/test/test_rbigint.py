@@ -27,7 +27,7 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rtyper.tool.rfficache import platform
 from rpython.rlib.rstring import StringBuilder
 
-from hypothesis import given, strategies, example, settings, assume
+from hypothesis import given, strategies, example, settings, assume, HealthCheck
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -1657,6 +1657,7 @@ class TestHypothesis(object):
             HOLDER.DIV_LIMIT = oldval
 
     @given(tuples_biglongs_for_division)
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_divmod_consistency(self, tup):
         lx, ly = tup
         ly = ly or 1

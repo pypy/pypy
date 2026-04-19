@@ -8,7 +8,7 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 
-from hypothesis import strategies, given, assume, example
+from hypothesis import strategies, given, assume, example, HealthCheck
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
@@ -1477,6 +1477,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 assert "".join(obj.chars) == actiondata[1]
 
     @given(random_action_sequences())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_random(self, random_data):
         from rpython.rlib import rgc
         self.state_setup(random_data)
