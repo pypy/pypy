@@ -57,11 +57,16 @@ class TestW_ComplexObject:
         assert abs(0.0 - ir) < EPS
 
         def _powu((r1, i1), n):
-            w_res = W_ComplexObject(r1, i1).pow_positive_int(n)
+            w_res = W_ComplexObject.pow_positive_int(r1, i1, n)
             return w_res.realval, w_res.imagval
         assert _powu((0.0,2.0),0) == (1.0,0.0)
         assert _powu((0.0,0.0),2) == (0.0,0.0)
         assert _powu((0.0,1.0),2) == (-1.0,0.0)
+        assert _powu((0.0,1.0),3) == (-0.0,-1.0)
+        expected = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (-0.0, -1.0)]
+        for i in range(100):
+            assert _powu((0.0, 1.0), i) == expected[i % 4]
+
 
         def _powi((r1, i1), n):
             w_res = W_ComplexObject(r1, i1).pow_small_int(n)
