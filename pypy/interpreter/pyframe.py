@@ -22,8 +22,8 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH BEFORE_ASYNC_WITH POP_BLOCK YIELD_VALUE
+for op in '''DUP_TOP POP_TOP SETUP_WITH
+SETUP_ASYNC_WITH BEFORE_ASYNC_WITH YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
@@ -1010,23 +1010,10 @@ def mark_stacks(code):
                 # SETUP_ASYNC_WITH has delta 0 in assemble.py; no stack change here.
                 if _ms_set(stacks, i + 1, stack):
                     changed = True
-            elif opcode == SETUP_FINALLY or opcode == SETUP_EXCEPT:
-                # Dummy marker; SETUP_FINALLY is now a NOP in the interpreter.
-                # No block pushed, no abstract stack change.
-                if _ms_set(stacks, i + 1, stack):
-                    changed = True
             elif opcode == EXTENDED_ARG:
                 # Prefix byte; no stack effect.  The real opcode that follows
                 # will be processed on the next iteration (i+1).
                 if _ms_set(stacks, i + 1, stack):
-                    changed = True
-            elif opcode == POP_BLOCK:
-                new_stack = stack
-                kind = new_stack & _MS_MASK
-                if kind == _MS_WITH:
-                    # Normal with-body exit: __exit__ becomes a plain Object on the stack.
-                    new_stack = _ms_push(new_stack >> _MS_BITS, _MS_OBJECT)
-                if _ms_set(stacks, i + 1, new_stack):
                     changed = True
             else:
                 delta = _opcode_stack_effect(opcode, arg)

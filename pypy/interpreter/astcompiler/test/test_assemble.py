@@ -131,3 +131,28 @@ class TestInstructionDetails(object):
 """)
         opnames = self.extract_opnames(blocks)
         assert "UNARY_NOT" not in opnames
+
+    def test_copy_emitted_in_except_as(self):
+        code, blocks = self.compile_ast_to_blocks("""
+try:
+    x = 1
+except ValueError as e:
+    pass
+""")
+        opnames = self.extract_opnames(blocks)
+        assert "COPY" in opnames
+
+    def test_copy_encoding(self):
+        code, blocks = self.compile_ast_to_blocks("""
+try:
+    x = 1
+except ValueError as e:
+    pass
+""")
+        co_code = bytearray(code.co_code)
+        found = False
+        for i in range(0, len(co_code), 2):
+            if co_code[i] == ops.COPY and co_code[i + 1] == 3:
+                found = True
+                break
+        assert found, "COPY 3 not found in co_code"

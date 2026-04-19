@@ -120,6 +120,9 @@ class Block(object):
         self.cant_add_instructions = False
         self.exits_function = False
         self.auto_inserted_return = False
+        # set by codegen for exception-handler blocks so _stacksize finds them
+        # even when no SETUP_FINALLY/EXCEPT jump instruction targets them
+        self.forced_initial_depth = -1
 
     def __repr__(self):
         return "<Block %s>" % (self.instructions, )
@@ -330,6 +333,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.add_none_to_final_return = True
         self.match_context = None
         self.exception_table_entries = []  # list of (start_block, end_block, handler_block, lasti, depth_block_or_None)
+        self._stack_depth = 0  # running stack depth counter at current emit point
 
     def __repr__(self):
         return "<PythonCodeMaker %s in %s:%s>" % (self.name, self.compile_info.filename, self.first_lineno)
@@ -351,6 +355,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def use_block(self, block):
         """Start emitting bytecode into block."""
         self.current_block = block
+        if block.forced_initial_depth >= 0:
+            self._stack_depth = block.forced_initial_depth
 
     def use_next_block(self, block=None):
         """Set this block as the next_block for the last and use it."""
@@ -373,6 +379,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         instr = Instruction(op, position_info=self.position_info)
         if not self.is_dead_code():
             self.current_block.emit_instr(instr)
+            self._stack_depth += _opcode_stack_effect(op, 0)
         return instr
 
     def emit_op_arg(self, op, arg):
@@ -380,6 +387,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         instr = Instruction(op, arg, position_info=self.position_info)
         if not self.is_dead_code():
             self.current_block.emit_instr(instr)
+            self._stack_depth += _opcode_stack_effect(op, arg)
 
     def emit_rot_n(self, arg):
         if arg == 2:
@@ -397,7 +405,14 @@ class PythonCodeMaker(ast.ASTVisitor):
 
     def emit_jump(self, op, block_to):
         """Emit a jump opcode to another block."""
+        was_dead = self.is_dead_code()
+        depth_before = self._stack_depth
         self.emit_op(op).jump_to(block_to)
+        if not was_dead and (op == ops.SETUP_WITH or op == ops.SETUP_ASYNC_WITH):
+            jump_effect = _opcode_stack_effect_jump(op)
+            jump_depth = depth_before + jump_effect
+            if jump_depth > block_to.forced_initial_depth:
+                block_to.forced_initial_depth = jump_depth
 
     def emit_compare(self, ast_op_kind):
         from pypy.interpreter.astcompiler.codegen import compare_operations
@@ -553,6 +568,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             block.initial_depth = -99
         blocks[0].initial_depth = 0
+        # Apply forced depths set by codegen for exception-handler blocks
+        # that are unreachable via the instruction graph (no SETUP_* jump targets them).
+        for block in blocks:
+            if block.forced_initial_depth >= 0 and block.forced_initial_depth > block.initial_depth:
+                block.initial_depth = block.forced_initial_depth
         # Assumes that it is sufficient to walk the blocks in 'post-order'.
         # This means we ignore all back-edges, but apart from that, we only
         # look into a block when all the previous blocks have been done.
@@ -672,7 +692,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 prev_position = instr.update_position_if_not_set(prev_position)
                 if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
-                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH):
                         continue # don't do this for exception handlers
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
@@ -889,7 +909,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 j += 1
                 if op.jump is None:
                     continue
-                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH, ops.SETUP_EXCEPT, ops.SETUP_FINALLY):
+                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH):
                     continue # don't do this for exception handlers
                 target = op.jump
                 # only do something if the target has no position info (lowest
@@ -1202,13 +1222,10 @@ _static_opcode_stack_effects = {
     ops.PRINT_EXPR: -1,
 
     ops.LOAD_BUILD_CLASS: 1,
-    ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
     ops.PUSH_EXC_INFO: 1,
     ops.CHECK_EXC_MATCH: 0,
     ops.SETUP_WITH: 1,
-    ops.SETUP_FINALLY: 0,
-    ops.SETUP_EXCEPT: 0,
 
     ops.RETURN_VALUE: -1,
     ops.YIELD_VALUE: 0,
@@ -1388,10 +1405,6 @@ def _opcode_stack_effect(op, arg):
 def _opcode_stack_effect_jump(op):
     if op == ops.FOR_ITER:
         return -1
-    elif op == ops.SETUP_FINALLY:
-        return 1
-    elif op == ops.SETUP_EXCEPT:
-        return 2
     elif op == ops.SETUP_WITH:
         # +2 at the jump edge: cleanup handler's initial_depth includes the
         # lasti int and the exc (pushed by handle_operation_error when the

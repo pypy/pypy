@@ -392,8 +392,6 @@ class __extend__(pyframe.PyFrame):
                 self.DICT_UPDATE(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
-            elif opcode == opcodedesc.POP_BLOCK.index:
-                self.POP_BLOCK(oparg, next_instr)
             elif opcode == opcodedesc.POP_EXCEPT.index:
                 self.POP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.POP_TOP.index:
@@ -412,10 +410,6 @@ class __extend__(pyframe.PyFrame):
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
                 self.ROT_TWO(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_EXCEPT.index:
-                self.SETUP_EXCEPT(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_FINALLY.index:
-                self.SETUP_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
@@ -821,9 +815,6 @@ class __extend__(pyframe.PyFrame):
         w_prev_exc = self.popvalue()
         # Restore sys.exc_info to the value saved by PUSH_EXC_INFO.
         self._restore_exc_info(w_prev_exc)
-
-    def POP_BLOCK(self, oparg, next_instr):
-        pass  # no block-stack entry to pop; kept in bytecode as range marker
 
     def PUSH_EXC_INFO(self, oparg, next_instr):
         w_exc = self.popvalue()
@@ -1313,12 +1304,6 @@ class __extend__(pyframe.PyFrame):
                 isinstance(w_iterator, AsyncGenASend) or
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
-
-    def SETUP_EXCEPT(self, offsettoend, next_instr):
-        pass  # never emitted by the compiler; dead opcode
-
-    def SETUP_FINALLY(self, offsettoend, next_instr):
-        pass  # dummy marker; no longer pushes a block (Phase 5)
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()

@@ -222,5 +222,89 @@ Recommendation: default to Plan B unless a blocking issue appears in step 4
 
 ## We chose Plan B
 
-Status: completed steps 1,2,3,4,5,6. Next: step 6.5 (fine-grained with
-exception-table entries), then step 7.
+Status: steps 1–6 and 6.5 done, step 7 skipped (verified as unnecessary),
+step 8 done. Next: step 10 (combined dummy-opcode removal + COPY renumber).
+
+---
+
+## Updated plan for remaining steps (2026-04-19)
+
+### Step 10: Remove dummy opcodes
+
+**What are the dummy opcodes today?**
+
+| Opcode | Number | Role in bytecode | Runtime |
+|---|---|---|---|
+| `SETUP_EXCEPT` | 120 | emitted with jump target to seed `_stacksize` for cleanup handler blocks | no-op |
+| `SETUP_FINALLY` | 122 | same — seeds `_stacksize` for try/except and try/finally handler blocks | no-op |
+| `POP_BLOCK` | 87 | still emitted at end of `with` body (was range marker for deleted `_label_exception_targets`) | no-op |
+
+The only reason they remain in `co_code` is that `_stacksize` uses their jump
+effects to set `handler_block.initial_depth`, which `_build_exceptiontable`
+then reads to compute the `depth` field.
+
+**Approach — incremental depth counter in codegen:**
+
+1. Add `self._stack_depth` to `PythonCodeGenerator`, initialised to 0.  Update
+   it at every `emit_op` / `emit_jump` call using `_opcode_stack_effect`.  This
+   gives codegen visibility into the current stack depth at any emit site.
+
+2. Add `Block.forced_initial_depth = -1`.  In `_stacksize`, immediately after
+   the `block.initial_depth = -99` initialisation loop, apply forced values:
+   ```python
+   if block.forced_initial_depth >= 0:
+       block.initial_depth = block.forced_initial_depth
+   ```
+
+3. At every site in `codegen.py` that currently calls
+   `emit_jump(ops.SETUP_FINALLY, handler)` or
+   `emit_jump(ops.SETUP_EXCEPT, handler)`:
+   - Set `handler.forced_initial_depth = self._stack_depth + 1` (SETUP_FINALLY,
+     lasti=False) or `+ 2` (SETUP_EXCEPT, lasti=True).
+   - Emit `NOP` instead.
+
+4. All existing `emit_op(ops.NOP)` comments that say "SETUP_FINALLY is a NOP"
+   are already correct — leave them.
+
+5. Remove all `emit_op(ops.POP_BLOCK)` calls from `codegen.py`.  Replace with
+   nothing (no instruction needed; the exception table entry already captures
+   the range end via the surrounding blocks).
+
+**Opcode table changes (`pypy/tool/opcode3.py`):**
+
+- Delete `jrel_op('SETUP_EXCEPT', 120)`
+- Delete `jrel_op('SETUP_FINALLY', 122)`
+- Delete `def_op('POP_BLOCK', 87)`
+- COPY stays at 38 — renumbering to 120 is a later cleanup refactor.
+
+**assemble.py cleanup:**
+
+- `_opcode_stack_effect_jump`: remove `SETUP_FINALLY` and `SETUP_EXCEPT`
+  branches (lines ~1391–1394).
+- `_static_opcode_stack_effects`: remove entries for `SETUP_FINALLY`,
+  `SETUP_EXCEPT`, `POP_BLOCK` (lines ~1205, 1210–1211).
+- `_stacksize` line 675: remove `ops.SETUP_EXCEPT, ops.SETUP_FINALLY` from the
+  special-case guard (only `SETUP_WITH`/`SETUP_ASYNC_WITH` remain).
+- `duplicate_exits_without_lineno` line 892: same removal.
+- `_build_exceptiontable`: depth derivation via `initial_depth - 1` / `- 2`
+  still works because `forced_initial_depth` encodes the pre-PUSH_EXC_INFO
+  depth using the same convention.
+
+**pyopcode.py cleanup:**
+
+- Remove `SETUP_FINALLY`, `SETUP_EXCEPT`, `POP_BLOCK` handler methods.
+- Remove them from the opcode dispatch table (lines ~395–418).
+
+**Tests to update:**
+
+- `test_compiler.py::test_stackeffect_bug3` and `test_stackeffect_bug4`:
+  should pass automatically once dummy opcodes no longer inflate `co_stacksize`.
+- No COPY test changes needed — opcode number stays 38.
+
+### Step 11: Full test run + buildbot
+
+After step 10:
+1. Run full `pypy/interpreter/test/` untranslated suite — must be 0 failures.
+2. Run `pypy/interpreter/astcompiler/test/` — `test_stackeffect_bug3/4` must
+   now pass.
+3. Kick buildbot.
