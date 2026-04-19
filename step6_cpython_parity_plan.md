@@ -5,6 +5,66 @@ bytecode emitted for `try/except`, `try/finally`, `with`, and async variants
 matches CPython 3.11 instruction-for-instruction.  After this step, `dis.dis`
 output on PyPy equals CPython's.
 
+## Current status (2026-04-18)
+
+**Semantic parity achieved** for the exception-table contract.  **Byte-for-byte
+`dis.dis` parity not achieved** — out-of-scope opcode-shape differences remain
+(see "Remaining differences" below).
+
+Done:
+- `handle_operation_error` pushes `lasti` + exc for `lasti=True` handlers;
+  `_reraise_saved_lasti` replaced with transient `_reraise_lasti` field
+  (pyopcode.py:121-198).
+- `RERAISE N` reads lasti from `PEEK(N+1)`, updates transient `_reraise_lasti`
+  for next dispatch, does NOT touch `sys.exc_info` (pyopcode.py:1357+).
+- `POP_EXCEPT` unchanged; always precedes `RERAISE 1` in outer cleanups.
+- Cleanup pattern `COPY N; POP_EXCEPT; RERAISE 1` emitted at every site:
+  except-as inner/outer (codegen.py:1028-1032), bare-except, try/finally
+  (codegen.py:1146), with (codegen.py:1629-1634), async-for-in-async-with
+  (codegen.py:896 — ROT_THREE; POP_EXCEPT; POP_TOP; RERAISE 0 to match
+  aiter-drop semantics).
+- Exception-table entries carry correct `depth` + `lasti`; depth derivation
+  in `_build_exceptiontable` uses `-2` for lasti, `-1` otherwise
+  (assemble.py:855-857).
+- `_label_exception_targets` only tracks `SETUP_WITH` / `SETUP_ASYNC_WITH`
+  (the only opcodes with matching `POP_BLOCK`); `SETUP_FINALLY` /
+  `SETUP_EXCEPT` are compile-time dummies and do not participate in the
+  handler-stack pairing (assemble.py:771-809).  This fix closed the
+  `test_context_with_suppressed` nested-with bug.
+- `duplicate_exits_without_lineno` skips RERAISE-only targets to avoid
+  corrupting exception-table ranges (assemble.py:961).
+- Full `pypy/interpreter/test/` suite: 1276 passed, 18 skipped, 0 failures
+  (untranslated PyPy).
+
+Remaining differences (`dis.dis` parity — deferred to later steps):
+- Dummy `SETUP_FINALLY` / `SETUP_EXCEPT` / `POP_BLOCK` opcodes still emitted
+  (runtime no-ops; used for `_stacksize` seeding and with-range delimiting).
+- Call sequence: PyPy `CALL_FUNCTION` vs CPython `PUSH_NULL; …; PRECALL; CALL`
+  with inline caches.
+- With-entry: PyPy `SETUP_WITH` vs CPython `BEFORE_WITH` (and different
+  __exit__ push sequence upstream).
+- `DUP_TOP` / `DUP_TOP_TWO` vs CPython `COPY 1` / `COPY 2`.
+- `LOAD_GLOBAL` without the NULL-push bit.
+- `LOAD_METHOD` + `CALL_METHOD` vs CPython `LOAD_ATTR` + `PRECALL`.
+- Unified `POP_JUMP_IF_TRUE` / `_FALSE` vs CPython's directional variants.
+
+Deferred to step 6.5 (see `copy_opcode_plan.md`):
+- Coarser with-range exception-table entries — PyPy currently derives a
+  single range per with from `SETUP_WITH`..`POP_BLOCK` in
+  `_label_exception_targets`; CPython splits at natural boundaries (body,
+  inner `call_exit_with_nones`, `cleanup`→`with_cleanup`, `exit2` trailing
+  POP_TOP, etc.).  This is closer to a correctness/cleanup task than an
+  opcode-shape task: it removes the `test_context_with_suppressed`-class
+  hazard entirely and is a prerequisite for cleanly dropping `POP_BLOCK`
+  in step 10.
+
+Runtime-behavior note: PyPy's `call_valuestack` speed hack
+(function.py:139) drops args *before* calling, so on an exception the
+caller's stack slots are None where CPython's would still hold args/func.
+`handle_operation_error`'s `dropvaluesuntil` masks this as long as the
+compiler picks handler depths matching PyPy's post-drop stack.  The
+`test_context_with_suppressed` bug was exactly a mismatch here.
+
 ## Core semantic change
 
 **Before (PyPy):**

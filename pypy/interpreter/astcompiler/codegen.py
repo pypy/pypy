@@ -1081,8 +1081,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.COPY, 3)
         self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
-
         self.use_next_block(otherwise)
+        # If this try/except sits directly inside a with-statement body (not
+        # inside an outer try-body whose table entry already covers us), the
+        # RERAISE 1 above must be routed to the enclosing with's cleanup so
+        # that __exit__ gets called with the propagated exception.
+        with_handler = self._nearest_with_handler()
+        if with_handler is not None:
+            self.emit_exception_table_entry(
+                outer_cleanup, with_handler, lasti=True,
+                end_block=otherwise)
         self._visit_body(tr.orelse)
         self.use_next_block(end)
 
@@ -1150,6 +1158,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit)
+        # If this try/finally sits directly inside a with-statement body, the
+        # RERAISE 1 above must be routed to the enclosing with's cleanup so
+        # that __exit__ gets called with the propagated exception.
+        with_handler = self._nearest_with_handler()
+        if with_handler is not None:
+            self.emit_exception_table_entry(
+                outer_cleanup, with_handler, lasti=True,
+                end_block=exit)
 
 
     def visit_Try(self, tr):
