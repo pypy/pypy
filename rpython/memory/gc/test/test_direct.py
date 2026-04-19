@@ -8,7 +8,7 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 
-from hypothesis import strategies, given, assume, example, HealthCheck
+from hypothesis import strategies, given, assume, example, settings, HealthCheck
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
