@@ -781,6 +781,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_If(self, if_):
         end = self.new_block()
+        saved_depth = self._stack_depth  # break/return/continue in body can corrupt
         test_constant = if_.test.as_constant_truth(
             self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
@@ -804,8 +805,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.no_position_info()
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
+                self._stack_depth = saved_depth
                 self._visit_body(if_.orelse)
         self.use_next_block(end)
+        self._stack_depth = saved_depth
 
     def visit_Break(self, br):
         self.emit_line_tracing_nop()
@@ -1120,6 +1123,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 end_block=otherwise)
         self._visit_body(tr.orelse)
         self.use_next_block(end)
+        # Restore: return/raise inside orelse can corrupt _stack_depth via
+        # unwind_fblock (ROT_TWO+POP_EXCEPT).  try/except is stack-neutral.
+        self._stack_depth = saved_depth
 
     def _visit_try_finally(self, tr, has_handlers, trybody, finalbody):
         body = self.new_block()
@@ -1203,6 +1209,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
 
     def visit_Try(self, tr):
+        self.update_position(tr)
+        self.emit_op(ops.NOP)
         if tr.finalbody:
             return self._visit_try_finally(
                     tr, tr.handlers is not None, tr.body, tr.finalbody)
@@ -1210,6 +1218,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return self._visit_try_except(tr)
 
     def visit_TryStar(self, tr):
+        self.update_position(tr)
+        self.emit_op(ops.NOP)
         if tr.finalbody:
             return self._visit_try_finally(
                     tr, tr.handlers is not None, tr.body, tr.finalbody)
@@ -1387,6 +1397,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._stack_depth = saved_depth
         self._visit_body(tr.orelse)
         self.use_next_block(end)
+        self._stack_depth = saved_depth
 
     def _import_as(self, alias, imp):
         # in CPython this is roughly compile_import_as
@@ -1856,11 +1867,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_compare(last_op)
         if ops_count > 1:
             end = self.new_block()
+            saved_depth = self._stack_depth  # result at D+1; cleanup path also leaves D+1
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(cleanup)
             self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP)
             self.use_next_block(end)
+            self._stack_depth = saved_depth  # restore: result is on stack
 
     def _is_literal(self, node):
         # to-do(isidentical): maybe include list, dict, sets?
