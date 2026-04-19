@@ -201,7 +201,18 @@ class OperationError(Exception):
         #
         w_type = self.w_type
         if w_type is None:
-            return self._w_value   # already normalized
+            # Already normalized, but sync traceback if it was set after normalization
+            # (RAISE_VARARGS normalizes early, before the traceback is built)
+            w_value = self._w_value
+            if self._application_traceback is not None:
+                from pypy.interpreter.pytraceback import PyTraceback
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                tb = self._application_traceback
+                if (isinstance(w_value, W_BaseException) and
+                        isinstance(tb, PyTraceback) and
+                        w_value.w_traceback is None):
+                    w_value.w_traceback = tb
+            return w_value
         w_value = self.get_w_value(space)
 
         if space.exception_is_valid_obj_as_class_w(w_type):
