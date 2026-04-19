@@ -758,69 +758,18 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.exception_table_entries.append(
             (start_block, end_block, handler_block, lasti, depth_block))
 
-    def _label_exception_targets(self, blocks):
-        """Walk blocks linearly and build exception table entries for
-        SETUP_WITH / SETUP_ASYNC_WITH ranges.  Returns a list of
-        (start_offset, end_offset, handler_block, lasti) tuples.
-
-        SETUP_WITH/SETUP_ASYNC_WITH push a handler; POP_BLOCK pops it.
-        Inline cleanup code emitted after POP_BLOCK (e.g. for break/return)
-        is therefore NOT covered by the with-block handler -- this prevents
-        WITH_EXCEPT_START from seeing a wrong stack layout when GET_AWAITABLE
-        raises inside the break/return cleanup path."""
-        entries = []
-        # stack items: (handler_block, lasti, start_offset)
-        # Only SETUP_WITH/SETUP_ASYNC_WITH push onto handler_stack, and only
-        # they are paired with POP_BLOCK.  SETUP_FINALLY/SETUP_EXCEPT are
-        # compile-time dummies (no block to pop; unwind_fblock emits NOP, not
-        # POP_BLOCK), so they do not participate in this pairing at all.
-        handler_stack = []
-        offset = 0
-        for block in blocks:
-            for instr in block.instructions:
-                if instr.opcode in (ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
-                    start = offset + instr.size()
-                    handler_stack.append((instr.jump, True, start))
-                elif instr.opcode == ops.POP_BLOCK and handler_stack:
-                    handler_block, lasti, start = handler_stack.pop()
-                    # Protected range must end before the cleanup block.
-                    # For break/continue/return, POP_BLOCK is emitted inline
-                    # before the cleanup block (offset < handler_block.offset),
-                    # so offset is the right bound.
-                    # For normal exit in PyPy's layout, POP_BLOCK ends up in
-                    # a block after the cleanup block (offset > handler_block.offset),
-                    # so handler_block.offset is the right bound.
-                    # Taking the minimum handles both cases correctly.
-                    end = min(offset, handler_block.offset)
-                    if end > start:
-                        entries.append((start, end, handler_block, lasti, None))
-                offset += instr.size()
-        # Any with-handlers still on the stack have no live POP_BLOCK because
-        # every path through the body unconditionally raises or returns.
-        # In that case normal_exit is unreachable (empty after dead-code
-        # elimination), so handler_block.offset == end-of-body.  Emit entries
-        # using the cleanup block's own offset as the exclusive end.
-        for handler_block, lasti, start in handler_stack:
-            end = handler_block.offset
-            if end > start:
-                entries.append((start, end, handler_block, lasti, None))
-        return entries
-
     def _build_exceptiontable(self, blocks):
         """Encode exception table entries into co_exceptiontable bytes.
 
-        Combines entries from emit_exception_table_entry (try/except/finally)
-        and _label_exception_targets (with/async-with).  Sorted by start
-        offset so that lookup_exceptiontable (which keeps the last match)
-        naturally picks the innermost handler for nested constructs."""
+        All entries come from emit_exception_table_entry calls during
+        compilation (try/except/finally and with/async-with).  Sorted by
+        start offset so that lookup_exceptiontable (which keeps the last
+        match) naturally picks the innermost handler for nested constructs."""
         # Convert block-based entries to (start, end, handler_block, lasti)
         all_entries = []
         for start_block, end_block, handler_block, lasti, depth_block in self.exception_table_entries:
             all_entries.append(
                 (start_block.offset, end_block.offset, handler_block, lasti, depth_block))
-        # Add per-instruction entries for with/async-with blocks
-        for entry in self._label_exception_targets(blocks):
-            all_entries.append(entry)
         if not all_entries:
             return ''
         # Sort entries by start offset (insertion sort -- RPython-compatible, list is small).

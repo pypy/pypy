@@ -137,6 +137,17 @@ Tests:
 - `dis.dis` comparison (same apptest pattern used in step 6 debugging) of
   nested with over CPython 3.11 shows matching exception tables.
 
+Known deferred — NOT in scope for step 6.5 (tracked for step 10 dummy-opcode
+removal):
+- `pypy/interpreter/astcompiler/test/test_compiler.py::test_stackeffect_bug3`
+  and `test_stackeffect_bug4` currently fail (`co_stacksize` off by 2 for
+  sequential `try/finally: pass` / `with a: pass`).  Root cause: the dummy
+  `SETUP_FINALLY` / `SETUP_EXCEPT` / `POP_BLOCK` opcodes seed `_stacksize`
+  with an extra-depth claim at each setup site.  These tests are under
+  `astcompiler/test/`, not `interpreter/test/`, so they fall outside step
+  6.5's explicit "Full `pypy/interpreter/test/` must still pass" gate.  They
+  will be fixed naturally when step 10 removes the dummy opcodes entirely.
+
 ### 7. `dis.dis` / exception table display
 
 - Verify `lib-python/3/dis.py` already knows `COPY` (it does — shipped with

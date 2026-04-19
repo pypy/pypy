@@ -200,6 +200,13 @@ class FrameBlockInfo(object):
         self.block = block
         self.end = end
         self.datum = datum # an ast node needed for specific kinds of blocks
+        # For F_WITH/F_ASYNC_WITH: the block at which body-proper ends when
+        # the body unwinds via break/continue/return.  unwind_fblock sets
+        # this the first time it fires so that handle_withitem's body
+        # exception-table entry ends before the inline unwind code (which
+        # must not be covered by this with's cleanup, else __exit__ would
+        # run twice when it raises during call_exit_with_nones).
+        self.body_segment_end = None
 
     def __repr__(self):
         # for debugging
@@ -315,6 +322,18 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif kind == F_WITH or kind == F_ASYNC_WITH:
             node = fblock.datum
             assert isinstance(node, ast.withitem)
+            # Switch to a new block before the inline POP_BLOCK +
+            # call_exit_with_nones, so that handle_withitem's body exception-
+            # table entry (body_block..body_segment_end) ends here and does
+            # NOT cover the inline unwind code.  Otherwise a raise from the
+            # with's own __exit__ during the unwind would be re-caught by
+            # the with's cleanup and __exit__ would run twice.  Only record
+            # the first unwind site; later body code reached via merged
+            # control flow keeps the (coarser) earlier coverage.
+            inline_unwind = self.new_block()
+            self.use_next_block(inline_unwind)
+            if fblock.body_segment_end is None:
+                fblock.body_segment_end = inline_unwind
             self.update_position(node.context_expr)
             self.emit_op(ops.POP_BLOCK)
             if preserve_tos:
@@ -1592,10 +1611,30 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.handle_withitem(wih, pos + 1, is_async=is_async)
 
         self.no_position_info()
+        # Read body_segment_end from the fblock before pop_frame_block.
+        # unwind_fblock sets this the first time a break/continue/return
+        # inside the body emits inline POP_BLOCK + call_exit_with_nones,
+        # so that the body exception-table entry does NOT cover the
+        # inline unwind code (else a raise from __exit__ during the
+        # unwind would be re-caught by the with's cleanup, running
+        # __exit__ twice).  If there was no inline unwind, the body
+        # extends all the way to normal_exit.
+        body_end = self.frame_blocks[-1].body_segment_end
+        if body_end is None:
+            body_end = normal_exit
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(fblock_kind, body_block)
-        # exception table range ends here; call_exit_with_nones is not protected
+        # Explicit body exception-table entry: body_block..body_end ->
+        # cleanup (lasti=True).  Replaces the coarse SETUP_WITH..POP_BLOCK
+        # entry previously derived by _label_exception_targets.
+        self.emit_exception_table_entry(
+            body_block, cleanup, lasti=True, end_block=body_end)
         self.use_next_block(normal_exit)
+
+        # After pop_frame_block, _nearest_with_handler finds the enclosing
+        # with/async-with (or None if an enclosing try-body already covers
+        # us, or no such handler exists).
+        outer_handler = self._nearest_with_handler()
 
         self.update_position(wih)
         # end of body, successful outcome, start cleanup
@@ -1608,9 +1647,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         exit = self.new_block()
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
-        # exceptional outcome: body's table entry is lasti=True (via
-        # _label_exception_targets for SETUP_WITH), so on exception the
-        # stack on entry to `cleanup` is [..., __exit__, lasti, exc].
+        # exceptional outcome: body's table entry is lasti=True (see above),
+        # so on exception the stack on entry to `cleanup` is
+        # [..., __exit__, lasti, exc].
         # After PUSH_EXC_INFO: [..., __exit__, lasti, prev_exc, exc].
         # WITH_EXCEPT_START peeks __exit__ at depth 3 and pushes __exit__'s
         # return value.  If truthy: consume exc/prev/lasti/__exit__ (4 items)
@@ -1649,9 +1688,32 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)    # pop exc
+        # Split exit2 after the first POP_TOP: CPython emits a single-
+        # instruction entry back to with_cleanup for this POP_TOP, and
+        # a separate entry for POP_EXCEPT+POP_TOP+POP_TOP to the outer
+        # handler.  Match those boundaries.
+        exit2_rest = self.new_block()
+        self.emit_exception_table_entry(
+            exit2, with_cleanup, lasti=True, end_block=exit2_rest)
+        self.use_next_block(exit2_rest)
         self.emit_op(ops.POP_EXCEPT) # pop prev_exc, restore sys.exc_info
         self.emit_op(ops.POP_TOP)    # pop lasti
         self.emit_op(ops.POP_TOP)    # pop __exit__
+        # Route exceptions in the call_exit_with_nones region (normal_exit..
+        # cleanup), the with_cleanup's RERAISE 1 (with_cleanup..exit2), and
+        # the truthy-path POP_EXCEPT+POP_TOP+POP_TOP (exit2_rest..exit) to
+        # the enclosing with's cleanup.  If the enclosing context is a
+        # try-body, _nearest_with_handler returns None and those ranges are
+        # already covered by the outer try entry.  At the outermost level
+        # with no outer handler, no entry is emitted and exceptions propagate
+        # out of the frame.
+        if outer_handler is not None:
+            self.emit_exception_table_entry(
+                normal_exit, outer_handler, lasti=True, end_block=cleanup)
+            self.emit_exception_table_entry(
+                with_cleanup, outer_handler, lasti=True, end_block=exit2)
+            self.emit_exception_table_entry(
+                exit2_rest, outer_handler, lasti=True, end_block=exit)
         self.use_next_block(exit)
 
     def visit_AsyncWith(self, wih):
