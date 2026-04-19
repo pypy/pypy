@@ -218,12 +218,19 @@ class PegParser(object):
             tokens = pytokenizer.generate_tokens(source_lines, flags,
                                                   compile_info.filename)
         except error.TokenError as e:
-            if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    (pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
-                     pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
-                     'was never closed' in e.msg or
-                     pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg)):
-                e.msg = "incomplete input"
+            if compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
+                single_quote_finalized = (
+                    pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
+                    (textsrc.endswith('\n') or textsrc.endswith('\r')) and
+                    not textsrc.endswith('\\\n') and
+                    not textsrc.endswith('\\\r') and
+                    not textsrc.endswith('\\\r\n'))
+                if not single_quote_finalized and (
+                        pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        'was never closed' in e.msg or
+                        pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg):
+                    e.msg = "incomplete input"
             e.filename = compile_info.filename
             raise
         except error.TokenIndentationError as e:

@@ -618,6 +618,16 @@ class TestIncompleteInput(object):
         self.check_incomplete("a = \\")
         self.check_incomplete("a = '\\")
 
+    def test_unterminated_single_quote_with_newline_is_invalid(self):
+        self.check_incomplete("a = 'a\\\n")
+        self.check_incomplete("a = 'a\\\r")
+        self.check_incomplete("a = 'a\\\r\n")
+        for eol in ("\n", "\r", "\r\n"):
+            msg = self.check_error("a = 'sta" + eol)
+            assert "unterminated string literal" in msg
+            msg = self.check_error("a = 'a\\ " + eol)
+            assert "unterminated string literal" in msg
+
     def test_invalid_with_explicit_newline(self):
         # An expression that is genuinely invalid (not just incomplete) should
         # raise "invalid syntax" when it ends with an explicit newline.
