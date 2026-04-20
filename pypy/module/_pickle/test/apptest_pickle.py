@@ -463,6 +463,21 @@ def test_picklebuffer():
     # assert s1 == s2
     assert loads(s1) == b'foobar'
 
+def test_picklebuffer_multidim_contiguous():
+    # 2D C-contiguous memoryview must be picklable. iscontiguous() in
+    # interp_pickle.py had a missing comma: range(ndim-1, -1-1) instead of
+    # range(ndim-1, -1, -1), making the C-order loop dead code and causing
+    # any ndim>1 C-contiguous buffer to be rejected as non-contiguous.
+    data = bytearray(range(12))
+    mv = memoryview(data).cast('B', [3, 4])
+    assert mv.c_contiguous
+    pb = PickleBuffer(mv)
+    s1 = dumps(pb, 5)
+    s2 = dumps_py(pb, 5)
+    expected = bytearray(range(12))
+    assert loads(s1) == expected
+    assert loads(s2) == expected
+
 def test_buffers_error():
     pb = PickleBuffer(b"foobar")
     data = dumps(pb, 5, buffer_callback=[].append)

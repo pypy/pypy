@@ -1667,7 +1667,7 @@ def iscontiguous(buf):
     if ndim == 1:
         return shape[0] == 1 or itemsize == strides[0]
     sd = itemsize
-    for i in range(ndim -1, -1 -1):
+    for i in range(ndim -1, -1, -1):
         # C order
         dim = shape[i]
         if dim == 0:
@@ -1676,6 +1676,8 @@ def iscontiguous(buf):
             # Could be Fortran order?
             break
         sd *= dim
+    else:
+        return 1
     sd = itemsize
     for i in range(ndim):
         dim = shape[i]
