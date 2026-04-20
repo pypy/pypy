@@ -169,7 +169,6 @@ def_op('IS_OP', 117)
 def_op('CONTAINS_OP', 118)
 def_op('RERAISE', 119)
 
-jrel_op('SETUP_EXCEPT', 120)    # ""
 jabs_op('JUMP_IF_NOT_EXC_MATCH', 121)
 jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 # CPython uses SETUP_FINALLY's operand (a forward jump offset) for both
