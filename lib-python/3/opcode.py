@@ -172,6 +172,12 @@ def_op('RERAISE', 119)
 jrel_op('SETUP_EXCEPT', 120)    # ""
 jabs_op('JUMP_IF_NOT_EXC_MATCH', 121)
 jrel_op('SETUP_FINALLY', 122)   # Distance to target address
+# CPython uses SETUP_FINALLY's operand (a forward jump offset) for both
+# try/finally and except-as cleanup.  PyPy uses Instruction.jump (a Block
+# pointer) for the same purpose, so SETUP_FINALLY and SETUP_CLEANUP carry
+# no meaningful integer arg -- the assembler encodes 0 and the linear scan
+# reads .jump instead.
+jrel_op('SETUP_CLEANUP', 123)  # Like SETUP_FINALLY but sets lasti=True
 
 def_op('LOAD_FAST', 124)        # Local variable number
 haslocal.append(124)

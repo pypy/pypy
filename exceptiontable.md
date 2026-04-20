@@ -24,11 +24,14 @@ Adopting CPython's model might improve JIT output. Three reasons:
 |-------|------|------|--------|
 | 0 | Add `co_exceptiontable` to `PyCode`, encoder in `assemble.py` | Low | **Done** |
 | 1 | `PUSH_EXC_INFO`, `CHECK_EXC_MATCH` opcodes | Medium | **Done** |
-| 2 | `handle_operation_error` -> table lookup, update `RERAISE`/`POP_EXCEPT`/`WITH_EXCEPT_START` | High | **Done** (translates) |
-| 3 | Compiler: stop emitting `SETUP_FINALLY`/`POP_BLOCK`, emit table entries | High | **Done** (translates) |
+| 2 | `handle_operation_error` -> table lookup, update `RERAISE`/`POP_EXCEPT`/`WITH_EXCEPT_START` | High | **Done** |
+| 3 | Compiler: stop emitting `SETUP_FINALLY`/`POP_BLOCK`, emit table entries | High | **Done** |
 | 4 | JIT: remove `lastblock` from `_virtualizable_`, update trace tests | Low | **Done** |
 | 5 | `fset_f_lineno`: replace `markblocks`/`compatible_block_stack` with table-based validation | Medium | **Done** |
 | 6 | Remove dead code (`FinallyBlock`, `ExceptBlock`, `SETUP_FINALLY`, etc.) | Low | **Done** |
+| 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **In progress** |
+| 8 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
+| 9 | Flow-graph-based exception table (handle duplicated exit blocks) | Medium | Not started |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
@@ -154,35 +157,7 @@ L_end:
 
 ## Remaining work
 
-### Phase 4  -- JIT cleanup
-Remove `lastblock` from `PyFrame._virtualizable_` in `pypy/module/pypyjit/interp_jit.py`. Update JIT trace tests. Low risk, purely additive.
-
-### Phase 5  -- `fset_f_lineno`
-The `markblocks`/`compatible_block_stack` machinery in `pycode.py` validates that `f_lineno` assignments land on valid bytecode boundaries. It currently requires a block stack that no longer exists. Replace with exception-table-based validation. This unblocks the 15 `test_sys_settrace` failures.
-
-### Phase 6  -- Dead code removal
-Once all tests pass: remove `ExceptBlock`, `FinallyBlock`, `SysExcInfoRestorer`, `SETUP_FINALLY`, `SETUP_EXCEPT`, `POP_BLOCK`, and the dual-mode branches in `RERAISE`/`POP_EXCEPT`/`WITH_EXCEPT_START`/`handle_operation_error`.
-
-### Phase 7  -- Split `last_instr` into display and execution pointers (requires benchmarking)
-
-**Background:** CPython 3.11 maintains two separate pointers:
-- `next_instr` (C local): execution pointer, used by `exception_unwind` for table lookup  -- never saved in the frame
-- `frame->prev_instr`: display pointer for `f_lasti`/`f_lineno`, overwritten by `RERAISE` to restore the original raise site
-
-Because `exception_unwind` uses the local `next_instr`, RERAISE can freely overwrite `prev_instr` without affecting which handler is found.
-
-**Current PyPy state:** `last_instr` (a frame field in `_virtualizable_`) conflates both roles. `handle_operation_error` reads it for table lookup AND it drives `f_lineno`. The workaround is `_reraise_saved_lasti` (a second frame field), which defers restoring `last_instr` until after the table lookup.
-
-**Goal:** Make `last_instr` a display-only pointer (updated at escapes, written by `RERAISE`), and use the local `next_instr` variable in `dispatch_bytecode` for table lookup. `_reraise_saved_lasti` would be removed.
-
-**Expected benefits:**
-- Removes `_reraise_saved_lasti` from every frame (saves 8 bytes per frame)
-- Fewer writes to `last_instr` on the hot path -> fewer virtualizable invalidations for the JIT
-- Exception table lookup reads a C local (register) instead of a frame field
-
-**Risk:** `last_instr` is read by `bytecode_trace` and `get_last_lineno`  -- decoupling those uses requires care. Must benchmark before and after on pypy-benchmarks to confirm the per-instruction write reduction outweighs refactor complexity. Do not land without benchmark data.
-
-### Phase 8  -- Per-instruction exception table compiler (adopt CPython model)
+### Phase 7  -- Compiler: single linear scan for exception table (IN PROGRESS)
 
 **Background:** PyPy's compiler builds exception table entries in two separate ways:
 `emit_exception_table_entry` calls scattered through `codegen.py` (for try/except/finally/cleanup),
@@ -208,24 +183,33 @@ inherits the current TOS as its handler. Gaps are structurally impossible.
 **Prerequisite:** Phase 6 (dead code removal) -- `SETUP_FINALLY` and `POP_BLOCK` must be
 purely dummy instructions before this refactor makes sense.
 
-**Remaining gap after Phase 8:** `duplicate_exits_without_lineno` appends copied blocks
-(`newtarget`) after all POP_BLOCKs in the linear layout.  The Phase 8 scan has already
+**Remaining gap after Phase 7:** `duplicate_exits_without_lineno` appends copied blocks
+(`newtarget`) after all POP_BLOCKs in the linear layout.  The Phase 7 scan has already
 popped the enclosing handler by the time it reaches those copies, so they receive no
-exception table coverage.  Phase 6 removing `FinallyBlock` from the block stack eliminates
-the `SApplicationException` crash, but replaces it with a different wrong behaviour:
-exceptions in `newtarget` propagate out of the frame, silently bypassing any same-frame
-`try/except` that should have caught them.  Phase 9 closes this gap.
+exception table coverage.  Phase 9 closes this gap.
+
+### Phase 8  -- Split `last_instr` into display and execution pointers (requires benchmarking)
+
+**Background:** CPython 3.11 maintains two separate pointers:
+- `next_instr` (C local): execution pointer, used by `exception_unwind` for table lookup  -- never saved in the frame
+- `frame->prev_instr`: display pointer for `f_lasti`/`f_lineno`, overwritten by `RERAISE` to restore the original raise site
+
+**Current PyPy state:** `last_instr` conflates both roles. The workaround is `_reraise_saved_lasti` (a second frame field).
+
+**Goal:** Make `last_instr` display-only; use the local `next_instr` variable in `dispatch_bytecode` for table lookup. Removes `_reraise_saved_lasti` from every frame and reduces virtualizable writes on the hot path.
+
+**Risk:** Must benchmark before landing. Do not land without benchmark data.
 
 ### Phase 9  -- Flow-graph-based exception table (adopt CPython model)
 
 **Background:** CPython 3.11's compiler assigns each basic block an `except_stack` depth
 at graph-construction time.  Duplicated blocks inherit this depth from the original, so the
 exception table is always complete regardless of where copies are placed in the final layout.
-PyPy's Phase 8 linear scan cannot achieve this because it operates on the final flat
+PyPy's Phase 7 linear scan cannot achieve this because it operates on the final flat
 instruction stream, after `duplicate_exits_without_lineno` has already appended copies past
 all the SETUP/POP_BLOCK pairs that defined their original scope.
 
-**Goal:** Replace Phase 8's linear scan with a flow-graph traversal that propagates handler
+**Goal:** Replace Phase 7's linear scan with a flow-graph traversal that propagates handler
 coverage through jump edges:
 1. After `_finalize_blocks` (which runs `duplicate_exits_without_lineno`) but before
    `_build_code`, traverse the block graph from `first_block` following both fall-through
@@ -248,6 +232,3 @@ RERAISE-only block guard) can be removed once Phase 9 is in place.
 **Prerequisite:** Phase 8 -- the per-instruction SETUP/POP_BLOCK markers that Phase 8
 introduces are what makes the per-block handler assignment unambiguous.
 
-### Next step  -- Phase 8
-Phase 7 (split `last_instr`) requires benchmark data before landing -- defer.
-Proceed with Phase 8 (per-instruction exception table compiler).

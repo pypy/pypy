@@ -332,7 +332,6 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
-        self.exception_table_entries = []  # list of (start_block, end_block, handler_block, lasti, depth_block_or_None)
         self._stack_depth = 0  # running stack depth counter at current emit point
 
     def __repr__(self):
@@ -408,7 +407,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         was_dead = self.is_dead_code()
         depth_before = self._stack_depth
         self.emit_op(op).jump_to(block_to)
-        if not was_dead and (op == ops.SETUP_WITH or op == ops.SETUP_ASYNC_WITH):
+        if not was_dead and (op == ops.SETUP_WITH or op == ops.SETUP_ASYNC_WITH
+                             or op == ops.SETUP_FINALLY or op == ops.SETUP_CLEANUP):
             jump_effect = _opcode_stack_effect_jump(op)
             jump_depth = depth_before + jump_effect
             if jump_depth > block_to.forced_initial_depth:
@@ -667,12 +667,6 @@ class PythonCodeMaker(ast.ASTVisitor):
             block.marked = 0
         self.first_block.marked = 1
         todo = [self.first_block]
-        # exception table handler blocks are reachable via dispatch,
-        # not via any jump instruction; mark them explicitly so that
-        # optimize_unreachable_code does not eliminate them.
-        for entry in self.exception_table_entries:
-            handler_block = entry[2]
-            increase_incoming(handler_block, todo)
         while todo:
             block = todo.pop()
             # mark next_block, but only if the edge can actually be taken
@@ -692,8 +686,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 prev_position = instr.update_position_if_not_set(prev_position)
                 if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
-                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH):
-                        continue # don't do this for exception handlers
+                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH,
+                                        ops.SETUP_FINALLY, ops.SETUP_CLEANUP):
+                        continue # don't propagate line info into exception handler blocks
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 block.instructions[0].update_position_if_not_set(prev_position)
@@ -761,65 +756,88 @@ class PythonCodeMaker(ast.ASTVisitor):
         size = self._resolve_block_targets(blocks)
         return blocks, size
 
-    def emit_exception_table_entry(self, start_block, handler_block, lasti=False,
-                                   end_block=None, depth_block=None):
-        """Record an exception table entry.
-        The protected range is [start_block.offset, end_block.offset).
-        If end_block is None, handler_block is used as the end (its offset is
-        the exclusive end of the range).
-        Normally handler_block starts with PUSH_EXC_INFO and depth is derived
-        as handler_block.initial_depth - 1.  If depth_block is provided,
-        depth = depth_block.initial_depth is used instead -- for secondary
-        with-except cleanup handlers whose first instruction is not PUSH_EXC_INFO.
-        Call emit_exception_table_entry BEFORE _stacksize has run; the entry
-        is encoded in _build_exceptiontable which runs after _stacksize."""
-        if end_block is None:
-            end_block = handler_block
-        self.exception_table_entries.append(
-            (start_block, end_block, handler_block, lasti, depth_block))
-
     def _build_exceptiontable(self, blocks):
-        """Encode exception table entries into co_exceptiontable bytes.
+        """Build co_exceptiontable by a single linear scan over the instruction stream.
 
-        All entries come from emit_exception_table_entry calls during
-        compilation (try/except/finally and with/async-with).  Sorted by
-        start offset so that lookup_exceptiontable (which keeps the last
-        match) naturally picks the innermost handler for nested constructs."""
-        # Convert block-based entries to (start, end, handler_block, lasti)
+        SETUP_FINALLY, SETUP_CLEANUP, SETUP_WITH, and SETUP_ASYNC_WITH push their
+        handler block (via Instruction.jump) onto a handler stack; POP_BLOCK pops it.
+        Each instruction is assigned the current TOS handler.  Consecutive instructions
+        sharing the same handler form one table entry.
+
+        CPython 3.11 identifies the handler via the instruction's integer operand (a
+        forward jump offset).  PyPy uses Instruction.jump (a Block pointer) instead,
+        so SETUP_FINALLY/SETUP_CLEANUP carry arg=0 and the assembler never needs to
+        encode a real offset for them.
+        """
+        # handler_stack: list of (handler_block, lasti, depth_adjust)
+        # depth_adjust = _opcode_stack_effect_jump for the SETUP_* that opened this scope.
+        handler_stack = []
+        cur_handler = None
+        cur_lasti = False
+        cur_depth_adjust = 1
+        cur_start = -1
         all_entries = []
-        for start_block, end_block, handler_block, lasti, depth_block in self.exception_table_entries:
-            all_entries.append(
-                (start_block.offset, end_block.offset, handler_block, lasti, depth_block))
+
+        for block in blocks:
+            instr_offset = block.offset
+            # Auto-close: if we are arriving at the current handler block,
+            # emit the entry and pop the scope.  This handles the case where
+            # POP_BLOCK is dead code (e.g. immediately after RERAISE) and was
+            # never emitted -- the scope still ends where the handler begins.
+            if cur_handler is not None and block is cur_handler:
+                if cur_start < instr_offset:
+                    all_entries.append((cur_start, instr_offset, cur_handler,
+                                        cur_lasti, cur_depth_adjust))
+                if handler_stack:
+                    cur_handler, cur_lasti, cur_depth_adjust = handler_stack.pop()
+                    cur_start = instr_offset
+                else:
+                    cur_handler = None
+                    cur_start = -1
+            for instr in block.instructions:
+                op = instr.opcode
+                instr_size = instr.size()
+                if op == ops.POP_BLOCK:
+                    # Close current range (exclusive of this POP_BLOCK).
+                    if cur_handler is not None and cur_start < instr_offset:
+                        all_entries.append((cur_start, instr_offset, cur_handler,
+                                            cur_lasti, cur_depth_adjust))
+                    if handler_stack:
+                        cur_handler, cur_lasti, cur_depth_adjust = handler_stack.pop()
+                        cur_start = instr_offset + instr_size
+                    else:
+                        cur_handler = None
+                        cur_start = -1
+                elif op in (ops.SETUP_FINALLY, ops.SETUP_CLEANUP,
+                            ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                    # Close current range, push new handler.
+                    if cur_handler is not None and cur_start < instr_offset:
+                        all_entries.append((cur_start, instr_offset, cur_handler,
+                                            cur_lasti, cur_depth_adjust))
+                    if cur_handler is not None:
+                        handler_stack.append((cur_handler, cur_lasti, cur_depth_adjust))
+                    lasti = (op != ops.SETUP_FINALLY)
+                    depth_adj = _opcode_stack_effect_jump(op)
+                    cur_handler = instr.jump
+                    cur_lasti = lasti
+                    cur_depth_adjust = depth_adj
+                    cur_start = instr_offset + instr_size
+                instr_offset += instr_size
+
         if not all_entries:
             return ''
-        # Sort entries by start offset (insertion sort -- RPython-compatible, list is small).
-        i = 1
-        while i < len(all_entries):
-            key = all_entries[i]
-            j = i - 1
-            while j >= 0 and all_entries[j][0] > key[0]:
-                all_entries[j + 1] = all_entries[j]
-                j -= 1
-            all_entries[j + 1] = key
-            i += 1
         result = []
-        for start, end, handler_block, lasti, depth_block in all_entries:
+        for start, end, handler_block, lasti, depth_adjust in all_entries:
             if end <= start:
-                continue   # empty range, skip
-            # depth = stack depth just before handle_operation_error pushes
-            # lasti (if lasti=True) and the exception.  Normally handler_block
-            # starts with PUSH_EXC_INFO; its initial_depth equals depth + 1
-            # (for lasti=False) or depth + 2 (for lasti=True: lasti + exc).
-            # For secondary cleanup handlers (depth_block provided), depth =
-            # depth_block.initial_depth directly.
-            if depth_block is not None:
-                depth = depth_block.initial_depth
-            elif lasti:
-                depth = handler_block.initial_depth - 2
-            else:
-                depth = handler_block.initial_depth - 1
+                continue
+            # depth = value stack depth just before handle_operation_error pushes
+            # lasti (if lasti=True) and the exception object.
+            # handler_block.initial_depth was seeded by emit_jump:
+            #   initial_depth = depth_at_SETUP + depth_adjust
+            #   => depth = initial_depth - depth_adjust
+            depth = handler_block.initial_depth - depth_adjust
             if depth < 0:
-                continue   # handler unreachable; skip
+                continue
             _encode_varint(result, start // 2, msb=0x80)
             _encode_varint(result, (end - start) // 2)
             _encode_varint(result, handler_block.offset // 2)
@@ -909,7 +927,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 j += 1
                 if op.jump is None:
                     continue
-                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH):
+                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH,
+                                 ops.SETUP_FINALLY, ops.SETUP_CLEANUP):
                     continue # don't do this for exception handlers
                 target = op.jump
                 # only do something if the target has no position info (lowest
@@ -1225,6 +1244,9 @@ _static_opcode_stack_effects = {
     ops.POP_EXCEPT: -1,
     ops.PUSH_EXC_INFO: 1,
     ops.CHECK_EXC_MATCH: 0,
+    ops.SETUP_FINALLY: 0,   # marker only; handler depth set via forced_initial_depth
+    ops.SETUP_CLEANUP: 0,   # marker only; handler depth set via forced_initial_depth
+    ops.POP_BLOCK: 0,       # marker only
     ops.SETUP_WITH: 1,
 
     ops.RETURN_VALUE: -1,
@@ -1405,6 +1427,14 @@ def _opcode_stack_effect(op, arg):
 def _opcode_stack_effect_jump(op):
     if op == ops.FOR_ITER:
         return -1
+    elif op == ops.SETUP_FINALLY:
+        # Handler block receives (lasti_int, exc) pushed by handle_operation_error.
+        # lasti=False so only the exc is pushed: +1.
+        return 1
+    elif op == ops.SETUP_CLEANUP:
+        # Like SETUP_FINALLY but lasti=True: handle_operation_error also pushes
+        # lasti_int before exc, so +2.
+        return 2
     elif op == ops.SETUP_WITH:
         # +2 at the jump edge: cleanup handler's initial_depth includes the
         # lasti int and the exc (pushed by handle_operation_error when the
