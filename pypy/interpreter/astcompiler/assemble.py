@@ -769,17 +769,38 @@ class PythonCodeMaker(ast.ASTVisitor):
         so SETUP_FINALLY/SETUP_CLEANUP carry arg=0 and the assembler never needs to
         encode a real offset for them.
         """
-        # handler_stack: list of (handler_block, lasti, depth_adjust)
+        # handler_stack: list of (handler_block, lasti, depth_adjust, depth_sub)
         # depth_adjust = _opcode_stack_effect_jump for the SETUP_* that opened this scope.
+        # depth_sub = extra amount to subtract from the stored depth (1 for SETUP_ASYNC_WITH,
+        # 0 otherwise); see fix note below.
         handler_stack = []
+        # deferred_handler_stack: handlers from zero-length POP_BLOCK scopes.
+        # When two consecutive POP_BLOCKs share a bytecode offset the inner one
+        # produces an empty range and would be lost.  We defer it here so the
+        # next SETUP_CLEANUP (the inner exception handler chain) can pick it up
+        # as the enclosing handler, matching CPython's exception table layout.
+        deferred_handler_stack = []
         cur_handler = None
         cur_lasti = False
         cur_depth_adjust = 1
+        cur_depth_sub = 0
         cur_start = -1
         all_entries = []
 
         for block in blocks:
             instr_offset = block.offset
+            # When we arrive at a handler block that was deferred (pushed onto
+            # deferred_handler_stack after a non-zero-range POP_BLOCK), discard
+            # it.  We are now *inside* that handler, so it cannot serve as an
+            # enclosing scope for inner SETUP_CLEANUP instructions.  This
+            # prevents a with-block's cleanup handler from incorrectly inheriting
+            # itself when the cleanup block contains its own SETUP_CLEANUP.
+            i = 0
+            while i < len(deferred_handler_stack):
+                if deferred_handler_stack[i][0] is block:
+                    del deferred_handler_stack[i]
+                else:
+                    i += 1
             # Auto-close: if we are arriving at the current handler block,
             # emit the entry and pop the scope.  This handles the case where
             # POP_BLOCK is dead code (e.g. immediately after RERAISE) and was
@@ -787,9 +808,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             if cur_handler is not None and block is cur_handler:
                 if cur_start < instr_offset:
                     all_entries.append((cur_start, instr_offset, cur_handler,
-                                        cur_lasti, cur_depth_adjust))
+                                        cur_lasti, cur_depth_adjust, cur_depth_sub))
                 if handler_stack:
-                    cur_handler, cur_lasti, cur_depth_adjust = handler_stack.pop()
+                    cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub = handler_stack.pop()
                     cur_start = instr_offset
                 else:
                     cur_handler = None
@@ -799,43 +820,79 @@ class PythonCodeMaker(ast.ASTVisitor):
                 instr_size = instr.size()
                 if op == ops.POP_BLOCK:
                     # Close current range (exclusive of this POP_BLOCK).
-                    if cur_handler is not None and cur_start < instr_offset:
+                    non_zero_range = cur_handler is not None and cur_start < instr_offset
+                    if non_zero_range:
                         all_entries.append((cur_start, instr_offset, cur_handler,
-                                            cur_lasti, cur_depth_adjust))
+                                            cur_lasti, cur_depth_adjust, cur_depth_sub))
+                    elif cur_handler is not None:
+                        # Zero-length range: defer so the next SETUP_CLEANUP
+                        # inside the handler chain can still reference the outer
+                        # handler as its enclosing scope.
+                        deferred_handler_stack.append(
+                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub))
                     if handler_stack:
-                        cur_handler, cur_lasti, cur_depth_adjust = handler_stack.pop()
+                        cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub = handler_stack.pop()
                         cur_start = instr_offset + instr_size
+                    elif non_zero_range:
+                        # Non-zero range closed and handler_stack is empty.
+                        # Defer cur_handler so the next SETUP_CLEANUP (e.g. for
+                        # the finally exception path) can inherit it as the outer
+                        # scope.  The arrival check at the top of the block loop
+                        # discards this deferred entry if we enter the handler
+                        # block before any SETUP_CLEANUP consumes it (preventing
+                        # the handler from treating itself as its own outer scope).
+                        deferred_handler_stack.append(
+                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub))
+                        cur_handler = None
+                        cur_start = -1
                     else:
                         cur_handler = None
                         cur_start = -1
                 elif op in (ops.SETUP_FINALLY, ops.SETUP_CLEANUP,
                             ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                    # SETUP_WITH calls __enter__ (user code) during the instruction
+                    # itself, so any exception from __enter__ must be routed to the
+                    # enclosing handler.  Extend the previous range's end to include
+                    # the SETUP_WITH instruction.
+                    close_at = instr_offset + instr_size if op == ops.SETUP_WITH else instr_offset
+                    # SETUP_ASYNC_WITH: BEFORE_ASYNC_WITH already pushed __aexit__ +
+                    # aenter_result (+2 over base) before this instruction, but the
+                    # body runs after POP_TOP removes aenter_result (+1 over base).
+                    # The stored depth must reflect the post-POP_TOP level, so subtract 1.
+                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
                     # Close current range, push new handler.
-                    if cur_handler is not None and cur_start < instr_offset:
-                        all_entries.append((cur_start, instr_offset, cur_handler,
-                                            cur_lasti, cur_depth_adjust))
+                    if cur_handler is not None and cur_start < close_at:
+                        all_entries.append((cur_start, close_at, cur_handler,
+                                            cur_lasti, cur_depth_adjust, cur_depth_sub))
                     if cur_handler is not None:
-                        handler_stack.append((cur_handler, cur_lasti, cur_depth_adjust))
+                        handler_stack.append((cur_handler, cur_lasti, cur_depth_adjust,
+                                              cur_depth_sub))
+                    elif op == ops.SETUP_CLEANUP and deferred_handler_stack:
+                        # Restore the deferred outer handler so that this inner
+                        # exception handler chain is covered by the enclosing
+                        # handler (matches CPython's exception table entries).
+                        handler_stack.append(deferred_handler_stack.pop())
                     lasti = (op != ops.SETUP_FINALLY)
                     depth_adj = _opcode_stack_effect_jump(op)
                     cur_handler = instr.jump
                     cur_lasti = lasti
                     cur_depth_adjust = depth_adj
+                    cur_depth_sub = depth_sub
                     cur_start = instr_offset + instr_size
                 instr_offset += instr_size
 
         if not all_entries:
             return ''
         result = []
-        for start, end, handler_block, lasti, depth_adjust in all_entries:
+        for start, end, handler_block, lasti, depth_adjust, depth_sub in all_entries:
             if end <= start:
                 continue
             # depth = value stack depth just before handle_operation_error pushes
             # lasti (if lasti=True) and the exception object.
             # handler_block.initial_depth was seeded by emit_jump:
             #   initial_depth = depth_at_SETUP + depth_adjust
-            #   => depth = initial_depth - depth_adjust
-            depth = handler_block.initial_depth - depth_adjust
+            #   => depth = initial_depth - depth_adjust - depth_sub
+            depth = handler_block.initial_depth - depth_adjust - depth_sub
             if depth < 0:
                 continue
             _encode_varint(result, start // 2, msb=0x80)

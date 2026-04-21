@@ -525,7 +525,7 @@ def test_generator_exception_in_enter():
     if 0:
         import dis
         print("========= gen ============ ")
-        print(dis.dis(gen)) 
+        print(dis.dis(gen))
         print("========= gen ============ ")
     list(gen(True))
     assert log == ['enter', 'caught'], "log=%r" % log

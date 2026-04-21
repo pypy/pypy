@@ -596,19 +596,6 @@ a = A()
             x = 0
         """, 'x', 42
 
-    def test_try_except_finally(self):
-        yield self.simple_test, """
-            try:
-                x = 5
-                try:
-                    if x > 2:
-                        raise ValueError
-                finally:
-                    x += 1
-            except ValueError:
-                x *= 7
-        """, 'x', 42
-
     def test_try_finally_bug(self):
         yield self.simple_test, """
         x = 0

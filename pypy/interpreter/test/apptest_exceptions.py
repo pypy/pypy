@@ -247,6 +247,135 @@ def test_sys_exc_info_finally_nested_as_name():
     inner()
     assert sys.exc_info() == (None, None, None), sys.exc_info()
 
+def test_exception_trivial():
+    def f():
+        try:
+            raise Exception()
+        except Exception as e:
+            return 1
+        return 2
+    assert f() == 1
+
+
+def test_exception_as_name():
+    def f():
+        try:
+            raise Exception(1)
+        except Exception as e:
+            return e.args[0]
+    assert f() == 1
+
+
+def test_finally_return():
+    def f(a):
+        try:
+            if a:
+                raise Exception
+            a = -12
+        finally:
+            return a
+    assert f(0) == -12
+    assert f(1) == 1
+
+
+def test_raise_non_exception():
+    try:
+        raise 1
+    except TypeError as e:
+        assert "exceptions must derive from BaseException" in str(e)
+    else:
+        assert False, "expected TypeError"
+
+
+def test_nested_except_raise_stored():
+    # CPython 3.11 exception table for this pattern:
+    #   try body -> outer_handler
+    #   inner try body -> inner_handler
+    #   inner handler check+STORE -> inner outer_cleanup
+    #   inner handler body (incl RAISE_VARARGS) -> inner cleanup_end
+    #   inner cleanup_end -> inner outer_cleanup
+    #   outer handler check -> outer outer_cleanup
+    import dis
+    def f():
+        try:
+            z = 0
+            try:
+                "x" + 1
+            except TypeError as e:
+                z = 5
+                raise e
+        except TypeError:
+            return z
+    print()
+    dis.dis(f)
+    assert f() == 5
+
+
+def test_except_zero_division():
+    def f(v):
+        z = 0
+        try:
+            z = 1 // v
+        except ZeroDivisionError as e:
+            z = "infinite result"
+        return z
+    assert f(2) == 0
+    assert f(0) == "infinite result"
+    try:
+        f('x')
+    except TypeError as e:
+        assert "unsupported operand type" in str(e)
+    else:
+        assert False, "expected TypeError"
+
+
+def test_try_finally_break():
+    def f(n):
+        total = 0
+        for i in range(n):
+            try:
+                if i == 4:
+                    break
+            finally:
+                total += i
+        return total
+    assert f(4) == 1+2+3
+    assert f(9) == 1+2+3+4
+
+
+def test_try_finally_continue():
+    def f(n):
+        total = 0
+        for i in range(n):
+            try:
+                if i == 4:
+                    continue
+            finally:
+                total += 100
+            total += i
+        return total
+    assert f(4) == 1+2+3+400
+    assert f(9) == 1+2+3 + 5+6+7+8+900
+
+
+def test_try_except_finally_nested():
+    import dis
+    def run():
+        x = 5
+        try:
+            try:
+                if x > 2:
+                    raise ValueError
+            finally:
+                x += 1
+        except ValueError:
+            x *= 7
+        return x
+    print()
+    dis.dis(run)
+    assert run() == 42
+
+
 def test_sys_exc_info_with_propagates():
     # Regression: a with-statement whose __exit__ returns falsy must not
     # leak sys.exc_info when the body raises and the outer frame catches.
