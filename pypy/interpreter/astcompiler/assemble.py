@@ -691,7 +691,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                         continue # don't propagate line info into exception handler blocks
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
-                block.instructions[0].update_position_if_not_set(prev_position)
+                first_op = block.instructions[0].opcode
+                if first_op not in (ops.SETUP_CLEANUP, ops.SETUP_WITH,
+                                    ops.SETUP_ASYNC_WITH, ops.SETUP_FINALLY):
+                    block.instructions[0].update_position_if_not_set(prev_position)
 
     def optimize_unreachable_code(self, blocks):
         # block.marked still stores the predecessor information. use it to
@@ -705,6 +708,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             if block.marked == 0:
                 block.instructions = []
                 block.cant_add_instructions = False
+                block.forced_initial_depth = -1
                 continue
             last_reachable = block
             if block.instructions and i < len(blocks) - 1:
@@ -790,14 +794,19 @@ class PythonCodeMaker(ast.ASTVisitor):
         for block in blocks:
             instr_offset = block.offset
             # When we arrive at a handler block that was deferred (pushed onto
-            # deferred_handler_stack after a non-zero-range POP_BLOCK), discard
-            # it.  We are now *inside* that handler, so it cannot serve as an
-            # enclosing scope for inner SETUP_CLEANUP instructions.  This
-            # prevents a with-block's cleanup handler from incorrectly inheriting
-            # itself when the cleanup block contains its own SETUP_CLEANUP.
+            # deferred_handler_stack after a non-zero-range POP_BLOCK), close
+            # any pending non-zero-range coverage *only if* at least one
+            # intermediate POP_BLOCK already extended the range (has_interm=True).
+            # That flag distinguishes the except* no-match reraise path (which
+            # needs coverage) from the try/finally normal-exit path (which must
+            # NOT be covered by the handler).  For zero-range entries just discard.
             i = 0
             while i < len(deferred_handler_stack):
-                if deferred_handler_stack[i][0] is block:
+                entry = deferred_handler_stack[i]
+                if entry[0] is block:
+                    h, hl, ha, hs, rs, has_interm = entry
+                    if has_interm and rs >= 0 and rs < instr_offset:
+                        all_entries.append((rs, instr_offset, h, hl, ha, hs))
                     del deferred_handler_stack[i]
                 else:
                     i += 1
@@ -827,27 +836,44 @@ class PythonCodeMaker(ast.ASTVisitor):
                     elif cur_handler is not None:
                         # Zero-length range: defer so the next SETUP_CLEANUP
                         # inside the handler chain can still reference the outer
-                        # handler as its enclosing scope.
+                        # handler as its enclosing scope.  range_start=-1 and
+                        # has_interm=False mark this as a zero-range entry.
                         deferred_handler_stack.append(
-                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub))
+                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub,
+                             -1, False))
                     if handler_stack:
                         cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub = handler_stack.pop()
                         cur_start = instr_offset + instr_size
                     elif non_zero_range:
                         # Non-zero range closed and handler_stack is empty.
-                        # Defer cur_handler so the next SETUP_CLEANUP (e.g. for
-                        # the finally exception path) can inherit it as the outer
-                        # scope.  The arrival check at the top of the block loop
-                        # discards this deferred entry if we enter the handler
-                        # block before any SETUP_CLEANUP consumes it (preventing
-                        # the handler from treating itself as its own outer scope).
+                        # Defer cur_handler with range_start so that intervening
+                        # POP_BLOCKs (e.g. on the except* no-match reraise path)
+                        # can extend coverage segment-by-segment.  has_interm starts
+                        # False; only after the first intermediate POP_BLOCK extends
+                        # the range is it set True, allowing the arrival check to
+                        # emit the final segment.  For try/finally the normal-exit
+                        # path has no intermediate POP_BLOCK, so has_interm stays
+                        # False and arrival emits nothing.
                         deferred_handler_stack.append(
-                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub))
+                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub,
+                             instr_offset + instr_size, False))
                         cur_handler = None
                         cur_start = -1
                     else:
                         cur_handler = None
                         cur_start = -1
+                    # When cur_handler is None after the pop, advance any deferred
+                    # non-zero-range entries that span across this POP_BLOCK.
+                    # This covers the except* no-match reraise path: each POP_BLOCK
+                    # on that path emits one segment and advances range_start.
+                    if cur_handler is None:
+                        for idx in range(len(deferred_handler_stack)):
+                            h, hl, ha, hs, rs, hi = deferred_handler_stack[idx]
+                            if rs >= 0 and rs < instr_offset:
+                                all_entries.append((rs, instr_offset, h, hl, ha, hs))
+                                deferred_handler_stack[idx] = (h, hl, ha, hs,
+                                                               instr_offset + instr_size,
+                                                               True)
                 elif op in (ops.SETUP_FINALLY, ops.SETUP_CLEANUP,
                             ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
                     # SETUP_WITH calls __enter__ (user code) during the instruction
@@ -871,7 +897,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                         # Restore the deferred outer handler so that this inner
                         # exception handler chain is covered by the enclosing
                         # handler (matches CPython's exception table entries).
-                        handler_stack.append(deferred_handler_stack.pop())
+                        # Strip range_start/has_interm before pushing to handler_stack
+                        # since handler_stack uses 4-tuples.
+                        h, hl, ha, hs, _rs, _hi = deferred_handler_stack.pop()
+                        handler_stack.append((h, hl, ha, hs))
                     lasti = (op != ops.SETUP_FINALLY)
                     depth_adj = _opcode_stack_effect_jump(op)
                     cur_handler = instr.jump

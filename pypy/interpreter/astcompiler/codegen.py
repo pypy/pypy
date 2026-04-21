@@ -1111,7 +1111,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.JUMP_FORWARD, exit)
 
         # finally block, exceptional case: stack at entry is [exc] (depth 1).
-        self.use_next_block(end)
+        self.no_position_info()  # SETUP_CLEANUP/PUSH_EXC_INFO are artificial; line event must
+        self.use_next_block(end) # fire at the first real statement of the finally body so that
         self.emit_jump(ops.SETUP_CLEANUP, outer_cleanup)  # open outer scope; seeds forced_initial_depth
         self.emit_op(ops.PUSH_EXC_INFO)
         self.push_frame_block(F_FINALLY_END, end)

@@ -880,7 +880,7 @@ def test_co_lines():
                 for start, stop, end in f.__code__.co_lines()
                 if end is not None]
 
-    assert res == [1, 2, 3, 2, 1, 4, 5, 6, 6, 7, 6]
+    assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
 
 def test_co_lines_off_by_one():
     def f(x):

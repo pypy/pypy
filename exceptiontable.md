@@ -32,6 +32,7 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **In progress** |
 | 8 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
 | 9 | Flow-graph-based exception table (handle duplicated exit blocks) | Medium | Not started |
+| 10 | Remove `SETUP_CLEANUP`/`SETUP_FINALLY`/`SETUP_WITH`/`POP_BLOCK` opcodes from bytecode | Medium | Not started |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
@@ -231,4 +232,32 @@ RERAISE-only block guard) can be removed once Phase 9 is in place.
 
 **Prerequisite:** Phase 8 -- the per-instruction SETUP/POP_BLOCK markers that Phase 8
 introduces are what makes the per-block handler assignment unambiguous.
+
+### Phase 10  -- Remove SETUP_CLEANUP/SETUP_FINALLY/SETUP_WITH/POP_BLOCK opcodes
+
+**Goal:** Eliminate the synthetic scope-opener/closer instructions from emitted bytecode
+entirely, leaving only the exception table to encode handler coverage.  After Phase 9 the
+table is built from the block graph, so these opcodes are no longer needed as markers.
+
+**Changes:**
+1. `codegen.py`: stop emitting `SETUP_CLEANUP`, `SETUP_FINALLY`, `SETUP_WITH`,
+   `SETUP_ASYNC_WITH`, and `POP_BLOCK`.  The compiler already knows which block covers
+   which handler; that information lives in the block graph used by Phase 9.
+2. `pyopcode.py`: remove the interpreter implementations of those opcodes (now dead).
+   Remove `emit_jump` special-casing for `SETUP_*` (forced-depth seeding) if it was
+   only needed to size exception table entries.
+3. `assemble.py`: `propagate_positions` no longer has UNKNOWN-position synthetic
+   instructions at block heads, so the backward-fill heuristic (`cant_add_instructions`
+   guard) and the SETUP_* jump-propagation skip can both be removed.  The function
+   collapses to CPython's simple forward pass plus the two fill-forward cases (fall-through
+   and jump-target with a single predecessor).
+4. `opcode.py` / `pypy/interpreter/pyopcode.py`: remove opcode definitions; bump magic.
+
+**Effect on `propagate_positions`:** With no SETUP_* instructions, CPython's exact
+algorithm applies without workarounds.  The `block.next_block.instructions[0]` fill
+(currently `block.instructions[0]` for historical reasons) can be corrected to match
+CPython at the same time.
+
+**Prerequisite:** Phase 9 -- exception table must be fully graph-derived before the
+in-bytecode markers can be dropped.
 
