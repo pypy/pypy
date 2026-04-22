@@ -699,6 +699,18 @@ class __extend__(pyframe.PyFrame):
             if last_operr is None:
                 raise oefmt(space.w_RuntimeError,
                             "No active exception to reraise")
+            # sync the exceptions __traceback__ back to the
+            # OperationError, in case user code modified it
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            w_value = last_operr._w_value
+            if w_value is not None and isinstance(w_value, W_BaseException):
+                w_tb = w_value.w_traceback
+                if space.is_none(w_tb):
+                    last_operr.set_traceback(None)
+                else:
+                    from pypy.interpreter.pytraceback import PyTraceback
+                    if isinstance(w_tb, PyTraceback):
+                        last_operr.set_traceback(w_tb)
             # re-raise, no new traceback obj will be attached
             raise RaiseWithExplicitTraceback(last_operr)
         if nbargs == 2:
@@ -1548,7 +1560,7 @@ class __extend__(pyframe.PyFrame):
         from pypy.interpreter.generator import get_awaitable_iter
         from pypy.interpreter.generator import Coroutine
         w_iterable = self.popvalue()
-        w_iter = get_awaitable_iter(self.space, w_iterable)
+        w_iter = get_awaitable_iter(self.space, w_iterable, oparg)
         if isinstance(w_iter, Coroutine):
             if w_iter.get_delegate() is not None:
                 # 'w_iter' is a coroutine object that is being awaited,
@@ -1810,12 +1822,20 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()
-        w_mod = space.call_method(space.builtin, '__import__', space.newtext('__exceptions__'))
-        w_eg_or_None = space.call_method(w_mod, "_prep_reraise_star", w_orig, w_res)
+        from pypy.module.exceptions.interp_group import prep_reraise_star
+        w_eg_or_None = prep_reraise_star(space, w_orig, w_res)
         if space.is_w(w_eg_or_None, space.w_None):
             w_push = space.w_None
         else:
-            w_push = SApplicationException(OperationError(space.type(w_eg_or_None), w_eg_or_None))
+            operr = OperationError(space.type(w_eg_or_None), w_eg_or_None)
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            if isinstance(w_eg_or_None, W_BaseException):
+                tb = w_eg_or_None.w_traceback
+                if tb is not None:
+                    from pypy.interpreter.pytraceback import PyTraceback
+                    if isinstance(tb, PyTraceback):
+                        operr.set_traceback(tb)
+            w_push = SApplicationException(operr)
         self.pushvalue(w_push)
 
 
@@ -2041,7 +2061,7 @@ def _dict_merge(space, w_dict, w_item, w_function):
         if not space.ismapping_w(w_item):
             raise oefmt(space.w_TypeError,
                         "%s argument after ** must be a mapping, not %T",
-                        space.guess_function_name_parens(w_function), w_item)
+                        space.object_functionstr(w_function), w_item)
     else:
         l2 = space.len_w(w_item)
         if l1 == 0:
@@ -2062,7 +2082,7 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
             raise
         raise oefmt(space.w_TypeError,
                     "%s argument after ** must be a mapping, not %T",
-                    space.guess_function_name_parens(w_function), w_item)
+                    space.object_functionstr(w_function), w_item)
     while True:
         try:
             w_key = space.next(w_iterator)
@@ -2073,8 +2093,8 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
         w_value = space.getitem(w_item, w_key)
         if space.contains_w(w_dict, w_key):
             raise oefmt(space.w_TypeError,
-                "%s got multiple values for keyword argument %R",
-                space.guess_function_name_parens(w_function), w_key)
+                "%s got multiple values for keyword argument '%S'",
+                space.object_functionstr(w_function), w_key)
         space.setitem(w_dict, w_key, w_value)
 
 def _copy_dict_without_keys(space, w_keys, w_subject):

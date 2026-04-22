@@ -85,7 +85,7 @@ class W_wrap_binaryfunc(object):
         w_self = __args__.arguments_w[0]
         w_other = __args__.arguments_w[1]
         with self.handles.using(w_self, w_other) as (h_self, h_other):
-            h_result = func(self.ctx, h_self, h_other)
+            h_result = func(self.handles.get_ctx(), h_self, h_other)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -106,7 +106,7 @@ def get_cmp_wrapper_cls(handles, methname, OP):
                 # rffi doesn't allow casting to an enum, we need to use int
                 # instead
                 h_result = func(
-                    handles.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
+                    handles.get_ctx(), h_self, h_other, rffi.cast(rffi.INT_real, OP))
             if not h_result:
                 space.fromcache(State).raise_current_exception()
             return handles.consume(h_result)
@@ -130,7 +130,7 @@ class W_wrap_voidfunc(object):
         self.check_args(space, __args__, 1)
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
-            h_result = func(self.ctx, h_self)
+            h_result = func(self.handles.get_ctx(), h_self)
 
 class W_wrap_unaryfunc(object):
     def call(self, space, __args__):
@@ -138,7 +138,7 @@ class W_wrap_unaryfunc(object):
         self.check_args(space, __args__, 1)
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
-            h_result = func(self.ctx, h_self)
+            h_result = func(self.handles.get_ctx(), h_self)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -158,7 +158,7 @@ class W_wrap_ternaryfunc(object):
         else:
             w2 = __args__.arguments_w[2]
         with self.handles.using(w_self, w1, w2) as (h_self, h1, h2):
-            h_result = func(self.ctx, h_self, h1, h2)
+            h_result = func(self.handles.get_ctx(), h_self, h1, h2)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -171,7 +171,7 @@ class W_wrap_indexargfunc(object):
         w_idx = __args__.arguments_w[1]
         idx = space.int_w(space.index(w_idx))
         with self.handles.using(w_self) as h_self:
-            h_result = func(self.ctx, h_self, idx)
+            h_result = func(self.handles.get_ctx(), h_self, idx)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -182,7 +182,7 @@ class W_wrap_inquirypred(object):
         self.check_args(space, __args__, 1)
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
-            res = func(self.ctx, h_self)
+            res = func(self.handles.get_ctx(), h_self)
         res = rffi.cast(lltype.Signed, res)
         if res == -1:
             space.fromcache(State).raise_current_exception()
@@ -194,7 +194,7 @@ class W_wrap_lenfunc(object):
         self.check_args(space, __args__, 1)
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
-            result = func(self.ctx, h_self)
+            result = func(self.handles.get_ctx(), h_self)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.newint(result)
@@ -205,7 +205,7 @@ class W_wrap_hashfunc(object):
         self.check_args(space, __args__, 1)
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
-            result = func(self.ctx, h_self)
+            result = func(self.handles.get_ctx(), h_self)
         if widen(result) == -1:
             operror = space.fromcache(State).clear_exception()
             if operror:
@@ -254,7 +254,7 @@ class W_wrap_mp_item(object):
         w_self = __args__.arguments_w[0]
         w_key = __args__.arguments_w[1]
         with self.handles.using(w_self, w_key) as (h_self, h_key):
-            h_result = func(self.ctx, h_self, h_key)
+            h_result = func(self.handles.get_ctx(), h_self, h_key)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -267,7 +267,7 @@ class W_wrap_sq_item(object):
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
-            h_result = func(self.ctx, h_self, idx)
+            h_result = func(self.handles.get_ctx(), h_self, idx)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -280,7 +280,7 @@ class W_wrap_mp_setitem(object):
         w_key = __args__.arguments_w[1]
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_key, w_value) as (h_self, h_key, h_value):
-            result = func(self.ctx, h_self, h_key, h_value)
+            result = func(self.handles.get_ctx(), h_self, h_key, h_value)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -294,7 +294,7 @@ class W_wrap_sq_setitem(object):
         idx = sq_getindex(space, w_self, w_idx)
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_value) as (h_self, h_value):
-            result = func(self.ctx, h_self, idx, h_value)
+            result = func(self.handles.get_ctx(), h_self, idx, h_value)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -306,7 +306,7 @@ class W_wrap_mp_delitem(object):
         w_self = __args__.arguments_w[0]
         w_key = __args__.arguments_w[1]
         with self.handles.using(w_self, w_key) as (h_self, h_key):
-            result = func(self.ctx, h_self, h_key, llapi.HPy_NULL)
+            result = func(self.handles.get_ctx(), h_self, h_key, llapi.HPy_NULL)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -319,7 +319,7 @@ class W_wrap_sq_delitem(object):
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
-            result = func(self.ctx, h_self, idx, llapi.HPy_NULL)
+            result = func(self.handles.get_ctx(), h_self, idx, llapi.HPy_NULL)
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.w_None
@@ -331,7 +331,7 @@ class W_wrap_objobjproc(object):
         w_self = __args__.arguments_w[0]
         w_key = __args__.arguments_w[1]
         with self.handles.using(w_self, w_key) as (h_self, h_key):
-            res = func(self.ctx, h_self, h_key)
+            res = func(self.handles.get_ctx(), h_self, h_key)
         res = widen(res)
         if res == -1:
             space.fromcache(State).raise_current_exception()
@@ -348,7 +348,7 @@ class W_wrap_getbuffer(object):
         flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
         with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
             with self.handles.using(w_self) as h_self:
-                res = func(self.ctx, h_self, hpybuf, flags)
+                res = func(self.handles.get_ctx(), h_self, hpybuf, flags)
             if widen(res) < 0:
                 space.fromcache(State).raise_current_exception()
             buf_ptr = hpybuf.c_buf
@@ -413,7 +413,7 @@ class W_wrap_init(object):
                     h_kw = self.handles.new(w_kw)
                 fptr = llapi.cts.cast('HPyFunc_initproc', self.cfuncptr)
                 try:
-                    result = fptr(self.ctx, h_self, args_h, n, h_kw)
+                    result = fptr(self.handles.get_ctx(), h_self, args_h, n, h_kw)
                 finally:
                     if h_kw:
                         self.handles.close(h_kw)
@@ -434,7 +434,6 @@ def get_slot_cls(handles, mixin):
     class wrapper(W_SlotWrapper):
         import_from_mixin(mixin)
         handles = _handles
-        ctx = _handles.ctx
 
     wrapper.__name__ = mixin.__name__ + handles.cls_suffix
     _WRAPPER_CACHE[handles, mixin] = wrapper

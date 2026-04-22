@@ -129,6 +129,7 @@ class CodeTestCase(unittest.TestCase):
         self.assertEqual(co2.co_filename, "f2")
 
     @requires_debug_ranges()
+    @support.impl_detail("PyPy does not implement -X no_debug_ranges", cpython=True)
     def test_minimal_linetable_with_no_debug_ranges(self):
         # Make sure when demarshalling objects with `-X no_debug_ranges`
         # that the columns are None.
@@ -373,7 +374,8 @@ class BugsTestCase(unittest.TestCase):
                         args = ["-c", f"print({s})"]
                         _, repr_0, _ = assert_python_ok(*args, PYTHONHASHSEED="0")
                         _, repr_1, _ = assert_python_ok(*args, PYTHONHASHSEED="1")
-                        self.assertNotEqual(repr_0, repr_1)
+                        if sys.implementation.name != 'pypy':
+                            self.assertNotEqual(repr_0, repr_1)
                     # Then, perform the actual test:
                     args = ["-c", f"import marshal; print(marshal.dumps({s}))"]
                     _, dump_0, _ = assert_python_ok(*args, PYTHONHASHSEED="0")
@@ -463,7 +465,9 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
             s2 = marshal.dumps(sample, 2)
             n2 = CollectObjectIDs(set(), marshal.loads(s2))
             #old format generated more instances
-            self.assertGreater(n2, n0)
+            # PyPy: same-valued scalars (int, float) share id(); skip this check
+            if sys.implementation.name != 'pypy':
+                self.assertGreater(n2, n0)
 
             #if complex objects are in there, old format is larger
             if not simple:

@@ -32,8 +32,6 @@ class Instruction(object):
     def __init__(self, opcode, arg=0, position_info=UNKNOWN_POSITION):
         self.opcode = opcode
         self.arg = arg
-        if opcode < ops.HAVE_ARGUMENT:
-            assert arg == 0
         self.position_info = position_info
         self.jump = None
 
@@ -843,12 +841,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                             copy.jump.marked += 2
                         block.emit_instr(copy)
                     if target.next_block and not block.cant_add_instructions:
-                        print "should be unreachable! please report a bug about the astcompiler", self.name
-                        assert 0
-                        #instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
-                        #instr.jump = target.next_block
-                        #block.emit_instr(instr)
-                        #target.next_block.marked += 2
+                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=op.position_info)
+                        instr.jump = target.next_block
+                        target.next_block.marked += 2
+                        block.emit_instr(instr)
 
                 elif (target.marked >> 1) > 1:
                     # copy the block, it has more than one predecessor

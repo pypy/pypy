@@ -1,4 +1,4 @@
-import sys
+import sys, dis
 from pytest import raises
 
 def test_simple():
@@ -301,3 +301,89 @@ def test_broken_eq():
         match, ExceptionGroup("eg", [TypeError(1)]))
     assert_exception_is_like(
         rest, ExceptionGroup("eg", [Bad(2)]))
+
+def _except_star_clause_line(func):
+    """Return the line number of the except* clause in func via CHECK_EG_MATCH."""
+    instrs = list(dis.get_instructions(func))
+    check_eg = [i for i in instrs if i.opname == 'CHECK_EG_MATCH']
+    assert check_eg, "no CHECK_EG_MATCH found in %r" % func
+    return check_eg[0].positions.lineno
+
+def test_except_star_cleanup_lineno():
+    """Cleanup opcodes (LIST_APPEND, PREP_RERAISE_STAR) after except* should be
+    attributed to the except* clause line, not to an artificial no-line entry."""
+    def func():
+        try:
+            raise KeyError
+        except* Exception as e:
+            pass
+
+    except_star_line = _except_star_clause_line(func)
+    instrs = list(dis.get_instructions(func))
+    la1 = [i for i in instrs if i.opname == 'LIST_APPEND' and i.arg == 1]
+    assert la1, "no LIST_APPEND 1 found"
+    for i in la1:
+        assert i.positions is not None, "LIST_APPEND 1 has no positions"
+        assert i.positions.lineno == except_star_line, (
+            "LIST_APPEND 1 lineno=%r, expected except* clause line %r" %
+            (i.positions.lineno, except_star_line))
+
+def test_traceback_frames_preserved_through_except_star():
+    # When an exception raised inside except* propagates through call frames,
+    # all intermediate frames must appear in the traceback.
+    import traceback
+
+    def inner():
+        try:
+            raise ExceptionGroup("group", [ValueError(1)])
+        except* ValueError:
+            raise ValueError(2)
+
+    def outer():
+        try:
+            raise ExceptionGroup("group", [TypeError(1)])
+        except* TypeError:
+            inner()
+
+    try:
+        outer()
+    except ValueError as e:
+        tb_frames = [frame.f_code.co_name for frame, _ in traceback.walk_tb(e.__traceback__)]
+
+    # must include both outer() and inner(), not just the outermost frame
+    assert 'inner' in tb_frames, "inner() missing from traceback: %r" % tb_frames
+    assert 'outer' in tb_frames, "outer() missing from traceback: %r" % tb_frames
+
+
+def test_except_star_trace_return_lineno():
+    """The 'return' trace event after an except* block should report the except*
+    clause line, not co_firstlineno (which was the wrong pre-fix behaviour)."""
+    events = []
+
+    def tracer(frame, event, arg):
+        if frame.f_code.co_name == 'func':
+            events.append((event, frame.f_lineno))
+        return tracer
+
+    def func():
+        try:
+            raise KeyError
+        except* Exception as e:
+            pass
+
+    except_star_line = _except_star_clause_line(func)
+
+    sys.settrace(tracer)
+    try:
+        func()
+    finally:
+        sys.settrace(None)
+
+    ret_events = [lineno for event, lineno in events if event == 'return']
+    assert ret_events, "no return event recorded"
+    assert ret_events[-1] != func.__code__.co_firstlineno, (
+        "return event at co_firstlineno %d - cleanup not attributed to except* line" %
+        func.__code__.co_firstlineno)
+    assert ret_events[-1] == except_star_line, (
+        "return event at line %d, expected except* clause line %d" %
+        (ret_events[-1], except_star_line))

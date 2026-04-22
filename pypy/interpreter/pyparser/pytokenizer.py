@@ -85,24 +85,32 @@ def verify_utf8(token):
         return False
     return True
 
-def bad_utf8(location_msg, line, lnum, pos, token_list, flags):
-    msg = 'Non-UTF-8 code in %s' % location_msg
+def bad_utf8(location_msg, line, lnum, pos, token_list, flags, filename='<unknown>'):
+    # Find the first non-ASCII byte to report its value (CPython format)
+    bad_byte = 0x80
+    for ch in line:
+        o = ord(ch)
+        if o >= 0x80:
+            bad_byte = o
+            break
+    hex_byte = hex(bad_byte)[2:]  # strip '0x'
+    if len(hex_byte) < 2:
+        hex_byte = "0" + hex_byte
+    msg = "Non-UTF-8 code starting with '\\x" + hex_byte + "' in file " + filename
     if not (flags & consts.PyCF_FOUND_ENCODING):
-        # this extra part of the message is added only if we found no
-        # explicit encoding
-        msg += (' but no encoding declared; see '
-                'http://python.org/dev/peps/pep-0263/ for details')
+        msg += ' on line %d, but no encoding declared; see ' % lnum
+        msg += 'https://python.org/dev/peps/pep-0263/ for details'
     return TokenError(msg, line, lnum, pos, token_list)
 
 
-def verify_identifier(token, line, lnum, start, token_list, flags):
+def verify_identifier(token, line, lnum, start, token_list, flags, filename='<unknown>'):
     # -2=ok; positive=not an identifier; -1=bad utf-8
     from pypy.module.unicodedata.interp_ucd import unicodedb
     try:
         rutf8.check_utf8(token, False)
     except rutf8.CheckError:
         raise bad_utf8("identifier", line, lnum, start + 1,
-                       token_list, flags)
+                       token_list, flags, filename)
     if not token:
         return
     first = token[0]
@@ -144,7 +152,7 @@ def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name
             ord(ch) >= 0x80)    # unicode
 
-def raise_unknown_character(line, start, lnum, token_list, flags):
+def raise_unknown_character(line, start, lnum, token_list, flags, filename='<unknown>'):
     from pypy.module.unicodedata.interp_ucd import unicodedb
     code = ord(line[start])
     if code < 128:
@@ -152,13 +160,13 @@ def raise_unknown_character(line, start, lnum, token_list, flags):
             rutf8.check_utf8(line, False, start=start)
         except rutf8.CheckError:
             raise bad_utf8("line", line, lnum, start + 1,
-                           token_list, flags)
+                           token_list, flags, filename)
         code = rutf8.codepoint_at_pos(line, start)
     raise_invalid_unicode_char(code, line, lnum, start, token_list)
 
 DUMMY_DFA = automata.DFA([], [])
 
-def generate_tokens(lines, flags):
+def generate_tokens(lines, flags, filename='<unknown>'):
     """
     This is a rewrite of pypy.module.parser.pytokenize.generate_tokens since
     the original function is not RPYTHON (uses yield)
@@ -263,7 +271,7 @@ def generate_tokens(lines, flags):
                     # skip full-line comment, but still check that it is valid utf-8
                     if not verify_utf8(line):
                         raise bad_utf8("comment",
-                                       line, lnum, pos, token_list, flags)
+                                       line, lnum, pos, token_list, flags, filename)
                     type_comment_tok = handle_type_comment(line.lstrip(),
                                                           flags, lnum, pos, line)
                     if type_comment_tok is None:
@@ -347,7 +355,7 @@ def generate_tokens(lines, flags):
                         raise TokenError("unexpected character after line continuation character", line,
                                          lnum, start + 2, token_list)
 
-                    raise_unknown_character(line, start, lnum, token_list, flags)
+                    raise_unknown_character(line, start, lnum, token_list, flags, filename)
 
                 pos = end
                 token, initial = line[start:end], line[start]
@@ -379,7 +387,7 @@ def generate_tokens(lines, flags):
                     # skip comment, but still check that it is valid utf-8
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
-                                       line, lnum, start, token_list, flags)
+                                       line, lnum, start, token_list, flags, filename)
                     type_comment_tok = handle_type_comment(token, flags, lnum, start, line)
                     if type_comment_tok is not None:
                         switch_indents += 1
@@ -413,7 +421,7 @@ def generate_tokens(lines, flags):
                         token_list.append(tok)
                         last_comment = ''
                 elif potential_identifier_char(initial): # unicode identifier
-                    verify_identifier(token, line, lnum, start, token_list, flags)
+                    verify_identifier(token, line, lnum, start, token_list, flags, filename)
                     # inside 'async def' function or no async_hacks
                     # so recognize them unconditionally.
                     if not async_hacks or async_def:
@@ -494,6 +502,8 @@ def generate_tokens(lines, flags):
                 if line[pos] == "0":
                     raise TokenError("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
                             line, lnum, pos+1, token_list)
+                if line[pos] in NUMCHARS:
+                    _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list)
                 tok = Token(tokens.ERRORTOKEN, line[pos], lnum, pos, line, level=len(parenstack))
                 token_list.append(tok)
                 last_comment = ''
@@ -510,6 +520,25 @@ def generate_tokens(lines, flags):
 
     token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line, level=len(parenstack)))
     return token_list
+
+def _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list):
+    """Detect invalid float exponents like 32e-+4 (DFA won't match them).
+    Raises 'invalid decimal literal' at the sign position, matching CPython."""
+    i = pos
+    while i < max and line[i] in NUMCHARS:
+        i += 1
+    if i >= max or line[i] not in 'eE':
+        return
+    i += 1  # skip e/E
+    if i < max and line[i] in '+-':
+        sign_pos = i
+        i += 1
+    else:
+        sign_pos = -1
+    if i < max and line[i] in NUMCHARS:
+        return  # valid exponent
+    err_pos = sign_pos if sign_pos >= 0 else i - 1
+    raise TokenError("invalid decimal literal", line, lnum, err_pos + 1, token_list)
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
     ch = _get_next_or_nul(line, end)
@@ -594,6 +623,11 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                                 lnum, start, line, -1, -1))
     elif potential_identifier_char(ch):
         # raise an error right here
+        if ord(ch) >= 0x80:
+            from pypy.module.unicodedata.interp_ucd import unicodedb
+            code = rutf8.codepoint_at_pos(line, end)
+            if not unicodedb.isxidcontinue(code):
+                raise_invalid_unicode_char(code, line, lnum, end, token_list)
         raise TokenError("invalid %s literal" % kind,
                          line, lnum, start + 1, token_list, lnum, end + 2)
 

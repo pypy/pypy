@@ -1647,6 +1647,7 @@ class SetConfigTests(unittest.TestCase):
     def test_set_config(self):
         # bpo-42260: Test _PyInterpreterState_SetConfig()
         import_helper.import_module('_testcapi')
+        import_helper.import_module('_testinternalcapi')  # PyPy change
         cmd = [sys.executable, '-X', 'utf8', '-I', '-m', 'test._test_embed_set_config']
         proc = subprocess.run(cmd,
                               stdout=subprocess.PIPE,

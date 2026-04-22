@@ -53,7 +53,7 @@ class AppTestStructseq:
         assert mydata.st_mode.__doc__ == "protection bits"
         assert mydata.n_fields == 14
         assert mydata.n_sequence_fields == 10
-        assert mydata.n_unnamed_fields == 0
+        assert mydata.n_unnamed_fields == 3
 
     def test_mydata(self):
         mydata = self.get_mydata()

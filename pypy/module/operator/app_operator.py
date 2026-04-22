@@ -56,6 +56,16 @@ class attrgetter(object):
             for attrs in self._multi_attrs
         ])
 
+    def __reduce__(self):
+        try:
+            attrs = (self._simple_attr,)
+        except AttributeError:
+            try:
+                attrs = ('.'.join(self._single_attr),)
+            except AttributeError:
+                attrs = tuple('.'.join(a) for a in self._multi_attrs)
+        return (type(self), attrs)
+
     def __repr__(self):
         try:
             a = repr(self._simple_attr)

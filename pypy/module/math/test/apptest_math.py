@@ -130,3 +130,20 @@ def test_factorial_raises():
         math.factorial(1.2)
     assert e.value.args[0] == "'float' object cannot be interpreted as an integer"
 
+def test_factorial_values():
+    def ref(n):
+        r = 1
+        for i in range(2, n + 1):
+            r *= i
+        return r
+    for x in range(1000):
+        assert math.factorial(x) == ref(x)
+
+@pytest.mark.skipif(not hasattr(sys, 'pypy_translation_info'), reason='requires translated PyPy')
+def test_signatures():
+    import inspect
+    assert str(inspect.signature(math.factorial)) == '(n, /)'
+    assert str(inspect.signature(math.isqrt)) == '(n, /)'
+    assert str(inspect.signature(math.gcd)) == '(*integers)'
+    assert str(inspect.signature(math.lcm)) == '(*integers)'
+

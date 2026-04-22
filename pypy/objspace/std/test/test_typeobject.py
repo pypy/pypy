@@ -98,6 +98,26 @@ class AppTestTypeObject:
         raises(AttributeError, getattr, type, "__abstractmethods__")
         raises(TypeError, "int.__abstractmethods__ = ('abc', )")
 
+    def test_method_descriptor_flag(self):
+        # Replicates test.test_call.TestPEP590.test_method_descriptor_flag
+        Py_TPFLAGS_METHOD_DESCRIPTOR = 1 << 17
+        # function type: method descriptor (list.append is a Function in PyPy)
+        assert type(list.append).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert type(list.__add__).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert type(lambda: None).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        # builtin_function type: NOT a method descriptor
+        # (if this were True, LOAD_METHOD would prepend self to builtin calls)
+        assert not (type(repr).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        assert not (type(len).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        # staticmethod and classmethod: NOT method descriptors
+        assert not (type(staticmethod(lambda: None)).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        assert not (type(classmethod(lambda: None)).__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        # Heap types should not have Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert not (type.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        class Foo:
+            pass
+        assert not (Foo.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+
     def test_is_abstract_flag(self):
         # IS_ABSTRACT flag should always be in sync with
         # cls.__dict__['__abstractmethods__']

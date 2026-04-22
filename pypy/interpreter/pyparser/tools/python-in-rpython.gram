@@ -454,22 +454,16 @@ for_stmt[Union[ast.For, ast.AsyncFor]]:
 
 with_stmt[Union[ast.With, ast.AsyncWith]]:
     | invalid_with_stmt_indent
-    | 'with' '(' a=','.with_item+ ','? ')' ':' b=block {
-        self.check_version(
-           (3, 9),
-           "Parenthesized with items",
-            ast.With(items=a, body=b, type_comment=None, LOCATIONS)
-        )
+    | 'with' '(' a=','.with_item+ opt=','? ')' ':' b=block {
+        self.check_version_for_parenthesized_with(
+            a, opt, ast.With(items=a, body=b, type_comment=None, LOCATIONS))
      }
     | 'with' a=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
         ast.With(items=a, body=b, type_comment=tc, LOCATIONS)
      }
-    | ASYNC 'with' '(' a=','.with_item+ ','? ')' ':' b=block {
-       self.check_version(
-           (3, 9),
-           "Parenthesized with items",
-           ast.AsyncWith(items=a, body=b, type_comment=None, LOCATIONS)
-        )
+    | ASYNC 'with' '(' a=','.with_item+ opt=','? ')' ':' b=block {
+        self.check_version_for_parenthesized_with(
+            a, opt, ast.AsyncWith(items=a, body=b, type_comment=None, LOCATIONS))
      }
     | ASYNC 'with' a=','.with_item+ ':' tc=[TYPE_COMMENT] b=block {
        self.check_version(
@@ -1495,7 +1489,7 @@ invalid_except_stmt[None]:
      }
     | a='except' '*'? expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
-    | a='except' '*' (NEWLINE | ':') { self.raise_syntax_error("expected one or more exception types") }
+    | a='except' '*' b=(NEWLINE | ':') { self.raise_syntax_error_known_location("expected one or more exception types", b) }
 invalid_finally_stmt[NoReturn]:
     | a='finally' ':' NEWLINE !INDENT {
         self.raise_indentation_error(
@@ -1612,6 +1606,9 @@ invalid_double_starred_kvpairs[None]:
      }
     | expression a=':' &('}'|',') {
         self.raise_syntax_error_known_location("expression expected after dictionary key and ':'", a)
+     }
+    | a=expression b='=' {
+        self.raise_syntax_error_known_location("':' expected after dictionary key", b)
      }
 invalid_kvpair[None]:
     | a=expression !(':') {

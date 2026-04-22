@@ -25,7 +25,7 @@ class TestModuleObject(BaseApiTest):
 
 
 class AppTestModuleObject(AppTestCpythonExtensionBase):
-    def test_getdef(self):
+    def test_getdef_basic(self):
         module = self.import_extension('foo', [
             ("check_getdef_same", "METH_NOARGS",
              """
@@ -35,6 +35,9 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             static struct PyModuleDef moduledef;
             """)
         assert module.check_getdef_same()
+        # module-level functions must have __self__ set to the module
+        # so that inspect.signature() can strip the $module parameter (issue 5368)
+        assert module.check_getdef_same.__self__ is module
 
     def test_getstate(self):
         module = self.import_extension('foo', [
@@ -127,7 +130,6 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
         assert "foo.pypy" in file
         assert os.path.exists(file)
 
-class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
         from types import ModuleType
         module = self.import_module(name='multiphase', use_imp=True)
@@ -252,7 +254,7 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
         raises(SystemError, self.import_module, name='multiphase', body=body,
                init=init, use_imp=True)
 
-class AppTestMultiPhase2(AppTestCpythonExtensionBase):
+class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def setup_class(cls):
         cls.w_name = cls.space.wrap('_testmultiphase')
         AppTestCpythonExtensionBase.setup_class.im_func(cls)

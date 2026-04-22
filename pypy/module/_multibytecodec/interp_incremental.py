@@ -1,9 +1,11 @@
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import rutf8
+from rpython.rlib.rbigint import rbigint
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror,
     wrap_unicodeencodeerror)
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -77,9 +79,9 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
         bufferstr = space.bytes_w(w_buffer)
+        if len(bufferstr) > 8:
+            raise oefmt(space.w_UnicodeError, "pending buffer too large")
         self.pending = bufferstr
-        # Suppport for full state requires pushing this into the C code
-        # see https://github.com/python/cpython/pull/6984
         self.state = space.int_w(w_flag)
 
 @unwrap_spec(errors="text_or_none")
@@ -147,25 +149,46 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
         return space.newbytes(output)
 
     def getstate_w(self, space):
-        # Full getstate/setstate not implemented
-        # if needed, see https://github.com/python/cpython/pull/6984
-        if self.pending_len == 0:
-            return space.newint(0)
-        raise oefmt(self.space.w_RuntimeError,
-            "getstate with len(pending)>0 (%d) not implemented, please"
-            "report with a minimal reproducer", self.pending_len)
+        # State format (little-endian integer):
+        #   byte 0:              len(pending_utf8)   (0..8)
+        #   bytes 1..pendinglen: pending UTF-8 bytes
+        #   bytes +8:            codec state (MultibyteCodec_State.c, 8 bytes)
+        pending = self.pending   # UTF-8 bytes of pending codepoints
+        pending_byte_len = len(pending)
+        if pending_byte_len > 8:
+            raise oefmt(space.w_UnicodeError, "pending buffer too large")
+        codec_state = c_codecs.enc_getstate(self.encodebuf)
+        statebytes = (chr(pending_byte_len) + pending + codec_state)
+        return space.newlong_from_rbigint(
+            rbigint.frombytes(statebytes, 'little', False))
 
-    @unwrap_spec(statelong=int)
-    def setstate_w(self, space, statelong):
-        if statelong != 0: 
-            # Full getstate/setstate not implemented
-            # if needed, see https://github.com/python/cpython/pull/6984
-            raise oefmt(self.space.w_NotImplementedError,
-                "setstate(%d) with non-zero value not implemented", statelong)
-        self.pending = ""
-        self.pending_len = 0
-        # Do we need this?
-        # codecs.pypy_cjk_enc_reset(self.encodebuf)
+    def setstate_w(self, space, w_state):
+        # State format: see getstate_w above. Fixed 17-byte buffer (1 + 8 + 8).
+        bigint = space.bigint_w(w_state)
+        try:
+            statebytes = bigint.tobytes(17, 'little', False)
+        except OverflowError:
+            raise oefmt(space.w_UnicodeError, "pending buffer too large")
+        pending_byte_len = ord(statebytes[0])
+        if pending_byte_len > 8:
+            raise oefmt(space.w_UnicodeError, "pending buffer too large")
+        pending_utf8 = statebytes[1:1 + pending_byte_len]
+        try:
+            pending_codepoints = rutf8.check_utf8(pending_utf8, False)
+        except rutf8.CheckError as ex:
+            raise OperationError(
+                space.w_UnicodeDecodeError,
+                space.newtuple([
+                    space.newtext('utf-8'),
+                    space.newbytes(pending_utf8),
+                    space.newint(ex.pos),
+                    space.newint(ex.pos + 1),
+                    space.newtext('invalid utf-8 in setstate pending buffer'),
+                ]))
+        codec_state = statebytes[1 + pending_byte_len:1 + pending_byte_len + 8]
+        c_codecs.enc_setstate(self.encodebuf, codec_state)
+        self.pending = pending_utf8
+        self.pending_len = pending_codepoints
 
 
 @unwrap_spec(errors="text_or_none")

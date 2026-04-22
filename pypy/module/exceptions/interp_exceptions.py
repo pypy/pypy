@@ -360,10 +360,16 @@ class W_ImportError(W_Exception):
     w_msg = None
 
     @jit.unroll_safe
-    @unwrap_spec(w_name=WrappedDefault(None), w_path=WrappedDefault(None))
-    def descr_init(self, space, args_w, __kwonly__, w_name=None, w_path=None):
-        self.w_name = w_name
-        self.w_path = w_path
+    def descr_init(self, space, __args__):
+        args_w, kwargs_w = __args__.unpack()
+        w_name = kwargs_w.pop("name", None)
+        w_path = kwargs_w.pop("path", None)
+        if kwargs_w:
+            for key in kwargs_w:
+                raise oefmt(space.w_TypeError,
+                    "'%s' is an invalid keyword argument for ImportError", key)
+        self.w_name = w_name if w_name is not None else space.w_None
+        self.w_path = w_path if w_path is not None else space.w_None
         if len(args_w) == 1:
             self.w_msg = args_w[0]
         else:
@@ -634,6 +640,8 @@ class W_OSError(W_Exception):
                     self.written = space.int_w(w_filename)
                 except OperationError:
                     self.w_filename = w_filename
+                    if not space.is_none(w_filename2):
+                        self.w_filename2 = w_filename2
             else:
                 if not space.is_none(w_filename):
                     self.w_filename = w_filename
@@ -830,14 +838,13 @@ class W_SyntaxError(W_Exception):
             self.w_msg = args_w[0]
         if len(args_w) == 2:
             values_w = space.fixedview(args_w[1])
-            if len(values_w) > 0:
-                self.w_filename = values_w[0]
-            if len(values_w) > 1:
-                self.w_lineno = values_w[1]
-            if len(values_w) > 2:
-                self.w_offset = values_w[2]
-            if len(values_w) > 3:
-                self.w_text = values_w[3]
+            if len(values_w) < 4:
+                raise oefmt(space.w_TypeError,
+                    "function missing required argument 'info[3]' (pos 4)")
+            self.w_filename = values_w[0]
+            self.w_lineno = values_w[1]
+            self.w_offset = values_w[2]
+            self.w_text = values_w[3]
             if len(values_w) == 5:
                 raise oefmt(space.w_TypeError, "end_offset must be provided when end_lineno is provided")
             if len(values_w) == 6:
@@ -910,7 +917,20 @@ class W_SyntaxError(W_Exception):
             return True
         # Check for legacy exec statements
         if text.startswith(b"exec "):
-            self.w_msg = space.newtext("Missing parentheses in call to 'exec'")
+            arg = text[len("exec"):].strip()
+            if arg.endswith(";"):
+                arg = arg[:-1].strip()
+            suggestion = "exec(%s)" % arg
+            compiler = space.createcompiler()
+            try:
+                compiler.compile(suggestion, '?', 'eval', 0)
+            except OperationError:
+                self.w_msg = space.newtext(
+                    "Missing parentheses in call to 'exec'")
+            else:
+                self.w_msg = space.newtext(
+                    "Missing parentheses in call to 'exec'. Did you mean %s?" % (
+                        suggestion,))
             return True
         return False
 

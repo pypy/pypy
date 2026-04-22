@@ -502,9 +502,9 @@ class FunctionDef(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _args = arguments.from_object(space, w_args)
         if _args is None:
             raise_required_value(space, w_node, 'args')
@@ -606,9 +606,9 @@ class AsyncFunctionDef(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _args = arguments.from_object(space, w_args)
         if _args is None:
             raise_required_value(space, w_node, 'args')
@@ -717,9 +717,9 @@ class ClassDef(stmt):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         keywords_w = space.unpackiterable(w_keywords)
@@ -3813,9 +3813,9 @@ class Attribute(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _attr = space.text_w(w_attr)
-        if _attr is None:
+        if space.is_w(w_attr, space.w_None):
             raise_required_value(space, w_node, 'attr')
+        _attr = space.text_w(w_attr)
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
@@ -3998,9 +3998,9 @@ class Name(expr):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _id = space.text_w(w_id)
-        if _id is None:
+        if space.is_w(w_id, space.w_None):
             raise_required_value(space, w_node, 'id')
+        _id = space.text_w(w_id)
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
@@ -4865,9 +4865,9 @@ class arg(AST):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _arg = space.text_w(w_arg)
-        if _arg is None:
+        if space.is_w(w_arg, space.w_None):
             raise_required_value(space, w_node, 'arg')
+        _arg = space.text_w(w_arg)
         _annotation = expr.from_object(space, w_annotation)
         _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
@@ -4983,9 +4983,9 @@ class alias(AST):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', True)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _asname = space.text_or_none_w(w_asname)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)

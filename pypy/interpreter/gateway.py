@@ -712,7 +712,7 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append(ObjSpace)
             elif argname == '__args__':
                 unwrap_spec.append(Arguments)
-            elif argname == 'args_w':
+            elif argname.endswith('_w') and not argname.startswith('w_'):
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
@@ -1137,8 +1137,73 @@ class interp2app(W_Root):
         self._staticdefs = dict(zip(
             argnames[len(argnames) - len(defaults):], defaults))
         self.self_type = self_type
+        self._explicit_text_sig = getattr(f, '__text_signature__', None)
 
         return self
+
+    @not_rpython
+    def _generate_text_signature(self):
+        """Generate a __text_signature__ string for use by inspect.signature."""
+        if self._explicit_text_sig is not None:
+            return self._explicit_text_sig
+        code = self._code
+        sig = code.sig
+        # Skip signatures with *args or **kwargs -- too complex to auto-generate
+        if sig.varargname or sig.kwargname:
+            return None
+        # Build defaults map: python-visible name -> default value
+        defaults_map = {}
+        for rpyname, spec in zip(code._argnames, code._unwrap_spec):
+            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'w_args') or (rpyname.endswith('_w') and not rpyname.startswith('w_')):
+                continue
+            pyname = rpyname[2:] if rpyname.startswith('w_') else rpyname
+            if isinstance(spec, WrappedDefault):
+                defaults_map[pyname] = spec.default_value
+            elif rpyname in self._staticdefs:
+                if isinstance(spec, type) and issubclass(spec, Unwrapper) and hasattr(spec, 'text_default'):
+                    defaults_map[pyname] = spec.text_default
+                else:
+                    defaults_map[pyname] = self._staticdefs[rpyname]
+        argnames = sig.argnames
+        kwonly_count = sig.kwonlyargcount
+        pos_argnames = argnames[:len(argnames) - kwonly_count]
+        kw_argnames = argnames[len(argnames) - kwonly_count:]
+        posonlyargcount = sig.posonlyargcount
+        parts = []
+        if self.self_type is None:
+            if getattr(self, '_is_type_method', False) and pos_argnames:
+                # Installed as a method via TypeDef: mark the first real
+                # positional arg as implicit with $, matching CPython's
+                # $self/$module convention so inspect.py strips it correctly
+                # when the method is bound.
+                parts.append('$' + pos_argnames[0])
+                pos_argnames = list(pos_argnames[1:])
+            else:
+                parts.append('$module')
+        posonly_slash_added = False
+        for i, name in enumerate(pos_argnames):
+            if self.self_type is not None and i == 0 and name == 'self':
+                parts.append('$self')
+                continue
+            if posonlyargcount > 0 and i == posonlyargcount and not posonly_slash_added:
+                parts.append('/')
+                posonly_slash_added = True
+            if name in defaults_map:
+                parts.append('%s=%r' % (name, defaults_map[name]))
+            else:
+                parts.append(name)
+        if not kw_argnames and not posonly_slash_added:
+            parts.append('/')
+        elif posonlyargcount > 0 and not posonly_slash_added:
+            parts.append('/')
+        if kw_argnames:
+            parts.append('*')
+            for name in kw_argnames:
+                if name in defaults_map:
+                    parts.append('%s=%r' % (name, defaults_map[name]))
+                else:
+                    parts.append(name)
+        return '(' + ', '.join(parts) + ')'
 
     @not_rpython
     def _getdefaults(self, space):
@@ -1166,7 +1231,7 @@ class interp2app(W_Root):
                 w_def = Ellipsis
 
             if defaultval is not NO_DEFAULT:
-                if name != '__args__' and name != 'args_w':
+                if name != '__args__' and not (name.endswith('_w') and not name.startswith('w_')):
                     if w_def is Ellipsis:
                         if isinstance(defaultval, str) and (
                                 # XXX hackish
@@ -1259,6 +1324,11 @@ class GatewayCache(SpaceCache):
                                    forcename=gateway.name)
         if not space.config.translating:
             fn.add_to_table()
+        text_sig = gateway._generate_text_signature()
+        if text_sig:
+            fn.w_text_signature = space.newtext(text_sig)
+            if not code.docstring:
+                code.docstring = '%s%s\n--\n\n' % (gateway.name, text_sig)
         if gateway.as_classmethod:
             fn = ClassMethod(fn)
         #
@@ -1438,7 +1508,9 @@ def descr_function_get(space, w_function, w_instance, w_owner=None):
     """functionobject.__get__(instance, owner=None, /) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
-    if w_instance is None or space.is_w(w_instance, space.w_None):
+    if space.is_none(w_instance):
+        if space.is_none(w_owner):
+            raise oefmt(space.w_TypeError, "__get__(None, None) is invalid")
         return w_function
     else:
         return Method(space, w_function, w_instance)

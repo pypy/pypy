@@ -1,5 +1,4 @@
 from __future__ import print_function
-import hashlib
 import os
 import platform
 import shutil
@@ -32,6 +31,7 @@ cffi_build_scripts = [
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
     ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
     ("_blake2", "_blake2/_blake2_build.py"),
+    ("_sha3", "_sha3/_sha3_build.py"),
     ("_ssl", "_ssl_build.py"),
     ("sqlite3", "_sqlite3_build.py"),
     ("audioop", "_audioop_build.py"),
@@ -43,10 +43,9 @@ cffi_build_scripts = [
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
     ("lzma", "_lzma_build.py"),
     # ("_decimal", "_decimal_build.py"),  # issue 3024
-    ("_sha3", "_sha3/_sha3_build.py"),
     ("xx", None),    # for testing: 'None' should be completely ignored
     ("_posixshmem", "_posixshmem_build.py" if sys.platform != "win32" else None),
-    ]
+]
 
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
@@ -95,6 +94,7 @@ def _unpack_tarfile(filename, extract_dir):
         tarobj.close()
 
 def _sha256(filename):
+    import hashlib
     dgst = hashlib.sha256()
 
     with open(filename, 'rb') as fp:

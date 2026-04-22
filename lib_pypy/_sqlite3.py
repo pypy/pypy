@@ -403,10 +403,8 @@ class Connection(object):
         self._detect_types = detect_types
         self.isolation_level = isolation_level
 
-        self.__cursors = []
-        self.__cursors_counter = 0
-        self.__statements = []
-        self.__statements_counter = 0
+        self.__cursors = set()
+        self.__statements = set()
         self.__rawstatements = set()
         self._statement_cache = _StatementCache(self, cached_statements)
         self.__statements_already_committed = []
@@ -550,21 +548,17 @@ class Connection(object):
         return exc
 
     def _remember_cursor(self, cursor):
-        self.__cursors.append(weakref.ref(cursor))
-        self.__cursors_counter += 1
-        if self.__cursors_counter < 200:
-            return
-        self.__cursors_counter = 0
-        self.__cursors = [r for r in self.__cursors if r() is not None]
+        ref = weakref.ref(cursor, self.__cursors.discard)
+        self.__cursors.add(ref)
+        cursor._connection_ref = ref
+
+    def _forget_cursor(self, cursor_ref):
+        self.__cursors.discard(cursor_ref)
 
     def _remember_statement(self, statement):
         self.__rawstatements.add(statement._statement)
-        self.__statements.append(weakref.ref(statement))
-        self.__statements_counter += 1
-        if self.__statements_counter < 200:
-            return
-        self.__statements_counter = 0
-        self.__statements = [r for r in self.__statements if r() is not None]
+        ref = weakref.ref(statement, self.__statements.discard)
+        self.__statements.add(ref)
 
     def _finalize_raw_statement(self, _statement):
         if self.__rawstatements is not None:
@@ -575,14 +569,14 @@ class Connection(object):
             _lib.sqlite3_finalize(_statement)
 
     def __do_all_statements(self, action, reset_cursors):
-        for weakref in self.__statements:
-            statement = weakref()
+        for ref in list(self.__statements):
+            statement = ref()
             if statement is not None:
                 action(statement)
 
         if reset_cursors:
-            for weakref in self.__cursors:
-                cursor = weakref()
+            for ref in list(self.__cursors):
+                cursor = ref()
                 if cursor is not None:
                     cursor._reset = True
 
@@ -660,7 +654,7 @@ class Connection(object):
         # is usually ignored, except if we get SQLITE_LOCKED
         # afterwards---at which point we reset all statements in this
         # list.
-        self.__statements_already_committed = self.__statements[:]
+        self.__statements_already_committed = list(self.__statements)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"COMMIT", -1,
@@ -1293,6 +1287,7 @@ class Cursor(object):
         self.__have_next_row = False
         self.__lastrowid = None
         self.__rowcount = -1
+        self._connection_ref = None
 
         con._check_thread()
         con._remember_cursor(self)
@@ -1319,6 +1314,9 @@ class Cursor(object):
             self.__statement._reset(self.__in_use_token)
             self.__statement = None
         self.__closed = True
+        if self._connection_ref is not None:
+            self.__connection._forget_cursor(self._connection_ref)
+            self._connection_ref = None
 
     def __check_cursor(self):
         if not self.__initialized:
@@ -1863,6 +1861,9 @@ class Blob(object):
         self.__connection._check_thread()
         if not self.__blob:
             raise ProgrammingError("Cannot operate on a closed blob")
+
+    def __del__(self):
+        self.close()
 
     def close(self):
         """ Close the blob. """

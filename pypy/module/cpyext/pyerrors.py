@@ -2,6 +2,7 @@ import os
 import signal as cpy_signal
 
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.cpyext.api import PyObjectFields, cpython_struct
@@ -276,10 +277,20 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
     msg, lgt = _strerror(errno)
     if w_value:
-        w_error = space.call_function(w_type,
-                                      space.newint(errno),
-                                      space.newtext(msg, lgt),
-                                      w_value)
+        if we_are_translated():
+            w_error = space.call_function(w_type,
+                                          space.newint(errno),
+                                          space.newtext(msg, lgt),
+                                          w_value)
+        else:
+            # Untranslated: errno may be reset by bridge overhead before
+            # _get_errno() runs, mapping OSError to BlockingIOError.  An
+            # integer w_value would then be stored as characters_written
+            # instead of filename.  Avoid that by setting filename directly.
+            w_error = space.call_function(w_type,
+                                          space.newint(errno),
+                                          space.newtext(msg, lgt))
+            space.setattr(w_error, space.newtext('filename'), w_value)
     else:
         w_error = space.call_function(w_type,
                                       space.newint(errno),

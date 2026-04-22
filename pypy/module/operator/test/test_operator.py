@@ -375,3 +375,34 @@ class AppTestOperator:
             iconcat(1, 0.5)
         print(exc.value)
         assert str(exc.value) == "'int' object can't be concatenated"
+
+    def test_attrgetter_pickle(self):
+        # attrgetter stores a bound method in __dict__; __reduce__ must
+        # serialize only the attribute strings to avoid pickling it.
+        import pickle
+        import operator
+
+        class A:
+            pass
+        a = A()
+        a.x = 'X'
+        a.y = 'Y'
+        a.t = A()
+        a.t.u = 'U'
+
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            # single attribute
+            f = operator.attrgetter('x')
+            f2 = pickle.loads(pickle.dumps(f, proto))
+            assert f2(a) == f(a)
+            assert repr(f2) == repr(f)
+            # multiple attributes
+            f = operator.attrgetter('x', 'y')
+            f2 = pickle.loads(pickle.dumps(f, proto))
+            assert f2(a) == f(a)
+            assert repr(f2) == repr(f)
+            # dotted attribute
+            f = operator.attrgetter('t.u')
+            f2 = pickle.loads(pickle.dumps(f, proto))
+            assert f2(a) == f(a)
+            assert repr(f2) == repr(f)

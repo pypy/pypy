@@ -130,6 +130,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         #
         obj.ulong_member = -3; assert obj.ulong_member == max_uint + 1 - 3, obj.ulong_member
 
+    def test_int_member_index_protocol(self):
+        # T_ULONG should accept objects implementing __index__, like T_UINT does
+        module = self.import_module(name='foo')
+        obj = module.new()
+        class Index:
+            def __init__(self, val): self.val = val
+            def __index__(self): return self.val
+        obj.uint_member = Index(42)
+        assert obj.uint_member == 42
+        obj.ulong_member = Index(99)
+        assert obj.ulong_member == 99
+        # T_PYSSIZET must NOT accept __index__ objects - plain int only
+        raises(TypeError, setattr, obj, 'ssizet_member', Index(1))
+
     def test_overflow(self):
         import struct, warnings
         module = self.import_module(name='foo')
@@ -582,7 +596,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert htype().__doc__ == "A type with a signature"
         assert mod.SomeType.__text_signature__ == '()'
         assert mod.SomeType.__doc__ == 'A type with a signature'
-        assert htype.__text_signature__ is None
+        assert htype.__text_signature__ == '()'
 
         assert htype.__module__ == 'docstrings'
         assert htype.__name__ == 'HeapType'
@@ -1346,13 +1360,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert (d + a) == 5
         assert pow(d,b) == 16
 
-    def test_tp_new_in_subclass(self):
-        import datetime
-        module = self.import_module(name='foo3')
-        module.footype("X", (object,), {})
-        a = module.datetimetype(1, 1, 1)
-        assert isinstance(a, module.datetimetype)
-
     def test_app_subclass_of_c_type(self):
         import sys
         module = self.import_module(name='foo')
@@ -1908,6 +1915,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return PyMethod_New(func, obj);
                 }
 
+                static PyObject *
+                nop_descr_get(PyObject *func, PyObject *obj, PyObject *type)
+                {
+                    Py_INCREF(func);
+                    return func;
+                }
+
+                static PyObject *
+                call_return_args(PyObject *self, PyObject *args, PyObject *kwargs)
+                {
+                    Py_INCREF(args);
+                    return args;
+                }
+
                 static PyTypeObject MethodDescriptorBase_Type = {
                     PyVarObject_HEAD_INIT(NULL, 0)
                     "MethodDescriptorBase",
@@ -1950,6 +1971,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_VECTORCALL,
                 };
 
+                static PyTypeObject MethodDescriptorNopGet_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "MethodDescriptorNopGet",
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    .tp_call = call_return_args,
+                    .tp_descr_get = nop_descr_get,
+                };
 
             """,
             more_init="""
@@ -1970,6 +1998,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
                 Py_INCREF(&MethodDescriptor2_Type);
                 PyModule_AddObject(mod, "MethodDescriptor2", (PyObject *)&MethodDescriptor2_Type);
+
+                MethodDescriptorNopGet_Type.tp_base = &MethodDescriptorBase_Type;
+                if (PyType_Ready(&MethodDescriptorNopGet_Type) < 0)
+                    INITERROR;
+                Py_INCREF(&MethodDescriptorNopGet_Type);
+                PyModule_AddObject(mod, "MethodDescriptorNopGet",
+                                   (PyObject *)&MethodDescriptorNopGet_Type);
             """)
         def pyfunc(arg1, arg2):
             return [arg1, arg2]
@@ -2010,7 +2045,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             return module.pyobject_vectorcall(func, args, kwnames)
 
         for (func, args, kwargs, expected) in calls:
-            print(func, args, kwargs, expected)
             if not kwargs:
                 assert expected == module.pyvectorcall_call(func, args)
             assert expected == module.pyvectorcall_call(func, args, kwargs)
@@ -2057,6 +2091,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         Py_TPFLAGS_HAVE_VECTORCALL = 1 << 11
         assert module.MethodDescriptor2.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+
+        # test_vectorcall_flag: derived static type should inherit Py_TPFLAGS_HAVE_VECTORCALL
+        assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+        assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+        class MethodDescriptorHeap(module.MethodDescriptorBase):
+            pass
+        assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
+
+        # test_method_descriptor_flag: Py_TPFLAGS_METHOD_DESCRIPTOR on C extension types
+        Py_TPFLAGS_METHOD_DESCRIPTOR = 1 << 17
+        assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR
+        assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
+        assert not (module.MethodDescriptorNopGet.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
 
     def test_fastcall(self):
         module = self.import_extension('foo', [
@@ -2213,7 +2261,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert inst.dictobj == inst.__dict__
         assert inst.dictobj == {"foo": 42} 
  
-class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
         if not self.runappdirect:
             skip('pointer to function equality available'
@@ -2243,7 +2290,6 @@ class AppTestHashable(AppTestCpythonExtensionBase):
         assert not isinstance(obj, Hashable)
 
 
-class AppTestFlags(AppTestCpythonExtensionBase):
     def test_has_subclass_flag(self):
         module = self.import_extension('foo', [
            ("test_flags", "METH_VARARGS",
@@ -2609,3 +2655,434 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert module.B.__bases__ == (module.A,)
         with raises(TypeError):
             module.B()
+
+    # messes with leak detection, leave at the end of the tests
+    def test_tp_new_in_subclass(self):
+        import datetime
+        module = self.import_module(name='foo3')
+        module.footype("X", (object,), {})
+        a = module.datetimetype(1, 1, 1)
+        assert isinstance(a, module.datetimetype)
+    def test_tp_new_mixin_before_ctype(self):
+        # A C type with explicit tp_new (like Cython-generated types) must
+        # still be called when a Python mixin appears BEFORE it in bases:
+        #   class Mixed(PythonMixin, CType): ...
+        # The bug: find_best_base() returns PythonMixin when both it and CType
+        # share object's layout (tp_basicsize == sizeof(PyObject)), so
+        # _find_which_tp_new_to_call() follows PythonMixin.__new__ ->
+        # object.__new__ and raises TypeError on extra args.
+        # See https://github.com/pypy/pypy/issues/5418
+        module = self.import_extension('foo_tp_new_mixin', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&Foo_Type);
+                return (PyObject *)&Foo_Type;
+            ''')],
+            prologue='''
+            static PyObject *
+            Foo_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                /* tp_new that accepts any args, like Cython-generated types */
+                return type->tp_alloc(type, 0);
+            }
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_mixin.Foo",  /* tp_name */
+                sizeof(PyObject),        /* tp_basicsize: same as PyObject -> shares object layout */
+                0,                       /* tp_itemsize */
+                0,                       /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,  /* tp_flags */
+            };
+            ''',
+            more_init='''
+                Foo_Type.tp_new = Foo_new;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class PythonMixin:
+            pass
+
+        class Mixed(PythonMixin, CBase):
+            def __init__(self, value):
+                self.value = value
+
+        class SubMixed(Mixed):
+            pass
+
+        # Must call Foo_new (not object.__new__) even with extra args
+        obj = Mixed(42)
+        assert obj.value == 42
+        obj2 = SubMixed(99)
+        assert obj2.value == 99
+
+    def test_tp_new_mixin_intermediate_python_class(self):
+        # Like test_tp_new_mixin_with_struct_backing but with an intermediate
+        # Python class between the user's class and the C extension type,
+        # mimicking the pandas hierarchy:
+        #   NumpyBlock(BlockPython) where BlockPython(Mixin, CBase)
+        # MRO: [NumpyBlock, BlockPython, Mixin, CBase, object]
+        # This exercises the two-level recursion in _find_which_tp_new_to_call:
+        #   NumpyBlock -> best_base=BlockPython -> lookup finds CBase.__new__
+        #   -> recurse into BlockPython -> best_base=CBase -> terminate
+        module = self.import_extension('foo_tp_new_interm', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&FooInterm_Type);
+                return (PyObject *)&FooInterm_Type;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+                int extra_field2;
+            } FooIntermObject;
+
+            static PyObject *
+            FooInterm_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooIntermObject *obj = (FooIntermObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                obj->extra_field = 42;
+                obj->extra_field2 = 99;
+                /* Trigger create_ref path like BlockValuesRefs_add_reference */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooInterm_dealloc(FooIntermObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            static PyTypeObject FooInterm_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_interm.FooInterm",  /* tp_name */
+                sizeof(FooIntermObject),         /* tp_basicsize > sizeof(PyObject) */
+                0,                               /* tp_itemsize */
+                (destructor)FooInterm_dealloc,   /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+            };
+            ''',
+            more_init='''
+                FooInterm_Type.tp_new = FooInterm_new;
+                if (PyType_Ready(&FooInterm_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class Mixin:
+            pass
+
+        # Intermediate Python class (Block_Python analog)
+        # MRO: [BlockPython, Mixin, CBase, object]
+        class BlockPython(Mixin, CBase):
+            pass
+
+        # User's instantiated class (NumpyBlock analog)
+        # MRO: [NumpyBlock, BlockPython, Mixin, CBase, object]
+        class NumpyBlock(BlockPython):
+            def __init__(self, value):
+                self.value = value
+
+        # CBase's tp_new must be called with type=NumpyBlock; if tp_basicsize
+        # is not propagated correctly the two extra_field writes corrupt the heap
+        obj = NumpyBlock(42)
+        assert obj.value == 42
+        obj2 = NumpyBlock(99)
+        assert obj2.value == 99
+
+    def test_tp_new_mixin_with_struct_backing(self):
+        # Like test_tp_new_mixin_before_ctype but with tp_basicsize >
+        # sizeof(PyObject).  When the C type has its own layout
+        # (force_new_layout=True), find_best_base() returns the C type rather
+        # than PythonMixin, so _find_which_tp_new_to_call() takes the
+        # recursive branch (elif is_tp_new_wrapper) instead of the
+        # "skip object.__new__" branch.
+        #
+        # The tp_new also calls PyObject_GetAttr on the freshly allocated
+        # object, exercising the cpyext_tp_getattro_object -> create_ref path
+        # that appears in the pandas crash trace.
+        module = self.import_extension('foo_tp_new_struct', [
+           ("get_type", "METH_NOARGS",
+            '''
+                Py_INCREF(&FooStruct_Type);
+                return (PyObject *)&FooStruct_Type;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+            } FooStructObject;
+
+            static PyObject *
+            FooStruct_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooStructObject *obj = (FooStructObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                obj->extra_field = 42;
+                /* Trigger cpyext_tp_getattro_object -> create_ref path */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooStruct_dealloc(FooStructObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            static PyTypeObject FooStruct_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_tp_new_struct.FooStruct", /* tp_name */
+                sizeof(FooStructObject),        /* tp_basicsize > sizeof(PyObject) */
+                0,                              /* tp_itemsize */
+                (destructor)FooStruct_dealloc,  /* tp_dealloc */
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+            };
+            ''',
+            more_init='''
+                FooStruct_Type.tp_new = FooStruct_new;
+                if (PyType_Ready(&FooStruct_Type) < 0) INITERROR;
+            ''')
+        CBase = module.get_type()
+        assert CBase.__new__ is not object.__new__
+
+        class PythonMixin:
+            pass
+
+        class Mixed(PythonMixin, CBase):
+            def __init__(self, value):
+                self.value = value
+
+        class SubMixed(Mixed):
+            pass
+
+        obj = Mixed(42)
+        assert obj.value == 42
+        obj2 = SubMixed(99)
+        assert obj2.value == 99
+
+    def test_tp_new_mixin_from_spec(self):
+        # Regression test for the PyType_FromModuleAndSpec / PyType_FromSpecWithBases
+        # new_layout bug: when flag_heaptype=True (set by the spec API),
+        # PyPy incorrectly uses sizeof(PyHeapTypeObject) as minsize, so a type
+        # with basicsize < sizeof(PyHeapTypeObject) gets new_layout=False.
+        # That makes find_best_base() prefer the Python mixin over the C type,
+        # so Python subclasses inherit tp_basicsize=24 (object) instead of
+        # the struct size, causing tp_alloc to under-allocate and writes to
+        # extra fields corrupt the heap.
+        #
+        # Mirrors the pandas pattern:
+        #   libinternals.Block  <- PyType_FromSpecWithBases (struct with extra fields)
+        #   Block(PandasObject, libinternals.Block)  <- intermediate Python class
+        #   NumpyBlock(Block)  <- user-instantiated subclass
+        module = self.import_extension('foo_spec_mixin', [
+           ("get_type", "METH_NOARGS",
+            '''
+                static PyType_Slot FooSpec_slots[] = {
+                    {Py_tp_new,     FooSpec_new},
+                    {Py_tp_dealloc, FooSpec_dealloc},
+                    {0, 0}
+                };
+                static PyType_Spec FooSpec_spec = {
+                    "foo_spec_mixin.FooSpec",
+                    sizeof(FooSpecObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    FooSpec_slots
+                };
+                PyObject *tp = PyType_FromSpecWithBases(&FooSpec_spec, NULL);
+                return tp;
+            ''')],
+            prologue='''
+            typedef struct {
+                PyObject ob_base;
+                int extra_field;
+                int extra_field2;
+            } FooSpecObject;
+
+            static PyObject *
+            FooSpec_new(PyTypeObject *type, PyObject *args, PyObject *kwds) {
+                FooSpecObject *obj = (FooSpecObject *) type->tp_alloc(type, 0);
+                if (!obj) return NULL;
+                /* Write to extra fields; if tp_basicsize was not propagated
+                   correctly these writes corrupt the malloc heap. */
+                obj->extra_field  = 111;
+                obj->extra_field2 = 222;
+                /* Trigger cpyext_tp_getattro -> create_ref path */
+                PyObject *attr = PyUnicode_FromString("__class__");
+                if (!attr) { Py_DECREF(obj); return NULL; }
+                PyObject *cls = PyObject_GetAttr((PyObject*)obj, attr);
+                Py_DECREF(attr);
+                if (!cls) { Py_DECREF(obj); return NULL; }
+                Py_DECREF(cls);
+                return (PyObject*)obj;
+            }
+            static void
+            FooSpec_dealloc(FooSpecObject *op) {
+                Py_TYPE(op)->tp_free(op);
+            }
+            ''')
+        CBase = module.get_type()
+        # CBase was created via PyType_FromSpecWithBases - it carries
+        # Py_TPFLAGS_HEAPTYPE; the bug triggers when building the Python
+        # subclass hierarchy below.
+        assert CBase.__new__ is not object.__new__
+
+        class Mixin:
+            pass
+
+        # Intermediate Python class (pandas Block analog)
+        class BlockPython(Mixin, CBase):
+            pass
+
+        # User class (pandas NumpyBlock analog)
+        class NumpyBlock(BlockPython):
+            def __init__(self, value):
+                self.value = value
+
+        # If tp_basicsize was not propagated, these writes corrupt malloc
+        # metadata and either crash here or in a later allocation.
+        obj = NumpyBlock(42)
+        assert obj.value == 42
+        obj2 = NumpyBlock(99)
+        assert obj2.value == 99
+
+    def test_multiple_inheritance_ctypes_with_weakref_or_dict(self):
+        # taken from test_capi test_multiple_inheritance_ctypes_with_weakref_or_dict:
+        # types created via PyType_FromSpec that carry tp_dictoffset or
+        # tp_weaklistoffset should be combinable in multiple inheritance
+        # without raising "instance layout conflicts".
+        module = self.import_extension('foo_heapctype', [],
+            prologue="""
+                #include <structmember.h>
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *dict;
+                } HeapCTypeWithDictObject;
+
+                static void
+                heapctypewithdict_dealloc(HeapCTypeWithDictObject* self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    Py_XDECREF(self->dict);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyGetSetDef heapctypewithdict_getsetlist[] = {
+                    {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+                    {NULL}
+                };
+
+                static struct PyMemberDef heapctypewithdict_members[] = {
+                    {"dictobj", T_OBJECT, offsetof(HeapCTypeWithDictObject, dict)},
+                    {"__dictoffset__", T_PYSSIZET,
+                      offsetof(HeapCTypeWithDictObject, dict), READONLY},
+                    {NULL}
+                };
+
+                static PyType_Slot HeapCTypeWithDict_slots[] = {
+                    {Py_tp_members, heapctypewithdict_members},
+                    {Py_tp_getset, heapctypewithdict_getsetlist},
+                    {Py_tp_dealloc, heapctypewithdict_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithDict_spec = {
+                    "foo_heapctype.HeapCTypeWithDict",
+                    sizeof(HeapCTypeWithDictObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithDict_slots
+                };
+
+                static PyType_Spec HeapCTypeWithDict2_spec = {
+                    "foo_heapctype.HeapCTypeWithDict2",
+                    sizeof(HeapCTypeWithDictObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithDict_slots
+                };
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *weakreflist;
+                } HeapCTypeWithWeakrefObject;
+
+                static struct PyMemberDef heapctypewithweakref_members[] = {
+                    {"weakreflist", T_OBJECT,
+                      offsetof(HeapCTypeWithWeakrefObject, weakreflist)},
+                    {"__weaklistoffset__", T_PYSSIZET,
+                      offsetof(HeapCTypeWithWeakrefObject, weakreflist), READONLY},
+                    {NULL}
+                };
+
+                static void
+                heapctypewithweakref_dealloc(HeapCTypeWithWeakrefObject* self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    if (self->weakreflist != NULL)
+                        PyObject_ClearWeakRefs((PyObject *) self);
+                    Py_XDECREF(self->weakreflist);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyType_Slot HeapCTypeWithWeakref_slots[] = {
+                    {Py_tp_members, heapctypewithweakref_members},
+                    {Py_tp_dealloc, heapctypewithweakref_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithWeakref_spec = {
+                    "foo_heapctype.HeapCTypeWithWeakref",
+                    sizeof(HeapCTypeWithWeakrefObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithWeakref_slots
+                };
+
+                static PyType_Spec HeapCTypeWithWeakref2_spec = {
+                    "foo_heapctype.HeapCTypeWithWeakref2",
+                    sizeof(HeapCTypeWithWeakrefObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithWeakref_slots
+                };
+            """,
+            more_init="""
+                PyObject *t;
+                #define ADD_TYPE(spec, name)                         \\
+                    t = PyType_FromSpec(spec);                       \\
+                    if (t == NULL) INITERROR;                        \\
+                    PyModule_AddObject(mod, name, t);
+                ADD_TYPE(&HeapCTypeWithDict_spec, "HeapCTypeWithDict");
+                ADD_TYPE(&HeapCTypeWithDict2_spec, "HeapCTypeWithDict2");
+                ADD_TYPE(&HeapCTypeWithWeakref_spec, "HeapCTypeWithWeakref");
+                ADD_TYPE(&HeapCTypeWithWeakref2_spec, "HeapCTypeWithWeakref2");
+                #undef ADD_TYPE
+            """)
+        class Both1(module.HeapCTypeWithWeakref, module.HeapCTypeWithDict):
+            pass
+        class Both2(module.HeapCTypeWithDict, module.HeapCTypeWithWeakref):
+            pass
+        for cls in (module.HeapCTypeWithDict, module.HeapCTypeWithDict2,
+                    module.HeapCTypeWithWeakref, module.HeapCTypeWithWeakref2):
+            for cls2 in (module.HeapCTypeWithDict, module.HeapCTypeWithDict2,
+                         module.HeapCTypeWithWeakref, module.HeapCTypeWithWeakref2):
+                if cls is not cls2:
+                    class S(cls, cls2):
+                        pass
+            class B1(Both1, cls):
+                pass
+            class B2(Both2, cls):
+                pass

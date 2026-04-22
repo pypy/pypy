@@ -473,11 +473,20 @@ class PyCode(eval.Code):
                 return space.w_None
             return space.newint(i)
 
+        # Check for -X no_debug_ranges / PYTHONNODEBUGRANGES: strip column info.
+        no_debug_ranges = False
+        w_xopts = space.sys.getdictvalue(space, '_xoptions')
+        if w_xopts is not None:
+            try:
+                space.getitem(w_xopts, space.newtext('no_debug_ranges'))
+                no_debug_ranges = True
+            except OperationError:
+                pass
+
         if self.co_linetable == '':
             return space.newlist([])
 
         table_w = []
-        prev_line_no = self.co_firstlineno
         position = 0
         table = self.co_linetable
         while position < len(table):
@@ -485,6 +494,10 @@ class PyCode(eval.Code):
                 lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
             except DecodeError:
                 break
+            if no_debug_ranges and lineno != -1:
+                end_lineno = lineno
+                col_offset = -1
+                end_col_offset = -1
             tup_w = [
                 w(space, lineno),
                 w(space, end_lineno),

@@ -999,7 +999,11 @@ class TracebackException:
             else:
                 offset = self.offset
                 end_offset = self.end_offset if self.end_offset not in {None, 0} else offset
-                if offset == end_offset or end_offset == -1:
+                # Clamp end_offset to text length (C: end_offset = line_size + 1)
+                if self.text and end_offset > len(rtext) + 1:
+                    end_offset = len(rtext) + 1
+                # Mirror C logic: if end_offset <= 0 or end_offset <= offset, use 1 caret
+                if end_offset <= 0 or end_offset <= offset:
                     end_offset = offset + 1
 
                 # Convert 1-based column offset to 0-based index into stripped text

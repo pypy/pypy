@@ -2301,6 +2301,7 @@ Our ill-behaved code should be invoked during GC:
 ...     g = f()
 ...     next(g)
 ...     del g
+...     import gc; gc.collect()
 ...
 ...     cm.unraisable.exc_type == RuntimeError
 ...     "generator ignored GeneratorExit" in str(cm.unraisable.exc_value)
@@ -2416,6 +2417,7 @@ to test.
 >>> with support.catch_unraisable_exception() as cm:
 ...     l = Leaker()
 ...     del l
+...     import gc; gc.collect()
 ...
 ...     cm.unraisable.object == Leaker.__del__
 ...     cm.unraisable.exc_type == RuntimeError

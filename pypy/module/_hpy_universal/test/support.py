@@ -12,6 +12,61 @@ from .. import llapi
 
 COMPILER_VERBOSE = False
 
+# Module-level cache: built once, reused for every test that calls _init.
+# Maps hpy_abi string -> {abi: [lib_path]} dict (empty dict means build failed).
+_static_lib_cache = {}
+
+# Cache compiled .so files by (source, template, name, extra_sources, hpy_abi).
+# universal/debug share the same compiled artifact; hybrid/hybrid+debug share
+# another. This is safe because hpy_abi is already normalized before the
+# ExtensionCompiler is created.
+_compiled_module_cache = {}  # (main_src, template_name, name, extra_sources, hpy_abi) -> so_filename
+
+def _try_build_static_lib(hpy_devel, hpy_abi):
+    """
+    Compile the HPy helper sources into a static archive once per session.
+    Returns {hpy_abi: [lib_path]} on success, {} on failure.
+    """
+    try:
+        import distutils.ccompiler
+        import distutils.sysconfig
+        import os
+
+        base = udir.join('hpy_staticlib')
+        abi_dir = base.join(hpy_abi)
+        abi_dir.ensure(dir=True)
+        obj_dir = base.join('obj', hpy_abi)
+        obj_dir.ensure(dir=True)
+
+        compiler = distutils.ccompiler.new_compiler()
+        distutils.sysconfig.customize_compiler(compiler)
+
+        include_dirs = hpy_devel.get_extra_include_dirs()
+        include_dirs.append(str(hpy_devel.get_include_dir_forbid_python_h()))
+        macros = [('HPY', None), ('HPY_ABI_UNIVERSAL', None)]
+
+        objects = compiler.compile(
+            hpy_devel.get_extra_sources(),
+            output_dir=str(obj_dir),
+            include_dirs=include_dirs,
+            macros=macros,
+        )
+
+        lib_name = 'hpyextra'
+        compiler.create_static_lib(objects, lib_name, output_dir=str(abi_dir))
+        lib_filename = compiler.library_filename(lib_name, lib_type='static')
+        lib_path = str(abi_dir.join(lib_filename))
+        return {'universal': [lib_path], 'hybrid': [lib_path]}
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            "HPy static-lib build failed (%s); "
+            "falling back to per-test source compilation." % e,
+            stacklevel=2,
+        )
+        return {}
+
+
 def debug_collect():
     import gc
     gc.collect()
@@ -72,6 +127,10 @@ class HPyAppTest(object):
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))
+        if 'libs' not in _static_lib_cache:
+            _static_lib_cache['libs'] = _try_build_static_lib(hpy_devel, 'universal')
+        if _static_lib_cache['libs']:
+            hpy_devel._available_static_libs = _static_lib_cache['libs']
         if hpy_abi in ("debug", "hybrid+debug"):
             mode = llapi.MODE_DEBUG
         elif hpy_abi in ("universal", "hybrid"):
@@ -100,9 +159,21 @@ class HPyAppTest(object):
             else:
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
-            module = compiler.compile_module(main_src, ExtensionTemplate,
-                                                  name, extra_sources)
-            so_filename = module.so_filename
+            # Include mode in the cache key so that different ABI modes
+            # (e.g. universal vs debug) get separate .so files.  Both
+            # compile identically but are loaded as distinct shared
+            # libraries, which prevents C-level static variables from
+            # leaking between runs (e.g. test_tp_finalize's
+            # saw_expected_finalize_call / test_finished).
+            cache_key = (main_src, ExtensionTemplate.__name__,
+                         name, tuple(extra_sources), hpy_abi, mode)
+            if cache_key in _compiled_module_cache:
+                so_filename = _compiled_module_cache[cache_key]
+            else:
+                module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                 name, extra_sources)
+                so_filename = module.so_filename
+                _compiled_module_cache[cache_key] = so_filename
             w_mod = space.appexec([space.newtext(name),
                                    space.newtext(so_filename),
                                    space.newint(mode)],
@@ -132,11 +203,18 @@ class HPyAppTest(object):
                 extra_sources = [space.text_w(item) for item in items_w]
             if w_ExtensionTemplate is not None:
                 raise NotImplementedError
-            module = compiler.compile_module(main_src, ExtensionTemplate,
-                                                  name, extra_sources)
+            cache_key = (main_src, ExtensionTemplate.__name__,
+                         name, tuple(extra_sources), hpy_abi, mode)
+            if cache_key in _compiled_module_cache:
+                so_filename = _compiled_module_cache[cache_key]
+            else:
+                module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                 name, extra_sources)
+                so_filename = module.so_filename
+                _compiled_module_cache[cache_key] = so_filename
             # All we need for tests is module.so_filename
             w_class_with_so_filename = space.appexec([
-                    space.newtext(module.so_filename)],
+                    space.newtext(so_filename)],
                 """(so_filename,):
                     class ClassWithSoFilename():
                         def __init__(self, so_filename):

@@ -266,7 +266,7 @@ if HAS_AF_PACKET:
             lgt = rffi.getintfield(a, 'c_sll_halen')
             d = []
             for i in range(lgt):
-                d.append(a.c_sll_addr[i])
+                d.append(chr(a.c_sll_addr[i]))
             res = "".join(d)
             self.unlock()
             return res

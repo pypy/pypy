@@ -435,6 +435,10 @@ class AppTestInt(object):
         assert 42 == int("42")
         assert 10000000000 == int("10000000000")
 
+    def test_int_no_whitespace_after_sign(self):
+        raises(ValueError, int, '+ 42')
+        raises(ValueError, int, '- 42')
+
     def test_int_string_limit(self):
         import sys
         max_str_digits = sys.get_int_max_str_digits()
@@ -918,7 +922,7 @@ class AppTestInt(object):
     def test_int_new_pos_only(self):
         with raises(TypeError) as info:
             int(x=1)
-        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+        assert "got some positional-only arguments passed as keyword arguments: 'x'" in str(info.value)
 
     def test_int_as_integer_ratio(self):
         assert 4 .as_integer_ratio() == (4, 1)

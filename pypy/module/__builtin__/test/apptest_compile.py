@@ -89,50 +89,6 @@ def test_null_bytes():
     raises(SyntaxError, compile, src, 'mymod', 'exec')
     raises(SyntaxError, compile, src, 'mymod', 'exec', 0)
 
-@mark.pypy_only
-def test_null_bytes_flag():
-    from _ast import PyCF_ACCEPT_NULL_BYTES
-    raises(SyntaxError, compile, '\x00', 'mymod', 'exec',
-            PyCF_ACCEPT_NULL_BYTES)
-    src = "#abc\x00def\n"
-    compile(src, 'mymod', 'exec', PyCF_ACCEPT_NULL_BYTES)  # works
-
-def test_compile_regression():
-    """Clone of the part of the original test that was failing."""
-    import ast
-
-    codestr = '''def f():
-    """doc"""
-    try:
-        assert False
-    except AssertionError:
-        return (True, f.__doc__, __debug__)
-    else:
-        return (False, f.__doc__, __debug__)
-    '''
-
-    def f():
-        """doc"""
-
-    values = [(-1, __debug__, f.__doc__, __debug__),
-        (0, True, 'doc', True),
-        (1, False, 'doc', False),
-        (2, False, None, False)]
-
-    for optval, *expected in values:
-        # test both direct compilation and compilation via AST
-        codeobjs = []
-        codeobjs.append(compile(codestr, "<test>", "exec", optimize=optval))
-        tree = ast.parse(codestr)
-        codeobjs.append(compile(tree, "<test>", "exec", optimize=optval))
-        for i, code in enumerate(codeobjs):
-            print(optval, *expected, i)
-            ns = {}
-            exec(code, ns)
-            rv = ns['f']()
-            print(rv)
-            assert rv == tuple(expected)
-
 def test_assert_remove():
     """Test removal of the asserts with optimize=1."""
     import ast

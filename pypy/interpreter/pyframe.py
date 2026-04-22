@@ -318,7 +318,9 @@ class PyFrame(W_Root):
             return r_uint(last_instr + 2)
 
         if isinstance(w_arg_or_err, SApplicationException):
-            return self.handle_generator_error(w_arg_or_err.operr)
+            operr = w_arg_or_err.operr
+            operr.record_context(space, space.getexecutioncontext())
+            return self.handle_generator_error(operr)
 
         last_instr = jit.promote(self.last_instr)
         if last_instr != -1:
@@ -509,20 +511,14 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
-        if fnname:
-            import pdb;pdb.set_trace()
-        fnname_parens = self.space.guess_function_name_parens(w_function)
+    def make_arguments(self, nargs, methodcall=False, w_function=None):
         return Arguments(
-                self.space, self.peekvalues(nargs), methodcall=methodcall, fnname_parens=fnname_parens)
+                self.space, self.peekvalues(nargs), methodcall=methodcall, w_function=w_function)
 
-    def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
-        if fnname:
-            import pdb;pdb.set_trace()
-        fnname_parens = self.space.guess_function_name_parens(w_function)
+    def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None):
         return Arguments(
                 self.space, arguments, keyword_names_w, keywords_w, w_star,
-                w_starstar, methodcall=methodcall, fnname_parens=fnname_parens)
+                w_starstar, methodcall=methodcall, w_function=w_function)
 
     def hide(self):
         return self.pycode.hidden_applevel
@@ -674,14 +670,15 @@ class PyFrame(W_Root):
 
     def fget_f_lineno(self, space):
         "Returns the line number of the instruction currently being executed."
+        lineno = self.get_last_lineno()
         if self.get_w_f_trace() is None:
-            return space.newint(self.get_last_lineno())
+            if lineno == -1:
+                return space.w_None
+            return space.newint(lineno)
         else:
-            f_lineno = self.getorcreatedebug().f_lineno
-            if f_lineno == -1:
-                # means first line number, but we haven's executed anything yet
-                f_lineno = self.pycode.co_firstlineno
-            return space.newint(f_lineno)
+            if lineno == -1:
+                lineno = self.pycode.co_firstlineno
+            return space.newint(lineno)
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
@@ -829,9 +826,7 @@ class PyFrame(W_Root):
                 if gen.running:
                     raise oefmt(space.w_RuntimeError,
                                 "cannot clear an executing frame")
-                # xxx CPython raises the RuntimeWarning "coroutine was never
-                # awaited" in this case too.  Does it make any sense?
-                gen.descr_close()
+                gen._finalize_()
 
         debug = self.getdebug()
         if debug is not None:

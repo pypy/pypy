@@ -114,6 +114,7 @@ class PythonParser(object): # leave class for mergeability of _handle_encoding
             explicit_encoding = (decl_enc is not None)
             if decl_enc and _normalize_encoding(decl_enc) != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
+                                        offset=-1,
                                         filename=compile_info.filename)
             textsrc = bytessrc
         else:
@@ -176,6 +177,18 @@ class PegParser(object):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
+        if '\x00' in bytessrc:
+            null_pos = bytessrc.find('\x00')
+            assert null_pos >= 0
+            text_before = bytessrc[:null_pos]
+            lineno = text_before.count('\n') + 1
+            line_start = text_before.rfind('\n') + 1
+            assert line_start >= 0
+            line_text = text_before[line_start:] + '\n'
+            raise error.SyntaxError("source code cannot contain null bytes",
+                                    lineno=lineno,
+                                    text=line_text,
+                                    filename=compile_info.filename)
         textsrc = PythonParser._handle_encoding(bytessrc, compile_info, self.space)
         return self._parse(textsrc, compile_info)
 
@@ -190,19 +203,34 @@ class PegParser(object):
             source_lines[-1] += '\n'
         if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+            compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+        else:
+            # single mode and source does not end with '\n': the input may be
+            # genuinely incomplete (more lines could follow). Mark this in
+            # compile_info.flags so parse_meth_or_raise can use the heuristic.
+            # (We do NOT change 'flags' here, to preserve tokenizer behaviour.)
+            compile_info.flags |= consts.PyCF_DONT_IMPLY_DEDENT
 
         try:
             # Note: we no longer pass the CO_FUTURE_* to the tokenizer,
             # which is expected to work independently of them.  It's
             # certainly the case for all futures in Python <= 2.7.
-            tokens = pytokenizer.generate_tokens(source_lines, flags)
+            tokens = pytokenizer.generate_tokens(source_lines, flags,
+                                                  compile_info.filename)
         except error.TokenError as e:
-            if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    (pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
-                     pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
-                     'was never closed' in e.msg or
-                     pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg)):
-                e.msg = "incomplete input"
+            if compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
+                single_quote_finalized = (
+                    pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
+                    (textsrc.endswith('\n') or textsrc.endswith('\r')) and
+                    not textsrc.endswith('\\\n') and
+                    not textsrc.endswith('\\\r') and
+                    not textsrc.endswith('\\\r\n'))
+                if not single_quote_finalized and (
+                        pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        'was never closed' in e.msg or
+                        pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg):
+                    e.msg = "incomplete input"
             e.filename = compile_info.filename
             raise
         except error.TokenIndentationError as e:

@@ -225,7 +225,7 @@ class TestParseCommandLine:
             ("ignore_environment", "-E", "1"),
             ("verbose", "-v", "1"),
             ("bytes_warning", "-b", "1"),
-            (["isolated", "no_user_site", "ignore_environment"], "-I", "1"),
+            (["isolated", "no_user_site", "ignore_environment", "safe_path"], "-I", "1"),
         )
         for flag, opt, value in flags:
             if isinstance(flag, list):   # this is for inspect&interactive
@@ -267,6 +267,11 @@ class TestParseCommandLine:
                    run_command='pass', _xoptions=['utf8'], utf8_mode=True)
         self.check(['-X', 'utf8=0', '-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
                    run_command='pass', _xoptions=['utf8=0'], utf8_mode=False)
+        # -E ignores PYTHONUTF8
+        import _locale
+        if _locale.setlocale(_locale.LC_CTYPE, None) not in ('C', 'POSIX'):
+            self.check(['-E', '-c', 'pass'], dict(env, PYTHONUTF8='1'), sys_argv=['-c'],
+                       run_command='pass', ignore_environment=1, utf8_mode=False)
 
     def test_check_hash_based_pycs(self):
         env = os.environ.copy()
@@ -622,7 +627,19 @@ class TestInteraction:
         stdout, stderr = proc.communicate()
         assert stdout.split() == ['False', 'False', 'False', 'False', 'False', 'True']
 
- 
+    def test_stdio_encoding_normalized_to_canonical(self):
+        # PYTHONIOENCODING=latin1 -> sys.stdin.encoding should be 'iso8859-1'
+        # (the codec's canonical name), not 'latin1' (the alias)
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'latin1'
+        args = [get_python3(), app_main, '-c',
+                'import sys; print(sys.stdin.encoding)']
+        with setpythonpath():
+            proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    universal_newlines=True, env=env)
+            stdout, _ = proc.communicate()
+        assert stdout.strip() == 'iso8859-1'
 
     def test_options_i_m(self, monkeypatch):
         if sys.platform == "win32":
@@ -900,6 +917,19 @@ class TestNonInteractive:
         assert "__init__ argv: ['-m', 'extra']" in data
         assert "__main__ argv: [%r, 'extra']" % p in data
 
+    def test_no_debug_ranges_xoption(self):
+        data = self.run('-X no_debug_ranges '
+                        '-c "import sys; print(sys._xoptions.get(\'no_debug_ranges\'))"')
+        assert 'True' in data
+
+    def test_no_debug_ranges_envvar(self):
+        import os
+        env = os.environ.copy()
+        env['PYTHONNODEBUGRANGES'] = '1'
+        data = self.run('-c "import sys; print(sys._xoptions.get(\'no_debug_ranges\'))"',
+                        env=env)
+        assert 'True' in data
+
     def test_xoptions(self):
         data = self.run('-Xfoo -Xbar=baz -Xquux=cdrom.com=FreeBSD -Xx=X,d=e '
                         '-c "import sys;print(sorted(sys._xoptions.items()))"')
@@ -936,9 +966,10 @@ class TestNonInteractive:
 
     @py.test.mark.skipif('linux' not in sys.platform, reason="windows, sendata, and quoting problems")
     def test_putenv_fires_interactive_within_process(self):
-        try:
-            import __pypy__
-        except ImportError:
+        result = subprocess.call(
+            [get_python3(), app_main, '-c', 'import __pypy__'],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if result != 0:
             py.test.skip("This can be only tested on PyPy with real_getenv")
 
         # should be noninteractive when piped in
@@ -1147,10 +1178,12 @@ class TestNonInteractive:
 
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
-            (None, "strict"),
-            ("", "strict"),
+            (None, "surrogateescape"),
+            ("", "surrogateescape"),
             (":surrogateescape", "surrogateescape"),
-            (":", "strict")
+            (":", "surrogateescape"),
+            ("utf-8", "strict"),
+            ("utf-8:", "strict"),
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()

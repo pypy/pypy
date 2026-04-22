@@ -319,7 +319,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.ROT_TWO)
             self.call_exit_with_nones()
             if kind == F_ASYNC_WITH:
-                self.emit_op(ops.GET_AWAITABLE)
+                self.emit_op_arg(ops.GET_AWAITABLE, 2)
                 self.load_const(self.space.w_None)
                 self.emit_op(ops.YIELD_FROM)
             self.emit_op(ops.POP_TOP)
@@ -601,8 +601,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_function(code, oparg, qualname=qualname)
         # Apply decorators.
         if func.decorator_list:
-            for i in range(len(func.decorator_list)):
+            n = len(func.decorator_list)
+            for i in range(n):
+                self.update_position(func.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            self.update_position(func)
         self.name_op(func.name, ast.Store, func)
 
     def visit_FunctionDef(self, func):
@@ -644,8 +647,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_call(2, cls.bases, cls.keywords)
         # 6. apply decorators
         if cls.decorator_list:
-            for i in range(len(cls.decorator_list)):
+            n = len(cls.decorator_list)
+            for i in range(n):
+                self.update_position(cls.decorator_list[n - 1 - i])
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            self.update_position(cls)
         # 7. store into <name>
         self.name_op(cls.name, ast.Store, cls)
 
@@ -655,6 +661,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.check_forbidden_name(target.attr, target)
             target.value.walkabout(self)
             self.emit_op(ops.DUP_TOP)
+            attr_col = target.end_col_offset - len(target.attr)
+            attr_position = (target.end_lineno, target.end_lineno, attr_col, target.end_col_offset)
+            self.update_position(attr_position)
             self.emit_op_name(ops.LOAD_ATTR, self.names, target.attr)
             assign.value.walkabout(self)
             self.emit_op(inplace_operations(assign.op))
@@ -1149,9 +1158,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_FORWARD, next_except)
 
             self.use_next_block(pop_next_except)
+            self.update_position(handler)  # match CPython: cleanup at except* clause line
             self.emit_op(ops.POP_TOP)
 
             self.use_next_block(next_except)
+        # Reset position to the last except* clause so the post-loop cleanup
+        # opcodes (LIST_APPEND, PREP_RERAISE_STAR, RETURN_VALUE, etc.) are
+        # attributed to that line, matching CPython's behaviour and allowing
+        # pdb/tracing to stop correctly at the except* line.
+        if handler is not None:
+            self.update_position(handler)
         self.emit_op_arg(ops.LIST_APPEND, 1)
         self.emit_op(ops.PREP_RERAISE_STAR)
         self.emit_op(ops.DUP_TOP)
@@ -1403,7 +1419,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fblock_kind = F_WITH
         else:
             self.emit_op(ops.BEFORE_ASYNC_WITH)
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 1)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
@@ -1428,7 +1444,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # end of body, successful outcome, start cleanup
         self.call_exit_with_nones()
         if is_async:
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 2)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.POP_TOP)
@@ -1440,7 +1456,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wih)
         self.emit_op(ops.WITH_EXCEPT_START)
         if is_async:
-            self.emit_op(ops.GET_AWAITABLE)
+            self.emit_op_arg(ops.GET_AWAITABLE, 2)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
         exit2 = self.new_block()
@@ -1726,7 +1742,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Starred(self, star):
         if star.ctx != ast.Store:
-            self.error("cannot use starred expression here",
+            self.error("can't use starred expression here",
                        star)
         self.error("starred assignment target must be in a list or tuple", star)
 
@@ -1886,6 +1902,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         attr_lookup = call.func
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
+        attr_col = attr_lookup.end_col_offset - len(attr_lookup.attr)
+        self.update_position((attr_lookup.end_lineno, attr_lookup.end_lineno, attr_col, attr_lookup.end_col_offset))
         self.emit_op_name(ops.LOAD_METHOD, self.names, attr_lookup.attr)
         self.visit_sequence(call.args)
         if not call.keywords:
@@ -2043,16 +2061,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         names = self.names
         ctx = attr.ctx
         attr.value.walkabout(self)
-        # the name has no complete position, give a line number at least
+        attr_col = attr.end_col_offset - len(attr.attr)
+        self.update_position((attr.end_lineno, attr.end_lineno, attr_col, attr.end_col_offset))
         if ctx == ast.Load:
             self.emit_op_name(ops.LOAD_ATTR, names, attr.attr)
             return
         self.check_forbidden_name(attr.attr, attr, ctx)
         if ctx == ast.Store:
-            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.STORE_ATTR, names, attr.attr)
         elif ctx == ast.Del:
-            self.update_position((attr.end_lineno, -1, -1, -1))
             self.emit_op_name(ops.DELETE_ATTR, names, attr.attr)
         else:
             raise AssertionError("unknown context")
@@ -2881,7 +2898,7 @@ class CallCodeGenerator(object):
                 continue
             if kw.arg in self.seen_keyword_names:
                 self.codegenerator.error(
-                        "keyword argument repeated: '%s'" % (kw.arg, ), kw)
+                        "keyword argument repeated: %s" % (kw.arg, ), kw)
             self.seen_keyword_names[kw.arg] = None
             if len(self.keyword_names_w) > MAX_STACKDEPTH_CONTAINERS // 2:
                 self._pack_kwargs_into_dict()

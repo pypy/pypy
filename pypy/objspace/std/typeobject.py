@@ -167,6 +167,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_patma_collection?",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
+                          "flag_method_descriptor",
                           "compares_by_identity_status?",
                           'hasuserdel',
                           'weakrefable',
@@ -192,6 +193,8 @@ class W_TypeObject(W_Root):
 
     # set to True by cpyext _before_ it even calls __init__() below
     flag_cpytype = False
+
+    flag_method_descriptor = False
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
@@ -250,6 +253,7 @@ class W_TypeObject(W_Root):
         # management, which means from the point of view of mapdict there is no
         # dict.
         typedef = self.layout.typedef
+        self.flag_method_descriptor = typedef.method_descriptor
         if (self.hasdict and not typedef.hasdict):
             self.terminator = DictTerminator(space, self)
         else:
@@ -761,11 +765,11 @@ class W_TypeObject(W_Root):
         from pypy.module.cpyext.methodobject import W_PyCFunctionObject
 
         if isinstance(w_newdescr, W_PyCFunctionObject):
-            return self._really_hack_which_new_to_call(w_newtype, w_newdescr)
+            return self._find_which_tp_new_to_call(w_newtype, w_newdescr)
         else:
             return w_newtype, w_newdescr
 
-    def _really_hack_which_new_to_call(self, w_newtype, w_newdescr):
+    def _find_which_tp_new_to_call(self, w_newtype, w_newdescr):
         # This logic is moved in yet another helper function that
         # is recursive.  We call this only if we see a
         # W_PyCFunctionObject.  That's a performance optimization
@@ -779,9 +783,20 @@ class W_TypeObject(W_Root):
                 is_tp_new_wrapper(self.space, w_newdescr.ml)):
             w_bestbase = find_best_base(self.bases_w)
             if w_bestbase is not None:
-                w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
-                return w_bestbase._really_hack_which_new_to_call(w_newtype,
-                                                                 w_newdescr)
+                w_newtype2, w_newdescr2 = w_bestbase.lookup_where('__new__')
+                # Do not follow if the best base only has object.__new__.
+                # This happens when find_best_base() picks a Python mixin
+                # instead of the C type because they share the same layout
+                # (e.g. tp_basicsize == sizeof(PyObject)).
+                # See https://github.com/pypy/pypy/issues/5418
+                if w_newtype2 is self.space.w_object:
+                    pass
+                elif (isinstance(w_newdescr2, W_PyCFunctionObject) and
+                        is_tp_new_wrapper(self.space, w_newdescr2.ml)):
+                    return w_bestbase._find_which_tp_new_to_call(
+                        w_newtype2, w_newdescr2)
+                else:
+                    return w_newtype2, w_newdescr2
         return w_newtype, w_newdescr
 
     def descr_repr(self, space):
@@ -869,6 +884,8 @@ class W_TypeObject(W_Root):
             flags |= PATMA_MAPPING
         elif self.flag_patma_collection == "S":
             flags |= PATMA_SEQUENCE
+        if self.flag_method_descriptor:
+            flags |= 1 << 17  # Py_TPFLAGS_METHOD_DESCRIPTOR
         return flags
 
 def descr__new__(space, w_typetype, __args__):
@@ -1754,6 +1771,7 @@ class TypeCache(SpaceCache):
                     qualname = (w_type.getqualname(space).encode('utf-8')
                                 + '.' + name)
                     w_obj.set_qualname(qualname)
+                    w_obj.set_objclass(w_type)
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat

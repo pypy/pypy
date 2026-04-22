@@ -195,8 +195,25 @@ return next yielded value or raise StopIteration."""
         else:
             tb = check_traceback(space, w_tb, msg)
 
+        if (not space.exception_is_valid_obj_as_class_w(w_type) and
+                not space.isinstance_w(w_type, space.w_BaseException)):
+            raise oefmt(space.w_TypeError,
+                "exceptions must be classes or instances deriving from "
+                "BaseException, not %N", space.type(w_type))
+        # Raise directly to caller (not into the generator) when an exception
+        # instance is thrown together with a separate value -- this is a usage
+        # error in the throw() call itself, not an exception to be delivered.
+        if (not space.exception_is_valid_obj_as_class_w(w_type) and
+                not space.is_w(w_val, space.w_None)):
+            raise oefmt(space.w_TypeError,
+                "instance exception may not have a separate value")
         operr = OperationError(w_type, w_val, tb)
-        w_value = operr.normalize_exception(space)
+        try:
+            w_value = operr.normalize_exception(space)
+        except OperationError as e:
+            # Normalization failed (e.g. __new__ returned non-instance).
+            # Deliver the error into the generator rather than killing it.
+            return self.send_error(e)
 
         # note: _w_yielded_from is always None if 'self.running'
         if (self.get_delegate() is not None and
@@ -246,8 +263,13 @@ return next yielded value or raise StopIteration."""
                 return space.w_None
             raise
         else:
-            raise oefmt(space.w_RuntimeError,
+            from pypy.interpreter.pytraceback import record_application_traceback
+            err = oefmt(space.w_RuntimeError,
                         "%s ignored GeneratorExit", self.KIND)
+            frame = self.frame
+            if frame is not None:
+                record_application_traceback(space, err, frame, frame.last_instr)
+            raise err
 
     def descr_gicr_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
@@ -379,6 +401,7 @@ class Coroutine(GeneratorOrCoroutine):
     def __init__(self, frame, name=None, qualname=None):
         GeneratorOrCoroutine.__init__(self, frame, name, qualname)
         self.w_cr_origin = self.space.w_None
+        self._warned_unawaited = False
 
     def capture_origin(self, ec):
         if not ec.coroutine_origin_tracking_depth:
@@ -403,11 +426,29 @@ class Coroutine(GeneratorOrCoroutine):
     def descr__await__(self, space):
         return CoroutineWrapper(self)
 
+    def descr_gicr_frame(self, space):
+        if self.frame is not None and not self.frame.frame_finished_execution:
+            # CPython emits the "coroutine was never awaited" warning from
+            # tp_finalize, triggered by immediate ref-count deallocation.
+            # PyPy's GC is not ref-counted, so emit it here when cr_frame is
+            # accessed on a coroutine in FRAME_CREATED state (last_instr == -1).
+            if not self._warned_unawaited and self.frame.last_instr == -1:
+                self._warned_unawaited = True
+                w_mod = space.getbuiltinmodule("_warnings")
+                w_f = space.getattr(w_mod,
+                                    space.newtext("_warn_unawaited_coroutine"))
+                space.call_function(w_f, self)
+            return self.frame
+        else:
+            return space.w_None
+
     def _finalize_(self):
         # If coroutine was never awaited on issue a RuntimeWarning.
-        if (self.pycode is not None and
+        if (not self._warned_unawaited and
+                self.pycode is not None and
                 self.frame is not None and
                 self.frame.last_instr == -1):
+            self._warned_unawaited = True
             space = self.space
             w_mod = space.getbuiltinmodule("_warnings")
             w_f = space.getattr(w_mod, space.newtext("_warn_unawaited_coroutine"))
@@ -428,7 +469,8 @@ Coroutine.typedef = TypeDef("coroutine",
                             descrmismatch='__await__'),
     cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
     cr_suspended = GetSetProperty(Coroutine.descr_get_suspended),
-    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
+    cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame,
+                               doc="the frame being executed by the coroutine"),
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
     cr_await=GetSetProperty(Coroutine.descr_delegate),
     cr_origin  = interp_attrproperty_w('w_cr_origin', cls=Coroutine),
@@ -528,16 +570,27 @@ def gen_is_coroutine(w_obj):
     return (isinstance(w_obj, GeneratorIterator) and
             (w_obj.pycode.co_flags & consts.CO_ITERABLE_COROUTINE) != 0)
 
-def get_awaitable_iter(space, w_obj):
+def get_awaitable_iter(space, w_obj, context=0):
     # This helper function returns an awaitable for `o`:
     #    - `o` if `o` is a coroutine-object;
     #    - otherwise, o.__await__()
+    # context: 0 = plain await, 1 = __aenter__, 2 = __aexit__
 
     if isinstance(w_obj, Coroutine) or gen_is_coroutine(w_obj):
         return w_obj
 
     w_await = space.lookup(w_obj, "__await__")
     if w_await is None:
+        if context == 1:
+            raise oefmt(space.w_TypeError,
+                        "'async with' received an object from __aenter__ "
+                        "that does not implement __await__: %T",
+                        w_obj)
+        elif context == 2:
+            raise oefmt(space.w_TypeError,
+                        "'async with' received an object from __aexit__ "
+                        "that does not implement __await__: %T",
+                        w_obj)
         raise oefmt(space.w_TypeError,
                     "object %T can't be used in 'await' expression",
                     w_obj)

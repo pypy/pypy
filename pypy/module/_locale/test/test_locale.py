@@ -275,6 +275,12 @@ class AppTestLocaleTrivia:
         raises(ValueError, _locale.nl_langinfo, 12345)
         raises(TypeError, _locale.nl_langinfo, None)
 
+    def test_getencoding(self):
+        import _locale
+        enc = _locale.getencoding()
+        assert isinstance(enc, str)
+        assert enc  # non-empty
+
     def test_bindtextdomain(self):
         import sys
         if sys.platform == 'win32':

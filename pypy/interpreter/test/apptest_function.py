@@ -406,6 +406,15 @@ def test_get():
     meth = func.__get__(obj, object)
     assert meth() == obj
 
+def test_get_none_none_invalid():
+    def func(): ...
+
+    with pytest.raises(TypeError):
+        func.__get__(None, None)
+    with pytest.raises(TypeError):
+        func.__get__(None)
+    assert func.__get__(None, type(func)) is func
+
 @pytest.mark.skipif(IS_PYPY, reason="XXX issue #2083")
 def test_none_get_interaction():
     assert type(None).__repr__(None) == 'None'

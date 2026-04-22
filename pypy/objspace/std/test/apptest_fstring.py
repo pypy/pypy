@@ -252,6 +252,16 @@ def test_parseerror_lineno():
     assert excinfo.value.text == ',}"""'
     assert excinfo.value.msg == "f-string: invalid syntax"
 
+def test_multiline_fstring_error_lineno():
+    # An error in a multi-line f-string should report end_lineno as lineno,
+    # and text should be only the end line (not the full multi-line span).
+    with raises(SyntaxError) as excinfo:
+        eval('f"""{}\nfoo"""')
+    assert excinfo.value.lineno == 2
+    assert excinfo.value.msg == "f-string: empty expression not allowed"
+    assert excinfo.value.text is not None
+    assert '\n' not in excinfo.value.text.rstrip('\n')  # single line
+
 def test_joined_positions():
     expr = """('a'
     "b"
@@ -383,4 +393,10 @@ def test_empty_expression_error():
     with raises(SyntaxError) as info:
         eval(s)
     assert str(info.value).startswith("f-string: expression required before '!'")
+
+def test_empty_expression_closing_brace():
+    for s in ["f'{}'", "f'{ }'", "f' {} '"]:
+        with raises(SyntaxError) as info:
+            eval(s)
+        assert str(info.value).startswith("f-string: empty expression not allowed")
 

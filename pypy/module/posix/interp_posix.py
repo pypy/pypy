@@ -278,10 +278,12 @@ def _unwrap_dirfd(space, w_value):
         return unwrap_fd(space, w_value, allowed_types="integer or None")
 
 class _DirFD(Unwrapper):
+    text_default = None  # user-visible default is None; actual sentinel is DEFAULT_DIR_FD
     def unwrap(self, space, w_value):
         return _unwrap_dirfd(space, w_value)
 
 class _DirFD_Unavailable(Unwrapper):
+    text_default = None  # user-visible default is None; actual sentinel is DEFAULT_DIR_FD
     def unwrap(self, space, w_value):
         dir_fd = _unwrap_dirfd(space, w_value)
         if dir_fd == DEFAULT_DIR_FD:
@@ -561,9 +563,16 @@ def build_stat_result(space, st):
             w_value = space.newint(value)
             w_result.setdictvalue(space, name, w_value)
 
-    # Note: 'w_result' contains the three attributes 'nsec_Xtime'.
-    # We have an app-level property in app_posix.stat_result to
-    # compute the full 'st_Xtime_ns' value.
+    # full nanosecond timestamps
+    w_result.setdictvalue(space, 'st_atime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'atime')))
+    w_result.setdictvalue(space, 'st_mtime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'mtime')))
+    w_result.setdictvalue(space, 'st_ctime_ns',
+                          space.newlong_from_rbigint(
+                              rposix_stat.get_stat_ns_as_bigint(st, 'ctime')))
 
     # non-rounded values for name-based access
     if stat_float_times:
@@ -2620,7 +2629,7 @@ def device_encoding(space, fd):
             return space.newtext('cp%d' % ccp)
     # _Py_GetLocaleEncoding checks preconfig->utf8_mode
     if space.sys.get_flag('utf8_mode'):
-        return space.newtext("UTF-8")
+        return space.newtext("utf-8")
     from rpython.rlib import rlocale
     if rlocale.HAVE_LANGINFO:
         codeset = rlocale.nl_langinfo(rlocale.CODESET)

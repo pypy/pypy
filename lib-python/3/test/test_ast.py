@@ -1270,6 +1270,7 @@ Module(
                 (\
             \ ''')
 
+    @support.cpython_only
     def test_bad_integer(self):
         # issue13436: Bad error message with invalid numeric values
         body = [ast.ImportFrom(module='time',

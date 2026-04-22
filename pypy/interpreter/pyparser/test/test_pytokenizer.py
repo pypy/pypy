@@ -332,3 +332,12 @@ class TestTokenizer310Changes(object):
         levels = [token.level for token in tks]
         assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]
 
+    def test_non_utf8_error_message(self):
+        # Error message should match CPython: "Non-UTF-8 code starting with '\xNN' in file"
+        error = pytest.raises(TokenError, tokenize, "\x89")
+        assert error.value.msg.startswith("Non-UTF-8 code starting with '\\x89' in file")
+
+    def test_invalid_float_exponent(self):
+        # 32e-+4 has an invalid exponent; should match CPython: "invalid decimal literal" at offset=8
+        check_token_error("x = 32e-+4", "invalid decimal literal", pos=8)
+

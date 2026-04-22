@@ -1,7 +1,7 @@
 from _rawffi import alt as _ffi
 import _rawffi
 
-from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof
+from _ctypes.basics import _CData, cdata_from_address, _CDataMeta, sizeof, _ctypes_property
 from _ctypes.basics import keepalive_key, store_reference, ensure_objects
 from _ctypes.basics import CArgObject, as_ffi_pointer
 from _pypy_generic_alias import GenericAlias
@@ -39,7 +39,7 @@ class ArrayMeta(_CDataMeta):
                         self[i] = val[i]
                 if len(val) < self._length_:
                     self._buffer[len(val)] = b'\x00'
-            res.value = property(getvalue, setvalue)
+            res.value = _ctypes_property(getvalue, setvalue)
 
             def getraw(self):
                 return _rawffi.charp2rawstring(self._buffer.buffer,
@@ -67,7 +67,7 @@ class ArrayMeta(_CDataMeta):
                     target[i] = val[i]
                 if len(val) < self._length_:
                     target[len(val)] = u'\x00'
-            res.value = property(getvalue, setvalue)
+            res.value = _ctypes_property(getvalue, setvalue)
 
         res._ffishape_ = (ffiarray, res._length_)
         res._fficompositesize_ = res._sizeofinstances()
@@ -269,17 +269,12 @@ class Array(_CData, metaclass=ArrayMeta):
 
     def __buffer__(self, flags):
         shape = []
-        obj = self
-        while 1:
-            shape.append(obj._length_)
-            try:
-                obj[0]._length_
-            except (AttributeError, IndexError):
-                break
-            obj = obj[0]
-
-        fmt = obj._type_._getformat()
-        itemsize = sizeof(obj._type_)
+        tp = type(self)
+        while hasattr(tp, '_length_'):
+            shape.append(tp._length_)
+            tp = tp._type_
+        fmt = tp._getformat()
+        itemsize = sizeof(tp)
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
     def __class_getitem__(self, item):

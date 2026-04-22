@@ -952,11 +952,22 @@ class CoroutineTest(unittest.TestCase):
     def test_corotype_1(self):
         ct = types.CoroutineType
         if not support.MISSING_C_DOCSTRINGS:
-            self.assertIn('into coroutine', ct.send.__doc__)
-            self.assertIn('inside coroutine', ct.close.__doc__)
-            self.assertIn('in coroutine', ct.throw.__doc__)
-            self.assertIn('of the coroutine', ct.__dict__['__name__'].__doc__)
-            self.assertIn('of the coroutine', ct.__dict__['__qualname__'].__doc__)
+            import sys
+            if sys.implementation.name == 'pypy':
+                send_msg = 'generator/coroutine'
+                close_msg = 'generator/coroutine'
+                throw_msg = 'generator/coroutine'
+                name_msg = 'of the coroutine'
+            else:
+                send_msg = 'into coroutine'
+                close_msg = 'inside coroutine'
+                throw_msg = 'in coroutine'
+                name_msg = 'of the coroutine'
+            self.assertIn(send_msg, ct.send.__doc__)
+            self.assertIn(close_msg, ct.close.__doc__)
+            self.assertIn(throw_msg, ct.throw.__doc__)
+            self.assertIn(name_msg, ct.__dict__['__name__'].__doc__)
+            self.assertIn(name_msg, ct.__dict__['__qualname__'].__doc__)
         self.assertEqual(ct.__name__, 'coroutine')
 
         async def f(): pass

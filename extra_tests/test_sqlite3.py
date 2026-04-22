@@ -766,8 +766,8 @@ class TestBlob:
         con.execute("create table test(b blob)")
         data = b"this blob data string is exactly fifty bytes long!"
         con.execute("insert into test(b) values (?)", (data, ))
-        blob = con.blobopen("test", "b", 1)
-        assert blob.read(len(data)) == data
+        with con.blobopen("test", "b", 1) as blob:
+            assert blob.read(len(data)) == data
 
     def test_write(self, con):
         con.execute("create table test(b blob)")

@@ -1006,6 +1006,87 @@ class TestGateway:
         w_res = space.call_function(w_g, space.wrap(1))
         assert space.eq_w(w_res, space.wrap(50))
 
+    def test_text_signature_module_function(self):
+        space = self.space
+        def f(space, w_x, w_y):
+            return w_x
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert w_f.w_text_signature is not None
+        assert space.text_w(w_f.w_text_signature) == '($module, x, y, /)'
+
+    def test_text_signature_method(self):
+        space = self.space
+        class W_MyObj(W_Root):
+            def descr_m(self, space, w_x):
+                return w_x
+        app_m = gateway.interp2app_temp(W_MyObj.descr_m.im_func,
+                                        self_type=W_MyObj)
+        w_m = space.wrap(app_m)
+        assert w_m.w_text_signature is not None
+        assert space.text_w(w_m.w_text_signature) == '($self, x, /)'
+
+    def test_text_signature_type_method(self):
+        # When installed via TypeDef.add_entries, interp2app functions get
+        # _is_type_method=True and _generate_text_signature uses CPython's
+        # $first_arg convention instead of $module + first_arg.
+        # This means inspect.py's standard single-strip correctly handles
+        # both the unbound case (signature(object.__dir__) → (obj, /)) and
+        # the bound case (signature(None.__dir__) → ()).
+        from pypy.interpreter.typedef import TypeDef
+        space = self.space
+        def descr_method(space, w_obj):
+            return w_obj
+        ia = gateway.interp2app_temp(descr_method)
+        # simulate TypeDef.add_entries setting _is_type_method
+        ia._is_type_method = True
+        w_f = space.wrap(ia)
+        assert w_f.w_text_signature is not None
+        assert space.text_w(w_f.w_text_signature) == '($obj, /)'
+
+        # Without TypeDef registration, still emits $module + arg
+        def descr_module_fn(space, w_obj):
+            return w_obj
+        ia2 = gateway.interp2app_temp(descr_module_fn)
+        w_f2 = space.wrap(ia2)
+        assert space.text_w(w_f2.w_text_signature) == '($module, obj, /)'
+
+        # Multi-arg: only first arg gets $
+        def descr_method2(space, w_obj, w_proto):
+            return w_obj
+        ia3 = gateway.interp2app_temp(descr_method2)
+        ia3._is_type_method = True
+        w_f3 = space.wrap(ia3)
+        assert space.text_w(w_f3.w_text_signature) == '($obj, proto, /)'
+
+    def test_text_signature_text_default(self):
+        space = self.space
+        from pypy.interpreter.gateway import Unwrapper
+        class MyFD(Unwrapper):
+            text_default = None
+            def unwrap(self, space, w_value):
+                if space.is_none(w_value):
+                    return -100
+                return space.int_w(w_value)
+        @gateway.unwrap_spec(fd=MyFD)
+        def f(space, __kwonly__, fd=-100):
+            pass
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert w_f.w_text_signature is not None
+        sig = space.text_w(w_f.w_text_signature)
+        assert 'fd=None' in sig
+        assert '-100' not in sig
+
+    def test_text_signature_posonly(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x=WrappedDefault(42))
+        def f(space, w_self, w_x, __posonly__):
+            return w_x
+        w_f = space.wrap(gateway.interp2app_temp(f))
+        assert w_f.w_text_signature is not None
+        sig = space.text_w(w_f.w_text_signature)
+        assert '/' in sig
+        assert '$module' in sig
+
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
     def test_anything(self):

@@ -7,10 +7,17 @@ from pypy.interpreter.argument import (Arguments as RegularArguments, ArgErr, Ar
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
+class FakeFunc(object):
+    """Minimal callable stub with __qualname__ for testing error messages."""
+    def __init__(self, qualname, module=None):
+        self.__qualname__ = qualname
+        self.__module__ = module
+
+
 class Arguments(RegularArguments):
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
                  w_stararg=None, w_starstararg=None,
-                 methodcall=False, fnname_parens=None):
+                 methodcall=False, w_function=None):
         if keywords:
             keyword_names_w = [space.newtext(name) for name in keywords]
         else:
@@ -18,7 +25,7 @@ class Arguments(RegularArguments):
         if isinstance(w_starstararg, dict):
             w_starstararg = {space.newtext(name) if isinstance(name, str) else name: value for name, value in w_starstararg.iteritems()}
         RegularArguments.__init__(self, space, args_w, keyword_names_w, keywords_w,
-                w_stararg, w_starstararg, methodcall, fnname_parens)
+                w_stararg, w_starstararg, methodcall, w_function)
 
     @property
     def keywords(self):
@@ -232,6 +239,15 @@ class DummySpace(object):
         # XXX good enough I think
         return getattr(obj, name._utf8, None)
 
+    def object_functionstr(self, w_function):
+        qualname = getattr(w_function, '__qualname__', None)
+        if qualname is None:
+            return str(w_function)
+        module = getattr(w_function, '__module__', None)
+        if module is not None and module != 'builtins':
+            return module + '.' + qualname + '()'
+        return qualname + '()'
+
 class TestArgumentsNormal(object):
 
     def test_create(self):
@@ -418,14 +434,14 @@ class TestArgumentsNormal(object):
     def test_duplicate_kwds(self):
         space = DummySpace()
         with pytest.raises(OperationError) as excinfo:
-            Arguments(space, [], ["a"], [1], w_starstararg={"a": 2}, fnname_parens="foo()")
+            Arguments(space, [], ["a"], [1], w_starstararg={"a": 2}, w_function=FakeFunc("foo"))
         assert excinfo.value.w_type is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
     def test_starstararg_wrong_type(self):
         space = DummySpace()
         with pytest.raises(OperationError) as excinfo:
-            Arguments(space, [], ["a"], [1], w_starstararg="hello", fnname_parens="bar()")
+            Arguments(space, [], ["a"], [1], w_starstararg="hello", w_function=FakeFunc("bar"))
         assert excinfo.value.w_type is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "bar() argument after ** must be a mapping, not str"
 
@@ -433,7 +449,7 @@ class TestArgumentsNormal(object):
         space = DummySpace()
         valuedummy = object()
         with py.test.raises(OperationError) as excinfo:
-            Arguments(space, [], ["a"], [1], w_starstararg={None: 1}, fnname_parens="f1()")
+            Arguments(space, [], ["a"], [1], w_starstararg={None: 1}, w_function=FakeFunc("f1"))
         assert excinfo.value.w_type is TypeError
         assert excinfo.value._w_value is None
 
@@ -641,7 +657,7 @@ class TestArgumentsNormal(object):
 
         with pytest.raises(OperationError) as excinfo:
             Arguments(space, [], ["a"],
-                      [1], w_starstararg=kwargs(["a"], [2]), fnname_parens="foo()")
+                      [1], w_starstararg=kwargs(["a"], [2]), w_function=FakeFunc("foo"))
         assert excinfo.value.w_type is TypeError
         assert space.text_w(excinfo.value.get_w_value(space)) == "foo() got multiple values for keyword argument 'a'"
 
@@ -791,12 +807,19 @@ class TestErrorHandling(object):
 
     def test_bad_type_for_star(self):
         space = self.space
+        w_f1, w_f2 = space.unpackiterable(space.appexec([], """():
+            def f1(): pass
+            def f2(): pass
+            f1.__qualname__ = 'f1'
+            f2.__qualname__ = 'f2'
+            return f1, f2
+        """))
         with pytest.raises(OperationError) as excinfo:
-            Arguments(space, [], w_stararg=space.wrap(42), fnname_parens="f1()")
+            Arguments(space, [], w_stararg=space.wrap(42), w_function=w_f1)
         msg = space.text_w(excinfo.value.get_w_value(space))
         assert msg == "f1() argument after * must be an iterable, not int"
         with pytest.raises(OperationError) as excinfo:
-            Arguments(space, [], w_starstararg=space.wrap(42), fnname_parens="f2()")
+            Arguments(space, [], w_starstararg=space.wrap(42), w_function=w_f2)
         msg = space.text_w(excinfo.value.get_w_value(space))
         assert msg == "f2() argument after ** must be a mapping, not int"
 
@@ -887,7 +910,7 @@ class TestErrorHandling(object):
             args = Arguments(space, [1, 2, 3, 4, 5], ["x"], [6])
             l = [None] * 6
             args._match_signature(None, l, sig)
-        assert info.value.getmsg() == "got a positional-only argument passed as keyword argument: 'x'"
+        assert info.value.getmsg() == "got some positional-only arguments passed as keyword arguments: 'x'"
 
         with pytest.raises(ArgErrPosonlyAsKwds) as info:
             args = Arguments(space, [1, 2, 3, 4, 5], ["x", "z"], [6, 7])

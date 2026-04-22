@@ -144,6 +144,7 @@ Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_MANAGED_DICT Py_TPFLAGS_MANAGED_
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_DISALLOW_INSTANTIATION METH_METHOD
+Py_TPFLAGS_HAVE_VECTORCALL Py_TPFLAGS_METHOD_DESCRIPTOR
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE PyBUF_MAX_NDIM
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
@@ -1379,7 +1380,8 @@ def build_bridge(space):
 
     eci = build_eci(code, use_micronumpy, translating=False)
     eci = eci.compile_shared_lib(
-        outputfilename=str(udir / "module_cache" / "pypyapi"))
+        outputfilename=str(udir / "module_cache" / "pypyapi"),
+        symbolic=True)
     space.fromcache(State).install_dll(eci)
     modulename = py.path.local(eci.libraries[-1])
 

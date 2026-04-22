@@ -64,6 +64,7 @@ class CheckSignalAction(PeriodicAsyncAction):
         AsyncAction.__init__(self, space)
         self.pending_signal = -1
         self.fire_in_another_thread = False
+        self._in_poll = False
 
         @rgc.no_collect
         def _after_thread_switch():
@@ -99,6 +100,20 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     @jit.dont_look_inside
     def _poll_for_signals(self):
+        if self._in_poll:
+            return
+        self._in_poll = True
+        try:
+            self._poll_for_signals_unlocked()
+        finally:
+            self._in_poll = False
+
+    @jit.dont_look_inside
+    def _poll_for_signals_unlocked(self):
+        # Report any wakeup-fd write error that occurred in the C signal handler
+        e = pypysig_get_wakeup_fd_write_errno()
+        if e != 0:
+            _report_wakeup_fd_error(self.space, e)
         # Poll for the next signal, if any
         n = self.pending_signal
         p = pypysig_getaddr_occurred_fullstruct()
@@ -151,6 +166,32 @@ class Handlers:
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
 
+def _report_wakeup_fd_error(space, errno_val):
+    # Call write_unraisable_default directly, bypassing sys.unraisablehook
+    # like CPython.
+    # The re-entrancy guard in _poll_for_signals ensures that the appexec inside
+    # write_unraisable_default cannot re-trigger signal processing.
+    from pypy.interpreter.error import OperationError, strerror
+    from pypy.interpreter.pytraceback import PyTraceback
+    try:
+        try:
+            msg, lgt = strerror(errno_val)
+        except ValueError:
+            msg = 'error %d' % errno_val
+            lgt = len(msg)
+        w_exc = space.call_function(space.w_OSError, space.newint(errno_val),
+                                    space.newtext(msg, lgt))
+        frame = space.getexecutioncontext().gettopframe_nohidden()
+        if frame is not None:
+            w_tb = PyTraceback(space, frame, frame.last_instr, None)
+        else:
+            w_tb = space.w_None
+        OperationError.write_unraisable_default(
+            space, space.w_OSError, w_exc, w_tb,
+            'Exception ignored when trying to write to the signal wakeup fd:',
+            space.w_None, '')
+    except Exception:
+        pass
 
 def report_signal(space, n):
     handlers_w = _get_handlers(space)
@@ -442,7 +483,12 @@ class SignalMask(object):
         self.mask = lltype.malloc(c_sigset_t.TO, flavor='raw')
         c_sigemptyset(self.mask)
         for w_signum in space.unpackiterable(self.w_signals):
-            signum = space.int_w(w_signum)
+            try:
+                signum = space.int_w(w_signum)
+            except OperationError as e:
+                if e.match(space, space.w_OverflowError):
+                    raise oefmt(space.w_ValueError, "signal number out of range")
+                raise
             check_signum_in_range(space, signum)
             # bpo-33329: ignore c_sigaddset() return value as it can fail
             # for some reserved signals, but we want the `range(1, NSIG)`
@@ -534,6 +580,8 @@ def raise_signal(space, signalnum):
         err = c_raise(signalnum)
     if err != 0:
         raise exception_from_saved_errno(space, space.w_OSError)
+    # the signal may have been sent to the current thread
+    space.getexecutioncontext().checksignals()
 
 @unwrap_spec(signalnum=int)
 def strsignal(space, signalnum):

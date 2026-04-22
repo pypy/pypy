@@ -90,10 +90,8 @@ class W_Root(object):
     def getname(self, space):
         try:
             return space.utf8_w(space.getattr(self, space.newtext('__name__')))
-        except OperationError as e:
-            if e.match(space, space.w_TypeError) or e.match(space, space.w_AttributeError):
-                return '?'
-            raise
+        except OperationError:
+            return '?'
 
     def getaddrstring(self, space):
         # slowish
@@ -1688,7 +1686,7 @@ class ObjSpace(object):
         if self.is_none(w_obj):
             e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
         else:
-            e = oefmt(self.w_TypeError, "a %s is required, not '%T'", expected, w_obj)
+            e = oefmt(self.w_TypeError, "a %s is required, not %T", expected, w_obj)
         raise e
 
     @specialize.arg(1)
@@ -2104,17 +2102,42 @@ class ObjSpace(object):
         custom iterators should override it. """
         return w_iterable.iterator_greenkey(self)
 
-    def guess_function_name_parens(self, w_function):
-        """ Returns 'funcname()' from callable w_function. If it's not a
-        function or a method, returns 'Classname object'"""
-        # XXX this is super annoying to compute every time we do a function call!
-        # CPython has a similar function, PyEval_GetFuncName
+    def object_functionstr(self, w_function):
+        """Like CPython's _PyObject_FunctionStr: returns 'module.qualname()' or
+        'qualname()' using __qualname__/__module__, falling back to str(x)."""
         from pypy.interpreter.function import Function, _Method
         if isinstance(w_function, Function):
-            return w_function.qualname + '()'
+            # fast path: direct attribute access for Python functions
+            qualname = w_function.qualname
+            w_module = w_function.fget___module__(self)
+            if not self.is_w(w_module, self.w_None):
+                try:
+                    module = self.text_w(w_module)
+                    if module and module != 'builtins':
+                        return module + '.' + qualname + '()'
+                except OperationError:
+                    pass
+            return qualname + '()'
         if isinstance(w_function, _Method):
-            return self.guess_function_name_parens(w_function.w_function)
-        return self.type(w_function).getname(self) + ' object'
+            return self.object_functionstr(w_function.w_function)
+        # generic path: try __qualname__ like CPython
+        w_qualname = self.findattr(w_function, self.newtext('__qualname__'))
+        if w_qualname is not None:
+            try:
+                qualname = self.text_w(w_qualname)
+                w_module = self.findattr(w_function, self.newtext('__module__'))
+                if w_module is not None and not self.is_w(w_module, self.w_None):
+                    module = self.text_w(w_module)
+                    if module and module != 'builtins':
+                        return module + '.' + qualname + '()'
+                return qualname + '()'
+            except OperationError:
+                pass
+        # fallback to str(x) like CPython
+        try:
+            return self.text_w(self.str(w_function))
+        except OperationError:
+            return self.type(w_function).getname(self) + ' object'
 
 
 class AppExecCache(SpaceCache):

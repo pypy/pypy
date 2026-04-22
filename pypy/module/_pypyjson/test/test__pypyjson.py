@@ -557,3 +557,5 @@ class AppTest(object):
         a = '{"abc": "4", "k": 1, "k": 1.5, "c": null, "k": 2}'
         d = _pypyjson.loads(a)
         assert d == {u"abc": u"4", u"c": None, u"k": 2}
+
+

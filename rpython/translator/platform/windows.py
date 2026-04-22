@@ -208,21 +208,22 @@ class MsvcPlatform(Platform):
         # Dilemma: raise now or later if masm is not found. Postponing the
         # exception means we can use a fake compiler for testing on linux
         # but may mean cryptic error messages and wasted build time.
+        masm32 = "'Could not find ml.exe'"
+        masm64 = "'Could not find ml.exe'"
         try:
             returncode, stdout, stderr = _run_subprocess(
                 'ml.exe' if not x64 else 'ml64.exe', [], env=self.c_environ)
             r = re.search('Macro Assembler', stderr)
         except (EnvironmentError, OSError):
             r = None
-            masm32 = "'Could not find ml.exe'"
-            masm64 = "'Could not find ml.exe'"
-        if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            masm32 = 'c:/masm32/bin/ml.exe'
-            masm64 = 'c:/masm64/bin/ml64.exe'
-        elif r:
+        if r is not None:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
-
+        else:
+            if os.path.exists('c:/masm64/bin/masm64.exe'):
+                masm64 = 'c:/masm64/bin/masm64.exe'
+            if os.path.exists('c:/masm32/bin/masm32.exe'):
+                masm64 = 'c:/masm32/bin/masm32.exe'
         if x64:
             self.masm = masm64
         else:
@@ -263,7 +264,7 @@ class MsvcPlatform(Platform):
     def check___thread(self):
         # __declspec(thread) does not seem to work when using assembler.
         # Returning False will cause the program to use TlsAlloc functions.
-        # see src/thread_nt.h or src/thread_win7.h
+        # see src/thread_win7.h
         return False
 
     def _link_args_from_eci(self, eci, standalone):

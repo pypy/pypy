@@ -52,7 +52,11 @@ def f_string_compile(astbuilder, source, token, fstr, start_offset, nextchar):
         if c not in ' \t\n\r\v\f':
             break
     else:
-        astbuilder.raise_syntax_error_known_location("f-string: expression required before '%s'" % nextchar, token)
+        if nextchar == '}':
+            msg = "f-string: empty expression not allowed"
+        else:
+            msg = "f-string: expression required before '%s'" % nextchar
+        astbuilder.raise_syntax_error_known_location(msg, token)
 
     assert isinstance(source, str)    # utf-8 encoded
 
@@ -478,6 +482,28 @@ def string_parse_literal(astbuilder, tokens):
                 fmode = True
 
         except error.OperationError as e:
+            if e.match(space, space.w_UnicodeDecodeError):
+                # Produce CPython-compatible message: "Non-UTF-8 code starting with '\xNN'"
+                # only when the error is from UTF-8 decoding of source content,
+                # not from other codecs (e.g. unicodeescape).
+                e.normalize_exception(space)
+                w_exc = e.get_w_value(space)
+                w_encoding = space.getattr(w_exc, space.newtext('encoding'))
+                if space.text_w(w_encoding) == 'utf-8':
+                    w_obj = space.getattr(w_exc, space.newtext('object'))
+                    w_start = space.getattr(w_exc, space.newtext('start'))
+                    bad_bytes = space.bytes_w(w_obj)
+                    start_pos = space.int_w(w_start)
+                    if 0 <= start_pos < len(bad_bytes):
+                        bad_byte = ord(bad_bytes[start_pos])
+                    else:
+                        bad_byte = 0x80
+                    hex_byte = hex(bad_byte)[2:]
+                    if len(hex_byte) < 2:
+                        hex_byte = '0' + hex_byte
+                    errmsg = "Non-UTF-8 code starting with '\\x" + hex_byte + "'"
+                    raise astbuilder.raise_syntax_error_known_location(errmsg, token)
+                # fall through to generic unicode error handling for other codecs
             if e.match(space, space.w_UnicodeError):
                 kind = '(unicode error) '
             elif e.match(space, space.w_ValueError):

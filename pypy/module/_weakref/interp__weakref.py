@@ -410,6 +410,16 @@ def proxy_reversed(space, w_obj):
 proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
 callable_proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
 
+# __next__ needs a special error message when the referent is not an iterator
+def proxy_iternext(space, w_obj):
+    w_obj = force(space, w_obj)
+    if not space.lookup(w_obj, '__next__'):
+        raise oefmt(space.w_TypeError,
+                    "Weakref proxy referenced a non-iterator")
+    return space.next(w_obj)
+proxy_typedef_dict['__next__'] = interp2app(proxy_iternext)
+callable_proxy_typedef_dict['__next__'] = interp2app(proxy_iternext)
+
 W_Proxy.typedef = TypeDef("weakref.ProxyType",
     __new__ = interp2app(descr__new__proxy),
     __hash__ = interp2app(W_Proxy.descr__hash__),

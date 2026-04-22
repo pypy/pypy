@@ -443,6 +443,7 @@ class PyBytesIOTest(MemoryTestMixin, MemorySeekTestMixin, unittest.TestCase):
         buf = memio.getbuffer()
         self.assertEqual(bytes(buf), b"1234567890")
         memio.seek(5)
+        buf.release()  # PyPy change: GC does not call releasebuffer
         buf = memio.getbuffer()
         self.assertEqual(bytes(buf), b"1234567890")
         # Trying to change the size of the BytesIO while a buffer is exported
@@ -460,8 +461,7 @@ class PyBytesIOTest(MemoryTestMixin, MemorySeekTestMixin, unittest.TestCase):
         self.assertEqual(memio.getvalue(), b"123abc7890")
         # After the buffer gets released, we can resize and close the BytesIO
         # again
-        del buf
-        support.gc_collect()
+        buf.release()  # PyPy change: GC does not call releasebuffer
         memio.truncate()
         memio.close()
         self.assertRaises(ValueError, memio.getbuffer)
@@ -472,12 +472,17 @@ class PyBytesIOTest(MemoryTestMixin, MemorySeekTestMixin, unittest.TestCase):
         self.assertEqual(bytes(buf), b"")
         # Trying to change the size of the BytesIO while a buffer is exported
         # raises a BufferError.
-        self.assertRaises(BufferError, memio.write, b'x')
-        buf2 = memio.getbuffer()
-        self.assertRaises(BufferError, memio.write, b'x')
-        buf.release()
-        self.assertRaises(BufferError, memio.write, b'x')
-        buf2.release()
+        if support.check_impl_detail(pypy=False):
+            # PyPy export buffers differently, and allows reallocation
+            # of the underlying object.
+            self.assertRaises(BufferError, memio.write, b'x')
+            buf2 = memio.getbuffer()
+            self.assertRaises(BufferError, memio.write, b'x')
+            buf.release()
+            self.assertRaises(BufferError, memio.write, b'x')
+            buf2.release()
+        else:
+            buf.release()
         memio.write(b'x')
 
     def test_read1(self):

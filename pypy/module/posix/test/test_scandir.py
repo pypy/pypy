@@ -210,7 +210,7 @@ class AppTestScandir(object):
         assert repr(d) == "<DirEntry 'file1'>"
 
     def test_direntry_unpicklable(self):
-        import pickle
+        import _pickle as pickle
         posix = self.posix
         d = next(posix.scandir(self.dir1))
         with raises(TypeError):

@@ -214,6 +214,14 @@ if 1:
         pytest.raises(SyntaxError, self.parse, 'f()\nxy # blah\nblah()', "single")
         pytest.raises(SyntaxError, self.parse, 'x = 5 # comment\nx = 6\n', "single")
 
+    def test_null_bytes_rejected(self):
+        # bpo-24022, bpo-25388: null bytes must always raise SyntaxError with
+        # the right message, even when PyCF_ACCEPT_NULL_BYTES is set.
+        for src in [b'0000\x00\n', b'#\x00\n']:
+            for flags in [0, consts.PyCF_ACCEPT_NULL_BYTES]:
+                exc = pytest.raises(SyntaxError, self.parse, src, flags=flags)
+                assert "null bytes" in exc.value.msg
+
     def test_unpack(self):
         self.parse('[*{2}, 3, *[4]]')
         self.parse('{*{2}, 3, *[4]}')
@@ -441,6 +449,25 @@ if 1:
         assert "Invalid star expression" in info.value.msg
         assert info.value.offset == 10
 
+    def test_null_bytes_in_source(self):
+        info = pytest.raises(SyntaxError, self.parse, "x = 0\x00\n")
+        assert "source code cannot contain null bytes" in info.value.msg
+
+    def test_null_bytes_in_comment(self):
+        info = pytest.raises(SyntaxError, self.parse, "#\x00\n")
+        assert "source code cannot contain null bytes" in info.value.msg
+
+    def test_null_bytes_lineno_and_text(self):
+        # Error should report the line containing the null byte, truncated at it
+        info = pytest.raises(SyntaxError, self.parse, "x = '\x00' rest\n")
+        assert info.value.lineno == 1
+        assert info.value.text == "x = '\n"
+
+    def test_null_bytes_multiline_lineno_and_text(self):
+        info = pytest.raises(SyntaxError, self.parse, "\n'''\nmultilinestring\x00\n'''")
+        assert info.value.lineno == 3
+        assert info.value.text == "multilinestring\n"
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
@@ -525,6 +552,19 @@ try:
 except* ValueError:
     pass""")
 
+    def test_dict_with_equals_suggests_colon(self):
+        # ages = {'Alice'=22} should suggest ':' instead of generic "invalid syntax"
+        exc = pytest.raises(SyntaxError, self.parse, "ages = {'Alice'=22, 'Bob'=23}").value
+        assert exc.msg == "':' expected after dictionary key"
+        assert exc.offset == 16  # points at '='
+
+    def test_except_star_no_type_offset(self):
+        # 'except*:' should report offset pointing at ':' (offset 8), not past it
+        src = "try:\n  pass\nexcept*:\n  pass"
+        exc = pytest.raises(SyntaxError, self.parse, src).value
+        assert exc.msg == "expected one or more exception types"
+        assert exc.offset == 8  # points at ':'
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
@@ -577,3 +617,45 @@ class TestIncompleteInput(object):
     def test_line_continuation(self):
         self.check_incomplete("a = \\")
         self.check_incomplete("a = '\\")
+
+    def test_unterminated_single_quote_with_newline_is_invalid(self):
+        self.check_incomplete("a = 'a\\\n")
+        self.check_incomplete("a = 'a\\\r")
+        self.check_incomplete("a = 'a\\\r\n")
+        for eol in ("\n", "\r", "\r\n"):
+            msg = self.check_error("a = 'sta" + eol)
+            assert "unterminated string literal" in msg
+            msg = self.check_error("a = 'a\\ " + eol)
+            assert "unterminated string literal" in msg
+
+    def test_invalid_with_explicit_newline(self):
+        # An expression that is genuinely invalid (not just incomplete) should
+        # raise "invalid syntax" when it ends with an explicit newline.
+        # CPython behaviour: compile("a @\n", ..., PyCF_ALLOW_INCOMPLETE_INPUT)
+        # raises SyntaxError("invalid syntax"), not "incomplete input".
+        msg = self.check_error("a @\n")
+        assert "invalid syntax" in msg, msg
+
+    def test_if_with_explicit_newline(self):
+        # An 'if' header ending with an explicit newline is still incomplete
+        # (it needs an indented body), so "incomplete input" must be raised.
+        self.check_incomplete("if True:\n")
+        self.check_incomplete("while True:\n")
+        self.check_incomplete("for x in y:\n")
+        self.check_incomplete("def f():\n")
+
+    def test_def_blank_line_unindented_body_is_invalid(self):
+        # "def x():\n\npass\n": a blank line then 'pass' at col 0 means the
+        # function body is empty. This is definitively invalid (not incomplete).
+        msg = self.check_error("def x():\n\npass\n")
+        assert "incomplete input" not in msg, msg
+
+    def test_eval_mode_empty_is_incomplete(self):
+        # compile("\n", "<input>", "eval", PyCF_ALLOW_INCOMPLETE_INPUT|...)
+        # should report incomplete input, not plain "invalid syntax".
+        # codeop._maybe_compile relies on this to return None for empty eval.
+        info = pyparse.CompileInfo("<test>", "eval", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parser.parse_source("\n", info)
+        assert "incomplete input" in excinfo.value.msg, excinfo.value.msg
+

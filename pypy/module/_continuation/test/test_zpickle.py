@@ -131,7 +131,7 @@ class AppTestPickle:
         from _continuation import continulet
         lst = [4]
         co = continulet.__new__(continulet)
-        import pickle
+        import _pickle as pickle
         pckl = pickle.dumps(co, self.version)
         print(repr(pckl))
         co2 = pickle.loads(pckl)
@@ -151,7 +151,7 @@ class AppTestPickle:
         co = continulet.__new__(A)
         co.foo = 'bar'
         co.bar = 'baz'
-        import pickle
+        import _pickle as pickle
         pckl = pickle.dumps(co, self.version)
         print(repr(pckl))
         co2 = pickle.loads(pckl)
@@ -170,7 +170,7 @@ class AppTestPickle:
 
     def test_pickle_continulet_not_started(self):
         from _continuation import continulet, error
-        import pickle
+        import _pickle as pickle
         lst = []
         co = continulet(lst.append)
         pckl = pickle.dumps((co, lst))
@@ -190,7 +190,7 @@ class AppTestPickle:
         mod.version = self.version
         exec('''if 1:
             from _continuation import continulet
-            import pickle
+            import _pickle as pickle
             def f(co, x):
                 co.switch(x + 1)
                 co.switch(x + 2)
@@ -224,7 +224,7 @@ class AppTestPickle:
         mod.version = self.version
         exec('''if 1:
             from _continuation import continulet
-            import pickle
+            import _pickle as pickle
             class A(continulet):
                 def __init__(self):
                     crash

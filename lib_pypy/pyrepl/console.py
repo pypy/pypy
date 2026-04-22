@@ -106,6 +106,9 @@ class Console(ABC):
     @abstractmethod
     def beep(self) -> None: ...
 
+    def restore_output(self) -> None: ...
+    def prepare_output(self) -> None: ...
+
     @abstractmethod
     def clear(self) -> None:
         """Wipe the screen"""

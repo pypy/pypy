@@ -271,12 +271,15 @@ class Parser:
         res = meth(self)
         if res is None:
             tok = self.diagnose()
-            if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
-                # bit of a heuristic: if the remaining tokens are ENDMARKER,
-                # NEWLINE, DEDENT then more input could fix things, so we raise
-                # "incomplete input"
+            if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
+                    (self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT or
+                     self.compile_info.mode == "eval")):
+                # bit of a heuristic: if the source does not end with a newline
+                # (PyCF_DONT_IMPLY_DEDENT is set) or we are in eval mode, and
+                # the remaining tokens are ENDMARKER, NEWLINE, DEDENT then more
+                # input could fix things, so we raise "incomplete input"
                 for index in range(self._highwatermark, len(self._tokens)):
-                    typ = tok.token_type
+                    typ = self._tokens[index].token_type
                     if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
                             typ != tokens.DEDENT):
                         break
@@ -292,7 +295,7 @@ class Parser:
         assert res
         # now raise all warnings from the tokenizer
         for tok in self._warnings:
-            self.deprecation_warn(tok.value, tok)
+            self.syntax_warn(tok.value, tok)
         return res
 
     def recursive_parse_to_ast(self, str, info):
@@ -303,6 +306,12 @@ class Parser:
         return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
+        """Emit a DeprecationWarning (used for invalid escape sequences in strings)."""
+        if self.call_invalid_rules:
+            # The call_invalid_rules pass is purely for generating better error
+            # messages. Suppress warnings here to avoid emitting duplicates:
+            # the first (normal) parse pass already emitted them.
+            return
         from pypy.interpreter import error
         from pypy.module._warnings.interp_warnings import warn_explicit
         space = self.space
@@ -319,6 +328,33 @@ class Parser:
                 )
         except error.OperationError as e:
             if e.match(space, space.w_DeprecationWarning):
+                start_lineno, start_col_offset = self.extract_pos_start(tok)
+                end_lineno, end_col_offset = self.extract_pos_end(tok)
+                self._raise_syntax_error(msg, start_lineno, start_col_offset,
+                                         end_lineno, end_col_offset)
+            else:
+                raise
+
+    def syntax_warn(self, msg, tok):
+        """Emit a SyntaxWarning (used for invalid numeric literals)."""
+        if self.call_invalid_rules:
+            return
+        from pypy.interpreter import error
+        from pypy.module._warnings.interp_warnings import warn_explicit
+        space = self.space
+        try:
+            warn_explicit(
+                space, space.newtext(msg),
+                space.w_SyntaxWarning,
+                space.newtext(self.compile_info.filename),
+                tok.lineno,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                )
+        except error.OperationError as e:
+            if e.match(space, space.w_SyntaxWarning):
                 self.raise_syntax_error_known_location(msg, tok)
             else:
                 raise
@@ -365,6 +401,9 @@ class Parser:
         return self._tokens[self._index]
 
     def diagnose(self):
+        # _highwatermark can == len(_tokens) after a successful parse consumes the last token
+        if self._highwatermark >= len(self._tokens):
+            self._highwatermark = len(self._tokens) - 1
         return self._tokens[self._highwatermark]
 
     def get_last_non_whitespace_token(self):
@@ -521,8 +560,35 @@ class Parser:
                 "%s only supported in Python %s and above." % (error_msg, min_version),
                 node)
 
+    def check_version_for_parenthesized_with(self, a, opt, node):
+        """Only version-gate parenthesized with when it's genuinely the new
+        syntax: multiple items or a trailing comma.  A single expression in
+        parens without trailing comma is just expression grouping, valid in
+        all Python versions (gh-115881)."""
+        if opt or len(a) > 1:
+            return self.check_version(
+                (3, 9), "Parenthesized with items", node)
+        return node
+
     def raise_indentation_error(self, msg):
         """Raise an indentation error."""
+        if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
+                msg.startswith("expected an indented block")):
+            # When checking for incomplete input, "expected an indented block"
+            # means the block-requiring construct (if/while/for/def/...) was
+            # written but its body was not yet provided. Report "incomplete
+            # input" so that codeop._maybe_compile can detect it and return
+            # None rather than raising SyntaxError.
+            # But only if no meaningful token follows: e.g. "def x():\n\npass\n"
+            # has 'pass' at col 0 after the blank line, which closes the block
+            # definitively -- that is invalid, not merely incomplete.
+            for index in range(self._index, len(self._tokens)):
+                typ = self._tokens[index].token_type
+                if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
+                        typ != tokens.DEDENT):
+                    break
+            else:
+                msg = "incomplete input"
         self._raise_syntax_error(msg, cls=IndentationError)
 
     def get_expr_name(self, node):
@@ -831,7 +897,6 @@ class Parser:
         if line_from_token:
             line = tok.line
         else:
-            # End is used only to get the proper text
             line = "".join(
                 self.get_lines(range(start_lineno, end_lineno + 1))
             )
@@ -889,6 +954,11 @@ class Parser:
         """Raise a syntax error that occured at a given AST node or Token."""
         start_lineno, start_col_offset = self.extract_pos_start(node_or_tok)
         end_lineno, end_col_offset = self.extract_pos_end(node_or_tok)
+        # For multi-line tokens (e.g. an f-string spanning several lines),
+        # CPython reports the *end* position as the error location.
+        if end_lineno > start_lineno:
+            start_lineno = end_lineno
+            start_col_offset = end_col_offset
         self._raise_syntax_error(message, start_lineno, start_col_offset, end_lineno, end_col_offset)
 
     def make_type_ignores(self):

@@ -51,6 +51,15 @@ def call_function(func, args):
 class CFuncPtrType(_CDataMeta):
     # XXX write down here defaults and such things
 
+    def __init__(cls, name, bases, clsdict):
+        super().__init__(name, bases, clsdict)
+        if '_argtypes_' in clsdict:
+            argtypes = clsdict['_argtypes_']
+            if argtypes is not None and len(argtypes) > CTYPES_MAX_ARGCOUNT:
+                raise ArgumentError(
+                    "_argtypes_ has too many arguments (%d), maximum is %d"
+                    % (len(argtypes), CTYPES_MAX_ARGCOUNT))
+
     def _sizeofinstances(self):
         return _rawffi.sizeof('P')
 
@@ -318,7 +327,11 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 try:
                     res = self.callable(*newargs)
                 except SystemExit as e:
-                    handle_system_exit(e)
+                    try:
+                        handle_system_exit(e)
+                    except Exception:
+                        traceback.print_exc(file=sys.stderr)
+                        return 0
                     raise
             except Exception as e:
                 from __pypy__ import write_unraisable
@@ -478,7 +491,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
     def _conv_param(cls, argtype, arg):
         if argtype is not None:
             arg = argtype.from_param(arg)
-        if hasattr(arg, '_as_parameter_'):
+        while hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
         if isinstance(arg, _CData):
             return arg, arg._to_ffi_param(), type(arg)
@@ -703,7 +716,7 @@ def handle_system_exit(e):
             f = getattr(sys, 'stderr', None)
             if f is None:
                 f = sys.__stderr__
-            print >> f, code
+            print(code, file=f)
             exitcode = 1
 
         _rawffi.exit(exitcode)

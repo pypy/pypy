@@ -140,7 +140,7 @@ def next_codepoint_pos(code, pos):
         # optimized for Intel x86-64 by hand
         res = pos + 1 + (
             ((chr1 > 0xDF) << 1) +
-            rarithmetic.intmask((_constant_ncp >> (chr1 & 0x3F)) & 1))
+            (rarithmetic.intmask(_constant_ncp >> (chr1 & 0x3F)) & 1))
         assert res >= 0
         return res
     if chr1 <= 0xDF:
@@ -698,17 +698,14 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None, u
             # for testing on top of a host Python where sys.maxunicode == 0xffff
             if (not we_are_translated() and sys.maxunicode == 0xFFFF and
                 0xD800 <= oc < 0xDC00 and pos + 3 < size):
-                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
-                pos += 3
-                oc2 = codepoint_at_pos(s, pos)
+                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes.
 
                 if 0xDC00 <= oc2 <= 0xDFFF:
                     ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
                     char_escape_helper(result, ucs)
-                    pos += 3
+                    pos += 6
                     continue
-                # Fall through: isolated surrogates are copied as-is
-                pos -= 3
+                # Fall through: isolated surrogate, process ch/oc as-is below
 
             # Map special whitespace to '\t', \n', '\r'
             if ch == '\t':

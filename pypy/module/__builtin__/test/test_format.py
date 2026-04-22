@@ -29,3 +29,13 @@ class AppTestFormat(object):
                 raise ValueError
 
         raises(TypeError, format, D(), 's')
+
+        class DerivedFromStr(str):
+            pass
+
+        class E:
+            def __repr__(self):
+                return DerivedFromStr('10')
+
+        assert format(0, DerivedFromStr('10')) == '         0'
+        assert type(format(E())) is DerivedFromStr

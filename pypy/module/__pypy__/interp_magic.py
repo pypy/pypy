@@ -44,9 +44,11 @@ def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MethodCache)
+    cache.clear()
     cache.misses = {}
     cache.hits = {}
     cache = space.fromcache(MapAttrCache)
+    cache.clear()
     cache.misses = {}
     cache.hits = {}
 

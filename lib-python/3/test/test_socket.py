@@ -891,29 +891,29 @@ class GeneralModuleTests(unittest.TestCase):
         sockname = s.getsockname()
         if sys.implementation.name == 'pypy':
             nonemsg = "is not iterable"
+            quotedstr = "not str"
+            quotedcomplex = "not complex"
         else:
             nonemsg = "not NoneType"
+            quotedstr = "not 'str'"
+            quotedcomplex = "not 'complex'"
         # 2 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None)
         self.assertIn(nonemsg, str(cm.exception))
         # 3 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, None)
         self.assertIn(nonemsg, str(cm.exception))

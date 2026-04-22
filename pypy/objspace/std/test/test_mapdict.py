@@ -1771,6 +1771,39 @@ class AppTestWithMapDictAndCounters(object):
         got = x.a
         assert got == 'd'
 
+    def test_load_shadowing_slot_from_unrelated_class_raises_type_error(self):
+        # A slot descriptor from Class assigned onto Sneaky.shadowing must
+        # raise TypeError when accessed on a Sneaky instance via LOAD_ATTR.
+        # The mapdict fast path must not bypass the descriptor's typecheck.
+        class Class(object):
+            __slots__ = ('slot',)
+
+        class Sneaky(object):
+            __slots__ = ('shadowed',)
+            shadowing = Class.slot
+
+        def f(o):
+            return o.shadowing  # LOAD_ATTR bytecode -- exercises mapdict cache
+
+        o = Sneaky()
+        o.shadowed = 42
+        raises(TypeError, f, o)
+
+    def test_store_shadowing_slot_from_unrelated_class_raises_type_error(self):
+        class Class(object):
+            __slots__ = ('slot',)
+
+        class Sneaky(object):
+            __slots__ = ('shadowed',)
+            shadowing = Class.slot
+
+        def f(o):
+            o.shadowing = 99  # STORE_ATTR bytecode -- exercises mapdict cache
+
+        o = Sneaky()
+        o.shadowed = 42  # populate the slot so the map has attrkind 3
+        raises(TypeError, f, o)
+
     def test_bug_builtin_types_callmethod(self):
         import sys
         class D(type(sys)):

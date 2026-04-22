@@ -13,7 +13,10 @@ except ImportError:
 try:
     from _json import make_encoder as c_make_encoder
 except ImportError:
-    c_make_encoder = None
+    try:
+        from _pypyjson import make_encoder as c_make_encoder
+    except ImportError:
+        c_make_encoder = None
 
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')

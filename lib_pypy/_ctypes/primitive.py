@@ -6,7 +6,8 @@ import sys
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
 from _ctypes.basics import (
-    _CData, _CDataMeta, cdata_from_address, CArgObject, sizeof)
+    _CData, _CDataMeta, cdata_from_address, CArgObject, sizeof,
+    _ctypes_property)
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array, byteorder
 from _ctypes.pointer import _Pointer, as_ffi_pointer
@@ -208,7 +209,7 @@ class SimpleType(_CDataMeta):
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
             result._ffiargtype = _ffi.types.Pointer(_ffi.types.char)
 
         elif tp == 'Z':
@@ -229,7 +230,7 @@ class SimpleType(_CDataMeta):
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
             result._ffiargtype = _ffi.types.Pointer(_ffi.types.unichar)
 
         elif tp == 'P':
@@ -249,7 +250,7 @@ class SimpleType(_CDataMeta):
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == 'u':
             def _setvalue(self, val):
@@ -257,7 +258,7 @@ class SimpleType(_CDataMeta):
                     self._buffer[0] = val
             def _getvalue(self):
                 return self._buffer[0]
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == 'c':
             def _setvalue(self, val):
@@ -265,7 +266,7 @@ class SimpleType(_CDataMeta):
                     self._buffer[0] = val
             def _getvalue(self):
                 return self._buffer[0]
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == 'O':
             def _setvalue(self, val):
@@ -273,7 +274,7 @@ class SimpleType(_CDataMeta):
                 self._buffer[0] = num
             def _getvalue(self):
                 return pyobj_container.get(self._buffer[0])
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == 'X':
             from ctypes import WinDLL
@@ -315,14 +316,14 @@ class SimpleType(_CDataMeta):
                 if self._buffer[0]:
                     SysFreeString(self._buffer[0])
                 self._buffer[0] = value
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == '?':  # regular bool
             def _getvalue(self):
                 return bool(self._buffer[0])
             def _setvalue(self, value):
                 self._buffer[0] = bool(value)
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         elif tp == 'v': # VARIANT_BOOL type
             def _getvalue(self):
@@ -332,7 +333,7 @@ class SimpleType(_CDataMeta):
                     self._buffer[0] = -1 # VARIANT_TRUE
                 else:
                     self._buffer[0] = 0  # VARIANT_FALSE
-            result.value = property(_getvalue, _setvalue)
+            result.value = _ctypes_property(_getvalue, _setvalue)
 
         # make pointer-types compatible with the _ffi fast path
         if result._is_pointer_like():
@@ -364,7 +365,7 @@ class SimpleType(_CDataMeta):
                 d = result()
                 d.value = value
                 self._buffer[0] = swap_bytes(d.value, sizeof(self), name, 'set')
-            swapped.value = property(_getval, _setval)
+            swapped.value = _ctypes_property(_getval, _setval)
 
         return result
 
@@ -428,7 +429,7 @@ class _SimpleCData(_CData, metaclass=SimpleType):
 
     def _setvalue(self, value):
         self._buffer[0] = value
-    value = property(_getvalue, _setvalue)
+    value = _ctypes_property(_getvalue, _setvalue)
     del _getvalue, _setvalue
 
     def __ctypes_from_outparam__(self):

@@ -633,6 +633,17 @@ def test_invalid_cause():
     else:
         fail("Expected TypeError")
 
+def test_normalize_exception_subclasscheck():
+    # When __subclasscheck__ raises during exception normalization,
+    # that exception should propagate (CPython behaviour).
+    class Meta(type):
+        def __subclasscheck__(cls, sub):
+            1/0
+    class Broken(Exception, metaclass=Meta):
+        pass
+    with pytest.raises(ZeroDivisionError):
+        raise Broken(42)
+
 def test_invalid_cause_setter():
     class Setter(BaseException):
         def set_cause(self, cause):
@@ -644,3 +655,28 @@ def test_invalid_cause_setter():
         assert "exception cause" in str(e)
     else:
         fail("Expected TypeError")
+
+def test_reraise_with_cleared_traceback():
+    try:
+        try:
+            raise ValueError("err")
+        except ValueError as err:
+            err.__traceback__ = None
+            raise
+    except ValueError as err:
+        assert err.__traceback__ is None
+
+def test_reraise_with_replaced_traceback():
+    import sys
+    try:
+        raise KeyError
+    except KeyError:
+        othr = sys.exc_info()[2]
+    try:
+        try:
+            raise ValueError("err")
+        except ValueError as err:
+            err.__traceback__ = othr
+            raise
+    except ValueError as err:
+        assert err.__traceback__ is othr

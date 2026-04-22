@@ -292,6 +292,9 @@ def write_memory(pid, address, content):
 
 
 def _read_and_parse_maps(pid='self', filter=None):
+    if filter is not None and os.path.isabs(filter):
+        # follow symlinks
+        filter = os.path.realpath(filter)
     with open('/proc/%s/maps' % pid) as f:
         return _parse_maps(f, filter)
 
@@ -345,7 +348,7 @@ def _check_elf_debuglink(file):
 
 # __________________________________________________________
 # symbolication support, used by _vmprof.resolve_address and
-# _vmprof.resolve_many_addrs
+# _vmprof.resolve_many_addr
 
 def _proc_map_find_base_map(value, maps=None):
     if maps is None:

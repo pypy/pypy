@@ -261,6 +261,7 @@ class DictSetTest(unittest.TestCase):
         # Again.
         self.assertIsInstance(r, str)
 
+    @support.cpython_only
     def test_deeply_nested_repr(self):
         d = {}
         for i in range(sys.getrecursionlimit() + 100):

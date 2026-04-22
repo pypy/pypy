@@ -37,9 +37,13 @@ class Function(W_Root):
                           'defs_w?[*]',
                           'name?',
                           'qualname?',
+                          'w_objclass?',
+                          'w_text_signature?',
                           'w_kw_defs?']
 
     w_kw_defs = None
+    w_objclass = None
+    w_text_signature = None
     _empty_defs = []
 
     def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
@@ -480,6 +484,25 @@ class Function(W_Root):
             raise
         self.set_qualname(qualname)
 
+    def fget_func_text_signature(self, space):
+        if self.w_text_signature is None:
+            return space.w_None
+        return self.w_text_signature
+
+    def fset_func_text_signature(self, space, w_value):
+        if space.is_w(w_value, space.w_None):
+            self.w_text_signature = None
+        else:
+            self.w_text_signature = w_value
+
+    def fget_func_objclass(self, space):
+        if self.w_objclass is None:
+            raise oefmt(space.w_AttributeError, "__objclass__")
+        return self.w_objclass
+
+    def set_objclass(self, w_type):
+        self.w_objclass = w_type
+
     def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
@@ -774,6 +797,7 @@ class BuiltinFunction(Function):
         # set in mixedmodule.py and in descr_builtinfunction__self__ below
         self.w_moduleobj = None
         self.w_kw_defs = func.w_kw_defs
+        self.w_text_signature = func.w_text_signature
 
     def descr_builtinfunction__new__(space, w_subtype):
         raise oefmt(space.w_TypeError,

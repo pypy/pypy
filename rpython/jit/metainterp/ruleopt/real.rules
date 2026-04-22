@@ -378,3 +378,9 @@ neg_neg: int_neg(int_neg(x))
 #    check y.known_gt_const(0)
 #    check x.sub_bound_cannot_overflow(y)
 #    => 0
+#
+
+#int_or_shift_recombine: int_or(int_lshift(uint_rshift(x, C1), C2), int_and(uint_rshift(x, C3), C4))
+#    check C1 == C3 + C2
+#    check C4 == (1 << C2) - 1
+#    => uint_rshift(x, C3)

@@ -304,6 +304,40 @@ that there is a total order on floats, but that is wrong for NaNs).
 
 .. __: https://github.com/pypy/pypy/issues/1974
 
+Order of dictionary keys in instance dicts
+------------------------------------------
+
+Instance dictionaries are not always ordered by insertion in PyPy.
+Specifically, this can happen if the ``__init__`` of the class adds attributes
+in different orders. Here's an example::
+
+    >>>> class A:
+    ....     def __init__(self, a, b, reorder=False):
+    ....         if not reorder:
+    ....             self.a = a
+    ....             self.b = b
+    ....         else:
+    ....             self.b = b
+    ....             self.a = a
+    ....
+    >>>> print(A(1, 2).__dict__)
+    {'a': 1, 'b': 2}
+    >>>> print(A(1, 2, reorder=True).__dict__)
+    {'a': 1, 'b': 2}
+
+CPython prints ``{'b': 2, 'a': 1}`` in the last line.
+
+Background: In CPython 3.6, dictionaries became `ordered by insertion`__.
+This is also true for instance dictionaries. In PyPy, regular
+dictionaries have been ordered since 2015__. For instance dictionaries, this is
+not always possible, because they are represented using `Self-style maps/hidden
+classes`__, which are one of the cornerstones of PyPy's performance.
+
+.. __: https://docs.python.org/3/whatsnew/3.6.html#new-dict-implementation
+.. __: https://pypy.org/posts/2015/01/faster-more-memory-efficient-and-more-4096950404745375390.html#
+.. __: https://pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+
+
 Permitted ABI tags in extensions
 --------------------------------
 
@@ -322,7 +356,7 @@ pypy3.9    ['.pypy39-pp73-x86_64-linux-gnu.so']  normal [#f1]_
 ========== ===================================== ==============
 
 .. rubric:: Footnotes
-  
+
 .. [#f1] normal extensions use <python-tag>-<abi-tag>-<platform-tag>
 
 CMake will `support the correct suffix`_ for PyPy3.9 in release 3.26, scheduled for early 2023
@@ -376,6 +410,57 @@ your code anyway. So you should anyway replace the code with::
         parts.append(string)
     s = "".join(parts)
 
+Bytecode differences in Python 3.11
+-----------------------------------
+
+There are bytecode differences between PyPy 3.11 and CPython 3.11:
+
+* No ``RESUME`` opcode.
+
+  CPython 3.11 inserts a ``RESUME`` opcode at the start of every function, class
+  body, and module. It is assigned line number 0 and is used by the adaptive
+  specialising interpreter for tracing and profiling.  PyPy does not emit RESUME.
+
+  Visible effects:
+
+  - ``co.co_lines()`` / ``co_positions()``: the first entry in CPython has line
+    0 (the ``RESUME``); PyPy's first entry is the first real statement.
+  - ``dis.get_instructions()`` on a trivial function returns one fewer
+    instruction in PyPy.
+
+* Unified ``BINARY_OP`` vs per-operator opcodes
+
+  CPython 3.11 replaced the family of type-specific binary opcodes
+  (``BINARY_ADD``, ``BINARY_SUBTRACT``, etc and their ``INPLACE_*``
+  counterparts) with a single ``BINARY_OP`` instruction that takes the operator
+  as an argument. PyPy retains the original per-operator opcodes.
+
+* Unified ``CALL`` vs ``CALL_FUNCTION`` / ``CALL_METHOD``
+
+  CPython 3.11 replaced ``CALL_FUNCTION``, ``CALL_FUNCTION_KW``,
+  ``CALL_FUNCTION_EX``, and ``CALL_METHOD`` with a unified ``CALL`` instruction
+  (preceded by ``PUSH_NULL`` or ``PRECALL``). PyPy retains the old behaviour. Note
+  that ``PRECALL`` is used by the specialiser to rewrite the call site.
+
+  Visible effects: code that dispatches on opcode names or checks for ``PRECALL``
+  will not find it in PyPy.
+
+* ``LOAD_METHOD`` still present
+
+  CPython 3.11 eliminated ``LOAD_METHOD`` and folded method loading into
+  ``LOAD_ATTR`` (which inspects the descriptor at runtime and leaves a flag on
+  the stack). PyPy still emits ``LOAD_METHOD`` for method calls and follows it
+  with ``CALL_METHOD``.
+
+* No inline caches
+
+  CPython 3.11 embeds inline cache entries directly in the bytecode stream
+  (``CACHE`` pseudo-instructions) to support the adaptive specialising
+  interpreter. These inflate ``co_code`` considerably. PyPy has no adaptive
+  specialiser and its inline caches are stored elsewhere, so its code objects are smaller. Any test
+  that uses ``len(co_code)`` or ``log(len(co_code))`` as a proxy for stack
+  depth will see different values.
+
 Miscellaneous
 -------------
   .. _hash-randomization:
@@ -403,7 +488,7 @@ Miscellaneous
   .. _hash_calls:
 
 * since the implementation of dictionary is different, the exact number
-  of times that ``__hash__`` and ``__eq__`` are called is different. 
+  of times that ``__hash__`` and ``__eq__`` are called is different.
   Since CPython
   does not give any specific guarantees either, don't rely on it.
 
@@ -463,7 +548,7 @@ Miscellaneous
   ``datetime.date`` is the superclass of ``datetime.datetime``).
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
-  
+
   .. _gc-functions:
 
 * some functions and attributes of the ``gc`` module behave in a

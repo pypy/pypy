@@ -15,7 +15,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
                                 codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
-from rpython.rlib import rlocale, jit
+from rpython.rlib import jit
 from rpython.rlib.objectmodel import always_inline
 
 
@@ -303,23 +303,8 @@ def _determine_encoding(space, encoding, w_buffer):
         # _Py_GetLocaleEncoding, which has this at the top
         return space.newtext("utf-8")
 
-    # On legacy systems or darwin, try app-level
-    # _bootlocale.getprefferedencoding(False)
-    try:
-        w_locale = space.call_method(space.builtin, '__import__',
-                                     space.newtext('_bootlocale'))
-        w_encoding = space.call_method(w_locale, 'getpreferredencoding',
-                                       space.w_False)
-    except OperationError as e:
-        # getpreferredencoding() may also raise ImportError
-        if not e.match(space, space.w_ImportError):
-            raise
-        return space.newtext('ascii')
-    else:
-        if space.isinstance_w(w_encoding, space.w_text):
-            return w_encoding
-
-    raise oefmt(space.w_IOError, "could not determine default encoding")
+    from pypy.module._locale.interp_locale import _getencoding
+    return space.newtext(_getencoding())
 
 @unwrap_spec(stacklevel=int)
 def text_encoding(space, w_encoding, stacklevel=2):
@@ -1021,6 +1006,9 @@ class W_TextIOWrapper(W_TextIOBase):
         self._check_attached(space)
         self._check_closed(space)
         self._writeflush(space)
+        if space.is_w(w_limit, space.w_None):
+            raise oefmt(space.w_TypeError,
+                        "'NoneType' object cannot be interpreted as an integer")
         limit = convert_size(space, w_limit)
         text, lgt = self._readline(space, limit)
         return space.newutf8(text, lgt)

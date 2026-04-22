@@ -734,10 +734,11 @@ Finding Doctests in Modules Not Written in Python
 DocTestFinder can also find doctests in most modules not written in Python.
 We'll use builtins as an example, since it almost certainly isn't written in
 plain ol' Python and is guaranteed to be available.
+PyPy change: there are fewer builtin objects with docstrings, change 825 to 725
 
     >>> import builtins
     >>> tests = doctest.DocTestFinder().find(builtins)
-    >>> 825 < len(tests) < 845 # approximate number of objects with docstrings
+    >>> 725 < len(tests) < 845 # approximate number of objects with docstrings
     True
     >>> real_tests = [t for t in tests if len(t.examples) > 0]
     >>> len(real_tests) # objects that actually have doctests

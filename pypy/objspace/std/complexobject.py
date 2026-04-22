@@ -552,7 +552,8 @@ def complexwprop(name, doc):
     return GetSetProperty(fget, doc=doc, cls=W_ComplexObject)
 
 W_ComplexObject.typedef = TypeDef("complex",
-    __doc__ = """complex(real[, imag]) -> complex number
+    __doc__ = """complex(real=0, imag=0)
+--
 
 Create a complex number from a real part and an optional imaginary part.
 This is equivalent to (real + imag*1j) where imag defaults to 0.""",

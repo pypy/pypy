@@ -1882,6 +1882,11 @@ def no_jump_without_trace_function():
 
 
 class JumpTestCase(unittest.TestCase):
+    if sys.implementation.name == "pypy":
+        no_jump_into_with_error = (ValueError, "body of a with statement")
+    else:
+        no_jump_into_with_error = (ValueError, "stack")
+
     def setUp(self):
         self.addCleanup(sys.settrace, sys.gettrace())
         sys.settrace(None)
@@ -2446,25 +2451,25 @@ class JumpTestCase(unittest.TestCase):
             output.append(2)
         output.append(3)
 
-    @jump_test(1, 3, [], (ValueError, 'stack'))
+    @jump_test(1, 3, [], no_jump_into_with_error)
     def test_no_jump_forwards_into_with_block(output):
         output.append(1)
         with tracecontext(output, 2):
             output.append(3)
 
-    @async_jump_test(1, 3, [], (ValueError, 'stack'))
+    @async_jump_test(1, 3, [], no_jump_into_with_error)
     async def test_no_jump_forwards_into_async_with_block(output):
         output.append(1)
         async with asynctracecontext(output, 2):
             output.append(3)
 
-    @jump_test(3, 2, [1, 2, -1], (ValueError, 'stack'))
+    @jump_test(3, 2, [1, 2, -1], no_jump_into_with_error)
     def test_no_jump_backwards_into_with_block(output):
         with tracecontext(output, 1):
             output.append(2)
         output.append(3)
 
-    @async_jump_test(3, 2, [1, 2, -1], (ValueError, 'stack'))
+    @async_jump_test(3, 2, [1, 2, -1], no_jump_into_with_error)
     async def test_no_jump_backwards_into_async_with_block(output):
         async with asynctracecontext(output, 1):
             output.append(2)
@@ -2768,6 +2773,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(3, 7, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_load_global(output):
         a = 1
         print(
@@ -2787,6 +2793,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(4, 8, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_push_null(output):
         a = 1
         f = print

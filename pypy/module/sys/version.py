@@ -15,7 +15,7 @@ CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 # make sure to keep PYPY_VERSION in sync with:
 #    module/cpyext/include/patchlevel.h
 #    doc/conf.py
-PYPY_VERSION               = (7, 3, 21, "final", 0)
+PYPY_VERSION               = (7, 3, 22, "final", 0)
 
 import pypy
 pypydir = pypy.pypydir
@@ -53,7 +53,9 @@ def get_version_info(space):
 
     w_version_info = app.wget(space, "version_info")
     # run at translation time
-    return space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
+    result = space.call_function(w_version_info, space.wrap(CPYTHON_VERSION))
+    space.setattr(w_version_info, space.newtext('allow_instantiation'), space.w_False)
+    return result
 
 def _make_version_template(PYPY_VERSION=PYPY_VERSION):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])

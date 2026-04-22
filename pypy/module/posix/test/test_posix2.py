@@ -1585,7 +1585,7 @@ class AppTestPosix:
         # Pytest can capture stdout, which then returns None for this API
         assert encoding is None or type(encoding) is str
         if encoding and self.posix.__name__ != "nt":
-            assert encoding == "UTF-8"
+            assert encoding == "utf-8"
 
     if os.name == 'nt':
         def test__getfileinformation(self):

@@ -211,10 +211,7 @@ class TokenTests(unittest.TestCase):
               "use an 0o prefix for octal integers")
         check("1.2_", "invalid decimal literal")
         check("1e2_", "invalid decimal literal")
-        if sys.implementation.name == 'pypy':
-            check("1e+", "invalid syntax")
-        else:
-            check("1e+", "invalid decimal literal")
+        check("1e+", "invalid decimal literal")
 
     def test_end_of_numerical_literals(self):
         def check(test, error=False):

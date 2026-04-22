@@ -10,6 +10,7 @@ class Module(MixedModule):
         'localeconv': 'interp_locale.localeconv',
         'strcoll':    'interp_locale.strcoll',
         'strxfrm':    'interp_locale.strxfrm',
+        'getencoding': 'interp_locale.getencoding',
         'Error':      'interp_locale.W_Error',
     }
 

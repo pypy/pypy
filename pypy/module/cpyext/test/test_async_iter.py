@@ -61,10 +61,6 @@ class AppTestAsyncIter(AppTestCpythonExtensionBase):
         result = module.test_last_yield(g)
         assert result == 123 
 
-
-class AppTestCoroReturn(AppTestCpythonExtensionBase):
-    enable_leak_checking = True
-
     def test_coro_retval(self):
         """
         # Check that the final result of a coroutine is available in the StopIteration
