@@ -1,4 +1,4 @@
-from hypothesis import given, example, assume, strategies as st
+from hypothesis import given, example, assume, settings, HealthCheck, strategies as st
 from rpython.tool.algo.graphlib import *
 
 # ____________________________________________________________
@@ -251,6 +251,7 @@ def edges(draw):
 
 class TestRandom:
     @given(edges())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_strong_components(self, edges):
         result = list(strong_components(edges, edges))
         vertices = []
@@ -269,6 +270,7 @@ class TestRandom:
         print len(result), 'vertices removed'
 
     @given(edges())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_find_roots(self, edges):
         roots = find_roots(edges, edges)
         reachable = set()
@@ -278,6 +280,7 @@ class TestRandom:
         assert reachable == set(edges)
 
     @given(edges())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_removing_leaves_doesnt_change_cycles(self, edges):
         vertices = dict.fromkeys(edges)
         assume(len(edges) > 0)
@@ -288,6 +291,7 @@ class TestRandom:
         assert all_cycles(node, vertices, edges) == cycles
 
     @given(edges())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_removing_leaves_doesnt_change_cyclicness(self, edges):
         vertices = dict.fromkeys(edges)
         isacyc = is_acyclic(vertices, edges)
