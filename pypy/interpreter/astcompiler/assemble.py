@@ -866,7 +866,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # non-zero-range entries that span across this POP_BLOCK.
                     # This covers the except* no-match reraise path: each POP_BLOCK
                     # on that path emits one segment and advances range_start.
-                    if cur_handler is None:
+                    if cur_handler is None and not non_zero_range:
                         for idx in range(len(deferred_handler_stack)):
                             h, hl, ha, hs, rs, hi = deferred_handler_stack[idx]
                             if rs >= 0 and rs < instr_offset:

@@ -82,3 +82,58 @@ def test_dis_nested():
     print()
     print("=== nested try/except inside except handler ===")
     dis.dis(_nested_try_except_in_except)
+
+
+def _try_finally_with_in_body():
+    # try/finally where the finally body contains a 'with' statement.
+    # Regression: assemble.py used to emit a spurious exception table entry
+    # that extended the outer handler into the finally body, causing the
+    # inner with-block's handler to be bypassed at runtime.
+    log = []
+
+    class CM:
+        def __enter__(self):
+            log.append('enter')
+            return self
+        def __exit__(self, *a):
+            log.append(('exit', bool(a[0])))
+            return True  # suppress any exception from within the with block
+
+    try:
+        log.append('try')
+    finally:
+        with CM():
+            log.append('in with')
+
+    return log
+
+
+def test_try_finally_with_in_body():
+    log = _try_finally_with_in_body()
+    assert log == ['try', 'enter', 'in with', ('exit', False)], log
+
+
+def _try_finally_with_raises_in_body(exc_class):
+    # Variant: with-block inside finally raises; must be handled by the
+    # with-block's __exit__, not by the outer exception-path handler.
+    log = []
+
+    class CM:
+        def __enter__(self):
+            return self
+        def __exit__(self, tp, val, tb):
+            log.append(('exit', tp is exc_class))
+            return True  # suppress
+
+    try:
+        pass
+    finally:
+        with CM():
+            raise exc_class("inside with")
+
+    return log
+
+
+def test_try_finally_with_raises_in_body():
+    log = _try_finally_with_raises_in_body(ValueError)
+    assert log == [('exit', True)], log
