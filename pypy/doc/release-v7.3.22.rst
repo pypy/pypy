@@ -180,6 +180,7 @@ Bugfixes including missing compatibility with CPython 3.11
  - Raise `SyntaxError` for unterminated single-quoted strings ending in newline
  - Fix missing ``__reduce__`` on cpyext methods, exposed by ``_pickle`` (:issue:`5445`)
  - Fix signatures of some math functions (:issue:`5368`)
+ - Add ``__doc__`` and ``__text_signature__`` to more cpyext types (:issue:`5368`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
