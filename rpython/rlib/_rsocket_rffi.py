@@ -358,7 +358,7 @@ if _POSIX:
                                ('sll_protocol', rffi.INT),
                                ('sll_pkttype', rffi.INT),
                                ('sll_hatype', rffi.INT),
-                               ('sll_addr', rffi.CFixedArray(rffi.CHAR, 8)),
+                               ('sll_addr', rffi.CFixedArray(rffi.UCHAR, 8)),
                                ('sll_halen', rffi.INT)])
 
         CConfig.ifreq = platform.Struct('struct ifreq',

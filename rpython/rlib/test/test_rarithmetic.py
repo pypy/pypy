@@ -519,6 +519,8 @@ class TestStringToInt:
             py.test.raises(ParseStringError, string_to_int, '-'+s)
         py.test.raises(ParseStringError, string_to_int, '0x', 16)
         py.test.raises(ParseStringError, string_to_int, '-0x', 16)
+        py.test.raises(ParseStringError, string_to_int, '+ 42',
+                       disallow_whitespace_after_sign=True)
 
         exc = py.test.raises(ParseStringError, string_to_int, '')
         assert exc.value.msg == "invalid literal for int() with base 10"

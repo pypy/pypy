@@ -924,7 +924,7 @@ def _uint_mul_high(a, b):
 OVF_DIGITS = len(str(sys.maxint))
 
 def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False,
-                  max_str_digits=0):
+                  max_str_digits=0, disallow_whitespace_after_sign=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
     characters of 's'.  Raises ParseStringError in case of error.
@@ -959,7 +959,8 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False,
     p = NumberStringParser(s, s, base, 'int',
                            allow_underscores=allow_underscores,
                            no_implicit_octal=no_implicit_octal,
-                           max_str_digits=max_str_digits)
+                           max_str_digits=max_str_digits,
+                           disallow_whitespace_after_sign=disallow_whitespace_after_sign)
     base = p.base
     result = 0
     while True:

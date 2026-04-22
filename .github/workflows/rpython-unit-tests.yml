@@ -42,8 +42,8 @@ jobs:
         os: [ubuntu-24.04]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
       with:
         python-version: "pypy2.7-7.3.17"
     - run: |
@@ -69,8 +69,8 @@ jobs:
   #       os: [ubuntu-24.04]
 
   #   steps:
-  #   - uses: actions/checkout@v4
-  #   - uses: actions/setup-python@v5
+  #   - uses: actions/checkout@v6
+  #   - uses: actions/setup-python@v6
   #     with:
   #       python-version: "pypy2.7-7.3.17"
   #   - run: |
@@ -88,8 +88,8 @@ jobs:
   #       os: [ubuntu-24.04]
 
   #   steps:
-  #   - uses: actions/checkout@v4
-  #   - uses: actions/setup-python@v5
+  #   - uses: actions/checkout@v6
+  #   - uses: actions/setup-python@v6
   #     with:
   #       python-version: "pypy2.7-7.3.17"
   #   - run: |
@@ -107,8 +107,8 @@ jobs:
         os: [ubuntu-24.04]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
       with:
         python-version: "pypy2.7-7.3.17"
     - run: |
@@ -126,8 +126,8 @@ jobs:
         os: [ubuntu-22.04]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
       with:
         python-version: "pypy2.7-7.3.17"
     - run: |
@@ -145,8 +145,8 @@ jobs:
         os: [ubuntu-24.04]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
       with:
         python-version: "pypy2.7-7.3.17"
     - run: |
@@ -169,8 +169,8 @@ jobs:
         os: [ubuntu-24.04]
 
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
       with:
         python-version: "pypy2.7-7.3.17"
     - run: |

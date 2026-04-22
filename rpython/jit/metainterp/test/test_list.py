@@ -447,3 +447,16 @@ class TestLLtype(ListTests, LLJitMixin):
             return len(l[n] * 100)
         res = self.interp_operations(f, [0], listops=True, inline=True)
         self.check_operations_history(setarrayitem_gc=106)
+
+    def test_reverse_invalidation_bug(self):
+        @dont_look_inside
+        def makelist():
+            return [1, 2, 3]
+
+        def f(x):
+            l = makelist()
+            l.append(x)
+            l.reverse()
+            return l[-1]
+        res = self.interp_operations(f, [0], listops=True, inline=True)
+

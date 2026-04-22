@@ -3,7 +3,7 @@ Frequently Asked Questions
 
 .. contents::
 
-See also: `Frequently ask questions about RPython.`__
+See also: `Frequently asked questions about RPython.`__
 
 .. __: https://rpython.readthedocs.org/en/latest/faq.html
 
@@ -66,10 +66,10 @@ Extension module using unsupported features.  `See below.`_
 
 Alternatively, if either the module xyz is not available on PyPI or you
 don't want to use virtualenv, then download the source code of xyz,
-decompress the zip/tarball, and run the standard command: ``pypy
-setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
-you may need to run the command with `sudo` for a global installation.
-The other commands of ``setup.py`` are available too, like ``build``.
+decompress the zip/tarball, and run the standard command: ``pypy -mpip
+install .`` from inside the source directory.  (Note: ``pypy`` here instead
+of ``python``.)  As usual you may need to run the command with ``sudo`` for
+a global installation.
 
 .. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
@@ -82,7 +82,7 @@ Module xyz does not work in the sandboxed PyPy?
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
 Sandboxing in PyPy is a good proof of concept, and is without a doubt
-safe IMHO, however it is only a proof of concept.  It currently requires 
+safe IMHO, however it is only a proof of concept.  It currently requires
 some work from a motivated developer. However, until then it can only be used for "pure Python"
 example: programs that import mostly nothing (or only pure Python
 modules, recursively).
@@ -112,11 +112,11 @@ version; this is usually easily done by changing some line in ``setup.py``.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For more information about how we manage refcounting semamtics see 
-rawrefcount_
+For more information about how we manage refcounting semantics see
+rawrefcount_.
 
 .. _cffi: https://cffi.readthedocs.org/
-.. _rawrefcount: discussion/rawrefcount.html   
+.. _rawrefcount: discussion/rawrefcount.html
 
 
 On which platforms does PyPy run?
@@ -126,12 +126,12 @@ PyPy currently supports:
 
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32/64 bits, OpenBSD, FreeBSD),
-  
+
   * 64-bit **AArch**, also known as ARM64,
 
   * **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux
     (we no longer provide prebuilt binaries for these),
-  
+
   * big- and little-endian variants of **PPC64** running Linux,
 
   * **s390x** running Linux
@@ -144,6 +144,7 @@ To bootstrap from sources, PyPy can use either CPython 2.7 or
 PyPy 2.7.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 
+
 Which Python versions does PyPy implement?
 ------------------------------------------
 
@@ -153,10 +154,11 @@ releases. Typically, we will support one or two versions of Python3.
 
 .. _`release notes`: index-of-release-notes.html
 
+
 .. _threading:
 
 Does PyPy have a GIL?  Why?
--------------------------------------------------
+---------------------------
 
 Yes, PyPy has a GIL.  Removing the GIL is very hard.  On top of CPython,
 you have two problems:  (1) GC, in this case reference counting; (2) the
@@ -197,15 +199,15 @@ has two pieces:
 
   * a fork_ of the official numpy repository maintained by us and informally
     called ``numpypy``:  The main difference with the upstream numpy, is that
-    it is based on the micronumpy module written in RPython, instead of of
+    it is based on the micronumpy module written in RPython, instead of
     ``numpy.core.multiarray`` which is written in C.
 
 
 Should I install numpy or numpypy?
------------------------------------
+----------------------------------
 
 TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
-install numpy``. 
+install numpy``.
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply
@@ -226,6 +228,7 @@ complete, we have discontinued support for ``numpypy``.
 .. _`started to reimplement`: https://www.pypy.org/posts/2011/05/numpy-in-pypy-status-and-roadmap-8332894230779779992.html
 .. _fork: https://github.com/pypy/numpypy
 .. _HPy: https://hpyproject.org/
+
 
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
@@ -269,6 +272,7 @@ complicated programs need even more time to warm-up the JIT.
 
 .. _your tests are not a benchmark: https://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
+
 I wrote a 3-lines benchmark and it's not faster than CPython.  Why?
 -------------------------------------------------------------------
 
@@ -301,15 +305,13 @@ process, including checking that all the previous assumptions about the
 (now-dead) object are still true about the new object.
 
 
-
 Would type annotations help PyPy's performance?
 -----------------------------------------------
 
 Two examples of type annotations that are being proposed for improved
-performance are `Cython types`__ and `PEP 484 - Type Hints`__.
+performance are `Cython types`__ and :pep:`PEP 484 - Type Hints <484>`.
 
 .. __: https://docs.cython.org/src/reference/language_basics.html#declaring-data-types
-.. __: https://www.python.org/dev/peps/pep-0484/
 
 **Cython types** are, by construction, similar to C declarations.  For
 example, a local variable or an instance attribute can be declared
@@ -347,7 +349,6 @@ As PyPy works right now, it is able to derive far more useful
 information than can ever be given by PEP 484, and it works
 automatically.  As far as we know, this is true even if we would add
 other techniques to PyPy, like a fast first-pass JIT.
-
 
 
 .. _`prolog and javascript`:
@@ -526,6 +527,7 @@ use GitHub, which only uses Git. So at the end of 2023 we `moved to
 Git/GitHub`_ for our main development. The repos that do not have as much
 public interaction still remain at https://foss.heptapod.net/pypy/.
 
+
 What is needed for better Windows 64 support of PyPy?
 -----------------------------------------------------
 
@@ -540,12 +542,14 @@ unfinished.
 
 Help is welcome!
 
+
 How long will PyPy support Python2?
 -----------------------------------
 
 Since RPython is built on top of Python2 and that is extremely unlikely to
 change, the Python2 version of PyPy will be around "forever", i.e. as long as
 PyPy itself is around.
+
 
 .. _`mercurial and bitbucket`: https://www.pypy.org/posts/2010/12/pypy-migrates-to-mercurial-3308736161543832134.html
 .. _`git notes`: https://git-scm.com/docs/git-notes

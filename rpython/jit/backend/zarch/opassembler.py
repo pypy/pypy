@@ -386,7 +386,7 @@ class CallOpAssembler(object):
 
         # save away r2, r3, r4, r5, r11 into the jitframe
         should_be_saved = [
-            reg for reg in self._regalloc.rm.reg_bindings.itervalues()
+            reg for reg in self._regalloc.rm.reg_bindings.values()
                 if reg in self._COND_CALL_SAVE_REGS]
         self._push_core_regs_to_jitframe(self.mc, should_be_saved)
 

@@ -1,17 +1,10 @@
 ==============================================================
-PyPy v7.3.21: release of python 2.7, 3.11, released 2025-xx-xx
+PyPy v7.3.21: release of python 2.7, 3.11, released 2026-03-13
 ==============================================================
 
 
 ..
-  updated to a601e091cc58457740528ac4e19a78ac8c498243
-
-.. note::
-       This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-      Need to add release date
+  updated to 996ebee08886ee13f
 
 The PyPy team is proud to release version 7.3.21 of PyPy after the previous
 release on July 4, 2025. This is a bug-fix release that also updates to Python
@@ -102,11 +95,11 @@ Bugfixes
   the interpreter. This could happen for instances that stored unboxed integer
   values in their attributes and used with different code paths in the
   ``__init__``-method that added the attributes in different orders or that
-  deleted some attributes (:issue: `5377`).
+  deleted some attributes (:issue:`5377`).
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- Speed up ``int.bit_length`` (:issue: `5314`)
+- Speed up ``int.bit_length`` (:issue:`5314`)
 - Refactor the register allocator in the Jit backends to store longevity
   without using a dict. This make the JIT backend quite a bit faster (roughly
   50%) by using a lot fewer dictionary lookups.
@@ -114,7 +107,7 @@ Speedups and enhancements
 - Remove impossible code in ``_bitcount64``
 - Use one less instruction for regex character set membership testing
 - Make ``map`` on pypy2 faster
-- Add ``or``/``xor`` constant reassociation and `and/or`` combination jit
+- Add ``or``/``xor`` constant reassociation and ``and/or`` combination jit
   peephole rewrite rules
 - ``storesink`` and ``jtransform`` need to deal with invalid ``cast_pointer`` on
   constants, which happens when optimizing unreachable code.
@@ -129,22 +122,22 @@ Python 3.11
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Percolate unicode locale numeric separators int formatting (:issue: `5311`)
-- Add newline to end of generated headers (:issue: `5312`)
-- Allow ``'%lli'`` formatting code in ``PyUnicode_FromFormat*`` (:issue: `5313`)
+- Percolate unicode locale numeric separators int formatting (:issue:`5311`)
+- Add newline to end of generated headers (:issue:`5312`)
+- Allow ``'%lli'`` formatting code in ``PyUnicode_FromFormat*`` (:issue:`5313`)
 - Set ``__new__`` to disallow instantiation when
   ``Py_TPFLAGS_DISALLOW_INSTANTIATION`` is set
-- Fix ``ht_qualname`` on ``TypeFromSpec`` (:issue: `5319`)
+- Fix ``ht_qualname`` on ``TypeFromSpec`` (:issue:`5319`)
 - Add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
-- Allow str subclasses as argument of ``bytes/bytearray.fromhex`` (:issue: `5327`)
-- Fix ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue: `5328`)
-- Change ``self.write_buffer`` to accept bytes in ``_overlapped`` (:issue: `5335`)
-- Add license header to ``_lzma.py`` and ``_lzma_build.py`` (:issue: `5337`)
-- Require ``vsnprintf`` in ``pyerrors.h`` (:issue: `5343`) following
+- Allow str subclasses as argument of ``bytes/bytearray.fromhex`` (:issue:`5327`)
+- Fix for ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue:`5328`)
+- Change ``self.write_buffer`` to accept bytes in ``_overlapped`` (:issue:`5335`)
+- Add license header to ``_lzma.py`` and ``_lzma_build.py`` (:issue:`5337`)
+- Require ``vsnprintf`` in ``pyerrors.h`` (:issue:`5343`) following
   (:issue:`python/cpython#20899`)
-- Add ``Py_RETURN_RICHCOMPARE`` macro (:issue: `5350`)
+- Add ``Py_RETURN_RICHCOMPARE`` macro (:issue:`5350`)
 - Make ``str`` methods ``split``, ``rsplit`` use the current unicode db version
-  (:issue: `5370`)
+  (:issue:`5370`)
 - Add ``_varname_from_oparg`` method to code objects
 - Set ``save_err=rffi.RFFI_SAVE_ERRNO`` for ``c_memfd_create()``.
 
@@ -152,4 +145,4 @@ Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Restore the JIT inlining ``TextIOWrapper.write``, disabled by mistake in a
-  refactor (:issue: `5375`)
+  refactor (:issue:`5375`)
