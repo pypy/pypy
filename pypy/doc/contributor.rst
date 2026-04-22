@@ -109,6 +109,7 @@ Contributors
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
+  Stan Ulbrych
   Tyler Wade
   Paul deGrandis
   Tadeu Zagallo
@@ -220,6 +221,7 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
+  Charalampos Stratakis
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -265,6 +267,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Jeongseop Lim
   Julian Waters
   Sam James
   Christian Clauss
@@ -319,6 +322,7 @@ Contributors
   Joshua Gilbert
   Andrew Thompson
   Jeongseop Lim
+  Victorien
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
