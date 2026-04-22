@@ -1030,8 +1030,8 @@ class TestGateway:
         # _is_type_method=True and _generate_text_signature uses CPython's
         # $first_arg convention instead of $module + first_arg.
         # This means inspect.py's standard single-strip correctly handles
-        # both the unbound case (signature(object.__dir__) → (obj, /)) and
-        # the bound case (signature(None.__dir__) → ()).
+        # both the unbound case (signature(object.__dir__) -> (obj, /)) and
+        # the bound case (signature(None.__dir__) -> ()).
         from pypy.interpreter.typedef import TypeDef
         space = self.space
         def descr_method(space, w_obj):

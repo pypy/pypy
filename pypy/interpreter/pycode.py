@@ -545,24 +545,24 @@ class PyCode(eval.Code):
         # values, each representing the line number of a range of bytecodes.
         # Each tuple will consist of three values:
         #
-        #     • start – The offset (inclusive) of the start of the bytecode
+        #     - start - The offset (inclusive) of the start of the bytecode
         #       range
-        #     • end – The offset (exclusive) of the end of the bytecode range
-        #     • line – The line number, or None if the bytecodes in the given
+        #     - end - The offset (exclusive) of the end of the bytecode range
+        #     - line - The line number, or None if the bytecodes in the given
         #       range do not have a line number.
         #
         #
         # The sequence generated will have the following properties:
         #
-        #     • The first range in the sequence with have a start of 0
-        #     • The (start, end) ranges will be non-decreasing and consecutive.
+        #     - The first range in the sequence with have a start of 0
+        #     - The (start, end) ranges will be non-decreasing and consecutive.
         #       That is, for any pair of tuples the start of the second will
         #       equal to the end of the first.
-        #     • No range will be backwards, that is end >= start for all
+        #     - No range will be backwards, that is end >= start for all
         #       triples.
-        #     • The final range in the sequence with have end equal to the size
+        #     - The final range in the sequence with have end equal to the size
         #       of the bytecode.
-        #     • line will either be a positive integer, or None
+        #     - line will either be a positive integer, or None
         return W_LineIterator(self.space, self)
 
     def fget_co_lnotab(self, space):
