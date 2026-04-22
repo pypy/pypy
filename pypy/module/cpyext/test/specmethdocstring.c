@@ -2453,7 +2453,7 @@ static PyObject *__pyx_pf_17specmethdocstring_1C_14__iter__(CYTHON_UNUSED struct
 
 /* Python wrapper */
 static PyObject *__pyx_pw_17specmethdocstring_1C_17__next__(PyObject *__pyx_v_self); /*proto*/
-PyDoc_STRVAR(__pyx_doc_17specmethdocstring_1C_16__next__, "usable docstring");
+PyDoc_STRVAR(__pyx_doc_17specmethdocstring_1C_16__next__, "__next__($self, /)\n--\n\nusable docstring");
 // #if CYTHON_COMPILING_IN_CPYTHON
 struct wrapperbase __pyx_wrapperbase_17specmethdocstring_1C_16__next__;
 // #endif

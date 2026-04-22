@@ -121,13 +121,13 @@ foo_unset(fooobject *self)
 
 
 static PyMethodDef foo_methods[] = {
-    {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  NULL},
+    {"copy",      (PyCFunction)foo_copy,      METH_NOARGS,  "copy($self, /)\n--\n\nCopy the foo."},
     {"create",    (PyCFunction)foo_create,    METH_NOARGS|METH_STATIC,  NULL},
     {"classmeth", (PyCFunction)foo_classmeth, METH_NOARGS|METH_CLASS,  NULL},
     {"fake_classmeth", (PyCFunction)foo_classmeth, METH_NOARGS,  NULL},
     {"unset_string_member", (PyCFunction)foo_unset, METH_NOARGS, NULL},
 #if PY_VERSION_HEX >= 0x03090000
-    {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, "See PEP 585"},
+    {"__class_getitem__", (PyCFunction)Py_GenericAlias, METH_O|METH_CLASS, "__class_getitem__($type, x, /)\n--\n\nSee PEP 585"},
 #endif
     {NULL, NULL}                 /* sentinel */
 };

@@ -47,6 +47,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert repr(obj2) == "<Foo>"
         assert repr(module.fooType.__call__) == "<slot wrapper '__call__' of 'foo.foo' objects>"
         assert obj2(foo=1, bar=2) == dict(foo=1, bar=2)
+        assert module.fooType.__repr__.__text_signature__ == '($self, /)'
 
         print(obj.foo)
         assert obj.foo == 42
@@ -177,6 +178,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             def _m(self): pass
         MethodType = type(_C()._m)
         assert not isinstance(classmeth, MethodType)
+        assert classmeth.__doc__ is None
+        assert classmeth.__text_signature__ is None
 
     def test_class_getitem(self):
         module = self.import_module(name='foo')
@@ -185,6 +188,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert f.__qualname__ == "foo.__class_getitem__"
         out = f(42)
         assert str(out) == 'foo.foo[42]'
+        assert f.__doc__ == "See PEP 585"
+        assert f.__text_signature__ == '($type, x, /)'
 
     def test_methoddescr(self):
         module = self.import_module(name='foo')
@@ -197,6 +202,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert repr(descr) in ("<method 'copy' of 'foo.foo' objects>",
             "<method 'copy' of 'foo' objects>")
         raises(TypeError, descr, None)
+        assert descr.__doc__ == "Copy the foo."
+        assert descr.__text_signature__ == '($self, /)'
 
     def test_cython_fake_classmethod(self):
         module = self.import_module(name='foo')
