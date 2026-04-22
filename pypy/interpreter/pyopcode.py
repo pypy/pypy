@@ -412,12 +412,6 @@ class __extend__(pyframe.PyFrame):
                 self.ROT_TWO(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_FINALLY.index:
-                self.SETUP_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_CLEANUP.index:
-                self.SETUP_CLEANUP(oparg, next_instr)
-            elif opcode == opcodedesc.POP_BLOCK.index:
-                self.POP_BLOCK(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
             elif opcode == opcodedesc.SET_UPDATE.index:
@@ -520,15 +514,6 @@ class __extend__(pyframe.PyFrame):
         # annotation-time check: if it fails, it means that the decoding
         # of oparg failed to produce an integer which is annotated as non-neg
         check_nonneg(oparg)
-
-    def SETUP_FINALLY(self, oparg, next_instr):
-        pass  # phase-7 marker; consumed by assembler linear scan, no runtime effect
-
-    def SETUP_CLEANUP(self, oparg, next_instr):
-        pass  # phase-7 marker; consumed by assembler linear scan, no runtime effect
-
-    def POP_BLOCK(self, oparg, next_instr):
-        pass  # phase-7 marker; consumed by assembler linear scan, no runtime effect
 
     @always_inline
     def LOAD_FAST(self, varindex, next_instr):

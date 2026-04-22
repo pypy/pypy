@@ -29,10 +29,10 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 4 | JIT: remove `lastblock` from `_virtualizable_`, update trace tests | Low | **Done** |
 | 5 | `fset_f_lineno`: replace `markblocks`/`compatible_block_stack` with table-based validation | Medium | **Done** |
 | 6 | Remove dead code (`FinallyBlock`, `ExceptBlock`, `SETUP_FINALLY`, etc.) | Low | **Done** |
-| 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **In progress** |
+| 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **Done** |
 | 8 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
-| 9 | Flow-graph-based exception table (handle duplicated exit blocks) | Medium | Not started |
-| 10 | Remove `SETUP_CLEANUP`/`SETUP_FINALLY`/`SETUP_WITH`/`POP_BLOCK` opcodes from bytecode | Medium | Not started |
+| 9 | Make `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` pseudo-instructions (size 0, not encoded) | Medium | **Done** |
+| 10 | Remove `SETUP_CLEANUP`/`SETUP_FINALLY`/`POP_BLOCK` opcodes from bytecode and interpreter dispatch | Medium | **Done** |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
