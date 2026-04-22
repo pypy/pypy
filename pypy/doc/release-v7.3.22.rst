@@ -4,7 +4,7 @@ PyPy v7.3.22: release of python 2.7, 3.11, released 2025-xx-xx
 
 
 ..
-  updated to 4ab22a7d80a750219088755147f5769e02430ddb
+  updated to 5004b7cdb0e8f5df956db691cc92157337cf30a0
 
 .. note::
        This is a pre-release announcement. When the release actually happens, it
@@ -120,12 +120,14 @@ Bugfixes
    (:issue:`3927`)
  - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
  - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
+ - Fix duplicate 'const' in C code generation for nested const pointer types
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
  - Improve the performance of ``rbigint`` left-shifts (:issue:`5404`)
  - Fix ~10ms GIL wakeup latency on Windows (:issue:`5391`)
+ - Improve complex powers with small integers
 
 Python 2.7
 ----------
@@ -175,6 +177,9 @@ Bugfixes including missing compatibility with CPython 3.11
  - Fix hpy debug mode failures
  - signal: handle failed wakeup-fd so it can be polled
  - Add more ``check_valid()`` calls to ``mmap``
+ - Raise `SyntaxError` for unterminated single-quoted strings ending in newline
+ - Fix missing ``__reduce__`` on cpyext methods, exposed by ``_pickle`` (:issue:`5445`)
+ - Fix signatures of some math functions (:issue:`5368`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
