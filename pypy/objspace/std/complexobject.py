@@ -7,7 +7,7 @@ from rpython.rlib.rfloat import (
     DTSF_STR_PRECISION, formatd, string_to_float)
 from rpython.rlib.special_value import NAN
 from rpython.rlib.rstring import ParseStringError
-from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib import objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -243,10 +243,17 @@ class W_ComplexObject(W_Root):
         return W_ComplexObject(self.realval - other.realval,
                                self.imagval - other.imagval)
 
+    @objectmodel.always_inline
     def mul(self, other):
-        r = self.realval * other.realval - self.imagval * other.imagval
-        i = self.realval * other.imagval + self.imagval * other.realval
+        r, i = self.mul_components(self.realval, self.imagval, other.realval, other.imagval)
         return W_ComplexObject(r, i)
+
+    @staticmethod
+    @objectmodel.always_inline
+    def mul_components(self_real, self_imag, other_real, other_imag):
+        r = self_real * other_real - self_imag * other_imag
+        i = self_real * other_imag + self_imag * other_real
+        return r, i
 
     def div(self, other):
         rr, ir = rcomplex.c_div(self.as_tuple(), other.as_tuple())
@@ -260,20 +267,22 @@ class W_ComplexObject(W_Root):
         if n >= 0:
             if jit.isconstant(n) and n == 2:
                 return self.mul(self)
-            return self.pow_positive_int(n)
+            return self.pow_positive_int(self.realval, self.imagval, n)
         else:
-            return w_one.div(self.pow_positive_int(-n))
+            return w_one.div(self.pow_positive_int(self.realval, self.imagval, -n))
 
-    def pow_positive_int(self, n):
+    @staticmethod
+    def pow_positive_int(self_real, self_imag, n):
         mask = 1
-        w_result = w_one
+        w_result_real, w_result_imag = 1, 0 # 1 + 0j
         while mask > 0 and n >= mask:
             if n & mask:
-                w_result = w_result.mul(self)
+                w_result_real, w_result_imag = W_ComplexObject.mul_components(
+                        w_result_real, w_result_imag, self_real, self_imag)
             mask <<= 1
-            self = self.mul(self)
+            self_real, self_imag = W_ComplexObject.mul_components(self_real, self_imag, self_real, self_imag)
 
-        return w_result
+        return W_ComplexObject(w_result_real, w_result_imag)
 
     def is_w(self, space, w_other):
         from rpython.rlib.longlong2float import float2longlong
