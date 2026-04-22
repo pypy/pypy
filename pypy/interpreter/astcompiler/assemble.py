@@ -1247,7 +1247,7 @@ def _remove_redundant_nops(block):
                 # skip pseudo instructions to find the next real instruction
                 next_lineno = _first_real_lineno(instructions[source:])
                 if next_lineno == -1:
-                    # no real instruction found — fall back to the raw next
+                    # no real instruction found - fall back to the raw next
                     # instruction's lineno (old behaviour for non-pseudo cases)
                     next_lineno = instructions[source].position_info[0]
                     if is_pseudo_opcode(instructions[source].opcode):

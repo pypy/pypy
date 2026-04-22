@@ -30,9 +30,12 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 5 | `fset_f_lineno`: replace `markblocks`/`compatible_block_stack` with table-based validation | Medium | **Done** |
 | 6 | Remove dead code (`FinallyBlock`, `ExceptBlock`, `SETUP_FINALLY`, etc.) | Low | **Done** |
 | 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **Done** |
-| 8 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
-| 9 | Make `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` pseudo-instructions (size 0, not encoded) | Medium | **Done** |
-| 10 | Remove `SETUP_CLEANUP`/`SETUP_FINALLY`/`POP_BLOCK` opcodes from bytecode and interpreter dispatch | Medium | **Done** |
+| 8 | Make `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` pseudo-instructions (size 0, not encoded) | Medium | **Done** |
+| 9 | Remove `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` from dispatch; replace with private constants | Medium | **Done** |
+| 10 | Fix `with`-handler exception table coverage gap (handler blocks fall outside enclosing scope ranges) | Medium | Not started |
+| 11 | Make `SETUP_WITH`/`SETUP_ASYNC_WITH` pseudo-instructions; emit `__enter__` as plain call from compiler | Medium | Not started |
+| 12 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
+| 13 | Flow-graph-based exception table to fix `duplicate_exits_without_lineno` gap | Medium | Not started |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
@@ -158,41 +161,38 @@ L_end:
 
 ## Remaining work
 
-### Phase 7  -- Compiler: single linear scan for exception table (IN PROGRESS)
+### Phase 10  -- Fix `with`-handler exception table coverage gap
 
-**Background:** PyPy's compiler builds exception table entries in two separate ways:
-`emit_exception_table_entry` calls scattered through `codegen.py` (for try/except/finally/cleanup),
-and the range-based `_label_exception_targets` pass in `assemble.py` (for with/async-with).
-This split makes it easy to leave gaps (the `cleanup_end` bug was one such gap).
+**Background:** In the Phase 7 linear scan, `with`-handler blocks (containing
+`PUSH_EXC_INFO` / `WITH_EXCEPT_START` / ...) are placed in the flat instruction stream
+after the `_POP_BLOCK` that closes the enclosing `try` or `with` scope.  By that point the
+linear scan has already popped the enclosing handler, so the handler block itself has no
+exception table entry.  When `WITH_EXCEPT_START` raises (e.g. because `__exit__` raises),
+the exception escapes the enclosing `try/except` or outer `with` instead of being caught
+by it.
 
-CPython uses a single uniform approach: after all code is emitted, `label_exception_targets`
-does one linear pass over all instructions maintaining an except stack. Each instruction
-inherits the current TOS as its handler. Gaps are structurally impossible.
+**Symptoms:** `test_shutil.TestCopyFile.test_w_dest_close_fails` / `test_w_source_close_fails` --
+`copyfileobj` raises AttributeError (because `Faux.__enter__` returns None), the inner
+`with`'s `WITH_EXCEPT_START` calls `destfile.__exit__` which raises OSError, but OSError
+escapes the outer `with open(src)` instead of being suppressed by `srcfile.__exit__`.
 
-**Goal:** Replace both mechanisms with a single linear scan in `assemble.py`:
-1. Add `SETUP_CLEANUP` as a distinct opcode (separate from `SETUP_FINALLY`). `SETUP_CLEANUP`
-   is emitted by `_visit_try_except` for except-as cleanup blocks and sets `lasti=True`;
-   `SETUP_FINALLY` continues to be used for try/finally and sets `lasti=False`.
-   `SETUP_WITH`/`SETUP_ASYNC_WITH` remain unchanged (already set `lasti=True`).
-2. In `assemble.py`, replace `emit_exception_table_entry` + `_label_exception_targets` with
-   a single pass: walk all instructions linearly, push handler on `SETUP_FINALLY`/
-   `SETUP_CLEANUP`/`SETUP_WITH`/`SETUP_ASYNC_WITH`, pop on `POP_BLOCK`, assign current TOS
-   to each instruction. Build table entries from runs of consecutive same-handler instructions.
-3. Remove all `emit_exception_table_entry` calls from `codegen.py`; remove
-   `_nearest_with_handler` (no longer needed); remove `exception_table_entries` list.
+**Fix:** Add `_nearest_enclosing_handler()` in `codegen.py` and call it just before
+`use_next_block(with_handler)` in `handle_withitem` (and the async-with equivalent).
+Emit an `emit_exception_table_entry(with_handler, enclosing_handler, ...)` to cover the
+with-handler block with the next enclosing scope's handler.
 
-**Prerequisite:** Phase 6 (dead code removal) -- `SETUP_FINALLY` and `POP_BLOCK` must be
-purely dummy instructions before this refactor makes sense.
+### Phase 11  -- Make `SETUP_WITH`/`SETUP_ASYNC_WITH` pseudo-instructions
 
-**Remaining gap after Phase 7:** `duplicate_exits_without_lineno` appends copied blocks
-(`newtarget`) after all POP_BLOCKs in the linear layout.  The Phase 7 scan has already
-popped the enclosing handler by the time it reaches those copies, so they receive no
-exception table coverage.  Phase 9 closes this gap.
+**Goal:** Replace `SETUP_WITH` and `SETUP_ASYNC_WITH` with private negative constants
+(same pattern as `_SETUP_FINALLY`/`_SETUP_CLEANUP`/`_POP_BLOCK` in Phase 9).  The
+compiler emits `cm.__enter__()` as a plain `LOAD_ATTR` + `CALL` sequence; the pseudo
+`_SETUP_WITH` marker is kept in `block.instructions` solely for the Phase 7 linear scan.
+Remove the interpreter dispatch for these opcodes and bump the magic number.
 
-### Phase 8  -- Split `last_instr` into display and execution pointers (requires benchmarking)
+### Phase 12  -- Split `last_instr` into display and execution pointers (requires benchmarking)
 
 **Background:** CPython 3.11 maintains two separate pointers:
-- `next_instr` (C local): execution pointer, used by `exception_unwind` for table lookup  -- never saved in the frame
+- `next_instr` (C local): execution pointer, used by `exception_unwind` for table lookup -- never saved in the frame
 - `frame->prev_instr`: display pointer for `f_lasti`/`f_lineno`, overwritten by `RERAISE` to restore the original raise site
 
 **Current PyPy state:** `last_instr` conflates both roles. The workaround is `_reraise_saved_lasti` (a second frame field).
@@ -201,7 +201,7 @@ exception table coverage.  Phase 9 closes this gap.
 
 **Risk:** Must benchmark before landing. Do not land without benchmark data.
 
-### Phase 9  -- Flow-graph-based exception table (adopt CPython model)
+### Phase 13  -- Flow-graph-based exception table (adopt CPython model)
 
 **Background:** CPython 3.11's compiler assigns each basic block an `except_stack` depth
 at graph-construction time.  Duplicated blocks inherit this depth from the original, so the
@@ -228,36 +228,5 @@ which is inside the outer `try/except` scope.  The flow-graph traversal follows 
 and assigns the outer handler to `newtarget`.  RERAISE in `newtarget` then dispatches
 correctly to the outer except block -- the same behaviour as if `newtarget` had never been
 copied out of range.  The per-case patches in `duplicate_exits_without_lineno` (e.g. the
-RERAISE-only block guard) can be removed once Phase 9 is in place.
-
-**Prerequisite:** Phase 8 -- the per-instruction SETUP/POP_BLOCK markers that Phase 8
-introduces are what makes the per-block handler assignment unambiguous.
-
-### Phase 10  -- Remove SETUP_CLEANUP/SETUP_FINALLY/SETUP_WITH/POP_BLOCK opcodes
-
-**Goal:** Eliminate the synthetic scope-opener/closer instructions from emitted bytecode
-entirely, leaving only the exception table to encode handler coverage.  After Phase 9 the
-table is built from the block graph, so these opcodes are no longer needed as markers.
-
-**Changes:**
-1. `codegen.py`: stop emitting `SETUP_CLEANUP`, `SETUP_FINALLY`, `SETUP_WITH`,
-   `SETUP_ASYNC_WITH`, and `POP_BLOCK`.  The compiler already knows which block covers
-   which handler; that information lives in the block graph used by Phase 9.
-2. `pyopcode.py`: remove the interpreter implementations of those opcodes (now dead).
-   Remove `emit_jump` special-casing for `SETUP_*` (forced-depth seeding) if it was
-   only needed to size exception table entries.
-3. `assemble.py`: `propagate_positions` no longer has UNKNOWN-position synthetic
-   instructions at block heads, so the backward-fill heuristic (`cant_add_instructions`
-   guard) and the SETUP_* jump-propagation skip can both be removed.  The function
-   collapses to CPython's simple forward pass plus the two fill-forward cases (fall-through
-   and jump-target with a single predecessor).
-4. `opcode.py` / `pypy/interpreter/pyopcode.py`: remove opcode definitions; bump magic.
-
-**Effect on `propagate_positions`:** With no SETUP_* instructions, CPython's exact
-algorithm applies without workarounds.  The `block.next_block.instructions[0]` fill
-(currently `block.instructions[0]` for historical reasons) can be corrected to match
-CPython at the same time.
-
-**Prerequisite:** Phase 9 -- exception table must be fully graph-derived before the
-in-bytecode markers can be dropped.
+RERAISE-only block guard) can be removed once Phase 13 is in place.
 
