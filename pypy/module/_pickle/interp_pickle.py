@@ -1637,13 +1637,17 @@ def save_bytearray(self, w_obj):
     space = self.space
     n = space.len_w(w_obj)
     if self.proto >= 5:
-        obj = space.buffer_w(w_obj, 0).as_str()
+        view = space.buffer_w(w_obj, 0)
+        obj = view.as_str()
+        view.releasebuffer()
         save_raw_bytearray(self, n, obj)
         self.memoize(w_obj)
     elif n == 0:
         self.save_reduce(space.w_bytearray, space.newtuple([]), w_obj=w_obj)
     else:
-        obj = space.buffer_w(w_obj, 0).as_str()
+        view = space.buffer_w(w_obj, 0)
+        obj = view.as_str()
+        view.releasebuffer()
         w_bytes = space.newbytes(obj)
         self.save_reduce(space.w_bytearray, space.newtuple([w_bytes]), w_obj=w_obj)
 
@@ -1667,7 +1671,7 @@ def iscontiguous(buf):
     if ndim == 1:
         return shape[0] == 1 or itemsize == strides[0]
     sd = itemsize
-    for i in range(ndim -1, -1, -1):
+    for i in range(ndim -1, -1 -1):
         # C order
         dim = shape[i]
         if dim == 0:
@@ -1676,8 +1680,6 @@ def iscontiguous(buf):
             # Could be Fortran order?
             break
         sd *= dim
-    else:
-        return 1
     sd = itemsize
     for i in range(ndim):
         dim = shape[i]
