@@ -628,6 +628,12 @@ class TestIncompleteInput(object):
             msg = self.check_error("a = 'a\\ " + eol)
             assert "unterminated string literal" in msg
 
+    def test_unterminated_single_quote_no_newline_is_invalid(self):
+        msg = self.check_error("a = 'a\\ ")
+        assert "unterminated string literal" in msg
+        msg = self.check_error("a = 'sta")
+        assert "unterminated string literal" in msg
+
     def test_invalid_with_explicit_newline(self):
         # An expression that is genuinely invalid (not just incomplete) should
         # raise "invalid syntax" when it ends with an explicit newline.

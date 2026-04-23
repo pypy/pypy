@@ -221,7 +221,7 @@ class PegParser(object):
             if compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
                 single_quote_finalized = (
                     pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
-                    (textsrc.endswith('\n') or textsrc.endswith('\r')) and
+                    not textsrc.endswith('\\') and
                     not textsrc.endswith('\\\n') and
                     not textsrc.endswith('\\\r') and
                     not textsrc.endswith('\\\r\n'))
