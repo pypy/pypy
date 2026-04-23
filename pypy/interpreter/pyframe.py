@@ -22,8 +22,8 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_WITH
-SETUP_ASYNC_WITH BEFORE_ASYNC_WITH YIELD_VALUE
+for op in '''DUP_TOP POP_TOP BEFORE_WITH
+BEFORE_ASYNC_WITH YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
@@ -871,7 +871,7 @@ _MS_EMPTY         = 0
 _MS_ITERATOR      = 1   # iterator pushed by GET_ITER/GET_AITER
 _MS_EXCEPT        = 2   # prev_exc pushed by PUSH_EXC_INFO
 _MS_OBJECT        = 3   # ordinary value
-_MS_WITH          = 4   # __exit__ callable pushed by SETUP_WITH (PyPy-specific)
+_MS_WITH          = 4   # __exit__ callable pushed by BEFORE_WITH (PyPy-specific)
 _MS_LASTI         = 5   # raise-site offset pushed on lasti=True handler dispatch
 _MS_WILL_OVERFLOW = 1 << (20 * _MS_BITS)
 
@@ -999,16 +999,12 @@ def mark_stacks(code):
                 new_stack = stack >> _MS_BITS
                 if _ms_set(stacks, i + 1, new_stack):
                     changed = True
-            elif opcode == SETUP_WITH or opcode == BEFORE_ASYNC_WITH:
-                # SETUP_WITH: __enter__ result was TOS Object; replace with WITH kind.
-                # Then push Object for the __enter__ return value above it.
+            elif opcode == BEFORE_WITH or opcode == BEFORE_ASYNC_WITH:
+                # BEFORE_WITH/BEFORE_ASYNC_WITH: pops manager, pushes __exit__ (WITH kind)
+                # then __enter__ result (Object kind).
                 below = stack >> _MS_BITS
                 new_stack = _ms_push(_ms_push(below, _MS_WITH), _MS_OBJECT)
                 if _ms_set(stacks, i + 1, new_stack):
-                    changed = True
-            elif opcode == SETUP_ASYNC_WITH:
-                # SETUP_ASYNC_WITH has delta 0 in assemble.py; no stack change here.
-                if _ms_set(stacks, i + 1, stack):
                     changed = True
             elif opcode == EXTENDED_ARG:
                 # Prefix byte; no stack effect.  The real opcode that follows

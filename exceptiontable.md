@@ -32,10 +32,10 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 7 | Compiler: replace scattered `emit_exception_table_entry` calls with single linear scan | Medium | **Done** |
 | 8 | Make `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` pseudo-instructions (size 0, not encoded) | Medium | **Done** |
 | 9 | Remove `SETUP_FINALLY`/`SETUP_CLEANUP`/`POP_BLOCK` from dispatch; replace with private constants | Medium | **Done** |
-| 10 | Flow-graph-based exception table to fix `duplicate_exits_without_lineno` gap | High | In progress |
-| 10a | Make `dis.dis` show exception table entries (`show_exception_entries` kwarg) | Medium | Not started |
-| 11 | Verify/clean up remaining exception table coverage gaps after Phase 10 | Low | Not started |
-| 12 | Make `SETUP_WITH`/`SETUP_ASYNC_WITH` pseudo-instructions; emit `__enter__` as plain call from compiler | Medium | Not started |
+| 10 | Flow-graph-based exception table to fix `duplicate_exits_without_lineno` gap | High | **Done** |
+| 10a | Make `dis.dis` show exception table entries (`show_exception_entries` kwarg) | Medium | Dropped — reverted to match CPython 3.11 dis.py exactly |
+| 11 | Verify/clean up remaining exception table coverage gaps after Phase 10 | Low | **Done** |
+| 12 | Make `SETUP_WITH`/`SETUP_ASYNC_WITH` pseudo-instructions; emit `__enter__` as plain call from compiler | Medium | **Done** |
 | 13 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.

@@ -23,8 +23,9 @@ is_absolute_jump = misc.dict_to_switch(
 # CPython's compile.c #defines (negative, so they can never collide with
 # any real opcode number).
 _SETUP_FINALLY = -1   # open exception scope, lasti=False
-_SETUP_CLEANUP = -2   # open exception scope, lasti=True
-_POP_BLOCK     = -4   # close exception scope  (-3 is CPython's SETUP_WITH)
+_SETUP_CLEANUP = -2   # open exception scope, lasti=True (try/finally/except-as)
+_SETUP_WITH    = -3   # open exception scope, lasti=True, depth_sub=1 (with-blocks)
+_POP_BLOCK     = -4   # close exception scope
 
 # Pseudo-instructions: present in block.instructions so _build_exceptiontable
 # and _stacksize can read them, but they contribute zero bytes to the encoded
@@ -32,6 +33,7 @@ _POP_BLOCK     = -4   # close exception scope  (-3 is CPython's SETUP_WITH)
 is_pseudo_opcode = misc.dict_to_switch(
     {_SETUP_FINALLY: True,
      _SETUP_CLEANUP: True,
+     _SETUP_WITH:    True,
      _POP_BLOCK:     True},
     default=False)
 
@@ -432,8 +434,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         was_dead = self.is_dead_code()
         depth_before = self._stack_depth
         self.emit_op(op).jump_to(block_to)
-        if not was_dead and (op == ops.SETUP_WITH or op == ops.SETUP_ASYNC_WITH
-                             or op == _SETUP_FINALLY or op == _SETUP_CLEANUP):
+        if not was_dead and (op == _SETUP_WITH or op == _SETUP_FINALLY or op == _SETUP_CLEANUP):
             jump_effect = _opcode_stack_effect_jump(op)
             jump_depth = depth_before + jump_effect
             if jump_depth > block_to.forced_initial_depth:
@@ -713,14 +714,12 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 prev_position = instr.update_position_if_not_set(prev_position)
                 if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
-                    if instr.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH,
-                                        _SETUP_FINALLY, _SETUP_CLEANUP):
+                    if instr.opcode in (_SETUP_WITH, _SETUP_FINALLY, _SETUP_CLEANUP):
                         continue # don't propagate line info into exception handler blocks
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
             if block.next_block and block.next_block.marked == 1 and block.instructions:
                 first_op = block.instructions[0].opcode
-                if first_op not in (_SETUP_CLEANUP, ops.SETUP_WITH,
-                                    ops.SETUP_ASYNC_WITH, _SETUP_FINALLY):
+                if first_op not in (_SETUP_CLEANUP, _SETUP_WITH, _SETUP_FINALLY):
                     block.instructions[0].update_position_if_not_set(prev_position)
 
     def optimize_unreachable_code(self, blocks):
@@ -801,11 +800,10 @@ class PythonCodeMaker(ast.ASTVisitor):
         POP_BLOCK pseudo-ops push and pop the stack to emit contiguous table entries.
 
         handler stack entry: (handler_block, lasti, depth_adjust, depth_sub)
-          lasti = True when the table entry carries the lasti flag (SETUP_CLEANUP/
-                  SETUP_WITH/SETUP_ASYNC_WITH).
+          lasti = True when the table entry carries the lasti flag (_SETUP_CLEANUP/
+                  _SETUP_WITH).
           depth_adjust = _opcode_stack_effect_jump(op) for the opening SETUP_*.
-          depth_sub = 1 for SETUP_ASYNC_WITH (POP_TOP removes one stack item before
-                      body), 0 otherwise.
+          depth_sub = 1 for _SETUP_WITH (__enter__ result consumed before body), 0 otherwise.
         """
         # --- Phase 1: graph traversal, compute per-block entry handler stacks ---
         # Like CPython's label_exception_targets: DFS over the CFG, tracking a
@@ -826,8 +824,7 @@ class PythonCodeMaker(ast.ASTVisitor):
 
             for instr in b.instructions:
                 op = instr.opcode
-                if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
-                          ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                if op in (_SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH):
                     handler_target = instr.jump
                     # Handler block gets entry stack BEFORE the push.
                     if handler_target not in visited:
@@ -837,7 +834,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # Record handler metadata on the block (like CPython b_lasti).
                     handler_target.exc_lasti = (op != _SETUP_FINALLY)
                     handler_target.exc_depth_adj = _opcode_stack_effect_jump(op)
-                    handler_target.exc_depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
+                    handler_target.exc_depth_sub = 1 if op == _SETUP_WITH else 0
                     stk.append(handler_target)
                 elif op == _POP_BLOCK:
                     if stk:
@@ -889,12 +886,9 @@ class PythonCodeMaker(ast.ASTVisitor):
                 op = instr.opcode
                 instr_size = instr.size()
 
-                if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
-                          ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
-                    # SETUP_WITH: __enter__ runs inside this instruction;
-                    # cover it with the enclosing handler.
-                    close_at = (instr_offset + instr_size
-                                if op == ops.SETUP_WITH else instr_offset)
+                if op in (_SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH):
+                    # All are 0-byte pseudos; close enclosing handler at instr_offset.
+                    close_at = instr_offset
                     if cur_handler is not None and cur_start < close_at:
                         all_entries.append((cur_start, close_at, cur_handler))
                     handler_target = instr.jump
@@ -1019,8 +1013,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 j += 1
                 if op.jump is None:
                     continue
-                if op.opcode in (ops.SETUP_ASYNC_WITH, ops.SETUP_WITH,
-                                 _SETUP_FINALLY, _SETUP_CLEANUP):
+                if op.opcode in (_SETUP_WITH, _SETUP_FINALLY, _SETUP_CLEANUP):
                     continue # don't do this for exception handlers
                 target = op.jump
                 # only do something if the target has no position info (lowest
@@ -1362,8 +1355,9 @@ _static_opcode_stack_effects = {
     ops.CHECK_EXC_MATCH: 0,
     _SETUP_FINALLY: 0,   # marker only; handler depth set via forced_initial_depth
     _SETUP_CLEANUP: 0,   # marker only; handler depth set via forced_initial_depth
+    _SETUP_WITH:    0,   # marker only; handler depth set via forced_initial_depth
     _POP_BLOCK: 0,       # marker only
-    ops.SETUP_WITH: 1,
+    ops.BEFORE_WITH: 1,
 
     ops.RETURN_VALUE: -1,
     ops.YIELD_VALUE: 0,
@@ -1397,7 +1391,6 @@ _static_opcode_stack_effects = {
     ops.DELETE_DEREF: 0,
 
     ops.GET_AWAITABLE: 0,
-    ops.SETUP_ASYNC_WITH: 0,
     ops.BEFORE_ASYNC_WITH: 1,
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
@@ -1521,7 +1514,7 @@ del name, func, op, value
 
 def _opcode_stack_effect(op, arg):
     """Return the stack effect of a opcode an its argument."""
-    if op == _SETUP_FINALLY or op == _SETUP_CLEANUP or op == _POP_BLOCK:
+    if op == _SETUP_FINALLY or op == _SETUP_CLEANUP or op == _SETUP_WITH or op == _POP_BLOCK:
         return 0
     if we_are_translated():
         for possible_op in ops.unrolling_opcode_descs:
@@ -1553,15 +1546,11 @@ def _opcode_stack_effect_jump(op):
         # Like _SETUP_FINALLY but lasti=True: handle_operation_error also pushes
         # lasti_int before exc, so +2.
         return 2
-    elif op == ops.SETUP_WITH:
-        # +2 at the jump edge: cleanup handler's initial_depth includes the
-        # lasti int and the exc (pushed by handle_operation_error when the
-        # exception-table entry is lasti=True).  Fallthrough effect stays +1
-        # (via _static_opcode_stack_effects): SETUP_WITH pops the manager and
-        # pushes __exit__ + __enter__ result.
-        return 2
-    elif op == ops.SETUP_ASYNC_WITH:
-        # Analogous to SETUP_WITH: +1 at the jump edge, 0 at fallthrough.
+    elif op == _SETUP_WITH:
+        # lasti=True so handle_operation_error pushes lasti+exc (+2 items), but
+        # BEFORE_WITH already pushed __enter__result at depth D=N+1.  The runtime
+        # entry stack is N+2, so the jump effect is D+1-D = +1 (not +2).  Combined
+        # with depth_sub=1: table depth = (D+1) - 1 - 1 = D-1 = N (base+__exit__).
         return 1
     elif op == ops.JUMP_IF_TRUE_OR_POP:
         return 0

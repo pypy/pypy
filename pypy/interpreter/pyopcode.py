@@ -410,8 +410,8 @@ class __extend__(pyframe.PyFrame):
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
                 self.ROT_TWO(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_WITH.index:
-                self.SETUP_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.BEFORE_WITH.index:
+                self.BEFORE_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
             elif opcode == opcodedesc.SET_UPDATE.index:
@@ -452,8 +452,6 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_ASSERTION_ERROR(oparg, next_instr)
             elif opcode == opcodedesc.GET_AWAITABLE.index:
                 self.GET_AWAITABLE(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
-                self.SETUP_ASYNC_WITH(oparg, next_instr)
             elif opcode == opcodedesc.BEFORE_ASYNC_WITH.index:
                 self.BEFORE_ASYNC_WITH(oparg, next_instr)
             elif opcode == opcodedesc.GET_AITER.index:
@@ -1305,7 +1303,7 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def SETUP_WITH(self, offsettoend, next_instr):
+    def BEFORE_WITH(self, oparg, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
@@ -1601,10 +1599,6 @@ class __extend__(pyframe.PyFrame):
                 raise oefmt(self.space.w_RuntimeError,
                             "coroutine is being awaited already")
         self.pushvalue(w_iter)
-
-    def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
-        res = self.popvalue()
-        self.pushvalue(res)
 
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
         space = self.space

@@ -10,7 +10,7 @@ import struct
 
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
-from pypy.interpreter.astcompiler.assemble import _SETUP_FINALLY, _SETUP_CLEANUP, _POP_BLOCK
+from pypy.interpreter.astcompiler.assemble import _SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH, _POP_BLOCK
 from pypy.interpreter.astcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
@@ -324,7 +324,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             node = fblock.datum
             assert isinstance(node, ast.withitem)
             # Switch to a new block before call_exit_with_nones so that the
-            # with-body scope (opened by SETUP_WITH/SETUP_ASYNC_WITH) ends here.
+            # with-body scope (opened by _SETUP_WITH) ends here.
             # POP_BLOCK below closes that scope; the inline unwind code that
             # follows is NOT covered by the with's cleanup handler, preventing
             # __exit__ from being called twice if it raises.  Only the first
@@ -1545,14 +1545,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert isinstance(witem, ast.withitem)
         witem.context_expr.walkabout(self)
         if not is_async:
-            self.emit_jump(ops.SETUP_WITH, cleanup)
+            self.emit_op(ops.BEFORE_WITH)
+            self.emit_jump(_SETUP_WITH, cleanup)
             fblock_kind = F_WITH
         else:
             self.emit_op(ops.BEFORE_ASYNC_WITH)
             self.emit_op_arg(ops.GET_AWAITABLE, 1)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
-            self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+            self.emit_jump(_SETUP_WITH, cleanup)
             fblock_kind = F_ASYNC_WITH
 
         normal_exit = self.new_block()
@@ -1595,7 +1596,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         exit = self.new_block()
         self.emit_jump(ops.JUMP_ABSOLUTE, exit)
 
-        # exceptional outcome: SETUP_WITH opened lasti=True scope, so on
+        # exceptional outcome: _SETUP_WITH opened lasti=True scope, so on
         # exception the stack on entry to `cleanup` is [..., __exit__, lasti, exc].
         # After PUSH_EXC_INFO: [..., __exit__, lasti, prev_exc, exc].
         # WITH_EXCEPT_START peeks __exit__ at depth 3 and pushes __exit__'s
