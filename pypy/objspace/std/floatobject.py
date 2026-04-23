@@ -245,7 +245,7 @@ class W_FloatObject(W_Root):
                                      unicode_to_decimal_w(space, w_value))
         else:
             try:
-                value = space.charbuf_w(w_value)
+                value = space.bufferstr_w(w_value)
             except OperationError as e:
                 if e.match(space, space.w_TypeError):
                     raise oefmt(space.w_TypeError,

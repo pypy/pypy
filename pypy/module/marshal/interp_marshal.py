@@ -53,7 +53,10 @@ ignored."""
 
 def _loads(space, w_str, hidden_applevel=False):
     u = StringUnmarshaller(space, w_str, hidden_applevel=hidden_applevel)
-    obj = u.load_w_obj()
+    try:
+        obj = u.load_w_obj()
+    finally:
+        u.release()
     return obj
 
 
@@ -450,10 +453,14 @@ class StringUnmarshaller(Unmarshaller):
     # Unmarshaller with inlined buffer string
     def __init__(self, space, w_str, hidden_applevel=False):
         Unmarshaller.__init__(self, space, None)
-        self.buf = space.readbuf_w(w_str)
+        self.view = space.buffer_w(w_str, space.BUF_SIMPLE)
+        self.buf = self.view.as_readbuf()
         self.bufpos = 0
         self.limit = self.buf.getlength()
         self.hidden_applevel = hidden_applevel
+
+    def release(self):
+        self.view.releasebuffer()
 
     def raise_eof(self):
         space = self.space

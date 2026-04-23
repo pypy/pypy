@@ -105,15 +105,19 @@ def marshal(space, w_obj, m):
 
     # any unknown object implementing the buffer protocol is
     # accepted and encoded as a plain string
+    from pypy.interpreter.py_buffer import py_buffer_as_str
     try:
-        s = space.readbuf_w(w_obj)
+        view = space.acquire_py_buffer(w_obj, space.BUF_SIMPLE)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_ValueError, "unmarshallable object")
         raise
-    typecode = write_ref(TYPE_STRING, w_obj, m)
-    if typecode != FLAG_DONE:
-        m.atom_str(typecode, s.as_str())
+    try:
+        typecode = write_ref(TYPE_STRING, w_obj, m)
+        if typecode != FLAG_DONE:
+            m.atom_str(typecode, py_buffer_as_str(view))
+    finally:
+        space.release_py_buffer(view)
 
 
 @marshaller(W_NoneObject)
