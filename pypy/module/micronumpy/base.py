@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.error import oefmt
 from rpython.tool.pairtype import extendabletype
 from rpython.rlib.rarithmetic import ovfcheck
@@ -20,7 +21,7 @@ class ArrayArgumentException(Exception):
     pass
 
 
-class W_NumpyObject(W_Root):
+class W_NumpyObject(W_BufferExporter):
     """Base class for ndarrays and scalars (aka boxes)."""
     _attrs_ = []
 
@@ -36,6 +37,7 @@ class W_NDimArray(W_NumpyObject):
         assert isinstance(implementation, BaseConcreteArray)
         assert isinstance(self, W_NDimArray)
         self.implementation = implementation
+        self.buf_view = None
 
     @staticmethod
     def from_shape(space, shape, dtype, order=NPY.CORDER,

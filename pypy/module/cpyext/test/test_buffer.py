@@ -87,3 +87,44 @@ class AppTestBuffer(AppTestCpythonExtensionBase):
         ret = module.getbuffer(buf)
         for i in range(2000):
             assert ret == 0, "failed in iteration %d" % i
+
+    def test_bytearray_release_buffer_unlocks_resize(self):
+        # Acquire and immediately release: bytearray must be resizable after.
+        # Also verify that holding the buffer blocks resize until release.
+        module = self.import_extension("foo", [
+            ("acquire_and_release", "METH_O",
+             """
+             Py_buffer buf;
+             if (PyObject_GetBuffer(args, &buf, PyBUF_SIMPLE) < 0)
+                 return NULL;
+             PyBuffer_Release(&buf);
+             Py_RETURN_NONE;
+             """),
+            ("acquire", "METH_O",
+             """
+             Py_buffer *buf = (Py_buffer *)malloc(sizeof(Py_buffer));
+             if (PyObject_GetBuffer(args, buf, PyBUF_SIMPLE) < 0) {
+                 free(buf);
+                 return NULL;
+             }
+             return PyLong_FromVoidPtr(buf);
+             """),
+            ("release", "METH_O",
+             """
+             Py_buffer *buf = (Py_buffer *)PyLong_AsVoidPtr(args);
+             PyBuffer_Release(buf);
+             free(buf);
+             Py_RETURN_NONE;
+             """),
+        ])
+        b = bytearray(b'hello')
+        module.acquire_and_release(b)
+        b.append(ord('x'))
+        assert b == bytearray(b'hellox')
+
+        b2 = bytearray(b'world')
+        token = module.acquire(b2)
+        raises(BufferError, b2.append, ord('!'))
+        module.release(token)
+        b2.append(ord('!'))
+        assert b2 == bytearray(b'world!')

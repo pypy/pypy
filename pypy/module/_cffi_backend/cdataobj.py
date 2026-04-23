@@ -670,14 +670,28 @@ class W_CDataHandle(W_CData):
 
 
 class W_CDataFromBuffer(W_CData):
-    _attrs_ = ['buf', 'length', 'w_keepalive']
+    _attrs_ = ['buf', 'length', 'w_keepalive', 'view']
     _immutable_fields_ = ['buf', 'length']
 
-    def __init__(self, space, cdata, length, ctype, buf, w_object):
+    def __init__(self, space, cdata, length, ctype, buf, w_object,
+                 view=None):
         W_CData.__init__(self, space, cdata, ctype)
         self.buf = buf
         self.length = length
         self.w_keepalive = w_object
+        # Hold the BufferView directly so the underlying _exports counter
+        # stays incremented for the lifetime of this cdata object.  The
+        # view is released by _finalize_ on GC or by enter_exit() when
+        # the cdata is closed explicitly.
+        self.view = view
+        if view is not None:
+            self.register_finalizer(space)
+
+    def _finalize_(self):
+        view = self.view
+        if view is not None:
+            self.view = None
+            view.releasebuffer()
 
     def get_array_length(self):
         return self.length
@@ -704,6 +718,11 @@ class W_CDataFromBuffer(W_CData):
         # for now, limited effect on PyPy
         if exit_now:
             self.w_keepalive = None
+            view = self.view
+            if view is not None:
+                self.view = None
+                view.releasebuffer()
+                self.may_unregister_rpython_finalizer(self.space)
 
 
 class W_CDataGCP(W_CData):
