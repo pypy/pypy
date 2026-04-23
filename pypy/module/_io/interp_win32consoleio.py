@@ -380,17 +380,20 @@ class W_WinConsoleIO(W_RawIOBase):
     def readinto_w(self, space, w_buffer):
         # Read wchar, convert to utf8, and put it into w_buffer.
         # We buffer left-over characters into self.buf
-        rwbuffer = space.writebuf_w(w_buffer)
-        length = rwbuffer.getlength()
-        oldmode = self.mode
-        self.mode = 'u'
-        utf8, ulen = self.read(space, length)
-        i = 0
-        self.mode = oldmode
-        while utf8[i] != '\x00' and i < len(utf8):
-            rwbuffer[i] = utf8[i]
-            i += 1
-        return space.newint(i)
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
+        try:
+            length = rwbuffer.getlength()
+            oldmode = self.mode
+            self.mode = 'u'
+            utf8, ulen = self.read(space, length)
+            i = 0
+            self.mode = oldmode
+            while utf8[i] != '\x00' and i < len(utf8):
+                rwbuffer[i] = utf8[i]
+                i += 1
+            return space.newint(i)
+        finally:
+            view.releasebuffer()
 
 
     def read(self, space, length):
