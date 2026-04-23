@@ -144,6 +144,10 @@ class Block(object):
         # set by codegen for exception-handler blocks so _stacksize finds them
         # even when no SETUP_FINALLY/EXCEPT jump instruction targets them
         self.forced_initial_depth = -1
+        # set by _build_exceptiontable Phase 1 when this block is a handler target
+        self.exc_lasti = False
+        self.exc_depth_adj = 0
+        self.exc_depth_sub = 0
 
     def __repr__(self):
         return "<Block %s>" % (self.instructions, )
@@ -804,10 +808,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                       body), 0 otherwise.
         """
         # --- Phase 1: graph traversal, compute per-block entry handler stacks ---
-        # visited: block -> True; block_entry_stack: block -> list of tuples
-        # (RPython instances are identity-keyed, no id() needed)
-        visited = {}
-        block_entry_stack = {}
+        # Like CPython's label_exception_targets: DFS over the CFG, tracking a
+        # stack of active handler blocks.  stk is list of Block (not tuples);
+        # per-handler metadata (lasti, depth_adj, depth_sub) is stored as
+        # attributes on the handler Block itself (CPython: b_lasti, b_exceptdepth).
+        visited = {}           # Block -> True
+        block_entry_stack = {} # Block -> list of Block
 
         first_block = blocks[0]
         visited[first_block] = True
@@ -816,28 +822,27 @@ class PythonCodeMaker(ast.ASTVisitor):
 
         while worklist:
             b = worklist.pop()
-            stk = block_entry_stack[b][:]  # mutable working copy
+            stk = block_entry_stack[b][:]  # mutable working copy (list of Block)
 
             for instr in b.instructions:
                 op = instr.opcode
                 if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
                           ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
-                    # Handler block gets a copy of the stack BEFORE the push.
                     handler_target = instr.jump
+                    # Handler block gets entry stack BEFORE the push.
                     if handler_target not in visited:
                         visited[handler_target] = True
                         block_entry_stack[handler_target] = stk[:]
                         worklist.append(handler_target)
-                    # Push new handler onto the working copy.
-                    lasti = (op != _SETUP_FINALLY)
-                    depth_adj = _opcode_stack_effect_jump(op)
-                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
-                    stk.append((handler_target, lasti, depth_adj, depth_sub))
+                    # Record handler metadata on the block (like CPython b_lasti).
+                    handler_target.exc_lasti = (op != _SETUP_FINALLY)
+                    handler_target.exc_depth_adj = _opcode_stack_effect_jump(op)
+                    handler_target.exc_depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
+                    stk.append(handler_target)
                 elif op == _POP_BLOCK:
                     if stk:
                         stk.pop()
                 elif instr.jump is not None:
-                    # Regular jump (conditional or unconditional).
                     target = instr.jump
                     if target not in visited:
                         visited[target] = True
@@ -852,33 +857,31 @@ class PythonCodeMaker(ast.ASTVisitor):
                     worklist.append(b.next_block)
 
         # --- Phase 2: emit exception table entries ---
-        # cur_handler = active handler tuple or None; cur_start = byte offset where
-        # the current range began.  all_entries collects (start, end, *handler_tuple).
+        # cur_handler is Block or None (like CPython's basicblock *handler).
+        # all_entries collects (start, end, handler_block) 3-tuples.
         all_entries = []
-        cur_handler = None
+        cur_handler = None   # type: Block or None
         cur_start = -1
         instr_offset = 0
 
         for block in blocks:
             entry = block_entry_stack.get(block)
             if entry is None:
-                # Dead block (optimize_unreachable_code cleared its instructions).
-                # Close any open range so it doesn't bleed across the gap.
+                # Dead block: close any open range.
                 if cur_handler is not None and cur_start < block.offset:
-                    all_entries.append((cur_start, block.offset) + cur_handler)
+                    all_entries.append((cur_start, block.offset, cur_handler))
                 cur_handler = None
                 cur_start = -1
                 continue
 
-            # Reconcile cur_handler with this block's recorded entry stack.
+            # Reconcile cur_handler with this block's entry stack top.
             new_handler = entry[-1] if entry else None
-            if new_handler != cur_handler:
+            if new_handler is not cur_handler:
                 if cur_handler is not None and cur_start < block.offset:
-                    all_entries.append((cur_start, block.offset) + cur_handler)
+                    all_entries.append((cur_start, block.offset, cur_handler))
                 cur_handler = new_handler
                 cur_start = block.offset
 
-            # Re-create the working stack for this block from the entry snapshot.
             stk = entry[:]
             instr_offset = block.offset
 
@@ -888,22 +891,20 @@ class PythonCodeMaker(ast.ASTVisitor):
 
                 if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
                           ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
-                    # SETUP_WITH: the __enter__ call executes *inside* this instruction;
-                    # cover the instruction itself with the enclosing handler.
+                    # SETUP_WITH: __enter__ runs inside this instruction;
+                    # cover it with the enclosing handler.
                     close_at = (instr_offset + instr_size
                                 if op == ops.SETUP_WITH else instr_offset)
                     if cur_handler is not None and cur_start < close_at:
-                        all_entries.append((cur_start, close_at) + cur_handler)
-                    lasti = (op != _SETUP_FINALLY)
-                    depth_adj = _opcode_stack_effect_jump(op)
-                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
-                    stk.append((instr.jump, lasti, depth_adj, depth_sub))
-                    cur_handler = stk[-1]
+                        all_entries.append((cur_start, close_at, cur_handler))
+                    handler_target = instr.jump
+                    stk.append(handler_target)
+                    cur_handler = handler_target
                     cur_start = instr_offset + instr_size
 
                 elif op == _POP_BLOCK:
                     if cur_handler is not None and cur_start < instr_offset:
-                        all_entries.append((cur_start, instr_offset) + cur_handler)
+                        all_entries.append((cur_start, instr_offset, cur_handler))
                     if stk:
                         stk.pop()
                     cur_handler = stk[-1] if stk else None
@@ -915,11 +916,12 @@ class PythonCodeMaker(ast.ASTVisitor):
             return ''
         result = []
         for entry in all_entries:
-            start, end = entry[0], entry[1]
-            handler_block, lasti, depth_adjust, depth_sub = (
-                entry[2], entry[3], entry[4], entry[5])
+            start, end, handler_block = entry[0], entry[1], entry[2]
             if end <= start:
                 continue
+            lasti = handler_block.exc_lasti
+            depth_adjust = handler_block.exc_depth_adj
+            depth_sub = handler_block.exc_depth_sub
             # depth = value stack depth just before handle_operation_error pushes
             # lasti (if lasti=True) and the exception object.
             # handler_block.initial_depth was seeded by emit_jump:
