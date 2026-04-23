@@ -336,7 +336,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
                              % (self.scopenext(), ))
 
     def visit_bufferstr(self, typ):
-        self.run_args.append("space.charbuf_w(%s)" % (self.scopenext(),))
+        self.run_args.append("space.bufferstr_w(%s)" % (self.scopenext(),))
 
     def visit_text_or_none(self, typ):
         self.run_args.append("space.text_or_none_w(%s)" % (self.scopenext(),))
@@ -548,7 +548,7 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
                            % (self.nextarg()), )
 
     def visit_bufferstr(self, typ):
-        self.unwrap.append("space.charbuf_w(%s)" % (self.nextarg(),))
+        self.unwrap.append("space.bufferstr_w(%s)" % (self.nextarg(),))
 
     def visit_text_or_none(self, typ):
         self.unwrap.append("space.text_or_none_w(%s)" % (self.nextarg(),))
@@ -712,7 +712,7 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append(ObjSpace)
             elif argname == '__args__':
                 unwrap_spec.append(Arguments)
-            elif argname.endswith('_w') and not argname.startswith('w_'):
+            elif argname == 'args_w':
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
@@ -1154,7 +1154,7 @@ class interp2app(W_Root):
         # Build defaults map: python-visible name -> default value
         defaults_map = {}
         for rpyname, spec in zip(code._argnames, code._unwrap_spec):
-            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'w_args') or (rpyname.endswith('_w') and not rpyname.startswith('w_')):
+            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'args_w', 'w_args'):
                 continue
             pyname = rpyname[2:] if rpyname.startswith('w_') else rpyname
             if isinstance(spec, WrappedDefault):
@@ -1231,7 +1231,7 @@ class interp2app(W_Root):
                 w_def = Ellipsis
 
             if defaultval is not NO_DEFAULT:
-                if name != '__args__' and not (name.endswith('_w') and not name.startswith('w_')):
+                if name != '__args__' and name != 'args_w':
                     if w_def is Ellipsis:
                         if isinstance(defaultval, str) and (
                                 # XXX hackish

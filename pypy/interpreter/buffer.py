@@ -8,6 +8,7 @@ class BufferInterfaceNotFound(Exception):
     pass
 
 
+
 class BufferView(object):
     """Abstract base class for buffers."""
     _attrs_ = ['readonly', 'w_obj']
@@ -69,6 +70,9 @@ class BufferView(object):
 
     def releasebuffer(self):
         pass
+
+    def needs_release(self):
+        return False
 
     def value_from_bytes(self, space, s):
         from pypy.module.struct.formatiterator import UnpackFormatIterator
@@ -179,8 +183,8 @@ class BufferView(object):
 
         return space.newlist(items)
 
-    def wrap(self, space):
-        return space.newmemoryview(self)
+    def wrap(self, space, owns_export=True):
+        return space.newmemoryview(self, owns_export=owns_export)
 
 
 class RawBufferView_Base(BufferView):
@@ -209,6 +213,12 @@ class RawBufferView_Base(BufferView):
     def as_writebuf(self):
         assert not self.data.readonly
         return self.data
+
+    def releasebuffer(self):
+        self.data.releasebuffer()
+
+    def needs_release(self):
+        return self.data.needs_release()
 
 
 class RawBufferView(RawBufferView_Base):
@@ -371,6 +381,18 @@ class BufferSlice(BufferView):
     def w_getitem(self, space, idx):
         return self.parent.w_getitem(space, self.parent_index(idx))
 
+    def as_readbuf(self):
+        if self.step == 1:
+            byte_offset = self.start * self.parent.getstrides()[0]
+            return SubBuffer(self.parent.as_readbuf(), byte_offset, self.getlength())
+        return StringBuffer(self.as_str())
+
+    def as_writebuf(self):
+        if self.step != 1:
+            raise BufferInterfaceNotFound
+        byte_offset = self.start * self.parent.getstrides()[0]
+        return SubBuffer(self.parent.as_writebuf(), byte_offset, self.getlength())
+
     def new_slice(self, start, step, slicelength):
         real_start = start + self.start
         real_step = self.step * step
@@ -431,4 +453,65 @@ class ReadonlyWrapper(BufferView):
 
     def new_slice(self, start, step, slicelength):
         return ReadonlyWrapper(BufferSlice(self, start, step, slicelength, w_obj=self.w_obj))
+
+
+class NonOwningReleaseView(BufferView):
+    """Wraps a BufferView but with a no-op releasebuffer.
+
+    Used when handing out a BufferView from an object that already owns
+    the underlying export (e.g. memoryview(bytearray) returning its
+    internal view).  The memoryview's own finalizer is responsible for
+    calling releasebuffer on the wrapped view exactly once; callers that
+    go through buffer_w must not also decrement the shared _exports
+    counter.
+    """
+    _immutable_ = True
+
+    def __init__(self, view):
+        self.view = view
+        self.readonly = view.readonly
+        self.w_obj = view.w_obj
+
+    def getlength(self):
+        return self.view.getlength()
+
+    def as_str(self):
+        return self.view.as_str()
+
+    def getbytes(self, start, size):
+        return self.view.getbytes(start, size)
+
+    def setbytes(self, start, string):
+        return self.view.setbytes(start, string)
+
+    def get_raw_address(self):
+        return self.view.get_raw_address()
+
+    def as_readbuf(self):
+        return self.view.as_readbuf()
+
+    def as_writebuf(self):
+        return self.view.as_writebuf()
+
+    def getformat(self):
+        return self.view.getformat()
+
+    def getitemsize(self):
+        return self.view.getitemsize()
+
+    def getndim(self):
+        return self.view.getndim()
+
+    def getshape(self):
+        return self.view.getshape()
+
+    def getstrides(self):
+        return self.view.getstrides()
+
+    def releasebuffer(self):
+        # no-op: the owning memoryview is responsible for releasing.
+        pass
+
+    def new_slice(self, start, step, slicelength):
+        return NonOwningReleaseView(self.view.new_slice(start, step, slicelength))
 

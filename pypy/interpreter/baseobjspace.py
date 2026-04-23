@@ -252,6 +252,9 @@ class W_Root(object):
     def buffer_w(self, space, flags):
         return self.__buffer_w(space, flags).buffer_w(space, flags)
 
+    def _readbuf_w_fast(self, space):
+        return None
+
     def __buffer_w(self, space, flags):
         w_impl = space.lookup(self, '__buffer__')
         if w_impl is not None:
@@ -1663,24 +1666,101 @@ class ObjSpace(object):
 
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
+        result = w_obj._readbuf_w_fast(self)
+        if result is not None:
+            return result
         try:
-            return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
+            buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+            result = buf.as_readbuf()
+            buf.releasebuffer()
+            return result
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
-            return self._try_buffer_w(w_obj, self.BUF_WRITABLE).as_writebuf()
+            buf = self._try_buffer_w(w_obj, self.BUF_WRITABLE)
+            result = buf.as_writebuf()
+            buf.releasebuffer()
+            return result
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 
+    def acquire_readbuf(self, w_obj):
+        """Paired GetBuffer / Release: returns (view, raw_buf).
+        Caller MUST call view.releasebuffer() (typically in try/finally)
+        when done with raw_buf. For bytes/str this is a no-op; for
+        bytearray it decrements the export counter.
+        """
+        try:
+            view = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+            return view, view.as_readbuf()
+        except BufferInterfaceNotFound:
+            self._getarg_error("bytes-like object", w_obj)
+            assert False, "unreachable"
+
+    def acquire_writebuf(self, w_obj):
+        """Paired GetBuffer / Release for writable buffers; see
+        acquire_readbuf.
+        """
+        try:
+            view = self._try_buffer_w(w_obj, self.BUF_WRITABLE)
+            return view, view.as_writebuf()
+        except (BufferInterfaceNotFound, OperationError):
+            self._getarg_error("read-write bytes-like object", w_obj)
+            assert False, "unreachable"
+
+    def acquire_py_buffer(self, w_obj, flags):
+        """CPython-style GetBuffer: allocate a Py_buffer description and
+        ask the exporter to fill it.  Caller MUST call
+        space.release_py_buffer(view) (typically in try/finally) when done.
+
+        If `flags` requests a writable buffer but the object is
+        read-only, raises TypeError (like the old acquire_writebuf) to
+        match CPython's arg-parser error messages.
+        """
+        from pypy.interpreter.py_buffer import Py_buffer, W_BufferExporter
+        view = Py_buffer()
+        want_write = (flags & self.BUF_WRITABLE) == self.BUF_WRITABLE
+        if not isinstance(w_obj, W_BufferExporter):
+            if want_write:
+                self._getarg_error("read-write bytes-like object", w_obj)
+            else:
+                self._getarg_error("bytes-like object", w_obj)
+            assert False, "unreachable"
+        try:
+            w_obj.bf_getbuffer(self, view, flags)
+        except BufferInterfaceNotFound:
+            if want_write:
+                self._getarg_error("read-write bytes-like object", w_obj)
+            else:
+                self._getarg_error("bytes-like object", w_obj)
+            assert False, "unreachable"
+        except OperationError:
+            if want_write:
+                self._getarg_error("read-write bytes-like object", w_obj)
+                assert False, "unreachable"
+            raise
+        return view
+
+    def release_py_buffer(self, view):
+        """Release a Py_buffer.  Dispatches back to the exporter."""
+        view.obj.bf_releasebuffer(self, view)
+
+    def bufferstr_w(self, w_obj):
+        """Return the buffer contents as a str, holding the export count during the copy."""
+        if self.isinstance_w(w_obj, self.w_bytes):
+            return w_obj.bytes_w(self)
+        view, buf = self.acquire_readbuf(w_obj)
+        try:
+            return buf.as_str()
+        finally:
+            view.releasebuffer()
+
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
-        if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
-            return w_obj.bytes_w(self)
-        else:
-            return self.readbuf_w(w_obj).as_str()
+        return self.bufferstr_w(w_obj)
 
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
@@ -1705,7 +1785,10 @@ class ObjSpace(object):
                 # NB. CPython forbids surrogates here
                 return StringBuffer(w_obj.text_w(self))
             try:
-                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_readbuf()
+                buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+                result = buf.as_readbuf()
+                buf.releasebuffer()
+                return result
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or buffer", w_obj)
         elif code == 's#':
@@ -1717,7 +1800,10 @@ class ObjSpace(object):
             if self.isinstance_w(w_obj, self.w_unicode):  # NB. CPython forbids
                 return w_obj.text_w(self)                 # surrogates here
             try:
-                return self._try_buffer_w(w_obj, self.BUF_SIMPLE).as_str()
+                buf = self._try_buffer_w(w_obj, self.BUF_SIMPLE)
+                result = buf.as_str()
+                buf.releasebuffer()
+                return result
             except BufferInterfaceNotFound:
                 self._getarg_error("bytes or read-only buffer", w_obj)
         elif code == 'w*':
@@ -1926,7 +2012,9 @@ class ObjSpace(object):
         except OperationError as e:
             if not e.match(self, self.w_TypeError):
                 raise
-            result = self.buffer_w(w_obj, self.BUF_FULL_RO).as_str()
+            buf = self.buffer_w(w_obj, self.BUF_FULL_RO)
+            result = buf.as_str()
+            buf.releasebuffer()
         if '\x00' in result:
             raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
