@@ -1023,6 +1023,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
             self.no_position_info()
             self.emit_op(_POP_BLOCK)  # close inner cleanup scope
+            self.emit_op(_POP_BLOCK)  # close outer_cleanup scope (CPython: two POP_BLOCKs before POP_EXCEPT)
             if handler.name:
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store, handler)
@@ -1627,14 +1628,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.RERAISE, 1)
         self.use_next_block(exit2)
         self.emit_op(ops.POP_TOP)    # pop exc
+        self.emit_op(_POP_BLOCK)     # close SETUP_CLEANUP scope (matches CPython POP_BLOCK)
         exit2_rest = self.new_block()
         self.use_next_block(exit2_rest)
         self.emit_op(ops.POP_EXCEPT) # pop prev_exc, restore sys.exc_info
         self.emit_op(ops.POP_TOP)    # pop lasti
         self.emit_op(ops.POP_TOP)    # pop __exit__
-        # Remaining code (normal_exit..cleanup, with_cleanup..exit2,
-        # exit2_rest..exit) is covered by any enclosing SETUP_WITH scope
-        # automatically -- no explicit entries needed.
         self.use_next_block(exit)
 
     def visit_AsyncWith(self, wih):

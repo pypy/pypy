@@ -784,159 +784,140 @@ class PythonCodeMaker(ast.ASTVisitor):
         return blocks, size
 
     def _build_exceptiontable(self, blocks):
-        """Build co_exceptiontable by a single linear scan over the instruction stream.
+        """Build co_exceptiontable using a CPython-style per-block graph traversal.
 
-        SETUP_FINALLY, SETUP_CLEANUP, SETUP_WITH, and SETUP_ASYNC_WITH push their
-        handler block (via Instruction.jump) onto a handler stack; POP_BLOCK pops it.
-        Each instruction is assigned the current TOS handler.  Consecutive instructions
-        sharing the same handler form one table entry.
+        Phase 1: DFS from the entry block (blocks[0]), propagating the handler stack
+        along CFG edges.  Each block records the handler stack at its entry point.
+        This correctly handles duplicate_exits_without_lineno: inlined unconditional
+        jumps update the stack only for their own execution path; the fallback branch
+        (reached via a conditional jump from the predecessor) inherits its own copy.
 
-        CPython 3.11 identifies the handler via the instruction's integer operand (a
-        forward jump offset).  PyPy uses Instruction.jump (a Block pointer) instead,
-        so SETUP_FINALLY/SETUP_CLEANUP carry arg=0 and the assembler never needs to
-        encode a real offset for them.
+        Phase 2: Scan blocks in bytecode order.  At each block boundary, reconcile
+        cur_handler with the block's recorded entry stack.  Within a block, SETUP_*/
+        POP_BLOCK pseudo-ops push and pop the stack to emit contiguous table entries.
+
+        handler stack entry: (handler_block, lasti, depth_adjust, depth_sub)
+          lasti = True when the table entry carries the lasti flag (SETUP_CLEANUP/
+                  SETUP_WITH/SETUP_ASYNC_WITH).
+          depth_adjust = _opcode_stack_effect_jump(op) for the opening SETUP_*.
+          depth_sub = 1 for SETUP_ASYNC_WITH (POP_TOP removes one stack item before
+                      body), 0 otherwise.
         """
-        # handler_stack: list of (handler_block, lasti, depth_adjust, depth_sub)
-        # depth_adjust = _opcode_stack_effect_jump for the SETUP_* that opened this scope.
-        # depth_sub = extra amount to subtract from the stored depth (1 for SETUP_ASYNC_WITH,
-        # 0 otherwise); see fix note below.
-        handler_stack = []
-        # deferred_handler_stack: handlers from zero-length POP_BLOCK scopes.
-        # When two consecutive POP_BLOCKs share a bytecode offset the inner one
-        # produces an empty range and would be lost.  We defer it here so the
-        # next SETUP_CLEANUP (the inner exception handler chain) can pick it up
-        # as the enclosing handler, matching CPython's exception table layout.
-        deferred_handler_stack = []
-        cur_handler = None
-        cur_lasti = False
-        cur_depth_adjust = 1
-        cur_depth_sub = 0
-        cur_start = -1
+        # --- Phase 1: graph traversal, compute per-block entry handler stacks ---
+        # visited: block -> True; block_entry_stack: block -> list of tuples
+        # (RPython instances are identity-keyed, no id() needed)
+        visited = {}
+        block_entry_stack = {}
+
+        first_block = blocks[0]
+        visited[first_block] = True
+        block_entry_stack[first_block] = []
+        worklist = [first_block]
+
+        while worklist:
+            b = worklist.pop()
+            stk = block_entry_stack[b][:]  # mutable working copy
+
+            for instr in b.instructions:
+                op = instr.opcode
+                if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
+                          ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                    # Handler block gets a copy of the stack BEFORE the push.
+                    handler_target = instr.jump
+                    if handler_target not in visited:
+                        visited[handler_target] = True
+                        block_entry_stack[handler_target] = stk[:]
+                        worklist.append(handler_target)
+                    # Push new handler onto the working copy.
+                    lasti = (op != _SETUP_FINALLY)
+                    depth_adj = _opcode_stack_effect_jump(op)
+                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
+                    stk.append((handler_target, lasti, depth_adj, depth_sub))
+                elif op == _POP_BLOCK:
+                    if stk:
+                        stk.pop()
+                elif instr.jump is not None:
+                    # Regular jump (conditional or unconditional).
+                    target = instr.jump
+                    if target not in visited:
+                        visited[target] = True
+                        block_entry_stack[target] = stk[:]
+                        worklist.append(target)
+
+            # Propagate to fallthrough successor.
+            if b.next_block is not None and not b.cant_add_instructions:
+                if b.next_block not in visited:
+                    visited[b.next_block] = True
+                    block_entry_stack[b.next_block] = stk
+                    worklist.append(b.next_block)
+
+        # --- Phase 2: emit exception table entries ---
+        # cur_handler = active handler tuple or None; cur_start = byte offset where
+        # the current range began.  all_entries collects (start, end, *handler_tuple).
         all_entries = []
+        cur_handler = None
+        cur_start = -1
+        instr_offset = 0
 
         for block in blocks:
+            entry = block_entry_stack.get(block)
+            if entry is None:
+                # Dead block (optimize_unreachable_code cleared its instructions).
+                # Close any open range so it doesn't bleed across the gap.
+                if cur_handler is not None and cur_start < block.offset:
+                    all_entries.append((cur_start, block.offset) + cur_handler)
+                cur_handler = None
+                cur_start = -1
+                continue
+
+            # Reconcile cur_handler with this block's recorded entry stack.
+            new_handler = entry[-1] if entry else None
+            if new_handler != cur_handler:
+                if cur_handler is not None and cur_start < block.offset:
+                    all_entries.append((cur_start, block.offset) + cur_handler)
+                cur_handler = new_handler
+                cur_start = block.offset
+
+            # Re-create the working stack for this block from the entry snapshot.
+            stk = entry[:]
             instr_offset = block.offset
-            # When we arrive at a handler block that was deferred (pushed onto
-            # deferred_handler_stack after a non-zero-range POP_BLOCK), close
-            # any pending non-zero-range coverage *only if* at least one
-            # intermediate POP_BLOCK already extended the range (has_interm=True).
-            # That flag distinguishes the except* no-match reraise path (which
-            # needs coverage) from the try/finally normal-exit path (which must
-            # NOT be covered by the handler).  For zero-range entries just discard.
-            i = 0
-            while i < len(deferred_handler_stack):
-                entry = deferred_handler_stack[i]
-                if entry[0] is block:
-                    h, hl, ha, hs, rs, has_interm = entry
-                    if has_interm and rs >= 0 and rs < instr_offset:
-                        all_entries.append((rs, instr_offset, h, hl, ha, hs))
-                    del deferred_handler_stack[i]
-                else:
-                    i += 1
-            # Auto-close: if we are arriving at the current handler block,
-            # emit the entry and pop the scope.  This handles the case where
-            # POP_BLOCK is dead code (e.g. immediately after RERAISE) and was
-            # never emitted -- the scope still ends where the handler begins.
-            if cur_handler is not None and block is cur_handler:
-                if cur_start < instr_offset:
-                    all_entries.append((cur_start, instr_offset, cur_handler,
-                                        cur_lasti, cur_depth_adjust, cur_depth_sub))
-                if handler_stack:
-                    cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub = handler_stack.pop()
-                    cur_start = instr_offset
-                else:
-                    cur_handler = None
-                    cur_start = -1
+
             for instr in block.instructions:
                 op = instr.opcode
                 instr_size = instr.size()
-                if op == _POP_BLOCK:
-                    # Close current range (exclusive of this marker).
-                    non_zero_range = cur_handler is not None and cur_start < instr_offset
-                    if non_zero_range:
-                        all_entries.append((cur_start, instr_offset, cur_handler,
-                                            cur_lasti, cur_depth_adjust, cur_depth_sub))
-                    elif cur_handler is not None:
-                        # Zero-length range: defer so the next _SETUP_CLEANUP
-                        # inside the handler chain can still reference the outer
-                        # handler as its enclosing scope.  range_start=-1 and
-                        # has_interm=False mark this as a zero-range entry.
-                        deferred_handler_stack.append(
-                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub,
-                             -1, False))
-                    if handler_stack:
-                        cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub = handler_stack.pop()
-                        cur_start = instr_offset + instr_size
-                    elif non_zero_range:
-                        # Non-zero range closed and handler_stack is empty.
-                        # Defer cur_handler with range_start so that intervening
-                        # _POP_BLOCKs (e.g. on the except* no-match reraise path)
-                        # can extend coverage segment-by-segment.  has_interm starts
-                        # False; only after the first intermediate _POP_BLOCK extends
-                        # the range is it set True, allowing the arrival check to
-                        # emit the final segment.  For try/finally the normal-exit
-                        # path has no intermediate _POP_BLOCK, so has_interm stays
-                        # False and arrival emits nothing.
-                        deferred_handler_stack.append(
-                            (cur_handler, cur_lasti, cur_depth_adjust, cur_depth_sub,
-                             instr_offset + instr_size, False))
-                        cur_handler = None
-                        cur_start = -1
-                    else:
-                        cur_handler = None
-                        cur_start = -1
-                    # When cur_handler is None after the pop, advance any deferred
-                    # non-zero-range entries that span across this _POP_BLOCK.
-                    # This covers the except* no-match reraise path: each _POP_BLOCK
-                    # on that path emits one segment and advances range_start.
-                    if cur_handler is None and not non_zero_range:
-                        for idx in range(len(deferred_handler_stack)):
-                            h, hl, ha, hs, rs, hi = deferred_handler_stack[idx]
-                            if rs >= 0 and rs < instr_offset:
-                                all_entries.append((rs, instr_offset, h, hl, ha, hs))
-                                deferred_handler_stack[idx] = (h, hl, ha, hs,
-                                                               instr_offset + instr_size,
-                                                               True)
-                elif op in (_SETUP_FINALLY, _SETUP_CLEANUP,
-                            ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
-                    # SETUP_WITH calls __enter__ (user code) during the instruction
-                    # itself, so any exception from __enter__ must be routed to the
-                    # enclosing handler.  Extend the previous range's end to include
-                    # the SETUP_WITH instruction.
-                    close_at = instr_offset + instr_size if op == ops.SETUP_WITH else instr_offset
-                    # SETUP_ASYNC_WITH: BEFORE_ASYNC_WITH already pushed __aexit__ +
-                    # aenter_result (+2 over base) before this instruction, but the
-                    # body runs after POP_TOP removes aenter_result (+1 over base).
-                    # The stored depth must reflect the post-POP_TOP level, so subtract 1.
-                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
-                    # Close current range, push new handler.
+
+                if op in (_SETUP_FINALLY, _SETUP_CLEANUP,
+                          ops.SETUP_WITH, ops.SETUP_ASYNC_WITH):
+                    # SETUP_WITH: the __enter__ call executes *inside* this instruction;
+                    # cover the instruction itself with the enclosing handler.
+                    close_at = (instr_offset + instr_size
+                                if op == ops.SETUP_WITH else instr_offset)
                     if cur_handler is not None and cur_start < close_at:
-                        all_entries.append((cur_start, close_at, cur_handler,
-                                            cur_lasti, cur_depth_adjust, cur_depth_sub))
-                    if cur_handler is not None:
-                        handler_stack.append((cur_handler, cur_lasti, cur_depth_adjust,
-                                              cur_depth_sub))
-                    elif op == _SETUP_CLEANUP and deferred_handler_stack:
-                        # Restore the deferred outer handler so that this inner
-                        # exception handler chain is covered by the enclosing
-                        # handler (matches CPython's exception table entries).
-                        # Strip range_start/has_interm before pushing to handler_stack
-                        # since handler_stack uses 4-tuples.
-                        h, hl, ha, hs, _rs, _hi = deferred_handler_stack.pop()
-                        handler_stack.append((h, hl, ha, hs))
+                        all_entries.append((cur_start, close_at) + cur_handler)
                     lasti = (op != _SETUP_FINALLY)
                     depth_adj = _opcode_stack_effect_jump(op)
-                    cur_handler = instr.jump
-                    cur_lasti = lasti
-                    cur_depth_adjust = depth_adj
-                    cur_depth_sub = depth_sub
+                    depth_sub = 1 if op == ops.SETUP_ASYNC_WITH else 0
+                    stk.append((instr.jump, lasti, depth_adj, depth_sub))
+                    cur_handler = stk[-1]
                     cur_start = instr_offset + instr_size
+
+                elif op == _POP_BLOCK:
+                    if cur_handler is not None and cur_start < instr_offset:
+                        all_entries.append((cur_start, instr_offset) + cur_handler)
+                    if stk:
+                        stk.pop()
+                    cur_handler = stk[-1] if stk else None
+                    cur_start = instr_offset  # _POP_BLOCK encodes as 0 bytes
+
                 instr_offset += instr_size
 
         if not all_entries:
             return ''
         result = []
-        for start, end, handler_block, lasti, depth_adjust, depth_sub in all_entries:
+        for entry in all_entries:
+            start, end = entry[0], entry[1]
+            handler_block, lasti, depth_adjust, depth_sub = (
+                entry[2], entry[3], entry[4], entry[5])
             if end <= start:
                 continue
             # depth = value stack depth just before handle_operation_error pushes
@@ -1538,6 +1519,8 @@ del name, func, op, value
 
 def _opcode_stack_effect(op, arg):
     """Return the stack effect of a opcode an its argument."""
+    if op == _SETUP_FINALLY or op == _SETUP_CLEANUP or op == _POP_BLOCK:
+        return 0
     if we_are_translated():
         for possible_op in ops.unrolling_opcode_descs:
             # EXTENDED_ARG should never get in here.
