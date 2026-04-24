@@ -1569,20 +1569,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.handle_withitem(wih, pos + 1, is_async=is_async)
 
         self.no_position_info()
-        # Read body_segment_end from the fblock before pop_frame_block.
-        # unwind_fblock sets this the first time a break/continue/return
-        # inside the body emits inline call_exit_with_nones, so that the
-        # body exception-table entry does NOT cover the inline unwind code
-        # (else a raise from __exit__ during the unwind would be re-caught by
-        # the with's cleanup and __exit__ would run twice).  If there was no
-        # inline unwind, the body extends all the way to normal_exit.
-        had_inline_unwind = self.frame_blocks[-1].body_segment_end is not None
         self.pop_frame_block(fblock_kind, body_block)
-        if not had_inline_unwind:
-            # Normal exit: no early break/continue/return in body; close
-            # SETUP_WITH scope here.  If there was an early exit, POP_BLOCK
-            # was already emitted by unwind_fblock (F_WITH/F_ASYNC_WITH).
-            self.emit_op(_POP_BLOCK)
+        # Always emit _POP_BLOCK to close the _SETUP_WITH scope on the
+        # fall-through (normal exit) path.  When the body contains an early
+        # return/break/continue, unwind_fblock already emitted _POP_BLOCK on
+        # that code path; this _POP_BLOCK closes the scope on the fall-through
+        # path.  The two _POP_BLOCKs are on separate control-flow paths, so
+        # they do not double-close.  If the fall-through is dead code (every
+        # body path exits early), emit_op is a no-op on a dead block, and
+        # use_next_block below creates an unreachable block that is removed.
+        self.emit_op(_POP_BLOCK)
         self.use_next_block(normal_exit)
 
         self.update_position(wih)

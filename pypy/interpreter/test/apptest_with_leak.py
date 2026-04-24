@@ -139,3 +139,40 @@ def test_shutil_pattern():
     outer_result = copyfile(False, False)
     assert isinstance(outer_result, OuterCM), outer_result
     assert outer_result.exited_with is OSError, repr(outer_result.exited_with)
+
+
+def test_lru_cache_style_with_lock_exception():
+    # Reproduces WITH_EXCEPT_START crash: a wrapper using 'with lock:' around a
+    # cache lookup where the wrapped function raises between the two with-blocks.
+    import dis
+    from _thread import RLock
+
+    def make_cached(user_function):
+        cache = {}
+        lock = RLock()
+
+        def wrapper(*args):
+            key = args
+            with lock:
+                if key in cache:
+                    return cache[key]
+            result = user_function(*args)
+            with lock:
+                cache[key] = result
+            return result
+
+        return wrapper
+
+    @make_cached
+    def func(i):
+        return 'abc'[i]
+
+    dis.dis(func)  # dis the wrapper to aid debugging
+
+    assert func(0) == 'a'
+    try:
+        func(15)
+    except IndexError:
+        pass
+    else:
+        assert False, "expected IndexError"
