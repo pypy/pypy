@@ -302,12 +302,12 @@ return next yielded value or raise StopIteration."""
     def _finalize_(self):
         # This is only called if the CO_YIELD_INSIDE_TRY flag is set
         # on the code object.  If the frame is still not finished and
-        # finally or except blocks are present at the current
-        # position, then raise a GeneratorExit.  Otherwise, there is
-        # no point.
+        # the current position is covered by an exception table entry
+        # (finally or except block), then raise a GeneratorExit.
         if self.frame is not None:
-            block = self.frame.lastblock
-            if block is not None:
+            entry = self.frame.getcode().lookup_exceptiontable(
+                self.frame.last_instr)
+            if entry[1] >= 0:   # depth >= 0 means a handler covers this position
                 self.descr_close()
 
     def frame_is_finished(self):
@@ -668,7 +668,12 @@ class AsyncGenerator(GeneratorOrCoroutine):
             self.space.call_function(w_firstiter, self)
 
     def _finalize_(self):
-        if self.frame is not None and self.frame.lastblock is not None:
+        frame = self.frame
+        has_handler = False
+        if frame is not None:
+            entry = frame.getcode().lookup_exceptiontable(frame.last_instr)
+            has_handler = entry[1] >= 0
+        if frame is not None and has_handler:
             if self.w_finalizer is not None:
                 # XXX: this is a hack to resurrect the weakref that was cleared
                 # before running _finalize_()

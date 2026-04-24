@@ -874,8 +874,11 @@ def test_co_lines():
         start = entry[1]
         assert isinstance(entry[2], int) or entry[2] is None
     assert entry[1] == len(f.__code__.co_code)
+    # Filter out None line entries (synthetic cleanup blocks without
+    # source position info emit them -- matches CPython 3.11 behavior).
     res = [end - f.__code__.co_firstlineno
-                for start, stop, end in f.__code__.co_lines()]
+                for start, stop, end in f.__code__.co_lines()
+                if end is not None]
 
     assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
 

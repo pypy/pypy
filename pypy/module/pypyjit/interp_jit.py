@@ -26,7 +26,6 @@ PyFrame._virtualizable_ = ['last_instr', 'pycode',
                            'valuestackdepth',
                            'locals_cells_stack_w[*]',
                            'debugdata',
-                           'lastblock',
                            'w_globals',
                            ]
 

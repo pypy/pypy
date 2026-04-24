@@ -86,14 +86,16 @@ def_op('MATCH_MAPPING', 31)
 def_op('MATCH_SEQUENCE', 32)
 def_op('MATCH_KEYS', 33)
 def_op('COPY_DICT_WITHOUT_KEYS', 34)
-
+def_op('PUSH_EXC_INFO', 35)
+def_op('CHECK_EXC_MATCH', 36)
 def_op('CHECK_EG_MATCH', 37)
+def_op('COPY', 38)
 
 def_op('WITH_EXCEPT_START', 49)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
-
+def_op('BEFORE_WITH', 53)
 def_op('END_ASYNC_FOR', 54)
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
@@ -126,7 +128,6 @@ def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
 def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
-def_op('POP_BLOCK', 87)
 
 def_op('PREP_RERAISE_STAR', 88)
 
@@ -167,9 +168,7 @@ def_op('IS_OP', 117)
 def_op('CONTAINS_OP', 118)
 def_op('RERAISE', 119)
 
-jrel_op('SETUP_EXCEPT', 120)    # ""
 jabs_op('JUMP_IF_NOT_EXC_MATCH', 121)
-jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 
 def_op('LOAD_FAST', 124)        # Local variable number
 haslocal.append(124)
@@ -195,7 +194,6 @@ hasfree.append(138)
 
 def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
 def_op('CALL_FUNCTION_EX', 142)  # Flags
-jrel_op('SETUP_WITH', 143)
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
 def_op('LIST_APPEND', 145)
@@ -206,7 +204,6 @@ hasfree.append(148)
 
 def_op('MATCH_CLASS', 152)
 
-jrel_op('SETUP_ASYNC_WITH', 154)
 def_op('FORMAT_VALUE', 155)
 def_op('BUILD_CONST_KEY_MAP', 156)
 def_op('BUILD_STRING', 157)
