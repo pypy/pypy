@@ -309,7 +309,7 @@ def test_del_and_callback_and_id():
     seen_del = []
     class A(object):
         def __del__(self):
-            seen_del.append(id())
+            seen_del.append(id(self))
             seen_del.append(w1() is None)
             seen_del.append(w2() is None)
     seen_callback = []
