@@ -712,7 +712,7 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append(ObjSpace)
             elif argname == '__args__':
                 unwrap_spec.append(Arguments)
-            elif argname == 'args_w':
+            elif argname.endswith('_w') and not argname.startswith('w_'):
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
@@ -1154,7 +1154,7 @@ class interp2app(W_Root):
         # Build defaults map: python-visible name -> default value
         defaults_map = {}
         for rpyname, spec in zip(code._argnames, code._unwrap_spec):
-            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'args_w', 'w_args'):
+            if rpyname in ('__posonly__', '__kwonly__', '__args__', 'w_args') or (rpyname.endswith('_w') and not rpyname.startswith('w_')):
                 continue
             pyname = rpyname[2:] if rpyname.startswith('w_') else rpyname
             if isinstance(spec, WrappedDefault):
@@ -1231,7 +1231,7 @@ class interp2app(W_Root):
                 w_def = Ellipsis
 
             if defaultval is not NO_DEFAULT:
-                if name != '__args__' and name != 'args_w':
+                if name != '__args__' and not (name.endswith('_w') and not name.startswith('w_')):
                     if w_def is Ellipsis:
                         if isinstance(defaultval, str) and (
                                 # XXX hackish
