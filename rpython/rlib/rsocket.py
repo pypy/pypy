@@ -720,6 +720,12 @@ class RSocket(object):
             if res != 0:
                 raise self.error_handler()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
     def detach(self):
         fd = self.fd
         self.fd = INVALID_SOCKET
