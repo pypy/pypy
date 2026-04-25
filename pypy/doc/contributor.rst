@@ -1,8 +1,7 @@
-#encoding utf-8
-
 Contributors
 ------------
-::
+
+.. code-block:: text
 
   Armin Rigo
   Matti Picus
@@ -443,8 +442,10 @@ Contributors
 ----
 
 These contributors had code in closed branches on the mercurial repo, which was
-not ported to the git repo. It was never merged to a released version, but they
-made an effort to contribute and we thank them
+not ported to the Git repo. It was never merged to a released version, but they
+made an effort to contribute and we thank them.
+
+.. code-block:: text
 
   m@funkyhat.org
   gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
@@ -490,5 +491,3 @@ made an effort to contribute and we thank them
   Nicholas Riley
   Neil Shepperd
   coolbutuseless@gmail.com
-
-
