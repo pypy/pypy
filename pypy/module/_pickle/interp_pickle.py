@@ -2259,7 +2259,7 @@ class W_Unpickler(W_Root):
 
     def load_binbytes(self):
         length = self.read_unpackI()
-        if length > maxsize:
+        if length < 0 or length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES exceeds system's maximum size "
                                   "of %d bytes", maxsize)
@@ -2280,7 +2280,7 @@ class W_Unpickler(W_Root):
 
     def load_binunicode(self):
         length = self.read_unpackI()
-        if length > maxsize:
+        if length < 0 or length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE exceeds system's maximum size "
                                   "of %d bytes", maxsize)
@@ -2658,6 +2658,9 @@ class W_Unpickler(W_Root):
 
     def load_long_binget(self):
         i = self.read_unpackI()
+        if i < 0:
+            raise oefmt(unpickling_error(self.space),
+                'Memo value not found at index %d', i)
         try:
             self.append(self.memo[i])
         except IndexError as exc:
@@ -2687,7 +2690,7 @@ class W_Unpickler(W_Root):
 
     def load_long_binput(self):
         i = self.read_unpackI()
-        if i > maxsize:
+        if i < 0 or i > maxsize:
             raise oefmt(self.space.w_ValueError, "negative LONG_BINPUT argument")
         w_val = self._stack_top("LONG_BINPUT")
         self._memo_put(i, w_val)
