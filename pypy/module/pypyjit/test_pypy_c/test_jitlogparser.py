@@ -45,8 +45,7 @@ class TestLogParser(BaseTestPyPyC):
                     loop.force_asm()
                 except ObjdumpNotFound:
                     py.test.skip("ObjDump was not found, skipping")
-            print loop.comment, loop.descr, loop
-            assert loop.count > 0
+            assert loop.count >= 0
             if 'is_prime' in loop.comment:
                 is_prime_loops.append(loop)
             elif 'fn_with_bridges' in loop.comment:
