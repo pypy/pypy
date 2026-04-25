@@ -8,6 +8,7 @@ from rpython.rlib.objectmodel import enforceargs
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rlib.rarithmetic import is_valid_int, r_longlong
+from rpython.rlib.rtimer import read_timestamp
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
@@ -116,25 +117,25 @@ def debug_stop(category, timestamp=False):
 
 
 def _debug_start(category, timestamp):
-    c = int(time.clock() * 100)
-    print('%s[%x] {%s%s' % (_start_colors_1, c, category, _stop_colors),
+    ts = read_timestamp()
+    print('%s[%x] {%s%s' % (_start_colors_1, ts, category, _stop_colors),
           file=sys.stderr)
     if _log is not None:
         _log.debug_start(category)
 
     if timestamp:
-        return r_longlong(c)
+        return r_longlong(ts)
     return r_longlong(-42) # random undefined value
 
 def _debug_stop(category, timestamp):
-    c = int(time.clock() * 100)
-    print('%s[%x] %s}%s' % (_start_colors_2, c, category, _stop_colors),
+    ts = read_timestamp()
+    print('%s[%x] %s}%s' % (_start_colors_2, ts, category, _stop_colors),
           file=sys.stderr)
     if _log is not None:
         _log.debug_stop(category)
 
     if timestamp:
-        return r_longlong(c)
+        return r_longlong(ts)
     return r_longlong(-42) # random undefined value
 
 class Entry(ExtRegistryEntry):
