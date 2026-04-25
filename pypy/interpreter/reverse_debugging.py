@@ -443,7 +443,7 @@ def command_print(cmd, expression):
                 revdb.send_print(operationerr.errorstr(space))
 
                 # set the sys.last_xxx attributes
-                w_type = operationerr.w_type
+                w_type = operationerr.get_w_type(space)
                 w_value = operationerr.get_w_value(space)
                 w_tb = operationerr.get_traceback()
                 w_dict = space.sys.w_dict

@@ -97,7 +97,7 @@ class AppExceptionInfo(py.code.ExceptionInfo):
     def __init__(self, space, operr):
         self.space = space
         self.operr = operr
-        self.typename = operr.w_type.getname(space)
+        self.typename = operr.get_w_type(space).getname(space)
         self.traceback = AppTraceback(space, self.operr.get_traceback())
         debug_excs = getattr(operr, 'debug_excs', [])
         if debug_excs:
@@ -214,7 +214,7 @@ def _exc_info(space, operror):
     """sys.exc_info() isn't set until a app except block catches it,
     but we can directly copy the two lines of code from module/sys/vm.py."""
     operror.normalize_exception(space)
-    return space.appexec([operror.w_type, operror.get_w_value(space),
+    return space.appexec([operror.get_w_type(space), operror.get_w_value(space),
                           space.wrap(operror.get_traceback())], """(t, v, tb):
         class _ExceptionInfo:
             pass

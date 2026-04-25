@@ -609,7 +609,7 @@ class W_CPPOverload(W_Root):
                 if len(self.functions) == 1:
                     raise
                 if w_exc_type is None:
-                    w_exc_type = e.w_type
+                    w_exc_type = e.get_w_type(self.space)
                 elif all_same_type and not e.match(self.space, w_exc_type):
                     all_same_type = False
                 errmsg += '\n  '+cppyyfunc.prototype()+' =>\n'

@@ -21,7 +21,7 @@ class TestModuleObject(BaseApiTest):
         assert p2 == p
         with pytest.raises(OperationError) as excinfo:
             PyModule_GetName(space, space.w_True)
-        assert excinfo.value.w_type is space.w_SystemError
+        assert excinfo.value.get_w_type(space) is space.w_SystemError
 
 
 class AppTestModuleObject(AppTestCpythonExtensionBase):

@@ -28,9 +28,10 @@ class OperationError(Exception):
     sent to the application level.
 
     OperationError instances have three attributes (and no .args),
-    w_type, _w_value and _application_traceback, which contain the wrapped
+    _w_type, _w_value and _application_traceback, which contain the wrapped
     type and value describing the exception, and a chained list of
     PyTraceback objects making the application-level traceback.
+    _w_type is None after normalize_exception() runs; use get_w_type(space).
     """
 
     _w_value = None
@@ -43,21 +44,21 @@ class OperationError(Exception):
 
     def setup(self, w_type, w_value=None):
         assert w_type is not None
-        self.w_type = w_type
+        self._w_type = w_type
         self._w_value = w_value
         if not we_are_translated():
             self.debug_excs = []
 
     def clear(self, space):
         # XXX remove this method.  The point is that we cannot always
-        # hack at 'self' to clear w_type and _w_value, because in some
+        # hack at 'self' to clear _w_type and _w_value, because in some
         # corner cases the OperationError will be used again: see
         # test_interpreter.py:test_with_statement_and_sys_clear.
         pass
 
     def match(self, space, w_check_class):
         "Check if this application-level exception matches 'w_check_class'."
-        return space.exception_match(self.w_type, w_check_class)
+        return space.exception_match(self.get_w_type(space), w_check_class)
 
     def async(self, space):
         "Check if this is an exception that should better not be caught."
@@ -69,7 +70,7 @@ class OperationError(Exception):
     def __str__(self):
         "Convenience for tracebacks."
         s = self._w_value
-        space = getattr(self.w_type, 'space', None)
+        space = getattr(self._w_type, 'space', None)
         if space is not None:
             if self.__class__ is not OperationError and s is None:
                 s, lgt = self._compute_value(space)
@@ -77,11 +78,11 @@ class OperationError(Exception):
                 s = space.text_w(s)
             except Exception:
                 pass
-        return '[%s: %s]' % (self.w_type, s)
+        return '[%s: %s]' % (self._w_type, s)
 
     def __repr__(self):
         "NOT_RPYTHON"
-        return 'OperationError(%s)' % (self.w_type)
+        return 'OperationError(%s)' % (self._w_type,)
 
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
@@ -91,11 +92,11 @@ class OperationError(Exception):
             w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
-            exc_typename = str(self.w_type)
+            exc_typename = str(self._w_type)
             exc_value = str(w_value)
         else:
             exc_typename = space.text_w(
-                space.getattr(self.w_type, space.newtext('__name__')))
+                space.getattr(self.get_w_type(space), space.newtext('__name__')))
             if space.is_w(w_value, space.w_None):
                 exc_value = ""
             else:
@@ -199,7 +200,20 @@ class OperationError(Exception):
         #  (Class, x)                 (Class, Class(x))               no
         #  (inst, None)               (inst.__class__, inst)          no
         #
-        w_type = self.w_type
+        w_type = self._w_type
+        if w_type is None:
+            # Already normalized, but sync traceback if it was set after normalization
+            # (RAISE_VARARGS normalizes early, before the traceback is built)
+            w_value = self._w_value
+            if self._application_traceback is not None:
+                from pypy.interpreter.pytraceback import PyTraceback
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                tb = self._application_traceback
+                if (isinstance(w_value, W_BaseException) and
+                        isinstance(tb, PyTraceback) and
+                        w_value.w_traceback is None):
+                    w_value.w_traceback = tb
+            return w_value
         w_value = self.get_w_value(space)
 
         if space.exception_is_valid_obj_as_class_w(w_type):
@@ -248,7 +262,7 @@ class OperationError(Exception):
             w_value = w_inst
             w_type = w_instclass
 
-        self.w_type = w_type
+        self._w_type = None
         self._w_value = w_value
         return w_value
 
@@ -267,7 +281,7 @@ class OperationError(Exception):
             w_value = self.normalize_exception(space)
         except OperationError:
             w_value = self.get_w_value(space)
-        w_type = self.w_type
+        w_type = self.get_w_type(space)
         w_tb = self.get_w_traceback(space)
         if w_object is None:
             w_object = space.w_None
@@ -284,7 +298,7 @@ class OperationError(Exception):
         else:
             first_line = ''
         info_w = [
-            self.w_type,
+            w_type,
             w_value,
             w_tb,
             space.newtext(first_line),
@@ -307,7 +321,7 @@ class OperationError(Exception):
                 except OperationError as e:
                     first_line = "Exception ignored in sys.unraisablehook"
                     w_object = w_hook
-                    w_type = e.w_type
+                    w_type = e.get_w_type(space)
                     w_value = e.get_w_value(space)
                     w_tb = e.get_w_traceback(space)
 
@@ -345,6 +359,12 @@ class OperationError(Exception):
             """)
         except OperationError:
             pass   # ignored
+
+    def get_w_type(self, space):
+        w_type = self._w_type
+        if w_type is not None:
+            return w_type
+        return space.type(self._w_value)
 
     def get_w_value(self, space):
         w_value = self._w_value
@@ -635,7 +655,7 @@ class OpErrFmtNoArgs(OperationError):
         # also matches a RuntimeError("maximum rec.") if the stack is
         # still almost full, because in this case it might be a better
         # idea to propagate the exception than eat it
-        if (self.w_type is space.w_RecursionError and
+        if (self.get_w_type(space) is space.w_RecursionError and
             self._value == "maximum recursion depth exceeded" and
             rstack.stack_almost_full()):
             return True

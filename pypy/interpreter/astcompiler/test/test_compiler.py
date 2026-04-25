@@ -372,7 +372,7 @@ a = A()
         decl = str(decl) + '\n'
         self.st(decl + "x=f(1, b=2)", "x", (1, 2))
         operr = py.test.raises(OperationError, 'self.st(decl + "x=f(1, 2)", "x", (1, 2))')
-        assert operr.value.w_type is self.space.w_TypeError
+        assert operr.value.get_w_type(self.space) is self.space.w_TypeError
 
     def test_listmakers(self):
         yield (self.st,

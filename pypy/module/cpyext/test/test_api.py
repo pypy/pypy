@@ -19,7 +19,7 @@ def raises_w(space, expected_exc):
     with pytest.raises(OperationError) as excinfo:
         yield
     operror = excinfo.value
-    assert operror.w_type is getattr(space, 'w_' + expected_exc.__name__)
+    assert operror.get_w_type(space) is getattr(space, 'w_' + expected_exc.__name__)
 
 class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
@@ -45,7 +45,7 @@ class BaseApiTest(LeakCheckingTest):
         operror = state.get_exception()
         if not operror:
             raise Exception("DID NOT RAISE")
-        if getattr(space, 'w_' + expected_exc.__name__) is not operror.w_type:
+        if getattr(space, 'w_' + expected_exc.__name__) is not operror.get_w_type(space):
             raise Exception("Wrong exception")
         return state.clear_exception()
 

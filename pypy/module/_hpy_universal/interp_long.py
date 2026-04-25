@@ -64,7 +64,8 @@ def HPyLong_AsUInt32_t(space, handles, ctx, h):
         val = space.uint_w(w_long)
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
+            raise oefmt(space.w_OverflowError,
+                        "Python int too large to convert to C unsigned long")
         raise
     if need_to_check and val > ULONG_MAX:
         # On win64 space.uint_w will succeed for 8-byte ints
@@ -102,7 +103,8 @@ def HPyLong_AsUInt64_t(space, handles, ctx, h):
             w_long, allow_conversion=False))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
+            raise oefmt(space.w_OverflowError,
+                        "Python int too large to convert to C unsigned long long")
         raise
 
 @API.func("unsigned long long HPyLong_AsUInt64_tMask(HPyContext *ctx, HPy h)",
@@ -120,7 +122,8 @@ def HPyLong_AsSize_t(space, handles, ctx, h):
         return space.uint_w(w_long)
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            e.w_type = space.w_OverflowError
+            raise oefmt(space.w_OverflowError,
+                        "Python int too large to convert to C size_t")
         raise
 
 @API.func("HPy_ssize_t HPyLong_AsSsize_t(HPyContext *ctx, HPy h)",

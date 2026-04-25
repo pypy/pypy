@@ -108,7 +108,7 @@ def run_toplevel(space, f, verbose=False):
         f()
     except OperationError as operationerr:
         w_value = operationerr.normalize_exception(space)
-        w_type = operationerr.w_type
+        w_type = operationerr.get_w_type(space)
         w_traceback = operationerr.get_w_traceback(space)
 
         # for debugging convenience we also insert the exception into

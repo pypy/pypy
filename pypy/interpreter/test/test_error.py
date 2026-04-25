@@ -35,7 +35,7 @@ def test_get_operr_withname_error_class(space):
 def test_oefmt(space):
     operr = oefmt("w_type", "abc %s def %d", "foo", 42)
     assert isinstance(operr, OperationError)
-    assert operr.w_type == "w_type"
+    assert operr._w_type == "w_type"
     assert operr._w_value is None
     val = operr._compute_value(space)
     assert val == ("abc foo def 42", 14)
@@ -114,6 +114,35 @@ def test_oefmt_utf8(space):
     val = operr._compute_value(space)
 
 
+def test_get_w_type_pre_normalization(space):
+    # get_w_type() must work before normalization without triggering lazy construction
+    operr = oefmt(space.w_ValueError, "bad %s", "thing")
+    assert operr.get_w_type(space) is space.w_ValueError
+    assert operr._w_value is None    # still lazy, not yet constructed
+
+def test_get_w_type_base_pre_normalization(space):
+    # same for base OperationError with w_value=w_None (un-instantiated)
+    operr = OperationError(space.w_RuntimeError, space.w_None)
+    assert operr.get_w_type(space) is space.w_RuntimeError
+
+def test_w_type_cleared_after_normalize(space):
+    # after normalization w_type must be None; get_w_type() derives it from _w_value
+    operr = oefmt(space.w_TypeError, "msg")
+    assert operr._w_type is not None          # non-None pre-normalization
+    operr.normalize_exception(space)
+    assert operr._w_type is None              # cleared post-normalization
+    assert operr.get_w_type(space) is space.w_TypeError  # still accessible
+
+def test_match_pre_and_post_normalization(space):
+    # match() must work both before and after normalization
+    operr = oefmt(space.w_TypeError, "msg")
+    assert operr.match(space, space.w_TypeError)
+    assert not operr.match(space, space.w_ValueError)
+    operr.normalize_exception(space)
+    assert operr.match(space, space.w_TypeError)
+    assert not operr.match(space, space.w_ValueError)
+
+
 def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
@@ -151,7 +180,7 @@ def test_wrap_oserror():
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"))
     assert isinstance(e, OperationError)
-    assert e.w_type[0] == [OSError]
+    assert e._w_type[0] ==[OSError]
     assert e.get_w_value(space) == ([OSError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)], None)
     #
@@ -159,7 +188,7 @@ def test_wrap_oserror():
                      filename="test.py",
                      w_exception_class=space.w_EnvironmentError)
     assert isinstance(e, OperationError)
-    assert e.w_type[0] == [EnvironmentError]
+    assert e._w_type[0] ==[EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])
@@ -168,7 +197,7 @@ def test_wrap_oserror():
                      filename="test.py",
                      w_exception_class=[SystemError])
     assert isinstance(e, OperationError)
-    assert e.w_type[0] == [SystemError]
+    assert e._w_type[0] ==[SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],
                                     [os.strerror(errno.EBADF)],
                                     ["test.py"])

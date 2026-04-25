@@ -82,7 +82,7 @@ def create_entry_point(space, w_dict):
                 exitcode = space.int_w(w_exitcode)
             except OperationError as e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-type: " + e.get_w_type(space).getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         finally:
@@ -94,7 +94,7 @@ def create_entry_point(space, w_dict):
                     exitcode = 120
             except OperationError as e:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-type: " + e.get_w_type(space).getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
                 return 1
         return exitcode
@@ -161,7 +161,7 @@ def get_additional_entrypoints(space, w_initstdio):
         except OperationError as e:
             if verbose:
                 debug("OperationError:")
-                debug(" operror-type: " + e.w_type.getname(space))
+                debug(" operror-type: " + e.get_w_type(space).getname(space))
                 debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return rffi.cast(rffi.INT, -1)
         finally:
@@ -215,7 +215,7 @@ def get_additional_entrypoints(space, w_initstdio):
             """)
         except OperationError as e:
             debug("OperationError:")
-            debug(" operror-type: " + e.w_type.getname(space))
+            debug(" operror-type: " + e.get_w_type(space).getname(space))
             debug(" operror-value: " + space.text_w(space.str(e.get_w_value(space))))
             return -1
         return 0

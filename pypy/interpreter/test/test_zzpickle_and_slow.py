@@ -45,7 +45,7 @@ def _attach_helpers(space):
         if w_frame.last_exception is None:
             return space.w_None
         else:
-            return w_frame.last_exception.w_type
+            return w_frame.last_exception.get_w_type(space)
 
     from pypy.interpreter import gateway
 
