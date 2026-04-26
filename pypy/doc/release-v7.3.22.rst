@@ -4,7 +4,7 @@ PyPy v7.3.22: release of python 2.7, 3.11, released 2025-xx-xx
 
 
 ..
-  updated to 4ab22a7d80a750219088755147f5769e02430ddb
+  updated to 3c3ea2550a07d7b58ed6a2554d45322a983ef203
 
 .. note::
        This is a pre-release announcement. When the release actually happens, it
@@ -14,8 +14,9 @@ PyPy v7.3.22: release of python 2.7, 3.11, released 2025-xx-xx
       Need to add release date
 
 The PyPy team is proud to release version 7.3.22 of PyPy after the previous
-release on March 13, 2026. This is a bug-fix release to fix a long-standing JIT
-bug that started appearing when some int optimizations exposed it. We also cleaned
+release on March 13, 2026. This release fixes a long-standing JIT
+bug that started appearing when some int optimizations exposed it. The bug caused
+random segfaults. We also cleaned
 up many of the remaining stdlib test suite failures, which improves CPython
 compatibility around line numbers in dis.dis, signatures and objclass
 attributes for builtins, and other quality of life features.
@@ -120,12 +121,14 @@ Bugfixes
    (:issue:`3927`)
  - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
  - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
+ - Fix duplicate 'const' in C code generation for nested const pointer types
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
  - Improve the performance of ``rbigint`` left-shifts (:issue:`5404`)
  - Fix ~10ms GIL wakeup latency on Windows (:issue:`5391`)
+ - Improve complex powers with small integers
 
 Python 2.7
 ----------
@@ -175,6 +178,11 @@ Bugfixes including missing compatibility with CPython 3.11
  - Fix hpy debug mode failures
  - signal: handle failed wakeup-fd so it can be polled
  - Add more ``check_valid()`` calls to ``mmap``
+ - Raise `SyntaxError` for unterminated single-quoted strings ending in newline
+ - Fix missing ``__reduce__`` on cpyext methods, exposed by ``_pickle`` (:issue:`5445`)
+ - Fix signatures of some math functions (:issue:`5368`)
+ - Add ``__doc__`` and ``__text_signature__`` to more cpyext types (:issue:`5368`)
+ - Fix some 32-bit overflows in ``thread_t`` conversion and cpyext arg parsing
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~

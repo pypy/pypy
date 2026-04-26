@@ -225,12 +225,12 @@ def test_mktime():
     ltime = time.localtime()
     ltime = list(ltime)
     ltime[0] = -1
-    if _WIN32 or _MACOS:
+    if _WIN32 or _MACOS or sys.maxsize < 2**32:
         raises(OverflowError, time.mktime, tuple(ltime))
     else:
         time.mktime(tuple(ltime))  # Does not crash anymore
     ltime[0] = 100
-    if _WIN32 or _MACOS:
+    if _WIN32 or _MACOS or sys.maxsize < 2**32:
         raises(OverflowError, time.mktime, tuple(ltime))
     else:
         time.mktime(tuple(ltime))  # Does not crash anymore
@@ -254,6 +254,11 @@ def test_mktime_overflow():
         MAX_YEAR = 3000
         DELTA = 2
         MIN_YEAR = 1971
+    elif sys.maxsize < 2**32:
+        # 32-bit Linux has a 32-bit time_t (range ~1902-2037)
+        MAX_YEAR = 2037
+        DELTA = 2
+        MIN_YEAR = 1902
     else:
         MAX_YEAR = (1 << 31) - 1
         DELTA = 1

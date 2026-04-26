@@ -1078,6 +1078,7 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     f.func_defaults = unbound_meth.func_defaults
     f.func_doc = unbound_meth.func_doc
     f.__module__ = func.__module__
+    f.__text_signature__ = getattr(func, '__text_signature__', None)
     # necessary for unique identifiers for pickling
     f.func_name = func.func_name
     if unwrap_spec is None:

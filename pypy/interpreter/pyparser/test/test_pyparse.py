@@ -628,6 +628,12 @@ class TestIncompleteInput(object):
             msg = self.check_error("a = 'a\\ " + eol)
             assert "unterminated string literal" in msg
 
+    def test_unterminated_single_quote_no_newline_is_invalid(self):
+        msg = self.check_error("a = 'a\\ ")
+        assert "unterminated string literal" in msg
+        msg = self.check_error("a = 'sta")
+        assert "unterminated string literal" in msg
+
     def test_invalid_with_explicit_newline(self):
         # An expression that is genuinely invalid (not just incomplete) should
         # raise "invalid syntax" when it ends with an explicit newline.
@@ -657,5 +663,21 @@ class TestIncompleteInput(object):
         info = pyparse.CompileInfo("<test>", "eval", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
         with pytest.raises(SyntaxError) as excinfo:
             self.parser.parse_source("\n", info)
+        assert "incomplete input" in excinfo.value.msg, excinfo.value.msg
+
+    def test_eval_mode_trailing_operator_is_invalid(self):
+        # "9+\n" (trailing newline, top-level) is invalid, not incomplete.
+        # codeop appends "\n" and retries; PyPy must not say "incomplete input"
+        # or codeop returns None instead of raising SyntaxError.
+        info = pyparse.CompileInfo("<test>", "eval", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parser.parse_source("9+\n", info)
+        assert "incomplete input" not in excinfo.value.msg, excinfo.value.msg
+
+    def test_eval_mode_open_paren_with_newline_is_incomplete(self):
+        # "(9+\n" has an unclosed paren so more input can fix it.
+        info = pyparse.CompileInfo("<test>", "eval", flags=consts.PyCF_ALLOW_INCOMPLETE_INPUT)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.parser.parse_source("(9+\n", info)
         assert "incomplete input" in excinfo.value.msg, excinfo.value.msg
 

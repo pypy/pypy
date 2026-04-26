@@ -888,6 +888,10 @@ class AppTestInt(object):
         assert x == expected
         assert called == [0, expected]
 
+    def test_from_to_bytes_text_signature(self):
+        assert int.from_bytes.__text_signature__ == "($type, /, bytes, byteorder='big', *, signed=False)"
+        assert int.to_bytes.__text_signature__ == "($self, /, length=1, byteorder='big', *, signed=False)"
+
     def test_leading_zero_literal(self):
         assert eval("00") == 0
         raises(SyntaxError, eval, '07')
@@ -1010,7 +1014,10 @@ def test_hash_examples():
             assert iobj._hash_int(input) == -2
         else:
             assert iobj._hash_int(input) == -i-1
-    assert iobj._hash_int(-sys.maxsize-1) == -4
+    if sys.maxsize > 2**31 - 1:
+        assert iobj._hash_int(-sys.maxsize-1) == -4
+    else:
+        assert iobj._hash_int(-sys.maxsize-1) == -2
 
 @given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize))
 def test_agreement_rbigint_hash(x):

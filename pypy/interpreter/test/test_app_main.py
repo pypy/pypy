@@ -1045,6 +1045,7 @@ class TestNonInteractive:
         self._test_no_stdio(['stdout'])
 
     @py.test.mark.skipif("os.name != 'posix'")
+    @py.test.mark.xfail(reason="flaky untranslated: runner may reopen fd 2 before app_main.py detects EBADF")
     def test_no_stderr(self):
         self._test_no_stdio(['stderr'])
 

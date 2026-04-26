@@ -92,6 +92,7 @@ class CompileInfo(object):
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
         self.feature_version = feature_version
+        self.source_ends_with_newline = False
 
 
 class PythonParser(object): # leave class for mergeability of _handle_encoding
@@ -199,9 +200,10 @@ class PegParser(object):
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
-        if source_lines and not source_lines[-1].endswith("\n"):
+        compile_info.source_ends_with_newline = textsrc.endswith("\n")
+        if source_lines and not compile_info.source_ends_with_newline:
             source_lines[-1] += '\n'
-        if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
+        if compile_info.source_ends_with_newline or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
             compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
         else:
@@ -221,7 +223,7 @@ class PegParser(object):
             if compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
                 single_quote_finalized = (
                     pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
-                    (textsrc.endswith('\n') or textsrc.endswith('\r')) and
+                    not textsrc.endswith('\\') and
                     not textsrc.endswith('\\\n') and
                     not textsrc.endswith('\\\r') and
                     not textsrc.endswith('\\\r\n'))

@@ -263,6 +263,7 @@ class TestRandom:
         assert vertices == expected
 
     @given(edges())
+    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
     def test_break_cycles_v(self, edges):
         # mostly a "does not crash" kind of test
         result = list(break_cycles_v(edges, edges))

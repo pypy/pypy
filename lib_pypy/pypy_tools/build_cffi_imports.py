@@ -247,12 +247,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
             status, stdout, stderr = _build_dependency(key)
-            if status != 0:
-                failures.append((key, module))
+            if status != 0: # or key in ("_ssl"):
                 print("stdout:")
                 print(stdout.decode('utf-8'))
                 print("stderr:")
                 print(stderr.decode('utf-8'))
+            if status != 0:
+                failures.append((key, module))
                 continue
 
             env['CPPFLAGS'] = '-I{}/usr/include {}'.format(

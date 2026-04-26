@@ -299,6 +299,8 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.C.__qualname__ == "C"
         assert c.__iter__.__qualname__ == "C.__iter__"
         assert type(c.__iter__).__doc__.startswith('instancemethod(function, instance)')
+        assert mod.C.__next__.__doc__ == "usable docstring"
+        assert mod.C.__next__.__text_signature__ == '($self, /)'
 
     def test_module_name(self):
         # issue 3993

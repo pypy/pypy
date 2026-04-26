@@ -1072,21 +1072,6 @@ a = A()
             return c().get(), x"""
         yield self.st, test, "f(3)", (4, 4)
 
-    @pytest.mark.xfail
-    def test_nonlocal_class_nesting_bug(self):
-        test = """\
-def foo():
-    var = 0
-    class C:
-        def wrapper():
-            nonlocal var
-            var = 1
-        wrapper()
-        nonlocal var
-    return var
-"""
-        self.st(test, "foo()", 1)
-
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
         compile_with_astcompiler(source, 'exec', self.space)
@@ -2494,20 +2479,6 @@ match x:
     def test_type_with_star_311(self):
         self.st("def func1(*args: *(1, )): pass", "func1.__annotations__['args']", 1)
 
-    @pytest.mark.xfail
-    def test_if_call_or_call_bug(self):
-        # used to crash
-        compile_with_astcompiler("""
-def func_if_call_or_call():
-    if a:
-        (f1() or
-        g1())""", 'exec', self.space)
-        compile_with_astcompiler("""
-def func_if_call_and_call():
-    if a:
-        (f1() and
-        g1())""", 'exec', self.space)
-
 class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
         from pypy.tool.dis3 import findlinestarts
@@ -3496,18 +3467,6 @@ class TestOptimizations:
         """
         counts = self.count_instructions(source)
         assert counts.get(ops.JUMP_FORWARD, 0) == 1
-
-    @pytest.mark.xfail
-    def test_match_optimize_default(self):
-        source = """def f():
-            match x:
-                case 1:
-                    return 1
-                case _:
-                    return 2
-        """
-        counts = self.count_instructions(source)
-        assert counts.get(ops.POP_TOP, 0) == 0
 
     def test_jump_if_false_or_pop_to_same(self):
         source = """def f(a, b, c):

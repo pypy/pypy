@@ -85,7 +85,7 @@ class AppTest_ModuleObject:
 
         # If the module has a __loader__ and that loader has a module_repr()
         # method, call it with a single argument, which is the module object.
-        # The value returned is used as the module’s repr.
+        # The value returned is used as the module's repr.
         class CustomLoader:
             @classmethod
             def module_repr(cls, module):
@@ -113,7 +113,7 @@ class AppTest_ModuleObject:
         import sys
         test_module = type(sys)("test_module", "doc")
         # If an exception occurs in module_repr(), the exception is caught
-        # and discarded, and the calculation of the module’s repr continues
+        # and discarded, and the calculation of the module's repr continues
         # as if module_repr() did not exist.
         class CustomLoaderWithRaisingRepr:
             @classmethod
@@ -133,7 +133,7 @@ class AppTest_ModuleObject:
         import sys
         test_module = type(sys)("test_module", "doc")
         # If an exception occurs in module_repr(), the exception is caught
-        # and discarded, and the calculation of the module’s repr continues
+        # and discarded, and the calculation of the module's repr continues
         # as if module_repr() did not exist.
         class CustomLoaderWithRaisingRepr:
             @classmethod

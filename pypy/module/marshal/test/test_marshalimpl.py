@@ -38,7 +38,7 @@ def test_long_more(space):
             _marshal_check(sign * (1L << i))
 
 def test_int_roundtrip(space):
-    a = 0xffffffff
+    a = sys.maxsize
     w_a = space.newint(a)
     m = interp_marshal.StringMarshaller(space, 4)
     interp_marshal.marshal(space, w_a, m)

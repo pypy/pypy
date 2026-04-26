@@ -282,9 +282,20 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             """),
             ("format_parsing", "METH_NOARGS",
             """
-                /* From getargs.c */ 
+                /* From getargs.c */
                 char *fmt = "%.150s%s takes %s %d argument%s (%ld given)";
                 return PyUnicode_FromFormat(fmt, "add", "()", "exactly", 2, "s", 1L);
+            """),
+            ("format_ll_str", "METH_VARARGS",
+            """
+                char *fmt = PyUnicode_AsUTF8(PyTuple_GetItem(args, 0));
+                if (PyObject_Size(args) != 3) {
+                    PyErr_SetString(PyExc_RuntimeError, "bad args");
+                    return NULL;
+                }
+                long long d = PyLong_AsLongLong(PyTuple_GetItem(args, 1));
+                char *s2 = PyUnicode_AsUTF8(PyTuple_GetItem(args, 2));
+                return PyUnicode_FromFormat(fmt, d, s2);
             """),
             ])
         assert module.format_obj("formatting 100R '%.100R'", 1.0) == "formatting 100R '1.0'"
@@ -295,7 +306,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         print(ret)
         assert ret == "add() takes exactly 2 arguments (1 given)";
 
-        s = module.format_d_str("id:%lli %s", 12, "abc")
+        s = module.format_ll_str("id:%lli %s", 12, "abc")
         assert s == "id:12 abc"
 
     def test_fromkind(self):

@@ -411,6 +411,19 @@ class W_PyCWrapperObject(W_Root):
             return space.newtext(doc)
         return space.w_None
 
+    def descr_get_txtsig(self, space):
+        py_obj = make_ref(space, self)
+        py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
+        if py_methoddescr.c_d_base and py_methoddescr.c_d_base.c_doc:
+            rawdoc = rffi.constcharp2str(py_methoddescr.c_d_base.c_doc)
+        else:
+            rawdoc = self.doc
+        if rawdoc:
+            txtsig = extract_txtsig(rawdoc, self.method_name)
+            if txtsig is not None:
+                return space.newtext(txtsig)
+        return space.w_None
+
 class CMethod(_Method):
     # Differentiate this from an app-level class Method
     # so isinstance(c-class-meth, type(app-class-method)) is False
@@ -480,6 +493,8 @@ W_PyCMethodObject.typedef = TypeDef(
     'method_descriptor',
     __get__ = interp2app(cmethod_descr_get),
     __call__ = interp2app(W_PyCMethodObject.descr_call),
+    __doc__ = GetSetProperty(W_PyCMethodObject.get_doc),
+    __text_signature__ = GetSetProperty(W_PyCMethodObject.get_txtsig),
     __name__ = interp_attrproperty('name', cls=W_PyCMethodObject,
         wrapfn="newtext_or_none"),
     __qualname__ = interp_attrproperty('qualname', cls=W_PyCMethodObject,
@@ -494,6 +509,8 @@ W_PyCClassMethodObject.typedef = TypeDef(
     'builtin_function_or_method',
     __get__ = interp2app(cclassmethod_descr_get),
     __call__ = interp2app(W_PyCClassMethodObject.descr_call),
+    __doc__ = GetSetProperty(W_PyCClassMethodObject.get_doc),
+    __text_signature__ = GetSetProperty(W_PyCClassMethodObject.get_txtsig),
     __name__ = interp_attrproperty('name', cls=W_PyCClassMethodObject,
         wrapfn="newtext_or_none"),
     __qualname__ = interp_attrproperty('qualname', cls=W_PyCClassMethodObject,
@@ -514,6 +531,7 @@ W_PyCWrapperObject.typedef = TypeDef(
     __qualname__ = interp_attrproperty('qualname', cls=W_PyCWrapperObject,
         wrapfn="newtext_or_none"),
     __doc__ = GetSetProperty(W_PyCWrapperObject.descr_get_doc),
+    __text_signature__ = GetSetProperty(W_PyCWrapperObject.descr_get_txtsig),
     __objclass__ = interp_attrproperty_w('w_objclass', cls=W_PyCWrapperObject),
     __repr__ = interp2app(W_PyCWrapperObject.descr_method_repr),
     __reduce__ = interp2app(W_PyCWrapperObject.descr_reduce),

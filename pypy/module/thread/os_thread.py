@@ -5,6 +5,7 @@ Thread support based on OS-level threads.
 import os
 from signal import SIGINT
 from rpython.rlib import rthread
+from rpython.rlib.rarithmetic import r_uint
 from pypy.module.thread.error import wrap_thread_error
 from pypy.module.signal.interp_signal import check_signum_in_range
 from pypy.interpreter.error import OperationError, oefmt
@@ -199,7 +200,7 @@ allocated consecutive numbers starting at 1, this behavior should not
 be relied upon, and the number should be seen purely as a magic cookie.
 A thread's identity may be reused for another thread after it exits."""
     ident = rthread.get_ident()
-    return space.newint(ident)
+    return space.newint(r_uint(ident))
 
 def get_native_id(space):
     """Return the native integral Thread ID of the current thread assigned by

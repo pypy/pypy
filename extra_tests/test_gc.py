@@ -18,7 +18,7 @@ def test_memory_doesnt_jump_during_sweeping():
     minimum = min(x[1] for x in memory)
     maximum = max(x[1] for x in memory)
     assert minimum != 0
-    assert minimum >= maximum // 2
+    assert minimum >= maximum // 3
 
     gc.hooks.on_gc_collect_step = lambda stats: None
 

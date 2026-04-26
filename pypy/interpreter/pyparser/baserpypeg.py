@@ -284,7 +284,8 @@ class Parser:
                             typ != tokens.DEDENT):
                         break
                 else:
-                    self.raise_syntax_error_known_location("incomplete input", tok)
+                    if not self._eval_invalid_with_trailing_newline():
+                        self.raise_syntax_error_known_location("incomplete input", tok)
             self.reset()
             self.call_invalid_rules = True
             meth(self) # often raises
@@ -405,6 +406,20 @@ class Parser:
         if self._highwatermark >= len(self._tokens):
             self._highwatermark = len(self._tokens) - 1
         return self._tokens[self._highwatermark]
+
+    def _eval_invalid_with_trailing_newline(self):
+        """In eval mode, if the source ended with a newline and the parse
+        consumed at least one token, the input is definitively invalid syntax,
+        not incomplete. Unclosed-bracket cases are already caught by the
+        tokenizer (TokenError) before the parser runs, so no bracket scan is
+        needed here.
+        CPython: compile("9+\\n", "eval", PyCF_ALLOW_INCOMPLETE_INPUT) raises
+        "invalid syntax"; compile("9+", ...) raises "incomplete input".
+        codeop appends "\\n" and retries, so this distinction matters.
+        """
+        return (self.compile_info.source_ends_with_newline and
+                self.compile_info.mode == "eval" and
+                self._highwatermark > 0)
 
     def get_last_non_whitespace_token(self):
         tok = self._tokens[0]
