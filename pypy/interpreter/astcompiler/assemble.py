@@ -444,6 +444,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             if jump_depth > block_to.forced_initial_depth:
                 block_to.forced_initial_depth = jump_depth
 
+    def emit_jump_noline(self, op, block_to):
+        """Emit a jump with no position info, matching CPython's ADDOP_JUMP_NOLINE."""
+        self.no_position_info()
+        self.emit_jump(op, block_to)
+
     def emit_compare(self, ast_op_kind):
         from pypy.interpreter.astcompiler.codegen import compare_operations
         opcode, op_kind = compare_operations(ast_op_kind)
@@ -721,7 +726,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                     if instr.opcode in (_SETUP_WITH, _SETUP_FINALLY, _SETUP_CLEANUP):
                         continue # don't propagate line info into exception handler blocks
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
-            if block.next_block and block.next_block.marked == 1 and block.next_block.instructions:
+            if (block.next_block and not block.cant_add_instructions and
+                    block.next_block.marked == 1 and block.next_block.instructions):
                 next_first_op = block.next_block.instructions[0].opcode
                 if next_first_op not in (_SETUP_CLEANUP, _SETUP_WITH, _SETUP_FINALLY):
                     block.next_block.instructions[0].update_position_if_not_set(prev_position)
@@ -798,6 +804,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             self.emit_op(ops.RETURN_VALUE)
             self.current_block.auto_inserted_return = True
         blocks = self.first_block.post_order()
+
         remove_redundant_nops(blocks)
         self.jump_thread(blocks)
         self.extend_blocks(blocks)
@@ -874,7 +881,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                         worklist.append(target)
 
             # Propagate to fallthrough successor.
-            if b.next_block is not None and not b.cant_add_instructions:
+            # CPython's label_exception_targets always follows b_next regardless
+            # of whether the block ends with an unconditional jump.  We must do
+            # the same: after extend_blocks/jump_thread removes a JUMP_FORWARD,
+            # cant_add_instructions is still True but next_block still needs
+            # handler-stack propagation.
+            if b.next_block is not None:
                 if b.next_block not in visited:
                     visited[b.next_block] = True
                     block_entry_stack[b.next_block] = stk

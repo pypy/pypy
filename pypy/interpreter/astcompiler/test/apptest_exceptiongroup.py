@@ -90,6 +90,17 @@ def test_error_in_exception_handler():
     else:
         assert 0, "an ExceptionGroup should be raised"
 
+def _name_except_star_func():
+    l = []
+    value = ValueError()
+    typ = TypeError()
+    try:
+        raise ExceptionGroup('abc', [value, typ])
+    except* TypeError as e1:
+        l.append(1)
+    except* ValueError as e2:
+        l.append(2)
+
 def test_name_except_star():
     l = []
     value = ValueError()

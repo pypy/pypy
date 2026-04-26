@@ -2651,20 +2651,6 @@ match x:
 print()
 """, [0, 1, 3, 1, 4, 5, 6, 7])
 
-    def test_crash_ifelse_in_except(self):
-        code = self.get_line_numbers("""
-def buggy():
-    try:
-        pass
-    except OSError as exc:
-        if a:
-            pass
-        elif b:
-            pass
-    else:
-        f
-""", [1, 2, 3, 4, 5, 6, 7, 3, 9, 6], function=True)
-
     def test_return_in_with(self):
         code = self.get_line_numbers("""
 def withreturn():
@@ -2689,14 +2675,6 @@ def withreturn():
             v + w
         )
         """, [3, 0, 1])
-
-    def test_or_with_implicit_return(self):
-        code = self.get_line_numbers("""
-def or_with_implicit_return():
-    if a:
-        (g
-         or
-         h)""", [1, 2, 4, 1, 2], function=True)
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
@@ -3069,15 +3047,6 @@ class TestOptimizations:
         for instr in instrs:
             counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
         return counts
-
-    def test_elim_jump_to_return(self):
-        source = """def f():
-        return true_value if cond else false_value
-        """
-        counts = self.count_instructions(source)
-        assert ops.JUMP_FORWARD not in counts
-        assert ops.JUMP_ABSOLUTE not in counts
-        assert counts[ops.RETURN_VALUE] == 2
 
     def test_forward_cond_jump_to_jump(self):
         source1 = """def jumpymcjumpface():

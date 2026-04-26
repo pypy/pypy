@@ -803,8 +803,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if_.test.accept_jump_if(self, False, otherwise)
             self._visit_body(if_.body)
             if if_.orelse:
-                self.no_position_info()
-                self.emit_jump(ops.JUMP_FORWARD, end)
+                self.emit_jump_noline(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
                 self._stack_depth = saved_depth
                 self._visit_body(if_.orelse)
@@ -990,7 +989,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.no_position_info()
         self.emit_op(_POP_BLOCK)  # close try-body scope
         self._visit_body(tr.orelse)
-        self.emit_jump(ops.JUMP_FORWARD, end)
+        self.emit_jump_noline(ops.JUMP_FORWARD, end)
         self.use_next_block(exc)
         # stack: [..., prev_exc, exc]  (after PUSH_EXC_INFO executed at handler entry)
         self.emit_jump(_SETUP_CLEANUP, outer_cleanup)  # open outer scope; seeds forced_initial_depth
@@ -1099,7 +1098,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # finally block, unexceptional case: inline (CPython: VISIT_SEQ finalbody then JUMP exit)
         self.pop_frame_block(F_FINALLY_TRY, body)
         self._visit_body(finalbody)
-        self.emit_jump(ops.JUMP_FORWARD, exit)
+        self.emit_jump_noline(ops.JUMP_FORWARD, exit)
 
         # finally block, exceptional case: stack at entry is [exc] (depth 1).
         self.no_position_info()  # SETUP_CLEANUP/PUSH_EXC_INFO are artificial; line event must
@@ -1838,7 +1837,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ifexp.test.accept_jump_if(self, False, otherwise)
         saved_depth = self._stack_depth
         ifexp.body.walkabout(self)
-        self.emit_jump(ops.JUMP_FORWARD, end)
+        self.emit_jump_noline(ops.JUMP_FORWARD, end)
         self.use_next_block(otherwise)
         self._stack_depth = saved_depth  # restore: otherwise entered before then-branch
         ifexp.orelse.walkabout(self)
