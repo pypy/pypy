@@ -1324,14 +1324,17 @@ class ExceptionTests(unittest.TestCase):
             else:
                 self.fail("Should have raised KeyError")
 
-        def g():
-            try:
-                return g()
-            except RecursionError:
-                return sys.exc_info()
-        e, v, tb = g()
-        self.assertIsInstance(v, RecursionError, type(v))
-        self.assertIn("maximum recursion depth exceeded", str(v))
+        # PyPy does not reserve extra stack space for exception handling,
+        # so catching RecursionError may itself raise RecursionError.
+        if check_impl_detail(cpython=True):
+            def g():
+                try:
+                    return g()
+                except RecursionError:
+                    return sys.exc_info()
+            e, v, tb = g()
+            self.assertIsInstance(v, RecursionError, type(v))
+            self.assertIn("maximum recursion depth exceeded", str(v))
 
 
     @cpython_only
