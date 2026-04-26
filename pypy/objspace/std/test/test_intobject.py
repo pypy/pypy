@@ -888,6 +888,10 @@ class AppTestInt(object):
         assert x == expected
         assert called == [0, expected]
 
+    def test_from_to_bytes_text_signature(self):
+        assert int.from_bytes.__text_signature__ == "($type, /, bytes, byteorder='big', *, signed=False)"
+        assert int.to_bytes.__text_signature__ == "($self, /, length=1, byteorder='big', *, signed=False)"
+
     def test_leading_zero_literal(self):
         assert eval("00") == 0
         raises(SyntaxError, eval, '07')

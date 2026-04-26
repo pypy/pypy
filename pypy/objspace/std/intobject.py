@@ -102,6 +102,7 @@ class W_AbstractIntObject(W_Root):
             # That's what from_bytes() does in CPython 3.5.2 too
             w_obj = space.call_function(w_inttype, w_obj)
         return w_obj
+    descr_from_bytes.__func__.__text_signature__ = "($type, /, bytes, byteorder='big', *, signed=False)"
 
     @unwrap_spec(length=int, byteorder='text', signed=bool)
     def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
@@ -138,6 +139,7 @@ class W_AbstractIntObject(W_Root):
         except OverflowError:
             raise oefmt(space.w_OverflowError, "int too big to convert")
         return space.newbytes(byte_string)
+    descr_to_bytes.__text_signature__ = "($self, /, length=1, byteorder='big', *, signed=False)"
 
     def descr_round(self, space, w_ndigits=None):
         """Rounding an Integral returns itself.
