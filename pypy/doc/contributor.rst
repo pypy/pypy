@@ -1,8 +1,7 @@
-#encoding utf-8
-
 Contributors
 ------------
-::
+
+.. code-block:: text
 
   Armin Rigo
   Matti Picus
@@ -109,6 +108,7 @@ Contributors
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
+  Stan Ulbrych
   Tyler Wade
   Paul deGrandis
   Tadeu Zagallo
@@ -220,6 +220,7 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
+  Charalampos Stratakis
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -265,6 +266,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Jeongseop Lim
   Julian Waters
   Sam James
   Christian Clauss
@@ -319,6 +321,7 @@ Contributors
   Joshua Gilbert
   Andrew Thompson
   Jeongseop Lim
+  Victorien
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
@@ -439,8 +442,10 @@ Contributors
 ----
 
 These contributors had code in closed branches on the mercurial repo, which was
-not ported to the git repo. It was never merged to a released version, but they
-made an effort to contribute and we thank them
+not ported to the Git repo. It was never merged to a released version, but they
+made an effort to contribute and we thank them.
+
+.. code-block:: text
 
   m@funkyhat.org
   gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
@@ -486,5 +491,3 @@ made an effort to contribute and we thank them
   Nicholas Riley
   Neil Shepperd
   coolbutuseless@gmail.com
-
-
