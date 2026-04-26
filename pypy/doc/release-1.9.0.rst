@@ -97,7 +97,7 @@ Highlights
 * List comprehension has been improved.
 
 .. _`numpy-status`: https://buildbot.pypy.org/numpy-status/latest.html
-.. _`JIT hooks documentation`: https://doc.pypy.org/en/latest/jit-hooks.html
+.. _`JIT hooks documentation`: https://doc.pypy.org/jit-hooks.html
 
 JitViewer
 =========

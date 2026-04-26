@@ -47,9 +47,9 @@ to proceed. This document also covers other `installation schemes`_.
 .. _`known issues`: https://bugs.pypy.org/issue?%40search_text=&title=py3k&%40columns=title&keyword=&id=&%40columns=id&creation=&creator=&release=&activity=&%40columns=activity&%40sort=activity&actor=&priority=&%40group=priority&status=-1%2C1%2C2%2C3%2C4%2C5%2C6&%40columns=status&assignedto=&%40columns=assignedto&%40pagesize=50&%40startwith=0&%40queryname=&%40old-queryname=&%40action=search
 .. _`#1540`: https://bugs.pypy.org/issue1540
 .. _`#1541`: https://bugs.pypy.org/issue1541
-.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`pypy documentation`: https://doc.pypy.org/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: https://www.virtualenv.org/en/latest/
-.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`installation schemes`: https://doc.pypy.org/getting-started.html#installing-pypy
 
 
 Cheers,

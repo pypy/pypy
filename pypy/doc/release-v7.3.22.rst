@@ -69,7 +69,7 @@ on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
 .. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _CFFI: https://cffi.readthedocs.io
 .. _cppyy: https://cppyy.readthedocs.io
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel

@@ -23,8 +23,8 @@ RPython's JIT even better.
 
 .. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 
 What is PyPy?
 =============
@@ -116,7 +116,7 @@ Highlights
     one sequence argument
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.1.html
+.. _resolved: https://doc.pypy.org/whatsnew-2.6.1.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!
