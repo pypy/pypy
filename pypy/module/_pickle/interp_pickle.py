@@ -1,4 +1,4 @@
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, ParseStringError
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 from rpython.rlib.rstruct.ieee import float_pack
@@ -2159,7 +2159,7 @@ class W_Unpickler(W_Root):
             from rpython.rlib.rbigint import rbigint
             try:
                 bigint = rbigint.fromstr(data)
-            except ValueError:
+            except ParseStringError:
                 raise oefmt(space.w_ValueError, "could not convert string to int")
             try:
                 w_val = space.newint(bigint.toint())
