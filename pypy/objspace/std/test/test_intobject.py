@@ -1014,7 +1014,10 @@ def test_hash_examples():
             assert iobj._hash_int(input) == -2
         else:
             assert iobj._hash_int(input) == -i-1
-    assert iobj._hash_int(-sys.maxsize-1) == -4
+    if sys.maxsize > 2**31 - 1:
+        assert iobj._hash_int(-sys.maxsize-1) == -4
+    else:
+        assert iobj._hash_int(-sys.maxsize-1) == -2
 
 @given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize))
 def test_agreement_rbigint_hash(x):

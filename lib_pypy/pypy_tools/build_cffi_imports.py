@@ -247,7 +247,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
             status, stdout, stderr = _build_dependency(key)
-            if status != 0:
+            if status != 0 or key in ("_ssl"):
                 failures.append((key, module))
                 print("stdout:")
                 print(stdout.decode('utf-8'))

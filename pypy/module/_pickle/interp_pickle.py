@@ -2158,12 +2158,13 @@ class W_Unpickler(W_Root):
         else:
             from rpython.rlib.rbigint import rbigint
             try:
-                ival = int(data)
-                w_val = space.newint(ival)
-            except OverflowError:
-                w_val = space.newlong_from_rbigint(rbigint.fromstr(data))
+                bigint = rbigint.fromstr(data)
             except ValueError:
                 raise oefmt(space.w_ValueError, "could not convert string to int")
+            try:
+                w_val = space.newint(bigint.toint())
+            except OverflowError:
+                w_val = space.newlong_from_rbigint(bigint)
         self.append(w_val)
     dispatch[ord(op.INT[0])] = load_int
 
