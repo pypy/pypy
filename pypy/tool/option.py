@@ -5,7 +5,7 @@ from rpython.config.config import to_optparse
 import optparse
 
 extra_useage = """For detailed descriptions of all the options see
-http://doc.pypy.org/en/latest/config/commandline.html"""
+https://doc.pypy.org/config/commandline.html"""
 
 def get_standard_options():
     config = get_pypy_config()

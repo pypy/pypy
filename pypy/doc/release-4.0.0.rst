@@ -85,8 +85,8 @@ lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.3`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-0
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 
 What is PyPy?
@@ -204,7 +204,7 @@ Other Highlights (since 2.6.1 release two months ago)
     and locals2fast only if truly necessary
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-15.11.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-15.11.0.html
 
 Please try it out and let us know what you think. We welcome feedback,
 we know you are using PyPy, please tell us about it!

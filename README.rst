@@ -36,7 +36,7 @@ Building PyPy is not the recommended way to obtain the PyPy alternative python
 interpreter. It is time-consuming and requires significant computing resources.
 More information can be found here:
 
-    https://doc.pypy.org/en/latest/build.html
+    https://doc.pypy.org/build.html
 
 Enjoy and send us feedback!
 

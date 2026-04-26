@@ -47,7 +47,7 @@ bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
 .. _`pypy and cpython 2.7.x`: https://speed.pypy.org
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -90,7 +90,7 @@ Highlights
 .. _`PyPy documentation`: https://doc.pypy.org
 .. _`RPython documentation`: https://rpython.readthedocs.org
 .. _`blog post`: https://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.5.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-2.5.0.html
 
 We have further improvements on the way: rpython file handling,
 finishing numpy linalg compatibility, numpy object dtypes, a better profiler,

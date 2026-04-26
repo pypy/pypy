@@ -37,8 +37,8 @@ Rpython's JIT even better.
 
 .. _`PyPy`: https://doc.pypy.org 
 .. _`Rpython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 
 What is PyPy?
 =============
@@ -56,7 +56,7 @@ bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
 .. _`pypy and cpython 2.7.x`: https://speed.pypy.org
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights 
 ==========
@@ -102,7 +102,7 @@ Highlights
 .. _`PEP 477`: https://www.python.org/dev/peps/pep-0477
 .. _`POODLE attack`: https://www.imperialviolet.org/2014/10/14/poodle.html
 .. _`ensurepip module`: https://docs.python.org/2/library/ensurepip.html
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.5.1.html
+.. _resolved: https://doc.pypy.org/whatsnew-2.5.1.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!

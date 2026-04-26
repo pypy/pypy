@@ -190,7 +190,7 @@ Using the RPython Toolchain
 First, install `the dependencies`_ for PyPy development:
 
 .. _`the dependencies`:
-   https://doc.pypy.org/en/latest/build.html#install-build-time-dependencies
+   https://doc.pypy.org/build.html#install-build-time-dependencies
 
 ::
 

@@ -44,7 +44,7 @@ bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
 .. _`pypy 2.3 and cpython 2.7.x`: https://speed.pypy.org
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -67,7 +67,7 @@ for more information see `whats-new`_:
 
 * Many issues were resolved_ since the 2.3 release on May 8
 
-.. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.3.1.html
+.. _`whats-new`: https://doc.pypy.org/whatsnew-2.3.1.html
 .. _resolved: https://bitbucket.org/pypy/pypy/issues?status=resolved
 
 Please try it out and let us know what you think. We especially welcome

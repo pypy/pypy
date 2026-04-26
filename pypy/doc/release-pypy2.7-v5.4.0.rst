@@ -32,8 +32,8 @@ with making RPython's JIT even better.
 .. _JIT: https://morepypy.blogspot.com.au/2016/08/pypy-tooling-upgrade-jitviewer-and.html
 .. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 
 What is PyPy?
 =============
@@ -210,7 +210,7 @@ Other Highlights (since 5.3 released in June 2016)
     `interp_posix.py`, based on the clean-up of CPython 2.7.x 
 
 .. _`JIT logging`: https://morepypy.blogspot.com/2016/08/pypy-tooling-upgrade-jitviewer-and.html
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.4.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-5.4.0.html
 
 Please update, and continue to help us make PyPy better.
 
