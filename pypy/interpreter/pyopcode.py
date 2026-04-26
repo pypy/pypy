@@ -240,6 +240,10 @@ class __extend__(pyframe.PyFrame):
                 return self.POP_JUMP_IF_FALSE(oparg, next_instr, ec)
             elif opcode == opcodedesc.POP_JUMP_IF_TRUE.index:
                 return self.POP_JUMP_IF_TRUE(oparg, next_instr, ec)
+            elif opcode == opcodedesc.POP_JUMP_FORWARD_IF_NONE.index:
+                next_instr = self.POP_JUMP_FORWARD_IF_NONE(oparg, next_instr)
+            elif opcode == opcodedesc.POP_JUMP_FORWARD_IF_NOT_NONE.index:
+                next_instr = self.POP_JUMP_FORWARD_IF_NOT_NONE(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_NOT_EXC_MATCH.index:
                 next_instr = self.JUMP_IF_NOT_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_ADD.index:
@@ -480,8 +484,8 @@ class __extend__(pyframe.PyFrame):
                 self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
             elif opcode == opcodedesc.COPY.index:
                 self.COPY(oparg, next_instr)
-            elif opcode == opcodedesc.ROT_N.index:
-                self.ROT_N(oparg, next_instr)
+            elif opcode == opcodedesc.SWAP.index:
+                self.SWAP(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -1250,6 +1254,18 @@ class __extend__(pyframe.PyFrame):
             return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
+    def POP_JUMP_FORWARD_IF_NONE(self, jumpby, next_instr):
+        w_value = self.popvalue()
+        if self.space.is_w(w_value, self.space.w_None):
+            next_instr += jumpby * 2
+        return next_instr
+
+    def POP_JUMP_FORWARD_IF_NOT_NONE(self, jumpby, next_instr):
+        w_value = self.popvalue()
+        if not self.space.is_w(w_value, self.space.w_None):
+            next_instr += jumpby * 2
+        return next_instr
+
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
@@ -1817,10 +1833,13 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
-    def ROT_N(self, oparg, next_instr):
-        w_top = self.peekvalue()
-        for i in range(oparg - 1):
-            self.settopvalue(self.peekvalue(i + 1), i)
+    def SWAP(self, oparg, next_instr):
+        # CPython 3.11 SWAP i: swap TOS with the i-th item from the top (1-indexed).
+        # SWAP 2 = ROT_TWO.
+        assert oparg >= 2
+        w_top = self.peekvalue(0)
+        w_i = self.peekvalue(oparg - 1)
+        self.settopvalue(w_i, 0)
         self.settopvalue(w_top, oparg - 1)
 
     def CHECK_EG_MATCH(self, oparg, next_instr):

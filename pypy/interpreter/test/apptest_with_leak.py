@@ -176,3 +176,101 @@ def test_lru_cache_style_with_lock_exception():
         pass
     else:
         assert False, "expected IndexError"
+
+
+def test_lru_cache_exception_no_context():
+    # test_functools.TestLRU.test_lru_with_exceptions: exception raised between
+    # the two 'with lock:' blocks must not gain __context__ from lock cleanup.
+    import dis
+    from _thread import RLock
+
+    def make_cached(user_function):
+        cache = {}
+        lock = RLock()
+
+        def wrapper(*args):
+            key = args
+            with lock:
+                if key in cache:
+                    return cache[key]
+            result = user_function(*args)
+            with lock:
+                cache[key] = result
+            return result
+
+        return wrapper
+
+    @make_cached
+    def func(i):
+        return 'abc'[i]
+
+    print("\n=== apptest double-with wrapper dis ===")
+    dis.dis(func)
+
+    assert func(0) == 'a'
+
+    try:
+        func(15)
+    except IndexError as e:
+        assert e.__context__ is None, repr(e.__context__)
+    else:
+        assert False, "expected IndexError"
+
+    # failed call must not be cached
+    try:
+        func(15)
+    except IndexError:
+        pass
+    else:
+        assert False, "expected IndexError on second call"
+
+
+def test_except_pass_around_lru_style_exception():
+    # typing.py inner() pattern: try: return cached(...) except TypeError: pass
+    # then raise ValueError.  The ValueError must have no __context__ from the
+    # suppressed TypeError caught inside the two-with-lock wrapper.
+    import dis
+    from _thread import RLock
+
+    def make_cached(user_function):
+        cache = {}
+        lock = RLock()
+
+        def wrapper(*args):
+            key = args
+            with lock:
+                if key in cache:
+                    return cache[key]
+            result = user_function(*args)
+            with lock:
+                cache[key] = result
+            return result
+
+        return wrapper
+
+    @make_cached
+    def cached(x):
+        if x < 0:
+            raise TypeError("bad arg")
+        return x
+
+    def inner(x):
+        try:
+            return cached(x)
+        except TypeError:
+            pass
+        raise ValueError("fallback error")
+
+    print("\n=== apptest cached wrapper dis ===")
+    dis.dis(cached)
+    print("\n=== apptest inner dis ===")
+    dis.dis(inner)
+
+    try:
+        inner(-1)
+    except ValueError as e:
+        assert e.__context__ is None, repr(e.__context__)
+    except TypeError:
+        assert False, "TypeError should have been caught by inner"
+    else:
+        assert False, "expected ValueError"

@@ -512,6 +512,7 @@ def test_17_none_f_trace():
 
 
 def test_18_except_with_name():
+    import dis
     def func():
         try:
             try:
@@ -522,6 +523,7 @@ def test_18_except_with_name():
                 y = "Something"
         except Exception:
             pass
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -583,6 +585,7 @@ def test_loop_in_try_except():
 
 
 def test_try_except_no_exception():
+    import dis
     def func():
         try:
             2
@@ -598,6 +601,7 @@ def test_try_except_no_exception():
                 12
         finally:
             14
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -611,6 +615,7 @@ def test_try_except_no_exception():
 
 
 def test_try_exception_in_else():
+    import dis
     def func():
         try:
             try:
@@ -626,6 +631,7 @@ def test_try_exception_in_else():
             12
         finally:
             14
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -838,12 +844,15 @@ def test_break_to_continue2():
 
 
 def test_break_to_break():
+    import dis
     def func():
         TRUE = 1
         while TRUE:
             while TRUE:
                 break
             break
+    print()
+    dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -1180,6 +1189,7 @@ def test_tracing_exception_raised_in_with():
 
 
 def test_try_except_star_no_exception():
+    import dis
     def func():
         try:
             2
@@ -1195,6 +1205,7 @@ def test_try_except_star_no_exception():
                 12
         finally:
             14
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -1208,6 +1219,7 @@ def test_try_except_star_no_exception():
 
 
 def test_try_except_star_named_no_exception():
+    import dis
     def func():
         try:
             2
@@ -1217,6 +1229,7 @@ def test_try_except_star_named_no_exception():
             6
         finally:
             8
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -1227,6 +1240,7 @@ def test_try_except_star_named_no_exception():
 
 
 def test_try_except_star_exception_caught():
+    import dis
     def func():
         try:
             raise ValueError(2)
@@ -1236,6 +1250,7 @@ def test_try_except_star_exception_caught():
             6
         finally:
             8
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),
@@ -1248,6 +1263,7 @@ def test_try_except_star_exception_caught():
 
 
 def test_try_except_star_named_exception_caught():
+    import dis
     def func():
         try:
             raise ValueError(2)
@@ -1257,6 +1273,7 @@ def test_try_except_star_named_exception_caught():
             6
         finally:
             8
+    print(); dis.dis(func)
     run_and_compare(func,
         [(0, 'call'),
          (1, 'line'),

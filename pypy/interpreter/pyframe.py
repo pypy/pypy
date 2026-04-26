@@ -27,6 +27,7 @@ BEFORE_ASYNC_WITH YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
+POP_JUMP_FORWARD_IF_NONE POP_JUMP_FORWARD_IF_NOT_NONE
 RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT PUSH_EXC_INFO
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
@@ -949,6 +950,15 @@ def mark_stacks(code):
                 # pop TOS (condition), branch or fall
                 popped = stack >> _MS_BITS
                 j = arg           # absolute instruction index
+                if _ms_set(stacks, j, popped):
+                    changed = True
+                if _ms_set(stacks, i + 1, popped):
+                    changed = True
+            elif (opcode == POP_JUMP_FORWARD_IF_NONE or
+                  opcode == POP_JUMP_FORWARD_IF_NOT_NONE):
+                # pop TOS, branch forward (relative) or fall through
+                popped = stack >> _MS_BITS
+                j = arg + i + 1   # relative instruction index
                 if _ms_set(stacks, j, popped):
                     changed = True
                 if _ms_set(stacks, i + 1, popped):

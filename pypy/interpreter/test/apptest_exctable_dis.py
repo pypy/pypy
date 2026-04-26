@@ -84,6 +84,22 @@ def test_dis_nested():
     dis.dis(_nested_try_except_in_except)
 
 
+def _try_in_try():
+    try:
+        try:
+            pass
+        except Exception as ex:
+            pass
+    except Exception:
+        pass
+
+
+def test_dis_try_in_try():
+    print()
+    print("=== nested try-in-try (settrace lineno test) ===")
+    dis.dis(_try_in_try)
+
+
 def _try_finally_with_in_body():
     # try/finally where the finally body contains a 'with' statement.
     # Regression: assemble.py used to emit a spurious exception table entry
@@ -137,3 +153,41 @@ def _try_finally_with_raises_in_body(exc_class):
 def test_try_finally_with_raises_in_body():
     log = _try_finally_with_raises_in_body(ValueError)
     assert log == [('exit', True)], log
+
+
+def _except_star_all_caught():
+    try:
+        raise KeyError
+    except* Exception as e:
+        pass
+
+
+def test_except_star_cleanup_lineno():
+    # GH-101517 / pdb test: after the except* body runs, the RETURN_VALUE for
+    # the "all exceptions caught" path must be attributed to the except* clause
+    # line, not to the body line.  pdb relies on this to display the right line.
+    import sys
+
+    print()
+    print("=== except* cleanup lineno dis ===")
+    dis.dis(_except_star_all_caught)
+
+    events = []
+    base = _except_star_all_caught.__code__.co_firstlineno
+
+    def tracer(frame, event, arg):
+        if frame.f_code is _except_star_all_caught.__code__:
+            events.append((event, frame.f_lineno - base + 1))
+        return tracer
+
+    sys.settrace(tracer)
+    _except_star_all_caught()
+    sys.settrace(None)
+
+    print("trace events (relative line):", events)
+    return_linenos = [ln for evt, ln in events if evt == 'return']
+    # except* clause is relative line 4; body (pass) is relative line 5.
+    # CPython fires the return event at line 4 (the except* clause).
+    assert return_linenos == [4], (
+        "expected return event at except* clause (line 4), got: {}".format(return_linenos)
+    )
