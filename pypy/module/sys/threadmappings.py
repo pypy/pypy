@@ -1,3 +1,5 @@
+from rpython.rlib.rarithmetic import r_uint
+
 
 def _current_frames(space):
     """_current_frames() -> dictionary
@@ -19,7 +21,7 @@ def _current_frames(space):
         if w_topframe is None:
             continue
         space.setitem(w_result,
-                      space.newint(thread_ident),
+                      space.newint(r_uint(thread_ident)),
                       w_topframe)
     return w_result
 
@@ -42,11 +44,11 @@ def _current_exceptions(space):
         operror = ec.sys_exc_info()
         if not operror:
             space.setitem(w_result,
-                          space.newint(thread_ident),
+                          space.newint(r_uint(thread_ident)),
                           space.newtuple([space.w_None] * 3))
         else:
-            space.setitem(w_result, 
-                          space.newint(thread_ident),
+            space.setitem(w_result,
+                          space.newint(r_uint(thread_ident)),
                           space.newtuple([operror.w_type,
                                           operror.get_w_value(space),
                                           operror.get_w_traceback(space)]))
