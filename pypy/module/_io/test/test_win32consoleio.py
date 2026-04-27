@@ -189,3 +189,9 @@ class TestGetConsoleType:
         w_file = space.newtext('\\\\?\\con')
         consoletype = interp_win32consoleio._pyio_get_console_type(space, w_file)
         assert consoletype == 'x'
+
+    def test_invalid_fd(self, space):
+        # An invalid fd (e.g. 3 when not open) must return '\0', not raise.
+        w_fd = space.newint(3)
+        consoletype = interp_win32consoleio._pyio_get_console_type(space, w_fd)
+        assert consoletype == '\0'

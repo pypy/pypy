@@ -140,8 +140,9 @@ def _pyio_get_console_type(space, w_path_or_fd):
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
-        handle = rwin32.get_osfhandle(fd)
-        if handle == rwin32.INVALID_HANDLE_VALUE:
+        try:
+            handle = rwin32.get_osfhandle(fd)
+        except OSError:
             return '\0'
         return _get_console_type(handle)
 
