@@ -417,17 +417,11 @@ class PythonCodeMaker(ast.ASTVisitor):
             self.current_block.emit_instr(instr)
             self._stack_depth += _opcode_stack_effect(op, arg)
 
-    def emit_rot_n(self, arg):
-        if arg == 2:
-            self.emit_op(ops.ROT_TWO)
-        elif arg == 3:
-            self.emit_op(ops.ROT_THREE)
-        elif arg == 4:
-            self.emit_op(ops.ROT_FOUR)
-        else:
-            # CPython 3.11 SWAP: emit n-1 SWAPs to rotate TOS to depth n.
-            for i in range(arg, 1, -1):
-                self.emit_op_arg(ops.SWAP, i)
+    def emit_swaps(self, arg):
+        # Emit n-1 SWAPs to rotate TOS to depth n (CPython 3.11 style),
+        # so that apply_static_swaps can eliminate them statically.
+        for i in range(arg, 1, -1):
+            self.emit_op_arg(ops.SWAP, i)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
@@ -808,6 +802,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         remove_redundant_nops(blocks)
         self.jump_thread(blocks)
         self.extend_blocks(blocks)
+        apply_static_swaps(blocks)
         self.compute_predecessors_in_marked(blocks)
         self.duplicate_exits_without_lineno(blocks)
         self.propagate_line_numbers(blocks)
@@ -1350,6 +1345,86 @@ def remove_redundant_nops(blocks):
         mininum_lineno = 1
     return mininum_lineno
 
+
+def _is_swappable(opcode):
+    """Return True if this opcode can be reordered by apply_static_swaps."""
+    return opcode == ops.STORE_FAST or opcode == ops.POP_TOP
+
+
+def _stores_to(instr):
+    """Return the oparg if STORE_FAST, else -1."""
+    if instr.opcode == ops.STORE_FAST:
+        return instr.arg
+    return -1
+
+
+def _next_swappable(instructions, start, lineno):
+    """Return index of next swappable instruction after start, or -1."""
+    i = start + 1
+    while i < len(instructions):
+        instr = instructions[i]
+        if instr.opcode == ops.NOP or is_pseudo_opcode(instr.opcode):
+            i += 1
+            continue
+        if lineno >= 0 and instr.position_info[0] != lineno:
+            return -1
+        if _is_swappable(instr.opcode):
+            return i
+        return -1
+    return -1
+
+
+def _apply_static_swaps(instructions, i):
+    """Port of CPython's apply_static_swaps (compile.c).
+
+    Scan backwards from position i for SWAP instructions and try to
+    eliminate each one by statically reordering the following
+    STORE_FAST/POP_TOP instructions instead of swapping at runtime.
+    """
+    while i >= 0:
+        instr = instructions[i]
+        if instr.opcode == ops.NOP or is_pseudo_opcode(instr.opcode):
+            i -= 1
+            continue
+        if instr.opcode != ops.SWAP:
+            if _is_swappable(instr.opcode):
+                i -= 1
+                continue
+            return  # can't reason past this instruction
+        # found a SWAP(n): find the j-th and k-th (= n-th) swappable followers
+        j = _next_swappable(instructions, i, -1)
+        if j < 0:
+            return
+        k = j
+        lineno = instructions[j].position_info[0]
+        for _ in range(instr.arg - 1):
+            k = _next_swappable(instructions, k, lineno)
+            if k < 0:
+                return
+        # check for conflicting stores
+        store_j = _stores_to(instructions[j])
+        store_k = _stores_to(instructions[k])
+        if store_j >= 0 or store_k >= 0:
+            if store_j == store_k:
+                return
+            for idx in range(j + 1, k):
+                store_idx = _stores_to(instructions[idx])
+                if store_idx >= 0 and (store_idx == store_j or store_idx == store_k):
+                    return
+        # success: replace SWAP with NOP and swap the two instructions
+        instr.opcode = ops.NOP
+        instructions[j], instructions[k] = instructions[k], instructions[j]
+        i -= 1
+
+
+def apply_static_swaps(blocks):
+    """Eliminate statically-known SWAP sequences (port of CPython's pass)."""
+    for block in blocks:
+        instructions = block.instructions
+        for i in range(len(instructions)):
+            if instructions[i].opcode == ops.SWAP:
+                _apply_static_swaps(instructions, i)
+
 def _encode_varint(result, value, msb=0):
     """Append a CPython-3.11-compatible varint encoding of value to result.
     Encodes 6 bits per byte, MSB first.  Bit 6 (0x40) is the continuation
@@ -1524,7 +1599,7 @@ _static_opcode_stack_effects = {
     ops.GET_LEN: 1,
     ops.MATCH_MAPPING: 1,
     ops.MATCH_SEQUENCE: 1,
-    ops.MATCH_KEYS: 2,
+    ops.MATCH_KEYS: 1,
     ops.COPY_DICT_WITHOUT_KEYS: 0,
     ops.SWAP: 0,
     ops.MATCH_CLASS: -1,

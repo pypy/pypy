@@ -2468,7 +2468,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         # rotate this below any items we need to preserve
         targetpos = match_context.on_top + len(match_context.names_stored)
-        self.emit_rot_n(targetpos)
+        self.emit_swaps(targetpos)
 
     def visit_MatchAs(self, match_as):
         match_context = self.match_context
@@ -2598,30 +2598,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_MatchMapping(self, match_mapping):
         match_context = self.match_context
 
-        # subject = {'x': 42, 'y': 13}
-        # pattern = {'x': 42, 'y': 13, **rest}
-        # stack = [{'x': 42, 'y': 13}]
         self.emit_op(ops.MATCH_MAPPING)
         match_context.on_top += 1
-        # stack = [{'x': 42, 'y': 13}, True]
-
         match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
-        # stack = [{'x': 42, 'y': 13}]
 
         if match_mapping.keys:
             length = len(match_mapping.keys)
-            w_length = self.space.newint(length)
             self.emit_op(ops.GET_LEN)
-            # stack = [{'x': 42, 'y': 13}, 2]
-
-            self.load_const(w_length)
-            # stack = [{'x': 42, 'y': 13}, 2, 2]
-
+            self.load_const(self.space.newint(length))
             self.emit_compare(ast.GtE)
-            # stack = [{'x': 42, 'y': 13}, True]
-
             match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
-            # stack = [{'x': 42, 'y': 13}]
 
             # check for duplicates and wrong kinds of nodes
             w_seen = self.space.newset()
@@ -2634,8 +2620,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 elif not isinstance(key, ast.Attribute):
                     self.error("mapping pattern keys may only match literals and attribute lookups", key)
 
-            # mostly it's all constants, but not always, can be an Attribute
-            # too
             w_keys = self._tuple_of_consts(match_mapping.keys)
             if w_keys is not None:
                 self.load_const(w_keys)
@@ -2643,64 +2627,47 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 for key in match_mapping.keys:
                     key.walkabout(self)
                 self.emit_op_arg(ops.BUILD_TUPLE, len(match_mapping.keys))
-            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
         else:
             length = 0
-            w_keys = self.space.newtuple([])
-            self.load_const(w_keys)
+            self.load_const(self.space.newtuple([]))
 
+        # stack: [subject, keys_tuple]
         self.emit_op(ops.MATCH_KEYS)
-        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), True]
+        # stack: [subject, keys_tuple, values_or_None]
+        match_context.on_top += 2  # keys_tuple and values_or_None above subject
 
-        match_context.on_top += 2 # extra tuple and keys on top
+        # COPY 1 + LOAD_CONST None + IS_OP 1 mirrors CPython's compile.c pattern;
+        # the peephole optimizer folds this into POP_JUMP_FORWARD_IF_NONE in CPython.
+        self.emit_op_arg(ops.COPY, 1)
+        self.load_const(self.space.w_None)
+        self.emit_op_arg(ops.IS_OP, 1)  # True if values_copy is not None
         match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
-        # stack = [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
+        # stack (success): [subject, keys_tuple, values_tuple]
 
-        if not length:
-            # drop values if there are no patterns to match against
+        if length:
+            self.emit_op_arg(ops.UNPACK_SEQUENCE, length)
+            # stack: [subject, keys_tuple, v_{n-1}, ..., v_0]
+            match_context.on_top += length - 1  # values_tuple replaced by length values
+
+            with self.sub_pattern_context():
+                for i in range(length):
+                    match_context.on_top -= 1
+                    match_mapping.patterns[i].walkabout(self)
+        else:
+            # empty {}: values_or_None is an empty tuple; discard it
             self.emit_op(ops.POP_TOP)
             match_context.on_top -= 1
-            # stack = [{'x': 42, 'y': 13}, ('x', 'y')]
 
-        with self.sub_pattern_context():
-            for i in range(length):
-                is_last = i == length - 1
-                if not is_last:
-                    self.emit_op(ops.DUP_TOP)
-                    # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13)]
-                    # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
-                else:
-                    match_context.on_top -= 1
-
-                self.load_const(self.space.newint(i))
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), (42, 13), 0]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 1]
-
-                self.emit_op(ops.BINARY_SUBSCR)
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13), 42]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y'), 13]
-
-                match_mapping.patterns[i].walkabout(self)
-
-                # i=0: [{'x': 42, 'y': 13}, ('x', 'y'), (42, 13)]
-                # i=1: [{'x': 42, 'y': 13}, ('x', 'y')]
-
-            if match_mapping.rest:
-                self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
-                # i=1: [{'x': 42, 'y': 13}, {}]
-
-                self.name_op(match_mapping.rest, ast.Store, match_mapping)
-                # i=1: [{'x': 42, 'y': 13}]
-            else:
-                self.emit_op(ops.POP_TOP)
-                # i=1: [{'x': 42, 'y': 13}]
-            match_context.on_top -= 1
-
-        # expected stack at merge = [{'x': 42, 'y': 13}]
-
-        self.emit_op(ops.POP_TOP)
+        # stack: [subject, keys_tuple]
+        if match_mapping.rest:
+            self.emit_op(ops.COPY_DICT_WITHOUT_KEYS)
+            self.name_op(match_mapping.rest, ast.Store, match_mapping)
+        else:
+            self.emit_op(ops.POP_TOP)  # discard keys_tuple
         match_context.on_top -= 1
-        # stack = []
+
+        self.emit_op(ops.POP_TOP)  # discard subject
+        match_context.on_top -= 1
 
     def visit_MatchOr(self, match_or):
         end = self.new_block()
@@ -2740,7 +2707,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     permutation.reverse()
                     rots = compute_reordering(permutation)
                     for rot in rots:
-                        self.emit_rot_n(rot)
+                        self.emit_swaps(rot)
                 self.emit_jump(ops.JUMP_FORWARD, end)
                 match_context.next_case()
 
@@ -2755,7 +2722,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         nstores = len(control_list)
         nrots = nstores + 1 + outer_match_context.on_top + len(outer_match_context.names_stored)
         for i, name in enumerate(control_list):
-            self.emit_rot_n(nrots)
+            self.emit_swaps(nrots)
             outer_match_context.add_name(name, control_origins[i], self)
 
         # pop the copy of the subject

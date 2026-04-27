@@ -355,3 +355,28 @@ def test_dict_pattern_none_value_bug():
         case _:
             res = 2
     assert res == 1
+
+
+def test_match_mapping_codegen_uses_unpack_sequence():
+    """MATCH_KEYS result should be unpacked with UNPACK_SEQUENCE, not
+    with DUP_TOP+BINARY_SUBSCR+rotation.  CPython emits:
+      MATCH_KEYS / COPY 1 / POP_JUMP_FORWARD_IF_NONE / UNPACK_SEQUENCE n
+    PyPy must match that pattern to avoid emitting SWAP instructions."""
+    import dis
+
+    def f(x):
+        match x:
+            case {'a': a, 'b': b, 'c': _}:
+                return a, b
+
+    instrs = list(dis.get_instructions(f))
+    opnames = [i.opname for i in instrs]
+
+    assert 'UNPACK_SEQUENCE' in opnames, \
+        "expected UNPACK_SEQUENCE for mapping pattern, got: %s" % opnames
+    assert 'BINARY_SUBSCR' not in opnames, \
+        "BINARY_SUBSCR should not appear in mapping pattern"
+    assert 'SWAP' not in opnames, \
+        "SWAP should not appear in mapping pattern"
+    assert 'ROT_FOUR' not in opnames, \
+        "ROT_FOUR should not appear in mapping pattern"

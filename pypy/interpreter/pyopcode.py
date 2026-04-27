@@ -1816,7 +1816,6 @@ class __extend__(pyframe.PyFrame):
                     values_w[i] = w_value
                 else:
                     self.pushvalue(self.space.w_None)
-                    self.pushvalue(self.space.w_False)
                     return
                 i += 1
         except OperationError as e:
@@ -1824,7 +1823,6 @@ class __extend__(pyframe.PyFrame):
                 raise
 
         self.pushvalue(self.space.newtuple(values_w))
-        self.pushvalue(self.space.w_True)
 
     def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
         w_keys = self.popvalue()

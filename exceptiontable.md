@@ -37,6 +37,7 @@ Adopting CPython's model might improve JIT output. Three reasons:
 | 11 | Verify/clean up remaining exception table coverage gaps after Phase 10 | Low | **Done** |
 | 12 | Make `SETUP_WITH`/`SETUP_ASYNC_WITH` pseudo-instructions; emit `__enter__` as plain call from compiler | Medium | **Done** |
 | 13 | Split `last_instr` into display/execution pointers (requires benchmarking) | Medium | Not started |
+| 14 | Rewrite `visit_MatchMapping` to use `COPY 1 / IS_OP / UNPACK_SEQUENCE`; add `apply_static_swaps` | Medium | **Done** |
 
 **Critical constraint:** Phases 2 and 3 must be developed in lockstep  -- compiler output must exactly match the new interpreter expectations. Cannot be done incrementally without a feature flag to run both models in parallel.
 
@@ -216,6 +217,27 @@ compiler emits `cm.__enter__()` as a plain `LOAD_ATTR` + `CALL` sequence; the ps
 `_SETUP_WITH` marker is kept in `block.instructions` solely for the Phase 10 graph scan.
 Remove the interpreter dispatch for these opcodes and bump the magic number.
 
+### Phase 14  -- Match pattern codegen: `visit_MatchMapping` rewrite + `apply_static_swaps`
+
+**Goal:** Make PyPy's match-pattern bytecode identical to CPython 3.11's.
+
+**Changes:**
+- `MATCH_KEYS` now pushes one item (`values_or_None`) instead of two.  Updated
+  `_static_opcode_stack_effects` and the `MATCH_KEYS` implementation in `pyopcode.py`.
+- `visit_MatchMapping` rewritten to use CPython's pattern:
+  `MATCH_KEYS / COPY 1 / LOAD_CONST None / IS_OP 1 / POP_JUMP_IF_FALSE / UNPACK_SEQUENCE n`
+  instead of the old `DUP_TOP + BINARY_SUBSCR + ROT/SWAP` approach.
+- `emit_rot_n` renamed to `emit_swaps`; now always emits `SWAP` sequences (not
+  `ROT_TWO`/`ROT_THREE`/`ROT_FOUR`) so `apply_static_swaps` can eliminate them.
+- `apply_static_swaps(blocks)` added to `assemble.py` -- port of CPython's
+  `apply_static_swaps` from `compile.c`.  Eliminates `SWAP` instructions by
+  reordering adjacent `STORE_FAST`/`POP_TOP` instructions.  Called from
+  `_finalize_blocks` after `extend_blocks`.
+
+**Result:** All 32 `apptest_patma` tests pass; no `SWAP` in match pattern output.
+
+---
+
 ### Phase 13  -- Split `last_instr` into display and execution pointers (requires benchmarking)
 
 **Background:** CPython 3.11 maintains two separate pointers:
@@ -228,35 +250,4 @@ Remove the interpreter dispatch for these opcodes and bump the magic number.
 
 **Risk:** Must benchmark before landing. Do not land without benchmark data.
 
----
-
-## Phase 10 -- Current implementation status (stashed, in progress)
-
-**Approach chosen:** Mark `newtarget` blocks created by `duplicate_exits_without_lineno`
-with `_is_dup_exit = True`.  In `_build_exceptiontable`, when the linear scan processes
-a jump instruction whose target is a `_is_dup_exit` block, save the current scope state
-`(cur_handler, handler_stack, cur_lasti, cur_depth_adjust, cur_depth_sub)` in
-`dup_block_states[target]`.  On arrival at the `_is_dup_exit` block, restore that state
-before continuing the linear scan.  This is cheaper and more targeted than the prior
-BFS approach, which incorrectly assigned handler scope to conditional-jump targets
-(e.g. `exit2` in `handle_withitem`) that exit the scope without a `_POP_BLOCK`.
-
-**What passes:** `test_with_reraise_2`, `test_revert_exc_info_2_finally` -- both fixed.
-Full `pypy/interpreter` suite: 2914 passed, 53 skipped, 3 failed.
-
-**What still fails:**
-- `test_shutil_pattern` -- the original target bug, still broken.
-- `test_try_except_star_exception_not_caught` / `test_try_except_star_named_exception_not_caught`
-  -- likely pre-existing (except* / PEP 654), need to verify.
-
-**Root cause of remaining `test_shutil_pattern` failure:** Unknown -- the fix should
-apply (newtarget blocks from early returns inside the inner with body), but the state
-save/restore is apparently not firing or not correct.  Next step: use `dis.dis(copyfile)`
-inside the apptest to inspect the generated exception table, which requires Phase 10a
-(implement `show_exception_entries` in PyPy's `dis` module) first.
-
-**Files changed (stashed):**
-- `pypy/interpreter/astcompiler/assemble.py`: `Block._is_dup_exit`, mark in
-  `duplicate_exits_without_lineno`, new `_build_exceptiontable` with `dup_block_states`.
-- `exceptiontable.md`: this status update.
 
