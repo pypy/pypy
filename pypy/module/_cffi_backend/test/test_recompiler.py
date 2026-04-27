@@ -72,11 +72,15 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     # CFFI relies on several C compiler warnings *not* being errors (e.g.
     # misdeclared field sizes, incompatible pointer types), which GCC 14+
     # treats as errors by default.  Downgrade them to warnings so the
-    # runtime detection path still works.
-    extra_compile_args = [
-        '-Wno-error=incompatible-pointer-types',
-        '-Wno-error=int-conversion',
-    ]
+    # runtime detection path still works.  MSVC does not accept -W flags.
+    import sys
+    if sys.platform == 'win32':
+        extra_compile_args = []
+    else:
+        extra_compile_args = [
+            '-Wno-error=incompatible-pointer-types',
+            '-Wno-error=int-conversion',
+        ]
     if w_extra_compile_args is not None:
         extra_compile_args += space.unwrap(w_extra_compile_args)
     kwargs = {'extra_compile_args': extra_compile_args}
