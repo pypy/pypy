@@ -380,3 +380,47 @@ def test_match_mapping_codegen_uses_unpack_sequence():
         "SWAP should not appear in mapping pattern"
     assert 'ROT_FOUR' not in opnames, \
         "ROT_FOUR should not appear in mapping pattern"
+
+
+def _check_match_class_no_swap(pattern):
+    """Check that MatchClass codegen for pattern emits no SWAP or BINARY_SUBSCR.
+    CPython emits MATCH_CLASS / POP_JUMP_IF_FALSE / UNPACK_SEQUENCE / stores.
+    PyPy currently uses DUP_TOP+BINARY_SUBSCR+SWAP rotation which the peephole
+    optimizer cannot always eliminate."""
+    import dis
+
+    src = (
+        "def f(x):\n"
+        "    match x:\n"
+        "        case %s:\n"
+        "            pass\n"
+    ) % pattern
+    ns = {}
+    exec(compile(src, "<test>", "exec"), ns)
+    f = ns["f"]
+    instrs = list(dis.get_instructions(f))
+    opnames = [i.opname for i in instrs]
+    print("pattern %s opcodes: %s" % (pattern, opnames))
+    assert 'SWAP' not in opnames, \
+        "SWAP should not appear in class pattern %s, got: %s" % (pattern, opnames)
+    assert 'BINARY_SUBSCR' not in opnames, \
+        "BINARY_SUBSCR should not appear in class pattern %s, got: %s" % (pattern, opnames)
+
+
+def test_match_class_no_swap_wildcard_b_wildcard():
+    _check_match_class_no_swap("C(_, b, _)")
+
+def test_match_class_no_swap_a_wildcard_wildcard():
+    _check_match_class_no_swap("C(a, _, _)")
+
+def test_match_class_no_swap_a_b_wildcard():
+    _check_match_class_no_swap("C(a, b, _)")
+
+def test_match_class_no_swap_a_wildcard_c():
+    _check_match_class_no_swap("C(a, _, c)")
+
+def test_match_class_no_swap_wildcard_b_c():
+    _check_match_class_no_swap("C(_, b, c)")
+
+def test_match_class_no_swap_a_b_c():
+    _check_match_class_no_swap("C(a, b, c)")

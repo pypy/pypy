@@ -1109,15 +1109,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(finalbody)
         self.pop_frame_block(F_FINALLY_END, end)
         # RERAISE 0 pops exc and reraises; caught by outer_cleanup scope.
-        self.no_position_info()
+        # Keep current line (last line of finally body) -- matches CPython.
         self.emit_op_arg(ops.RERAISE, 0)
         self.emit_op(_POP_BLOCK)  # close outer_cleanup scope
 
         # outer_cleanup: re-entry with [prev, lasti, exc]; COPY 3 duplicates prev,
         # POP_EXCEPT restores sys.exc_info, RERAISE 1 reads lasti and reraises.
         # Any enclosing with-statement's SETUP_WITH scope naturally covers this.
+        # Keep current line so _marklines finds the finally-body end line here,
+        # allowing fset_f_lineno to detect this as an exception-handler target.
         self.use_next_block(outer_cleanup)
-        self.no_position_info()
         self.emit_op_arg(ops.COPY, 3)
         self.emit_op(ops.POP_EXCEPT)
         self.emit_op_arg(ops.RERAISE, 1)
@@ -2743,29 +2744,33 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         nargs = len(match_class.patterns) if match_class.patterns else 0
         nattrs = len(kwd_attrs_w)
+        n = nargs + nattrs
 
         match_class.cls.walkabout(self)
         self.load_const(self.space.newtuple(kwd_attrs_w))
         self.emit_op_arg(ops.MATCH_CLASS, nargs)
-        match_context.on_top += 1 # preserve the tuple
+        match_context.on_top += 1  # preserve the tuple (or None)
 
         match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
-        with self.sub_pattern_context():
-            for i in range(nargs + nattrs):
-                if i < nargs:
-                    pattern = match_class.patterns[i]
-                else:
-                    pattern = match_class.kwd_patterns[i - nargs]
+        if n:
+            self.emit_op_arg(ops.UNPACK_SEQUENCE, n)
+            # stack: [v_{n-1}, ..., v_0]
+            match_context.on_top += n - 1  # tuple replaced by n values
 
-                # TODO: skip if pattern is a wildcard
-                self.emit_op(ops.DUP_TOP)
-                self.load_const(self.space.newint(i))
-                self.emit_op(ops.BINARY_SUBSCR)
-                pattern.walkabout(self)
-
-        match_context.on_top -= 1 # pop the tuple
-        self.emit_op(ops.POP_TOP)
+            with self.sub_pattern_context():
+                for i in range(n):
+                    match_context.on_top -= 1
+                    if i < nargs:
+                        pattern = match_class.patterns[i]
+                    else:
+                        pattern = match_class.kwd_patterns[i - nargs]
+                    pattern.walkabout(self)
+            # tuple already consumed by UNPACK_SEQUENCE
+        else:
+            # no sub-patterns: discard the empty tuple
+            match_context.on_top -= 1
+            self.emit_op(ops.POP_TOP)
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):

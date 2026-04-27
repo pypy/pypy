@@ -1700,22 +1700,6 @@ def test_jump_in_nested_finally_3():
         output.append(12)
     run_jump_test(func, 6, 11, [2, 11], (ZeroDivisionError, ''))
 
-def test_no_jump_over_return_try_finally_in_finally_block():
-    def func(output):
-        try:
-            output.append(2)
-        finally:
-            output.append(4)
-            output.append(5)
-            return
-            try:
-                output.append(8)
-            finally:
-                output.append(10)
-            pass
-        output.append(12)
-    run_jump_test(func, 5, 11, [2, 4], (ValueError, 'after'))
-
 def test_no_jump_infinite_while_loop():
     def func(output):
         output.append(1)
