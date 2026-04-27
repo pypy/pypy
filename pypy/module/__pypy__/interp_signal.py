@@ -1,5 +1,6 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
+from rpython.rlib.rarithmetic import r_uint, r_longlong
 
 
 def signals_enter(space):
@@ -8,7 +9,7 @@ def signals_enter(space):
 def signals_exit(space, w_ignored1=None, w_ignored2=None, w_ignored3=None):
     space.threadlocals.disable_signals(space)
 
-@unwrap_spec(tid=int)
+@unwrap_spec(tid=r_longlong)
 def _raise_in_thread(space, tid, w_exc_type):
     """ Raise exception of type exc_type the next time the thread with id tid
     is resumed. Corresponds to the C-API PyThreadState_SetAsyncExc.
@@ -19,7 +20,7 @@ def _raise_in_thread(space, tid, w_exc_type):
     # been already delivered)
     ecs = space.threadlocals.getallvalues()
     for thread_ident, ec in ecs.items():
-        if thread_ident == tid:
+        if r_uint(thread_ident) == r_uint(tid):
             ec.w_async_exception_type = w_exc_type
             # make sure we switch away from the current thread soon, to give
             # the target thread a chance to run
