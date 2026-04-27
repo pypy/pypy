@@ -14,6 +14,7 @@ if sys.platform.startswith('linux'):
     import _vmprof
 else:
     pytestmark = pytest.mark.skip('only works on linux so far')
+    _vmprof = None
 
 def test_parse_maps():
     maps = _pypy_remote_debug._read_and_parse_maps('self', sys.executable)
