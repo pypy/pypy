@@ -837,6 +837,20 @@ def test_unpickle_crash4():
     with raises(ValueError):
         pickle.loads(b)
 
+def test_large_32b_binbytes8():
+    # On 32-bit, a BINBYTES8/BINUNICODE8/BYTEARRAY8 with length >= 2**32
+    # must raise UnpicklingError or OverflowError, not silently truncate.
+    # The 8-byte length field encodes 2**32+4 = 0x100000004.
+    import pytest
+    if sys.maxsize >= 2**32:
+        pytest.skip("only relevant on 32-bit builds")
+    dumped_bytes8   = b'\x80\x04\x8e\x04\x00\x00\x00\x01\x00\x00\x00\xe2\x82\xac\x00.'
+    dumped_unicode8 = b'\x80\x04\x8d\x04\x00\x00\x00\x01\x00\x00\x00\xe2\x82\xac\x00.'
+    dumped_barray8  = b'\x80\x05\x96\x04\x00\x00\x00\x01\x00\x00\x00\xe2\x82\xac\x00.'
+    for dumped in (dumped_bytes8, dumped_unicode8, dumped_barray8):
+        raises((UnpicklingError, OverflowError), loads, dumped)
+
+
 def test_memoize_and_binput_index_collision():
     # original pickle: EMPTY_LIST + MEMOIZE (index 0), then 'spam' + BINPUT 1,
     # then 'ham' + MEMOIZE (index 1 via memo_index -- collides with BINPUT 1),
