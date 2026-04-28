@@ -1,17 +1,10 @@
 ==============================================================
-PyPy v7.3.22: release of python 2.7, 3.11, released 2025-xx-xx
+PyPy v7.3.22: release of python 2.7, 3.11, released 2025-04-26
 ==============================================================
 
 
 ..
   updated to 5004b7cdb0e8f5df956db691cc92157337cf30a0
-
-.. note::
-       This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-      Need to add release date
 
 The PyPy team is proud to release version 7.3.22 of PyPy after the previous
 release on March 13, 2026. This is a bug-fix release that fixes several issues
@@ -157,7 +150,7 @@ Bugfixes including missing compatibility with CPython 3.11
  - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
  - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
  - Fix crash in the bytecode compiler related to the line numbers of return
-   statecments (:issue:`5419`).
+   statements (:issue:`5419`).
  - Fixed line number output for function definitions with multiple decorators,
    f-strings, and related edge cases in ``dis`` output
  - Fixed pyrepl and ``pdb`` compatibility
