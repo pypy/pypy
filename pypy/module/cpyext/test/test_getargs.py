@@ -305,7 +305,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
          """
             const char *encoding = "";
             char *buf = NULL;
-            if (!PyArg_ParseTuple(args, "(es)", &encoding, &buf))
+            if (!PyArg_ParseTuple(args, "(es)", encoding, &buf))
                 return NULL;
             PyObject *result = PyUnicode_FromString(buf);
             PyMem_Free(buf);

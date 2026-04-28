@@ -13,7 +13,7 @@ from pypy.interpreter.gateway import unwrap_spec
 
 from rpython.rlib import jit, rgc, rposix, rposix_stat, rthread
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import intmask, widen
+from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.rsignal import *
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -463,10 +463,10 @@ def getitimer(space, which):
         return itimer_retval(space, old[0])
 
 
-@unwrap_spec(tid=int, signum=int)
+@unwrap_spec(tid=r_uint, signum=int)
 def pthread_kill(space, tid, signum):
     "Send a signal to a thread."
-    ret = rthread.c_pthread_kill(tid, signum)
+    ret = rthread.c_pthread_kill(intmask(tid), signum)
     if widen(ret) < 0:
         raise exception_from_saved_errno(space, space.w_OSError)
     # the signal may have been send to the current thread

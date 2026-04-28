@@ -274,12 +274,16 @@ def unpackI(s, index=0):
     return val
 
 def unpackQ(s, index=0):
-    val = 0
+    from rpython.rlib.rarithmetic import r_ulonglong, intmask
+    val = r_ulonglong(0)
+    shift = r_ulonglong(0)
     for i in range(8):
-        x = ord(s[index])
-        val += x * (1 << 8 * i)
+        val |= r_ulonglong(ord(s[index])) << shift
+        shift += r_ulonglong(8)
         index += 1
-    return int(val)
+    if val > r_ulonglong(maxsize):
+        raise OverflowError("Q value exceeds system's maximum size")
+    return intmask(val)
 
 
 def packI(opcode, val):
@@ -2298,6 +2302,9 @@ class W_Unpickler(W_Root):
         except IndexError:
             raise oefmt(unpickling_error(self.space),
                 "trucated data in BINUNICODE8")
+        except OverflowError:
+            raise oefmt(unpickling_error(self.space),
+                "BINUNICODE8 exceeds system's maximum size")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE8 exceeds system's maximum size "
@@ -2315,6 +2322,9 @@ class W_Unpickler(W_Root):
         except IndexError:
             raise oefmt(unpickling_error(self.space),
                 "trucated data in BINBYTES8")
+        except OverflowError:
+            raise oefmt(unpickling_error(self.space),
+                "BINBYTES8 exceeds system's maximum size")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES8 exceeds system's maximum size "
@@ -2332,6 +2342,9 @@ class W_Unpickler(W_Root):
         except IndexError:
             raise oefmt(unpickling_error(self.space),
                 "trucated data in BYTEARRAY8")
+        except OverflowError:
+            raise oefmt(unpickling_error(self.space),
+                "BYTEARRAY8 exceeds system's maximum size")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BYTEARRAY8 exceeds system's maximum size "
