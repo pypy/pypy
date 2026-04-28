@@ -14,8 +14,9 @@ PyPy v7.3.22: release of python 2.7, 3.11, released 2025-xx-xx
       Need to add release date
 
 The PyPy team is proud to release version 7.3.22 of PyPy after the previous
-release on March 13, 2026. This is a bug-fix release to fix a long-standing JIT
-bug that started appearing when some int optimizations exposed it. We also cleaned
+release on March 13, 2026. This is a bug-fix release that fixes several issues
+in the JIT. Among them, a long-standing JIT bug that started appearing when
+some instance optimizations exposed it. We also cleaned
 up many of the remaining stdlib test suite failures, which improves CPython
 compatibility around line numbers in dis.dis, signatures and objclass
 attributes for builtins, and other quality of life features.
@@ -29,7 +30,7 @@ them in the ``ForkingPickler`` used by multiprocessing, speeding up cases where
 such objects are passed between PyPy multiprocessing instances.
 
 We also added an RPython json encoder, speeding up json_bench from being 2.6x
-CPython to being 0.7x (meaning faster).
+slower than CPython to being 0.7x (meaning faster).
 
 The release includes two different interpreters:
 
@@ -114,36 +115,49 @@ For all versions
 Bugfixes
 ~~~~~~~~
 
+ - Fix instance dictionary field reordering logic, which could lead to a
+   failing internal assertion error under some circumstances (:issue:`5377`).
  - Fix JIT invalidation logic of array items at a variable index, which could
-   lead to incorrect results (:issue:`5389`)
- - Disallow whitespace after sign character in ``int``/``float`` string parsing
-   (:issue:`3927`)
- - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
- - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
+   lead to incorrect results for list accesses when also calling methods on
+   list objects (:issue:`5389`)
+ - Fix segfaults in the JIT where the JIT optimizer would confuse RPython
+   instances and arrays, leading to segfaults during JIT compilation
+   (:issue:`5400`).
  - Fix duplicate 'const' in C code generation for nested const pointer types
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
- - Improve the performance of ``rbigint`` left-shifts (:issue:`5404`)
+ - Improve the performance of left-shifts of large integers, ie those backed by
+   RPython's ``rbigints`` (:issue:`5404`).
  - Fix ~10ms GIL wakeup latency on Windows (:issue:`5391`)
- - Improve complex powers with small integers
+ - Improve performance of ``complex`` powers with small integers as exponents
+ - `Document the fact`__ that in PyPy instance dictionaries are not always
+   ordered by insertion (:issue:`5436`).
+
+.. __: cpython_differences#order-of-dictionary-keys-in-instance-dicts
 
 Python 2.7
 ----------
 
- - Remove unsafe pickle file handling from bundled ply in pycparse v2. PyPy3
-   uses pycparse v3
+ - Remove unsafe pickle file handling from bundled ply in pycparser v2. PyPy3
+   uses pycparser v3
 
 Python 3.11
 -----------
 
- - Cherry-pick upstream ``_pydecimal`` fix from CPython
+ - Cherry-pick upstream ``_pydecimal`` fix from CPython (:issue:`5256`).
  - Add ``sys._stdlib_dir``
+ - Disallow whitespace after sign character in ``int``/``float`` string parsing
+   (:issue:`3927`)
 
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+ - Make ``itertools.pairwise`` reentrant (:issue:`python/cpython#109788`)
+ - Fix possessive repeat in ``rsre`` search and match, fixing possessive regex bugs
+ - Fix crash in the bytecode compiler related to the line numbers of return
+   statecments (:issue:`5419`).
  - Fixed line number output for function definitions with multiple decorators,
    f-strings, and related edge cases in ``dis`` output
  - Fixed pyrepl and ``pdb`` compatibility
@@ -177,7 +191,7 @@ Bugfixes including missing compatibility with CPython 3.11
  - Fix hpy debug mode failures
  - signal: handle failed wakeup-fd so it can be polled
  - Add more ``check_valid()`` calls to ``mmap``
- - Raise `SyntaxError` for unterminated single-quoted strings ending in newline
+ - Raise `SyntaxError` for unterminated single-quoted strings ending in newline in the REPL
  - Fix missing ``__reduce__`` on cpyext methods, exposed by ``_pickle`` (:issue:`5445`)
  - Fix signatures of some math functions (:issue:`5368`)
  - Add ``__doc__`` and ``__text_signature__`` to more cpyext types (:issue:`5368`)
