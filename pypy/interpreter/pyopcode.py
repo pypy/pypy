@@ -1386,6 +1386,14 @@ class __extend__(pyframe.PyFrame):
         # Only positional arguments
         nargs = oparg & 0xff
         w_function = self.peekvalue(nargs)
+        if isinstance(w_function, function.Function):
+            code = w_function.getcode()
+            if (isinstance(code, PyCode) and
+                    code.fast_natural_arity == (PyCode.FLATPYCALL | nargs)):
+                # Fast path
+                w_result = w_function._flat_pycall(code, nargs, self, nargs+1)
+                self.pushvalue(w_result)
+                return
         w_result = self.space.call_valuestack(w_function, nargs, self, dropvalues=nargs+1)
         self.pushvalue(w_result)
 
