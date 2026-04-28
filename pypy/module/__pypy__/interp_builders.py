@@ -41,7 +41,7 @@ class W_BytesBuilder(W_Root):
             raise oefmt(space.w_ValueError, "no length of built builder")
         return space.newint(self.builder.getlength())
 
-W_BytesBuilder.typedef = TypeDef("BytesBuilder",
+W_BytesBuilder.typedef = TypeDef("__pypy__.builders.BytesBuilder",
     __new__ = interp2app(func_with_new_name(
                                 W_BytesBuilder.descr__new__.im_func,
                                 'BytesBuilder_new')),
@@ -89,7 +89,7 @@ class W_UnicodeBuilder(W_Root):
             raise oefmt(space.w_ValueError, "no length of built builder")
         return space.newint(self.builder.getlength())
 
-W_UnicodeBuilder.typedef = TypeDef("StringBuilder",
+W_UnicodeBuilder.typedef = TypeDef("__pypy__.builders.StringBuilder",
     __new__ = interp2app(func_with_new_name(
                                 W_UnicodeBuilder.descr__new__.im_func,
                                 'UnicodeBuilder_new')),

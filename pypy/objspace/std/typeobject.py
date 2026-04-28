@@ -615,10 +615,8 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
-        elif self.is_cpytype():
-            dot = self.name.rfind('.')
         else:
-            dot = self.name.find('.')
+            dot = self.name.rfind('.')
         if dot >= 0:
             mod = self.name[:dot]
         else:
@@ -629,10 +627,7 @@ class W_TypeObject(W_Root):
         if self.is_heaptype():
             result = self.name
         else:
-            if self.is_cpytype():
-                dot = self.name.rfind('.')
-            else:
-                dot = self.name.find('.')
+            dot = self.name.rfind('.')
             if dot >= 0:
                 result = self.name[dot+1:]
             else:
