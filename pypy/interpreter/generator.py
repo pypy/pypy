@@ -428,16 +428,6 @@ class Coroutine(GeneratorOrCoroutine):
 
     def descr_gicr_frame(self, space):
         if self.frame is not None and not self.frame.frame_finished_execution:
-            # CPython emits the "coroutine was never awaited" warning from
-            # tp_finalize, triggered by immediate ref-count deallocation.
-            # PyPy's GC is not ref-counted, so emit it here when cr_frame is
-            # accessed on a coroutine in FRAME_CREATED state (last_instr == -1).
-            if not self._warned_unawaited and self.frame.last_instr == -1:
-                self._warned_unawaited = True
-                w_mod = space.getbuiltinmodule("_warnings")
-                w_f = space.getattr(w_mod,
-                                    space.newtext("_warn_unawaited_coroutine"))
-                space.call_function(w_f, self)
             return self.frame
         else:
             return space.w_None

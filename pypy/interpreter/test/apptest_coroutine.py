@@ -858,6 +858,25 @@ def test_runtime_warning_origin_tracking():
     assert str(w).endswith("foobaz' was never awaited")
     assert "test_runtime_warning_origin_tracking" in str(w)
 
+def test_cr_frame_access_before_await_no_spurious_warning():
+    # issue 5454: accessing cr_frame before awaiting must not emit a warning
+    import warnings
+    async def other_async_thing():
+        pass
+    gc.collect()
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter("always")
+        coro = other_async_thing()
+        _ = coro.cr_frame    # inspect frame before awaiting
+        try:
+            coro.send(None)  # drive to completion
+        except StopIteration:
+            pass
+        gc.collect()
+        gc.collect()
+    runtime_warnings = [w for w in l if issubclass(w.category, RuntimeWarning)]
+    assert runtime_warnings == [], repr(runtime_warnings)
+
 def test_await_multiple_times_same_gen():
     async def async_iterate():
         yield 1
