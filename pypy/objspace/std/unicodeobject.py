@@ -935,7 +935,7 @@ class W_UnicodeObject(W_Root):
         while pos < length:
             sol = pos
             lgt = 0
-            while pos < length and not self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
+            while pos < length and not rutf8.islinebreak(value, pos):
                 pos = rutf8.next_codepoint_pos(value, pos)
                 lgt += 1
             eol = pos
