@@ -550,7 +550,7 @@ def add_slot_defs(handles, w_result, spec):
             hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
             add_getset(handles, w_result, hpygetset)
         else:
-            raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
+            raise oefmt(space.w_ValueError, "Unsupported HPyDef.kind: %d", kind)
         i += 1
     if has_tp_call and vectorcalloffset > 0:
         raise oefmt(space.w_TypeError,

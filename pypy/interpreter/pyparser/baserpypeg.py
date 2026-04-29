@@ -1032,6 +1032,6 @@ class Parser:
 
     def revdbmetavar(self, num, lineno, col_offset, end_lineno, end_col_offset):
         if not self.space.config.translation.reverse_debugger:
-            self._raise_syntax_error("Unkown character", lineno, col_offset, end_lineno, end_col_offset)
+            self._raise_syntax_error("Unknown character", lineno, col_offset, end_lineno, end_col_offset)
         return ast.RevDBMetaVar(num, lineno, col_offset, end_lineno, end_col_offset)
 

@@ -286,7 +286,7 @@ class W_RLock(W_Root):
         if not self.lock.acquire(False):
             r = self.lock.acquire(True)
         if not r:
-            raise wrap_thread_error(space, "coult not acquire lock")
+            raise wrap_thread_error(space, "could not acquire lock")
         assert self.rlock_count == 0
         self.rlock_owner = owner
         self.rlock_count = count
