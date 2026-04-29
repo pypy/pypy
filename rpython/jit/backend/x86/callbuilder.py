@@ -366,7 +366,7 @@ class CallBuilderX86(AbstractCallBuilder):
         if self.result_value_saved_early:
             self.restore_result_value(save_edx=True)
         #
-        if not we_are_translated():    # for testing: now we can accesss
+        if not we_are_translated():    # for testing: now we can access
             mc.SUB(ebp, imm(1))        # ebp again
         #
         # Now that we required the GIL, we will reload a possibly modified ebp:
