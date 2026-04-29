@@ -37,3 +37,16 @@ def test_interface_to_dump_rpy_heap_fd(space):
             gc.dump_rpy_heap(fd)""")
     except NotImplementedError:
         pass
+
+def test_dump_rpy_heap_bad_fd(space):
+    try:
+        space.appexec([], """():
+            import gc
+            try:
+                gc.dump_rpy_heap(-1)
+            except OSError:
+                return
+            raise AssertionError("expected OSError")
+        """)
+    except NotImplementedError:
+        pass
