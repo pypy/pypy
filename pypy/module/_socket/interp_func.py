@@ -346,7 +346,7 @@ if sys.platform != 'win32':
         Recommended to be used when computing the ancillary size for recvmsg.
         :param space:
         :param size: an integer with the minimum size required.
-        :return: an integer with the minimum memory needed for the required size. The value is memory alligned
+        :return: an integer with the minimum memory needed for the required size. The value is memory aligned
         """
         if size < 0:
             raise oefmt(space.w_OverflowError,
@@ -364,7 +364,7 @@ if sys.platform != 'win32':
         Recommended to be used when computing the ancillary size for recvmsg.
         :param space:
         :param len: an integer with the minimum size required.
-        :return: an integer with the minimum memory needed for the required size. The value is not mem alligned.
+        :return: an integer with the minimum memory needed for the required size. The value is not mem aligned.
         """
         if len < 0:
             raise oefmt(space.w_OverflowError,

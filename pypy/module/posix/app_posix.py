@@ -134,7 +134,7 @@ class times_result(metaclass=structseqtype):
     system = structseqfield(1, "system time")
     children_user = structseqfield(2, "user time of children")
     children_system = structseqfield(3, "system time of children")
-    elapsed = structseqfield(4, "elapsed time since an arbitray point in the past")
+    elapsed = structseqfield(4, "elapsed time since an arbitrary point in the past")
 
 
 class sched_param(metaclass=structseqtype):

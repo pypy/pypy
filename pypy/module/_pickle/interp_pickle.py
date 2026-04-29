@@ -2271,7 +2271,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINBYTES")
+                "truncated data in BINBYTES")
         self.append(self.space.newbytes(data))
     dispatch[ord(op.BINBYTES[0])] = load_binbytes
 
@@ -2292,7 +2292,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINUNICODE")
+                "truncated data in BINUNICODE")
         self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
     dispatch[ord(op.BINUNICODE[0])] = load_binunicode
 
@@ -2301,7 +2301,7 @@ class W_Unpickler(W_Root):
             length = unpackQ(self.read(8))
         except IndexError:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINUNICODE8")
+                "truncated data in BINUNICODE8")
         except OverflowError:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE8 exceeds system's maximum size")
@@ -2312,7 +2312,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINUNICODE8")
+                "truncated data in BINUNICODE8")
         self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
     dispatch[ord(op.BINUNICODE8[0])] = load_binunicode8
 
@@ -2321,7 +2321,7 @@ class W_Unpickler(W_Root):
             length = unpackQ(self.read(8))
         except IndexError:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINBYTES8")
+                "truncated data in BINBYTES8")
         except OverflowError:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES8 exceeds system's maximum size")
@@ -2332,7 +2332,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BINBYTES8")
+                "truncated data in BINBYTES8")
         self.append(self.space.newbytes(data))
     dispatch[ord(op.BINBYTES8[0])] = load_binbytes8
 
@@ -2341,7 +2341,7 @@ class W_Unpickler(W_Root):
             length = unpackQ(self.read(8))
         except IndexError:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BYTEARRAY8")
+                "truncated data in BYTEARRAY8")
         except OverflowError:
             raise oefmt(unpickling_error(self.space),
                 "BYTEARRAY8 exceeds system's maximum size")
@@ -2352,7 +2352,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in BYTEARRAY8")
+                "truncated data in BYTEARRAY8")
         self.append(self.space.newbytearray([c for c in data]))
     dispatch[ord(op.BYTEARRAY8[0])] = load_bytearray8
 
@@ -2391,7 +2391,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in SHORT_BINBYTES")
+                "truncated data in SHORT_BINBYTES")
         self.append(self.space.newbytes(data))
     dispatch[ord(op.SHORT_BINBYTES[0])] = load_short_binbytes
 
@@ -2400,7 +2400,7 @@ class W_Unpickler(W_Root):
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
-                "trucated data in SHORT_BINUNICODE")
+                "truncated data in SHORT_BINUNICODE")
         self.append(self.space.newtext(data))
     dispatch[ord(op.SHORT_BINUNICODE[0])] = load_short_binunicode
 
