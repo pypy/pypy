@@ -864,6 +864,7 @@ class PyFrame(W_Root):
 # ____________________________________________________________
 # Abstract value-stack kind constants for mark_stacks / compatible_stack.
 # Stack is packed into a Python int: 3 bits per slot, TOS in lowest bits.
+# Used in fset_f_lineo
 _MS_BITS         = 3
 _MS_MASK         = (1 << _MS_BITS) - 1
 _MS_UNINITIALIZED = -2
@@ -1116,21 +1117,4 @@ def explain_incompatible_stack(to_stack):
         return "can't jump into the body of a with statement"
     else:
         return "can't jump to target"
-# ____________________________________________________________
 
-def get_block_class(opname):
-    # select the appropriate kind of block
-    from pypy.interpreter.pyopcode import block_classes
-    return block_classes[opname]
-
-def unpickle_block(space, w_tup):
-    w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.text_w(w_opname)
-    handlerposition = space.int_w(w_handlerposition)
-    valuestackdepth = space.int_w(w_valuestackdepth)
-    assert valuestackdepth >= 0
-    assert handlerposition >= 0
-    blk = instantiate(get_block_class(opname))
-    blk.handlerposition = handlerposition
-    blk.valuestackdepth = valuestackdepth
-    return blk

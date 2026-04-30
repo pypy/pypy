@@ -111,6 +111,10 @@ class Instruction(object):
         # not
         return position_info
 
+    @staticmethod
+    def is_setup_pseudo_code(opcode):
+        return opcode in (_SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH)
+
     def __repr__(self):
         data = ["<", ops.opname[self.opcode]]
         if self.opcode >= ops.HAVE_ARGUMENT:
@@ -432,7 +436,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         was_dead = self.is_dead_code()
         depth_before = self._stack_depth
         self.emit_op(op).jump_to(block_to)
-        if not was_dead and (op == _SETUP_WITH or op == _SETUP_FINALLY or op == _SETUP_CLEANUP):
+        if not was_dead and Instruction.is_setup_pseudo_code(op):
             jump_effect = _opcode_stack_effect_jump(op)
             jump_depth = depth_before + jump_effect
             if jump_depth > block_to.forced_initial_depth:
@@ -717,17 +721,18 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 prev_position = instr.update_position_if_not_set(prev_position)
                 if instr.jump is not None and instr.jump.marked == 1 and instr.jump.instructions:
-                    if instr.opcode in (_SETUP_WITH, _SETUP_FINALLY, _SETUP_CLEANUP):
+                    if instr.is_setup_pseudo_code(instr.opcode):
                         continue # don't propagate line info into exception handler blocks
                     instr.jump.instructions[0].update_position_if_not_set(prev_position)
-            if (block.next_block and not block.cant_add_instructions and
-                    block.next_block.marked == 1 and block.next_block.instructions):
-                next_first_op = block.next_block.instructions[0].opcode
-                if next_first_op not in (_SETUP_CLEANUP, _SETUP_WITH, _SETUP_FINALLY):
-                    block.next_block.instructions[0].update_position_if_not_set(prev_position)
+            next_block = block.next_block
+            if (next_block and not block.cant_add_instructions and
+                    next_block.marked == 1 and next_block.instructions):
+                next_first_op = next_block.instructions[0]
+                if next_first_op.is_setup_pseudo_code(next_first_op.opcode):
+                    next_block.instructions[0].update_position_if_not_set(prev_position)
 
     def guarantee_lineno_for_exits(self, blocks):
-        # CPython equivalent: guarantee_lineno_for_exits (compile.c 8278-8299).
+        # CPython equivalent: guarantee_lineno_for_exits (compile.c).
         # After propagate_line_numbers, any block ending in RETURN_VALUE whose
         # last instruction is still UNSET gets the running lineno assigned to
         # all its UNSET instructions.
@@ -776,9 +781,18 @@ class PythonCodeMaker(ast.ASTVisitor):
                         lastop.opcode = ops.NOP
                         lastop.jump = None
                         block.next_block = blocks[i + 1]
+                        block.cant_add_instructions = False
             block.marked = 0
         # the last reachable block must have cant_add_instructions
         assert last_reachable is not None and last_reachable.cant_add_instructions
+
+    def apply_static_swaps(self, blocks):
+        """Eliminate statically-known SWAP sequences (port of CPython's pass)."""
+        for block in blocks:
+            instructions = block.instructions
+            for i in range(len(instructions)):
+                if instructions[i].opcode == ops.SWAP:
+                    _apply_static_swaps(instructions, i)
 
     def _finalize_blocks(self):
         # Unless it's interactive, every code object must end in a return.
@@ -802,7 +816,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         remove_redundant_nops(blocks)
         self.jump_thread(blocks)
         self.extend_blocks(blocks)
-        apply_static_swaps(blocks)
+        self.apply_static_swaps(blocks)
         self.compute_predecessors_in_marked(blocks)
         self.duplicate_exits_without_lineno(blocks)
         self.propagate_line_numbers(blocks)
@@ -839,11 +853,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         # stack of active handler blocks.  stk is list of Block (not tuples);
         # per-handler metadata (lasti, depth_adj, depth_sub) is stored as
         # attributes on the handler Block itself (CPython: b_lasti, b_exceptdepth).
-        visited = {}           # Block -> True
         block_entry_stack = {} # Block -> list of Block
 
         first_block = blocks[0]
-        visited[first_block] = True
         block_entry_stack[first_block] = []
         worklist = [first_block]
 
@@ -853,11 +865,10 @@ class PythonCodeMaker(ast.ASTVisitor):
 
             for instr in b.instructions:
                 op = instr.opcode
-                if op in (_SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH):
+                if instr.is_setup_pseudo_code(op):
                     handler_target = instr.jump
                     # Handler block gets entry stack BEFORE the push.
-                    if handler_target not in visited:
-                        visited[handler_target] = True
+                    if handler_target not in block_entry_stack:
                         block_entry_stack[handler_target] = stk[:]
                         worklist.append(handler_target)
                     # Record handler metadata on the block (like CPython b_lasti).
@@ -867,23 +878,18 @@ class PythonCodeMaker(ast.ASTVisitor):
                     stk.append(handler_target)
                 elif op == _POP_BLOCK:
                     if stk:
+                        # Only empty in unreachable blocks or malformed code
                         stk.pop()
                 elif instr.jump is not None:
                     target = instr.jump
-                    if target not in visited:
-                        visited[target] = True
+                    if target not in block_entry_stack:
                         block_entry_stack[target] = stk[:]
                         worklist.append(target)
 
             # Propagate to fallthrough successor.
-            # CPython's label_exception_targets always follows b_next regardless
-            # of whether the block ends with an unconditional jump.  We must do
-            # the same: after extend_blocks/jump_thread removes a JUMP_FORWARD,
-            # cant_add_instructions is still True but next_block still needs
-            # handler-stack propagation.
-            if b.next_block is not None:
-                if b.next_block not in visited:
-                    visited[b.next_block] = True
+            # Match CPython's label_exception_targets, which always follows
+            # b_next unconditionally.
+            if b.next_block is not None and b.next_block not in block_entry_stack:
                     block_entry_stack[b.next_block] = stk
                     worklist.append(b.next_block)
 
@@ -894,13 +900,17 @@ class PythonCodeMaker(ast.ASTVisitor):
         cur_handler = None   # type: Block or None
         cur_start = -1
         instr_offset = 0
+        
+        def close_dead_block(cur_handler, cur_start, offset, all_entries):
+            # Close any open range
+            if cur_handler is not None and cur_start < offset:
+                all_entries.append((cur_start, offset, cur_handler))
+            
 
         for block in blocks:
             entry = block_entry_stack.get(block)
             if entry is None:
-                # Dead block: close any open range.
-                if cur_handler is not None and cur_start < block.offset:
-                    all_entries.append((cur_start, block.offset, cur_handler))
+                close_dead_block(cur_handler, cur_start, block.offset, all_entries)
                 cur_handler = None
                 cur_start = -1
                 continue
@@ -908,8 +918,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             # Reconcile cur_handler with this block's entry stack top.
             new_handler = entry[-1] if entry else None
             if new_handler is not cur_handler:
-                if cur_handler is not None and cur_start < block.offset:
-                    all_entries.append((cur_start, block.offset, cur_handler))
+                close_dead_block(cur_handler, cur_start, block.offset, all_entries)
                 cur_handler = new_handler
                 cur_start = block.offset
 
@@ -920,19 +929,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                 op = instr.opcode
                 instr_size = instr.size()
 
-                if op in (_SETUP_FINALLY, _SETUP_CLEANUP, _SETUP_WITH):
+                if instr.is_setup_pseudo_code(op):
                     # All are 0-byte pseudos; close enclosing handler at instr_offset.
-                    close_at = instr_offset
-                    if cur_handler is not None and cur_start < close_at:
-                        all_entries.append((cur_start, close_at, cur_handler))
+                    close_dead_block(cur_handler, cur_start, instr_offset, all_entries)
                     handler_target = instr.jump
                     stk.append(handler_target)
                     cur_handler = handler_target
                     cur_start = instr_offset + instr_size
 
                 elif op == _POP_BLOCK:
-                    if cur_handler is not None and cur_start < instr_offset:
-                        all_entries.append((cur_start, instr_offset, cur_handler))
+                    close_dead_block(cur_handler, cur_start, instr_offset, all_entries)
                     if stk:
                         stk.pop()
                     cur_handler = stk[-1] if stk else None
@@ -1020,12 +1026,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                 continue
             if len(target.instructions) > MAX_COPY_SIZE:
                 continue
-            has_return = False
             for instr in target.instructions:
                 if instr.opcode == ops.RETURN_VALUE:
-                    has_return = True
                     break
-            if not has_return:
+            else:
                 continue
             has_lineno = False
             for instr in target.instructions:
@@ -1081,6 +1085,16 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not any_mark:
             i = len(blocks)
 
+        # Build a successor dict to support O(1) insertion of copied blocks.
+        # After the while loop we linearise the chain back into blocks[].
+        # In CPython this is done by via a double linked list
+        successor = {}
+        for idx in range(len(blocks) - 1):
+            successor[blocks[idx]] = blocks[idx + 1]
+        if blocks:
+            successor[blocks[-1]] = None
+        any_copy = False
+
         while i < len(blocks):
             block = blocks[i]
             i += 1
@@ -1089,13 +1103,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                 continue
             j = 0
             while j < len(block.instructions):
-                op = block.instructions[j]
+                instr = block.instructions[j]
                 j += 1
-                if op.jump is None:
+                target = instr.jump
+                if target is None:
                     continue
-                if op.opcode in (_SETUP_WITH, _SETUP_FINALLY, _SETUP_CLEANUP):
+                if instr.is_setup_pseudo_code(instr.opcode):
                     continue # don't do this for exception handlers
-                target = op.jump
                 # only do something if the target has no position info (lowest
                 # bit set)
                 if not target.marked & 1:
@@ -1106,41 +1120,37 @@ class PythonCodeMaker(ast.ASTVisitor):
 
                 # if it's an unconditional jump, inline it (single predecessor)
                 # or copy it (multiple predecessors, matching CPython behaviour).
-                if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE) and (target.marked >> 1) <= 1:
+                if instr.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE) and (target.marked >> 1) <= 1:
                     # Skip if target is a RERAISE-only block: duplicating it
                     # INTO this block would place the RERAISE inside the byte
                     # range of an enclosing try-body's exception-table entry
                     # (body blocks emitted by _visit_try_except/_visit_try_finally
-                    # have a table entry body.offset..exc.offset, and the
+                    # have a table entry body.offset.exc.offset, and the
                     # duplicated RERAISE would incorrectly fall inside that
                     # range, dispatching to the inner handler instead of the
                     # outer reraise cleanup).  Mirrors the RERAISE-only skip
                     # in the other branch below.
-                    reraise_only = bool(target.instructions)
-                    for _instr in target.instructions:
-                        if _instr.opcode != ops.RERAISE:
-                            reraise_only = False
-                            break
-                    if reraise_only:
+                    if (len(target.instructions) == 1 and
+                            target.instructions[0].opcode == ops.RERAISE):
                         continue
                     assert block.cant_add_instructions
                     block.instructions.pop()
                     block.cant_add_instructions = False
                     j -= 1
                     target.marked -= 2 # one fewer incoming links
-                    for instr in target.instructions:
-                        instr = instr.copy()
-                        if instr.position_info[0] == -1:
-                            instr.position_info = op.position_info
-                        copy = instr.copy()
+                    for target_instr in target.instructions:
+                        target_instr = target_instr.copy()
+                        if target_instr.position_info[0] == -1:
+                            target_instr.position_info = instr.position_info
+                        copy = target_instr.copy()
                         if copy.jump:
                             copy.jump.marked += 2
                         block.emit_instr(copy)
                     if target.next_block and not block.cant_add_instructions:
-                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=op.position_info)
-                        instr.jump = target.next_block
+                        new_instr = Instruction(ops.JUMP_ABSOLUTE, position_info=instr.position_info)
+                        new_instr.jump = target.next_block
                         target.next_block.marked += 2
-                        block.emit_instr(instr)
+                        block.emit_instr(new_instr)
 
                 elif (target.marked >> 1) > 1:
                     # Don't copy blocks whose only instructions are RERAISE.
@@ -1153,36 +1163,41 @@ class PythonCodeMaker(ast.ASTVisitor):
                     # Leaving the original block in place keeps it within range.
                     # Position accuracy is unaffected: RERAISE uses attach_tb=False
                     # so no traceback entry is ever generated at the RERAISE site.
-                    reraise_only = True
-                    for _instr in target.instructions:
-                        if _instr.opcode != ops.RERAISE:
-                            reraise_only = False
-                            break
-                    if reraise_only:
+                    if (len(target.instructions) == 1 and
+                            target.instructions[0].opcode == ops.RERAISE):
                         continue
                     # copy the block, it has more than one predecessor
                     target.marked -= 2 # one fewer incoming links for old target
                     newtarget = target.copy()
                     newtarget.marked = 1 << 1 # new target has one incoming link
-                    newtarget.instructions[0].position_info = op.position_info
+                    newtarget.instructions[0].position_info = instr.position_info
                     for copied_op in newtarget.instructions:
                         if copied_op.jump:
                             copied_op.jump.marked += 2
                     # deal with fall-through of copied target block - rare, but
                     # see test_if_call_or_call_bug
                     if target.next_block and not newtarget.cant_add_instructions:
-                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
-                        instr.jump = target.next_block
+                        new_instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
+                        new_instr.jump = target.next_block
                         target.next_block.marked += 2
-                        newtarget.emit_instr(instr)
-                    op.jump = newtarget
-                    # Match CPython: new_target->b_next = target->b_next; target->b_next = new_target
-                    for k in range(len(blocks)):
-                        if blocks[k] is target:
-                            blocks.insert(k + 1, newtarget)
-                            break
-                    else:
-                        blocks.append(newtarget)
+                        newtarget.emit_instr(new_instr)
+                    instr.jump = newtarget
+                    successor[newtarget] = successor.get(target)
+                    successor[target] = newtarget
+                    blocks.append(newtarget)  # add to worklist for outer loop
+                    any_copy = True
+
+        if any_copy:
+            new_blocks = []
+            current = blocks[0]
+            seen = set() 
+            while current is not None:
+                if current in seen:
+                    break
+                seen.add(current)
+                new_blocks.append(current)
+                current = successor[current]
+            blocks[:] = new_blocks
 
         for block in blocks:
             if (block.instructions and block.next_block and
@@ -1416,14 +1431,6 @@ def _apply_static_swaps(instructions, i):
         instructions[j], instructions[k] = instructions[k], instructions[j]
         i -= 1
 
-
-def apply_static_swaps(blocks):
-    """Eliminate statically-known SWAP sequences (port of CPython's pass)."""
-    for block in blocks:
-        instructions = block.instructions
-        for i in range(len(instructions)):
-            if instructions[i].opcode == ops.SWAP:
-                _apply_static_swaps(instructions, i)
 
 def _encode_varint(result, value, msb=0):
     """Append a CPython-3.11-compatible varint encoding of value to result.
@@ -1683,7 +1690,7 @@ del name, func, op, value
 
 def _opcode_stack_effect(op, arg):
     """Return the stack effect of a opcode an its argument."""
-    if op == _SETUP_FINALLY or op == _SETUP_CLEANUP or op == _SETUP_WITH or op == _POP_BLOCK:
+    if Instruction.is_setup_pseudo_code(op) or op == _POP_BLOCK:
         return 0
     if we_are_translated():
         for possible_op in ops.unrolling_opcode_descs:
