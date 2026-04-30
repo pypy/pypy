@@ -24,7 +24,10 @@ def paths_naive(g):
     return accum
 
 def direct_target(spaceop):
-    return spaceop.args[0].value._obj.graph.name
+    obj = spaceop.args[0].value._obj
+    if hasattr(obj, 'graph'):
+        return obj.graph.name
+    return obj._name
 
 def direct_calls(p):
     names = []
@@ -34,15 +37,17 @@ def direct_calls(p):
     return names
 
             
+STACK_CHECK_NAME = 'stack_check___'
+
 def check(g, funcname, ignore=None):
     paths = paths_naive(g)
     relevant = []
     for p in paths:
         funcs_called = direct_calls(p)
         if funcname in funcs_called and ignore not in funcs_called:
-            assert 'stack_check___' in funcs_called
+            assert STACK_CHECK_NAME in funcs_called
             assert (funcs_called.index(funcname) >
-                    funcs_called.index('stack_check___'))
+                    funcs_called.index(STACK_CHECK_NAME))
             relevant.append(p)
     return relevant
     
@@ -112,9 +117,9 @@ def test_gctransformed():
                 target = direct_target(spaceop)
                 if target == 'f':
                     in_between = False
-                elif target == 'stack_check___':
+                elif target == STACK_CHECK_NAME:
                     in_between = True
             if in_between and spaceop.opname == 'gc_reload_possibly_moved':
                 reload += 1
-                
+
         assert reload == 0

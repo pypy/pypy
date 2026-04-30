@@ -28,6 +28,16 @@ _stack_set_length_fraction = llexternal('LL_stack_set_length_fraction',
 _stack_too_big_slowpath = llexternal('LL_stack_too_big_slowpath',
                                      [lltype.Signed], lltype.Char,
                                      lambda cur: '\x00')
+
+# RPY_STACK_CHECK is a static inline function defined in src/stack.h that
+# contains the fast-path check inline.  insert_ll_stackcheck() in transform.py
+# inserts calls to this function pointer rather than to the pypy_g_stack_check
+# RPython graph, so the C backend emits RPY_STACK_CHECK() at each site and
+# GCC can inline it in every compilation unit without LTO.
+# The _callable is a no-op for the LL interpreter (untranslated tests).
+_stack_check_ll = llexternal('RPY_STACK_CHECK', [], lltype.Void,
+                             _callable=lambda: None)
+
 # the following is used by the JIT
 _stack_get_end_adr   = llexternal('LL_stack_get_end_adr',   [], lltype.Signed)
 _stack_get_length_adr= llexternal('LL_stack_get_length_adr',[], lltype.Signed)

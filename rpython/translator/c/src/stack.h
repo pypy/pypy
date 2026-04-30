@@ -36,6 +36,19 @@ void LL_stack_set_length_fraction(double);
 /* some macros referenced from rpython.rlib.rstack */
 #define LL_stack_get_end() ((Signed)rpy_stacktoobig.stack_end)
 #define LL_stack_get_length() rpy_stacktoobig.stack_length
+
+/* Inline fast-path for the stack overflow check.  The generated C calls
+   pypy_g_stack_check() which lives in a separate compilation unit, so GCC
+   cannot inline it without LTO.  By putting the fast path here as a static
+   inline, every translation unit gets the check inlined directly, avoiding
+   the function-call and SSP-canary overhead at each of the ~2600 call sites.
+   The slow path (LL_stack_too_big_slowpath) stays out-of-line. */
+static inline void RPY_STACK_CHECK(void) {
+    Signed current = (Signed)&current;
+    if ((size_t)(rpy_stacktoobig.stack_end - (char *)current) >
+            (size_t)rpy_stacktoobig.stack_length)
+        LL_stack_too_big_slowpath(current);
+}
 #define LL_stack_get_end_adr()    ((Signed)&rpy_stacktoobig.stack_end)   /* JIT */
 #define LL_stack_get_length_adr() ((Signed)&rpy_stacktoobig.stack_length)/* JIT */
 

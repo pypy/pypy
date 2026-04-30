@@ -375,21 +375,21 @@ class TranslationDriver(SimpleTaskEngine):
         from rpython.jit.tl import jittest
         jittest.jittest(self)
 
+    STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
+    @taskdef([RTYPE, 'annotate'], "inserting stack checks")
+    def task_stackcheckinsertion_lltype(self):
+        from rpython.translator.transform import insert_ll_stackcheck
+        count = insert_ll_stackcheck(self.translator)
+        self.log.info("inserted %d stack checks." % (count,))
+
+
     BACKENDOPT = 'backendopt_lltype'
-    @taskdef([RTYPE, '??pyjitpl_lltype', '??jittest_lltype'], "lltype back-end optimisations")
+    @taskdef(['?'+STACKCHECKINSERTION, RTYPE, '??pyjitpl_lltype', '??jittest_lltype'], "lltype back-end optimisations")
     def task_backendopt_lltype(self):
         """ Run all backend optimizations - lltype version
         """
         from rpython.translator.backendopt.all import backend_optimizations
         backend_optimizations(self.translator, replace_we_are_jitted=True)
-
-
-    STACKCHECKINSERTION = 'stackcheckinsertion_lltype'
-    @taskdef(['?'+BACKENDOPT, RTYPE, 'annotate'], "inserting stack checks")
-    def task_stackcheckinsertion_lltype(self):
-        from rpython.translator.transform import insert_ll_stackcheck
-        count = insert_ll_stackcheck(self.translator)
-        self.log.info("inserted %d stack checks." % (count,))
 
 
     def possibly_check_for_boehm(self):
