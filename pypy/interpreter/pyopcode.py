@@ -152,10 +152,7 @@ class __extend__(pyframe.PyFrame):
         target, depth, lasti = entry
         if depth >= 0:
             # depth is relative (0 = empty value stack); convert to absolute.
-            code = self.getcode()
-            stackstart = (code.co_nlocals + len(code.co_cellvars) +
-                          len(code.co_freevars))
-            target_abs_depth = stackstart + depth
+            target_abs_depth = self._stack_start() + depth
             self.dropvaluesuntil(target_abs_depth)
             # lasti=True: push the raise-site offset as an int below the
             # exception, so RERAISE N can read it for traceback/f_lineno
