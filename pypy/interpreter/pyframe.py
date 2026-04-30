@@ -76,14 +76,6 @@ class PyFrame(W_Root):
     f_generator_nowref       = None               # (only one of the two attrs)
     w_yielding_from = None
     last_instr               = -1
-    # Transient field: set by RERAISE N (N > 0) to the lasti value it read
-    # from the stack, so that handle_operation_error can push that as the
-    # new handler's lasti (preserving the original raise site across
-    # re-raises).  Cleared by handle_operation_error after use.  -1 means
-    # "not set" -- use intmask(self.last_instr) instead.  Mirrors CPython's
-    # trick of setting frame->prev_instr = first_instr + lasti in RERAISE
-    # and then having exception_unwind read _PyInterpreterFrame_LASTI.
-    _reraise_lasti           = -1
     f_backref                = jit.vref_None
 
     escaped                  = False  # see mark_as_escaped()

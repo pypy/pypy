@@ -2,7 +2,8 @@ from hypothesis import given, settings
 import hypothesis.strategies as st
 
 from pypy.interpreter.astcompiler.assemble import (
-    Instruction, _remove_redundant_nops, Block, _encode_varint)
+    Instruction, _remove_redundant_nops, Block, _encode_varint,
+    _apply_static_swaps, _SETUP_FINALLY)
 from pypy.interpreter.pycode import _decode_varint
 from pypy.tool import stdlib_opcode as ops
 
@@ -87,6 +88,12 @@ def make_block(*opcodes_and_args):
 def opcodes(block):
     return [instr.opcode for instr in block.instructions]
 
+def run_static_swaps(block):
+    instructions = block.instructions
+    for i in range(len(instructions)):
+        if instructions[i].opcode == ops.SWAP:
+            _apply_static_swaps(instructions, i)
+
 
 def test_static_swaps_no_swap():
     # no SWAP present: instructions unchanged
@@ -94,7 +101,7 @@ def test_static_swaps_no_swap():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.STORE_FAST, ops.STORE_FAST]
 
 def test_static_swaps_swap2_two_store_fast():
@@ -104,7 +111,7 @@ def test_static_swaps_swap2_two_store_fast():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP
     assert instrs[1].opcode == ops.STORE_FAST and instrs[1].arg == 1
@@ -117,7 +124,7 @@ def test_static_swaps_swap2_pop_top_store_fast():
         (ops.POP_TOP, 0, 1),
         (ops.STORE_FAST, 5, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP
     assert instrs[1].opcode == ops.STORE_FAST and instrs[1].arg == 5
@@ -130,7 +137,7 @@ def test_static_swaps_swap2_two_pop_top():
         (ops.POP_TOP, 0, 1),
         (ops.POP_TOP, 0, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP
     assert instrs[1].opcode == ops.POP_TOP
@@ -144,7 +151,7 @@ def test_static_swaps_swap_n_greater_than_2():
         (ops.STORE_FAST, 1, 1),
         (ops.STORE_FAST, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP
     assert instrs[1].arg == 2  # swapped with k
@@ -156,7 +163,7 @@ def test_static_swaps_no_followers():
     block = make_block(
         (ops.SWAP, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP]
 
 def test_static_swaps_follower_not_swappable():
@@ -166,7 +173,7 @@ def test_static_swaps_follower_not_swappable():
         (ops.LOAD_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP, ops.LOAD_FAST, ops.STORE_FAST]
 
 def test_static_swaps_not_enough_swappables():
@@ -177,7 +184,7 @@ def test_static_swaps_not_enough_swappables():
         (ops.LOAD_FAST, 1, 1),
         (ops.STORE_FAST, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP, ops.STORE_FAST, ops.LOAD_FAST, ops.STORE_FAST]
 
 def test_static_swaps_conflict_same_var():
@@ -187,7 +194,7 @@ def test_static_swaps_conflict_same_var():
         (ops.STORE_FAST, 7, 1),
         (ops.STORE_FAST, 7, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP, ops.STORE_FAST, ops.STORE_FAST]
 
 def test_static_swaps_conflict_intermediate_store():
@@ -199,7 +206,7 @@ def test_static_swaps_conflict_intermediate_store():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP, ops.STORE_FAST, ops.STORE_FAST, ops.STORE_FAST]
 
 def test_static_swaps_nop_skipped():
@@ -210,7 +217,7 @@ def test_static_swaps_nop_skipped():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP        # was SWAP
     assert instrs[1].opcode == ops.NOP        # original NOP
@@ -225,7 +232,7 @@ def test_static_swaps_pseudo_op_skipped():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.NOP
     assert instrs[2].arg == 1
@@ -239,7 +246,7 @@ def test_static_swaps_lineno_mismatch_stops_k_search():
         (ops.STORE_FAST, 1, 2),
         (ops.STORE_FAST, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     assert opcodes(block) == [ops.SWAP, ops.STORE_FAST, ops.STORE_FAST, ops.STORE_FAST]
 
 def test_static_swaps_backwards_scan_through_swappable():
@@ -254,7 +261,7 @@ def test_static_swaps_backwards_scan_through_swappable():
         (ops.STORE_FAST, 1, 1),
         (ops.STORE_FAST, 2, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.STORE_FAST and instrs[0].arg == 0
     assert instrs[1].opcode == ops.NOP
@@ -272,7 +279,7 @@ def test_static_swaps_backwards_scan_stops_at_non_swappable():
         (ops.STORE_FAST, 0, 1),
         (ops.STORE_FAST, 1, 1),
     )
-    apply_static_swaps([block])
+    run_static_swaps(block)
     instrs = block.instructions
     assert instrs[0].opcode == ops.LOAD_FAST
     assert instrs[1].opcode == ops.NOP

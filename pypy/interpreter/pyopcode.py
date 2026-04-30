@@ -90,7 +90,8 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
-                                                     attach_tb=False)
+                                                     attach_tb=False,
+                                                     reraise_lasti=e.lasti)
         except KeyboardInterrupt:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_KeyboardInterrupt)
@@ -118,7 +119,7 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
-    def handle_operation_error(self, ec, operr, attach_tb=True):
+    def handle_operation_error(self, ec, operr, attach_tb=True, reraise_lasti=-1):
         if attach_tb:
             if 1:
                 # xxx this is a hack.  It allows bytecode_trace() to
@@ -165,14 +166,11 @@ class __extend__(pyframe.PyFrame):
             # CPython's _PyInterpreterFrame_LASTI read in exception_unwind
             # after RERAISE has updated prev_instr to lasti.
             if lasti:
-                if self._reraise_lasti >= 0:
-                    lasti_value = self._reraise_lasti
+                if reraise_lasti >= 0:
+                    lasti_value = reraise_lasti
                 else:
                     lasti_value = intmask(self.last_instr)
                 self.pushvalue(self.space.newint(lasti_value))
-            # Clear the transient RERAISE lasti regardless of whether this
-            # entry uses lasti -- it applies only to the immediate unwind.
-            self._reraise_lasti = -1
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
             return target
@@ -180,14 +178,11 @@ class __extend__(pyframe.PyFrame):
         # No exception table entry: propagate out of the frame.
         # sys.exc_info will be overwritten by the next PUSH_EXC_INFO in any
         # catching handler; no explicit restoration needed (matches CPython).
-        # Before propagating, if this unwind was triggered by a RERAISE N
-        # (lasti captured in self._reraise_lasti), restore self.last_instr
-        # to the lasti value so frame.f_lineno on the escaped frame reports
-        # the original raise site, matching CPython's RERAISE which sets
-        # frame->prev_instr = first_instr + lasti.
-        if self._reraise_lasti >= 0:
-            self.last_instr = self._reraise_lasti
-            self._reraise_lasti = -1
+        # If this unwind was triggered by a RERAISE N, restore self.last_instr
+        # to the original raise-site offset so frame.f_lineno reports the
+        # right line, matching CPython's RERAISE setting frame->prev_instr.
+        if reraise_lasti >= 0:
+            self.last_instr = reraise_lasti
         self.frame_finished_execution = True  # allows frame.clear() after propagation
         raise operr
 
@@ -1358,16 +1353,11 @@ class __extend__(pyframe.PyFrame):
         # restoring (PyPy no longer bundles POP_EXCEPT into RERAISE 1).
         if oparg:
             # PEEK(oparg + 1): 0 == TOS (exc), oparg is the lasti slot.
-            w_lasti = self.peekvalue(oparg)
-            # Save lasti in a transient field for handle_operation_error to
-            # push onto the next handler's stack.  Crucially, do NOT modify
-            # self.last_instr: the table lookup must use the RERAISE site
-            # (via dispatch_bytecode's top-of-loop assignment), not lasti,
-            # to avoid dispatching back into the body range that originally
-            # raised.  Mirrors CPython: RERAISE sets frame->prev_instr for
-            # the lasti push, but exception_unwind looks up by next_instr,
-            # not prev_instr.
-            self._reraise_lasti = self.space.int_w(w_lasti)
+            # Pass via RaiseWithExplicitTraceback rather than self.last_instr:
+            # the table lookup must use the RERAISE site offset, not lasti.
+            reraise_lasti = self.space.int_w(self.peekvalue(oparg))
+        else:
+            reraise_lasti = -1
         w_exc = self.popvalue()
         from pypy.module.exceptions.interp_exceptions import W_BaseException
         space = self.space
@@ -1380,7 +1370,7 @@ class __extend__(pyframe.PyFrame):
         # avoids a spurious traceback entry and exception_trace call that
         # would occur if the OperationError bubbled up to the plain
         # 'except OperationError' branch in handle_bytecode.
-        raise RaiseWithExplicitTraceback(operr)
+        raise RaiseWithExplicitTraceback(operr, reraise_lasti)
 
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
@@ -1906,8 +1896,9 @@ class Yield(ExitFrame):
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0-argument 'raise' statement."""
-    def __init__(self, operr):
+    def __init__(self, operr, lasti=-1):
         self.operr = operr
+        self.lasti = lasti
 
 
 ### Frame Blocks ###

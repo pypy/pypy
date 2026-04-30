@@ -43,6 +43,16 @@ def test_lineno_after_with():
             pass
     _lineno_after_raise(after_with, 2)
 
+def test_lineno_reraise_through_finally():
+    # Exception propagating through a try/finally should report the lineno of
+    # the finally cleanup code (matching CPython), not the implicit RERAISE.
+    def func():
+        try:
+            raise ValueError("x")
+        finally:
+            pass
+    _lineno_after_raise(func, 4)
+
 def test_yield_in_nested_try_excepts():
     #Issue #25612
     class MainError(Exception):
