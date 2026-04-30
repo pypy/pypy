@@ -191,6 +191,10 @@ class W_TypeObject(W_Root):
     # used to cache the type's __new__ function
     w_new_function = None
 
+    # cached W_UnicodeObject for __name__ and __qualname__
+    _w_name = None
+    _w_qualname = None
+
     # set to True by cpyext _before_ it even calls __init__() below
     flag_cpytype = False
 
@@ -1041,7 +1045,11 @@ def _check(space, w_type, msg="descriptor is for 'type'"):
 
 def descr_get__name__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newtext(w_type.getname(space))
+    w_name = w_type._w_name
+    if w_name is None:
+        w_name = space.newtext(w_type.getname(space))
+        w_type._w_name = w_name
+    return w_name
 
 def descr_set__name__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -1056,10 +1064,16 @@ def descr_set__name__(space, w_type, w_value):
         raise oefmt(space.w_ValueError, "type name must not contain null characters")
     _check_surrogate(space, name)
     w_type.name = name
+    w_type._w_name = w_value
+    w_type._w_qualname = None
 
 def descr_get__qualname__(space, w_type):
     w_type = _check(space, w_type)
-    return space.newtext(w_type.getqualname(space))
+    w_qualname = w_type._w_qualname
+    if w_qualname is None:
+        w_qualname = space.newtext(w_type.getqualname(space))
+        w_type._w_qualname = w_qualname
+    return w_qualname
 
 def descr_set__qualname__(space, w_type, w_value):
     w_type = _check(space, w_type)
@@ -1070,6 +1084,7 @@ def descr_set__qualname__(space, w_type, w_value):
                     "can only assign string to %N.__name__, not '%T'",
                     w_type, w_value)
     w_type.qualname = space.utf8_w(w_value)
+    w_type._w_qualname = w_value
 
 def descr_get__mro__(space, w_type):
     w_type = _check(space, w_type)
