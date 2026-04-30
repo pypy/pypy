@@ -1190,14 +1190,11 @@ class PythonCodeMaker(ast.ASTVisitor):
         if any_copy:
             new_blocks = []
             current = blocks[0]
-            seen = set() 
             while current is not None:
-                if current in seen:
-                    break
-                seen.add(current)
                 new_blocks.append(current)
                 current = successor[current]
-            blocks[:] = new_blocks
+            assert len(new_blocks) == len(blocks)
+            blocks[0:len(blocks)] = new_blocks
 
         for block in blocks:
             if (block.instructions and block.next_block and

@@ -1,7 +1,8 @@
-import dis, pytest
+import pytest
 
 
 def _get_line_numbers(source, function=False):
+    import dis
     code = compile(source, '<test>', 'exec')
     if function:
         code = code.co_consts[0]
