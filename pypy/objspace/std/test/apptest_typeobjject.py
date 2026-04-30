@@ -54,3 +54,12 @@ def test_nodoc_text_signature():
         pass
 
     assert NoDoc.__text_signature__ is None
+
+def test_text_signature_on_function_type():
+    def a(): pass
+    result = getattr(type(a), '__text_signature__')
+    assert result is None or isinstance(result, str)
+
+def test_text_signature_on_builtin_function_type():
+    result = getattr(type(len), '__text_signature__')
+    assert result is None or isinstance(result, str)

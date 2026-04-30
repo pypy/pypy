@@ -42,7 +42,11 @@ class TypeDef(object):
         if not __confirm_applevel_del__:
             assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
-        self.doc = rawdict.get('__doc__', None)
+        doc_candidate = rawdict.get('__doc__', None)
+        if isinstance(doc_candidate, str):
+            self.doc = doc_candidate
+        else:
+            self.doc = None
         self.text_signature = _text_signature_
         for base in bases:
             self.hasdict |= base.hasdict

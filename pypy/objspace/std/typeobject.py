@@ -1517,11 +1517,7 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    if isinstance(instancetypedef.doc, W_Root):
-        w_doc = instancetypedef.doc
-    else:
-        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
-    w_self.w_doc = w_doc
+    w_self.w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
     w_self.text_signature = instancetypedef.text_signature
     ensure_common_attributes(w_self)
     #
