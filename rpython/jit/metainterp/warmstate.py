@@ -253,6 +253,13 @@ class WarmEnterState(object):
     def set_param_threshold(self, threshold):
         self.increment_threshold = self._compute_threshold(threshold)
 
+    def set_param_numeric_threshold(self, threshold):
+        # 0 means disabled: fall back to increment_threshold
+        if threshold > 0:
+            self.increment_numeric_threshold = self._compute_threshold(threshold)
+        else:
+            self.increment_numeric_threshold = 0.0
+
     def set_param_function_threshold(self, threshold):
         self.increment_function_threshold = self._compute_threshold(threshold)
 
@@ -265,6 +272,9 @@ class WarmEnterState(object):
         if value > 100000000:
             raise ValueError
         self.trace_limit = value
+
+    def set_param_max_trace_guards(self, value):
+        self.max_trace_guards = value
 
     def set_param_decay(self, decay):
         self.warmrunnerdesc.jitcounter.set_decay(decay)

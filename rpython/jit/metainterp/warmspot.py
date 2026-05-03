@@ -574,11 +574,23 @@ class WarmRunnerDesc(object):
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
-        def maybe_enter_jit(*args):
-            try:
-                maybe_compile_and_run(state.increment_threshold, *args)
-            except Exception as e:
-                crash_in_jit(e)
+        all_reds_numeric = all(k in ('int', 'float') for k in jd.red_args_types)
+
+        if all_reds_numeric:
+            def maybe_enter_jit(*args):
+                try:
+                    inc = state.increment_numeric_threshold
+                    if inc == 0.0:
+                        inc = state.increment_threshold
+                    maybe_compile_and_run(inc, *args)
+                except Exception as e:
+                    crash_in_jit(e)
+        else:
+            def maybe_enter_jit(*args):
+                try:
+                    maybe_compile_and_run(state.increment_threshold, *args)
+                except Exception as e:
+                    crash_in_jit(e)
         maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
