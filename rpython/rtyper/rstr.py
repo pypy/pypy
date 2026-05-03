@@ -1023,30 +1023,62 @@ class AbstractLLHelpers(object):
         from rpython.rtyper.annlowlevel import hlstr
         s = hlstr(ll_str)
         strlen = len(s)
+
+        if strlen == 0:
+            # Fast path for empty strings
+            return LIST.ll_newlist(0)
+
+        # Pre-calculate an upper bound on the number of lines
+        # Each newline character will create at most one split
+        # Pre-allocating this size avoids multiple resizing operations
+        max_lines = 1  # At least one line even without newlines
+        for i in range(strlen):
+            if s[i] == '\n' or s[i] == '\r':
+                max_lines += 1
+
+        # Pre-allocate the result list with the maximum possible size
+        ITEM = LIST.items.TO.OF
+        res = LIST.ll_newlist(max_lines)
+
         i = 0
         j = 0
-        # The annotator makes sure this list is resizable.
-        ITEM = LIST.items.TO.OF
-        res = LIST.ll_newlist(0)
+        line_count = 0
+
+        # Main loop to find and process each line
         while j < strlen:
-            while i < strlen and s[i] != '\n' and s[i] != '\r':
+            # Fast forward to next newline character
+            while i < strlen:
+                c = s[i]
+                if c == '\n' or c == '\r':
+                    break
                 i += 1
+
             eol = i
+
+            # Handle line breaks (including CRLF sequence)
             if i < strlen:
                 if s[i] == '\r' and i + 1 < strlen and s[i + 1] == '\n':
-                    i += 2
+                    i += 2  # Skip CRLF as a single line break
                 else:
-                    i += 1
+                    i += 1  # Skip single \r or \n
+
                 if keep_newlines:
                     eol = i
-            list_length = res.ll_length()
-            res._ll_resize_ge(list_length + 1)
+
+            # Add the line to the result list (no resize needed due to pre-allocation)
             item = cls.ll_stringslice_startstop(ll_str, j, eol)
-            res.ll_setitem_fast(list_length, llmemory.cast_any_ptr(ITEM, item))
+            res.ll_setitem_fast(line_count, llmemory.cast_any_ptr(ITEM, item))
+            line_count += 1
             j = i
+
+        # Handle any remaining content after the last newline
         if j < strlen:
-            list_length = res.ll_length()
-            res._ll_resize_ge(list_length + 1)
             item = cls.ll_stringslice_startstop(ll_str, j, strlen)
-            res.ll_setitem_fast(list_length, llmemory.cast_any_ptr(ITEM, item))
+            res.ll_setitem_fast(line_count, llmemory.cast_any_ptr(ITEM, item))
+            line_count += 1
+
+        # If we didn't use all pre-allocated slots, resize the list to actual size
+        if line_count < max_lines:
+            res._ll_resize_ge(line_count)
+
         return res
