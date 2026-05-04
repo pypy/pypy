@@ -84,41 +84,46 @@ def do_pack_into(space, format, w_buffer, offset, args_w):
     """ Pack the values v1, v2, ... according to fmt.
 Write the packed bytes into the writable buffer buf starting at offset
     """
+    from pypy.interpreter.py_buffer import py_buffer_as_writebuf
     size = _calcsize(space, format)
-    buf = space.writebuf_w(w_buffer)
-    buflen = buf.getlength()
-    if offset < 0:
-        # Check that negative offset is low enough to fit data
-        if offset + size > 0:
+    view = space.acquire_py_buffer(w_buffer, space.BUF_WRITABLE)
+    try:
+        buf = py_buffer_as_writebuf(view)
+        buflen = view.length
+        if offset < 0:
+            # Check that negative offset is low enough to fit data
+            if offset + size > 0:
+                raise oefmt(get_error(space),
+                            "no space to pack %d bytes at offset %d",
+                            size,
+                            offset)
+            # Check that negative offset is not crossing buffer boundary
+            if offset + buflen < 0:
+                raise oefmt(get_error(space),
+                            "offset %d out of range for %d-byte buffer",
+                            offset,
+                            buflen)
+            offset += buflen
+        if (buflen - offset) < size:
             raise oefmt(get_error(space),
-                        "no space to pack %d bytes at offset %d",
+                        "pack_into requires a buffer of at least %d bytes for "
+                        "packing %d bytes at offset %d "
+                        "(actual buffer size is %d)",
+                        r_uint(size + offset),
                         size,
-                        offset)
-        # Check that negative offset is not crossing buffer boundary
-        if offset + buflen < 0:
-            raise oefmt(get_error(space),
-                        "offset %d out of range for %d-byte buffer",
                         offset,
                         buflen)
-        offset += buflen
-    if (buflen - offset) < size:
-        raise oefmt(get_error(space),
-                    "pack_into requires a buffer of at least %d bytes for "
-                    "packing %d bytes at offset %d "
-                    "(actual buffer size is %d)",
-                    r_uint(size + offset),
-                    size,
-                    offset,
-                    buflen)
-    #
-    wbuf = SubBuffer(buf, offset, size)
-    fmtiter = PackFormatIterator(space, wbuf, args_w)
-    try:
-        fmtiter.interpret(format)
-    except StructOverflowError as e:
-        raise OperationError(space.w_OverflowError, space.newtext(e.msg))
-    except StructError as e:
-        raise OperationError(get_error(space), space.newtext(e.msg))
+        #
+        wbuf = SubBuffer(buf, offset, size)
+        fmtiter = PackFormatIterator(space, wbuf, args_w)
+        try:
+            fmtiter.interpret(format)
+        except StructOverflowError as e:
+            raise OperationError(space.w_OverflowError, space.newtext(e.msg))
+        except StructError as e:
+            raise OperationError(get_error(space), space.newtext(e.msg))
+    finally:
+        space.release_py_buffer(view)
 
 
 def _unpack(space, format, buf):
@@ -137,8 +142,12 @@ def unpack(space, w_format, w_str):
     return do_unpack(space, format, w_str)
 
 def do_unpack(space, format, w_str):
-    buf = space.readbuf_w(w_str)
-    return _unpack(space, format, buf)
+    from pypy.interpreter.py_buffer import py_buffer_as_readbuf
+    view = space.acquire_py_buffer(w_str, space.BUF_SIMPLE)
+    try:
+        return _unpack(space, format, py_buffer_as_readbuf(view))
+    finally:
+        space.release_py_buffer(view)
 
 
 @unwrap_spec(offset=int)
@@ -151,62 +160,90 @@ fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
 def do_unpack_from(space, format, w_buffer, offset=0):
     """Unpack the buffer, containing packed C structure data, according to
 fmt, starting at offset. Requires len(buffer[offset:]) >= calcsize(fmt)."""
+    from pypy.interpreter.py_buffer import py_buffer_as_readbuf
     s_size = _calcsize(space, format)
-    buf = space.readbuf_w(w_buffer)
-    buf_length = buf.getlength()
-    if offset < 0:
-        if offset + s_size > 0:
+    view = space.acquire_py_buffer(w_buffer, space.BUF_SIMPLE)
+    try:
+        buf = py_buffer_as_readbuf(view)
+        buf_length = view.length
+        if offset < 0:
+            if offset + s_size > 0:
+                raise oefmt(get_error(space),
+                        "not enough data to unpack %d bytes at offset %d",
+                        s_size, offset)
+            if offset + buf_length < 0:
+                raise oefmt(get_error(space),
+                        "offset %d out of range for %d-byte buffer",
+                        offset, buf_length)
+            offset += buf_length
+        if buf_length - offset < s_size:
             raise oefmt(get_error(space),
-                    "not enough data to unpack %d bytes at offset %d",
-                    s_size, offset)
-        if offset + buf_length < 0:
-            raise oefmt(get_error(space),
-                    "offset %d out of range for %d-byte buffer",
-                    offset, buf_length)
-        offset += buf_length
-    if buf_length - offset < s_size:
-        raise oefmt(get_error(space),
-                    "unpack_from requires a buffer of at least %d bytes for "
-                    "unpacking %d bytes at offset %d "
-                    "(actual buffer size is %d)",
-                    r_uint(s_size + offset), s_size, offset, buf_length)
-    buf = SubBuffer(buf, offset, s_size)
-    return _unpack(space, format, buf)
+                        "unpack_from requires a buffer of at least %d bytes for "
+                        "unpacking %d bytes at offset %d "
+                        "(actual buffer size is %d)",
+                        r_uint(s_size + offset), s_size, offset, buf_length)
+        sub = SubBuffer(buf, offset, s_size)
+        return _unpack(space, format, sub)
+    finally:
+        space.release_py_buffer(view)
 
 
 class W_UnpackIter(W_Root):
+    # Mirrors CPython's unpackiterobject (Modules/_struct.c): the
+    # Py_buffer is stored inline on the iterator and released in the
+    # finalizer, plus eagerly when the iterator is exhausted.
     def __init__(self, space, w_struct, w_buffer):
-        buf = space.readbuf_w(w_buffer)
-        if w_struct.size <= 0:
-            raise oefmt(get_error(space),
-                "cannot iteratively unpack with a struct of length %d",
-                w_struct.size)
-        if buf.getlength() % w_struct.size != 0:
-            raise oefmt(get_error(space),
-                "iterative unpacking requires a bytes length multiple of %d",
-                w_struct.size)
+        view = space.acquire_py_buffer(w_buffer, space.BUF_SIMPLE)
+        try:
+            if w_struct.size <= 0:
+                raise oefmt(get_error(space),
+                    "cannot iteratively unpack with a struct of length %d",
+                    w_struct.size)
+            if view.length % w_struct.size != 0:
+                raise oefmt(get_error(space),
+                    "iterative unpacking requires a bytes length multiple of %d",
+                    w_struct.size)
+        except OperationError:
+            space.release_py_buffer(view)
+            raise
+        self.space = space
         self.w_struct = w_struct
-        self.buf = buf
+        self.view = view
         self.index = 0
+        if view.buf is not None and view.buf.needs_release():
+            self.register_finalizer(space)
+
+    def _finalize_(self):
+        view = self.view
+        if view is not None:
+            self.view = None
+            self.space.release_py_buffer(view)
 
     def descr_iter(self, space):
         return self
 
     def descr_next(self, space):
-        if self.w_struct is None:
+        from pypy.interpreter.py_buffer import py_buffer_as_readbuf
+        view = self.view
+        if self.w_struct is None or view is None:
             raise OperationError(space.w_StopIteration, space.w_None)
-        if self.index >= self.buf.getlength():
+        if self.index >= view.length:
+            # Exhausted: release eagerly, matching CPython's
+            # unpackiter_iternext (PyBuffer_Release on exhaustion).
+            self.view = None
+            self.w_struct = None
+            space.release_py_buffer(view)
             raise OperationError(space.w_StopIteration, space.w_None)
         size = self.w_struct.size
-        buf = SubBuffer(self.buf, self.index, size)
+        buf = SubBuffer(py_buffer_as_readbuf(view), self.index, size)
         w_res = _unpack(space, self.w_struct.format, buf)
         self.index += size
         return w_res
 
     def descr_length_hint(self, space):
-        if self.w_struct is None:
+        if self.w_struct is None or self.view is None:
             return space.newint(0)
-        length = (self.buf.getlength() - self.index) // self.w_struct.size
+        length = (self.view.length - self.index) // self.w_struct.size
         return space.newint(length)
 
 

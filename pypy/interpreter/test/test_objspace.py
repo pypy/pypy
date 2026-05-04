@@ -392,6 +392,131 @@ class TestObjSpace:
             assert space.text_w(space.str(excinfo.value.get_w_value(space))) == \
                     'expected str, got int object'
 
+    def test_acquire_readbuf_bytes(self):
+        space = self.space
+        w_data = space.newbytes(b"hello")
+        view, buf = space.acquire_readbuf(w_data)
+        try:
+            assert buf.as_str() == b"hello"
+        finally:
+            view.releasebuffer()
+
+    def test_acquire_readbuf_bytearray_tracks_exports(self):
+        space = self.space
+        w_ba = space.newbytearray([b'a', b'b', b'c'])
+        view, buf = space.acquire_readbuf(w_ba)
+        try:
+            assert buf.as_str() == b"abc"
+            # while the buffer is held, the bytearray cannot be resized
+            space.raises_w(space.w_BufferError,
+                           space.call_method, w_ba, 'append', space.newint(ord('d')))
+        finally:
+            view.releasebuffer()
+        # after releasing, the bytearray is unlocked again
+        space.call_method(w_ba, 'append', space.newint(ord('d')))
+
+    def test_acquire_writebuf_bytearray(self):
+        space = self.space
+        w_ba = space.newbytearray([b'a', b'b', b'c'])
+        view, buf = space.acquire_writebuf(w_ba)
+        try:
+            buf.setitem(0, 'Z')
+        finally:
+            view.releasebuffer()
+        assert space.bytes_w(space.call_function(space.w_bytes, w_ba)) == b"Zbc"
+
+    def test_acquire_readbuf_type_error(self):
+        space = self.space
+        space.raises_w(space.w_TypeError, space.acquire_readbuf, space.newint(5))
+
+    def test_acquire_writebuf_type_error_on_readonly(self):
+        space = self.space
+        # bytes is read-only, so acquire_writebuf must fail
+        space.raises_w(space.w_TypeError,
+                       space.acquire_writebuf, space.newbytes(b"hi"))
+
+    # --- Py_buffer prototype tests (CPython-style protocol) ---
+
+    def test_acquire_py_buffer_bytes(self):
+        from pypy.interpreter.py_buffer import (
+            py_buffer_as_str, py_buffer_getbytes)
+        space = self.space
+        w_data = space.newbytes(b"hello")
+        view = space.acquire_py_buffer(w_data, space.BUF_SIMPLE)
+        try:
+            assert view.obj is w_data
+            assert view.length == 5
+            assert view.readonly is True
+            assert view.itemsize == 1
+            assert view.ndim == 1
+            assert view.format == 'B'
+            assert view.shape == [5]
+            assert view.strides == [1]
+            assert py_buffer_as_str(view) == b"hello"
+            assert py_buffer_getbytes(view, 1, 3) == b"ell"
+        finally:
+            space.release_py_buffer(view)
+
+    def test_acquire_py_buffer_bytearray_tracks_exports(self):
+        from pypy.interpreter.py_buffer import py_buffer_as_str
+        space = self.space
+        w_ba = space.newbytearray([b'a', b'b', b'c'])
+        view = space.acquire_py_buffer(w_ba, space.BUF_SIMPLE)
+        try:
+            assert view.obj is w_ba
+            assert view.length == 3
+            assert view.readonly is False
+            assert py_buffer_as_str(view) == b"abc"
+            # while the buffer is held, the bytearray cannot be resized
+            space.raises_w(space.w_BufferError,
+                           space.call_method, w_ba, 'append',
+                           space.newint(ord('d')))
+        finally:
+            space.release_py_buffer(view)
+        # after releasing, the bytearray is unlocked again
+        space.call_method(w_ba, 'append', space.newint(ord('d')))
+
+    def test_acquire_py_buffer_bytearray_writable(self):
+        from pypy.interpreter.py_buffer import py_buffer_as_writebuf
+        space = self.space
+        w_ba = space.newbytearray([b'a', b'b', b'c'])
+        view = space.acquire_py_buffer(w_ba, space.BUF_WRITABLE)
+        try:
+            buf = py_buffer_as_writebuf(view)
+            buf.setitem(0, 'Z')
+        finally:
+            space.release_py_buffer(view)
+        assert space.bytes_w(space.call_function(space.w_bytes, w_ba)) == b"Zbc"
+
+    def test_acquire_py_buffer_type_error(self):
+        space = self.space
+        space.raises_w(space.w_TypeError,
+                       space.acquire_py_buffer, space.newint(5),
+                       space.BUF_SIMPLE)
+
+    def test_acquire_py_buffer_memoryview(self):
+        from pypy.interpreter.py_buffer import py_buffer_as_str
+        space = self.space
+        w_ba = space.newbytearray([b'a', b'b', b'c'])
+        w_mv = space.call_function(space.w_memoryview, w_ba)
+        # bytearray export counter should have bumped once (for the memoryview)
+        view = space.acquire_py_buffer(w_mv, space.BUF_SIMPLE)
+        try:
+            assert view.obj is w_mv
+            assert view.length == 3
+            assert py_buffer_as_str(view) == b"abc"
+        finally:
+            space.release_py_buffer(view)
+        # releasing the Py_buffer view must NOT release the underlying
+        # export: the memoryview still holds it.  The bytearray should
+        # still be locked.
+        space.raises_w(space.w_BufferError,
+                       space.call_method, w_ba, 'append',
+                       space.newint(ord('d')))
+        # After releasing the memoryview, the bytearray is unlocked
+        space.call_method(w_mv, 'release')
+        space.call_method(w_ba, 'append', space.newint(ord('d')))
+
 
 class TestModuleMinimal:
     def test_sys_exists(self):

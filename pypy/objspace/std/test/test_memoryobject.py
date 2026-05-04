@@ -243,12 +243,12 @@ class AppTestMemoryView(object):
                 return 1
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        with raises(IndexError):
+        with raises(BufferError):
             v[A()]
 
         data = bytearray(b'abcefg')
         v = memoryview(data)
-        with raises(IndexError):
+        with raises(BufferError):
             v[A()] = b'z'
 
     def test_hex(self):
@@ -714,3 +714,37 @@ def test_reverse_slice(space):
     v = SimpleView(b)
     m = v.new_slice(len(content)-1, -1, len(content))
     assert m.as_str() == content[::-1]
+
+def test_cast_bytearray_exports_balanced(space):
+    # Regression: memoryview(bytearray(...)).cast('I') GC path used to
+    # underflow the bytearray's _exports counter when finalizers ran on
+    # a translated build, triggering an RPython AssertionError in
+    # BytearrayBuffer.releasebuffer.  Minimal reproducer of the crash
+    # triggered by re.compile(r'[a-z]', re.I) via re/_compiler.py's
+    # memoryview(b).cast('I').
+    #
+    # Untranslated, the GC finalizer queue relies on weakref callbacks
+    # that require gc.collect() AND _run_finalizers() to actually fire
+    # _finalize_ on unreferenced memoryviews.  We directly exercise the
+    # interp-level finalizers of BOTH memoryviews (owning and cast) to
+    # mimic what the translated GC does when both become unreachable.
+    from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+    from pypy.objspace.std.memoryobject import W_MemoryView
+    w_ba = space.call_function(space.w_bytearray, space.newint(256))
+    assert isinstance(w_ba, W_BytearrayObject)
+    assert w_ba._exports == 0
+    # memoryview(b): owning view, _exports -> 1
+    w_mv1 = space.call_function(space.w_memoryview, w_ba)
+    assert isinstance(w_mv1, W_MemoryView)
+    assert w_ba._exports == 1
+    # mv1.cast('I'): non-owning derived view, _exports unchanged
+    w_mv2 = space.call_method(w_mv1, 'cast', space.newtext('I'))
+    assert isinstance(w_mv2, W_MemoryView)
+    assert w_ba._exports == 1
+    # Simulate the GC finalizing BOTH memoryviews.  The cast view's
+    # finalizer must be a no-op (owns_export=False); only the owning
+    # view's finalizer may decrement _exports.
+    w_mv2._finalize_()
+    w_mv1._finalize_()
+    assert w_ba._exports == 0, \
+        "cast+owning finalizer sequence underflowed _exports to %d" % w_ba._exports

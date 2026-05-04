@@ -9,10 +9,10 @@ def setup_hpybuffer(handles):
     class HPyBuffer(BufferView):
         _immutable_ = True
 
-        def __init__(self, ptr, size, w_owner, itemsize, readonly, ndim,
+        def __init__(self, ptr, size, w_obj, itemsize, readonly, ndim,
                      format, shape, strides):
             self.rawbuf = LLBuffer(llapi.cts.cast('char*', ptr), size)
-            self.w_owner = w_owner
+            self.w_obj = w_obj
             self.format = format
             self.itemsize = itemsize
             # cf. Objects/memoryobject.c:init_shape_strides()
@@ -37,7 +37,7 @@ def setup_hpybuffer(handles):
             self.releasebufferproc = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
 
         def releasebuffer(self):
-            if self.w_owner is None:
+            if self.w_obj is None:
                 # don't call twice
                 return
             if self.releasebufferproc:
@@ -49,9 +49,9 @@ def setup_hpybuffer(handles):
                     # XXX: hpybuf.c_shape, hpybuf.c_strides, ...
                     func = llapi.cts.cast(
                         'HPyFunc_releasebufferproc', self.releasebufferproc)
-                    with handles.using(self.w_owner) as h_owner:
+                    with handles.using(self.w_obj) as h_owner:
                         func(handles.get_ctx_for_handles(), h_owner, hpybuf)
-            self.w_owner = None
+            self.w_obj = None
 
         def getlength(self):
             return self.rawbuf.getlength()

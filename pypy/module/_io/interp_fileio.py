@@ -428,7 +428,7 @@ class W_FileIO(W_RawIOBase):
     def write_w(self, space, w_data):
         self._check_closed(space)
         self._check_writable(space)
-        data = space.charbuf_w(w_data)
+        data = space.bufferstr_w(w_data)
 
         while True:
             try:
@@ -467,33 +467,36 @@ class W_FileIO(W_RawIOBase):
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)
         self._check_readable(space)
-        rwbuffer = space.writebuf_w(w_buffer)
-        length = rwbuffer.getlength()
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
+        try:
+            length = rwbuffer.getlength()
 
-        target_address = lltype.nullptr(rffi.CCHARP.TO)
-        if length > 64:
-            try:
-                target_address = rwbuffer.get_raw_address()
-            except ValueError:
-                pass
-
-        if not target_address:
-            # unoptimized case
-            while True:
+            target_address = lltype.nullptr(rffi.CCHARP.TO)
+            if length > 64:
                 try:
-                    buf = os.read(self.fd, length)
-                    break
-                except OSError as e:
-                    if e.errno == errno.EAGAIN:
-                        return space.w_None
-                    wrap_oserror(space, e, w_exception_class=space.w_IOError,
-                                 eintr_retry=True)
-            self.output_slice(space, rwbuffer, 0, buf)
-            return space.newint(len(buf))
-        else:
-            w_res = self._readinto_raw(space, target_address, length)
-            keepalive_until_here(rwbuffer)
-            return w_res
+                    target_address = rwbuffer.get_raw_address()
+                except ValueError:
+                    pass
+
+            if not target_address:
+                # unoptimized case
+                while True:
+                    try:
+                        buf = os.read(self.fd, length)
+                        break
+                    except OSError as e:
+                        if e.errno == errno.EAGAIN:
+                            return space.w_None
+                        wrap_oserror(space, e, w_exception_class=space.w_IOError,
+                                     eintr_retry=True)
+                self.output_slice(space, rwbuffer, 0, buf)
+                return space.newint(len(buf))
+            else:
+                w_res = self._readinto_raw(space, target_address, length)
+                keepalive_until_here(rwbuffer)
+                return w_res
+        finally:
+            view.releasebuffer()
 
     def _readinto_raw(self, space, target_address, length):
         # optimized case: reading more than 64 bytes into a rwbuffer

@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -9,13 +10,21 @@ from pypy.interpreter.buffer import SimpleView
 from rpython.rlib.buffer import LLBuffer
 
 
-class MiniBuffer(W_Root):
+class MiniBuffer(W_BufferExporter):
     def __init__(self, buffer, keepalive=None):
         self.buffer = buffer
         self.keepalive = keepalive
 
     def buffer_w(self, space, flags):
         return SimpleView(self.buffer, w_obj=self)
+
+    def bf_getbuffer(self, space, view, flags):
+        # CPython-style protocol.  MiniBuffer wraps an LLBuffer (+ a
+        # keepalive for the underlying cdata); no export-count
+        # tracking, so releasebuffer is a no-op inherited from W_Root.
+        from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        fill_py_buffer_1d(view, self, self.buffer,
+                          readonly=self.buffer.readonly)
 
     def descr_len(self, space):
         return space.newint(self.buffer.getlength())
@@ -33,7 +42,9 @@ class MiniBuffer(W_Root):
                                                       self)
         if step not in (0, 1):
             raise oefmt(space.w_NotImplementedError, "")
-        value = space.buffer_w(w_newstring, space.BUF_CONTIG_RO).as_readbuf()
+        view = space.buffer_w(w_newstring, space.BUF_CONTIG_RO)
+        value = view.as_readbuf()
+        view.releasebuffer()
         if value.getlength() != size:
             raise oefmt(space.w_ValueError,
                         "cannot modify size of memoryview object")
@@ -46,21 +57,26 @@ class MiniBuffer(W_Root):
     def _comparison_helper(self, space, w_other, mode):
         if space.isinstance_w(w_other, space.w_unicode):
             return space.w_NotImplemented
+        from pypy.interpreter.py_buffer import py_buffer_as_readbuf
         try:
-            other_buf = space.readbuf_w(w_other)
+            view = space.acquire_py_buffer(w_other, space.BUF_SIMPLE)
         except OperationError as e:
             if e.async(space):
                 raise
             return space.w_NotImplemented
-        my_buf = self.buffer
-        my_len = len(my_buf)
-        other_len = len(other_buf)
-        if other_len != my_len:
-            if mode == 'E':
-                return space.w_False
-            if mode == 'N':
-                return space.w_True
-        cmp = _memcmp(my_buf, other_buf, min(my_len, other_len))
+        try:
+            other_buf = py_buffer_as_readbuf(view)
+            my_buf = self.buffer
+            my_len = len(my_buf)
+            other_len = view.length
+            if other_len != my_len:
+                if mode == 'E':
+                    return space.w_False
+                if mode == 'N':
+                    return space.w_True
+            cmp = _memcmp(my_buf, other_buf, min(my_len, other_len))
+        finally:
+            space.release_py_buffer(view)
         if cmp == 0:
             if my_len < other_len:
                 cmp = -1

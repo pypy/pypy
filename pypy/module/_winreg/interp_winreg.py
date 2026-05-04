@@ -463,13 +463,14 @@ def convert_to_regdata(space, w_value, typ):
             buf = lltype.nullptr(rffi.CCHARP.TO)
         else:
             try:
-                value = w_value.buffer_w(space, space.BUF_SIMPLE)
+                view = w_value.buffer_w(space, space.BUF_SIMPLE)
             except BufferInterfaceNotFound:
                 raise oefmt(space.w_TypeError,
                             "Objects of type '%T' can not be used as binary "
                             "registry values", w_value)
             else:
-                value = value.as_str()
+                value = view.as_str()
+                view.releasebuffer()
             buflen = len(value)
             buf = rffi.str2charp(value)
 

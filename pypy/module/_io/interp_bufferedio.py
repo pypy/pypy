@@ -118,22 +118,25 @@ state."""
         return self._readinto(space, w_buffer, read_once=True)
 
     def _readinto(self, space, w_buffer, read_once):
-        rwbuffer = space.writebuf_w(w_buffer)
-        length = rwbuffer.getlength()
-        methodname = "read1" if read_once else "read"
-        w_data = space.call_method(self, methodname, space.newint(length))
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
+        try:
+            length = rwbuffer.getlength()
+            methodname = "read1" if read_once else "read"
+            w_data = space.call_method(self, methodname, space.newint(length))
 
-        if not space.isinstance_w(w_data, space.w_bytes):
-            raise oefmt(space.w_TypeError, "%s() should return bytes",
-                        methodname)
-        data = space.bytes_w(w_data)
-        if len(data) > length:
-            raise oefmt(space.w_ValueError,
-                        "%s() returned too much data: "
-                        "%d bytes requested, %d returned",
-                        methodname, length, len(data))
-        self.output_slice(space, rwbuffer, 0, data)
-        return space.newint(len(data))
+            if not space.isinstance_w(w_data, space.w_bytes):
+                raise oefmt(space.w_TypeError, "%s() should return bytes",
+                            methodname)
+            data = space.bytes_w(w_data)
+            if len(data) > length:
+                raise oefmt(space.w_ValueError,
+                            "%s() returned too much data: "
+                            "%d bytes requested, %d returned",
+                            methodname, length, len(data))
+            self.output_slice(space, rwbuffer, 0, data)
+            return space.newint(len(data))
+        finally:
+            view.releasebuffer()
 
 W_BufferedIOBase.typedef = TypeDef(
     '_io._BufferedIOBase', W_IOBase.typedef,
@@ -820,7 +823,7 @@ class BufferedMixin:
 
     def write_w(self, space, w_data):
         self._check_init(space)
-        data = space.charbuf_w(w_data)
+        data = space.bufferstr_w(w_data)
         size = len(data)
 
         with self.lock:
@@ -951,53 +954,56 @@ class BufferedReaderMixin(object):
     def _readinto(self, space, w_buffer, read_once):
         self._check_init(space)
         self._check_closed(space, "readinto of closed file")
-        rwbuffer = space.writebuf_w(w_buffer)
-        length = rwbuffer.getlength()
-        with self.lock:
-            have = self._readahead()
-            if have >= length:
-                self.output_slice(space, rwbuffer,
-                    0, self.buffer[self.pos:self.pos + length])
-                self.pos += length
-                return space.newint(length)
-            written = 0
-            if have > 0:
-                self.output_slice(space, rwbuffer,
-                    0, self.buffer[self.pos:self.read_end])
-                written = have
-
-            while written < length:
-                if self.writable:
-                    self._flush_and_rewind_unlocked(space)
-                self._reader_reset_buf()
-                self.pos = 0
-                if written + len(self.buffer) < length:
-                    try:
-                        got = self._raw_read(
-                            space, rwbuffer, written, length - written)
-                        written += got
-                    except BlockingIOError:
-                        got = 0
-                    if got == 0:
-                        break
-                elif read_once and written:
-                    break
-                else:
-                    try:
-                        have = self._fill_buffer(space)
-                    except BlockingIOError:
-                        have = 0
-                    if have == 0:
-                        break
-                    endpos = min(have, length - written)
-                    assert endpos >= 0
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
+        try:
+            length = rwbuffer.getlength()
+            with self.lock:
+                have = self._readahead()
+                if have >= length:
                     self.output_slice(space, rwbuffer,
-                        written, self.buffer[0:endpos])
-                    written += endpos
-                    self.pos = endpos
-                if read_once:
-                    break
-            return space.newint(written)
+                        0, self.buffer[self.pos:self.pos + length])
+                    self.pos += length
+                    return space.newint(length)
+                written = 0
+                if have > 0:
+                    self.output_slice(space, rwbuffer,
+                        0, self.buffer[self.pos:self.read_end])
+                    written = have
+
+                while written < length:
+                    if self.writable:
+                        self._flush_and_rewind_unlocked(space)
+                    self._reader_reset_buf()
+                    self.pos = 0
+                    if written + len(self.buffer) < length:
+                        try:
+                            got = self._raw_read(
+                                space, rwbuffer, written, length - written)
+                            written += got
+                        except BlockingIOError:
+                            got = 0
+                        if got == 0:
+                            break
+                    elif read_once and written:
+                        break
+                    else:
+                        try:
+                            have = self._fill_buffer(space)
+                        except BlockingIOError:
+                            have = 0
+                        if have == 0:
+                            break
+                        endpos = min(have, length - written)
+                        assert endpos >= 0
+                        self.output_slice(space, rwbuffer,
+                            written, self.buffer[0:endpos])
+                        written += endpos
+                        self.pos = endpos
+                    if read_once:
+                        break
+                return space.newint(written)
+        finally:
+            view.releasebuffer()
 
 
 class W_BufferedReader(W_BufferedIOBase):

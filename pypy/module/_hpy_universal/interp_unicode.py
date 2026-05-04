@@ -155,7 +155,7 @@ def HPyUnicode_FromEncodedObject(space, handles, ctx, h, encoding, errors):
     elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
         raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
     else:
-        s = space.charbuf_w(w_obj)
+        s = space.bufferstr_w(w_obj)
     if encoding:
         w_encoding = space.newtext(rffi.constcharp2str(encoding))
     else:

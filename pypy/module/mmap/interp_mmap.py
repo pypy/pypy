@@ -1,6 +1,7 @@
 import sys
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
@@ -16,7 +17,7 @@ else:
     OFF_T = int
 
 
-class W_MMap(W_Root):
+class W_MMap(W_BufferExporter):
     def __init__(self, space, mmap_obj):
         self.space = space
         self.mmap = mmap_obj
@@ -28,6 +29,17 @@ class W_MMap(W_Root):
         if write_required and readonly:
             raise oefmt(space.w_BufferError, "Object is not writable.")
         return SimpleView(MMapBuffer(self.space, self.mmap, readonly), w_obj=self)
+
+    def bf_getbuffer(self, space, view, flags):
+        from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        self.check_valid()
+        readonly = (self.mmap.access == ACCESS_READ)
+        write_required = bool(flags & space.BUF_WRITABLE)
+        if write_required and readonly:
+            raise oefmt(space.w_BufferError, "Object is not writable.")
+        fill_py_buffer_1d(view, self,
+                          MMapBuffer(self.space, self.mmap, readonly),
+                          readonly=readonly)
 
     def close(self):
         self.mmap.close()
@@ -56,7 +68,7 @@ class W_MMap(W_Root):
     def find(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.charbuf_w(w_tofind)
+        tofind = space.bufferstr_w(w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -71,7 +83,7 @@ class W_MMap(W_Root):
     def rfind(self, w_tofind, w_start=None, w_end=None):
         self.check_valid()
         space = self.space
-        tofind = space.charbuf_w(w_tofind)
+        tofind = space.bufferstr_w(w_tofind)
         if w_start is None:
             start = self.mmap.pos
         else:
@@ -104,7 +116,7 @@ class W_MMap(W_Root):
 
     def write(self, w_data):
         self.check_valid()
-        data = self.space.charbuf_w(w_data)
+        data = self.space.bufferstr_w(w_data)
         self.check_writeable()
         try:
             return self.space.newint(self.mmap.write(data))
@@ -223,6 +235,7 @@ class W_MMap(W_Root):
                     raise
                 buf = space.buffer_w(w_value, space.BUF_FULL_RO)
                 value = buf.as_str()
+                buf.releasebuffer()
             if len(value) != length:
                 raise oefmt(space.w_ValueError,
                             "mmap slice assignment is wrong size")

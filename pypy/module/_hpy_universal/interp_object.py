@@ -169,6 +169,7 @@ def HPy_Bytes(space, handles, ctx, h_obj):
     # XXX: write a test for this case
     buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
     w_res = space.newbytes(buffer.as_str())
+    buffer.releasebuffer()
     return handles.new(w_res)
 
 @API.func("HPy HPy_RichCompare(HPyContext *ctx, HPy v, HPy w, int op)")

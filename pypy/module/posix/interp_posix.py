@@ -375,7 +375,7 @@ def read(space, fd, length):
 def write(space, fd, w_data):
     """Write a string to a file descriptor.  Return the number of bytes
 actually written, which may be smaller than len(data)."""
-    data = space.charbuf_w(w_data)
+    data = space.bufferstr_w(w_data)
     while True:
         try:
             res = os.write(fd, data)
@@ -482,7 +482,7 @@ def pread(space, fd, length, offset):
 def pwrite(space, fd, w_data, offset):
     """Write a string to a file descriptor at a given offset.
     """
-    data = space.charbuf_w(w_data)
+    data = space.bufferstr_w(w_data)
     while True:
         try:
             res = rposix.pwrite(fd, data, offset)
@@ -2737,7 +2737,7 @@ path may be either a string or an open file descriptor.
 If follow_symlinks is False, and the last element of the path is a symbolic
   link, setxattr will modify the symbolic link itself instead of the file
   the link points to."""
-    value = space.charbuf_w(w_value)
+    value = space.bufferstr_w(w_value)
     if path.as_fd != -1:
         if not follow_symlinks:
             raise oefmt(space.w_ValueError,

@@ -254,29 +254,32 @@ def ioctl(space, w_fd, w_request, w_arg, mutate_flag=-1):
     op = space.bigint_w(w_request).uintmask() # CPython uses PyLong_AsUnsignedLongMask
     op = rffi.cast(rffi.UINT, op)
     try:
-        rwbuffer = space.writebuf_w(w_arg)
+        view, rwbuffer = space.acquire_writebuf(w_arg)
     except OperationError as e:
         if not (e.match(space, space.w_TypeError) or
                 e.match(space, space.w_BufferError)):
             raise
     else:
-        arg = rwbuffer.as_str()
-        ll_arg = rffi.str2charp(arg)
-        to_alloc = max(IOCTL_BUFSZ, len(arg))
         try:
-            with rffi.scoped_alloc_buffer(to_alloc) as buf:
-                rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
-                              rffi.cast(rffi.CONST_VOIDP, ll_arg), len(arg))
-                rv = ioctl_str(fd, op, buf.raw)
-                if rv < 0:
-                    _raise_error_always(space, "ioctl")
-                arg = rffi.charpsize2str(buf.raw, len(arg))
-                if mutate_flag != 0:
-                    rwbuffer.setslice(0, arg)
-                    return space.newint(rv)
-                return space.newbytes(arg)
+            arg = rwbuffer.as_str()
+            ll_arg = rffi.str2charp(arg)
+            to_alloc = max(IOCTL_BUFSZ, len(arg))
+            try:
+                with rffi.scoped_alloc_buffer(to_alloc) as buf:
+                    rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
+                                  rffi.cast(rffi.CONST_VOIDP, ll_arg), len(arg))
+                    rv = ioctl_str(fd, op, buf.raw)
+                    if rv < 0:
+                        _raise_error_always(space, "ioctl")
+                    arg = rffi.charpsize2str(buf.raw, len(arg))
+                    if mutate_flag != 0:
+                        rwbuffer.setslice(0, arg)
+                        return space.newint(rv)
+                    return space.newbytes(arg)
+            finally:
+                lltype.free(ll_arg, flavor='raw')
         finally:
-            lltype.free(ll_arg, flavor='raw')
+            view.releasebuffer()
 
     if mutate_flag != -1:
         raise oefmt(space.w_TypeError,

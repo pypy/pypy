@@ -113,7 +113,7 @@ def idna_converter(space, w_host):
     elif space.isinstance_w(w_host, space.w_bytes):
         s = space.bytes_w(w_host)
     elif space.isinstance_w(w_host, space.w_bytearray):
-        s = space.charbuf_w(w_host)
+        s = space.bufferstr_w(w_host)
     else:
         raise oefmt(space.w_TypeError,
                     "string or unicode text buffer expected, not %T", w_host)
@@ -152,7 +152,7 @@ def addr_from_object(family, fd, space, w_address):
         if space.isinstance_w(w_address, space.w_unicode):
             w_address = space.fsencode(w_address)
         elif space.isinstance_w(w_address, space.w_bytearray):
-            w_address = space.newbytes(space.charbuf_w(w_address))
+            w_address = space.newbytes(space.bufferstr_w(w_address))
         bytelike = space.bytes_w(w_address) # getarg_w('y*', w_address)
         return rsocket.UNIXAddress(bytelike)
     if rsocket.HAS_AF_NETLINK and family == rsocket.AF_NETLINK:
@@ -606,50 +606,59 @@ class W_Socket(W_Root):
         if ancbufsize < 0:
             raise oefmt(space.w_ValueError, "invalid ancillary data buffer length")
         buffers_w = space.unpackiterable(w_buffers)
-        buffers = [space.writebuf_w(w_buffer) for w_buffer in buffers_w]
-        rawbufs = [None] * len(buffers)
-        for i in range(len(buffers)):
-            try:
-                buffers[i].get_raw_address()
-            except ValueError:
-                rawbufs[i] = RawByteBuffer(buffers[i].getlength())
-            else:
-                rawbufs[i] = buffers[i]
-
-        while True:
-            try:
-                recvtup = self.sock.recvmsg_into(rawbufs, ancbufsize, flags)
-                nbytes, ancdata, retflag, address = recvtup
-                w_nbytes = space.newint(nbytes)
-                anclist = []
-                for level, type, anc in ancdata:
-                    w_tup = space.newtuple([
-                        space.newint(level), space.newint(type),
-                        space.newbytes(anc)])
-                    anclist.append(w_tup)
-
-                w_anc = space.newlist(anclist)
-
-                w_flag = space.newint(retflag)
-                if (address is not None):
-                    w_address = addr_as_object(recvtup[3], self.sock.fd, space)
+        views = []
+        buffers = []
+        try:
+            for w_buffer in buffers_w:
+                bview, buf = space.acquire_writebuf(w_buffer)
+                views.append(bview)
+                buffers.append(buf)
+            rawbufs = [None] * len(buffers)
+            for i in range(len(buffers)):
+                try:
+                    buffers[i].get_raw_address()
+                except ValueError:
+                    rawbufs[i] = RawByteBuffer(buffers[i].getlength())
                 else:
-                    w_address = space.w_None
-                rettup = space.newtuple([w_nbytes, w_anc, w_flag, w_address])
-                break
-            except SocketError as e:
-                converted_error(space, e, eintr_retry=True)
+                    rawbufs[i] = buffers[i]
 
-        n_remaining = nbytes
-        for i in range(len(buffers)):
-            lgt = rawbufs[i].getlength()
-            n_read = min(lgt, n_remaining)
-            n_remaining -= n_read
-            if rawbufs[i] is not buffers[i]:
-                buffers[i].setslice(0, rawbufs[i].getslice(0, 1, n_read))
-            if n_remaining == 0:
-                break
-        return rettup
+            while True:
+                try:
+                    recvtup = self.sock.recvmsg_into(rawbufs, ancbufsize, flags)
+                    nbytes, ancdata, retflag, address = recvtup
+                    w_nbytes = space.newint(nbytes)
+                    anclist = []
+                    for level, type, anc in ancdata:
+                        w_tup = space.newtuple([
+                            space.newint(level), space.newint(type),
+                            space.newbytes(anc)])
+                        anclist.append(w_tup)
+
+                    w_anc = space.newlist(anclist)
+
+                    w_flag = space.newint(retflag)
+                    if (address is not None):
+                        w_address = addr_as_object(recvtup[3], self.sock.fd, space)
+                    else:
+                        w_address = space.w_None
+                    rettup = space.newtuple([w_nbytes, w_anc, w_flag, w_address])
+                    break
+                except SocketError as e:
+                    converted_error(space, e, eintr_retry=True)
+
+            n_remaining = nbytes
+            for i in range(len(buffers)):
+                lgt = rawbufs[i].getlength()
+                n_read = min(lgt, n_remaining)
+                n_remaining -= n_read
+                if rawbufs[i] is not buffers[i]:
+                    buffers[i].setslice(0, rawbufs[i].getslice(0, 1, n_read))
+                if n_remaining == 0:
+                    break
+            return rettup
+        finally:
+            for bview in views:
+                bview.releasebuffer()
 
     @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):
@@ -688,7 +697,7 @@ class W_Socket(W_Root):
         Like send(data, flags) but allows specifying the destination address.
         For IP sockets, the address is a pair (hostaddr, port).
         """
-        data = space.charbuf_w(w_data)
+        data = space.bufferstr_w(w_data)
         if w_param3 is None:
             # 2 args version
             flags = 0
@@ -735,10 +744,15 @@ class W_Socket(W_Root):
                     address = self.addr_from_object(space, w_address)
 
                 # find data's type in the ObjectSpace and get a list of string out of it.
+                from pypy.interpreter.py_buffer import py_buffer_as_str
                 data = []
                 data_iter = space.unpackiterable(w_data)
                 for i in data_iter:
-                    data.append(space.readbuf_w(i).as_str())
+                    view = space.acquire_py_buffer(i, space.BUF_SIMPLE)
+                    try:
+                        data.append(py_buffer_as_str(view))
+                    finally:
+                        space.release_py_buffer(view)
 
                 # find the ancillary's type in the ObjectSpace and get a list of tuples out of it.
                 ancillary = []
@@ -751,7 +765,11 @@ class W_Socket(W_Root):
                             intemtup = space.unpackiterable(w_i)
                             level = space.int_w(intemtup[0])
                             type = space.int_w(intemtup[1])
-                            cont = space.readbuf_w(intemtup[2]).as_str()
+                            view = space.acquire_py_buffer(intemtup[2], space.BUF_SIMPLE)
+                            try:
+                                cont = py_buffer_as_str(view)
+                            finally:
+                                space.release_py_buffer(view)
                             tup = (level, type, cont)
                             ancillary.append(tup)
                         else:
@@ -797,7 +815,7 @@ class W_Socket(W_Root):
         except OperationError as e:
             if e.async(space):
                 raise
-            optval = space.charbuf_w(w_optval)
+            optval = space.bufferstr_w(w_optval)
             try:
                 self.sock.setsockopt(level, optname, optval)
             except SocketError as e:
@@ -837,30 +855,33 @@ class W_Socket(W_Root):
 
         See recv() for documentation about the flags.
         """
-        rwbuffer = space.writebuf_w(w_buffer)
-        lgt = rwbuffer.getlength()
-        if nbytes < 0:
-            raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
-        if nbytes == 0:
-            nbytes = lgt
-        if lgt < nbytes:
-            raise oefmt(space.w_ValueError, "buffer too small for requested bytes")
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
         try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            rawbuf = RawByteBuffer(nbytes)
-        else:
-            rawbuf = rwbuffer
-
-        while True:
+            lgt = rwbuffer.getlength()
+            if nbytes < 0:
+                raise oefmt(space.w_ValueError, "negative buffersize in recv_into")
+            if nbytes == 0:
+                nbytes = lgt
+            if lgt < nbytes:
+                raise oefmt(space.w_ValueError, "buffer too small for requested bytes")
             try:
-                nbytes_read = self.sock.recvinto(rawbuf, nbytes, flags)
-                break
-            except SocketError as e:
-                converted_error(space, e, eintr_retry=True)
-        if rawbuf is not rwbuffer:
-            rwbuffer.setslice(0, rawbuf.getslice(0, 1, nbytes_read))
-        return space.newint(nbytes_read)
+                rwbuffer.get_raw_address()
+            except ValueError:
+                rawbuf = RawByteBuffer(nbytes)
+            else:
+                rawbuf = rwbuffer
+
+            while True:
+                try:
+                    nbytes_read = self.sock.recvinto(rawbuf, nbytes, flags)
+                    break
+                except SocketError as e:
+                    converted_error(space, e, eintr_retry=True)
+            if rawbuf is not rwbuffer:
+                rwbuffer.setslice(0, rawbuf.getslice(0, 1, nbytes_read))
+            return space.newint(nbytes_read)
+        finally:
+            view.releasebuffer()
 
     @unwrap_spec(nbytes=int, flags=int)
     def recvfrom_into_w(self, space, w_buffer, nbytes=0, flags=0):
@@ -868,35 +889,38 @@ class W_Socket(W_Root):
 
         Like recv_into(buffer[, nbytes[, flags]]) but also return the sender's address info.
         """
-        rwbuffer = space.writebuf_w(w_buffer)
-        lgt = rwbuffer.getlength()
-        if nbytes == 0:
-            nbytes = lgt
-        elif nbytes > lgt:
-            raise oefmt(space.w_ValueError,
-                        "nbytes is greater than the length of the buffer")
+        view, rwbuffer = space.acquire_writebuf(w_buffer)
         try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            rawbuf = RawByteBuffer(nbytes)
-        else:
-            rawbuf = rwbuffer
-        while True:
+            lgt = rwbuffer.getlength()
+            if nbytes == 0:
+                nbytes = lgt
+            elif nbytes > lgt:
+                raise oefmt(space.w_ValueError,
+                            "nbytes is greater than the length of the buffer")
             try:
-                readlgt, addr = self.sock.recvfrom_into(rawbuf, nbytes, flags)
-                break
-            except SocketError as e:
-                converted_error(space, e, eintr_retry=True)
-        if rawbuf is not rwbuffer:
-            rwbuffer.setslice(0, rawbuf.getslice(0, 1, readlgt))
-        if addr:
-            try:
-                w_addr = addr_as_object(addr, self.sock.fd, space)
-            except SocketError as e:
-                raise converted_error(space, e)
-        else:
-            w_addr = space.w_None
-        return space.newtuple2(space.newint(readlgt), w_addr)
+                rwbuffer.get_raw_address()
+            except ValueError:
+                rawbuf = RawByteBuffer(nbytes)
+            else:
+                rawbuf = rwbuffer
+            while True:
+                try:
+                    readlgt, addr = self.sock.recvfrom_into(rawbuf, nbytes, flags)
+                    break
+                except SocketError as e:
+                    converted_error(space, e, eintr_retry=True)
+            if rawbuf is not rwbuffer:
+                rwbuffer.setslice(0, rawbuf.getslice(0, 1, readlgt))
+            if addr:
+                try:
+                    w_addr = addr_as_object(addr, self.sock.fd, space)
+                except SocketError as e:
+                    raise converted_error(space, e)
+            else:
+                w_addr = space.w_None
+            return space.newtuple2(space.newint(readlgt), w_addr)
+        finally:
+            view.releasebuffer()
 
     @unwrap_spec(cmd=int)
     def ioctl_w(self, space, cmd, w_option):

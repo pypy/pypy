@@ -39,6 +39,12 @@ try:
     from __pypy__.builders import BytesBuilder
     from __pypy__ import identity_dict
 except ImportError:
+    class identity_dict(dict):
+        def __getitem__(self, key): return super().__getitem__(id(key))
+        def __setitem__(self, key, val): super().__setitem__(id(key), val)
+        def __contains__(self, key): return super().__contains__(id(key))
+        def get(self, key, default=None):
+            return super().get(id(key), default)
     class BytesBuilder():
         def __init__(self):
             self.builder = io.BytesIO()
@@ -1811,6 +1817,16 @@ except ImportError:
 def _test():
     import doctest
     return doctest.testmod()
+
+# ===== PyPy modification to support pickling cpyext methods =====
+try:
+    import cpyext
+except ImportError:
+    pass
+else:
+    import copyreg
+    copyreg.pickle(cpyext.FunctionType, _Pickler.save_global)
+# ================= end of PyPy modification ====================
 
 if __name__ == "__main__":
     import argparse

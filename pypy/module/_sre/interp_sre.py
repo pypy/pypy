@@ -256,7 +256,8 @@ class W_SRE_Pattern(W_Root):
         elif self.is_known_unicode():
             if not space.isinstance_w(w_string, space.w_bytes):
                 try:
-                    space.readbuf_w(w_string)
+                    view = space.acquire_py_buffer(w_string, space.BUF_SIMPLE)
+                    space.release_py_buffer(view)
                 except OperationError as e:
                     if not e.match(space, space.w_TypeError):
                         raise
@@ -275,7 +276,16 @@ class W_SRE_Pattern(W_Root):
                 endpos = length
             return rsre_core.StrMatchContext(string, pos, endpos)
         else:
-            buf = space.readbuf_w(w_string)
+            # Acquire the buffer only to get the live BytearrayBuffer (or
+            # equivalent), then release the export immediately.  Matching is
+            # synchronous and single-threaded so the bytearray cannot be
+            # concurrently mutated during the match.  After matching the
+            # match object holds the live buffer (reads current bytearray
+            # state on group()), matching CPython's behaviour where the match
+            # object reflects post-match mutations and allows resize.
+            view = space.buffer_w(w_string, space.BUF_SIMPLE)
+            buf = view.as_readbuf()
+            view.releasebuffer()
             size = buf.getlength()
             assert size >= 0
             if pos > size:
@@ -372,7 +382,15 @@ For each match, the iterator returns a match object."""
         # this also works as the implementation of the undocumented
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
-        scanner = W_SRE_Scanner(self, ctx, self.code, w_string)
+        # For buffer objects (bytearray etc.) make_ctx releases the export
+        # immediately, matching CPython's one-shot search semantics.  But an
+        # iterator must hold the export for its entire lifetime to block
+        # concurrent resize, so we re-acquire it here and store it on the
+        # scanner (released eagerly on exhaustion, _finalize_ as safety net).
+        buf_view = None
+        if isinstance(ctx, rsre_core.BufMatchContext):
+            buf_view = self.space.buffer_w(w_string, self.space.BUF_SIMPLE)
+        scanner = W_SRE_Scanner(self, ctx, self.code, w_string, buf_view)
         return scanner
 
     @unwrap_spec(maxsplit=int)
@@ -452,7 +470,12 @@ For each match, the iterator returns a match object."""
                 if space.isinstance_w(w_ptemplate, space.w_bytes):
                     filter_as_string = space.bytes_w(w_ptemplate)
                 else:
-                    filter_as_string = space.readbuf_w(w_ptemplate).as_str()
+                    from pypy.interpreter.py_buffer import py_buffer_as_str
+                    view = space.acquire_py_buffer(w_ptemplate, space.BUF_SIMPLE)
+                    try:
+                        filter_as_string = py_buffer_as_str(view)
+                    finally:
+                        space.release_py_buffer(view)
                     is_buffer = True
                 literal = '\\' not in filter_as_string
                 if space.isinstance_w(w_string, space.w_bytes) and literal:
@@ -624,7 +647,8 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # Type check
     if not (space.is_none(w_pattern) or
             space.isinstance_w(w_pattern, space.w_unicode)):
-        space.readbuf_w(w_pattern)
+        view = space.acquire_py_buffer(w_pattern, space.BUF_SIMPLE)
+        space.release_py_buffer(view)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
     # note: we assume that the app-level is caching SRE_Pattern objects,
@@ -902,15 +926,30 @@ W_SRE_Match.typedef.acceptable_as_base_class = False
 # Our version is also directly iterable, to make finditer() easier.
 
 class W_SRE_Scanner(W_Root):
-    def __init__(self, pattern, ctx, code, w_string):
+    def __init__(self, pattern, ctx, code, w_string, buf_view=None):
         self.space = pattern.space
         self.srepat = pattern
         self.ctx = ctx
         self.code = code
         self.w_string = w_string
+        self.buf_view = buf_view   # non-None for bytearray input; keeps _exports > 0
+        if buf_view is not None and buf_view.needs_release():
+            self.register_finalizer(pattern.space)
         # 'self.ctx' is always a fresh context in which no searching
         # or matching succeeded so far.  It is None when the iterator is
         # exhausted.
+
+    def _finalize_(self):
+        buf_view = self.buf_view
+        if buf_view is not None:
+            self.buf_view = None
+            buf_view.releasebuffer()
+
+    def _release_buf_view(self):
+        buf_view = self.buf_view
+        if buf_view is not None:
+            self.buf_view = None
+            buf_view.releasebuffer()
 
     def iter_w(self):
         return self
@@ -919,6 +958,8 @@ class W_SRE_Scanner(W_Root):
         if self.ctx is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         if not searchcontext(self.space, self.ctx, self.code):
+            self.ctx = None
+            self._release_buf_view()
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
         return self.getmatch(True)
 
@@ -944,6 +985,7 @@ class W_SRE_Scanner(W_Root):
             return match
         else:
             self.ctx = None
+            self._release_buf_view()
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

@@ -1708,11 +1708,11 @@ def encode_object(space, w_obj, encoding, errors):
 def decode_object(space, w_obj, encoding, errors=None):
     from pypy.module._codecs.interp_codecs import(
             _call_codec, lookup_text_codec, lookup_error)
-    # in all cases, call space.charbuf_w() first.  This will fail with a
+    # in all cases, call space.bufferstr_w() first.  This will fail with a
     # TypeError if w_obj is of a random type.  Do this even if we're not
     # going to use 's'
     try:
-        s = space.charbuf_w(w_obj)
+        s = space.bufferstr_w(w_obj)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise

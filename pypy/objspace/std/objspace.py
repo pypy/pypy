@@ -388,11 +388,15 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newmemoryview(self, w_obj):
-        return W_MemoryView(w_obj)
-
-    def newmemoryview(self, view):
-        return W_MemoryView(view)
+    def newmemoryview(self, view, owns_export=True):
+        mv = W_MemoryView(view, owns_export=owns_export)
+        if owns_export and view.needs_release():
+            # Only register a finalizer when the view's releasebuffer() has
+            # a real side effect (e.g. bytearray decrements its _exports
+            # counter).  For bytes/str the call is a no-op, so skipping it
+            # keeps short-lived memoryview objects virtualizable by the JIT.
+            mv.register_finalizer(self)
+        return mv
 
     def newbytes(self, s):
         assert isinstance(s, bytes)

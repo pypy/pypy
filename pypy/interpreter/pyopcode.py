@@ -2011,6 +2011,7 @@ def source_as_str(space, w_source, funcname, what, flags):
             raise oefmt(space.w_TypeError,
                         "%s() arg 1 must be a %s object", funcname, what)
         source = buf.as_str()
+        buf.releasebuffer()
 
     if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
         if '\x00' in source:

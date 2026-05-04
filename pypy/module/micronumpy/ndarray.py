@@ -52,6 +52,12 @@ def _match_dot_shapes(space, left, right):
     return out_shape, right_critical_dim
 
 class __extend__(W_NDimArray):
+    def _finalize_(self):
+        buf_view = self.buf_view
+        if buf_view is not None:
+            self.buf_view = None
+            buf_view.releasebuffer()
+
     @jit.unroll_safe
     def descr_get_shape(self, space):
         shape = self.get_shape()
@@ -808,6 +814,18 @@ class __extend__(W_NDimArray):
         # XXX format isn't always 'B' probably
         return self.implementation.get_buffer(space, flags)
 
+    def bf_getbuffer(self, space, view, flags):
+        v = self.implementation.get_buffer(space, flags)
+        view.obj = self
+        view.buf = v.as_readbuf() if v.readonly else v.as_writebuf()
+        view.length = v.getlength()
+        view.readonly = v.readonly
+        view.itemsize = v.getitemsize()
+        view.ndim = v.getndim()
+        view.format = v.getformat()
+        view.shape = v.getshape()
+        view.strides = v.getstrides()
+
     def descr_get_data(self, space):
         return space.newmemoryview(
             self.implementation.get_buffer(space, space.BUF_FULL))
@@ -1421,24 +1439,36 @@ def descr_new_array(space, w_subtype, w_shape, w_dtype=None, w_buffer=None,
             strides = None
 
         try:
-            buf = space.writebuf_w(w_buffer)
+            view, buf = space.acquire_writebuf(w_buffer)
         except OperationError:
-            buf = space.readbuf_w(w_buffer)
+            view, buf = space.acquire_readbuf(w_buffer)
         try:
             raw_ptr = buf.get_raw_address()
         except ValueError:
+            view.releasebuffer()
             raise oefmt(space.w_TypeError, "Only raw buffers are supported")
         if not shape:
+            view.releasebuffer()
             raise oefmt(space.w_TypeError,
                         "numpy scalars from buffers not supported yet")
         storage = rffi.cast(RAW_STORAGE_PTR, raw_ptr)
         storage = rffi.ptradd(storage, offset)
-        return W_NDimArray.from_shape_and_storage(space, shape, storage,
-                                                  dtype, w_base=w_buffer,
-                                                  storage_bytes=buf.getlength()-offset,
-                                                  w_subtype=w_subtype,
-                                                  writable=not buf.readonly,
-                                                  strides=strides)
+        try:
+            arr = W_NDimArray.from_shape_and_storage(space, shape, storage,
+                                                     dtype, w_base=w_buffer,
+                                                     storage_bytes=buf.getlength()-offset,
+                                                     w_subtype=w_subtype,
+                                                     writable=not buf.readonly,
+                                                     strides=strides)
+        except OperationError:
+            view.releasebuffer()
+            raise
+        if view.needs_release():
+            arr.buf_view = view
+            arr.register_finalizer(space)
+        else:
+            view.releasebuffer()
+        return arr
 
     order = order_converter(space, w_order, NPY.CORDER)
     if space.is_w(w_subtype, space.gettypefor(W_NDimArray)):

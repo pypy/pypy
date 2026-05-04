@@ -204,7 +204,7 @@ class StringMethods(object):
             from pypy.module._codecs.interp_codecs import CodecState
             state = space.fromcache(CodecState)
             eh = state.decode_error_handler
-            s = space.charbuf_w(self)
+            s = space.bufferstr_w(self)
             w_s = space.newbytes(s)
             ret, lgt, pos = str_decode_utf8(space, s, w_s, errors, True, eh)
             return space.newtext(ret, lgt)
@@ -506,14 +506,19 @@ class StringMethods(object):
 
             pos = value.find(sub)
         else:
-            sub = space.readbuf_w(w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+            from pypy.interpreter.py_buffer import py_buffer_as_readbuf
+            view = space.acquire_py_buffer(w_sub, space.BUF_SIMPLE)
+            try:
+                sub = py_buffer_as_readbuf(view)
+                sublen = view.length
+                if sublen == 0:
+                    raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = find(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+                pos = find(value, sub, 0, len(value))
+                if pos != -1 and isinstance(self, W_BytearrayObject):
+                    w_sub = self._new_from_buffer(sub)
+            finally:
+                space.release_py_buffer(view)
 
         if pos == -1:
             if isinstance(self, W_BytearrayObject):
@@ -536,14 +541,19 @@ class StringMethods(object):
 
             pos = value.rfind(sub)
         else:
-            sub = space.readbuf_w(w_sub)
-            sublen = sub.getlength()
-            if sublen == 0:
-                raise oefmt(space.w_ValueError, "empty separator")
+            from pypy.interpreter.py_buffer import py_buffer_as_readbuf
+            view = space.acquire_py_buffer(w_sub, space.BUF_SIMPLE)
+            try:
+                sub = py_buffer_as_readbuf(view)
+                sublen = view.length
+                if sublen == 0:
+                    raise oefmt(space.w_ValueError, "empty separator")
 
-            pos = rfind(value, sub, 0, len(value))
-            if pos != -1 and isinstance(self, W_BytearrayObject):
-                w_sub = self._new_from_buffer(sub)
+                pos = rfind(value, sub, 0, len(value))
+                if pos != -1 and isinstance(self, W_BytearrayObject):
+                    w_sub = self._new_from_buffer(sub)
+            finally:
+                space.release_py_buffer(view)
 
         if pos == -1:
             if isinstance(self, W_BytearrayObject):
