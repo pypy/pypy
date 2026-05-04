@@ -324,6 +324,11 @@ class DataError(DatabaseError):
 class NotSupportedError(DatabaseError):
     pass
 
+for _cls in (Error, Warning, InterfaceError, DatabaseError, InternalError,
+             OperationalError, ProgrammingError, IntegrityError,
+             DataError, NotSupportedError):
+    _cls.__module__ = 'sqlite3'                                                                                                                                                                   
+del _cls
 
 def connect(database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100,

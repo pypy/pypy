@@ -860,3 +860,6 @@ def test_weird_reinit(con):
     with pytest.raises(_sqlite3.ProgrammingError):
         con.execute('select 1')
     con.__init__(':memory:')
+
+def test_module():
+    assert _sqlite3.DataError.__module__ == "sqlite3"
