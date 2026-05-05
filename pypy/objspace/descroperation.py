@@ -294,7 +294,7 @@ class DescrOperation(object):
     def _len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
         if w_descr is None:
-            raise oefmt(space.w_TypeError, "'%T' has no length", w_obj)
+            raise oefmt(space.w_TypeError, "object of type '%T' has no len()", w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 
     def len_w(space, w_obj):
