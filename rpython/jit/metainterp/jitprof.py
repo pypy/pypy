@@ -155,6 +155,8 @@ class Profiler(BaseProfiler):
                             cnt[Counters.ABORT_FORCE_QUASIIMMUT])
         self._print_intline("abort: segmenting trace",
                             cnt[Counters.ABORT_SEGMENTED_TRACE])
+        self._print_intline("abort: too many guards",
+                            cnt[Counters.ABORT_TOO_MANY_GUARDS])
         self._print_intline("virtualizables forced",
                             cnt[Counters.FORCE_VIRTUALIZABLES])
         self._print_intline("nvirtuals", cnt[Counters.NVIRTUALS])

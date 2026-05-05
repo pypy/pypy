@@ -108,6 +108,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_numeric_threshold(0)  # disabled for tests
         jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
@@ -121,6 +122,7 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_vec_all(vec_all)
         jd.warmstate.set_param_vec_cost(vec_cost)
+        jd.warmstate.set_param_max_trace_guards(0)   # disabled for tests
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph
@@ -574,11 +576,23 @@ class WarmRunnerDesc(object):
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
-        def maybe_enter_jit(*args):
-            try:
-                maybe_compile_and_run(state.increment_threshold, *args)
-            except Exception as e:
-                crash_in_jit(e)
+        all_reds_numeric = all(k in ('int', 'float') for k in jd.red_args_types)
+
+        if all_reds_numeric:
+            def maybe_enter_jit(*args):
+                try:
+                    inc = state.increment_numeric_threshold
+                    if inc == 0.0:
+                        inc = state.increment_threshold
+                    maybe_compile_and_run(inc, *args)
+                except Exception as e:
+                    crash_in_jit(e)
+        else:
+            def maybe_enter_jit(*args):
+                try:
+                    maybe_compile_and_run(state.increment_threshold, *args)
+                except Exception as e:
+                    crash_in_jit(e)
         maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
         jd._maybe_compile_and_run_fn = maybe_compile_and_run
