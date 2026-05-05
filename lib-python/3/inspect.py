@@ -2000,7 +2000,8 @@ def _signature_get_user_defined_method(cls, method_name):
     # distinguish user-defined from PyPy builtins.
     if meth is None:
         return None
-    if meth in (type.__call__, type.__init__, type.__new__):
+    if meth in (type.__call__, type.__init__, type.__new__,
+                object.__new__, object.__init__):
         return None
     if isinstance(meth, (classmethod, staticmethod)):
         inner = meth.__func__
@@ -2366,10 +2367,13 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
         #    - We don't strip first bound argument if
         #      skip_bound_arg is False.
         assert parameters
-        _not_found = object()
-        _self = getattr(obj, '__self__', _not_found)
-        self_isbound = _self is not _not_found
-        self_ismodule = ismodule(_self) if self_isbound else False
+        _self = getattr(obj, '__self__', None)
+        self_isbound = _self is not None
+        # PyPy: builtin __new__ methods are bound to their type but don't
+        # expose __self__; strip the implicit $type arg like CPython does.
+        if not self_isbound and getattr(obj, '__name__', None) == '__new__':
+            self_isbound = True
+        self_ismodule = ismodule(_self) if _self is not None else False
         if self_isbound and (self_ismodule or skip_bound_arg):
             parameters.pop(0)
         else:

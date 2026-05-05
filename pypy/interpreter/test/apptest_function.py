@@ -974,3 +974,19 @@ def test_text_signature_set_and_clear():
 def test_function_type_text_signature():
     assert type(lambda: None).__text_signature__ == \
         '(code, globals, name=None, argdefs=None, closure=None)'
+
+def test_object_init_signature():
+    import inspect
+    sig = inspect.signature(object.__init__)
+    params = list(sig.parameters.values())
+    first = params[0]
+    assert first.name == 'self'
+    assert first.kind == inspect.Parameter.POSITIONAL_ONLY
+
+def test_object_new_signature():
+    import inspect
+    sig = inspect.signature(object.__new__)
+    params = list(sig.parameters.values())
+    first = params[0]
+    assert first.name == 'args'
+    assert first.kind == inspect.Parameter.VAR_POSITIONAL
