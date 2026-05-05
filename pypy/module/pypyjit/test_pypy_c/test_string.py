@@ -474,6 +474,19 @@ class TestString(BaseTestPyPyC):
         assert "call_r" not in opnames
         assert opnames.count("call_i") == 2 # _strip_none_ascii_unboxed_left/right
 
+    def test_unicode_splitlines_doesnt_allocate_uniobject(self):
+        log = self.run("""
+        def main(n):
+            res = 0
+            for i in range(n):
+                data = str(i) + "\\n"
+                res += len(data.splitlines()) # ID: splitlines
+            return res
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.ops_by_id('splitlines'))
+        assert "new_with_vtable" not in opnames
+
     def test_textiowrapper_write_is_inlined(self):
         log = self.run("""
         def main(n):

@@ -929,31 +929,7 @@ class W_UnicodeObject(W_Root):
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
         value = self._utf8
-        length = len(value)
-        strs_w = []
-        pos = 0
-        while pos < length:
-            sol = pos
-            lgt = 0
-            while pos < length and not rutf8.islinebreak(value, pos):
-                pos = rutf8.next_codepoint_pos(value, pos)
-                lgt += 1
-            eol = pos
-            if pos < length:
-                # read CRLF as one line break
-                if (value[pos] == '\r' and pos + 1 < length
-                                       and value[pos + 1] == '\n'):
-                    pos += 2
-                    line_end_chars = 2
-                else:
-                    pos = rutf8.next_codepoint_pos(value, pos)
-                    line_end_chars = 1
-                if keepends:
-                    eol = pos
-                    lgt += line_end_chars
-            assert eol >= 0
-            assert sol >= 0
-            strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+        strs_w = unicode_splitlines(value, keepends)
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
@@ -1630,6 +1606,34 @@ def unicode_rsplit_none(value, maxsplit=-1):
 
     res.reverse()
     return res
+
+def unicode_splitlines(value, keepends):
+    length = len(value)
+    strs_w = []
+    pos = 0
+    while pos < length:
+        sol = pos
+        lgt = 0
+        while pos < length and not rutf8.islinebreak(value, pos):
+            pos = rutf8.next_codepoint_pos(value, pos)
+            lgt += 1
+        eol = pos
+        if pos < length:
+            # read CRLF as one line break
+            if (value[pos] == '\r' and pos + 1 < length
+                                   and value[pos + 1] == '\n'):
+                pos += 2
+                line_end_chars = 2
+            else:
+                pos = rutf8.next_codepoint_pos(value, pos)
+                line_end_chars = 1
+            if keepends:
+                eol = pos
+                lgt += line_end_chars
+        assert eol >= 0
+        assert sol >= 0
+        strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+    return strs_w
 
 def _isidentifier(u):
     if not u:
