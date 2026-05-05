@@ -486,14 +486,11 @@ class Function(W_Root):
 
     def fget_func_text_signature(self, space):
         if self.w_text_signature is None:
-            return space.w_None
+            raise oefmt(space.w_AttributeError, "__text_signature__")
         return self.w_text_signature
 
     def fset_func_text_signature(self, space, w_value):
-        if space.is_w(w_value, space.w_None):
-            self.w_text_signature = None
-        else:
-            self.w_text_signature = w_value
+        self.w_text_signature = w_value
 
     def fget_func_objclass(self, space):
         if self.w_objclass is None:

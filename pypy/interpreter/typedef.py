@@ -801,7 +801,9 @@ getset_func_annotations = GetSetProperty(Function.fget_func_annotations,
 
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
-Function.typedef = TypeDef("function", method_descriptor=True,
+Function.typedef = TypeDef("function",
+    _text_signature_="(code, globals, name=None, argdefs=None, closure=None)",
+    method_descriptor=True,
     __new__ = interp2app(Function.descr_function__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
                           descrmismatch='__call__'),

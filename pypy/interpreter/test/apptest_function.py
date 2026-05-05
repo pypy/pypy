@@ -959,3 +959,18 @@ def test_argument_parse_errors_use_qualname():
     assert 'set' in str(info.value)
     assert '__init__' in str(info.value)
 
+
+def test_text_signature_unset_raises():
+    def a(): pass
+    raises(AttributeError, getattr, a, '__text_signature__')
+
+def test_text_signature_set_and_clear():
+    def a(): pass
+    a.__text_signature__ = '($self, /)'
+    assert a.__text_signature__ == '($self, /)'
+    a.__text_signature__ = None
+    assert a.__text_signature__ is None
+
+def test_function_type_text_signature():
+    assert type(lambda: None).__text_signature__ == \
+        '(code, globals, name=None, argdefs=None, closure=None)'
