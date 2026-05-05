@@ -1910,6 +1910,8 @@ class MIFrame(object):
                     continue
                 staticdata.opcode_implementations[op](self, pc)
                 pc = self.pc
+                if self.metainterp.too_many_guards:
+                    raise SwitchToBlackhole(Counters.ABORT_TOO_MANY_GUARDS)
         except ChangeFrame:
             pass
 
@@ -2429,6 +2431,7 @@ class MetaInterp(object):
         self.aborted_tracing_jitdriver = None
         self.aborted_tracing_greenkey = None
         self.trace_guard_count = 0
+        self.too_many_guards = False
 
         # set to true if we really should finish the trace
         # with a GUARD_ALWAYS_FAILS (and an unreachable finish that raises
@@ -2607,8 +2610,7 @@ class MetaInterp(object):
         self.trace_guard_count += 1
         max_guards = self.jitdriver_sd.warmstate.max_trace_guards
         if max_guards > 0 and self.trace_guard_count > max_guards:
-            self.staticdata.stats.aborted()
-            raise SwitchToBlackhole(Counters.ABORT_TOO_MANY_GUARDS)
+            self.too_many_guards = True
         return guard_op
 
     def capture_resumedata(self, resumepc, after_residual_call=False):
@@ -2814,6 +2816,8 @@ class MetaInterp(object):
         self.staticdata.stats.aborted()
 
     def blackhole_if_trace_too_long(self):
+        if self.too_many_guards:
+            raise SwitchToBlackhole(Counters.ABORT_TOO_MANY_GUARDS)
         warmrunnerstate = self.jitdriver_sd.warmstate
         length = self.history.length()
         if (length > warmrunnerstate.trace_limit or
