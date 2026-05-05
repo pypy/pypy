@@ -993,9 +993,14 @@ class date(dateinterop):
         if len(date_string) not in (7, 8, 10):
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
             return cls(*_parse_isoformat_date(date_string))
         except Exception:
+            _failed = True
+            # raise ValueError(f'Invalid isoformat string: {date_string!r}')
+        if _failed:
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
     @classmethod
@@ -1553,10 +1558,15 @@ class time(timeinterop):
         # is no ambiguity with date strings.
         time_string = time_string.removeprefix('T')
 
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
             return cls(*_parse_isoformat_time(time_string))
         except Exception:
-            raise ValueError(f'Invalid isoformat string: {time_string!r}')
+            _failed = True
+            # raise ValueError(f'Invalid issssoformat string: {time_string!r}') from None
+        if _failed:
+            raise ValueError(f'Invalid issssoformat string: {time_string!r}') from None
 
 
     def strftime(self, fmt):
@@ -1839,18 +1849,22 @@ class datetime(date):
             raise TypeError('fromisoformat: argument must be str')
 
         if len(date_string) < 7:
-            raise ValueError(f'Invalid isoformat string: {date_string!r}')
+            raise ValueError(f'Invalid isoformat string: {date_string!r}') from None
 
-        # Split this at the separator
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
+            # Split this at the separator
             separator_location = _find_isoformat_datetime_separator(date_string)
             dstr = date_string[0:separator_location]
             tstr = date_string[(separator_location+1):]
 
             date_components = _parse_isoformat_date(dstr)
         except ValueError:
-            raise ValueError(
-                f'Invalid isoformat string: {date_string!r}') from None
+            _failed = True
+            # raise ValueError(f'Invalid isoformat string: {date_string!r}')
+        if _failed:
+            raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
         if tstr:
             try:
