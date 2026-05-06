@@ -1290,3 +1290,66 @@ def test_mul():
     assert u'abc'.__mul__(2) == u'abcabc'
     with raises(TypeError):
         u'abc'.__mul__('')
+
+def test_issue5462():
+    # Regression test for issue 5462: JIT crash (KeyError) in
+    # OptUnroll._map_args, triggered only in a translated build.
+    #
+    # The sequence of events (traced via PYPYLOG with a named pipe):
+    #
+    # 1. Scanner.__slots__ causes PyPy to use mapdict for attribute storage.
+    #    When mapdict storage grows for an unboxed integer attribute, it emits
+    #    RECORD_EXACT_VALUE_I (jit.record_exact_value). Commit acd4b4e4439
+    #    made RECORD_EXACT_VALUE_I/R not clear the heapcache, allowing
+    #    PreambleOps for the W_UnicodeObject attributes (_char, _peek) to
+    #    survive into the short preamble.
+    #
+    # 2. After the first compilation, the exported short preamble contains
+    #    two HeapOp pairs (one for _char, one for _peek):
+    #      r197 = new_with_vtable(); r198 = getfield_gc_r(sql)
+    #      r199 = new_with_vtable(); r200 = getfield_gc_r(sql)
+    #
+    # 3. On the second compilation (jump_to_existing_trace), the optimizer
+    #    calls inline_short_preamble. The outer loop processes ops from
+    #    'short' one at a time and builds 'mapping'. The inner while-1 loop
+    #    calls force_box on each mapped arg.
+    #
+    # 4. The comparison "self._char == \"'\"" calls W_UnicodeObject.__eq__,
+    #    which calls space.utf8_w on both sides. utf8_w calls
+    #    jit.record_known_result, emitting RECORD_KNOWN_RESULT. Unlike
+    #    RECORD_EXACT_VALUE, RECORD_KNOWN_RESULT is not in
+    #    clear_caches_not_necessary, so it clears the heapcache.
+    #
+    # 5. Clearing the heapcache causes force_box to invoke add_preamble_op
+    #    (via potential_extra_ops set in force_op_from_preamble). This adds
+    #    new entries to short_jump_args. If those entries have not yet been
+    #    processed by the outer loop (not yet in mapping), the next call to
+    #    _map_args(mapping, short_jump_args) raises KeyError.
+    #
+    # Fix: in the inner while-1 loop, after detecting that short_jump_args
+    # grew, check whether ALL new entries are already in mapping. If any are
+    # not, break out and let the outer loop process them first.
+    class Scanner:
+        __slots__ = ("sql", "_current", "_char", "_peek")
+
+        def __init__(self):
+            self.sql = ""
+            self._current = 0
+            self._char = None
+            self._peek = None
+
+        def run(self, sql):
+            self.sql = sql
+            self._current = 2
+            self._char = sql[1]
+            self._peek = sql[2] if 2 < len(sql) else ""
+            while True:
+                if self._char == "'":
+                    break
+                self._current += 1
+                self._char = self.sql[self._current - 1]
+                self._peek = self.sql[self._current] if self._current < len(self.sql) else ""
+
+    s = Scanner()
+    for i in range(500):
+        s.run("'hello world'")
