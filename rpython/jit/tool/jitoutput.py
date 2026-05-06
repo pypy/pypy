@@ -26,6 +26,7 @@ REGEXES = [
     (('abort.bad_loop',), '^abort: bad loop:\s+(\d+)$'),
     (('abort.force_quasiimmut',), '^abort: force quasi-immut:\s+(\d+)$'),
     (('abort.segmenting_trace',), '^abort: segmenting trace:\s+(\d+)$'),
+    (('abort.too_many_guards',), '^abort: too many guards:\s+(\d+)$'),
     (('virtualizables_forced',), '^virtualizables forced:\s+(\d+)$'),
     (('nvirtuals',), '^nvirtuals:\s+(\d+)$'),
     (('nvholes',), '^nvholes:\s+(\d+)$'),
@@ -48,6 +49,7 @@ class Aborts(object):
     trace_too_long = 0
     compiling = 0
     vable_escape = 0
+    too_many_guards = 0
 
 class OutputInfo(object):
     tracing_no = 0
