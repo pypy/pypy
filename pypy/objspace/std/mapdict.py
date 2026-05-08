@@ -996,6 +996,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
     rangenmin1 = unroll.unrolling_iterable(range(nmin1))
     valnmin1 = "_value%s" % nmin1
     class subcls(object):
+        @objectmodel.always_inline
         def _get_mapdict_map(self):
             return jit.promote(self.map)
         def _set_mapdict_map(self, map):
@@ -1503,13 +1504,14 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
             name = space.text_w(w_name)
             # We need to care for obscure cases in which the w_descr is
             # a MutableCell, which may change without changing the version_tag
-            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+            tup_w, is_mutable_cell = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
+            _, w_descr = tup_w
             #
             attrname, attrkind = ("", INVALID)
             if w_descr is None:
                 attrname, attrkind = (name, DICT) # common case: no such attr in the class
-            elif isinstance(w_descr, MutableCell):
+            elif is_mutable_cell:
                 pass              # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
                 # we have a data descriptor, which means the dictionary value
@@ -1615,12 +1617,13 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
             return
         if version_tag is not None:
             name = space.text_w(w_name)
-            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+            tup_w, is_mutable_cell = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
+            _, w_descr = tup_w
             attrname, attrkind = ("", INVALID)
             if w_descr is None:
                 attrname, attrkind = (name, DICT) # common case: no such attr in the class
-            elif isinstance(w_descr, MutableCell):
+            elif is_mutable_cell:
                 pass # we have a MutableCell in the class: give up
             elif space.is_data_descr(w_descr):
                 from pypy.interpreter.typedef import Member

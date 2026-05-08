@@ -84,6 +84,7 @@ class MethodCache(object):
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
         self.lookup_where = [(None, None)] * SIZE
+        self.is_mutable_cell = [False] * SIZE
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
             self.misses = {}
@@ -96,6 +97,8 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+        for i in range(len(self.is_mutable_cell)):
+            self.is_mutable_cell[i] = False
 
     def _cleanup_(self):
         self.clear()
@@ -507,9 +510,9 @@ class W_TypeObject(W_Root):
         if version_tag is None:
             tup = self._lookup_where(name)
             return tup
-        tup_w = self._pure_lookup_where_with_method_cache(name, version_tag)
-        w_class, w_value = tup_w
-        if isinstance(w_value, MutableCell):
+        tup_w, is_mutable_cell = self._pure_lookup_where_with_method_cache(name, version_tag)
+        if is_mutable_cell:
+            w_class, w_value = tup_w
             return w_class, w_value.unwrap_cell(space)
         return tup_w   # don't make a new tuple, reuse the old one
 
@@ -538,19 +541,22 @@ class W_TypeObject(W_Root):
             cached_name = cache.names[method_hash]
             if cached_name == name:
                 tup = cache.lookup_where[method_hash]
+                is_mutable_cell = cache.is_mutable_cell[method_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     cache.hits[name] = cache.hits.get(name, 0) + 1
 #                print "hit", self, name
-                return tup
+                return tup, is_mutable_cell
         tup = self._lookup_where_all_typeobjects(name)
+        is_mutable_cell = isinstance(tup[1], MutableCell)
         if space._side_effects_ok():
             cache.versions[method_hash] = version_tag
             cache.names[method_hash] = name
             cache.lookup_where[method_hash] = tup
+            cache.is_mutable_cell[method_hash] = is_mutable_cell
             if space.config.objspace.std.withmethodcachecounter:
                 cache.misses[name] = cache.misses.get(name, 0) + 1
 #        print "miss", self, name
-        return tup
+        return tup, is_mutable_cell
 
     def check_user_subclass(self, w_subtype):
         space = self.space

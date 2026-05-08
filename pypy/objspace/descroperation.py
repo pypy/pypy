@@ -155,6 +155,8 @@ class DescrOperation(object):
     # This is meant to be a *mixin*.
 
     def is_data_descr(space, w_obj):
+        if isinstance(w_obj, Function):
+            return False
         return (space.lookup(w_obj, '__set__') is not None or
                 space.lookup(w_obj, '__delete__') is not None)
 

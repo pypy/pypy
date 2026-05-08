@@ -52,10 +52,11 @@ def LOAD_METHOD(f, nameindex, *ignored):
             _, w_descr = w_type._lookup_where(name)
             w_descr_cell = None
         else:
-            _, w_descr_cell = w_type._pure_lookup_where_with_method_cache(
+            tup_w, is_mutable_cell = w_type._pure_lookup_where_with_method_cache(
                 name, version_tag)
+            _, w_descr_cell = tup_w
             w_descr = w_descr_cell
-            if isinstance(w_descr, MutableCell):
+            if is_mutable_cell:
                 w_descr = w_descr.unwrap_cell(space)
         if w_descr is None:
             # this handles directly the common case
