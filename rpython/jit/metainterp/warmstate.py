@@ -273,9 +273,6 @@ class WarmEnterState(object):
             raise ValueError
         self.trace_limit = value
 
-    def set_param_max_trace_guards(self, value):
-        self.max_trace_guards = value
-
     def set_param_decay(self, decay):
         self.warmrunnerdesc.jitcounter.set_decay(decay)
 

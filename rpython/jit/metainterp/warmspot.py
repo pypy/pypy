@@ -122,7 +122,6 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         jd.warmstate.set_param_vec(vec)
         jd.warmstate.set_param_vec_all(vec_all)
         jd.warmstate.set_param_vec_cost(vec_cost)
-        jd.warmstate.set_param_max_trace_guards(0)   # disabled for tests
     warmrunnerdesc.finish()
     if graph_and_interp_only:
         return interp, graph

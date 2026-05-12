@@ -61,7 +61,6 @@ abort: vable escape:    12
 abort: bad loop:        135
 abort: force quasi-immut: 3
 abort: segmenting trace: 0
-abort: too many guards: 7
 virtualizables forced:  1123
 nvirtuals:              13
 nvholes:                14
@@ -93,7 +92,6 @@ def test_parse():
     assert info.abort.vable_escape == 12
     assert info.abort.bad_loop == 135
     assert info.abort.force_quasiimmut == 3
-    assert info.abort.too_many_guards == 7
     assert info.virtualizables_forced == 1123
     assert info.nvirtuals == 13
     assert info.nvholes == 14

@@ -574,7 +574,6 @@ PARAMETER_DOCS = {
     'pureop_historylength': 'how many pure operations the optimizer should remember for CSE (internal)',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'numeric_threshold': 'lower threshold used when all reds are int/float (0=disabled, use threshold)',
-    'max_trace_guards': 'abort a trace with more than this many guards (0=disabled)',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'disable_unrolling': 'after how many operations we should not unroll',
     'enable_opts': 'INTERNAL USE ONLY (MAY NOT WORK OR LEAD TO CRASHES): '
@@ -602,7 +601,6 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'enable_opts': 'all',
               'max_unroll_recursion': 7,
               'numeric_threshold': 200,
-              'max_trace_guards': 400,
               'vec': 0,
               'vec_all': 0,
               'vec_cost': 0,
@@ -1435,7 +1433,6 @@ class Counters(object):
     ABORT_ESCAPE
     ABORT_FORCE_QUASIIMMUT
     ABORT_SEGMENTED_TRACE
-    ABORT_TOO_MANY_GUARDS
     FORCE_VIRTUALIZABLES
     NVIRTUALS
     NVHOLES
