@@ -10,7 +10,8 @@ from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
     POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
-    specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
+    specialize, enforceargs, register_replacement_for, NOT_CONSTANT,
+    always_raises)
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
@@ -427,11 +428,15 @@ def replace_os_function(name):
         func,
         sandboxed_name='ll_os.ll_os_%s' % name)
 
+@always_raises
+def _handle_posix_error_fail(name):
+    raise OSError(get_saved_errno(), '%s failed' % name)
+
 @specialize.arg(0)
 def handle_posix_error(name, result):
     result = widen(result)
     if result < 0:
-        raise OSError(get_saved_errno(), '%s failed' % name)
+        _handle_posix_error_fail(name)
     return result
 
 def _dup(fd, inheritable=True):

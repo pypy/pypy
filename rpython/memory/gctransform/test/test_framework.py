@@ -72,6 +72,41 @@ def test_cancollect():
     gg = graphof(t, g)
     assert not CollectAnalyzer(t).analyze_direct_call(gg)
 
+def test_always_raises_not_collect():
+    # A function marked @always_raises allocates (to build the error message)
+    # but its callers must not be seen as might_collect, because the caller
+    # immediately propagates the error and never touches its GC roots again.
+    from rpython.rlib.objectmodel import always_raises
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+
+    @always_raises
+    def error_helper():
+        lltype.malloc(S, zero=True)
+        raise ValueError
+
+    def caller(x):
+        if x < 0:
+            error_helper()
+        return x
+
+    # Without @always_raises a comparable helper makes caller might_collect.
+    def plain_helper():
+        lltype.malloc(S, zero=True)
+        raise ValueError
+
+    def caller_plain(x):
+        if x < 0:
+            plain_helper()
+        return x
+
+    t = rtype(caller, [int])
+    gg = graphof(t, caller)
+    assert not CollectAnalyzer(t).analyze_direct_call(gg)
+
+    t2 = rtype(caller_plain, [int])
+    gg2 = graphof(t2, caller_plain)
+    assert CollectAnalyzer(t2).analyze_direct_call(gg2)
+
 def test_cancollect_external():
     fext1 = rffi.llexternal('fext1', [], lltype.Void, releasegil=False)
     def g():

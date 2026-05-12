@@ -16,6 +16,8 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                 return False
             if getattr(func, '_gctransformer_hint_close_stack_', False):
                 return True
+            if getattr(func, '_always_raises_', False):
+                return False
         return graphanalyze.BoolGraphAnalyzer.analyze_direct_call(self, graph,
                                                                   seen)
     def analyze_external_call(self, funcobj, seen=None):

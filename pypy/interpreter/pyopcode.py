@@ -7,7 +7,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 from rpython.rlib import jit, rstackovf
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import (we_are_translated, always_inline,
-        dont_inline, not_rpython)
+        dont_inline, always_raises, not_rpython)
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -499,7 +499,7 @@ class __extend__(pyframe.PyFrame):
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
 
-    @dont_inline
+    @always_raises
     def _load_fast_failed(self, varindex):
         varname = self.getlocalvarname(varindex)
         raise oefmt(self.space.w_UnboundLocalError,
@@ -523,21 +523,25 @@ class __extend__(pyframe.PyFrame):
         # is the variable given by index a cell or a free var?
         return index < len(self.pycode.co_cellvars)
 
+    @always_raises
+    def _load_deref_error(self, varindex):
+        varname = self.getfreevarname(varindex)
+        if self.iscellvar(varindex):
+            message = "local variable '%s' referenced before assignment" % varname
+            w_exc_type = self.space.w_UnboundLocalError
+        else:
+            message = ("free variable '%s' referenced before assignment"
+                       " in enclosing scope" % varname)
+            w_exc_type = self.space.w_NameError
+        raise OperationError(w_exc_type, self.space.newtext(message))
+
     def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         cell = self._getcell(varindex)
         try:
             w_value = cell.get()
         except ValueError:
-            varname = self.getfreevarname(varindex)
-            if self.iscellvar(varindex):
-                message = "local variable '%s' referenced before assignment" % varname
-                w_exc_type = self.space.w_UnboundLocalError
-            else:
-                message = ("free variable '%s' referenced before assignment"
-                           " in enclosing scope" % varname)
-                w_exc_type = self.space.w_NameError
-            raise OperationError(w_exc_type, self.space.newtext(message))
+            self._load_deref_error(varindex)
         else:
             self.pushvalue(w_value)
 
@@ -924,7 +928,7 @@ class __extend__(pyframe.PyFrame):
                 self._load_global_failed(varname)
         return w_value
 
-    @dont_inline
+    @always_raises
     def _load_global_failed(self, varname):
         raise oefmt(self.space.w_NameError,
                     "global name '%s' is not defined", varname)
@@ -936,12 +940,16 @@ class __extend__(pyframe.PyFrame):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
+    @always_raises
+    def _delete_fast_failed(self, varindex):
+        varname = self.getlocalvarname(varindex)
+        raise oefmt(self.space.w_UnboundLocalError,
+                    "local variable '%s' referenced before assignment",
+                    varname)
+
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
-            varname = self.getlocalvarname(varindex)
-            raise oefmt(self.space.w_UnboundLocalError,
-                        "local variable '%s' referenced before assignment",
-                        varname)
+            self._delete_fast_failed(varindex)
         self.locals_cells_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):

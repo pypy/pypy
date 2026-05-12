@@ -217,6 +217,18 @@ def dont_inline(func):
     func._dont_inline_ = True
     return func
 
+def always_raises(func):
+    """ mark a function whose only exit is raising an RPython exception.
+    Implies dont_inline (RPython inliner) and dont_look_inside (JIT).
+    CollectAnalyzer will not propagate might_collect to callers: after an
+    error-return the caller propagates the exception immediately, so its
+    GC roots are never accessed again and the shadow-stack save is unnecessary.
+    """
+    func._always_raises_ = True
+    func._dont_inline_ = True
+    func._jit_look_inside_ = False
+    return func
+
 def try_inline(func):
     """ tell the RPython inline (not the JIT!), to try to inline this function,
     no matter its size."""

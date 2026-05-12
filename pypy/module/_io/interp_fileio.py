@@ -2,7 +2,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetPropert
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, always_raises
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import c_read, get_saved_errno, open
 from rpython.rlib.rstring import StringBuilder
@@ -116,6 +116,19 @@ def new_buffersize(fd, currentsize):
     return currentsize + SMALLCHUNK
 
 
+@always_raises
+def _raise_fileio_closed(space, message):
+    raise OperationError(space.w_ValueError, space.newtext(message))
+
+@always_raises
+def _raise_fileio_not_readable(space):
+    raise oefmt(space.w_ValueError, "file not open for reading")
+
+@always_raises
+def _raise_fileio_not_writable(space):
+    raise oefmt(space.w_ValueError, "file not open for writing")
+
+
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
         W_RawIOBase.__init__(self, space)
@@ -215,15 +228,15 @@ class W_FileIO(W_RawIOBase):
         if message is None:
             message = "I/O operation on closed file"
         if self.fd < 0:
-            raise OperationError(space.w_ValueError, space.newtext(message))
+            _raise_fileio_closed(space, message)
 
     def _check_readable(self, space):
         if not self.readable:
-            raise oefmt(space.w_ValueError, "file not open for reading")
+            _raise_fileio_not_readable(space)
 
     def _check_writable(self, space):
         if not self.writable:
-            raise oefmt(space.w_ValueError, "file not open for writing")
+            _raise_fileio_not_writable(space)
 
     def _close(self, space):
         if self.fd < 0:
