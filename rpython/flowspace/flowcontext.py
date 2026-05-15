@@ -381,28 +381,6 @@ class FlowContext(object):
 
     def record(self, spaceop):
         spaceop.offset = self.last_offset
-
-        # Add a comment giving the source-code location of this operation
-        # e.g. 'is_perfect_number:35 :     return n == sum'
-        try:
-            code = self.pycode
-            linenum = self.last_offset
-            src = self.graph.source.split('\n')[linenum]
-            text = '%s:%d : %s' % (code.co_name, linenum, src)
-            comment = SpaceOperation('comment',
-                                     [Constant(text, concretetype=lltype.Void)],
-                                     Variable())
-            self.recorder.append(comment)
-        except IOError:
-            # can't read source file.  This could be due to code built
-            # on-the-fly at translation time using exec (e.g. by
-            # look_inside_iff)
-            pass
-        except Exception as e:
-            print(e)
-            import pdb;pdb.set_trace()
-            raise
-        # Add the operation itself:
         self.recorder.append(spaceop)
 
     def do_op(self, op):

@@ -241,10 +241,25 @@ class FunctionCodeGenerator(object):
             for line in self.gen_block(block):
                 yield line
 
+    def _source_comment(self, func, linenum):
+        """Yield a C comment with the RPython source line, or nothing on error."""
+        try:
+            src, startline = inspect.getsourcelines(func)
+            i = linenum - startline
+            if 0 <= i < len(src):
+                line = escape_c_comments(src[i].strip())
+                yield '/* %s:%d: %s */' % (func.__name__, linenum, line)
+        except (IOError, IndexError, TypeError):
+            pass
+
     def gen_block(self, block):
         if 1:      # (preserve indentation)
             self._current_block = block
             myblocknum = self.blocknum[block]
+            if hasattr(block, 'source_func') and hasattr(block, 'source_line'):
+                for line in self._source_comment(block.source_func,
+                                                  block.source_line):
+                    yield line
             if block in self.inlinable_blocks:
                 # debug comment
                 yield '/* block%d: (inlined) */' % myblocknum
@@ -254,7 +269,17 @@ class FunctionCodeGenerator(object):
                 for line in self.gen_while_loop_hack(block):
                     yield line
                 return
+            cur_sf = getattr(block, 'source_func', None)
+            cur_sl = getattr(block, 'source_line', None)
             for i, op in enumerate(block.operations):
+                op_sf = getattr(op, 'source_func', None)
+                if op_sf is not None:
+                    op_sl = getattr(op, 'source_line', None)
+                    if op_sf is not cur_sf or op_sl != cur_sl:
+                        for line in self._source_comment(op_sf, op_sl):
+                            yield line
+                        cur_sf = op_sf
+                        cur_sl = op_sl
                 for line in self.gen_op(op):
                     yield line
             if len(block.exits) == 0:
