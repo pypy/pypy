@@ -29,6 +29,10 @@ def make_funcgen(graph, db, exception_policy, functionname):
         db.gctransformer.transform_graph(graph)
     return FunctionCodeGenerator(graph, db, exception_policy, functionname)
 
+# Cache (func -> (src_lines, startline)) so getsourcelines() is called at most
+# once per function rather than once per block/operation.
+_source_lines_cache = {}
+
 def escape_c_comments(py_src):
     # Escape C comments within RPython source, to avoid generating bogus
     # comments in our generated C source:
@@ -190,14 +194,19 @@ class FunctionCodeGenerator(object):
         graph = self.graph
         # Try to print python source code:
         if hasattr(graph, 'func'):
-            try:
-                src, startline = inspect.getsourcelines(graph.func)
-            except IOError:
-                pass # No source found
-            except IndexError:
-                pass # Bulletproofing
-            else:
-                filename = inspect.getfile(graph.func)
+            func = graph.func
+            if func not in _source_lines_cache:
+                try:
+                    _source_lines_cache[func] = inspect.getsourcelines(func)
+                except (IOError, TypeError):
+                    _source_lines_cache[func] = None
+            cached = _source_lines_cache[func]
+            if cached is not None:
+                src, startline = cached
+                try:
+                    filename = inspect.getfile(func)
+                except TypeError:
+                    filename = '<unknown>'
                 yield '/* RPython source %r' % filename
                 for i, line in enumerate(src):
                     line = line.rstrip()
@@ -243,14 +252,19 @@ class FunctionCodeGenerator(object):
 
     def _source_comment(self, func, linenum):
         """Yield a C comment with the RPython source line, or nothing on error."""
-        try:
-            src, startline = inspect.getsourcelines(func)
-            i = linenum - startline
-            if 0 <= i < len(src):
-                line = escape_c_comments(src[i].strip())
-                yield '/* %s:%d: %s */' % (func.__name__, linenum, line)
-        except (IOError, IndexError, TypeError):
-            pass
+        if func not in _source_lines_cache:
+            try:
+                _source_lines_cache[func] = inspect.getsourcelines(func)
+            except (IOError, TypeError):
+                _source_lines_cache[func] = None
+        cached = _source_lines_cache[func]
+        if cached is None:
+            return
+        src, startline = cached
+        i = linenum - startline
+        if 0 <= i < len(src):
+            yield '/* %s:%d: %s */' % (
+                func.__name__, linenum, escape_c_comments(src[i].strip()))
 
     def gen_block(self, block):
         if 1:      # (preserve indentation)
