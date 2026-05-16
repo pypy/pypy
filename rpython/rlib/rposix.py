@@ -430,6 +430,7 @@ def replace_os_function(name):
 @specialize.arg(0)
 def handle_posix_error(name, result):
     result = widen(result)
+    result = rffi.cast(rffi.SIGNED, result)
     if result < 0:
         raise OSError(get_saved_errno(), '%s failed' % name)
     return result
@@ -1141,7 +1142,7 @@ def readlink(path):
     bufsize = 1023
     while True:
         buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
-        res = widen(c_readlink(path, buf, bufsize))
+        res = rffi.cast(rffi.SIGNED, (c_readlink(path, buf, bufsize)))
         if res < 0:
             lltype.free(buf, flavor='raw')
             error = get_saved_errno()    # failed

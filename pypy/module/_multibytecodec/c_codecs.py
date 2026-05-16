@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.rlib import rutf8
+from rpython.rlib.objectmodel import enforceargs
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'.encode("utf8")
 
@@ -213,12 +214,13 @@ def encode(codec, unicodedata, length, errors="strict", errorcb=None,
             pypy_cjk_enc_copystate(copystate, encodebuf)
         pypy_cjk_enc_free(encodebuf)
 
+
+@enforceargs(length=int)
 def encodeex(encodebuf, utf8data, length, errors="strict", errorcb=None,
              namecb=None, ignore_error=0):
-    inleft = length
     inbuf = rffi.utf82wcharp(utf8data, length)
     try:
-        if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
+        if pypy_cjk_enc_init(encodebuf, inbuf, length) < 0:
             raise MemoryError
         if ignore_error == 0:
             flags = MBENC_FLUSH | MBENC_RESET
@@ -238,7 +240,7 @@ def encodeex(encodebuf, utf8data, length, errors="strict", errorcb=None,
                                     errorcb, namecb, utf8data)
         src = pypy_cjk_enc_outbuf(encodebuf)
         length = pypy_cjk_enc_outlen(encodebuf)
-        return rffi.charpsize2str(src, length)
+        return rffi.charpsize2str(src, rffi.cast(rffi.SIGNED, length))
     finally:
         lltype.free(inbuf, flavor='raw')
 
@@ -277,6 +279,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
     #   replace is an empty utf-8 unicode, which we directly consider to
     #   encode as an empty byte string.
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
-        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
+        r = rffi.cast(rffi.SIGNED, 
+                pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end))
     if r == MBERR_NOMEMORY:
         raise MemoryError

@@ -388,6 +388,7 @@ class StdObjSpace(ObjSpace):
             return w_t
         return W_BytesObject(s)
 
+    @enforceargs(length=int)
     def newutf8(self, utf8s, length):
         assert utf8s is not None
         assert isinstance(utf8s, str)

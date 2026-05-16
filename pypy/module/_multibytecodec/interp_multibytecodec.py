@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._codecs.interp_codecs import CodecState
+from rpython.rlib.objectmodel import enforceargs
 
 
 class MultibyteCodec(W_Root):
@@ -77,6 +78,7 @@ def wrap_unicodedecodeerror(space, e, input, name):
             space.newint(e.end),
             space.newtext(e.reason)]))
 
+@enforceargs(inputlen=int)
 def wrap_unicodeencodeerror(space, e, input, inputlen, name):
     raise OperationError(
         space.w_UnicodeEncodeError,

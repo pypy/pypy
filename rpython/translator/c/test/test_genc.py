@@ -176,7 +176,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         if return_stderr:
             return stderr
         if ll_res in [lltype.Signed, lltype.Unsigned, lltype.SignedLongLong,
-                      lltype.UnsignedLongLong]:
+                      lltype.UnsignedLongLong, lltype.Size_T, lltype.SSize_T]:
             return int(res)
         elif ll_res == lltype.Bool:
             return bool(int(res))

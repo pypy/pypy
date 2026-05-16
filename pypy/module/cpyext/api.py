@@ -736,9 +736,20 @@ build_exported_objects()
 class CpyextTypeSpace(CTypeSpace):
     def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             result_is_ll=False):
+        """Decorator to declare an exported function, the name will be filled
+        in if it is exactly '<>'
+        """
         def decorate(func):
+            if "<>" in cdef:
+                cdef_ = cdef.replace("<>", func.func_name)
+            else:
+                cdef_ = cdef
+            cdecl = cts.parse_func(cdef_)
+            if func.func_name not in ('check', 'check_exact'):
+                # The names must match, ignoring PyPy prefix
+                assert cdecl.name.endswith(func.func_name)
             return api_func_from_cdef(
-                func, cdef, self, error=error, header=header,
+                func, cdef_, self, error=error, header=header,
                 result_is_ll=result_is_ll)
         return decorate
 

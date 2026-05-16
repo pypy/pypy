@@ -5,7 +5,7 @@ from rpython.translator.c.support import c_string_constant, barebonearray
 from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
-    Array, FixedSizeArray, ForwardReference, FuncType, typeOf)
+    Array, FixedSizeArray, ForwardReference, FuncType, typeOf, SSize_T, Size_T)
 from rpython.rtyper.lltypesystem.rffi import INT
 from rpython.rtyper.lltypesystem.llmemory import Address
 from rpython.translator.backendopt.ssa import SSI_to_SSA
@@ -261,7 +261,7 @@ class FunctionCodeGenerator(object):
                     for op in self.gen_link(link):
                         yield op
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
-                              UnsignedLongLong, Char, UniChar):
+                              UnsignedLongLong, Char, UniChar, SSize_T, Size_T):
                     defaultlink = None
                     expr = self.expr(block.exitswitch)
                     yield 'switch (%s) {' % self.expr(block.exitswitch)
@@ -830,14 +830,14 @@ class FunctionCodeGenerator(object):
                     argv.append('RPyString_AsCharP(%s)' % self.expr(arg))
                     free_line = "RPyString_FreeCache();"
                 continue
-            elif T == Signed:
+            elif T in (Signed, SSize_T):
                 if sys.platform == 'win32':
                     format.append('%Id')
                 else:
                     format.append('%ld')
             elif T == INT:
                 format.append('%d')
-            elif T == Unsigned:
+            elif T in (Unsigned, Size_T):
                 if sys.platform == 'win32':
                     format.append('%Iu')
                 else:
