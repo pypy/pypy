@@ -99,6 +99,24 @@ jobs:
   #   - name: Test Jit - Other
   #     run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
 
+  test-misc-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v6
+    - uses: actions/setup-python@v6
+      with:
+        python-version: "pypy2.7-7.3.17"
+    - name: Install requirements
+      run: pypy -m pip install hypothesis==4.39.3
+    - name: Test Annotator
+      run: pypy pytest.py rpython/annotator
+    - name: Test Config
+      run: pypy pytest.py rpython/config
+    - name: Test Flowspace
+      run: pypy pytest.py rpython/flowspace
+    - name: Test Tool
+      run: pypy pytest.py rpython/tool
+
   test-memory:
     runs-on: ${{ matrix.os }}
     strategy:
