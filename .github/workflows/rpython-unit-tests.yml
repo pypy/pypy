@@ -61,6 +61,9 @@ jobs:
       run: pypy pytest.py rpython/flowspace
     - name: Test Tool
       run: pypy pytest.py rpython/tool
+    - name: Test RTyper
+      if: ${{ matrix.container }}
+      run: pypy pytest.py rpython/rtyper
 
   # FIXME: jit tests hang for 6 hours under pypy + linux
   # Possibly enable cpython + linux tests as a half-way house?
@@ -121,44 +124,24 @@ jobs:
     - name: Install test dependencies
       if: ${{ !matrix.container }}
       run: pypy -m pip install hypothesis==4.39.3
-    - name: Test RLib (Linux)
-      if: ${{ matrix.container }}
+    - name: Test RLib
       env:
         PYPYCHERRYPICK: rlib
+      shell: bash
       run: |
+        echo "parallel_runs=4" > machine_cfg.py
         pypy testrunner/runner.py \
           --config=pypy/testrunner_cfg.py \
-          --config=/home/buildworker/machine_cfg.py \
+          --config=machine_cfg.py \
           --root=rpython \
           --timeout=4000 \
           --logfile=testrun.log
-    - name: Test RLib (Windows)
-      if: ${{ !matrix.container }}
-      shell: bash
-      run: |
-        pypy pytest.py -v -m "not flaky" rpython/rlib \
-          --ignore=rpython/rlib/rsre/test/test_zjit.py \
-          --ignore=rpython/rlib/test/test_rbigint.py
     - name: Upload test log
-      if: ${{ matrix.container && always() }}
+      if: ${{ always() }}
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
-        name: rlib-testrun-log
+        name: rlib-testrun-log-${{ matrix.runner }}
         path: testrun.log
-
-  test-rtyper:
-    runs-on: ubuntu-24.04
-    container: ghcr.io/pypy/buildworker_x86_64:latest
-
-    steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - name: Test RTyper
-      # Note we split out test_rlist.py due to occasional segfaults
-      # with test_memoryerror that only occur when run with the full
-      # test suite
-      run: |
-          pypy pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
-          pypy pytest.py -v rpython/rtyper/test/test_rlist.py
 
   test-translator:
     runs-on: ubuntu-24.04
