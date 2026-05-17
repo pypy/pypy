@@ -29,177 +29,172 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-
 permissions:
   contents: read
 
 jobs:
   test-misc:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        include:
+          - runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildslave_x86_64:latest
+            pypy: pypy
+          - runner: windows-latest
+            pypy: pypy
 
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      if: ${{ !matrix.container }}
       with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
+        python-version: "pypy2.7-7.3.22"
+    - name: Install test dependencies
+      if: ${{ !matrix.container }}
+      run: pypy -m pip install hypothesis==4.39.3
     - name: Test Annotator
-      run: pypy2 pytest.py rpython/annotator
+      run: ${{ matrix.pypy }} pytest.py rpython/annotator
     - name: Test Config
-      run: pypy2 pytest.py rpython/config
+      run: ${{ matrix.pypy }} pytest.py rpython/config
     - name: Test Flowspace
-      run: pypy2 pytest.py rpython/flowspace
+      run: ${{ matrix.pypy }} pytest.py rpython/flowspace
     - name: Test Tool
-      run: pypy2 pytest.py rpython/tool
+      run: ${{ matrix.pypy }} pytest.py rpython/tool
 
   # FIXME: jit tests hang for 6 hours under pypy + linux
   # Possibly enable cpython + linux tests as a half-way house?
   # test-jit-x86:
-  #   runs-on: ${{ matrix.os }}
+  #   runs-on: ${{ matrix.runner }}
+  #   container: ${{ matrix.container }}
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       os: [ubuntu-24.04]
-
+  #       include:
+  #         - runner: ubuntu-24.04
+  #           container: ghcr.io/pypy/buildslave_x86_64:latest
+  #           pypy: pypy
   #   steps:
   #   - uses: actions/checkout@v6
-  #   - uses: actions/setup-python@v6
-  #     with:
-  #       python-version: "pypy2.7-7.3.17"
-  #   - run: |
-  #         echo "Install requirements"
-  #         sudo apt-get install -y libgc-dev
-  #         pypy2 -m pip install --user hypothesis==4.39.3
   #   - name: Test Jit - X86
-  #     run: pypy2 pytest.py -v rpython/jit/backend/x86
+  #     run: ${{ matrix.pypy }} pytest.py -v rpython/jit/backend/x86
 
   # test-jit-other:
-  #   runs-on: ${{ matrix.os }}
+  #   runs-on: ${{ matrix.runner }}
+  #   container: ${{ matrix.container }}
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       os: [ubuntu-24.04]
-
+  #       include:
+  #         - runner: ubuntu-24.04
+  #           container: ghcr.io/pypy/buildslave_x86_64:latest
+  #           pypy: pypy
   #   steps:
   #   - uses: actions/checkout@v6
-  #   - uses: actions/setup-python@v6
-  #     with:
-  #       python-version: "pypy2.7-7.3.17"
-  #   - run: |
-  #         echo "Install requirements"
-  #         sudo apt-get install -y libgc-dev
-  #         pypy2 -m pip install --user hypothesis==4.39.3
   #   - name: Test Jit - Other
-  #     run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
-
-  test-misc-windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - name: Install requirements
-      run: pypy -m pip install hypothesis==4.39.3
-    - name: Test Annotator
-      run: pypy pytest.py rpython/annotator
-    - name: Test Config
-      run: pypy pytest.py rpython/config
-    - name: Test Flowspace
-      run: pypy pytest.py rpython/flowspace
-    - name: Test Tool
-      run: pypy pytest.py rpython/tool
+  #     run: ${{ matrix.pypy }} pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
 
   test-memory:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        include:
+          - runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildslave_x86_64:latest
+            pypy: pypy
 
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Test Memory
-      run: pypy2 pytest.py rpython/memory
+      run: ${{ matrix.pypy }} pytest.py rpython/memory
 
   test-rlib:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04]
+        include:
+          - runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildslave_x86_64:latest
+            pypy: pypy
+          - runner: windows-latest
+            pypy: pypy
 
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      if: ${{ !matrix.container }}
       with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3 vmprof enum34>=1.1.2
-    - name: Test RLib
-      run: pypy2 pytest.py rpython/rlib -v -m "not flaky"
+        python-version: "pypy2.7-7.3.22"
+    - name: Install test dependencies
+      if: ${{ !matrix.container }}
+      run: pypy -m pip install hypothesis==4.39.3
+    - name: Test RLib (Linux)
+      if: ${{ matrix.container }}
+      run: |
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=/home/buildslave/machine_cfg.py \
+          --root=rpython/rlib \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Test RLib (Windows)
+      if: ${{ !matrix.container }}
+      run: |
+        ${{ matrix.pypy }} pytest.py -v -m "not flaky" rpython/rlib \
+          --ignore=rpython/rlib/rsre/test/test_zjit.py \
+          --ignore=rpython/rlib/test/test_rbigint.py
+    - name: Upload test log
+      if: ${{ matrix.container && always() }}
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      with:
+        name: rlib-testrun-log
+        path: testrun.log
 
   test-rtyper:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        include:
+          - runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildslave_x86_64:latest
+            pypy: pypy
 
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Test RTyper
       # Note we split out test_rlist.py due to occasional segfaults
       # with test_memoryerror that only occur when run with the full
       # test suite
       run: |
-          pypy2 pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
-          pypy2 pytest.py -v rpython/rtyper/test/test_rlist.py
+          ${{ matrix.pypy }} pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
+          ${{ matrix.pypy }} pytest.py -v rpython/rtyper/test/test_rlist.py
 
   test-translator:
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        include:
+          - runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildslave_x86_64:latest
+            pypy: pypy
 
     steps:
-    - uses: actions/checkout@v6
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - name: Test Translator
       run: |
         # we don't need to run test_typed.py, because test_backendoptimized.py
         # runs the same tests, just with more optimizations
-        pypy2 pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
+        ${{ matrix.pypy }} pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
         # only run the tests for the incminimark GC, the one that we always use
         # in practice
-        pypy2 pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC
+        ${{ matrix.pypy }} pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC
