@@ -41,7 +41,7 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildslave_x86_64:latest
+            container: ghcr.io/pypy/buildworker_x86_64:latest
             pypy: pypy
           - runner: windows-latest
             pypy: pypy
@@ -74,7 +74,7 @@ jobs:
   #     matrix:
   #       include:
   #         - runner: ubuntu-24.04
-  #           container: ghcr.io/pypy/buildslave_x86_64:latest
+  #           container: ghcr.io/pypy/buildworker_x86_64:latest
   #           pypy: pypy
   #   steps:
   #   - uses: actions/checkout@v6
@@ -89,7 +89,7 @@ jobs:
   #     matrix:
   #       include:
   #         - runner: ubuntu-24.04
-  #           container: ghcr.io/pypy/buildslave_x86_64:latest
+  #           container: ghcr.io/pypy/buildworker_x86_64:latest
   #           pypy: pypy
   #   steps:
   #   - uses: actions/checkout@v6
@@ -104,7 +104,7 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildslave_x86_64:latest
+            container: ghcr.io/pypy/buildworker_x86_64:latest
             pypy: pypy
 
     steps:
@@ -120,7 +120,7 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildslave_x86_64:latest
+            container: ghcr.io/pypy/buildworker_x86_64:latest
             pypy: pypy
           - runner: windows-latest
             pypy: pypy
@@ -139,7 +139,7 @@ jobs:
       run: |
         pypy testrunner/runner.py \
           --config=pypy/testrunner_cfg.py \
-          --config=/home/buildslave/machine_cfg.py \
+          --config=/home/buildworker/machine_cfg.py \
           --root=rpython/rlib \
           --timeout=4000 \
           --logfile=testrun.log
@@ -164,7 +164,7 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildslave_x86_64:latest
+            container: ghcr.io/pypy/buildworker_x86_64:latest
             pypy: pypy
 
     steps:
@@ -185,7 +185,7 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildslave_x86_64:latest
+            container: ghcr.io/pypy/buildworker_x86_64:latest
             pypy: pypy
 
     steps:
