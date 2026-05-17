@@ -1,7 +1,8 @@
 from collections import OrderedDict
 import pytest
 from rpython.rlib.objectmodel import (
-    r_dict, UnboxedValue, Symbolic, compute_hash, compute_identity_hash,
+    r_dict, r_ordereddict, UnboxedValue, Symbolic, compute_hash,
+    compute_identity_hash,
     compute_unique_id, current_object_addr_as_int, we_are_translated,
     prepare_dict_update, reversed_dict, specialize, enforceargs, newlist_hint,
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
@@ -80,6 +81,65 @@ def test_recursive_r_dict_repr():
     rdic['x'] = rdic
     assert str(rdic) == "r_dict({'x': r_dict({...})})"
     assert repr(rdic) == "r_dict({'x': r_dict({...})})"
+
+def test_r_dict_eq():
+    d1 = r_dict(strange_key_eq, strange_key_hash)
+    d2 = r_dict(strange_key_eq, strange_key_hash)
+    # Empty dicts compare equal.
+    assert d1 == d2
+    assert not (d1 != d2)
+    # Identity is also recognised as equality.
+    assert d1 == d1
+    d1['hello'] = 42
+    assert d1 != d2
+    assert not (d1 == d2)
+    d2['hi there'] = 42  # strange_key_eq looks at first character only
+    assert d1 == d2
+    assert not (d1 != d2)
+    d2['hello'] = 43
+    assert d1 != d2
+
+def test_r_dict_eq_only_against_r_dict():
+    d = r_dict(strange_key_eq, strange_key_hash)
+    d['hello'] = 42
+    # Comparison with a non-r_dict returns NotImplemented from our side,
+    # which Python then routes through the other operand / falls back to
+    # identity.  Pin the contract directly so a regression that returns
+    # True/False here would be caught.
+    assert d.__eq__({'hello': 42}) is NotImplemented
+    assert d.__ne__({'hello': 42}) is NotImplemented
+    assert d.__eq__(42) is NotImplemented
+    assert d.__eq__(None) is NotImplemented
+    # And the user-visible result still works out to "not equal".
+    assert d != {'hello': 42}
+    assert d != 42
+    assert d != None
+
+def test_r_ordereddict_eq_is_order_sensitive():
+    import operator
+    # Empty + identity, matching the r_dict case.
+    empty1 = r_ordereddict(operator.eq, hash)
+    empty2 = r_ordereddict(operator.eq, hash)
+    assert empty1 == empty2
+    assert empty1 == empty1
+    d1 = r_ordereddict(operator.eq, hash)
+    d2 = r_ordereddict(operator.eq, hash)
+    d1['a'] = 1
+    d1['b'] = 2
+    d2['b'] = 2
+    d2['a'] = 1
+    # Order-sensitive against another r_ordereddict.
+    assert d1 != d2
+    d3 = r_ordereddict(operator.eq, hash)
+    d3['a'] = 1
+    d3['b'] = 2
+    assert d1 == d3
+    # Order-insensitive against a plain r_dict.
+    plain = r_dict(operator.eq, hash)
+    plain['b'] = 2
+    plain['a'] = 1
+    assert d1 == plain
+    assert plain == d1
 
 def func_r_dict():
     # NB. this test function is also annotated/rtyped by the next tests
