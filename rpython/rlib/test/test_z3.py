@@ -8,7 +8,8 @@ try:
     import z3
     from hypothesis import given, strategies, assume, example
 except ImportError:
-    pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
+    pytest.skip("please install z3 (z3-solver on pypi) and hypothesis",
+                allow_module_level=True)
 
 
 from rpython.rlib.rbigint import _bitcount64_ops

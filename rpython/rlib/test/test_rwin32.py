@@ -1,7 +1,7 @@
 # encoding: utf-8
 import os, py
 if os.name != 'nt':
-    py.test.skip('tests for win32 only')
+    py.test.skip('tests for win32 only', allow_module_level=True)
 
 from rpython.rlib import rwin32
 from rpython.tool.udir import udir

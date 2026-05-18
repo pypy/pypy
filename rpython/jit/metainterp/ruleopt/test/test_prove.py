@@ -3,7 +3,7 @@ try:
     import rply
     import z3
 except ImportError:
-    pytest.skip('rply or z3 not installed')
+    pytest.skip('rply or z3 not installed', allow_module_level=True)
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_mul_high
 
