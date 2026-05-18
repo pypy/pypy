@@ -271,7 +271,7 @@ class PluginManager(object):
             if self.get_plugin(ep.name) or self.is_blocked(ep.name):
                 continue
             try:
-                plugin = ep.load()
+                plugin = ep.load(require=False)
             except DistributionNotFound:
                 continue
             except VersionConflict as e:
