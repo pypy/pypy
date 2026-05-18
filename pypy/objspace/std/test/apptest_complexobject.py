@@ -77,8 +77,11 @@ def test_truediv():
     raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
 def test_floordiv():
-    assert almost_equal(complex.__floordiv__(3+0j, 1.5+0j), 2)
-    raises(ZeroDivisionError, complex.__floordiv__, 3+0j, 0+0j)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        assert almost_equal(complex.__floordiv__(3+0j, 1.5+0j), 2)
+        raises(ZeroDivisionError, complex.__floordiv__, 3+0j, 0+0j)
 
 def test_coerce():
     raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
@@ -122,13 +125,18 @@ def test_richcompare_boundaries():
     assert complex.__ne__(z, long(i))
 
 def test_mod():
-    raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
-
-    a = 3.33+4.43j
-    raises(ZeroDivisionError, "a % 0")
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
+        a = 3.33+4.43j
+        raises(ZeroDivisionError, "a % 0")
 
 def test_divmod():
-    raises(ZeroDivisionError, divmod, 1+1j, 0+0j)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        raises(ZeroDivisionError, divmod, 1+1j, 0+0j)
 
 def test_pow():
     assert almost_equal(pow(1+1j, 0+0j), 1.0)
@@ -306,10 +314,13 @@ def test_constructor_bad_error_message():
     assert str(err) == "complex() second argument must be a number, not 'dict'"
 
 def test_error_messages():
-    err = raises(ZeroDivisionError, "1+1j / 0").value
-    assert str(err) == "complex division by zero"
-    err = raises(ZeroDivisionError, "1+1j // 0").value
-    assert str(err) == "complex division by zero"
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore', DeprecationWarning)
+        err = raises(ZeroDivisionError, "1+1j / 0").value
+        assert str(err) == "complex division by zero"
+        err = raises(ZeroDivisionError, "1+1j // 0").value
+        assert str(err) == "complex division by zero"
 
 def test___complex___returning_non_complex():
 

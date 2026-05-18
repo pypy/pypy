@@ -90,7 +90,10 @@ class AppTestMethod(py.test.collect.Function):
 
 
 class AppClassInstance(py.test.collect.Instance):
-    Function = AppTestMethod
+    def _makeitem(self, name, obj):
+        if callable(obj) and name.startswith('test_'):
+            return AppTestMethod(name, parent=self)
+        return super(AppClassInstance, self)._makeitem(name, obj)
 
     def setup(self):
         super(AppClassInstance, self).setup()
@@ -104,7 +107,8 @@ class AppClassInstance(py.test.collect.Instance):
 
 
 class AppClassCollector(py.test.Class):
-    Instance = AppClassInstance
+    def collect(self):
+        return [AppClassInstance(name="()", parent=self)]
 
     def setup(self):
         super(AppClassCollector, self).setup()
