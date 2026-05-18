@@ -48,7 +48,7 @@ def pytest_report_header():
 @pytest.hookimpl(tryfirst=True)
 def pytest_cmdline_preparse(config, args):
     if not (set(args) & {'-D', '--direct-apptest'}):
-        args.append('--assert=reinterp')
+        args.append('--assert=plain')
 
 def pytest_configure(config):
     global option

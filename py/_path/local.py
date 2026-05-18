@@ -4,10 +4,10 @@ local path implementation.
 from __future__ import with_statement
 
 from contextlib import contextmanager
-import sys, os, re, atexit, io
+import sys, os, atexit, io, uuid
 import py
 from py._path import common
-from py._path.common import iswin32
+from py._path.common import iswin32, fspath
 from stat import S_ISLNK, S_ISDIR, S_ISREG
 
 from os.path import abspath, normpath, isabs, exists, isdir, isfile, islink, dirname
@@ -17,6 +17,11 @@ if sys.version_info > (3,0):
         return list(map(func, iter))
 else:
     map_as_list = map
+
+ALLOW_IMPORTLIB_MODE = sys.version_info > (3,5)
+if ALLOW_IMPORTLIB_MODE:
+    import importlib
+
 
 class Stat(object):
     def __getattr__(self, name):
@@ -147,22 +152,28 @@ class LocalPath(FSBase):
         """
         if path is None:
             self.strpath = py.error.checked_call(os.getcwd)
-        elif isinstance(path, common.PathBase):
-            self.strpath = path.strpath
-        elif isinstance(path, py.builtin._basestring):
+        else:
+            try:
+                path = fspath(path)
+            except TypeError:
+                raise ValueError("can only pass None, Path instances "
+                                 "or non-empty strings to LocalPath")
             if expanduser:
                 path = os.path.expanduser(path)
             self.strpath = abspath(path)
-        else:
-            raise ValueError("can only pass None, Path instances "
-                             "or non-empty strings to LocalPath")
 
     def __hash__(self):
-        return hash(self.strpath)
+        s = self.strpath
+        if iswin32:
+            s = s.lower()
+        return hash(s)
 
     def __eq__(self, other):
-        s1 = self.strpath
-        s2 = getattr(other, "strpath", other)
+        s1 = fspath(self)
+        try:
+            s2 = fspath(other)
+        except TypeError:
+            return False
         if iswin32:
             s1 = s1.lower()
             try:
@@ -175,21 +186,21 @@ class LocalPath(FSBase):
         return not (self == other)
 
     def __lt__(self, other):
-        return self.strpath < getattr(other, "strpath", other)
+        return fspath(self) < fspath(other)
 
     def __gt__(self, other):
-        return self.strpath > getattr(other, "strpath", other)
+        return fspath(self) > fspath(other)
 
     def samefile(self, other):
         """ return True if 'other' references the same file as 'self'.
         """
-        other = getattr(other, "strpath", other)
+        other = fspath(other)
         if not isabs(other):
             other = abspath(other)
         if self == other:
             return True
-        if iswin32:
-            return False # there is no samefile
+        if not hasattr(os.path, "samefile"):
+            return False
         return py.error.checked_call(
                 os.path.samefile, self.strpath, other)
 
@@ -202,14 +213,16 @@ class LocalPath(FSBase):
             if rec:
                 # force remove of readonly files on windows
                 if iswin32:
-                    self.chmod(448, rec=1) # octcal 0700
-                py.error.checked_call(py.std.shutil.rmtree, self.strpath,
+                    self.chmod(0o700, rec=1)
+                import shutil
+                py.error.checked_call(
+                    shutil.rmtree, self.strpath,
                     ignore_errors=ignore_errors)
             else:
                 py.error.checked_call(os.rmdir, self.strpath)
         else:
             if iswin32:
-                self.chmod(448) # octcal 0700
+                self.chmod(0o700)
             py.error.checked_call(os.remove, self.strpath)
 
     def computehash(self, hashtype="md5", chunksize=524288):
@@ -320,7 +333,7 @@ class LocalPath(FSBase):
         of the args is an absolute path.
         """
         sep = self.sep
-        strargs = [getattr(arg, "strpath", arg) for arg in args]
+        strargs = [fspath(arg) for arg in args]
         strpath = self.strpath
         if kwargs.get('abs'):
             newargs = []
@@ -330,13 +343,16 @@ class LocalPath(FSBase):
                     strargs = newargs
                     break
                 newargs.insert(0, arg)
+        # special case for when we have e.g. strpath == "/"
+        actual_sep = "" if strpath.endswith(sep) else sep
         for arg in strargs:
             arg = arg.strip(sep)
             if iswin32:
                 # allow unix style paths even on windows.
                 arg = arg.strip('/')
                 arg = arg.replace('/', sep)
-            strpath = strpath + sep + arg
+            strpath = strpath + actual_sep + arg
+            actual_sep = sep
         obj = object.__new__(self.__class__)
         obj.strpath = normpath(strpath)
         return obj
@@ -402,15 +418,22 @@ class LocalPath(FSBase):
         """ return last modification time of the path. """
         return self.stat().mtime
 
-    def copy(self, target, mode=False):
-        """ copy path to target."""
+    def copy(self, target, mode=False, stat=False):
+        """ copy path to target.
+
+            If mode is True, will copy copy permission from path to target.
+            If stat is True, copy permission, last modification
+            time, last access time, and flags from path to target.
+        """
         if self.check(file=1):
             if target.check(dir=1):
                 target = target.join(self.basename)
             assert self!=target
             copychunked(self, target)
             if mode:
-                copymode(self, target)
+                copymode(self.strpath, target.strpath)
+            if stat:
+                copystat(self, target)
         else:
             def rec(p):
                 return p.check(link=0)
@@ -426,25 +449,28 @@ class LocalPath(FSBase):
                 elif x.check(dir=1):
                     newx.ensure(dir=1)
                 if mode:
-                    copymode(x, newx)
+                    copymode(x.strpath, newx.strpath)
+                if stat:
+                    copystat(x, newx)
 
     def rename(self, target):
         """ rename this path to target. """
-        target = getattr(target, "strpath", target)
+        target = fspath(target)
         return py.error.checked_call(os.rename, self.strpath, target)
 
     def dump(self, obj, bin=1):
         """ pickle object into path location"""
         f = self.open('wb')
+        import pickle
         try:
-            py.error.checked_call(py.std.pickle.dump, obj, f, bin)
+            py.error.checked_call(pickle.dump, obj, f, bin)
         finally:
             f.close()
 
     def mkdir(self, *args):
         """ create & return the directory joined with args. """
         p = self.join(*args)
-        py.error.checked_call(os.mkdir, getattr(p, "strpath", p))
+        py.error.checked_call(os.mkdir, fspath(p))
         return p
 
     def write_binary(self, data, ensure=False):
@@ -556,14 +582,17 @@ class LocalPath(FSBase):
 
     @contextmanager
     def as_cwd(self):
-        """ return context manager which changes to current dir during the
-        managed "with" context. On __enter__ it returns the old dir.
+        """
+        Return a context manager, which changes to the path's dir during the
+        managed "with" context.
+        On __enter__ it returns the old dir, which might be ``None``.
         """
         old = self.chdir()
         try:
             yield old
         finally:
-            old.chdir()
+            if old is not None:
+                old.chdir()
 
     def realpath(self):
         """ return a new path which contains no symbolic links."""
@@ -590,7 +619,7 @@ class LocalPath(FSBase):
         if rec:
             for x in self.visit(rec=rec):
                 py.error.checked_call(os.chmod, str(x), mode)
-        py.error.checked_call(os.chmod, str(self), mode)
+        py.error.checked_call(os.chmod, self.strpath, mode)
 
     def pypkgpath(self):
         """ return the Python package path by looking for the last
@@ -629,9 +658,34 @@ class LocalPath(FSBase):
         If ensuresyspath=="append" the root dir will be appended
         if it isn't already contained in sys.path.
         if ensuresyspath is False no modification of syspath happens.
+
+        Special value of ensuresyspath=="importlib" is intended
+        purely for using in pytest, it is capable only of importing
+        separate .py files outside packages, e.g. for test suite
+        without any __init__.py file. It effectively allows having
+        same-named test modules in different places and offers
+        mild opt-in via this option. Note that it works only in
+        recent versions of python.
         """
         if not self.check():
             raise py.error.ENOENT(self)
+
+        if ensuresyspath == 'importlib':
+            if modname is None:
+                modname = self.purebasename
+            if not ALLOW_IMPORTLIB_MODE:
+                raise ImportError(
+                    "Can't use importlib due to old version of Python")
+            spec = importlib.util.spec_from_file_location(
+                modname, str(self))
+            if spec is None:
+                raise ImportError(
+                    "Can't find module %s at location %s" %
+                    (modname, str(self))
+                )
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            return mod
 
         pkgpath = None
         if modname is None:
@@ -651,7 +705,7 @@ class LocalPath(FSBase):
             mod = sys.modules[modname]
             if self.basename == "__init__.py":
                 return mod # we don't check anything as we might
-                       # we in a namespace package ... too icky to check
+                       # be in a namespace package ... too icky to check
             modfile = mod.__file__
             if modfile[-4:] in ('.pyc', '.pyo'):
                 modfile = modfile[:-1]
@@ -665,14 +719,17 @@ class LocalPath(FSBase):
             except py.error.ENOENT:
                 issame = False
             if not issame:
-                raise self.ImportMismatchError(modname, modfile, self)
+                ignore = os.getenv('PY_IGNORE_IMPORTMISMATCH')
+                if ignore != '1':
+                    raise self.ImportMismatchError(modname, modfile, self)
             return mod
         else:
             try:
                 return sys.modules[modname]
             except KeyError:
                 # we have a custom modname, do a pseudo-import
-                mod = py.std.types.ModuleType(modname)
+                import types
+                mod = types.ModuleType(modname)
                 mod.__file__ = str(self)
                 sys.modules[modname] = mod
                 try:
@@ -717,7 +774,7 @@ class LocalPath(FSBase):
         else:
             if paths is None:
                 if iswin32:
-                    paths = py.std.os.environ['Path'].split(';')
+                    paths = os.environ['Path'].split(';')
                     if '' not in paths and '.' not in paths:
                         paths.append('.')
                     try:
@@ -725,10 +782,10 @@ class LocalPath(FSBase):
                     except KeyError:
                         pass
                     else:
-                        paths = [re.sub('%SystemRoot%', systemroot, path)
+                        paths = [path.replace('%SystemRoot%', systemroot)
                                  for path in paths]
                 else:
-                    paths = py.std.os.environ['PATH'].split(':')
+                    paths = os.environ['PATH'].split(':')
             tryadd = []
             if iswin32:
                 tryadd += os.environ['PATHEXT'].split(os.pathsep)
@@ -759,16 +816,18 @@ class LocalPath(FSBase):
         return cls(x)
     _gethomedir = classmethod(_gethomedir)
 
-    #"""
-    #special class constructors for local filesystem paths
-    #"""
+    # """
+    # special class constructors for local filesystem paths
+    # """
+    @classmethod
     def get_temproot(cls):
         """ return the system's temporary directory
             (where tempfiles are usually created in)
         """
-        return py.path.local(py.std.tempfile.gettempdir())
-    get_temproot = classmethod(get_temproot)
+        import tempfile
+        return py.path.local(tempfile.gettempdir())
 
+    @classmethod
     def mkdtemp(cls, rootdir=None):
         """ return a Path object pointing to a fresh new temporary directory
             (which we created ourself).
@@ -777,48 +836,43 @@ class LocalPath(FSBase):
         if rootdir is None:
             rootdir = cls.get_temproot()
         return cls(py.error.checked_call(tempfile.mkdtemp, dir=str(rootdir)))
-    mkdtemp = classmethod(mkdtemp)
 
     def make_numbered_dir(cls, prefix='session-', rootdir=None, keep=3,
-                          lock_timeout = 172800,   # two days
-                          min_timeout = 300):      # five minutes
+                          lock_timeout=172800):   # two days
         """ return unique directory with a number greater than the current
             maximum one.  The number is assumed to start directly after prefix.
             if keep is true directories with a number less than (maxnum-keep)
-            will be removed.
+            will be removed. If .lock files are used (lock_timeout non-zero),
+            algorithm is multi-process safe.
         """
         if rootdir is None:
             rootdir = cls.get_temproot()
 
         nprefix = prefix.lower()
-
         def parse_num(path):
-            """ Parse the number out of a path (if it matches the prefix) """
+            """ parse the number out of a path (if it matches the prefix) """
             nbasename = path.basename.lower()
             if nbasename.startswith(nprefix):
                 try:
-                    return int(nbasename[len(prefix):])
+                    return int(nbasename[len(nprefix):])
                 except ValueError:
                     pass
 
         def create_lockfile(path):
-            """Exclusively create lockfile. Throws when failed"""
+            """ exclusively create lockfile. Throws when failed """
             mypid = os.getpid()
-            lockfile = path.join(".lock")
-            if hasattr(lockfile, "mksymlinkto"):
+            lockfile = path.join('.lock')
+            if hasattr(lockfile, 'mksymlinkto'):
                 lockfile.mksymlinkto(str(mypid))
             else:
-                fd = py.error.checked_call(
-                    os.open, str(lockfile), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
-                )
-                with os.fdopen(fd, "w") as f:
+                fd = py.error.checked_call(os.open, str(lockfile), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+                with os.fdopen(fd, 'w') as f:
                     f.write(str(mypid))
             return lockfile
 
         def atexit_remove_lockfile(lockfile):
-            """Ensure lockfile is removed at process exit"""
+            """ ensure lockfile is removed at process exit """
             mypid = os.getpid()
-
             def try_remove_lockfile():
                 # in a fork() situation, only the last process should
                 # remove the .lock, otherwise the other processes run the
@@ -831,7 +885,6 @@ class LocalPath(FSBase):
                     lockfile.remove()
                 except py.error.Error:
                     pass
-
             atexit.register(try_remove_lockfile)
 
         # compute the maximum number currently in use with the prefix
@@ -845,7 +898,7 @@ class LocalPath(FSBase):
 
             # make the new directory
             try:
-                udir = rootdir.mkdir(prefix + str(maxnum + 1))
+                udir = rootdir.mkdir(prefix + str(maxnum+1))
                 if lock_timeout:
                     lockfile = create_lockfile(udir)
                     atexit_remove_lockfile(lockfile)
@@ -864,33 +917,52 @@ class LocalPath(FSBase):
                 continue
             break
 
+        def get_mtime(path):
+            """ read file modification time """
+            try:
+                return path.lstat().mtime
+            except py.error.Error:
+                pass
+
+        garbage_prefix = prefix + 'garbage-'
+
+        def is_garbage(path):
+            """ check if path denotes directory scheduled for removal """
+            bn = path.basename
+            return bn.startswith(garbage_prefix)
+
         # prune old directories
-        if keep:
+        udir_time = get_mtime(udir)
+        if keep and udir_time:
             for path in rootdir.listdir():
                 num = parse_num(path)
                 if num is not None and num <= (maxnum - keep):
-                    if min_timeout:
-                        # NB: doing this is needed to prevent (or reduce
-                        # a lot the chance of) the following situation:
-                        # 'keep+1' processes call make_numbered_dir() at
-                        # the same time, they create dirs, but then the
-                        # last process notices the first dir doesn't have
-                        # (yet) a .lock in it and kills it.
-                        try:
-                            t1 = path.lstat().mtime
-                            t2 = lockfile.lstat().mtime
-                            if abs(t2-t1) < min_timeout:
-                                continue   # skip directories too recent
-                        except py.error.Error:
-                            continue   # failure to get a time, better skip
-                    lf = path.join('.lock')
                     try:
-                        t1 = lf.lstat().mtime
-                        t2 = lockfile.lstat().mtime
-                        if not lock_timeout or abs(t2-t1) < lock_timeout:
-                            continue   # skip directories still locked
-                    except py.error.Error:
-                        pass   # assume that it means that there is no 'lf'
+                        # try acquiring lock to remove directory as exclusive user
+                        if lock_timeout:
+                            create_lockfile(path)
+                    except (py.error.EEXIST, py.error.ENOENT, py.error.EBUSY):
+                        path_time = get_mtime(path)
+                        if not path_time:
+                            # assume directory doesn't exist now
+                            continue
+                        if abs(udir_time - path_time) < lock_timeout:
+                            # assume directory with lockfile exists
+                            # and lock timeout hasn't expired yet
+                            continue
+
+                    # path dir locked for exclusive use
+                    # and scheduled for removal to avoid another thread/process
+                    # treating it as a new directory or removal candidate
+                    garbage_path = rootdir.join(garbage_prefix + str(uuid.uuid4()))
+                    try:
+                        path.rename(garbage_path)
+                        garbage_path.remove(rec=1)
+                    except KeyboardInterrupt:
+                        raise
+                    except: # this might be py.error.Error, WindowsError ...
+                        pass
+                if is_garbage(path):
                     try:
                         path.remove(rec=1)
                     except KeyboardInterrupt:
@@ -921,11 +993,22 @@ class LocalPath(FSBase):
         return udir
     make_numbered_dir = classmethod(make_numbered_dir)
 
+
 def copymode(src, dest):
-    py.std.shutil.copymode(str(src), str(dest))
+    """ copy permission from src to dst. """
+    import shutil
+    shutil.copymode(src, dest)
+
+
+def copystat(src, dest):
+    """ copy permission,  last modification time,
+    last access time, and flags from src to dst."""
+    import shutil
+    shutil.copystat(str(src), str(dest))
+
 
 def copychunked(src, dest):
-    chunksize = 524288 # half a meg of bytes
+    chunksize = 524288  # half a meg of bytes
     fsrc = src.open('rb')
     try:
         fdest = dest.open('wb')
@@ -939,6 +1022,7 @@ def copychunked(src, dest):
             fdest.close()
     finally:
         fsrc.close()
+
 
 def isimportable(name):
     if name and (name[0].isalpha() or name[0] == '_'):

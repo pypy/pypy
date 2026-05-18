@@ -1,0 +1,7 @@
+../_scandir.pypy-73.so
+../scandir.py
+../scandir.pyc
+PKG-INFO
+SOURCES.txt
+dependency_links.txt
+top_level.txt

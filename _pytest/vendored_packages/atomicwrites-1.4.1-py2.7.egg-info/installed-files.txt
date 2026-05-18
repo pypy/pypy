@@ -1,0 +1,6 @@
+../atomicwrites/__init__.py
+../atomicwrites/__init__.pyc
+PKG-INFO
+SOURCES.txt
+dependency_links.txt
+top_level.txt
