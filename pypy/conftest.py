@@ -163,12 +163,11 @@ class PyPyModule(pytest.Module):
             return True
         return False
 
-    def makeitem(self, name, obj):
-        if isclass(obj) and self.classnamefilter(name):
-            if name.startswith('AppTest'):
-                from pypy.tool.pytest.apptest import AppClassCollector
-                return AppClassCollector(name, parent=self)
-        return super(PyPyModule, self).makeitem(name, obj)
+    def _makeitem(self, name, obj):
+        if isclass(obj) and name.startswith('AppTest'):
+            from pypy.tool.pytest.apptest import AppClassCollector
+            return AppClassCollector(name, parent=self)
+        return super(PyPyModule, self)._makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
     __tracebackhide__ = True
