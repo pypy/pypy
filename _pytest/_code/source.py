@@ -109,7 +109,11 @@ class Source(object):
         """
         if not (0 <= lineno < len(self)):
             raise IndexError("lineno out of range")
-        ast, start, end = getstatementrange_ast(lineno, self)
+        try:
+            ast, start, end = getstatementrange_ast(lineno, self)
+        except SyntaxError:
+            from py._code.source import getstatementrange_old
+            start, end = getstatementrange_old(lineno, self)
         return start, end
 
     def deindent(self):

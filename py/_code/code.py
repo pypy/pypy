@@ -398,7 +398,8 @@ class ExceptionInfo(object):
         return ReprFileLocation(path, lineno+1, exconly)
 
     def getrepr(self, showlocals=False, style="long",
-                abspath=False, tbfilter=True, funcargs=False):
+                abspath=False, tbfilter=True, funcargs=False,
+                truncate_locals=True):
         """ return str()able representation of this exception info.
             showlocals: show locals per traceback entry
             style: long|short|no|native traceback style

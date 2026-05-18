@@ -9,6 +9,9 @@ import py
 import six
 
 import _pytest._code
+
+# Save the original AssertionError before any patching (used by reinterpret mode).
+BuiltinAssertionError = py.builtin.builtins.AssertionError
 from ..compat import Sequence
 
 # The _reprcompare attribute on the util module is used by the new assertion
