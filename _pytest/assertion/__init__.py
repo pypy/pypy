@@ -20,14 +20,16 @@ def pytest_addoption(parser):
         "--assert",
         action="store",
         dest="assertmode",
-        choices=("rewrite", "plain"),
+        choices=("rewrite", "reinterp", "plain"),
         default="rewrite",
         metavar="MODE",
         help="""Control assertion debugging tools.  'plain'
-                            performs no assertion debugging.  'rewrite'
-                            (the default) rewrites assert statements in
-                            test modules on import to provide assert
-                            expression information.""",
+                            performs no assertion debugging.  'reinterp'
+                            reinterprets assert statements after failure
+                            to provide assert expression information.
+                            'rewrite' (the default) rewrites assert
+                            statements in test modules on import to
+                            provide assert expression information.""",
     )
 
 
@@ -69,6 +71,20 @@ class AssertionState(object):
         self.mode = mode
         self.trace = config.trace.root.get("assertion")
         self.hook = None
+
+
+def pytest_configure(config):
+    mode = config.getvalue("assertmode")
+    if mode == "reinterp":
+        from _pytest.assertion import reinterpret
+        import py
+        builtins = py.builtin.builtins
+        _orig = builtins.AssertionError
+        builtins.AssertionError = reinterpret.AssertionError
+        config._assertstate = AssertionState(config, "reinterp")
+        def undo():
+            builtins.AssertionError = _orig
+        config.add_cleanup(undo)
 
 
 def install_importhook(config):
