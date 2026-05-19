@@ -125,3 +125,10 @@ def test_kwargs():
             return a + 2
     
     assert C().f(a=3) == 5
+
+def test_starargs_tuple_passthrough():
+    def f(*a):
+        return a
+
+    args = (1, 2, 3)
+    assert f(*args) is args

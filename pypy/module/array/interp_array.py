@@ -21,7 +21,9 @@ WIN64 = sys.platform == "win32" and sys.maxint > 2**32
 
 @unwrap_spec(typecode='text')
 def w_array(space, w_cls, typecode, __args__):
-    if len(__args__.arguments_w) > 1:
+
+    unpacked_w = __args__.unpacked_args()
+    if len(unpacked_w) > 1:
         raise oefmt(space.w_TypeError, "array() takes at most 2 arguments")
     if len(typecode) != 1:
         raise oefmt(space.w_TypeError,
@@ -43,8 +45,8 @@ def w_array(space, w_cls, typecode, __args__):
                     "bad typecode (must be b, B, u, h, H, i, I, l, L, q, Q, f "
                     "or d)")
 
-    if len(__args__.arguments_w) > 0:
-        w_initializer = __args__.arguments_w[0]
+    if len(unpacked_w) > 0:
+        w_initializer = unpacked_w[0]
         if tc != 'u':
             if space.isinstance_w(w_initializer, space.w_unicode):
                 raise oefmt(

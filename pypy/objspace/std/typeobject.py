@@ -733,7 +733,7 @@ class W_TypeObject(W_Root):
 
         # maybe invoke the __init__ of the type
         if (call_init and not (space.is_w(self, space.w_type) and
-            not __args__.keyword_names_w and len(__args__.arguments_w) == 1)):
+            not __args__.keyword_names_w and len(__args__.unpacked_args()) == 1)):
             w_descr = space.lookup(w_newobject, '__init__')
             if w_descr is not None:    # see test_crash_mro_without_object_2
                 w_result = space.get_and_call_args(w_descr, w_newobject,
@@ -885,7 +885,8 @@ class W_TypeObject(W_Root):
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
-    if len(__args__.arguments_w) not in (1, 3):
+    unpacked_w = __args__.unpacked_args()
+    if len(unpacked_w) not in (1, 3):
         if space.is_w(w_typetype, space.w_type):
             raise oefmt(space.w_TypeError,
                         "type.__new__() takes 1 or 3 arguments")
@@ -894,20 +895,20 @@ def descr__new__(space, w_typetype, __args__):
                         "%N.__new__() takes exactly 3 arguments (1 given)",
                         w_typetype)
 
-    w_name = __args__.arguments_w[0]
+    w_name = unpacked_w[0]
 
     w_typetype = _precheck_for_new(space, w_typetype)
 
     # special case for type(x), but not Metaclass(x)
-    if len(__args__.arguments_w) == 1:
+    if len(unpacked_w) == 1:
         if space.is_w(w_typetype, space.w_type):
             return space.type(w_name)
         else:
             raise oefmt(space.w_TypeError,
                         "%N.__new__() takes exactly 3 arguments (1 given)",
                         w_typetype)
-    w_bases = __args__.arguments_w[1]
-    w_dict = __args__.arguments_w[2]
+    w_bases = unpacked_w[1]
+    w_dict = unpacked_w[2]
     return _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__)
 
 
@@ -1026,7 +1027,7 @@ def _init_subclass(space, w_type, __args__):
     space.call_args(w_func, args)
 
 def descr__init__(space, w_type, __args__):
-    if len(__args__.arguments_w) not in (1, 3):
+    if len(__args__.unpacked_args()) not in (1, 3):
         raise oefmt(space.w_TypeError,
                     "type.__init__() takes 1 or 3 arguments")
 

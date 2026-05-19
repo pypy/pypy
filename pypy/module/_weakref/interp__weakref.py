@@ -258,7 +258,7 @@ def getlifeline(space, w_obj):
 
 def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
                         __args__=None):
-    if __args__.arguments_w:
+    if __args__.unpacked_args():
         raise oefmt(space.w_TypeError, "__new__ expected at most 2 arguments")
     lifeline = getlifeline(space, w_obj)
     if space.is_none(w_callable):

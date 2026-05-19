@@ -98,20 +98,21 @@ class W_ExtensionFunctionMixin(object):
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
         # ctx_CallRealFunctionFromTrampoline in cpython-universal
-        n = n_args = len(__args__.arguments_w) - skip_args
+        args_w = __args__.unpacked_args()
+        n = n_args = len(args_w) - skip_args
         if has_keywords and __args__.keyword_names_w:
             n += len(__args__.keyword_names_w)
 
         # XXX this looks inefficient: ideally, we would like the equivalent of
         # alloca(): do we have it in RPython? The alternative is to wrap
-        # arguments_w in a tuple, convert to handle and pass it to a C
+        # unpacked_args() in a tuple, convert to handle and pass it to a C
         # function whichs calls alloca() and the forwards everything to the
         # functpr
         with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
             i = 0
             k = 0
             while i < n_args:
-                args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
+                args_h[i] = self.handles.new(args_w[i + skip_args])
                 i += 1
             if has_keywords:
                 while i < n:
@@ -161,7 +162,8 @@ class W_ExtensionFunctionMixin(object):
 
     def call(self, space, h_self, __args__, skip_args=0):
         sig = self.sig
-        length = len(__args__.arguments_w) - skip_args
+        args_w = __args__.unpacked_args()
+        length = len(args_w) - skip_args
 
         if sig == llapi.HPyFunc_KEYWORDS:
             return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=True)
@@ -181,7 +183,7 @@ class W_ExtensionFunctionMixin(object):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            return self.call_o(space, h_self, __args__.arguments_w[skip_args])
+            return self.call_o(space, h_self, args_w[skip_args])
 
         if sig == llapi.HPyFunc_VARARGS:
             return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=False)
@@ -225,13 +227,14 @@ class W_ExtensionMethodMixin(object):
 
     def descr_call(self, space, __args__):
         # XXX: basically a copy of cpyext's W_PyCMethodObject.descr_call()
-        if len(__args__.arguments_w) == 0:
+        args_w = __args__.unpacked_args()
+        if len(args_w) == 0:
             w_objclass = self.w_objclass
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' of '%s' object needs an argument",
                 self.name, self.w_objclass.getname(space))
-        w_instance = __args__.arguments_w[0]
+        w_instance = args_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
             w_objclass = self.w_objclass

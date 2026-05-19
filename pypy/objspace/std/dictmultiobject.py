@@ -1428,7 +1428,7 @@ init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
 
 def init_or_update(space, w_dict, __args__, funcname):
-    nargs = len(__args__.arguments_w)
+    nargs = len(__args__.unpacked_args())
     if nargs > 1:
         shortname = funcname.split('.')[-1]
         raise oefmt(space.w_TypeError,

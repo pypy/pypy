@@ -9,7 +9,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.__builtin__.functional import W_Filter, build_iterators_from_args
 
 def W_Twoarg__new__(space, w_subtype, W_Base, name, __args__):
-    args_w = __args__.arguments_w
+    args_w = __args__.unpacked_args()
     w_type = space.gettypeobject(W_Base.typedef)
     w_init = space.newtext("__init__")
     if (space.is_w(w_subtype, w_type) or 
@@ -466,7 +466,7 @@ class W_ISlice(W_Root):
         self.count = rffi.cast(rffi.UNSIGNED, space.int_w(w_state))
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, __args__):
-    args_w = __args__.arguments_w
+    args_w = __args__.unpacked_args()
     w_islice = space.gettypeobject(W_ISlice.typedef)
     w_init = space.newtext("__init__")
     if (space.is_w(w_subtype, w_islice) or 
@@ -569,7 +569,7 @@ class W_Chain(W_Root):
                         num_args)
 
 def W_Chain___new__(space, w_subtype, __args__):
-    args_w = __args__.arguments_w
+    args_w = __args__.unpacked_args()
     w_chain = space.gettypeobject(W_Chain.typedef)
     w_init = space.newtext("__init__")
     if (space.is_w(w_subtype, w_chain) or 

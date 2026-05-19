@@ -202,7 +202,7 @@ def min_max(space, args, implementation_of):
     #
     if space.is_w(w_key, space.w_None):
         w_key = None
-    args_w = args.arguments_w
+    args_w = args.unpacked_args()
     if len(args_w) > 1:
         if w_default is not None:
             raise oefmt(space.w_TypeError,
@@ -450,7 +450,7 @@ class W_Range(W_Root):
         self.promote_step = promote_step
 
     def descr_new(space, w_subtype, __args__):
-        args_w = __args__.arguments_w
+        args_w = __args__.unpacked_args()
         nargs = len(args_w)
         if nargs == 0:
             raise oefmt(space.w_TypeError,
@@ -886,7 +886,7 @@ class W_Map(W_Root):
         return w_res
 
 def W_Map___new__(space, w_subtype, __args__):
-    args_w = __args__.arguments_w
+    args_w = __args__.unpacked_args()
     w_map = space.gettypeobject(W_Map.typedef)
     w_init = space.newtext("__init__")
     if (space.is_w(w_subtype, w_map) or
@@ -978,7 +978,7 @@ def _filter_jitdriver(space, w_iterable, w_predicate, reverse):
             return w_obj
 
 def W_Filter___new__(space, w_subtype, __args__):
-    args_w = __args__.arguments_w
+    args_w = __args__.unpacked_args()
     w_filter = space.gettypeobject(W_Filter.typedef)
     w_init = space.newtext("__init__")
     if (space.is_w(w_subtype, w_filter) or

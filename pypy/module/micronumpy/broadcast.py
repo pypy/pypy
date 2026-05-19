@@ -9,7 +9,7 @@ from rpython.rlib import jit
 from strides import calculate_broadcast_strides, shape_agreement_multiple
 
 def descr_new_broadcast(space, w_subtype, __args__):
-    return W_Broadcast(space, __args__.arguments_w)
+    return W_Broadcast(space, __args__.unpacked_args())
 
 class W_Broadcast(W_NumpyObject):
     """

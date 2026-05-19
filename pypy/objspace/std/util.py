@@ -108,7 +108,8 @@ def builtinclass_new_args_check(space, name, w_basetyp, w_subtyp, __args__):
     if space.is_w(w_basetyp, w_subtyp) or space.is_w(
             space.getattr(w_basetyp, space.newtext('__init__')),
             space.getattr(w_subtyp, space.newtext('__init__'))):
-        if __args__.arguments_w:
-            raise oefmt(space.w_TypeError, "%8() expected at most 1 argument, got %d", name, 1 + len(__args__.arguments_w))
+        if __args__.unpacked_args():
+            raise oefmt(space.w_TypeError, "%8() expected at most 1 argument, got %d",
+                        name, 1 + len(__args__.unpacked_args()))
         if __args__.keyword_names_w:
             raise oefmt(space.w_TypeError, "%8() takes no keyword arguments", name)

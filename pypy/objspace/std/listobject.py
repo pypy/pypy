@@ -557,8 +557,9 @@ class W_ListObject(W_Root):
     def descr_init(self, space, w_iterable=None, __posonly__=None, __args__=None):
         """Initialize self.  See help(type(self)) for accurate signature."""
         if space.is_w(space.type(self), space.w_list):
-            if __args__.arguments_w:
-                raise oefmt(space.w_TypeError, "list() expected at most 1 argument, got %d", 1 + len(__args__.arguments_w))
+            if __args__.unpacked_args():
+                raise oefmt(space.w_TypeError, "list() expected at most 1 argument, got %d",
+                            1 + len(__args__.unpacked_args()))
             if __args__.keyword_names_w:
                 raise oefmt(space.w_TypeError, "list() takes no keyword arguments")
         self.clear(space)

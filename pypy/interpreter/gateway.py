@@ -1414,7 +1414,7 @@ class ApplevelClass:
                         # xxx is this used at all?
                         # ...which is merged with the previous arguments, if any
                         args = args.replace_arguments(list(args_w[:-1]) +
-                                                      args.arguments_w)
+                                                      args.unpacked_args())
             return space.call_args(w_func, args)
         def get_function(space):
             w_func = self.wget(space, name)

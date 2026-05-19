@@ -262,7 +262,7 @@ class TestArgumentsNormal(object):
 
         args = Arguments(space, args_w, w_stararg=["*"],
                          w_starstararg={"k": 1})
-        assert args.arguments_w == ["*"]
+        assert args.unpacked_args() == ["*"]
         assert args.keywords == ["k"]
         assert args.keywords_w == [1]
 
@@ -273,7 +273,7 @@ class TestArgumentsNormal(object):
         args = Arguments(space, ["0"])
         args1 = args.prepend("thingy")
         assert args1 is not args
-        assert args1.arguments_w == ["thingy", "0"]
+        assert args1.unpacked_args() == ["thingy", "0"]
         assert args1.keyword_names_w is args.keyword_names_w
         assert args1.keywords_w is args.keywords_w
 
@@ -594,7 +594,7 @@ class TestArgumentsNormal(object):
         assert w_args == (1,)
         assert w_kwds == {space.newtext('a'): 2, space.newtext('b'): 3}
         args1 = Arguments.frompacked(space, w_args, w_kwds)
-        assert args.arguments_w == [1]
+        assert args.unpacked_args() == [1]
         assert set(args.keywords) == set(['a', 'b'])
         assert args.keywords_w[args.keywords.index('a')] == 2
         assert args.keywords_w[args.keywords.index('b')] == 3

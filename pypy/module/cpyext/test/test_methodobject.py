@@ -50,6 +50,12 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              return Py_BuildValue("Ol", args, args->ob_refcnt);
              '''
              ),
+            ('return_args', 'METH_VARARGS',
+             '''
+             Py_INCREF(args);
+             return args;
+             '''
+             ),
             ])
         # check that we pass the expected tuple of arguments AND that the
         # recnt is 1. In particular, on PyPy refcnt==1 means that we created
@@ -73,6 +79,10 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert refcnt == 1
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
+        # pass the original tuple without copying
+        a = (1, 2, 3)
+        b = mod.return_args(*a)
+        assert b is a
 
     def test_call_METH_VARARGS_FASTCALL(self):
         mod = self.import_extension('MyModule', [

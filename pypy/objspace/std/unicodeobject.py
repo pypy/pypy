@@ -423,7 +423,7 @@ class W_UnicodeObject(W_Root):
         w_kwds = space.newdict()
         if __args__.keyword_names_w:
             self._parse_format_arg(space, w_kwds, __args__)
-        return newformat.format_method(space, self, __args__.arguments_w,
+        return newformat.format_method(space, self, __args__.unpacked_args(),
                                        w_kwds, True)
 
     def descr_format_map(self, space, w_mapping):

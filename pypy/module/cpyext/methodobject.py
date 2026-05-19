@@ -92,17 +92,22 @@ def w_kwargs_from_args(space, __args__):
 def w_fastcall_args_from_args(space, __args__):
     # Similar to the above, but pack keys into a tuple and positional and
     # keyword arguments into a single tuple object (to be passed raw)
-    state = space.fromcache(State)
-
     if __args__.keyword_names_w is not None and len(__args__.keyword_names_w) > 0:
-        py_args = tuple_from_args_w(space, __args__.arguments_w + __args__.keywords_w)
+        unpacked_w = __args__.unpacked_args()
+        py_args = rffi.cast(PyTupleObject, tuple_from_args_w(space, unpacked_w + __args__.keywords_w))
         w_kwnames = space.newtuple(__args__.keyword_names_w)
-    else:
-        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        nargs = len(unpacked_w)
+    elif __args__.w_stararg_fast is not None:
+        py_args = rffi.cast(PyTupleObject, make_ref(space, __args__.w_stararg_fast))
         w_kwnames = None
+        nargs = space.len_w(__args__.w_stararg_fast)
+    else:
+        unpacked_w = __args__.unpacked_args()
+        py_args = rffi.cast(PyTupleObject, tuple_from_args_w(space, unpacked_w))
+        w_kwnames = None
+        nargs = len(unpacked_w)
 
-    py_args = rffi.cast(PyTupleObject, py_args)
-    return py_args, len(__args__.arguments_w), w_kwnames
+    return py_args, nargs, w_kwnames
 
 class W_PyCFunctionObject(W_Root):
     _immutable_fields_ = ["flags", "ml"]
@@ -124,7 +129,10 @@ class W_PyCFunctionObject(W_Root):
 
     def call(self, space, w_self, __args__):
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
-        length = len(__args__.arguments_w)
+        if __args__.w_stararg_fast is not None:
+            length = space.len_w(__args__.w_stararg_fast)
+        else:
+            length = len(__args__.arguments_w)
         if not flags & METH_KEYWORDS and __args__.keyword_names_w:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
@@ -158,13 +166,16 @@ class W_PyCFunctionObject(W_Root):
 
     def call_o(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
-        w_o = __args__.arguments_w[0]
+        unpacked_w = __args__.unpacked_args()
+        w_o = unpacked_w[0]
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):
-        state = space.fromcache(State)
         func = self.ml.c_ml_meth
-        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        if __args__.w_stararg_fast is not None:
+            py_args = as_pyobj(space, __args__.w_stararg_fast)
+            return generic_cpy_call(space, func, w_self, py_args)
+        py_args = tuple_from_args_w(space, __args__.unpacked_args())
         try:
             return generic_cpy_call(space, func, w_self, py_args)
         finally:
@@ -181,8 +192,11 @@ class W_PyCFunctionObject(W_Root):
 
     def call_keywords(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
-        py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
+        if __args__.w_stararg_fast is not None:
+            py_args = as_pyobj(space, __args__.w_stararg_fast)
+            return generic_cpy_call(space, func, w_self, py_args, w_kwargs)
+        py_args = tuple_from_args_w(space, __args__.unpacked_args())
         try:
             return generic_cpy_call(space, func, w_self, py_args, w_kwargs)
         finally:
@@ -278,13 +292,14 @@ class W_PyCMethodObject(W_PyCFunctionObject):
             self.name, w_objclass.name))
 
     def descr_call(self, space, __args__):
-        if len(__args__.arguments_w) == 0:
+        unpacked_w = __args__.unpacked_args()
+        if len(unpacked_w) == 0:
             w_objclass = self.w_objclass
             assert isinstance(w_objclass, W_TypeObject)
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' of '%s' object needs an argument",
                 self.name, self.w_objclass.getname(space))
-        w_instance = __args__.arguments_w[0]
+        w_instance = unpacked_w[0]
         # XXX: needs a stricter test
         if not space.isinstance_w(w_instance, self.w_objclass):
             w_objclass = self.w_objclass
@@ -294,7 +309,7 @@ class W_PyCMethodObject(W_PyCFunctionObject):
                 self.name, w_objclass.name, w_instance)
         #
         # CCC: we can surely do better than this
-        __args__ = __args__.replace_arguments(__args__.arguments_w[1:])
+        __args__ = __args__.replace_arguments(unpacked_w[1:])
         return self.call(space, w_instance, __args__)
 
     def descr_reduce(self, space):
@@ -329,13 +344,14 @@ class W_PyCClassMethodObject(W_PyCFunctionObject):
         return self.space.unwrap(self.descr_method_repr())
 
     def descr_call(self, space, __args__):
-        if len(__args__.arguments_w) == 0:
+        unpacked_w = __args__.unpacked_args()
+        if len(unpacked_w) == 0:
             raise oefmt(space.w_TypeError,
                 "descriptor '%8' of '%s' object needs an argument",
                 self.name, self.w_objclass.getname(space))
-        w_instance = __args__.arguments_w[0] # XXX typecheck missing
+        w_instance = unpacked_w[0] # XXX typecheck missing
         # CCC: we can surely do better than this
-        __args__ = __args__.replace_arguments(__args__.arguments_w[1:])
+        __args__ = __args__.replace_arguments(unpacked_w[1:])
         return self.call(space, w_instance, __args__)
 
     def descr_method_repr(self):
@@ -369,7 +385,8 @@ class W_PyCWrapperObject(W_Root):
         return self.func
 
     def check_args(self, __args__, arity):
-        length = len(__args__.arguments_w)
+        unpacked_w = __args__.unpacked_args()
+        length = len(unpacked_w)
         if length != arity:
             raise oefmt(self.space.w_TypeError, "expected %d arguments, got %d",
                         arity, length)
@@ -377,9 +394,11 @@ class W_PyCWrapperObject(W_Root):
             raise oefmt(self.space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
+        return unpacked_w
 
     def check_argsv(self, __args__, min, max):
-        length = len(__args__.arguments_w)
+        unpacked_w = __args__.unpacked_args()
+        length = len(unpacked_w)
         if not min <= length <= max:
             raise oefmt(self.space.w_TypeError, "expected %d-%d arguments, got %d",
                         min, max, length)
@@ -387,6 +406,7 @@ class W_PyCWrapperObject(W_Root):
             raise oefmt(self.space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.method_name)
+        return unpacked_w
 
     def descr_method_repr(self):
         return self.space.newtext("<slot wrapper '%s' of '%s' objects>" %

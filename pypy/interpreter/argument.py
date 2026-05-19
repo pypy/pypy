@@ -44,6 +44,7 @@ class Arguments(object):
             make_sure_not_resized(self.keywords_w)
 
         make_sure_not_resized(self.arguments_w)
+        self.w_stararg_fast = None
         self._combine_wrapped(w_stararg, w_starstararg, w_function)
         # a flag that specifies whether the JIT can unroll loops that operate
         # on the keywords
@@ -55,13 +56,19 @@ class Arguments(object):
     @not_rpython
     def __repr__(self):
         name = self.__class__.__name__
+        unpacked = self.unpacked_args()
         if not self.keyword_names_w:
-            return '%s(%s)' % (name, self.arguments_w,)
+            return '%s(%s)' % (name, unpacked,)
         else:
-            return '%s(%s, %s, %s)' % (name, self.arguments_w,
+            return '%s(%s, %s, %s)' % (name, unpacked,
                                        [self.space.text_w(w_name) for w_name in self.keyword_names_w],
                                        self.keywords_w)
 
+    def unpacked_args(self):
+        if self.w_stararg_fast:
+            return self.space.fixedview(self.w_stararg_fast)
+        else:
+            return self.arguments_w
 
     ###  Manipulation  ###
 
@@ -72,7 +79,8 @@ class Arguments(object):
         if self.keyword_names_w:
             for i in range(len(self.keyword_names_w)):
                 kwds_w[self.space.text_w(self.keyword_names_w[i])] = self.keywords_w[i]
-        return self.arguments_w, kwds_w
+        
+        return self.unpacked_args(), kwds_w
 
     def replace_arguments(self, args_w):
         "Return a new Arguments with a args_w as positional arguments."
@@ -80,7 +88,7 @@ class Arguments(object):
 
     def prepend(self, w_firstarg):
         "Return a new Arguments with a new argument inserted first."
-        return self.replace_arguments([w_firstarg] + self.arguments_w)
+        return self.replace_arguments([w_firstarg] + self.unpacked_args())
 
     def _combine_wrapped(self, w_stararg, w_starstararg, w_function=None):
         "unpack the *arg and **kwd into arguments_w and keywords_w"
@@ -92,6 +100,9 @@ class Arguments(object):
     def _combine_starargs_wrapped(self, w_stararg, w_function=None):
         # unpack the * arguments
         space = self.space
+        if not self.arguments_w and space.isinstance_w(w_stararg, space.w_tuple):
+            self.w_stararg_fast = w_stararg
+            return
         try:
             args_w = space.fixedview(w_stararg)
         except OperationError as e:
@@ -150,21 +161,11 @@ class Arguments(object):
             self.keywords_w = self.keywords_w + keywords_w
 
 
-    def fixedunpack(self, argcount):
-        """The simplest argument parsing: get the 'argcount' arguments,
-        or raise a real ValueError if the length is wrong."""
-        if self.keyword_names_w:
-            raise ValueError("no keyword arguments expected")
-        if len(self.arguments_w) > argcount:
-            raise ValueError("too many arguments (%d expected)" % argcount)
-        elif len(self.arguments_w) < argcount:
-            raise ValueError("not enough arguments (%d expected)" % argcount)
-        return self.arguments_w
-
     def firstarg(self):
         "Return the first argument for inspection."
-        if self.arguments_w:
-            return self.arguments_w[0]
+        unpacked = self.unpacked_args()
+        if unpacked:
+            return unpacked[0]
         return None
 
     ###  Parsing for function calls  ###
@@ -190,7 +191,7 @@ class Arguments(object):
 
         # put the special w_firstarg into the scope, if it exists
         upfront = 0
-        args_w = self.arguments_w
+        args_w = self.unpacked_args()
         if w_firstarg is not None:
             if co_argcount > 0:
                 scope_w[0] = w_firstarg
@@ -231,7 +232,11 @@ class Arguments(object):
             else:
                 starargs_w = []
             loc = co_argcount + co_kwonlyargcount
-            scope_w[loc] = self.space.newtuple(starargs_w)
+            if (args_left == 0 and self.w_stararg_fast is not None
+                    and (co_argcount > 0 or w_firstarg is None)):
+                scope_w[loc] = self.w_stararg_fast
+            else:
+                scope_w[loc] = self.space.newtuple(starargs_w)
         elif avail > co_argcount:
             too_many_args = True
 
@@ -391,7 +396,10 @@ class Arguments(object):
     def topacked(self):
         """Express the Argument object as a pair of wrapped w_args, w_kwds."""
         space = self.space
-        w_args = space.newtuple(self.arguments_w)
+        if self.w_stararg_fast:
+            w_args = self.w_stararg_fast
+        else:
+            w_args = space.newtuple(self.arguments_w)
         w_kwds = space.newdict()
         if self.keyword_names_w is not None:
             for i in range(len(self.keyword_names_w)):

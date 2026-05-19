@@ -11,7 +11,7 @@ def transparent_class(name, BaseCls):
             self.w_controller = w_controller
 
         def descr_call_mismatch(self, space, name, reqcls, args):
-            args_w = args.arguments_w[:]
+            args_w = args.unpacked_args()[:]
             args_w[0] = space.newtext(name)
             args = args.replace_arguments(args_w)
             return space.call_args(self.w_controller, args)

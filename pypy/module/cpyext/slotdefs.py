@@ -60,7 +60,7 @@ class wrap_init(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         func = self.get_func_to_call()
         func_init = rffi.cast(initproc, func)
-        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        py_args = tuple_from_args_w(space, __args__.unpacked_args())
         w_kwargs = w_kwargs_from_args(space, __args__)
         try:
             res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
@@ -72,17 +72,17 @@ class wrap_init(W_PyCWrapperObject):
 
 class wrap_unaryfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_unary = rffi.cast(unaryfunc, func)
         return generic_cpy_call(space, func_unary, w_self)
 
 class wrap_binaryfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_binary = rffi.cast(binaryfunc, func)
-        w_x = __args__.arguments_w[0]
+        w_x = unpacked_w[0]
         return generic_cpy_call(space, func_binary, w_self, w_x)
 
 def _get_ob_type(space, w_obj):
@@ -92,29 +92,29 @@ def _get_ob_type(space, w_obj):
 
 class wrap_binaryfunc_l(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_binary = rffi.cast(binaryfunc, func)
-        w_value = __args__.arguments_w[0]
+        w_value = unpacked_w[0]
         return generic_cpy_call(space, func_binary, w_self, w_value)
 
 class wrap_binaryfunc_r(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_binary = rffi.cast(binaryfunc, func)
-        w_value = __args__.arguments_w[0]
+        w_value = unpacked_w[0]
         return generic_cpy_call(space, func_binary, w_value, w_self)
 
 class wrap_ternaryfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         # The third argument is optional
-        self.check_argsv(__args__, 1, 2)
+        unpacked_w = self.check_argsv(__args__, 1, 2)
         func = self.get_func_to_call()
         func_ternary = rffi.cast(ternaryfunc, func)
-        w_arg0 = __args__.arguments_w[0]
-        if len(__args__.arguments_w) == 2:
-            w_arg1 = __args__.arguments_w[1]
+        w_arg0 = unpacked_w[0]
+        if len(unpacked_w) == 2:
+            w_arg1 = unpacked_w[1]
         else:
             w_arg1 = space.w_None
         return generic_cpy_call(space, func_ternary, w_self, w_arg0, w_arg1)
@@ -122,19 +122,19 @@ class wrap_ternaryfunc(W_PyCWrapperObject):
 class wrap_ternaryfunc_r(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         # The third argument is optional
-        self.check_argsv(__args__, 1, 2)
+        unpacked_w = self.check_argsv(__args__, 1, 2)
         func = self.get_func_to_call()
         func_ternary = rffi.cast(ternaryfunc, func)
-        w_arg0 = __args__.arguments_w[0]
-        if len(__args__.arguments_w) == 2:
-            w_arg1 = __args__.arguments_w[1]
+        w_arg0 = unpacked_w[0]
+        if len(unpacked_w) == 2:
+            w_arg1 = unpacked_w[1]
         else:
             w_arg1 = space.w_None
         return generic_cpy_call(space, func_ternary, w_arg0, w_self, w_arg1)
 
 class wrap_inquirypred(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_inquiry = rffi.cast(inquiry, func)
         res = generic_cpy_call(space, func_inquiry, w_self)
@@ -145,10 +145,10 @@ class wrap_inquirypred(W_PyCWrapperObject):
 
 class wrap_getattr(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(getattrfunc, func)
-        w_name = __args__.arguments_w[0]
+        w_name = unpacked_w[0]
         name_ptr = rffi.str2charp(space.text_w(w_name))
         try:
             return generic_cpy_call(space, func_target, w_self, name_ptr)
@@ -157,19 +157,19 @@ class wrap_getattr(W_PyCWrapperObject):
 
 class wrap_getattro(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(getattrofunc, func)
-        w_name = __args__.arguments_w[0]
+        w_name = unpacked_w[0]
         return generic_cpy_call(space, func_target, w_self, w_name)
 
 class wrap_setattr(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
+        unpacked_w = self.check_args(__args__, 2)
         func = self.get_func_to_call()
         func_target = rffi.cast(setattrofunc, func)
-        w_name = __args__.arguments_w[0]
-        w_value = __args__.arguments_w[1]
+        w_name = unpacked_w[0]
+        w_value = unpacked_w[1]
         # XXX "Carlo Verre hack"?
         res = generic_cpy_call(space, func_target, w_self, w_name, w_value)
         if rffi.cast(lltype.Signed, res) == -1:
@@ -177,10 +177,10 @@ class wrap_setattr(W_PyCWrapperObject):
 
 class wrap_delattr(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(setattrofunc, func)
-        w_name = __args__.arguments_w[0]
+        w_name = unpacked_w[0]
         # XXX "Carlo Verre hack"?
         res = generic_cpy_call(space, func_target, w_self, w_name, None)
         if rffi.cast(lltype.Signed, res) == -1:
@@ -190,16 +190,17 @@ class wrap_descr_get(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         func = self.get_func_to_call()
         func_target = rffi.cast(descrgetfunc, func)
-        length = len(__args__.arguments_w)
+        unpacked_w = __args__.unpacked_args()
+        length = len(unpacked_w)
         if length == 1:
-            w_obj = __args__.arguments_w[0]
+            w_obj = unpacked_w[0]
             w_type = None
         elif length == 2:
-            w_obj = __args__.arguments_w[0]
-            w_type = __args__.arguments_w[1]
+            w_obj = unpacked_w[0]
+            w_type = unpacked_w[1]
         else:
             raise oefmt(space.w_TypeError,
-                        "expected 1 or 2 arguments, got %d", len(__args__.arguments_w))
+                        "expected 1 or 2 arguments, got %d", len(unpacked_w))
         if w_obj is space.w_None:
             w_obj = None
         if w_type is space.w_None:
@@ -210,21 +211,21 @@ class wrap_descr_get(W_PyCWrapperObject):
 
 class wrap_descr_set(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
+        unpacked_w = self.check_args(__args__, 2)
         func = self.get_func_to_call()
         func_target = rffi.cast(descrsetfunc, func)
-        w_obj = __args__.arguments_w[0]
-        w_value = __args__.arguments_w[1]
+        w_obj = unpacked_w[0]
+        w_value = unpacked_w[1]
         res = generic_cpy_call(space, func_target, w_self, w_obj, w_value)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
 class wrap_descr_delete(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(descrsetfunc, func)
-        w_obj = __args__.arguments_w[0]
+        w_obj = unpacked_w[0]
         res = generic_cpy_call(space, func_target, w_self, w_obj, None)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
@@ -233,7 +234,7 @@ class wrap_call(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         func = self.get_func_to_call()
         func_target = rffi.cast(ternaryfunc, func)
-        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        py_args = tuple_from_args_w(space, __args__.unpacked_args())
         w_kwargs = w_kwargs_from_args(space, __args__)
         try:
             ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
@@ -243,19 +244,19 @@ class wrap_call(W_PyCWrapperObject):
 
 class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 3)
+        unpacked_w = self.check_args(__args__, 3)
         func = self.get_func_to_call()
         func_target = rffi.cast(ssizessizeobjargproc, func)
-        i = space.int_w(space.index(__args__.arguments_w[0]))
-        j = space.int_w(space.index(__args__.arguments_w[1]))
-        w_y = __args__.arguments_w[2]
+        i = space.int_w(space.index(unpacked_w[0]))
+        j = space.int_w(space.index(unpacked_w[1]))
+        w_y = unpacked_w[2]
         res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
 class wrap_lenfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_len = rffi.cast(lenfunc, func)
         res = generic_cpy_call(space, func_len, w_self)
@@ -265,20 +266,20 @@ class wrap_lenfunc(W_PyCWrapperObject):
 
 class wrap_ssizeargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(ssizeargfunc, func)
-        w_index = __args__.arguments_w[0]
+        w_index = unpacked_w[0]
         index = space.int_w(space.index(w_index))
         return generic_cpy_call(space, func_target, w_self, index)
 
 class wrap_sq_setitem(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
+        unpacked_w = self.check_args(__args__, 2)
         func = self.get_func_to_call()
         func_target = rffi.cast(ssizeobjargproc, func)
-        w_index = __args__.arguments_w[0]
-        w_value = __args__.arguments_w[1]
+        w_index = unpacked_w[0]
+        w_value = unpacked_w[1]
         index = space.int_w(space.index(w_index))
         res = generic_cpy_call(space, func_target, w_self, index, w_value)
         if rffi.cast(lltype.Signed, res) == -1:
@@ -286,10 +287,10 @@ class wrap_sq_setitem(W_PyCWrapperObject):
 
 class wrap_sq_delitem(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(ssizeobjargproc, func)
-        w_index = __args__.arguments_w[0]
+        w_index = unpacked_w[0]
         index = space.int_w(space.index(w_index))
         null = rffi.cast(PyObject, 0)
         res = generic_cpy_call(space, func_target, w_self, index, null)
@@ -299,10 +300,10 @@ class wrap_sq_delitem(W_PyCWrapperObject):
 # Warning, confusing function name (like CPython).  Used only for sq_contains.
 class wrap_objobjproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(objobjproc, func)
-        w_value = __args__.arguments_w[0]
+        w_value = unpacked_w[0]
         res = generic_cpy_call(space, func_target, w_self, w_value)
         res = rffi.cast(lltype.Signed, res)
         if res == -1:
@@ -311,11 +312,11 @@ class wrap_objobjproc(W_PyCWrapperObject):
 
 class wrap_objobjargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
+        unpacked_w = self.check_args(__args__, 2)
         func = self.get_func_to_call()
         func_target = rffi.cast(objobjargproc, func)
-        w_key = __args__.arguments_w[0]
-        w_value = __args__.arguments_w[1]
+        w_key = unpacked_w[0]
+        w_value = unpacked_w[1]
         res = generic_cpy_call(space, func_target, w_self, w_key, w_value)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
@@ -323,10 +324,10 @@ class wrap_objobjargproc(W_PyCWrapperObject):
 
 class wrap_delitem(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(objobjargproc, func)
-        w_key = __args__.arguments_w[0]
+        w_key = unpacked_w[0]
         null = rffi.cast(PyObject, 0)
         res = generic_cpy_call(space, func_target, w_self, w_key, null)
         if rffi.cast(lltype.Signed, res) == -1:
@@ -335,17 +336,17 @@ class wrap_delitem(W_PyCWrapperObject):
 
 class wrap_ssizessizeargfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
+        unpacked_w = self.check_args(__args__, 2)
         func = self.get_func_to_call()
         func_target = rffi.cast(ssizessizeargfunc, func)
-        start = space.int_w(__args__.arguments_w[0])
-        end = space.int_w(__args__.arguments_w[1])
+        start = space.int_w(unpacked_w[0])
+        end = space.int_w(unpacked_w[1])
         return generic_cpy_call(space, func_target, w_self, start, end)
 
 class wrap_next(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         from pypy.module.cpyext.api import generic_cpy_call_expect_null
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_target = rffi.cast(iternextfunc, func)
         w_res = generic_cpy_call_expect_null(space, func_target, w_self)
@@ -355,7 +356,7 @@ class wrap_next(W_PyCWrapperObject):
 
 class wrap_hashfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_target = rffi.cast(hashfunc, func)
         res = generic_cpy_call(space, func_target, w_self)
@@ -372,10 +373,11 @@ class wrap_getbuffer(W_PyCWrapperObject):
         rbp = rffi.cast(releasebufferproc, 0)
         if py_type.c_tp_as_buffer:
             rbp = py_type.c_tp_as_buffer.c_bf_releasebuffer
+        unpacked_w = __args__.unpacked_args()
         with lltype.scoped_alloc(Py_buffer) as pybuf:
             _flags = 0
-            if len(__args__.arguments_w) > 0:
-                _flags = space.int_w(__args__.arguments_w[0])
+            if len(unpacked_w) > 0:
+                _flags = space.int_w(unpacked_w[0])
             flags = rffi.cast(rffi.INT_real,_flags)
             size = generic_cpy_call(space, func_target, w_self, pybuf, flags)
             if widen(size) < 0:
@@ -409,10 +411,10 @@ class wrap_getbuffer(W_PyCWrapperObject):
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
-            self.check_args(__args__, 1)
+            unpacked_w = self.check_args(__args__, 1)
             func = self.get_func_to_call()
             func_target = rffi.cast(richcmpfunc, func)
-            w_other = __args__.arguments_w[0]
+            w_other = unpacked_w[0]
             return generic_cpy_call(space, func_target,
                 w_self, w_other, rffi.cast(rffi.INT_real, OP_CONST))
     return wrap_richcmp
@@ -426,10 +428,10 @@ richcmp_ge = get_richcmp_func(Py_GE)
 
 class wrap_cmpfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        self.check_args(__args__, 1)
+        unpacked_w = self.check_args(__args__, 1)
         func = self.get_func_to_call()
         func_target = rffi.cast(cmpfunc, func)
-        w_other = __args__.arguments_w[0]
+        w_other = unpacked_w[0]
 
         if not space.issubtype_w(space.type(w_self), space.type(w_other)):
             raise oefmt(space.w_TypeError,
@@ -441,7 +443,7 @@ class wrap_cmpfunc(W_PyCWrapperObject):
 class wrap_del(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         from pypy.module.cpyext.api import generic_cpy_call_expect_null
-        self.check_args(__args__, 0)
+        unpacked_w = self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_target = rffi.cast(destructor, func)
         generic_cpy_call(space, func_target, w_self)
