@@ -11,7 +11,7 @@ class AppTestMarshal:
     def w_marshal_check(self, case):
         import marshal, StringIO
         s = marshal.dumps(case)
-        print(repr(s))
+        # print(repr(s))
         x = marshal.loads(s)
         assert x == case and type(x) is type(case)
 
