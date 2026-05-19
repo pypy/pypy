@@ -42,7 +42,9 @@ jobs:
         include:
           - runner: ubuntu-24.04
             container: ghcr.io/pypy/buildworker_x86_64:latest
+            cherrypick: annotator:config:flowspace:tool:rtyper
           - runner: windows-latest
+            cherrypick: annotator:config:flowspace:tool
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -53,47 +55,27 @@ jobs:
     - name: Install test dependencies
       if: ${{ !matrix.container }}
       run: pypy -m pip install hypothesis==4.39.3
-    - name: Test Annotator
-      run: pypy pytest.py rpython/annotator
-    - name: Test Config
-      run: pypy pytest.py rpython/config
-    - name: Test Flowspace
-      run: pypy pytest.py rpython/flowspace
-    - name: Test Tool
-      run: pypy pytest.py rpython/tool
-    - name: Test RTyper
-      if: ${{ matrix.container }}
-      run: pypy pytest.py rpython/rtyper
-
-  # FIXME: jit tests hang for 6 hours under pypy + linux
-  # Possibly enable cpython + linux tests as a half-way house?
-  # test-jit-x86:
-  #   runs-on: ${{ matrix.runner }}
-  #   container: ${{ matrix.container }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - runner: ubuntu-24.04
-  #           container: ghcr.io/pypy/buildworker_x86_64:latest
-  #   steps:
-  #   - uses: actions/checkout@v6
-  #   - name: Test Jit - X86
-  #     run: pypy pytest.py -v rpython/jit/backend/x86
-
-  # test-jit-other:
-  #   runs-on: ${{ matrix.runner }}
-  #   container: ${{ matrix.container }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       include:
-  #         - runner: ubuntu-24.04
-  #           container: ghcr.io/pypy/buildworker_x86_64:latest
-  #   steps:
-  #   - uses: actions/checkout@v6
-  #   - name: Test Jit - Other
-  #     run: pypy pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
+    - name: Test Misc
+      env:
+        PYPYCHERRYPICK: ${{ matrix.cherrypick }}
+        PYTHONPATH: .
+      shell: bash
+      run: |
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=machine_cfg.py \
+          --root=rpython \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Upload test log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: misc-testrun-log-${{ matrix.runner }}
+        path: testrun.log
 
   test-memory:
     runs-on: ubuntu-24.04
@@ -101,8 +83,27 @@ jobs:
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
     - name: Test Memory
-      run: pypy pytest.py rpython/memory
+      env:
+        PYPYCHERRYPICK: memory
+        PYTHONPATH: .
+      shell: bash
+      run: |
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=machine_cfg.py \
+          --root=rpython \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Upload test log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: memory-testrun-log
+        path: testrun.log
 
   test-rlib:
     runs-on: ${{ matrix.runner }}
@@ -124,12 +125,15 @@ jobs:
     - name: Install test dependencies
       if: ${{ !matrix.container }}
       run: pypy -m pip install hypothesis==4.39.3
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
     - name: Test RLib
       env:
         PYPYCHERRYPICK: rlib
+        PYTHONPATH: .
       shell: bash
       run: |
-        echo "parallel_runs=4" > machine_cfg.py
         pypy testrunner/runner.py \
           --config=pypy/testrunner_cfg.py \
           --config=machine_cfg.py \
@@ -138,7 +142,7 @@ jobs:
           --logfile=testrun.log
     - name: Upload test log
       if: ${{ always() }}
-      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: rlib-testrun-log-${{ matrix.runner }}
         path: testrun.log
@@ -149,11 +153,80 @@ jobs:
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
     - name: Test Translator
+      env:
+        PYPYCHERRYPICK: translator
+        PYTHONPATH: .
+      shell: bash
       run: |
-        # we don't need to run test_typed.py, because test_backendoptimized.py
-        # runs the same tests, just with more optimizations
-        pypy pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
-        # only run the tests for the incminimark GC, the one that we always use
-        # in practice
-        pypy pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=machine_cfg.py \
+          --root=rpython \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Upload test log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: translator-testrun-log
+        path: testrun.log
+
+  test-jit-x86:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/pypy/buildworker_x86_64:latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
+    - name: Test JIT - X86
+      env:
+        PYPYCHERRYPICK: jit/backend/x86
+        PYTHONPATH: .
+      shell: bash
+      run: |
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=machine_cfg.py \
+          --root=rpython \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Upload test log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: jit-x86-testrun-log
+        path: testrun.log
+
+  test-jit-other:
+    runs-on: ubuntu-24.04
+    container: ghcr.io/pypy/buildworker_x86_64:latest
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
+    - name: Test JIT - Other
+      env:
+        PYPYCHERRYPICK: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
+        PYTHONPATH: .
+      shell: bash
+      run: |
+        pypy testrunner/runner.py \
+          --config=pypy/testrunner_cfg.py \
+          --config=machine_cfg.py \
+          --root=rpython \
+          --timeout=4000 \
+          --logfile=testrun.log
+    - name: Upload test log
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: jit-other-testrun-log
+        path: testrun.log
