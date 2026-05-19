@@ -91,7 +91,7 @@ class AppTestMethod(py.test.collect.Function):
 
 class AppClassInstance(py.test.collect.Instance):
     def _makeitem(self, name, obj):
-        if callable(obj) and name.startswith('test_'):
+        if callable(obj) and self.funcnamefilter(name):
             return AppTestMethod(name, parent=self)
         return super(AppClassInstance, self)._makeitem(name, obj)
 
