@@ -556,8 +556,11 @@ class FunctionCodeGenerator(object):
         ptr = self.expr(op.args[0])
         index = self.expr(op.args[1])
         arraydef = self.db.gettypedefnode(ARRAY)
-        return '%s = &%s;' % (self.expr(op.result),
-                              arraydef.itemindex_access_expr(ptr, index))
+        item_expr = arraydef.itemindex_access_expr(ptr, index)
+        if isinstance(ARRAY.OF, FixedSizeArray):
+            return '%s = %s;' % (self.expr(op.result), item_expr)
+        else:
+            return '%s = &%s;' % (self.expr(op.result), item_expr)
 
     def interior_expr(self, args, rettype=False):
         TYPE = args[0].concretetype.TO
