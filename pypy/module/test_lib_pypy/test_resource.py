@@ -8,7 +8,7 @@ if os.name != 'posix':
 try:
     from lib_pypy import resource
 except ImportError as e:
-    skip(str(e))
+    skip(str(e), allow_module_level=True)
 
 
 def test_getrusage():
