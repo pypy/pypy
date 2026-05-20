@@ -33,375 +33,108 @@ permissions:
   contents: read
 
 jobs:
-  test-misc:
-    name: test-misc (${{ matrix.name }})
+  test:
+    name: ${{ matrix.suite }} (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
+        suite: [misc, rlib, translator, jit-arch, jit-other]
+        platform: [linux64, linux32, arm64, macos-x86_64, macos-arm64, win64]
         include:
-          - name: linux64
+          - platform: linux64
             runner: ubuntu-24.04
             container: ghcr.io/pypy/buildworker_x86_64:latest
-            cherrypick: annotator:config:flowspace:tool:rtyper:memory
-          - name: linux32
+            arch: x86
+          - platform: linux32
             runner: ubuntu-24.04
-            docker_image: ghcr.io/pypy/buildworker_i686:latest
-            cherrypick: annotator:config:flowspace:tool:rtyper:memory
-          - name: arm64
+            container: ghcr.io/pypy/buildworker_i686:latest
+            arch: x86
+          - platform: arm64
             runner: ubuntu-24.04-arm
             container: ghcr.io/pypy/buildworker_aarch64:latest
-            cherrypick: annotator:config:flowspace:tool:rtyper:memory
-          - name: macos-x86_64
+            arch: arm64
+          - platform: macos-x86_64
             runner: macos-13
-            cherrypick: annotator:config:flowspace:tool:rtyper:memory
-          - name: macos-arm64
+            arch: x86
+          - platform: macos-arm64
             runner: macos-latest
-            cherrypick: annotator:config:flowspace:tool:rtyper:memory
-          - name: win64
+            arch: arm64
+          - platform: win64
             runner: windows-latest
-            cherrypick: annotator:config:flowspace:tool:memory
+            arch: win64
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container && !matrix.docker_image }}
+      if: ${{ !matrix.container }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container && !matrix.docker_image }}
+      if: ${{ !matrix.container }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
       run: echo "parallel_runs=4" > machine_cfg.py
-    - name: Test Misc
+    - name: Run tests
       env:
-        PYPYCHERRYPICK: ${{ matrix.cherrypick }}
+        SUITE: ${{ matrix.suite }}
+        ARCH: ${{ matrix.arch }}
+        CONTAINER: ${{ matrix.container }}
         PYTHONPATH: .
-        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        if [ -n "$DOCKER_IMAGE" ]; then
+        set -o pipefail
+        case "$SUITE" in
+          rlib)
+            PYPYCHERRYPICK="rlib" ;;
+          translator)
+            PYPYCHERRYPICK="translator" ;;
+          misc)
+            case "$ARCH" in
+              win64) PYPYCHERRYPICK="annotator:config:flowspace:tool:memory" ;;
+              *)     PYPYCHERRYPICK="annotator:config:flowspace:tool:rtyper:memory" ;;
+            esac ;;
+          jit-arch)
+            case "$ARCH" in
+              arm64) PYPYCHERRYPICK="jit/backend/aarch64" ;;
+              *)     PYPYCHERRYPICK="jit/backend/x86" ;;
+            esac ;;
+          jit-other)
+            case "$ARCH" in
+              arm64) PYPYCHERRYPICK="jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/x86:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch" ;;
+              *)     PYPYCHERRYPICK="jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch" ;;
+            esac ;;
+        esac
+        export PYPYCHERRYPICK
+        if [ -n "$CONTAINER" ]; then
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             -e PYPYCHERRYPICK \
             -e PYTHONPATH \
-            "$DOCKER_IMAGE" \
+            "$CONTAINER" \
             pypy testrunner/runner.py \
               --config=pypy/testrunner_cfg.py \
               --config=machine_cfg.py \
               --root=rpython \
               --timeout=4000 \
-              --logfile=testrun.log
+              --logfile=testrun.log \
+            2>&1 | tee testrun-output.log
         else
           pypy testrunner/runner.py \
             --config=pypy/testrunner_cfg.py \
             --config=machine_cfg.py \
             --root=rpython \
             --timeout=4000 \
-            --logfile=testrun.log
+            --logfile=testrun.log \
+          2>&1 | tee testrun-output.log
         fi
-    - name: Upload test log
+    - name: Upload test logs
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: misc-testrun-log-${{ matrix.name }}
-        path: testrun.log
-
-  test-rlib:
-    name: test-rlib (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux64
-            runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_x86_64:latest
-          - name: linux32
-            runner: ubuntu-24.04
-            docker_image: ghcr.io/pypy/buildworker_i686:latest
-          - name: arm64
-            runner: ubuntu-24.04-arm
-            container: ghcr.io/pypy/buildworker_aarch64:latest
-          - name: macos-x86_64
-            runner: macos-13
-          - name: macos-arm64
-            runner: macos-latest
-          - name: win64
-            runner: windows-latest
-
-    steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      with:
-        python-version: "pypy2.7-7.3.22"
-    - name: Install test dependencies
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      run: pypy -m pip install hypothesis==4.39.3
-    - name: Create machine config
-      shell: bash
-      run: echo "parallel_runs=4" > machine_cfg.py
-    - name: Test RLib
-      env:
-        PYPYCHERRYPICK: rlib
-        PYTHONPATH: .
-        DOCKER_IMAGE: ${{ matrix.docker_image }}
-      shell: bash
-      run: |
-        if [ -n "$DOCKER_IMAGE" ]; then
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            -e PYPYCHERRYPICK \
-            -e PYTHONPATH \
-            "$DOCKER_IMAGE" \
-            pypy testrunner/runner.py \
-              --config=pypy/testrunner_cfg.py \
-              --config=machine_cfg.py \
-              --root=rpython \
-              --timeout=4000 \
-              --logfile=testrun.log
-        else
-          pypy testrunner/runner.py \
-            --config=pypy/testrunner_cfg.py \
-            --config=machine_cfg.py \
-            --root=rpython \
-            --timeout=4000 \
-            --logfile=testrun.log
-        fi
-    - name: Upload test log
-      if: ${{ always() }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: rlib-testrun-log-${{ matrix.name }}
-        path: testrun.log
-
-  test-translator:
-    name: test-translator (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux64
-            runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_x86_64:latest
-          - name: linux32
-            runner: ubuntu-24.04
-            docker_image: ghcr.io/pypy/buildworker_i686:latest
-          - name: arm64
-            runner: ubuntu-24.04-arm
-            container: ghcr.io/pypy/buildworker_aarch64:latest
-          - name: macos-x86_64
-            runner: macos-13
-          - name: macos-arm64
-            runner: macos-latest
-          - name: win64
-            runner: windows-latest
-
-    steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      with:
-        python-version: "pypy2.7-7.3.22"
-    - name: Install test dependencies
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      run: pypy -m pip install hypothesis==4.39.3
-    - name: Create machine config
-      shell: bash
-      run: echo "parallel_runs=4" > machine_cfg.py
-    - name: Test Translator
-      env:
-        PYPYCHERRYPICK: translator
-        PYTHONPATH: .
-        DOCKER_IMAGE: ${{ matrix.docker_image }}
-      shell: bash
-      run: |
-        if [ -n "$DOCKER_IMAGE" ]; then
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            -e PYPYCHERRYPICK \
-            -e PYTHONPATH \
-            "$DOCKER_IMAGE" \
-            pypy testrunner/runner.py \
-              --config=pypy/testrunner_cfg.py \
-              --config=machine_cfg.py \
-              --root=rpython \
-              --timeout=4000 \
-              --logfile=testrun.log
-        else
-          pypy testrunner/runner.py \
-            --config=pypy/testrunner_cfg.py \
-            --config=machine_cfg.py \
-            --root=rpython \
-            --timeout=4000 \
-            --logfile=testrun.log
-        fi
-    - name: Upload test log
-      if: ${{ always() }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: translator-testrun-log-${{ matrix.name }}
-        path: testrun.log
-
-  test-jit-arch:
-    name: test-jit-arch (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux64
-            runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_x86_64:latest
-            jit_arch: jit/backend/x86
-          - name: linux32
-            runner: ubuntu-24.04
-            docker_image: ghcr.io/pypy/buildworker_i686:latest
-            jit_arch: jit/backend/x86
-          - name: arm64
-            runner: ubuntu-24.04-arm
-            container: ghcr.io/pypy/buildworker_aarch64:latest
-            jit_arch: jit/backend/aarch64
-          - name: macos-x86_64
-            runner: macos-13
-            jit_arch: jit/backend/x86
-          - name: macos-arm64
-            runner: macos-latest
-            jit_arch: jit/backend/aarch64
-          - name: win64
-            runner: windows-latest
-            jit_arch: jit/backend/x86
-
-    steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      with:
-        python-version: "pypy2.7-7.3.22"
-    - name: Install test dependencies
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      run: pypy -m pip install hypothesis==4.39.3
-    - name: Create machine config
-      shell: bash
-      run: echo "parallel_runs=4" > machine_cfg.py
-    - name: Test JIT arch backend
-      env:
-        PYPYCHERRYPICK: ${{ matrix.jit_arch }}
-        PYTHONPATH: .
-        DOCKER_IMAGE: ${{ matrix.docker_image }}
-      shell: bash
-      run: |
-        if [ -n "$DOCKER_IMAGE" ]; then
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            -e PYPYCHERRYPICK \
-            -e PYTHONPATH \
-            "$DOCKER_IMAGE" \
-            pypy testrunner/runner.py \
-              --config=pypy/testrunner_cfg.py \
-              --config=machine_cfg.py \
-              --root=rpython \
-              --timeout=4000 \
-              --logfile=testrun.log
-        else
-          pypy testrunner/runner.py \
-            --config=pypy/testrunner_cfg.py \
-            --config=machine_cfg.py \
-            --root=rpython \
-            --timeout=4000 \
-            --logfile=testrun.log
-        fi
-    - name: Upload test log
-      if: ${{ always() }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: jit-arch-testrun-log-${{ matrix.name }}
-        path: testrun.log
-
-  test-jit-other:
-    name: test-jit-other (${{ matrix.name }})
-    runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux64
-            runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_x86_64:latest
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-          - name: linux32
-            runner: ubuntu-24.04
-            docker_image: ghcr.io/pypy/buildworker_i686:latest
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-          - name: arm64
-            runner: ubuntu-24.04-arm
-            container: ghcr.io/pypy/buildworker_aarch64:latest
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/x86:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-          - name: macos-x86_64
-            runner: macos-13
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-          - name: macos-arm64
-            runner: macos-latest
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/x86:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-          - name: win64
-            runner: windows-latest
-            jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
-
-    steps:
-    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      with:
-        python-version: "pypy2.7-7.3.22"
-    - name: Install test dependencies
-      if: ${{ !matrix.container && !matrix.docker_image }}
-      run: pypy -m pip install hypothesis==4.39.3
-    - name: Create machine config
-      shell: bash
-      run: echo "parallel_runs=4" > machine_cfg.py
-    - name: Test JIT other
-      env:
-        PYPYCHERRYPICK: ${{ matrix.jit_other }}
-        PYTHONPATH: .
-        DOCKER_IMAGE: ${{ matrix.docker_image }}
-      shell: bash
-      run: |
-        if [ -n "$DOCKER_IMAGE" ]; then
-          docker run --rm \
-            -v "$GITHUB_WORKSPACE:/workspace" \
-            -w /workspace \
-            -e PYPYCHERRYPICK \
-            -e PYTHONPATH \
-            "$DOCKER_IMAGE" \
-            pypy testrunner/runner.py \
-              --config=pypy/testrunner_cfg.py \
-              --config=machine_cfg.py \
-              --root=rpython \
-              --timeout=4000 \
-              --logfile=testrun.log
-        else
-          pypy testrunner/runner.py \
-            --config=pypy/testrunner_cfg.py \
-            --config=machine_cfg.py \
-            --root=rpython \
-            --timeout=4000 \
-            --logfile=testrun.log
-        fi
-    - name: Upload test log
-      if: ${{ always() }}
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-      with:
-        name: jit-other-testrun-log-${{ matrix.name }}
-        path: testrun.log
+        name: ${{ matrix.suite }}-testrun-log-${{ matrix.platform }}
+        path: |
+          testrun.log
+          testrun-output.log
