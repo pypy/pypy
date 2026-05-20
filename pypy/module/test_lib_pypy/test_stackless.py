@@ -235,7 +235,6 @@ class Test_Stackless:
             try:
                 stackless.schedule()
             except TaskletExit:
-                global TaskletExit
                 taskletexit = True
                 raise
             

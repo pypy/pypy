@@ -3,7 +3,7 @@ import sys
 
 import os
 if os.name != 'posix':
-    skip('resource.h only available on unix')
+    skip('resource.h only available on unix', allow_module_level=True)
 
 try:
     from lib_pypy import resource
