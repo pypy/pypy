@@ -1143,7 +1143,10 @@ class Testdir(object):
             print("couldn't print to %s because of encoding" % (fp,))
 
     def _getpytestargs(self):
-        return sys.executable, "-mpytest"
+        import os
+        _pytest_fullpath = os.path.abspath(pytest.__file__.rstrip("oc"))
+        _pytest_fullpath = _pytest_fullpath.replace("$py.class", ".py")
+        return sys.executable, _pytest_fullpath
 
     def runpython(self, script):
         """Run a python script using sys.executable as interpreter.
