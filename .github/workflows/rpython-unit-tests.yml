@@ -47,7 +47,7 @@ jobs:
             cherrypick: annotator:config:flowspace:tool:rtyper:memory
           - name: linux32
             runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_i686:latest
+            docker_image: ghcr.io/pypy/buildworker_i686:latest
             cherrypick: annotator:config:flowspace:tool:rtyper:memory
           - name: arm64
             runner: ubuntu-24.04-arm
@@ -66,11 +66,11 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
@@ -79,14 +79,30 @@ jobs:
       env:
         PYPYCHERRYPICK: ${{ matrix.cherrypick }}
         PYTHONPATH: .
+        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        pypy testrunner/runner.py \
-          --config=pypy/testrunner_cfg.py \
-          --config=machine_cfg.py \
-          --root=rpython \
-          --timeout=4000 \
-          --logfile=testrun.log
+        if [ -n "$DOCKER_IMAGE" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$DOCKER_IMAGE" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=4000 \
+              --logfile=testrun.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=4000 \
+            --logfile=testrun.log
+        fi
     - name: Upload test log
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -107,7 +123,7 @@ jobs:
             container: ghcr.io/pypy/buildworker_x86_64:latest
           - name: linux32
             runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_i686:latest
+            docker_image: ghcr.io/pypy/buildworker_i686:latest
           - name: arm64
             runner: ubuntu-24.04-arm
             container: ghcr.io/pypy/buildworker_aarch64:latest
@@ -121,11 +137,11 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
@@ -134,14 +150,30 @@ jobs:
       env:
         PYPYCHERRYPICK: rlib
         PYTHONPATH: .
+        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        pypy testrunner/runner.py \
-          --config=pypy/testrunner_cfg.py \
-          --config=machine_cfg.py \
-          --root=rpython \
-          --timeout=4000 \
-          --logfile=testrun.log
+        if [ -n "$DOCKER_IMAGE" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$DOCKER_IMAGE" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=4000 \
+              --logfile=testrun.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=4000 \
+            --logfile=testrun.log
+        fi
     - name: Upload test log
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -162,7 +194,7 @@ jobs:
             container: ghcr.io/pypy/buildworker_x86_64:latest
           - name: linux32
             runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_i686:latest
+            docker_image: ghcr.io/pypy/buildworker_i686:latest
           - name: arm64
             runner: ubuntu-24.04-arm
             container: ghcr.io/pypy/buildworker_aarch64:latest
@@ -176,11 +208,11 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
@@ -189,14 +221,30 @@ jobs:
       env:
         PYPYCHERRYPICK: translator
         PYTHONPATH: .
+        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        pypy testrunner/runner.py \
-          --config=pypy/testrunner_cfg.py \
-          --config=machine_cfg.py \
-          --root=rpython \
-          --timeout=4000 \
-          --logfile=testrun.log
+        if [ -n "$DOCKER_IMAGE" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$DOCKER_IMAGE" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=4000 \
+              --logfile=testrun.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=4000 \
+            --logfile=testrun.log
+        fi
     - name: Upload test log
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -218,7 +266,7 @@ jobs:
             jit_arch: jit/backend/x86
           - name: linux32
             runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_i686:latest
+            docker_image: ghcr.io/pypy/buildworker_i686:latest
             jit_arch: jit/backend/x86
           - name: arm64
             runner: ubuntu-24.04-arm
@@ -237,11 +285,11 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
@@ -250,14 +298,30 @@ jobs:
       env:
         PYPYCHERRYPICK: ${{ matrix.jit_arch }}
         PYTHONPATH: .
+        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        pypy testrunner/runner.py \
-          --config=pypy/testrunner_cfg.py \
-          --config=machine_cfg.py \
-          --root=rpython \
-          --timeout=4000 \
-          --logfile=testrun.log
+        if [ -n "$DOCKER_IMAGE" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$DOCKER_IMAGE" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=4000 \
+              --logfile=testrun.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=4000 \
+            --logfile=testrun.log
+        fi
     - name: Upload test log
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -279,7 +343,7 @@ jobs:
             jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
           - name: linux32
             runner: ubuntu-24.04
-            container: ghcr.io/pypy/buildworker_i686:latest
+            docker_image: ghcr.io/pypy/buildworker_i686:latest
             jit_other: jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch
           - name: arm64
             runner: ubuntu-24.04-arm
@@ -298,11 +362,11 @@ jobs:
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       with:
         python-version: "pypy2.7-7.3.22"
     - name: Install test dependencies
-      if: ${{ !matrix.container }}
+      if: ${{ !matrix.container && !matrix.docker_image }}
       run: pypy -m pip install hypothesis==4.39.3
     - name: Create machine config
       shell: bash
@@ -311,14 +375,30 @@ jobs:
       env:
         PYPYCHERRYPICK: ${{ matrix.jit_other }}
         PYTHONPATH: .
+        DOCKER_IMAGE: ${{ matrix.docker_image }}
       shell: bash
       run: |
-        pypy testrunner/runner.py \
-          --config=pypy/testrunner_cfg.py \
-          --config=machine_cfg.py \
-          --root=rpython \
-          --timeout=4000 \
-          --logfile=testrun.log
+        if [ -n "$DOCKER_IMAGE" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$DOCKER_IMAGE" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=4000 \
+              --logfile=testrun.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=4000 \
+            --logfile=testrun.log
+        fi
     - name: Upload test log
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
