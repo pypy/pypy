@@ -45,11 +45,6 @@ def get_marker(item, name):
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_preparse(config, args):
-    if not (set(args) & {'-D', '--direct-apptest'}):
-        args.append('--assert=reinterp')
-
 def pytest_configure(config):
     global option
     option = config.option
