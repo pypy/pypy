@@ -745,6 +745,16 @@ class Config(object):
         """
         ns, unknown_args = self._parser.parse_known_and_unknown_args(args)
         mode = ns.assertmode
+        # PyPy: rewrite breaks RPython translation (locals() introspection).
+        # Default to reinterp unless the user explicitly chose a mode or is
+        # running direct apptests (-D/--direct-apptest), which need rewrite.
+        assert_explicit = any(
+            a.startswith("--assert=") or a == "--assert" for a in args
+        )
+        if mode == "rewrite" and not assert_explicit and not (
+            set(args) & {"-D", "--direct-apptest"}
+        ):
+            mode = "reinterp"
         if mode == "rewrite":
             try:
                 hook = _pytest.assertion.install_importhook(self)
