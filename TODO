@@ -1,3 +1,8 @@
+* switch --resultlog to --junit-xml in testrunner/runner.py, lib_python_tests.py,
+  pypyjit_tests.py, and buildbot/bot2/pypybuildbot/builds.py; rewrite
+  should_report_failure() in runner.py to detect crashes by checking for a
+  valid XML testsuite rather than resultlog F/E/P lines; drop -p resultlog and
+  the RemovedInPytest4Warning filter from pytest.ini
 * find a better way to run "find" without creating the index storage,
   if one is not already readily available (understand cost now, improve after merge)
 * improve performance of splitlines
