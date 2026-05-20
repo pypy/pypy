@@ -288,6 +288,14 @@ class TestRx86_32(object):
             random.shuffle(lst)
             if methname == 'PSRAD_xi' and m == 'i':
                 lst = [x for x in lst if 0 <= x <= 31]
+            # newer gas rejects negative immediates for instructions where
+            # the immediate is a count, index, or predicate (non-negative semantics)
+            _nonneg_i8_insns = ('CMPPD', 'CMPPS', 'EXTRACTPS', 'INSERTPS',
+                                 'PEXTRB', 'PEXTRD', 'PEXTRQ', 'PEXTRW',
+                                 'PINSRB', 'PINSRD', 'PINSRQ', 'PINSRW', 'PSRLDQ')
+            instrname_prefix = methname.split('_')[0] if '_' in methname else methname
+            if instrname_prefix in _nonneg_i8_insns and m == 'i8':
+                lst = [x for x in lst if x >= 0]
             result = []
             for v in lst:
                 result += self.make_all_tests(methname, modes[1:], args+[v])
