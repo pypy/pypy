@@ -135,6 +135,8 @@ jobs:
           2>&1 | tee testrun-output.log
         fi
     - name: Compute revision
+      if: ${{ always() }}
+      shell: bash
       run: |
         count=$(git rev-list --count HEAD)
         sha=$(git rev-parse --short=12 HEAD)
