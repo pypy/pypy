@@ -4,7 +4,7 @@ from pypy.module.cpyext import api
 
 class Module(MixedModule):
     interpleveldefs = {
-        'is_cpyext_function': 'interp_cpyext.is_cpyext_function',
+        'is_cpyext_builtin_function': 'interp_cpyext.is_cpyext_builtin_function',
         'FunctionType': 'methodobject.W_PyCFunctionObject',
     }
 

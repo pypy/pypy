@@ -78,23 +78,28 @@ def test_revert_exc_info_2():
     assert sys.exc_info() == (None, None, None)
 
 def test_revert_exc_info_2_finally():
-    import sys
-    assert sys.exc_info() == (None, None, None)
-    try:
+    import sys, dis
+
+    def the_test():
+        assert sys.exc_info() == (None, None, None)
         try:
-            raise ValueError
-        finally:
             try:
+                raise ValueError
+            finally:
                 try:
-                    raise IndexError
-                finally:
-                    assert sys.exc_info()[0] is IndexError
-            except IndexError:
-                pass
-            assert sys.exc_info()[0] is ValueError
-    except ValueError:
-        pass
-    assert sys.exc_info() == (None, None, None)
+                    try:
+                        raise IndexError
+                    finally:
+                        assert sys.exc_info()[0] is IndexError
+                except IndexError:
+                    pass
+                assert sys.exc_info()[0] is ValueError
+        except ValueError:
+            pass
+        assert sys.exc_info() == (None, None, None)
+
+    dis.dis(the_test)
+    the_test()
 
 def test_reraise_1():
     with pytest.raises(IndexError):
@@ -196,21 +201,26 @@ def test_with_reraise_1():
         fn()
 
 def test_with_reraise_2():
+    import dis
     class Context:
         def __enter__(self):
             return self
         def __exit__(self, exc_type, exc_value, exc_tb):
             return True
 
-    def fn():
-        try:
-            raise ValueError("foo")
-        except:
-            with Context():
-                raise KeyError("caught")
-            raise
-    with pytest.raises(ValueError):
-        fn()
+    def the_test():
+        def fn():
+            try:
+                raise ValueError("foo")
+            except:
+                with Context():
+                    raise KeyError("caught")
+                raise
+        with pytest.raises(ValueError):
+            fn()
+
+    dis.dis(the_test)
+    the_test()
 
 def test_userclass():
     # new-style classes can't be raised unless they inherit from

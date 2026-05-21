@@ -2215,6 +2215,7 @@ class CoroutineTest(unittest.TestCase):
             pass
         with self.assertWarns(RuntimeWarning):
             frame = f().cr_frame
+            support.gc_collect()  # PyPy: GC triggers _finalize_ which emits the warning
         frame.clear()
 
     def test_bpo_45813_2(self):

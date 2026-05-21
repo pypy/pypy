@@ -874,8 +874,11 @@ def test_co_lines():
         start = entry[1]
         assert isinstance(entry[2], int) or entry[2] is None
     assert entry[1] == len(f.__code__.co_code)
+    # Filter out None line entries (synthetic cleanup blocks without
+    # source position info emit them -- matches CPython 3.11 behavior).
     res = [end - f.__code__.co_firstlineno
-                for start, stop, end in f.__code__.co_lines()]
+                for start, stop, end in f.__code__.co_lines()
+                if end is not None]
 
     assert res == [1, 2, 3, 2, 1, 4, 5, 6, 7, 6]
 
@@ -958,4 +961,20 @@ def test_argument_parse_errors_use_qualname():
         set.__init__()
     assert 'set' in str(info.value)
     assert '__init__' in str(info.value)
+
+
+def test_text_signature_unset_raises():
+    def a(): pass
+    raises(AttributeError, getattr, a, '__text_signature__')
+
+def test_text_signature_set_and_clear():
+    def a(): pass
+    a.__text_signature__ = '($self, /)'
+    assert a.__text_signature__ == '($self, /)'
+    a.__text_signature__ = None
+    assert a.__text_signature__ is None
+
+def test_function_type_text_signature():
+    assert type(lambda: None).__text_signature__ == \
+        '(code, globals, name=None, argdefs=None, closure=None)'
 

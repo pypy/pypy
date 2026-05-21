@@ -31,8 +31,8 @@ contribution to the python ecosystem. PyPy 4.0.1 ships with
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.3.1`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-3-1
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 
 What is PyPy?
@@ -96,7 +96,7 @@ Other Highlights (since 4.0.0 released three weeks ago)
 
   * Silence some warnings while translating
 
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-4.0.1.html
+.. _resolved: https://doc.pypy.org/whatsnew-4.0.1.html
 
 Please update, and continue to help us make PyPy better.
 

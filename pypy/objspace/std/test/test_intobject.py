@@ -85,12 +85,7 @@ class TestW_IntObject:
 
     def test_add_ovf_int_op_shortcut(self, monkeypatch):
         from pypy.objspace.std.longobject import W_LongObject, rbigint
-        @staticmethod
-        def fromint(space, x):
-            assert x == sys.maxint # only the maxint is converted, not the 1!
-            return W_LongObject(rbigint.fromint(x))
-
-        monkeypatch.setattr(W_LongObject, 'fromint', fromint)
+        monkeypatch.setattr(W_LongObject, 'fromint', None)
 
         space = self.space
         x = sys.maxint
@@ -141,6 +136,19 @@ class TestW_IntObject:
         v = f1.descr_sub(space, f2)
         assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(sys.maxint - -1))
+
+    def test_sub_ovf_int_op_shortcut(self, monkeypatch):
+        from pypy.objspace.std.longobject import W_LongObject, rbigint
+        monkeypatch.setattr(W_LongObject, 'fromint', None)
+
+        space = self.space
+        x = sys.maxint
+        y = -1
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        v = f1.descr_sub(space, f2)
+        assert space.isinstance_w(v, space.w_long)
+        assert space.bigint_w(v).eq(rbigint.fromlong(x - y))
 
     def test_mul(self):
         space = self.space
@@ -223,6 +231,21 @@ class TestW_IntObject:
         v = f1.descr_pow(space, f2, space.w_None)
         assert space.isinstance_w(v, space.w_int)
         assert space.bigint_w(v).eq(rbigint.fromlong(pow(10, 20)))
+
+    def test_pow_ovf_without_fromint(self, monkeypatch):
+        space = self.space
+        orig = rbigint.fromint
+        def fromint(x):
+            assert x == sys.maxint // 4 # it's not called for 16
+            return orig(x)
+        monkeypatch.setattr(rbigint, 'fromint', staticmethod(fromint))
+        x = sys.maxint // 4
+        y = 16
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        v = f1.descr_pow(space, f2)
+        assert space.bigint_w(v).eq(rbigint.fromlong(x ** y))
+
 
     try:
         from hypothesis import given, strategies, example
@@ -350,6 +373,16 @@ class TestW_IntObject:
         f2 = iobj.W_IntObject(y)
         v = f1.descr_lshift(space, f2)
         assert space.isinstance_w(v, space.w_int)
+        assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
+
+    def test_lshift_without_fromint(self, monkeypatch):
+        space = self.space
+        monkeypatch.setattr(rbigint, 'fromint', None)
+        x = sys.maxint // 4
+        y = 16
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        v = f1.descr_lshift(space, f2)
         assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
 
     def test_rshift(self):

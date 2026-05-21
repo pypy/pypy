@@ -631,6 +631,18 @@ class Test_rbigint(object):
                 result = f1.int_mul(y)
                 assert result.tolong() == x * y
 
+    def test_add_int_int_rbigint_result(self):
+        for x in signed_int_vals:
+            for y in signed_int_vals:
+                result = rbigint.add_int_int_bigint_result(x, y)
+                assert result.tolong() == x + y
+
+    def test_sub_int_int_rbigint_result(self):
+        for x in signed_int_vals:
+            for y in signed_int_vals:
+                result = rbigint.sub_int_int_bigint_result(x, y)
+                assert result.tolong() == x - y
+
     def test_mul_int_int_rbigint_result(self):
         for x in signed_int_vals:
             for y in signed_int_vals:
@@ -1981,9 +1993,27 @@ class TestHypothesis(object):
         assert lx.isqrt().tolong() == a
 
     @given(ints, ints)
+    def test_add_int_int_rbigint_result(self, a, b):
+        res = rbigint.add_int_int_bigint_result(a, b)
+        assert res.tolong() == a + b
+
+    @given(ints, ints)
+    def test_sub_int_int_rbigint_result(self, a, b):
+        res = rbigint.sub_int_int_bigint_result(a, b)
+        assert res.tolong() == a - b
+
+    @given(ints, ints)
     def test_mul_int_int_rbigint_result(self, a, b):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
+
+    @example(-sys.maxint-1, 5)
+    @example(-1, 10)
+    @example(1, 1071)
+    @given(ints, strategies.integers(0, 2000))
+    def test_lshift_int_int_rbigint_result(self, a, b):
+        res = rbigint.lshift_int_int_bigint_result(a, b)
+        assert res.tolong() == a << b
 
     @given(strategies.data())
     def test_format_lowest_level_divmod_int_results(self, data):

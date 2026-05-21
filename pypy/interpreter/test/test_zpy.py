@@ -4,6 +4,10 @@ import py
 import sys
 import pypy
 import subprocess
+import pytest
+
+if sys.platform == 'win32':
+    pytestmark = pytest.mark.skip(reason="too slow on windows")
 
 pypypath = py.path.local(pypy.__file__).dirpath("bin", "pyinteractive.py")
 

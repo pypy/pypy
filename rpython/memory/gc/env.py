@@ -416,7 +416,24 @@ def get_L2cache_darwin():
     on the machine we are running on.
     """
     debug_start("gc-hardware")
-    L2cache = get_darwin_sysctl_signed("hw.l2cachesize")
+    # On Apple Silicon, `hw.l2cachesize` returns the *efficiency* cluster's
+    # L2 (e.g. 4 MB on an M-series chip) rather than the performance
+    # cluster's (16 MB and up). Apple documents per-cluster topology under
+    # `hw.perflevelN.*` and states that "lower values of N indicate
+    # higher-performance core types" - so `hw.perflevel0.l2cachesize` is
+    # the L2 for the cluster the work actually runs against. See
+    # https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_system_capabilities#3901385
+    # On Intel Macs `hw.perflevel0.*` is absent (returns 0), so this falls
+    # back to the legacy `hw.l2cachesize`.
+    L2cache = get_darwin_sysctl_signed("hw.perflevel0.l2cachesize")
+    if L2cache <= 0:
+        L2cache = get_darwin_sysctl_signed("hw.l2cachesize")
+    # `hw.l3cachesize` reports L3 on Intel Macs. On observed Apple Silicon
+    # systems this sysctl is absent and returns 0; Apple also documents
+    # `hw.perflevel0.l3cachesize` but in practice it appears unpopulated on
+    # at least some M-series chips. We keep the existing behavior (sum L2
+    # and L3, treating an absent L3 as 0) which yields the correct Intel
+    # answer and a conservative-but-not-pathological Apple Silicon answer.
     L3cache = get_darwin_sysctl_signed("hw.l3cachesize")
     debug_print("L2cache =", L2cache)
     debug_print("L3cache =", L3cache)

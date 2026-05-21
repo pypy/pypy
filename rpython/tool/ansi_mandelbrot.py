@@ -17,8 +17,13 @@ Light Gray  0;37     White         1;37
 
 import os
 if os.environ.get('TERM', 'dumb').find('256') > 0:
-    from ansiramp import ansi_ramp80
-    palette = map(lambda x: "38;5;%d" % x, ansi_ramp80)
+    try:
+        from ansiramp import ansi_ramp80
+        palette = map(lambda x: "38;5;%d" % x, ansi_ramp80)
+    except ImportError:
+        import warnings
+        warnings.warn("ansiramp not installed; falling back to 8-color palette (pip install ansiramp for 256-color support)")
+        palette = [39, 34, 35, 36, 31, 33, 32, 37]
 else:
     palette = [39, 34, 35, 36, 31, 33, 32, 37]
 

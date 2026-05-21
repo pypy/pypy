@@ -57,11 +57,12 @@ class TestRlcompleter(unittest.TestCase):
                          ['str.{}('.format(x) for x in dir(str)
                           if x.startswith('s')])
         self.assertEqual(self.stdcompleter.attr_matches('tuple.foospamegg'), [])
-        # PyPy changes: CPython 3.10 has ( for everything exept __doc__
+        # PyPy: CPython 3.11 has ( for everything except __doc__; PyPy returns
+        # empty signatures for these builtins so rlcompleter appends ().
         expected = sorted({'None.%s%s' % (x,
                                           '()' if x in (
             '__bool__', '__class__', '__dir__', '__getstate__', '__hash__',
-            '__init_subclass__', '__reduce__', '__repr__', '__str__')
+            '__init_subclass__', '__new__', '__reduce__', '__repr__', '__str__')
                                           else '' if x == '__doc__'
                                           else '(')
                            for x in dir(None)})

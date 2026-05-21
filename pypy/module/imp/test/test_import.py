@@ -1023,16 +1023,16 @@ class TestPycStuff:
     def test_pyc_magic_changes2(self):
         from pypy.tool.lib_pypy import LIB_PYTHON
         from pypy.interpreter.pycode import default_magic
-        from hashlib import sha1
+        from hashlib import sha256
         opcode_path = LIB_PYTHON.join('opcode.py')
-        h = sha1()
+        h = sha256()
         # very simple test: hard-code the hash of lib-python/3/opcode.py and the
         # default magic. if you change stdlib_opcode, please update the hash
         # below, as well as incrementing the magic number in pycode.py
         with opcode_path.open("rb") as f:
             h.update(f.read())
-        assert h.hexdigest() == '74f2f0429909459939dac103871a4592f6953916'
-        assert default_magic == 0xa0d01a0
+        assert h.hexdigest() == '4082bd96b9aacf9672a2c5196a6a3b6caf5e9de0071fe4e43aa642b0860381a4'
+        assert default_magic == 0xa0d01b0
 
 
 

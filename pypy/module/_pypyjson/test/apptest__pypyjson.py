@@ -62,6 +62,20 @@ def test_encode_sort_keys_by_value():
     assert result == '{"false": 1, "2": 3.0, "4.0": 5, "6": true}', result
 
 
+def test_encode_int_subclass_uses_base_int_repr():
+    class Intish(int):
+        def __str__(self):
+            return 'not-json :-('
+
+        def __repr__(self):
+            return 'also not-json :-('
+
+    enc = _make_encoder()
+    val = Intish(7)
+    result = ''.join(enc({'val': val, val: 'key'}, 0))
+    assert result == '{"val": 7, "7": "key"}'
+
+
 def test_encode_mutated_list():
     # Mutations to a list during default() must be visible (lazy iteration,
     # matching CPython's enumerate() behaviour).

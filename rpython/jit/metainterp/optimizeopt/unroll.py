@@ -412,8 +412,11 @@ class OptUnroll(Optimization):
                 mapping[sop] = op
                 i += 1
                 self.optimizer.send_extra_operation(op)
-            # force all of them except the virtuals. this can also add more
-            # arguments from the preamble
+            # force all of them except the virtuals. this can also add
+            # more arguments from the preamble (via add_preamble_op).
+            # if short_jump_args grew and all new entries are already in
+            # mapping, repeat; if new entries are not yet in mapping the
+            # outer loop must process them first.
             while 1:
                 num_short_jump_args = len(short_jump_args)
                 for arg in (args_no_virtuals +
@@ -421,6 +424,14 @@ class OptUnroll(Optimization):
                     self.optimizer.force_box(get_box_replacement(arg))
                 if len(short_jump_args) == num_short_jump_args:
                     break
+                # new entries were added; only keep looping if all of them
+                # are already in mapping (outer loop fully processed short)
+                for arg in short_jump_args[num_short_jump_args:]:
+                    if not isinstance(arg, Const) and arg not in mapping:
+                        break
+                else:
+                    continue
+                break
             self.optimizer.flush()
             # done unless "short" has grown again
             if i == len(short) - 1:

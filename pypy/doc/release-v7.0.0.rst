@@ -24,7 +24,7 @@ performance, has been improved and it is now possible to manually manage the
 GC by using a combination of ``gc.disable`` and ``gc.collect_step``. See the
 `GC blog post`_.
 
-.. _`GC hooks`: https://doc.pypy.org/en/latest/gc_info.html#semi-manual-gc-management
+.. _`GC hooks`: https://doc.pypy.org/gc_info.html#semi-manual-gc-management
 
 We updated the `cffi`_ module included in PyPy to version 1.12, and the
 `cppyy`_ backend to 1.4. Please use these to wrap your C and C++ code,
@@ -149,4 +149,4 @@ We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new
 documentation, and cleaned up the codebase.
 
-.. _contributing: https://doc.pypy.org/en/latest/contributing.html
+.. _contributing: https://doc.pypy.org/contributing.html

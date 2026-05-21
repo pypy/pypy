@@ -308,7 +308,7 @@ class W_MMap(W_Root):
         elif self.mmap.access == rmmap.ACCESS_COPY:
             access_str = "ACCESS_COPY"
         else:
-            raise oefmt(space.w_RuntimeError, "invalid accesss mode in mmap")
+            raise oefmt(space.w_RuntimeError, "invalid access mode in mmap")
         return space.newtext(
             "<%s closed=False, access=%s, length=%d, pos=%d, offset=%d>" %(
             space.getfulltypename(self), access_str, self.mmap.size,

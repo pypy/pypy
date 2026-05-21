@@ -8,7 +8,7 @@ from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.tool.pairtype import extendabletype
 
 from pypy.interpreter import pycode, pytraceback
@@ -22,12 +22,13 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH POP_BLOCK YIELD_VALUE
+for op in '''DUP_TOP POP_TOP BEFORE_WITH
+BEFORE_ASYNC_WITH YIELD_VALUE
 NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST CALL_FUNCTION
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
-RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT
+POP_JUMP_FORWARD_IF_NONE POP_JUMP_FORWARD_IF_NOT_NONE
+RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT PUSH_EXC_INFO
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
@@ -83,7 +84,6 @@ class PyFrame(W_Root):
     pycode = None # code object executed by that frame
     locals_cells_stack_w = None # the list of all locals, cells and the valuestack
     valuestackdepth = 0 # number of items on valuestack
-    lastblock = None
 
     # other fields:
 
@@ -102,13 +102,12 @@ class PyFrame(W_Root):
         self.pycode = code
         if code.frame_stores_global(w_globals):
             self.getorcreatedebug().w_globals = w_globals
-        ncellvars = len(code.co_cellvars)
-        nfreevars = len(code.co_freevars)
-        size = code.co_nlocals + ncellvars + nfreevars + code.co_stacksize
+        stackstart = self._stack_start()
+        size = stackstart + code.co_stacksize
         # the layout of this list is as follows:
         # | local vars | cells | stack |
         self.locals_cells_stack_w = [None] * size
-        self.valuestackdepth = code.co_nlocals + ncellvars + nfreevars
+        self.valuestackdepth = stackstart
         make_sure_not_resized(self.locals_cells_stack_w)
         check_nonneg(self.valuestackdepth)
         #
@@ -183,35 +182,19 @@ class PyFrame(W_Root):
         """
         self.escaped = True
 
-    def append_block(self, block):
-        assert block.previous is self.lastblock
-        self.lastblock = block
-
-    def pop_block(self):
-        block = self.lastblock
-        self.lastblock = block.previous
-        return block
-
-    def blockstack_non_empty(self):
-        return self.lastblock is not None
-
-    def get_blocklist(self):
-        """Returns a list containing all the blocks in the frame"""
-        lst = []
-        block = self.lastblock
-        while block is not None:
-            lst.append(block)
-            block = block.previous
-        return lst
-
-    def set_blocklist(self, lst):
-        self.lastblock = None
-        i = len(lst) - 1
-        while i >= 0:
-            block = lst[i]
-            i -= 1
-            block.previous = self.lastblock
-            self.lastblock = block
+    def _restore_exc_info(self, w_prev):
+        """Restore sys.exc_info from w_prev (the value saved by PUSH_EXC_INFO)."""
+        space = self.space
+        if not self.hide():
+            space.getexecutioncontext().set_sys_exc_info3(w_prev)
+        else:
+            if space.is_none(w_prev):
+                self.getorcreatedebug().hidden_operationerr = None
+            else:
+                from pypy.module.exceptions.interp_exceptions import W_BaseException
+                w_val = space.interp_w(W_BaseException, w_prev)
+                operr = OperationError(space.type(w_prev), w_prev, w_val.w_traceback)
+                self.getorcreatedebug().hidden_operationerr = operr
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:
@@ -400,12 +383,12 @@ class PyFrame(W_Root):
             #import pdb; pdb.set_trace()
             assert 0
 
-    def _check_stack_index(self, index):
+    def _stack_start(self):
         code = self.pycode
-        ncellvars = len(code.co_cellvars)
-        nfreevars = len(code.co_freevars)
-        stackstart = code.co_nlocals + ncellvars + nfreevars
-        return index >= stackstart
+        return code.co_nlocals + len(code.co_cellvars) + len(code.co_freevars)
+
+    def _check_stack_index(self, index):
+        return index >= self._stack_start()
 
     def popvalue(self):
         return ll_assert_not_none(self.popvalue_maybe_none())
@@ -696,16 +679,14 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "f_lineno can only be set by a trace function")
 
-        code = self.pycode.co_code
-        if ord(code[self.last_instr]) == YIELD_VALUE:
-            raise oefmt(space.w_ValueError,
-                        "can't jump from a yield statement")
-
-        # Only allow jumps when we're tracing a line event.
+        # Allow jumps from a 'line' event, or from a 'return' event when the
+        # frame is suspended at a yield (FRAME_SUSPENDED in CPython terms).
         d = self.getorcreatedebug()
         if not d.is_in_line_tracing:
-            raise oefmt(space.w_ValueError,
-                        "can only jump from a 'line' trace event")
+            code = self.pycode.co_code
+            if ord(code[self.last_instr]) != YIELD_VALUE:
+                raise oefmt(space.w_ValueError,
+                            "can only jump from a 'line' trace event")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -715,49 +696,59 @@ class PyFrame(W_Root):
         lines = self.pycode._marklines()
         x = first_line_not_before(lines, new_lineno)
 
-
         # If we didn't reach the requested line, return an error.
         if x == -1:
             raise oefmt(space.w_ValueError,
                         "line %d comes after the current code block", new_lineno)
         new_lineno = x
 
-        blocks = markblocks(self.pycode)
-        start_block_stack = blocks[self.last_instr // 2]
-        best_block_stack = None
+        stacks = mark_stacks(self.pycode)
+        instr_idx = self.last_instr // 2
+        start_stack = stacks[instr_idx]
+        best_stack = stacks.UNINITIALIZED
 
         error = "cannot find bytecode for specified line"
         best_addr = -1
         for i in range(len(lines)):
             if lines[i] == new_lineno:
-                target_block_stack = blocks[i]
-                if compatible_block_stack(start_block_stack, target_block_stack):
+                target_stack = stacks[i]
+                if stacks.compatible(start_stack, target_stack):
                     error = None
-                    if best_block_stack is None or len(target_block_stack) > len(best_block_stack):
-                        best_block_stack = target_block_stack
+                    if target_stack > best_stack:
+                        best_stack = target_stack
                         best_addr = i * 2
                 elif error is not None:
-                    if target_block_stack:
-                        error = explain_incompatible_block_stack(target_block_stack)
+                    if start_stack == stacks.OVERFLOWED:
+                        error = "stack too deep to analyze"
+                    elif start_stack == stacks.UNINITIALIZED:
+                        error = "can't jump from unreachable code"
+                    elif target_stack > 0:
+                        error = stacks.explain_incompatible(target_stack)
                     else:
                         error = "code may be unreachable"
         if error is not None:
             raise OperationError(space.w_ValueError, space.newtext(error))
 
-        while len(start_block_stack) > len(best_block_stack):
-            kind = start_block_stack[-1]
-            if kind == JUMP_BLOCKSTACK_LOOP:
-                self.popvalue()
-            elif kind == JUMP_BLOCKSTACK_TRY:
-                self.pop_block().cleanupstack(self)
-            elif kind == JUMP_BLOCKSTACK_WITH:
-                self.pop_block().cleanupstack(self)
+        # If suspended at a yield, YIELD_VALUE has already popped the value
+        # from the runtime stack. Account for this before unwinding.
+        # (CPython: "Account for value popped by yield", frameobject.c)
+        _co_code = self.pycode.co_code
+        if ord(_co_code[self.last_instr]) == YIELD_VALUE:
+            start_stack = start_stack >> stacks.BITS
+
+        while start_stack > best_stack:
+            kind = start_stack & stacks.MASK
+            if kind == stacks.EXCEPT:
+                # pop prev_exc from value stack and restore sys.exc_info
+                w_prev = self.popvalue()
+                self._restore_exc_info(w_prev)
+            elif kind == stacks.WITH:
+                # pop __exit__ from value stack; no FinallyBlock to pop (Phase 6)
                 self.popvalue()
             else:
-                assert kind == JUMP_BLOCKSTACK_EXCEPT
-                raise OperationError(space.w_ValueError, space.newtext(
-                    "can't jump out of an 'except' block"))
-            start_block_stack = pop_simulated_stack(start_block_stack)
+                # Iterator, Object: just discard
+                self.popvalue()
+            start_stack = start_stack >> stacks.BITS
 
         d.f_lineno = new_lineno
         assert best_addr & 1 == 0
@@ -846,7 +837,6 @@ class PyFrame(W_Root):
                 w_newvalue = None
             self.locals_cells_stack_w[i] = w_newvalue
         self.valuestackdepth = 0
-        self.lastblock = None    # the FrameBlock chained list
 
     def _convert_unexpected_exception(self, e):
         from pypy.interpreter import error
@@ -863,11 +853,113 @@ class PyFrame(W_Root):
         return self.getrepr(space, "frame", moreinfo)
 
 # ____________________________________________________________
+# Abstract value-stack state tracking for fset_f_lineno.
+# Stack values are packed integers: BITS bits per slot, TOS in the lowest bits.
 
-JUMP_BLOCKSTACK_WITH = 'w'
-JUMP_BLOCKSTACK_LOOP = 'l'
-JUMP_BLOCKSTACK_TRY = 't'
-JUMP_BLOCKSTACK_EXCEPT = 'e'
+class MarkStacks(object):
+    """Abstract value-stack state computed by mark_stacks.
+
+    Returned by mark_stacks(); supports index access (stacks[i]) and len().
+    Stack values are packed ints: BITS bits per slot, TOS in lowest bits.
+    """
+    BITS = 3
+    MASK = (1 << BITS) - 1
+    # 20 slots on 64-bit, 10 on 32-bit: result must fit in a signed platform int
+    _WILL_OVERFLOW = 1 << min(LONG_BIT - 2, 20 * BITS)
+
+    UNINITIALIZED = -2
+    OVERFLOWED    = -1
+    EMPTY         = 0
+    ITERATOR      = 1   # iterator pushed by GET_ITER/GET_AITER
+    EXCEPT        = 2   # prev_exc pushed by PUSH_EXC_INFO
+    OBJECT        = 3   # ordinary value
+    WITH          = 4   # __exit__ callable pushed by BEFORE_WITH (PyPy-specific)
+    LASTI         = 5   # raise-site offset pushed on lasti=True handler dispatch
+
+    def __init__(self, n):
+        self._stacks = [self.UNINITIALIZED] * (n + 1)
+        self._stacks[0] = self.EMPTY
+
+    def push(self, stack, kind):
+        if stack < 0 or stack >= self._WILL_OVERFLOW:
+            return self.OVERFLOWED
+        return (stack << self.BITS) | kind
+
+    def pop_to_level(self, stack, level):
+        while True:
+            depth = 0
+            tmp = stack
+            while tmp:
+                depth += 1
+                tmp >>= self.BITS
+            if depth <= level:
+                break
+            stack >>= self.BITS
+        return stack
+
+    def set(self, idx, s, changed=False):
+        if self._stacks[idx] == self.UNINITIALIZED:
+            self._stacks[idx] = s
+            return True
+        return changed
+
+    def __getitem__(self, idx):
+        return self._stacks[idx]
+
+    def __len__(self):
+        return len(self._stacks)
+
+    def compatible(self, from_stack, to_stack):
+        if from_stack < 0 or to_stack < 0:
+            return False
+        from_depth = 0
+        tmp = from_stack
+        while tmp:
+            from_depth += 1
+            tmp >>= self.BITS
+        to_depth = 0
+        tmp = to_stack
+        while tmp:
+            to_depth += 1
+            tmp >>= self.BITS
+        if from_depth < to_depth:
+            return False
+        # Strip extra items from from_stack to match to_stack depth.
+        fs = from_stack >> (self.BITS * (from_depth - to_depth))
+        ts = to_stack
+        while ts:
+            fk = fs & self.MASK
+            tk = ts & self.MASK
+            if not self._compatible_kind(fk, tk):
+                return False
+            fs >>= self.BITS
+            ts >>= self.BITS
+        return True
+
+    def _compatible_kind(self, from_kind, to_kind):
+        if to_kind == self.OBJECT:
+            return from_kind != 0
+        return from_kind == to_kind
+
+    def explain_incompatible(self, to_stack):
+        if to_stack == self.OVERFLOWED:
+            return "stack too deep to analyze"
+        if to_stack == self.UNINITIALIZED or to_stack == self.EMPTY:
+            return "code may be unreachable"
+        ts = to_stack
+        kind = self.EMPTY
+        while ts:
+            kind = ts & self.MASK
+            ts >>= self.BITS
+        if kind == self.EXCEPT:
+            return "can't jump into an 'except' block as there's no exception"
+        elif kind == self.ITERATOR:
+            return "can't jump into the body of a for loop"
+        elif kind == self.WITH:
+            return "can't jump into the body of a with statement"
+        else:
+            return "can't jump to target"
+
 
 def first_line_not_before(lines, line):
     result = sys.maxint
@@ -878,103 +970,123 @@ def first_line_not_before(lines, line):
         return -1
     return result
 
-def markblocks(code):
-    blocks = [None] * ((len(code.co_code) // 2) + 1)
-    blocks[0] = ''
-    todo = True
-    while todo:
-        todo = False
-        for i in range(0, len(code.co_code), 2):
-            block_stack = blocks[i // 2]
-            if block_stack is None:
-                continue
-            opcode = ord(code.co_code[i])
-            if (
-                opcode == JUMP_IF_FALSE_OR_POP or
-                opcode == JUMP_IF_TRUE_OR_POP or
-                opcode == POP_JUMP_IF_FALSE or
-                opcode == POP_JUMP_IF_TRUE or
-                opcode == JUMP_IF_NOT_EXC_MATCH
-            ):
-                j = _get_arg(code.co_code, i) * 2
-                if blocks[j // 2] is None and j < i:
-                    todo = True
-                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
-                blocks[j // 2] = block_stack
-                blocks[i // 2 + 1] = block_stack
-            elif opcode == JUMP_ABSOLUTE:
-                j = _get_arg(code.co_code, i) * 2
-                if blocks[j // 2] is None and j < i:
-                    todo = True
-                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
-                blocks[j // 2] = block_stack
-            elif (
-                opcode == SETUP_FINALLY or
-                opcode == SETUP_EXCEPT
-            ):
-                j = _get_arg(code.co_code, i) * 2 + i + 2
-                stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
-                assert blocks[j // 2] is None or blocks[j // 2] == stack
-                blocks[j // 2] = stack
-                block_stack = block_stack + JUMP_BLOCKSTACK_TRY
-                blocks[i // 2 + 1] = block_stack
-            elif (
-                opcode == SETUP_WITH or
-                opcode == SETUP_ASYNC_WITH
-            ):
-                j = _get_arg(code.co_code, i) * 2 + i + 2
-                stack = block_stack + JUMP_BLOCKSTACK_EXCEPT
-                assert blocks[j // 2] is None or blocks[j // 2] == stack
-                blocks[j // 2] = stack
-                block_stack = block_stack + JUMP_BLOCKSTACK_WITH
-                blocks[i // 2 + 1] = block_stack
-            elif opcode == JUMP_FORWARD:
-                j = _get_arg(code.co_code, i) * 2 + i + 2
-                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
-                blocks[j // 2] = block_stack
-            elif (
-                opcode == GET_ITER or
-                opcode == GET_AITER
-            ):
-                if i + 2 < len(code.co_code):
-                    next_opcode = ord(code.co_code[i + 2])
-                else:
-                    next_opcode = NOP
-                if next_opcode != CALL_FUNCTION:
-                    block_stack = block_stack + JUMP_BLOCKSTACK_LOOP
-                blocks[i // 2 + 1] = block_stack
-            elif opcode == FOR_ITER:
-                blocks[i // 2 + 1] = block_stack
-                block_stack = pop_simulated_stack(block_stack)
-                j = _get_arg(code.co_code, i) * 2 + i + 2
-                assert blocks[j // 2] is None or blocks[j // 2] == block_stack
-                blocks[j // 2] = block_stack
-            elif (
-                opcode == POP_BLOCK or
-                opcode == POP_EXCEPT
-            ):
-                block_stack = pop_simulated_stack(block_stack)
-                blocks[i // 2 + 1] = block_stack
-            elif opcode == END_ASYNC_FOR:
-                block_stack = pop_simulated_stack(block_stack, 2)
-                blocks[i // 2 + 1] = block_stack
-            elif (
-                opcode == RETURN_VALUE or
-                opcode == RAISE_VARARGS or
-                opcode == RERAISE
-            ):
-                pass
-            else:
-                blocks[i // 2 + 1] = block_stack
-    return blocks
+def mark_stacks(code):
+    """Compute abstract value-stack state at each instruction index.
 
-def pop_simulated_stack(stack, offset=1):
-    end = len(stack) - offset
-    assert end >= 0
-    return stack[:end]
+    Returns a MarkStacks instance of length (len(co_code)//2 + 1).
+    """
+    from pypy.interpreter.astcompiler.assemble import _opcode_stack_effect
+    from pypy.interpreter.pycode import _decode_varint
+
+    n = len(code.co_code) // 2
+    ms = MarkStacks(n)
+    raw = code.co_exceptiontable
+
+    changed = True
+    while changed:
+        changed = False
+        for i in range(n):
+            stack = ms[i]
+            if stack < 0:
+                continue
+            opcode = ord(code.co_code[i * 2])
+            # Handle EXTENDED_ARG: _get_arg reads at byte address i*2
+            arg = _get_arg(code.co_code, i * 2)
+
+            if opcode == RETURN_VALUE or opcode == RAISE_VARARGS or opcode == RERAISE:
+                pass  # terminal; no fall-through
+            elif opcode == JUMP_FORWARD:
+                j = arg + i + 1   # instruction index
+                changed = ms.set(j, stack, changed)
+            elif opcode == JUMP_ABSOLUTE:
+                j = arg           # instruction index
+                changed = ms.set(j, stack, changed)
+            elif (opcode == POP_JUMP_IF_FALSE or opcode == POP_JUMP_IF_TRUE):
+                # pop TOS (condition), branch or fall
+                popped = stack >> ms.BITS
+                j = arg           # absolute instruction index
+                changed = ms.set(j, popped, changed)
+                changed = ms.set(i + 1, popped, changed)
+            elif (opcode == POP_JUMP_FORWARD_IF_NONE or
+                  opcode == POP_JUMP_FORWARD_IF_NOT_NONE):
+                # pop TOS, branch forward (relative) or fall through
+                popped = stack >> ms.BITS
+                j = arg + i + 1   # relative instruction index
+                changed = ms.set(j, popped, changed)
+                changed = ms.set(i + 1, popped, changed)
+            elif (opcode == JUMP_IF_FALSE_OR_POP or opcode == JUMP_IF_TRUE_OR_POP):
+                j = arg           # absolute instruction index
+                # branch: TOS stays; fall-through: TOS popped
+                changed = ms.set(j, stack, changed)
+                changed = ms.set(i + 1, stack >> ms.BITS, changed)
+            elif opcode == JUMP_IF_NOT_EXC_MATCH:
+                # pops two values (exc + type), branches if no match
+                popped = stack >> (ms.BITS * 2)
+                j = arg           # absolute instruction index
+                changed = ms.set(j, popped, changed)
+                changed = ms.set(i + 1, popped, changed)
+            elif opcode == FOR_ITER:
+                # fall-through: iterator still on stack, push Object (loop var)
+                ft = ms.push(stack, ms.OBJECT)
+                changed = ms.set(i + 1, ft, changed)
+                # branch (exhausted): pop iterator
+                j = arg + i + 1
+                changed = ms.set(j, stack >> ms.BITS, changed)
+            elif opcode == GET_ITER or opcode == GET_AITER:
+                # replace TOS Object with Iterator
+                new_stack = ms.push(stack >> ms.BITS, ms.ITERATOR)
+                changed = ms.set(i + 1, new_stack, changed)
+            elif opcode == END_ASYNC_FOR:
+                # pops 2: iterator + exception (or similar)
+                new_stack = stack >> (ms.BITS * 2)
+                changed = ms.set(i + 1, new_stack, changed)
+            elif opcode == PUSH_EXC_INFO:
+                # pops Object (new_exc), pushes prev_exc (Except) then new_exc (Object)
+                below = stack >> ms.BITS
+                new_stack = ms.push(ms.push(below, ms.EXCEPT), ms.OBJECT)
+                changed = ms.set(i + 1, new_stack, changed)
+            elif opcode == POP_EXCEPT:
+                # pops the prev_exc (Except slot)
+                new_stack = stack >> ms.BITS
+                changed = ms.set(i + 1, new_stack, changed)
+            elif opcode == BEFORE_WITH or opcode == BEFORE_ASYNC_WITH:
+                # pops manager, pushes __exit__ (WITH kind) then __enter__ result (Object)
+                below = stack >> ms.BITS
+                new_stack = ms.push(ms.push(below, ms.WITH), ms.OBJECT)
+                changed = ms.set(i + 1, new_stack, changed)
+            elif opcode == EXTENDED_ARG:
+                # Prefix byte; no stack effect.
+                changed = ms.set(i + 1, stack, changed)
+            else:
+                delta = _opcode_stack_effect(opcode, arg)
+                new_stack = stack
+                if delta < 0:
+                    new_stack = new_stack >> (ms.BITS * (-delta))
+                elif delta > 0:
+                    for _ in range(delta):
+                        new_stack = ms.push(new_stack, ms.OBJECT)
+                changed = ms.set(i + 1, new_stack, changed)
+        # Exception table scan: seed handler entries from the body-range start stack.
+        # Must be inside the while-changed loop so ms[start_raw] is initialized.
+        pos = 0
+        while pos < len(raw):
+            start_raw, pos  = _decode_varint(raw, pos)
+            length_raw, pos = _decode_varint(raw, pos)
+            target_raw, pos = _decode_varint(raw, pos)
+            dl, pos         = _decode_varint(raw, pos)
+            depth = dl >> 1
+            lasti = dl & 1
+            start_stack = ms[start_raw]
+            if start_stack != ms.UNINITIALIZED:
+                handler_stack = ms.pop_to_level(start_stack, depth)
+                if lasti:
+                    handler_stack = ms.push(handler_stack, ms.LASTI)
+                handler_stack = ms.push(handler_stack, ms.EXCEPT)
+                changed = ms.set(target_raw, handler_stack, changed)
+    return ms
 
 def _get_arg(code, addr):
-    # read backwards for EXTENDED_ARG
+    # read backwards for EXTENDED_ARG; addr is a byte address
     oparg = ord(code[addr + 1])
     if addr >= 2 and ord(code[addr - 2]) == EXTENDED_ARG:
         oparg |= ord(code[addr - 1]) << 8
@@ -982,37 +1094,4 @@ def _get_arg(code, addr):
             raise ValueError("fix me please!")
     return oparg
 
-def compatible_block_stack(from_stack, to_stack):
-    if to_stack is None:
-        return False
-    return from_stack[:len(to_stack)] == to_stack
 
-def explain_incompatible_block_stack(to_stack):
-    kind = to_stack[-1]
-    if kind == JUMP_BLOCKSTACK_LOOP:
-        return "can't jump into the body of a for loop"
-    elif kind == JUMP_BLOCKSTACK_TRY:
-        return "can't jump into the body of a try statement"
-    elif kind == JUMP_BLOCKSTACK_WITH:
-        return "can't jump into the body of a with statement"
-    else:
-        assert kind == JUMP_BLOCKSTACK_EXCEPT
-        return "can't jump into an 'except' block as there's no exception"
-# ____________________________________________________________
-
-def get_block_class(opname):
-    # select the appropriate kind of block
-    from pypy.interpreter.pyopcode import block_classes
-    return block_classes[opname]
-
-def unpickle_block(space, w_tup):
-    w_opname, w_handlerposition, w_valuestackdepth = space.unpackiterable(w_tup)
-    opname = space.text_w(w_opname)
-    handlerposition = space.int_w(w_handlerposition)
-    valuestackdepth = space.int_w(w_valuestackdepth)
-    assert valuestackdepth >= 0
-    assert handlerposition >= 0
-    blk = instantiate(get_block_class(opname))
-    blk.handlerposition = handlerposition
-    blk.valuestackdepth = valuestackdepth
-    return blk

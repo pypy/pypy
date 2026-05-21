@@ -30,8 +30,8 @@ with making RPython's JIT even better.
 
 .. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 .. _cffi: https://cffi.readthedocs.org
 .. _`fully support for the IBM s390x`: https://morepypy.blogspot.com/2016/04/pypy-enterprise-edition.html
@@ -149,7 +149,7 @@ Other Highlights (since 5.0 released in March 2015)
 
   * Update rpython functions with ones needed for py3k
 
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.0.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-5.0.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
 
 Please update, and continue to help us make PyPy better.

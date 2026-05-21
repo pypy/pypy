@@ -39,3 +39,7 @@ def test_merge_tree_sizes(random, n):
         for i in range(n)
     ]
     check_merge_case(lists)
+
+def test_check_linked_tournament_tree_in_place():
+    import heapq
+    assert hasattr(heapq, '_MergeNode')

@@ -401,6 +401,7 @@ def marshal_pycode(space, w_pycode, m):
     _marshal_unicode(space, x.co_qualname, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_linetable)
+    m.atom_str(TYPE_STRING, x.co_exceptiontable)
 
 # helper for unmarshalling "tuple of string" objects
 # into rpython-level lists of strings.  Only for code objects.
@@ -441,11 +442,13 @@ def unmarshal_pycode(space, u, tc):
     qualname    = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
     position_info = space.bytes_w(u.load_w_obj())
+    exceptiontable = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
                   name, qualname, firstlineno, position_info, freevars, cellvars,
+                  exceptiontable=exceptiontable,
                   hidden_applevel=u.hidden_applevel)
     return w_codeobj
 

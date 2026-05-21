@@ -485,9 +485,9 @@ def _pow_ovf2long(space, iv, w_iv, iw, w_iw, w_modulus):
     from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
     if w_iv is None or not isinstance(w_iv, W_AbstractLongObject):
         w_iv = W_LongObject.fromint(space, iv)
-    if w_iw is None or not isinstance(w_iw, W_AbstractLongObject):
-        w_iw = W_LongObject.fromint(space, iw)
-
+    # *don't* convert w_iw. W_LongObject.descr_pow can deal with w_iw being an
+    # int just fine
+    assert w_iw is not None
     return w_iv.descr_pow(space, w_iw, w_modulus)
 
 
@@ -506,6 +506,10 @@ def _make_ovf2long(opname, ovf2small=None):
             a = r_longlong(x)
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
+        if opname == 'add':
+            return space.newlong_from_rbigint(rbigint.add_int_int_bigint_result(x, y))
+        if opname == 'sub':
+            return space.newlong_from_rbigint(rbigint.sub_int_int_bigint_result(x, y))
         if opname == 'mul':
             return space.newlong_from_rbigint(rbigint.mul_int_int_bigint_result(x, y))
         from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
@@ -858,13 +862,7 @@ class W_IntObject(W_AbstractIntObject):
         if _recover_with_smalllong(space):
             return _lshift_ovf2small(space, x, y)
 
-        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
-        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
-            w_x = W_LongObject.fromint(space, x)
-
-        # crucially, *don't* convert w_y to W_LongObject, it will just be
-        # converted back (huge lshifts always overflow)
-        return w_x._int_lshift(space, y)
+        return space.newlong_from_rbigint(rbigint.lshift_int_int_bigint_result(x, y))
 
     descr_lshift, descr_rlshift = _make_descr_binop(
         _lshift, ovf_func=_ovf2long_lshift)

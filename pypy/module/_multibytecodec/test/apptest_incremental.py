@@ -234,6 +234,15 @@ def test_encoder_setstate_validates_utf8():
     pytest.raises(UnicodeDecodeError, encoder.setstate, invalid_utf8)
 
 
+def test_decoder_getstate_expected_values():
+    dec = codecs.getincrementaldecoder('euc_jp')()
+    assert dec.getstate() == (b'', 0)
+    dec.decode(b'\xa4')  # first byte of a 2-byte euc_jp character
+    assert dec.getstate() == (b'\xa4', 0)
+    dec.decode(b'\xa6')  # complete the character (u3046)
+    assert dec.getstate() == (b'', 0)
+
+
 def test_decoder_setstate_validates_pending_size():
     decoder = codecs.getincrementaldecoder('euc_jp')()
     pytest.raises(UnicodeError, decoder.setstate, (b"123456789", 0))

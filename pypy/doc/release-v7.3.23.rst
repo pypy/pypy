@@ -1,18 +1,22 @@
 ==============================================================
-PyPy v7.3.21: release of python 2.7, 3.11, released 2026-03-13
+PyPy v7.3.22: release of python 2.7, 3.11, released 2026-xx-xx
 ==============================================================
 
 
 ..
-  updated to 996ebee08886ee13f
+  updated to f4feb6d6aed088072034d84a9257747853000a22
 
-.. warning::
+.. note::
+       This is a pre-release announcement. When the release actually happens, it
+    will be announced on the PyPy blog_.
 
-  This release has some known crashes. We recommend you use a different version
+.. note::
+      Need to add release date
 
-The PyPy team is proud to release version 7.3.21 of PyPy after the previous
-release on July 4, 2025. This is a bug-fix release that also updates to Python
-3.11.15.
+The PyPy team is proud to release version 7.3.23 of PyPy after the previous
+release on April 26, 2026. This is a bug-fix release that fixes an overeager
+warning about unused coroutines, and some problems around multiple inheritence
+in c-extensions.
 
 The release includes two different interpreters:
 
@@ -46,6 +50,8 @@ If you are a python library maintainer and use C-extensions, please consider
 making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
 on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
+.. rubric:: Footnotes
+
 .. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: https://doc.pypy.org/project-ideas.html
@@ -56,11 +62,10 @@ on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
 
-
 What is PyPy?
 =============
 
-PyPy is a Python interpreter, a drop-in replacement for CPython
+PyPy is a Python interpreter, a drop-in replacement for CPython.
 It's fast (`PyPy and CPython`_ performance
 comparison) due to its integrated tracing JIT compiler.
 
@@ -89,64 +94,53 @@ Changelog
 For all versions
 ----------------
 
-- Update to pycparser v2.23
-- Bundle ``libz`` and ``libbz2`` into portable builds, for systems without them.
 
 Bugfixes
 ~~~~~~~~
 
-- Fix a bug in instance dictionaries that could lead to segmentation faults of
-  the interpreter. This could happen for instances that stored unboxed integer
-  values in their attributes and used with different code paths in the
-  ``__init__``-method that added the attributes in different orders or that
-  deleted some attributes (:issue:`5377`).
+- Fix a ``SystemError`` when ``OSError`` is raised in ``gc.dump_rpy_heap`` (issue 5118)
+- Fix bug in ``inline_short_preamble`` (issue 5462)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- Speed up ``int.bit_length`` (:issue:`5314`)
-- Refactor the register allocator in the Jit backends to store longevity
-  without using a dict. This make the JIT backend quite a bit faster (roughly
-  50%) by using a lot fewer dictionary lookups.
-- Const-fold ``x == x`` and ``x != x`` in RPython's ``backendopt``
-- Remove impossible code in ``_bitcount64``
-- Use one less instruction for regex character set membership testing
-- Make ``map`` on pypy2 faster
-- Add ``or``/``xor`` constant reassociation and ``and/or`` combination jit
-  peephole rewrite rules
-- ``storesink`` and ``jtransform`` need to deal with invalid ``cast_pointer`` on
-  constants, which happens when optimizing unreachable code.
+
+- Speed up ``int << int -> long`` shifts and leave the exponent of ``long **
+  int`` as an int
+- Detect performance-cluster L2 cache size instead of efficiency on Apple Silicon
+- Use computed-goto on GCC/Clang instead of a big switch statement
+- Explicitly inline stack checks at the beginning of each ``PyFrame``
+
+Python 2.7
+----------
+
 
 Python 3.11
 -----------
 
-- Update vendored ``libexpat`` to 2.7.4
-- Update ``stdlib`` and version to 3.11.15
-- Update to pycparser v3.0.0, which does not support python2
-
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Percolate unicode locale numeric separators int formatting (:issue:`5311`)
-- Add newline to end of generated headers (:issue:`5312`)
-- Allow ``'%lli'`` formatting code in ``PyUnicode_FromFormat*`` (:issue:`5313`)
-- Set ``__new__`` to disallow instantiation when
-  ``Py_TPFLAGS_DISALLOW_INSTANTIATION`` is set
-- Fix ``ht_qualname`` on ``TypeFromSpec`` (:issue:`5319`)
-- Add macros needed for compilation of ``pytime.c`` in ``module/time`` on macOS
-- Allow str subclasses as argument of ``bytes/bytearray.fromhex`` (:issue:`5327`)
-- Fix for ``def func(): if a: f() or g()`` which crashed the bytecode compiler (:issue:`5328`)
-- Change ``self.write_buffer`` to accept bytes in ``_overlapped`` (:issue:`5335`)
-- Add license header to ``_lzma.py`` and ``_lzma_build.py`` (:issue:`5337`)
-- Require ``vsnprintf`` in ``pyerrors.h`` (:issue:`5343`) following
-  (:issue:`python/cpython#20899`)
-- Add ``Py_RETURN_RICHCOMPARE`` macro (:issue:`5350`)
-- Make ``str`` methods ``split``, ``rsplit`` use the current unicode db version
-  (:issue:`5370`)
-- Add ``_varname_from_oparg`` method to code objects
-- Set ``save_err=rffi.RFFI_SAVE_ERRNO`` for ``c_memfd_create()``.
+- Fix module and name for builtin classes with deeper hierarchies (issue 5296)
+- Remove over-eager warning emitted when cr_frame is accessed on a not started
+  coroutine (issue 5454)
+- Fix ``typedef.doc`` to reject getset (issue 5458)
+- Fix more ``__text_signature__`` incompatibilities (issue 5458)
+- Fix module name of ``_sqlite3`` exceptions to ``sqlite3`` like CPython
+- ``datetime:fromisoformat`` raises without setting a context in
+  ``_datetime.c``, do the same in datetime.py
+- Use ``exceptiontable`` in the bytecode interpreter like CPython does
+- Add ``_Py_NO_RETURN`` to ``_Py_FatalErrorFunc``
+- Fix ``_pypyjson`` encoding of int subclasses (issue 5478)
+- Fixing a bug in computation of ``tp_basicsize`` for mixed python/c-extension
+  types caused a bug in multiple inheritance with c-extension types used in
+  pybind11. More closely follow the logic of CPython (issue 5481)
+
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Restore the JIT inlining ``TextIOWrapper.write``, disabled by mistake in a
-  refactor (:issue:`5375`)
+- Improve the performance of ``str.splitlines``
+- Restore lost ``heapq.merge()`` using a linked tournament tree which is slower
+  in CPython but faster in PyPy. The code was lost in an stdlib update and
+  reverted to the CPython version (issue 5466)
+

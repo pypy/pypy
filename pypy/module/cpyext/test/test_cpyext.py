@@ -506,7 +506,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
     def test_export_function(self):
         import sys
         if '__pypy__' in sys.modules:
-            from cpyext import is_cpyext_function
+            from cpyext import is_cpyext_builtin_function as is_cpyext_function
         else:
             import inspect
             is_cpyext_function = inspect.isbuiltin

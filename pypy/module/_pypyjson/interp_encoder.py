@@ -164,7 +164,7 @@ class W_Encoder(W_Root):
             self._encode_str(sb, w_obj)
         elif space.isinstance_w(w_obj, space.w_int):
             # bool is a subclass of int but already handled above via is_w checks
-            sb.append(space.text_w(space.str(w_obj)))
+            sb.append(space.text_w(space.call_method(space.w_int, '__repr__', w_obj)))
         elif space.isinstance_w(w_obj, space.w_float):
             self._encode_float(sb, space.float_w(w_obj))
         elif space.isinstance_w(w_obj, space.w_list) or \
@@ -232,7 +232,7 @@ class W_Encoder(W_Root):
         elif space.is_w(w_key, space.w_None):
             return space.newtext('null'), False
         elif space.isinstance_w(w_key, space.w_int):
-            return space.str(w_key), False
+            return space.call_method(space.w_int, '__repr__', w_key), False
         elif space.isinstance_w(w_key, space.w_float):
             float_sb = StringBuilder()
             self._encode_float(float_sb, space.float_w(w_key))

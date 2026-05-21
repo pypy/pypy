@@ -42,7 +42,11 @@ class TypeDef(object):
         if not __confirm_applevel_del__:
             assert '__del__' not in rawdict
         self.weakrefable = '__weakref__' in rawdict
-        self.doc = rawdict.get('__doc__', None)
+        doc_candidate = rawdict.get('__doc__', None)
+        if isinstance(doc_candidate, str):
+            self.doc = doc_candidate
+        else:
+            self.doc = None
         self.text_signature = _text_signature_
         for base in bases:
             self.hasdict |= base.hasdict
@@ -713,6 +717,7 @@ PyCode.typedef = TypeDef('code',
     co_qualname = interp_attrproperty('co_qualname', cls=PyCode, wrapfn="newtext"),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode, wrapfn="newint"),
     co_linetable = interp_attrproperty('co_linetable', cls=PyCode, wrapfn="newbytes"),
+    co_exceptiontable = interp_attrproperty('co_exceptiontable', cls=PyCode, wrapfn="newbytes"),
     co_lnotab = GetSetProperty(PyCode.fget_co_lnotab),
     co_lines = interp2app(PyCode.co_lines),
     replace = interp2app(PyCode.descr_replace),
@@ -797,7 +802,9 @@ getset_func_annotations = GetSetProperty(Function.fget_func_annotations,
 
 getset_func_dict = GetSetProperty(descr_get_dict, descr_set_dict, cls=Function)
 
-Function.typedef = TypeDef("function", method_descriptor=True,
+Function.typedef = TypeDef("function",
+    _text_signature_="(code, globals, name=None, argdefs=None, closure=None)",
+    method_descriptor=True,
     __new__ = interp2app(Function.descr_function__new__.im_func),
     __call__ = interp2app(Function.descr_function_call,
                           descrmismatch='__call__'),

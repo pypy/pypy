@@ -615,10 +615,8 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
-        elif self.is_cpytype():
-            dot = self.name.rfind('.')
         else:
-            dot = self.name.find('.')
+            dot = self.name.rfind('.')
         if dot >= 0:
             mod = self.name[:dot]
         else:
@@ -629,10 +627,7 @@ class W_TypeObject(W_Root):
         if self.is_heaptype():
             result = self.name
         else:
-            if self.is_cpytype():
-                dot = self.name.rfind('.')
-            else:
-                dot = self.name.find('.')
+            dot = self.name.rfind('.')
             if dot >= 0:
                 result = self.name[dot+1:]
             else:
@@ -1380,9 +1375,26 @@ def check_and_find_best_base(space, bases_w, is_cpytype=False):
         if isinstance(w_base, W_TypeObject):
             layout = w_base.layout
             if not best_layout.issublayout(layout):
+                if _layouts_equivalent(best_layout, layout) and (
+                        is_cpytype or
+                        (w_base.is_cpytype() and w_bestbase.is_cpytype())):
+                    continue
                 raise oefmt(space.w_TypeError,
                             "instance layout conflicts in multiple inheritance")
     return w_bestbase
+
+def _layouts_equivalent(l1, l2):
+    """Return True if two Layout objects are structurally identical - same
+    typedef, nslots, slot names, and base chain - but are different Python
+    objects because force_new_layout created them independently.
+
+    Used to allow multiple inheritance between two cpytypes that have the same
+    tp_basicsize/tp_itemsize. CPython's solid_base() logic permits
+    this combination because both types share the same solid ancestor."""
+    return (l1.typedef is l2.typedef and
+            l1.nslots == l2.nslots and
+            l1.newslotnames == l2.newslotnames and
+            l1.base_layout is l2.base_layout)
 
 def copy_flags_from_bases(w_self, w_bestbase):
     hasoldstylebase = False
@@ -1522,11 +1534,7 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    if isinstance(instancetypedef.doc, W_Root):
-        w_doc = instancetypedef.doc
-    else:
-        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
-    w_self.w_doc = w_doc
+    w_self.w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
     w_self.text_signature = instancetypedef.text_signature
     ensure_common_attributes(w_self)
     #

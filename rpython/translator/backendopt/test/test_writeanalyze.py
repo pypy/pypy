@@ -47,7 +47,15 @@ class TestWriteAnalyze(BaseTest):
         t, wa = self.translate(f, [int])
         insert_ll_stackcheck(t)
         ggraph = graphof(t, g)
-        result = wa.analyze(ggraph.startblock.operations[-1])
+        # after inlining the stack check, the call to f is no longer in startblock
+        # so search all blocks for a direct_call operation
+        call_op = None
+        for block in ggraph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'direct_call':
+                    call_op = op
+        assert call_op is not None
+        result = wa.analyze(call_op)
         assert not result
 
     def test_write_to_new_struct(self):

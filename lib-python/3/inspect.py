@@ -153,7 +153,7 @@ from keyword import iskeyword
 from operator import attrgetter
 from collections import namedtuple, OrderedDict
 try:
-    from cpyext import is_cpyext_function as _is_cpyext_function
+    from cpyext import is_cpyext_builtin_function as _is_cpyext_function
 except ImportError:
     _is_cpyext_function = lambda obj: False
 
@@ -2000,7 +2000,8 @@ def _signature_get_user_defined_method(cls, method_name):
     # distinguish user-defined from PyPy builtins.
     if meth is None:
         return None
-    if meth in (type.__call__, type.__init__, type.__new__):
+    if meth in (type.__call__, type.__init__, type.__new__,
+                object.__new__, object.__init__):
         return None
     if isinstance(meth, (classmethod, staticmethod)):
         inner = meth.__func__
@@ -2012,9 +2013,16 @@ def _signature_get_user_defined_method(cls, method_name):
         return None
     code = getattr(inner, '__code__', None)
     if _builtin_code_type and isinstance(code, _builtin_code_type):
-        # PYPY: FunctionWithFixedCode has builtin code but may have a
-        # __text_signature__ — let it through so signature() can use it.
-        if not getattr(inner, '__text_signature__', None):
+        # PyPy: FunctionWithFixedCode has builtin code but may have a
+        # __text_signature__ -- let it through so signature() can use it,
+        # EXCEPT when __new__ is the class's own native constructor:
+        # __objclass__ matches cls, so the class's own __text_signature__
+        # is preferred over the double-strip the MRO loop would produce.
+        # If __new__ was assigned from another type (e.g. MethodDescriptorType
+        # test), __objclass__ != cls so we let it through normally.
+        own_new = (method_name == '__new__' and
+                   getattr(inner, '__objclass__', None) is cls)
+        if not getattr(inner, '__text_signature__', None) or own_new:
             return None
     if method_name != '__new__':
         meth = _descriptor_get(meth, cls)
@@ -2366,10 +2374,13 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
         #    - We don't strip first bound argument if
         #      skip_bound_arg is False.
         assert parameters
-        _not_found = object()
-        _self = getattr(obj, '__self__', _not_found)
-        self_isbound = _self is not _not_found
-        self_ismodule = ismodule(_self) if self_isbound else False
+        _self = getattr(obj, '__self__', None)
+        self_isbound = _self is not None
+        # PyPy: builtin __new__ methods are bound to their type but don't
+        # expose __self__; strip the implicit $type arg like CPython does.
+        if not self_isbound and getattr(obj, '__name__', None) == '__new__':
+            self_isbound = True
+        self_ismodule = ismodule(_self) if _self is not None else False
         if self_isbound and (self_ismodule or skip_bound_arg):
             parameters.pop(0)
         else:
@@ -2671,13 +2682,13 @@ def _signature_from_callable(obj, *,
                 obj.__new__ is object.__new__):
                 # Return a signature of 'object' builtin.
                 return sigcls.from_callable(object)
-            # PYPY: __new__ may be a builtin not returned by
+            # PyPy: __new__ may be a builtin not returned by
             # _signature_get_user_defined_method; try it directly.
+            # The heuristic in _signature_fromstr already strips the implicit
+            # $type arg, so do NOT call _signature_bound_method again.
             if obj.__init__ is object.__init__ and obj.__new__ is not object.__new__:
                 try:
                     sig = _get_signature_of(obj.__new__)
-                    if skip_bound_arg:
-                        return _signature_bound_method(sig)
                     return sig
                 except (ValueError, TypeError):
                     pass

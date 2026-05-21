@@ -541,10 +541,13 @@ class AppTestLong:
 
     def test_pow_negative_exponent_modulo(self):
         import math
+        import sys
         mod = 2 ** 100
         res = 519502503658624787456021964081
         assert pow(3**100, -1, mod) == res
-        assert pow(3**100, -2, mod) == (519502503658624787456021964081 ** 2) % mod
+        assert pow(3**100, -2, mod) == (res ** 2) % mod
+        assert pow(12312388333333333333333333333333333333333333333333333333333, -sys.maxsize-1, 23) == 12
+        assert pow(13, -55555555555555555555555555555555555555555555555555555555551, 23) == 16
 
         for i in range(1, 7):
             i = self._long(i)

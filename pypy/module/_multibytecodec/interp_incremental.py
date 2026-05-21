@@ -45,6 +45,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
     def _initialize(self):
         self.decodebuf = c_codecs.pypy_cjk_dec_new(self.codec)
         self.pending = ""
+        self.state = 0
 
     def _free(self):
         self.pending = None

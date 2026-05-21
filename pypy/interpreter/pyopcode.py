@@ -90,7 +90,8 @@ class __extend__(pyframe.PyFrame):
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
-                                                     attach_tb=False)
+                                                     attach_tb=False,
+                                                     reraise_lasti=e.lasti)
         except KeyboardInterrupt:
             next_instr = self.handle_asynchronous_error(ec,
                 self.space.w_KeyboardInterrupt)
@@ -118,7 +119,7 @@ class __extend__(pyframe.PyFrame):
         ec = self.space.getexecutioncontext()
         return self.handle_operation_error(ec, operr)
 
-    def handle_operation_error(self, ec, operr, attach_tb=True):
+    def handle_operation_error(self, ec, operr, attach_tb=True, reraise_lasti=-1):
         if attach_tb:
             if 1:
                 # xxx this is a hack.  It allows bytecode_trace() to
@@ -147,20 +148,46 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
-        block = self.unrollstack()
-        if block is None:
-            # no handler found for the OperationError
-            if we_are_translated():
-                raise operr
-            else:
-                # try to preserve the CPython-level traceback
-                import sys
-                tb = sys.exc_info()[2]
-                raise OperationError, operr, tb
+        entry = self.getcode().lookup_exceptiontable(self.last_instr)
+        target, depth, lasti = entry
+        if depth >= 0:
+            # depth is relative (0 = empty value stack); convert to absolute.
+            target_abs_depth = self._stack_start() + depth
+            self.dropvaluesuntil(target_abs_depth)
+            # lasti=True: push the raise-site offset as an int below the
+            # exception, so RERAISE N can read it for traceback/f_lineno
+            # correctness.  If this dispatch was triggered by a RERAISE
+            # (self._reraise_lasti set), use the original raise-site lasti
+            # the RERAISE extracted from the stack; otherwise use the
+            # current instruction (the raising site itself).  Mirrors
+            # CPython's _PyInterpreterFrame_LASTI read in exception_unwind
+            # after RERAISE has updated prev_instr to lasti.
+            if lasti:
+                if reraise_lasti >= 0:
+                    lasti_value = reraise_lasti
+                else:
+                    lasti_value = intmask(self.last_instr)
+                self.pushvalue(self.space.newint(lasti_value))
+            w_exc = operr.normalize_exception(self.space)
+            self.pushvalue(w_exc)
+            return target
+
+        # No exception table entry: propagate out of the frame.
+        # sys.exc_info will be overwritten by the next PUSH_EXC_INFO in any
+        # catching handler; no explicit restoration needed (matches CPython).
+        # If this unwind was triggered by a RERAISE N, restore self.last_instr
+        # to the original raise-site offset so frame.f_lineno reports the
+        # right line, matching CPython's RERAISE setting frame->prev_instr.
+        if reraise_lasti >= 0:
+            self.last_instr = reraise_lasti
+        self.frame_finished_execution = True  # allows frame.clear() after propagation
+        if we_are_translated():
+            raise operr
         else:
-            unroller = SApplicationException(operr)
-            next_instr = block.handle(self, unroller)
-            return next_instr
+            # try to preserve the CPython-level traceback
+            import sys
+            tb = sys.exc_info()[2]
+            raise OperationError, operr, tb
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
@@ -193,7 +220,6 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                assert not self.blockstack_non_empty()
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
@@ -212,6 +238,10 @@ class __extend__(pyframe.PyFrame):
                 return self.POP_JUMP_IF_FALSE(oparg, next_instr, ec)
             elif opcode == opcodedesc.POP_JUMP_IF_TRUE.index:
                 return self.POP_JUMP_IF_TRUE(oparg, next_instr, ec)
+            elif opcode == opcodedesc.POP_JUMP_FORWARD_IF_NONE.index:
+                next_instr = self.POP_JUMP_FORWARD_IF_NONE(oparg, next_instr)
+            elif opcode == opcodedesc.POP_JUMP_FORWARD_IF_NOT_NONE.index:
+                next_instr = self.POP_JUMP_FORWARD_IF_NOT_NONE(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_IF_NOT_EXC_MATCH.index:
                 next_instr = self.JUMP_IF_NOT_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.BINARY_ADD.index:
@@ -268,6 +298,8 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_METHOD_KW(oparg, next_instr)
             elif opcode == opcodedesc.CHECK_EG_MATCH.index:
                 self.CHECK_EG_MATCH(oparg, next_instr)
+            elif opcode == opcodedesc.CHECK_EXC_MATCH.index:
+                self.CHECK_EXC_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.IS_OP.index:
@@ -362,8 +394,6 @@ class __extend__(pyframe.PyFrame):
                 self.DICT_UPDATE(oparg, next_instr)
             elif opcode == opcodedesc.NOP.index:
                 self.NOP(oparg, next_instr)
-            elif opcode == opcodedesc.POP_BLOCK.index:
-                self.POP_BLOCK(oparg, next_instr)
             elif opcode == opcodedesc.POP_EXCEPT.index:
                 self.POP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.POP_TOP.index:
@@ -372,6 +402,8 @@ class __extend__(pyframe.PyFrame):
                 self.PREP_RERAISE_STAR(oparg, next_instr)
             elif opcode == opcodedesc.PRINT_EXPR.index:
                 self.PRINT_EXPR(oparg, next_instr)
+            elif opcode == opcodedesc.PUSH_EXC_INFO.index:
+                self.PUSH_EXC_INFO(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
             elif opcode == opcodedesc.ROT_FOUR.index:
@@ -380,12 +412,8 @@ class __extend__(pyframe.PyFrame):
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
                 self.ROT_TWO(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_EXCEPT.index:
-                self.SETUP_EXCEPT(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_FINALLY.index:
-                self.SETUP_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_WITH.index:
-                self.SETUP_WITH(oparg, next_instr)
+            elif opcode == opcodedesc.BEFORE_WITH.index:
+                self.BEFORE_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
                 self.SET_ADD(oparg, next_instr)
             elif opcode == opcodedesc.SET_UPDATE.index:
@@ -426,8 +454,6 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_ASSERTION_ERROR(oparg, next_instr)
             elif opcode == opcodedesc.GET_AWAITABLE.index:
                 self.GET_AWAITABLE(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_ASYNC_WITH.index:
-                self.SETUP_ASYNC_WITH(oparg, next_instr)
             elif opcode == opcodedesc.BEFORE_ASYNC_WITH.index:
                 self.BEFORE_ASYNC_WITH(oparg, next_instr)
             elif opcode == opcodedesc.GET_AITER.index:
@@ -454,24 +480,15 @@ class __extend__(pyframe.PyFrame):
                 self.MATCH_CLASS(oparg, next_instr)
             elif opcode == opcodedesc.COPY_DICT_WITHOUT_KEYS.index:
                 self.COPY_DICT_WITHOUT_KEYS(oparg, next_instr)
-            elif opcode == opcodedesc.ROT_N.index:
-                self.ROT_N(oparg, next_instr)
+            elif opcode == opcodedesc.COPY.index:
+                self.COPY(oparg, next_instr)
+            elif opcode == opcodedesc.SWAP.index:
+                self.SWAP(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
             if jit.we_are_jitted():
                 return next_instr
-
-    @jit.unroll_safe
-    def unrollstack(self):
-        while self.blockstack_non_empty():
-            block = self.pop_block()
-            if not isinstance(block, SysExcInfoRestorer):
-                return block
-            block.cleanupstack(self)
-        self.frame_finished_execution = True  # for generators
-        return None
-
 
     ### accessor functions ###
 
@@ -618,6 +635,13 @@ class __extend__(pyframe.PyFrame):
 
     def DUP_TOP_TWO(self, oparg, next_instr):
         self.dupvalues(2)
+
+    def COPY(self, oparg, next_instr):
+        # CPython 3.11 COPY N: push a copy of the N-th stack element from the
+        # top (1-indexed).  COPY 1 duplicates TOS.  Stack effect: +1.
+        assert oparg >= 1
+        w_val = self.peekvalue(oparg - 1)
+        self.pushvalue(w_val)
 
     def DUP_TOPX(self, itemcount, next_instr):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
@@ -788,34 +812,38 @@ class __extend__(pyframe.PyFrame):
         code.exec_code(space, w_globals, w_locals, outer_func)
 
     def POP_EXCEPT(self, oparg, next_instr):
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
+        w_prev_exc = self.popvalue()
+        # Restore sys.exc_info to the value saved by PUSH_EXC_INFO.
+        self._restore_exc_info(w_prev_exc)
 
-    def POP_BLOCK(self, oparg, next_instr):
-        self.pop_block()
-
-    def save_and_change_sys_exc_info(self, operationerr):
+    def PUSH_EXC_INFO(self, oparg, next_instr):
+        w_exc = self.popvalue()
         ec = self.space.getexecutioncontext()
-        last_exception = ec.current_exception()
-        block = SysExcInfoRestorer(last_exception, self.lastblock, self.last_instr)
-        self.lastblock = block
-        if operationerr is not None:   # otherwise, don't change sys_exc_info
-            if not self.hide():
-                ec.set_sys_exc_info(operationerr)
-            else:
-                # for hidden frames, a more limited solution should be
-                # enough: store away the exception on the frame
-                self.getorcreatedebug().hidden_operationerr = operationerr
-
-    @jit.unroll_safe
-    def _any_except_or_finally_handler(self):
-        block = self.lastblock
-        while block is not None:
-            if isinstance(block, SysExcInfoRestorer):
-                return True
-            block = block.previous
-        return False
+        # Read the previous "current exception" from the appropriate location.
+        if not self.hide():
+            prev_operr = ec.current_exception()
+        else:
+            prev_operr = self.getorcreatedebug().hidden_operationerr
+        if prev_operr is not None:
+            # Use get_w_value, not normalize_exception: normalizing would
+            # overwrite w_exc.w_traceback with the stale traceback from
+            # prev_operr, clobbering any more-complete traceback already set.
+            w_prev = prev_operr.get_w_value(self.space)
+            if w_prev is None:
+                w_prev = self.space.w_None
+        else:
+            w_prev = self.space.w_None
+        # Set the new current exception in the appropriate location.
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        space = self.space
+        w_exc_val = space.interp_w(W_BaseException, w_exc)
+        operr = OperationError(space.type(w_exc), w_exc, w_exc_val.w_traceback)
+        if not self.hide():
+            ec.set_sys_exc_info(operr)
+        else:
+            self.getorcreatedebug().hidden_operationerr = operr
+        self.pushvalue(w_prev)
+        self.pushvalue(w_exc)
 
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
@@ -1224,6 +1252,18 @@ class __extend__(pyframe.PyFrame):
             return self.jump_absolute(target, next_instr, ec)
         return next_instr
 
+    def POP_JUMP_FORWARD_IF_NONE(self, jumpby, next_instr):
+        w_value = self.popvalue()
+        if self.space.is_w(w_value, self.space.w_None):
+            next_instr += jumpby * 2
+        return next_instr
+
+    def POP_JUMP_FORWARD_IF_NOT_NONE(self, jumpby, next_instr):
+        w_value = self.popvalue()
+        if not self.space.is_w(w_value, self.space.w_None):
+            next_instr += jumpby * 2
+        return next_instr
+
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
@@ -1277,17 +1317,7 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self.valuestackdepth,
-                            next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
-
-    def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
-
-    def SETUP_WITH(self, offsettoend, next_instr):
+    def BEFORE_WITH(self, oparg, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
@@ -1298,42 +1328,52 @@ class __extend__(pyframe.PyFrame):
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
         self.pushvalue(w_result)
 
     def WITH_EXCEPT_START(self, oparg, next_instr):
-        w_unroller = self.popvalue()
-        w_exitfunc = self.popvalue()
-        self.pushvalue(w_unroller)
-        if isinstance(w_unroller, SApplicationException):
-            operr = w_unroller.operr
-            w_traceback = operr.get_w_traceback(self.space)
-            w_res = self.call_contextmanager_exit_function(
-                w_exitfunc,
-                operr.w_type,
-                operr.get_w_value(self.space),
-                w_traceback)
-        else:
-            assert 0
+        # exception-table + lasti layout: [..., __exit__, lasti, prev_exc, exc]
+        w_exc = self.peekvalue(0)      # TOS = exc
+        w_exitfunc = self.peekvalue(3) # __exit__ is 4th from top
+        space = self.space
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        w_value = space.interp_w(W_BaseException, w_exc)
+        w_type = space.type(w_exc)
+        w_traceback = w_value.w_traceback
+        if w_traceback is None:
+            w_traceback = space.w_None
+        w_res = self.call_contextmanager_exit_function(
+            w_exitfunc, w_type, w_exc, w_traceback)
         self.pushvalue(w_res)
 
-    def RERAISE(self, reset_last_instr, next_instr):
-        unroller = self.popvalue()
-        if not isinstance(unroller, SApplicationException):
-            assert 0
-        if reset_last_instr:
-            block = self.lastblock
-            assert isinstance(block, SysExcInfoRestorer)
-            self.last_instr = block.last_instr
-        block = self.unrollstack()
-        if block is None:
-            w_result = unroller.reraise()
-            assert 0, "unreachable"
+    def RERAISE(self, oparg, next_instr):
+        # CPython 3.11 RERAISE N semantics: if N > 0, read the lasti (int)
+        # from PEEK(N + 1) [i.e., N slots below TOS after pushing exc], set
+        # self.last_instr to it so the re-raised exception's traceback/lineno
+        # reflect the original raise site, then pop the exception and raise.
+        # N == 0 is a plain reraise of TOS.  Stack before: [..., lasti, exc]
+        # for N == 1; after: [..., lasti].  The surrounding handler is
+        # expected to have already done its POP_EXCEPT if sys.exc_info needs
+        # restoring (PyPy no longer bundles POP_EXCEPT into RERAISE 1).
+        if oparg:
+            # PEEK(oparg + 1): 0 == TOS (exc), oparg is the lasti slot.
+            # Pass via RaiseWithExplicitTraceback rather than self.last_instr:
+            # the table lookup must use the RERAISE site offset, not lasti.
+            reraise_lasti = self.space.int_w(self.peekvalue(oparg))
         else:
-            next_instr = block.handle(self, unroller)
-        return next_instr
+            reraise_lasti = -1
+        w_exc = self.popvalue()
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
+        space = self.space
+        w_value = space.interp_w(W_BaseException, w_exc)
+        w_type = space.type(w_exc)
+        operr = OperationError(w_type, w_exc, w_value.w_traceback)
+        # Raise as RaiseWithExplicitTraceback so that handle_bytecode
+        # dispatches via its 'except RaiseWithExplicitTraceback' branch
+        # (calling handle_operation_error with attach_tb=False).  This
+        # avoids a spurious traceback entry and exception_trace call that
+        # would occur if the OperationError bubbled up to the plain
+        # 'except OperationError' branch in handle_bytecode.
+        raise RaiseWithExplicitTraceback(operr, reraise_lasti)
 
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
@@ -1569,13 +1609,6 @@ class __extend__(pyframe.PyFrame):
                             "coroutine is being awaited already")
         self.pushvalue(w_iter)
 
-    def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
-        res = self.popvalue()
-        block = FinallyBlock(self.valuestackdepth,
-                             next_instr + offsettoend * 2, self.lastblock)
-        self.lastblock = block
-        self.pushvalue(res)
-
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
         space = self.space
         w_manager = self.peekvalue()
@@ -1642,27 +1675,22 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
     def END_ASYNC_FOR(self, oparg, next_instr):
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
-
+        # Stack: [..., aiter, w_prev, w_exc]  (PUSH_EXC_INFO pushed w_prev and w_exc)
         w_exc = self.popvalue()
+        w_prev = self.popvalue()
         if self.space.exception_match(self.space.type(w_exc), self.space.w_StopAsyncIteration):
-            self.popvalue() # unroller
-            self.popvalue() # aiter
+            self._restore_exc_info(w_prev)
+            self.popvalue()  # aiter
             return next_instr
         else:
-            unroller = self.peekvalue(0)
-            if not isinstance(unroller, SApplicationException):
-                raise oefmt(self.space.w_RuntimeError,
-                        "END_ASYNC_FOR found no exception")
-            block = self.unrollstack()
-            if block is None:
-                w_result = unroller.reraise()
-                assert 0, "unreachable"
-            else:
-                next_instr = block.handle(self, unroller)
-        return next_instr
+            # Non-StopAsyncIteration: re-raise via exception table (like RERAISE).
+            # dropvaluesuntil in handle_operation_error will discard aiter.
+            from pypy.module.exceptions.interp_exceptions import W_BaseException
+            space = self.space
+            w_value = space.interp_w(W_BaseException, w_exc)
+            w_type = space.type(w_exc)
+            operr = OperationError(w_type, w_exc, w_value.w_traceback)
+            raise RaiseWithExplicitTraceback(operr)
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
@@ -1781,7 +1809,6 @@ class __extend__(pyframe.PyFrame):
                     values_w[i] = w_value
                 else:
                     self.pushvalue(self.space.w_None)
-                    self.pushvalue(self.space.w_False)
                     return
                 i += 1
         except OperationError as e:
@@ -1789,7 +1816,6 @@ class __extend__(pyframe.PyFrame):
                 raise
 
         self.pushvalue(self.space.newtuple(values_w))
-        self.pushvalue(self.space.w_True)
 
     def COPY_DICT_WITHOUT_KEYS(self, oparg, next_instr):
         w_keys = self.popvalue()
@@ -1798,10 +1824,13 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_dict)
 
     @jit.unroll_safe
-    def ROT_N(self, oparg, next_instr):
-        w_top = self.peekvalue()
-        for i in range(oparg - 1):
-            self.settopvalue(self.peekvalue(i + 1), i)
+    def SWAP(self, oparg, next_instr):
+        # CPython 3.11 SWAP i: swap TOS with the i-th item from the top (1-indexed).
+        # SWAP 2 = ROT_TWO.
+        assert oparg >= 2
+        w_top = self.peekvalue(0)
+        w_i = self.peekvalue(oparg - 1)
+        self.settopvalue(w_i, 0)
         self.settopvalue(w_top, oparg - 1)
 
     def CHECK_EG_MATCH(self, oparg, next_instr):
@@ -1818,25 +1847,19 @@ class __extend__(pyframe.PyFrame):
             ec = space.getexecutioncontext()
             ec.set_sys_exc_info3(w_match)
 
+    def CHECK_EXC_MATCH(self, oparg, next_instr):
+        w_right = self.popvalue()   # type(s) - TOS
+        w_left = self.peekvalue(0)  # exception instance - stays on stack
+        res = self.cmp_exc_match(w_left, w_right)
+        self.pushvalue(self.space.newbool(res))
+
     def PREP_RERAISE_STAR(self, oparg, next_instr):
         space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()
         from pypy.module.exceptions.interp_group import prep_reraise_star
         w_eg_or_None = prep_reraise_star(space, w_orig, w_res)
-        if space.is_w(w_eg_or_None, space.w_None):
-            w_push = space.w_None
-        else:
-            operr = OperationError(space.type(w_eg_or_None), w_eg_or_None)
-            from pypy.module.exceptions.interp_exceptions import W_BaseException
-            if isinstance(w_eg_or_None, W_BaseException):
-                tb = w_eg_or_None.w_traceback
-                if tb is not None:
-                    from pypy.interpreter.pytraceback import PyTraceback
-                    if isinstance(tb, PyTraceback):
-                        operr.set_traceback(tb)
-            w_push = SApplicationException(operr)
-        self.pushvalue(w_push)
+        self.pushvalue(w_eg_or_None)
 
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
@@ -1876,8 +1899,9 @@ class Yield(ExitFrame):
 
 class RaiseWithExplicitTraceback(Exception):
     """Raised at interp-level by a 0-argument 'raise' statement."""
-    def __init__(self, operr):
+    def __init__(self, operr, lasti=-1):
         self.operr = operr
+        self.lasti = lasti
 
 
 ### Frame Blocks ###
@@ -1890,102 +1914,6 @@ class SApplicationException(W_Root):
         self.operr = operr
     def reraise(self):
         raise RaiseWithExplicitTraceback(self.operr)
-
-
-class FrameBlock(object):
-    """Abstract base class for frame blocks from the blockstack,
-    used by the SETUP_XXX and POP_BLOCK opcodes."""
-
-    _immutable_ = True
-
-    def __init__(self, valuestackdepth, handlerposition, previous):
-        self.handlerposition = handlerposition
-        self.valuestackdepth = valuestackdepth
-        self.previous = previous   # this makes a linked list of blocks
-
-    def cleanupstack(self, frame):
-        frame.dropvaluesuntil(self.valuestackdepth)
-
-    # internal pickling interface, not using the standard protocol
-    def _get_state_(self, space):
-        return space.newtuple([space.newtext(self._opname), space.newint(self.handlerposition),
-                               space.newint(self.valuestackdepth)])
-
-    def handle(self, frame, unroller):
-        """ Purely abstract method
-        """
-        raise NotImplementedError
-
-
-class SysExcInfoRestorer(FrameBlock):
-    """
-    This is a special, implicit block type which is created when entering a
-    finally or except handler. It does not belong to any opcode
-    """
-
-    _immutable_ = True
-    _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
-
-    def __init__(self, operr, previous, last_instr):
-        self.operr = operr
-        self.previous = previous
-        self.last_instr = last_instr
-
-    def handle(self, frame, unroller):
-        assert False # never called
-
-    def cleanupstack(self, frame):
-        ec = frame.space.getexecutioncontext()
-        ec.set_sys_exc_info(self.operr)
-
-
-class ExceptBlock(FrameBlock):
-    """An try:except: block.  Stores the position of the exception handler."""
-
-    _immutable_ = True
-    _opname = 'SETUP_EXCEPT'
-
-    def handle(self, frame, unroller):
-        # push the exception to the value stack for inspection by the
-        # exception handler (the code after the except:)
-        self.cleanupstack(frame)
-        # the stack setup is slightly different than in CPython:
-        # instead of the traceback, we store the unroller object,
-        # wrapped.
-        assert isinstance(unroller, SApplicationException)
-        operationerr = unroller.operr
-        w_value = operationerr.normalize_exception(frame.space)
-        frame.pushvalue(unroller)
-        frame.pushvalue(w_value)
-        # set the current value of sys_exc_info to operationerr,
-        # saving the old value in a custom type of FrameBlock
-        frame.save_and_change_sys_exc_info(operationerr)
-        return r_uint(self.handlerposition)   # jump to the handler
-
-
-class FinallyBlock(FrameBlock):
-    """A try:finally: block.  Stores the position of the exception handler."""
-
-    _immutable_ = True
-    _opname = 'SETUP_FINALLY'
-
-    def handle(self, frame, unroller):
-        # any abnormal reason for unrolling a finally: triggers the end of
-        # the block unrolling and the entering the finally: handler.
-        # see comments in cleanup().
-        self.cleanupstack(frame)
-        operationerr = None
-        if isinstance(unroller, SApplicationException):
-            operationerr = unroller.operr
-            operationerr.normalize_exception(frame.space)
-        frame.pushvalue(unroller)
-        # set the current value of sys_exc_info to operationerr,
-        # saving the old value in a custom type of FrameBlock
-        frame.save_and_change_sys_exc_info(operationerr)
-        return r_uint(self.handlerposition)   # jump to the handler
-
-    def pop_block(self, frame):
-        pass
 
 
 def source_as_str(space, w_source, funcname, what, flags):

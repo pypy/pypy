@@ -56,10 +56,10 @@ We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
 installed, you can follow instructions from `pypy documentation`_ on how
 to proceed. This document also covers other `installation schemes`_.
 
-.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`pypy documentation`: https://doc.pypy.org/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: https://www.virtualenv.org/en/latest/
-.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
-.. _`PyPy and pip`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`installation schemes`: https://doc.pypy.org/getting-started.html#installing-pypy
+.. _`PyPy and pip`: https://doc.pypy.org/getting-started.html#installing-pypy
 
 
 Cheers,
