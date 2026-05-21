@@ -45,8 +45,8 @@ with making RPython's JIT even better.
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _`enhanced`: https://morepypy.blogspot.co.at/2016/11/vectorization-extended-powerpc-and-s390x.html
 
 What is PyPy?
@@ -147,7 +147,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Refactor and remove dead code from ``optimizeopt``, ``resume``
   
 
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.6.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-5.6.0.html
 
 Please update, and continue to help us make PyPy better.
 

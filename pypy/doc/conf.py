@@ -62,7 +62,7 @@ extensions = ['sphinx.ext.autodoc',
 
 # Canonical URL (including the '/') so searching from rpython docs finds these
 affiliate_options = {
-    'canonical_url': "https://doc.pypy.org/en/latest/"
+    'canonical_url': "https://doc.pypy.org/"
 }
 
 # Other sites to add to the search of this site

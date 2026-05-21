@@ -37,10 +37,10 @@ We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
 installed, you can follow instructions from `pypy documentation`_ on how
 to proceed. This document also covers other `installation schemes`_.
 
-.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`pypy documentation`: https://doc.pypy.org/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: https://www.virtualenv.org/en/latest/
-.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
-.. _`PyPy and pip`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`installation schemes`: https://doc.pypy.org/getting-started.html#installing-pypy
+.. _`PyPy and pip`: https://doc.pypy.org/getting-started.html#installing-pypy
 
 Regressions
 ===========
@@ -102,7 +102,7 @@ Highlights
   and more compact.
 
 .. _`cpython issue tracker`: https://bugs.python.org/issue14621
-.. _`jit hooks`: https://doc.pypy.org/en/latest/jit-hooks.html
+.. _`jit hooks`: https://doc.pypy.org/jit-hooks.html
 
 Things we're working on
 =======================

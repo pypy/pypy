@@ -45,8 +45,8 @@ you too could be one of them.
 
 .. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 
 What is PyPy?
 =============
@@ -67,7 +67,7 @@ to `handle that`_. We also welcome developers with other operating systems or
 .. _`pypy and cpython 2.7.x`: https://speed.pypy.org
 .. _OpenBSD: https://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 .. _`dynamic languages`: https://pypyjs.org
 
 Highlights 
@@ -115,7 +115,7 @@ Highlights
     over 7 times faster than cpython
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-2.6.0.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!

@@ -42,8 +42,8 @@ contribution to the python ecosystem. PyPy 5.0 ships with
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
 .. _`cffi-1.5.2`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-5-2
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
 .. _vmprof: https://vmprof.readthedocs.org
 
@@ -217,7 +217,7 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Fix tokenizer to enforce universal newlines, needed for Python 3 support
 
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.0.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-5.0.0.html
 .. _`hypothesis`: https://hypothesis.readthedocs.org
 .. _`blog post`: https://morepypy.blogspot.com/2016/02/c-api-support-update.html
 

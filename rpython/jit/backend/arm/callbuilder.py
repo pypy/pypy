@@ -152,7 +152,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         pmc = OverwritingBuilder(self.mc, b1_location, WORD)
         pmc.B_offs(self.mc.currpos(), c.EQ)
 
-        if not we_are_translated():                    # for testing: now we can accesss
+        if not we_are_translated():                    # for testing: now we can access
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
 
     def get_result_locs(self):

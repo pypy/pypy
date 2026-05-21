@@ -56,7 +56,7 @@ affiliate_options = {
 
 # Other sites to add to the search of this site
 sphinx_affiliates = [
-    'https://doc.pypy.org/en/latest/affiliate_searchindex.js',
+    'https://doc.pypy.org/affiliate_searchindex.js',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

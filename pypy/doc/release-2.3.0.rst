@@ -34,7 +34,7 @@ so we can finish those projects!  The three sub-projects are:
 .. _`Py3k`: https://pypy.org/py3donate.html
 .. _`STM`: https://pypy.org/tmdonate2.html
 .. _ `NumPy`: https://pypy.org/numpydonate.html
-.. _`TDD`: https://doc.pypy.org/en/latest/how-to-contribute.html
+.. _`TDD`: https://doc.pypy.org/how-to-contribute.html
 .. _`CFFI`: https://cffi.readthedocs.org
 .. _`cryptography`: https://cryptography.io
 .. _`Pillow`: https://pypi.python.org/pypi/Pillow/2.4.0
@@ -58,7 +58,7 @@ bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
 .. _`pypy 2.3 and cpython 2.7.x`: https://speed.pypy.org
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -93,7 +93,7 @@ for more information see `whats-new`_:
 * Fix handling of tp_name for type objects
 
 .. _`HippyVM`: https://www.hippyvm.com
-.. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+.. _`whats-new`: https://doc.pypy.org/whatsnew-2.3.0.html
 
 
 New Platforms and Features
