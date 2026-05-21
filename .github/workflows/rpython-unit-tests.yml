@@ -134,6 +134,12 @@ jobs:
             --logfile=testrun.log \
           2>&1 | tee testrun-output.log
         fi
+    - name: Compute revision
+      run: |
+        count=$(git rev-list --count HEAD)
+        sha=$(git rev-parse --short=12 HEAD)
+        echo "1${count}:${sha}" > revision.txt
+
     - name: Upload test logs
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -142,3 +148,4 @@ jobs:
         path: |
           testrun.log
           testrun-output.log
+          revision.txt
