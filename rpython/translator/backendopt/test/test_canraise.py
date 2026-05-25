@@ -36,15 +36,7 @@ class TestCanRaise(object):
         t, ra = self.translate(f, [int])
         insert_ll_stackcheck(t)
         ggraph = graphof(t, g)
-        # after inlining the stack check, the call to f is no longer in startblock
-        # so search all blocks for a direct_call operation
-        call_op = None
-        for block in ggraph.iterblocks():
-            for op in block.operations:
-                if op.opname == 'direct_call':
-                    call_op = op
-        assert call_op is not None
-        result = ra.can_raise(call_op)
+        result = ra.can_raise(ggraph.startblock.operations[-1])
         assert result # due to stack check every recursive function can raise
 
     def test_bug_graphanalyze_recursive(self):
