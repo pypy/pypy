@@ -282,3 +282,10 @@ def test_exec_with_closure_dont_overwrite_cell_vars_from_locals():
     locals = globals = {'a': 12, 'b': 23}
     print(exec(g.__code__, locals, globals, closure=g.__closure__))
     print(g.__closure__)
+
+
+def test_allow_incomplete_input_decorator():
+    # End-to-end: a bare decorator is incomplete input, not a syntax error.
+    # codeop.compile_command() must return None (more input needed), not raise.
+    import codeop
+    assert codeop.compile_command('@int') is None

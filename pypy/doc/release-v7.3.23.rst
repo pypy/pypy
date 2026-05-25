@@ -1,10 +1,10 @@
 ==============================================================
-PyPy v7.3.22: release of python 2.7, 3.11, released 2026-xx-xx
+PyPy v7.3.23: release of python 2.7, 3.11, released 2026-xx-xx
 ==============================================================
 
 
 ..
-  updated to f4feb6d6aed088072034d84a9257747853000a22
+  updated to ad87cbd9a6f27a94ae759905c171e87478490326
 
 .. note::
        This is a pre-release announcement. When the release actually happens, it
@@ -15,8 +15,20 @@ PyPy v7.3.22: release of python 2.7, 3.11, released 2026-xx-xx
 
 The PyPy team is proud to release version 7.3.23 of PyPy after the previous
 release on April 26, 2026. This is a bug-fix release that fixes an overeager
-warning about unused coroutines, and some problems around multiple inheritence
-in c-extensions.
+warning about unused coroutines, and some problems around multiple inheritance
+in c-extensions. 
+
+This version includes a change to the bytecode interpreter to use `exception tables`_
+instead of dedicated opcodes. Now the PyPy disassembly will be closer to
+CPython format. So far it does not impact performance.
+
+We also include changes to code generation to use `computed
+gotos`_ and to more aggressively inline the stack checks when entering a
+``PyFrame``. These do not yet show up as improvements in speed.pypy.org
+benchmarks, Our venerable benchmarker machine is using gcc5.4.1 (it was set up
+10 years ago when that was standard, like our manylinux 2014 buildbot machines)
+so we are hopeful an update to infrastructure will show the same improvements
+that we see when running benchmarks on more modern compilers.
 
 The release includes two different interpreters:
 
@@ -61,6 +73,8 @@ on PyPy. In any case, `cibuildwheel`_ supports building wheels for PyPy.
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
+.. _`computed gotos`: https://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables
+.. _`exception tables`: https://github.com/python/cpython/blob/main/InternalDocs/exception_handling.md
 
 What is PyPy?
 =============
@@ -98,8 +112,8 @@ For all versions
 Bugfixes
 ~~~~~~~~
 
-- Fix a ``SystemError`` when ``OSError`` is raised in ``gc.dump_rpy_heap`` (issue 5118)
-- Fix bug in ``inline_short_preamble`` (issue 5462)
+- Fix a ``SystemError`` when ``OSError`` is raised in ``gc.dump_rpy_heap`` (:issue:`5118`)
+- Fix bug in ``inline_short_preamble`` (:issue:`5462`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -120,20 +134,22 @@ Python 3.11
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Fix module and name for builtin classes with deeper hierarchies (issue 5296)
-- Remove over-eager warning emitted when cr_frame is accessed on a not started
-  coroutine (issue 5454)
-- Fix ``typedef.doc`` to reject getset (issue 5458)
-- Fix more ``__text_signature__`` incompatibilities (issue 5458)
+- Fix module and name for builtin classes with deeper hierarchies (:issue:`5296`)
+- Remove over-eager warning emitted when ``cr_frame`` is accessed on a not
+  started coroutine (:issue:`5454`)
+- Fix ``typedef.doc`` to reject setting it to a ``getset`` (:issue:`5458`)
+- Fix more ``__text_signature__`` incompatibilities (:issue:`5458`)
 - Fix module name of ``_sqlite3`` exceptions to ``sqlite3`` like CPython
 - ``datetime:fromisoformat`` raises without setting a context in
   ``_datetime.c``, do the same in datetime.py
 - Use ``exceptiontable`` in the bytecode interpreter like CPython does
 - Add ``_Py_NO_RETURN`` to ``_Py_FatalErrorFunc``
-- Fix ``_pypyjson`` encoding of int subclasses (issue 5478)
+- Fix ``_pypyjson`` encoding of int subclasses (:issue:`5478`)
 - Fixing a bug in computation of ``tp_basicsize`` for mixed python/c-extension
   types caused a bug in multiple inheritance with c-extension types used in
-  pybind11. More closely follow the logic of CPython (issue 5481)
+  pybind11. More closely follow the logic of CPython (:issue:`5481`)
+- initialize ``MultibyteIncrementalDecoder.state`` to 0
+- detect incomplete decorator input in the parser (:issue:`5484`)
 
 
 Speedups and enhancements
@@ -142,5 +158,5 @@ Speedups and enhancements
 - Improve the performance of ``str.splitlines``
 - Restore lost ``heapq.merge()`` using a linked tournament tree which is slower
   in CPython but faster in PyPy. The code was lost in an stdlib update and
-  reverted to the CPython version (issue 5466)
+  reverted to the CPython version (:issue:`5466`)
 

@@ -271,21 +271,28 @@ class Parser:
         res = meth(self)
         if res is None:
             tok = self.diagnose()
-            if (self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    (self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT or
-                     self.compile_info.mode == "eval")):
-                # bit of a heuristic: if the source does not end with a newline
-                # (PyCF_DONT_IMPLY_DEDENT is set) or we are in eval mode, and
-                # the remaining tokens are ENDMARKER, NEWLINE, DEDENT then more
-                # input could fix things, so we raise "incomplete input"
-                for index in range(self._highwatermark, len(self._tokens)):
-                    typ = self._tokens[index].token_type
-                    if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
-                            typ != tokens.DEDENT):
-                        break
-                else:
-                    if not self._eval_invalid_with_trailing_newline():
+            if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
+                if self.compile_info.source_ends_with_newline:
+                    # Mirror CPython's _is_end_of_source(): the parser consumed
+                    # all the way to ENDMARKER.  For "@int\n" the decorator rule
+                    # fetches ENDMARKER while looking for a function/class body;
+                    # for "a @\n" the parser fails at the NEWLINE token and never
+                    # reaches ENDMARKER, so "invalid syntax" is raised instead.
+                    if (self._highwatermark >= len(self._tokens) - 1 and
+                            not self._eval_invalid_with_trailing_newline()):
                         self.raise_syntax_error_known_location("incomplete input", tok)
+                elif (self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT or
+                        self.compile_info.mode == "eval"):
+                    # Source does not end with newline (PyCF_DONT_IMPLY_DEDENT is
+                    # set) or eval mode: check if all remaining tokens are trivial.
+                    for index in range(self._highwatermark, len(self._tokens)):
+                        typ = self._tokens[index].token_type
+                        if (typ != tokens.ENDMARKER and typ != tokens.NEWLINE and
+                                typ != tokens.DEDENT):
+                            break
+                    else:
+                        if not self._eval_invalid_with_trailing_newline():
+                            self.raise_syntax_error_known_location("incomplete input", tok)
             self.reset()
             self.call_invalid_rules = True
             meth(self) # often raises

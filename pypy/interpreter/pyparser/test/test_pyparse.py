@@ -681,3 +681,16 @@ class TestIncompleteInput(object):
             self.parser.parse_source("(9+\n", info)
         assert "incomplete input" in excinfo.value.msg, excinfo.value.msg
 
+    def test_decorator_without_body_is_incomplete(self):
+        # "@foo" and "@foo\n" are both incomplete: a decorator requires a
+        # function or class definition to follow.  codeop._maybe_compile passes
+        # both PyCF_ALLOW_INCOMPLETE_INPUT and PyCF_DONT_IMPLY_DEDENT; both
+        # forms must report "incomplete input" so codeop returns None.
+        both = consts.PyCF_ALLOW_INCOMPLETE_INPUT | consts.PyCF_DONT_IMPLY_DEDENT
+        for src in ("@int", "@int\n"):
+            info = pyparse.CompileInfo("<test>", "single", flags=both)
+            with pytest.raises(SyntaxError) as excinfo:
+                self.parser.parse_source(src, info)
+            assert excinfo.value.msg == "incomplete input", (
+                "src=%r got %r" % (src, excinfo.value.msg))
+
