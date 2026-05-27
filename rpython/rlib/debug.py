@@ -67,32 +67,25 @@ class DebugLog(list):
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
 
-def _pypylog_parse():
-    # Mirror the C logic in debug_print.c: pypy_debug_open().
-    val = os.environ.get('PYPYLOG', '')
-    if not val:
-        return None, False     # (prefix, profile_mode): everything silent
-    if val[0] == '+':
-        return None, True      # profiling: all sections active
-    colon = val.find(':')
-    if colon == -1:
-        return None, True      # filename only: profiling mode
-    return val[:colon], False  # prefix (possibly empty) before the colon
-
-_pypylog_prefix, _pypylog_profile = _pypylog_parse()
-
 # Stack of booleans tracking whether each nested debug_start section is active.
 # Empty = top level. Mirrors pypy_have_debug_prints bit-shift logic in C.
 _pypylog_sections = []
 
 def _pypylog_category_active(category):
-    if _pypylog_profile:
-        return True
-    if _pypylog_prefix is None:
+    # Read os.environ on every call so tests can set PYPYLOG at any time.
+    # Mirror the C logic in debug_print.c: pypy_debug_start().
+    val = os.environ.get('PYPYLOG', '')
+    if not val:
         return False
-    if not _pypylog_prefix:    # PYPYLOG=:file means all categories
-        return True
-    for p in _pypylog_prefix.split(','):
+    if val[0] == '+':
+        return True            # profiling mode: all sections active
+    colon = val.find(':')
+    if colon == -1:
+        return True            # filename only: profiling mode
+    prefix = val[:colon]
+    if not prefix:
+        return True            # PYPYLOG=:file means all categories
+    for p in prefix.split(','):
         if category.startswith(p):
             return True
     return False
