@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import os
 import sys
 import time
 from collections import Counter
@@ -66,10 +67,43 @@ class DebugLog(list):
 _log = None       # patched from tests to be an object of class DebugLog
                   # or compatible
 
+def _pypylog_parse():
+    # Mirror the C logic in debug_print.c: pypy_debug_open().
+    val = os.environ.get('PYPYLOG', '')
+    if not val:
+        return None, False     # (prefix, profile_mode): everything silent
+    if val[0] == '+':
+        return None, True      # profiling: all sections active
+    colon = val.find(':')
+    if colon == -1:
+        return None, True      # filename only: profiling mode
+    return val[:colon], False  # prefix (possibly empty) before the colon
+
+_pypylog_prefix, _pypylog_profile = _pypylog_parse()
+
+# Stack of booleans tracking whether each nested debug_start section is active.
+# Empty = top level. Mirrors pypy_have_debug_prints bit-shift logic in C.
+_pypylog_sections = []
+
+def _pypylog_category_active(category):
+    if _pypylog_profile:
+        return True
+    if _pypylog_prefix is None:
+        return False
+    if not _pypylog_prefix:    # PYPYLOG=:file means all categories
+        return True
+    for p in _pypylog_prefix.split(','):
+        if category.startswith(p):
+            return True
+    return False
+
 def debug_print(*args):
-    for arg in args:
-        print(arg, end=" ", file=sys.stderr)
-    print(file=sys.stderr)
+    # Top-level prints are always active (matches C default pypy_have_debug_prints=-1).
+    # Inside a section, only print if that section is active.
+    if not _pypylog_sections or _pypylog_sections[-1]:
+        for arg in args:
+            print(arg, end=" ", file=sys.stderr)
+        print(file=sys.stderr)
     if _log is not None:
         _log.debug_print(*args)
 
@@ -118,22 +152,25 @@ def debug_stop(category, timestamp=False):
 
 def _debug_start(category, timestamp):
     ts = read_timestamp()
-    print('%s[%x] {%s%s' % (_start_colors_1, ts, category, _stop_colors),
-          file=sys.stderr)
+    active = _pypylog_category_active(category)
+    _pypylog_sections.append(active)
+    if active:
+        print('%s[%x] {%s%s' % (_start_colors_1, ts, category, _stop_colors),
+              file=sys.stderr)
     if _log is not None:
         _log.debug_start(category)
-
     if timestamp:
         return r_longlong(ts)
     return r_longlong(-42) # random undefined value
 
 def _debug_stop(category, timestamp):
     ts = read_timestamp()
-    print('%s[%x] %s}%s' % (_start_colors_2, ts, category, _stop_colors),
-          file=sys.stderr)
+    active = _pypylog_sections.pop() if _pypylog_sections else False
+    if active:
+        print('%s[%x] %s}%s' % (_start_colors_2, ts, category, _stop_colors),
+              file=sys.stderr)
     if _log is not None:
         _log.debug_stop(category)
-
     if timestamp:
         return r_longlong(ts)
     return r_longlong(-42) # random undefined value
