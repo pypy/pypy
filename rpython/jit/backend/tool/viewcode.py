@@ -36,8 +36,19 @@ def find_objdump():
             path_to = os.path.join(p, e)
             if not os.path.exists(path_to):
                 continue
+            # Skip LLVM objdump (e.g. from Xcode on macOS): it uses
+            # incompatible flags.  Only GNU binutils objdump is supported.
+            try:
+                proc = subprocess.Popen([path_to, '--version'],
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE)
+                out, _ = proc.communicate()
+                if b'GNU' not in out:
+                    continue
+            except OSError:
+                continue
             return e
-    raise ObjdumpNotFound('(g)objdump was not found in PATH')
+    raise ObjdumpNotFound('GNU (g)objdump was not found in PATH')
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_machine_option = {

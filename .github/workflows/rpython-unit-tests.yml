@@ -81,7 +81,7 @@ jobs:
       run: pypy -m pip install hypothesis==4.39.3
     - name: Install macOS dependencies
       if: ${{ startsWith(matrix.runner, 'macos') }}
-      run: brew install bdw-gc
+      run: brew install bdw-gc binutils
     - name: Install Windows dependencies
       if: ${{ matrix.platform == 'win64' }}
       env:
