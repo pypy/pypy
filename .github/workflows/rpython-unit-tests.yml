@@ -152,15 +152,12 @@ jobs:
       shell: bash
       run: |
         sha=$(git rev-parse --short=12 HEAD)
-        parent_count=$(git cat-file -p HEAD | grep -c "^parent ")
-        if [ "$parent_count" -ge 2 ]; then
-          actual_sha=$(git rev-parse --short=12 HEAD^2)
-          count=$(git rev-list --count HEAD^2)
-          echo "1${count}:${actual_sha}" > revision.txt
+        parent_count=$(git cat-file -p HEAD | grep -c "^parent ") || true
+        if [ "${parent_count:-0}" -ge 2 ]; then
+          git rev-parse --short=12 HEAD^2 > revision.txt
           echo "merge_sha:${sha}" >> revision.txt
         else
-          count=$(git rev-list --count HEAD)
-          echo "1${count}:${sha}" > revision.txt
+          echo "$sha" > revision.txt
         fi
 
     - name: Upload test logs
