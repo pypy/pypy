@@ -30,14 +30,14 @@
 #  define RPyAssert(x, msg)                                             \
      if (!(x)) RPyAssertFailed(__FILE__, __LINE__, __FUNCTION__, msg)
 
-RPY_EXTERN
+RPY_EXTERN RPY_NORETURN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
 #else
 #  define RPyAssert(x, msg)   /* nothing */
 #endif
 
-RPY_EXTERN
+RPY_EXTERN RPY_NORETURN
 void RPyAbort(void);
 
 RPY_EXTERN
