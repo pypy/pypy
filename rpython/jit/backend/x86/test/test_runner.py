@@ -33,7 +33,7 @@ class TestX86(LLtypeBackendTest):
         add_loop_instructions = ('mov; '
                                  'lea; '    # a nop, for the label
                                  'add; test; je; jmp;')   # plus some padding
-        bridge_loop_instructions = 'cmp; jl; jmp;'
+        bridge_loop_instructions = 'cmpl?; jl; jmp;'
     else:
         add_loop_instructions = ('mov; '
                                  'nopl?; '    # for the label
