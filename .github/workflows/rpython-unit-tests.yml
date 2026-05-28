@@ -149,9 +149,25 @@ jobs:
       if: ${{ always() }}
       shell: bash
       run: |
-        count=$(git rev-list --count HEAD)
-        sha=$(git rev-parse --short=12 HEAD)
-        echo "1${count}:${sha}" > revision.txt
+        # On a PR, HEAD is a synthetic merge commit; HEAD^2 is the branch tip.
+        # On a direct push there is no second parent, so HEAD is the real commit.
+        real_sha=$(git rev-parse HEAD^2 2>/dev/null || git rev-parse HEAD)
+        real_short=$(git rev-parse --short=12 "$real_sha")
+        count=$(git rev-list --count "$real_sha")
+        echo "1${count}:${real_short}" > revision.txt
+        merge_sha=$(git rev-parse HEAD)
+        if [ "$real_sha" != "$merge_sha" ]; then
+          merge_short=$(git rev-parse --short=12 "$merge_sha")
+          base="${{ github.base_ref }}"
+          {
+            printf '<details><summary><code>%s</code></summary>\n\n' "$real_short"
+            printf '<code>%s</code> when merged into <code>%s</code> — merge commit <code>%s</code>\n\n' \
+              "$real_short" "$base" "$merge_short"
+            printf '</details>\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+        else
+          printf 'Revision: `%s`\n' "$real_short" >> "$GITHUB_STEP_SUMMARY"
+        fi
 
     - name: Upload test logs
       if: ${{ always() }}
