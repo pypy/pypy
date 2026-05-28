@@ -1800,7 +1800,8 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
             # others we get -6.  Bash is supposed to translate the
             # SIGABRT (signal 6) from the subprocess into the exit
             # code 128+6, but I guess it may not always do so.
-            assert 'out of memory:' in child_stderr
+            assert ('out of memory:' in child_stderr or
+                    'cannot allocate nursery' in child_stderr)
             return '42'
         #
         for i in range(10):
