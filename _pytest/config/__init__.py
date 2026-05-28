@@ -748,11 +748,12 @@ class Config(object):
         # PyPy: rewrite breaks RPython translation (locals() introspection).
         # Default to reinterp unless the user explicitly chose a mode or is
         # running direct apptests (-D/--direct-apptest), which need rewrite.
+        str_args = [a for a in args if isinstance(a, str)]
         assert_explicit = any(
-            a.startswith("--assert=") or a == "--assert" for a in args
+            a.startswith("--assert=") or a == "--assert" for a in str_args
         )
         if mode == "rewrite" and not assert_explicit and not (
-            set(args) & {"-D", "--direct-apptest"}
+            set(str_args) & {"-D", "--direct-apptest"}
         ):
             mode = "reinterp"
         if mode == "rewrite":
