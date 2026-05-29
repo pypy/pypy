@@ -420,7 +420,7 @@ def get_L2cache_darwin():
     # L2 (e.g. 4 MB on an M-series chip) rather than the performance
     # cluster's (16 MB and up). Apple documents per-cluster topology under
     # `hw.perflevelN.*` and states that "lower values of N indicate
-    # higher-performance core types" — so `hw.perflevel0.l2cachesize` is
+    # higher-performance core types" - so `hw.perflevel0.l2cachesize` is
     # the L2 for the cluster the work actually runs against. See
     # https://developer.apple.com/documentation/kernel/1387446-sysctlbyname/determining_system_capabilities#3901385
     # On Intel Macs `hw.perflevel0.*` is absent (returns 0), so this falls
