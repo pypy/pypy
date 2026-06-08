@@ -41,9 +41,13 @@ class TestAstUnparser:
     def test_num(self):
         self.check("1")
         self.check("1.64")
+        import sys
+        infstr = "1e" + str(sys.float_info.max_10_exp + 1)
+        self.check("1e1000", infstr)
+        self.check("1e1000j", infstr + "j")
 
     def test_str(self):
-        self.check("u'a'", "'a'")
+        self.check("u'a'")
 
     def test_bytes(self):
         self.check("b'a'")
@@ -145,6 +149,12 @@ class TestAstUnparser:
         self.check('lambda *, m, l=5: 1')
         self.check('lambda **foo: 1')
         self.check('lambda a, **b: 45')
+        # positional-only parameters
+        self.check('lambda a, /: 1')
+        self.check('lambda a, /, b: 1')
+        self.check('lambda a=1, /: 1')
+        self.check('lambda a, /, b=2: 1')
+        self.check("lambda a, /, b, c=True, *vararg, d, e='str', **kwargs: a + b")
 
     def test_fstrings(self):
         self.check('f"abc"', "'abc'")
@@ -181,15 +191,34 @@ class TestAstUnparseAnnotations(object):
         res = unparse_annotations(self.space, ast)
         assert self.space.text_w(res.body[0].annotation.value) == 'list[int]'
 
-    def test_await(self):
-        ast = self.get_ast("""def f() -> await some.complicated[0].call(with_args=True or 1 is not 1): pass""")
+    def test_await_not_allowed(self):
+        ast = self.get_ast("""def f() -> await x: pass""")
         func = ast.body[0]
-        res = unparse_annotations(self.space, func)
-        assert self.space.text_w(res.returns.value) == "await some.complicated[0].call(with_args=True or 1 is not 1)"
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
 
     def test_yield_not_allowed(self):
         ast = self.get_ast("""def f():\n    a: (yield)""")
         func = ast.body[0]
         with pytest.raises(SyntaxError):
             unparse_annotations(self.space, func)
+
+    def test_yield_from_not_allowed(self):
+        ast = self.get_ast("""def f():\n    a: (yield from x)""")
+        func = ast.body[0]
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
+
+    def test_namedexpr_not_allowed(self):
+        ast = self.get_ast("""async def f() -> something((a := b)): pass""")
+        func = ast.body[0]
+        with pytest.raises(SyntaxError):
+            unparse_annotations(self.space, func)
+
+    def test_fstring_no_formatted_values_preserves_f_prefix(self):
+        ast = self.get_ast("""def f(x: f'just a string') -> None: pass""")
+        func = ast.body[0]
+        res = unparse_annotations(self.space, func)
+        annotation = res.args.args[0].annotation.value
+        assert self.space.text_w(annotation) == "f'just a string'"
 

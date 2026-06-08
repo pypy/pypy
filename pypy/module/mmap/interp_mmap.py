@@ -50,6 +50,7 @@ class W_MMap(W_Root):
             num = -1
         else:
             num = self.space.int_w(w_num)
+        self.check_valid()  # int_w can have closed the mmap via __index__
         return self.space.newbytes(self.mmap.read(num))
 
     def find(self, w_tofind, w_start=None, w_end=None):
@@ -64,6 +65,7 @@ class W_MMap(W_Root):
             end = self.mmap.size
         else:
             end = space.getindex_w(w_end, None)
+        self.check_valid()  # getindex_w can have closed the mmap via __index__
         return space.newint(self.mmap.find(tofind, start, end))
 
     def rfind(self, w_tofind, w_start=None, w_end=None):
@@ -78,6 +80,7 @@ class W_MMap(W_Root):
             end = self.mmap.size
         else:
             end = space.getindex_w(w_end, None)
+        self.check_valid()  # getindex_w can have closed the mmap via __index__
         return space.newint(self.mmap.find(tofind, start, end, True))
 
     @unwrap_spec(pos=OFF_T, whence=int)
@@ -305,7 +308,7 @@ class W_MMap(W_Root):
         elif self.mmap.access == rmmap.ACCESS_COPY:
             access_str = "ACCESS_COPY"
         else:
-            raise oefmt(space.w_RuntimeError, "invalid accesss mode in mmap")
+            raise oefmt(space.w_RuntimeError, "invalid access mode in mmap")
         return space.newtext(
             "<%s closed=False, access=%s, length=%d, pos=%d, offset=%d>" %(
             space.getfulltypename(self), access_str, self.mmap.size,

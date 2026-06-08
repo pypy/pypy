@@ -126,6 +126,7 @@ consts: ('None',)
 """
 
 import inspect
+import re
 import sys
 import threading
 import doctest
@@ -215,6 +216,7 @@ class CodeTest(unittest.TestCase):
         obj = List([1, 2, 3])
         self.assertEqual(obj[0], "Foreign getitem: 1")
 
+    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_constructor(self):
         def func(): pass
         co = func.__code__
@@ -286,6 +288,7 @@ class CodeTest(unittest.TestCase):
         self.assertEqual(new_code.co_varnames, code2.co_varnames)
         self.assertEqual(new_code.co_nlocals, code2.co_nlocals)
 
+    @cpython_only  # constructor signature includes co_exceptiontable
     def test_nlocals_mismatch(self):
         def func():
             x = 1
@@ -338,6 +341,7 @@ class CodeTest(unittest.TestCase):
         new_code = code = func.__code__.replace(co_linetable=b'')
         self.assertEqual(list(new_code.co_lines()), [])
 
+    @cpython_only  # checks CPython-specific exception bytecodes (PUSH_EXC_INFO etc.)
     @requires_debug_ranges()
     def test_co_positions_artificial_instructions(self):
         import dis
@@ -429,6 +433,7 @@ class CodeTest(unittest.TestCase):
             self.assertIsNone(line)
             self.assertEqual(end_line, new_code.co_firstlineno + 1)
 
+    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_code_equality(self):
         def f():
             try:
@@ -648,8 +653,16 @@ def bug93662():
 class CodeLocationTest(unittest.TestCase):
 
     def check_positions(self, func):
-        pos1 = list(func.__code__.co_positions())
-        pos2 = list(positions_from_location_table(func.__code__))
+        co = func.__code__
+        pos1 = list(co.co_positions())
+        if sys.implementation.name == 'pypy':
+            # PyPy uses a different co_linetable format; cross-check
+            # co_positions() against co_lines() instead.
+            lines_from_pos = set(l for (l, _, _, _) in pos1 if l is not None)
+            lines_from_table = set(l for (_, _, l) in co.co_lines() if l is not None)
+            self.assertEqual(lines_from_pos, lines_from_table)
+            return
+        pos2 = list(positions_from_location_table(co))
         for l1, l2 in zip(pos1, pos2):
             self.assertEqual(l1, l2)
         self.assertEqual(len(pos1), len(pos2))
@@ -662,6 +675,13 @@ class CodeLocationTest(unittest.TestCase):
     def check_lines(self, func):
         co = func.__code__
         lines1 = list(dedup(l for (_, _, l) in co.co_lines()))
+        if sys.implementation.name == 'pypy':
+            # PyPy uses a different co_linetable format; cross-check
+            # co_lines() against co_positions() instead.
+            lines_from_table = set(l for l in lines1 if l is not None)
+            lines_from_pos = set(l for (l, _, _, _) in co.co_positions() if l is not None)
+            self.assertEqual(lines_from_table, lines_from_pos)
+            return
         lines2 = list(lines_from_postions(positions_from_location_table(co)))
         for l1, l2 in zip(lines1, lines2):
             self.assertEqual(l1, l2)
@@ -800,7 +820,22 @@ if check_impl_detail(cpython=True) and ctypes is not None:
 
 
 def load_tests(loader, tests, pattern):
-    tests.addTest(doctest.DocTestSuite())
+    if sys.implementation.name == 'pypy':
+        # PyPy sets several flags that CPython 3.11 does not expose publicly:
+        # CO_NOFREE (0x40), CO_GENERATOR_ALLOWED (0x1000),
+        # CO_KILL_DOCSTRING (0x2000000), CO_YIELD_INSIDE_TRY (0x4000000).
+        # Strip them from actual output so the doctest expected values match.
+        _FLAGS_RE = re.compile(r'^(flags: )(\d+)$', re.MULTILINE)
+        _PYPY_ONLY_FLAGS = 0x40 | 0x1000 | 0x2000000 | 0x4000000
+        class _PyPyOutputChecker(doctest.OutputChecker):
+            def check_output(self, want, got, optionflags):
+                got2 = _FLAGS_RE.sub(
+                    lambda m: m.group(1) + str(int(m.group(2)) & ~_PYPY_ONLY_FLAGS),
+                    got)
+                return super().check_output(want, got2, optionflags)
+        tests.addTest(doctest.DocTestSuite(checker=_PyPyOutputChecker()))
+    else:
+        tests.addTest(doctest.DocTestSuite())
     return tests
 
 

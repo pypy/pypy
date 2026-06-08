@@ -13,7 +13,7 @@
 
 # update when constants are added or removed
 
-MAGIC = 20220615
+MAGIC = 20221023
 import sys
 _IS_PYPY = sys.implementation.name == 'pypy'
 

@@ -170,16 +170,19 @@ class TestPredicates(IsTestBase):
             self.istest(inspect.iscoroutine, 'coroutine_function_example(1)')
             self.istest(inspect.iscoroutinefunction, 'coroutine_function_example')
 
-        if hasattr(types, 'MemberDescriptorType'):
+        if hasattr(types, 'MemberDescriptorType') and isinstance(datetime.timedelta.days, types.MemberDescriptorType):
             self.istest(inspect.ismemberdescriptor, 'datetime.timedelta.days')
         else:
             self.assertFalse(inspect.ismemberdescriptor(datetime.timedelta.days))
-        self.istest(inspect.ismethodwrapper, "object().__str__")
-        self.istest(inspect.ismethodwrapper, "object().__eq__")
-        self.istest(inspect.ismethodwrapper, "object().__repr__")
         self.assertFalse(inspect.ismethodwrapper(type))
         self.assertFalse(inspect.ismethodwrapper(int))
         self.assertFalse(inspect.ismethodwrapper(type("AnyClass", (), {})))
+
+    @cpython_only  # PyPy has no distinct MethodWrapperType
+    def test_ismethodwrapper(self):
+        self.istest(inspect.ismethodwrapper, "object().__str__")
+        self.istest(inspect.ismethodwrapper, "object().__eq__")
+        self.istest(inspect.ismethodwrapper, "object().__repr__")
 
 
 
@@ -376,6 +379,7 @@ class TestInterpreterStack(IsTestBase):
         self.istest(inspect.istraceback, 'git.ex[2]')
         self.istest(inspect.isframe, 'mod.fr')
 
+    @cpython_only
     def test_stack(self):
         self.assertTrue(len(mod.st) >= 5)
         frame1, frame2, frame3, frame4, *_ = mod.st
@@ -3191,9 +3195,13 @@ class TestSignatureObject(unittest.TestCase):
                     pass
 
             self.assertEqual(C(['a', 'bc']), 'a:bc')
-            # BUG: Returns '<Signature (b)>'
-            with self.assertRaises(AssertionError):
+            if '__pypy__' in sys.modules:
+                # PyPy correctly returns the metaclass __call__ signature
                 self.assertEqual(self.signature(C), self.signature(''.join))
+            else:
+                # BUG: Returns '<Signature (b)>'
+                with self.assertRaises(AssertionError):
+                    self.assertEqual(self.signature(C), self.signature(''.join))
 
         with self.subTest('MethodWrapperType'):
             class CM(type):
@@ -3204,9 +3212,13 @@ class TestSignatureObject(unittest.TestCase):
 
             self.assertEqual(C(3), 8)
             self.assertEqual(C(3, 7), 1)
-            # BUG: Returns '<Signature (b)>'
-            with self.assertRaises(AssertionError):
+            if '__pypy__' in sys.modules:
+                # PyPy correctly returns the metaclass __call__ signature
                 self.assertEqual(self.signature(C), self.signature((0).__pow__))
+            else:
+                # BUG: Returns '<Signature (b)>'
+                with self.assertRaises(AssertionError):
+                    self.assertEqual(self.signature(C), self.signature((0).__pow__))
 
         class CM(type):
             def __new__(mcls, name, bases, dct, *, foo=1):
@@ -3499,11 +3511,11 @@ class TestSignatureObject(unittest.TestCase):
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_signature_on_builtin_class(self):
-        expected = ('(file, protocol=None, fix_imports=True, '
-                    'buffer_callback=None)')
-        self.assertEqual(str(inspect.signature(_pickle.Pickler)), expected)
+        # Use io.BytesIO as the builtin class (works on both CPython and PyPy).
+        expected = '(initial_bytes=None, /)'
+        self.assertEqual(str(inspect.signature(io.BytesIO)), expected)
 
-        class P(_pickle.Pickler): pass
+        class P(io.BytesIO): pass
         class EmptyTrait: pass
         class P2(EmptyTrait, P): pass
         self.assertEqual(str(inspect.signature(P)), expected)

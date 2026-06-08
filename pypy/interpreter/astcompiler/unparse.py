@@ -1,8 +1,14 @@
+import sys as _sys
 from rpython.rlib.rutf8 import Utf8StringBuilder
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rstring import replace as rstring_replace
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.astcompiler import ast
+
+# Large float/complex literals overflow to inf in the AST.
+# Unparse them back to this overflowing decimal literal (matches ast.unparse).
+_INFSTR = "1e" + str(_sys.float_info.max_10_exp + 1)
 
 
 PRIORITY_TUPLE = 0
@@ -91,9 +97,18 @@ class UnparseVisitor(Utf8BuilderVisitor):
             self.space.isinstance_w(node.value, self.space.w_bytes)
             or self.space.isinstance_w(node.value, self.space.w_unicode)
         ):
+            if node.kind is not None and not self.space.is_w(node.kind, self.space.w_None):
+                self.append_ascii("u")
             res = self.space.repr(node.value)
         else:
             res = self.space.str(node.value)
+            # Substitute overflow infinities with the proper decimal literal
+            # so that ast.unparse roundtrips correctly (matches CPython behavior)
+            s = self.space.text_w(res)
+            if 'inf' in s or 'nan' in s:
+                s = rstring_replace(s, "inf", _INFSTR)
+                s = rstring_replace(s, "nan", "(" + _INFSTR + "-" + _INFSTR + ")")
+                res = self.space.newtext(s)
         self.append_w_str(res)
 
     def visit_Name(self, node):
@@ -346,9 +361,10 @@ class UnparseVisitor(Utf8BuilderVisitor):
         raise SyntaxError.fromast("'yield expression' can not be used within an annotation", node)
 
     def visit_YieldFrom(self, node):
-        self.append_ascii("(yield from ")
-        self.append_expr(node.value)
-        self.append_ascii(")")
+        raise SyntaxError.fromast("'yield from' expression cannot be used in annotation", node)
+
+    def visit_NamedExpr(self, node):
+        raise SyntaxError.fromast("'named expression' can not be used within an annotation", node)
 
     def visit_Call(self, node):
         self.append_expr(node.func, PRIORITY_ATOM)
@@ -391,23 +407,28 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_Lambda(self, node):
         with self.maybe_parenthesize(PRIORITY_TEST):
             args = node.args
-            if not args.args and not args.vararg and not args.kwarg and not args.kwonlyargs:
+            posonlyargs = args.posonlyargs if args.posonlyargs else []
+            posargs = args.args if args.args else []
+            if (not posonlyargs and not posargs and not args.vararg
+                    and not args.kwarg and not args.kwonlyargs):
                 self.append_ascii("lambda: ")
             else:
                 self.append_ascii("lambda ")
                 first = True
-                if args.defaults:
-                    default_count = len(args.defaults)
-                else:
-                    default_count = 0
-                if args.args:
-                    for i, arg in enumerate(args.args):
-                        first = self.append_if_not_first(first, ', ')
-                        di = i - (len(args.args) - default_count)
-                        self.append_expr(arg)
-                        if di >= 0:
-                            self.append_ascii('=')
-                            self.append_expr(args.defaults[di])
+                all_pos = posonlyargs + posargs
+                defaults = args.defaults if args.defaults else []
+                total_pos = len(all_pos)
+                default_count = len(defaults)
+                for i, arg in enumerate(all_pos):
+                    first = self.append_if_not_first(first, ', ')
+                    di = i - (total_pos - default_count)
+                    self.append_expr(arg)
+                    if di >= 0:
+                        self.append_ascii('=')
+                        self.append_expr(defaults[di])
+                    if i + 1 == len(posonlyargs):
+                        self.append_ascii(', /')
+                        first = False
                 if args.vararg or args.kwonlyargs:
                     first = self.append_if_not_first(first, ', ')
                     self.append_ascii('*')
@@ -416,7 +437,6 @@ class UnparseVisitor(Utf8BuilderVisitor):
                 if args.kwonlyargs:
                     for i, arg in enumerate(args.kwonlyargs):
                         first = self.append_if_not_first(first, ', ')
-                        di = i - (len(args.kwonlyargs) - default_count)
                         self.append_expr(arg)
                         default = args.kw_defaults[i]
                         if default:
@@ -443,9 +463,28 @@ class UnparseVisitor(Utf8BuilderVisitor):
         self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
     def visit_Await(self, node):
-        with self.maybe_parenthesize(PRIORITY_AWAIT):
-            self.append_ascii("await ")
-            self.append_expr(node.value)
+        raise SyntaxError.fromast("'await' expression cannot be used within an annotation", node)
+
+
+class AnnotationUnparseVisitor(UnparseVisitor):
+    """UnparseVisitor variant for annotation stringification.
+
+    Differences from regular unparse:
+    - JoinedStr (f-string) always gets the 'f' prefix, even without formatted values
+    - NamedExpr raises SyntaxError instead of SystemError
+    """
+
+    def visit_NamedExpr(self, node):
+        raise SyntaxError.fromast("'named expression' can not be used within an annotation", node)
+
+    def visit_JoinedStr(self, node):
+        subvisitor = FstringVisitor(self.space)
+        for elt in node.values:
+            elt.walkabout(subvisitor)
+        s = subvisitor.builder.build()
+        l = subvisitor.builder.getlength()
+        self.append_ascii("f")
+        self.append_w_str(self.space.repr(self.space.newutf8(s, l)))
 
 
 class FstringVisitor(Utf8BuilderVisitor):
@@ -455,10 +494,9 @@ class FstringVisitor(Utf8BuilderVisitor):
                 self.space.newtext("expression type not supported yet:" + str(node)))
 
     def visit_Constant(self, node):
-        from rpython.rlib import rstring
         s, l = self.space.utf8_len_w(node.value)
-        s = rstring.replace(s, "{", "{{")
-        s = rstring.replace(s, "}", "}}")
+        s = rstring_replace(s, "{", "{{")
+        s = rstring_replace(s, "}", "}}")
         self.append_utf8(s)
 
     def visit_FormattedValue(self, node):
@@ -501,6 +539,11 @@ def w_unparse(space, ast, level=PRIORITY_TEST):
     ast.walkabout(visitor)
     return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
 
+def w_unparse_annotation(space, ast, level=PRIORITY_TEST):
+    visitor = AnnotationUnparseVisitor(space, level)
+    ast.walkabout(visitor)
+    return space.newutf8(visitor.builder.build(), visitor.builder.getlength())
+
 class UnparseAnnotationsVisitor(ast.ASTVisitor):
     def __init__(self, space):
         self.space = space
@@ -511,7 +554,7 @@ class UnparseAnnotationsVisitor(ast.ASTVisitor):
 
     def unparse(self, node):
         return ast.Constant(
-                    w_unparse(self.space, node),
+                    w_unparse_annotation(self.space, node),
                     self.space.w_None,
                     node.lineno,
                     node.col_offset,

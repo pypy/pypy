@@ -80,3 +80,23 @@ class TestAstToObject:
         w_node = space.call_function(ast.get(space).w_Constant)
         assert space.is_w(space.w_None, space.getattr(w_node, space.newtext("end_lineno")))
         assert space.is_w(space.w_None, space.getattr(w_node, space.newtext("end_col_offset")))
+
+    def test_from_object_required_identifier_set_to_none_raises_valueerror(self, space):
+        # When a required identifier field is explicitly set to None,
+        # from_object must raise ValueError("field X is required for Y"),
+        # not TypeError("expected str, got NoneType").
+        # Tests alias.name and arg.arg as representative cases.
+        for w_cls, field in [
+            (ast.get(space).w_alias, 'name'),
+            (ast.get(space).w_arg, 'arg'),
+        ]:
+            w_node = space.call_function(w_cls)
+            space.setattr(w_node, space.newtext(field), space.w_None)
+            space.setattr(w_node, space.newtext('lineno'), space.newint(1))
+            space.setattr(w_node, space.newtext('col_offset'), space.newint(0))
+            excinfo = space.raises_w(
+                space.w_ValueError,
+                ast.alias.from_object if field == 'name' else ast.arg.from_object,
+                space, w_node)
+            error = space.text_w(excinfo.value.get_w_value(space))
+            assert ("field '%s' is required" % field) in error

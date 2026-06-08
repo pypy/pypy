@@ -39,9 +39,44 @@ hpy_abi = make_hpy_abi_fixture('default')
 
 
 @pytest.fixture(scope='session')
-def hpy_devel(request):
+def hpy_devel(tmp_path_factory):
     from hpy.devel import HPyDevel
-    return HPyDevel()
+    import distutils.ccompiler
+    import distutils.sysconfig
+    devel = HPyDevel()
+    try:
+        hpy_abi = 'universal'
+        base = tmp_path_factory.mktemp('hpy_staticlib', numbered=False)
+        abi_dir = base / hpy_abi
+        abi_dir.mkdir(parents=True, exist_ok=True)
+        obj_dir = base / 'obj' / hpy_abi
+        obj_dir.mkdir(parents=True, exist_ok=True)
+        compiler = distutils.ccompiler.new_compiler()
+        distutils.sysconfig.customize_compiler(compiler)
+        include_dirs = devel.get_extra_include_dirs()
+        include_dirs.append(str(devel.get_include_dir_forbid_python_h()))
+        objects = compiler.compile(
+            devel.get_extra_sources(),
+            output_dir=str(obj_dir),
+            include_dirs=include_dirs,
+            macros=[('HPY', None), ('HPY_ABI_UNIVERSAL', None)],
+        )
+        lib_name = 'hpyextra'
+        compiler.create_static_lib(objects, lib_name, output_dir=str(abi_dir))
+        lib_filename = compiler.library_filename(lib_name, lib_type='static')
+        lib_path = str(abi_dir / lib_filename)
+        devel._available_static_libs = {
+            'universal': [lib_path],
+            'hybrid': [lib_path],
+        }
+    except Exception as e:
+        import warnings
+        warnings.warn(
+            "HPy static-lib build failed (%s); "
+            "falling back to per-test source compilation." % e,
+            stacklevel=1,
+        )
+    return devel
 
 @pytest.fixture
 def leakdetector(hpy_abi):

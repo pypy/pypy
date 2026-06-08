@@ -39,7 +39,6 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
         assert module.from_string() == 1234.56
         assert type(module.from_string()) is float
 
-class AppTestFloatMacros(AppTestCpythonExtensionBase):
     def test_return_nan(self):
         import math
 

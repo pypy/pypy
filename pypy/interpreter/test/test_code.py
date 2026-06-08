@@ -218,3 +218,24 @@ class AppTestCodeIntrospection:
             co.replace(1)
         with raises(TypeError):
             co.replace(abc=123)
+
+    def test_varname_from_oparg(self):
+        def outer(cell):
+            def inner(x):
+                return cell
+            return inner
+
+        inner = outer(42)
+
+        for (c, e_varnames, e_cellvars, e_freevars) in [
+            (outer.__code__, ('cell', 'inner',), ('cell',), ()),
+            (inner.__code__, ('x',), (), ('cell',)),
+        ]:
+            print(c.co_varnames, c.co_cellvars, c.co_freevars)
+            assert c.co_varnames == e_varnames
+            assert c.co_cellvars == e_cellvars
+            assert c.co_freevars == e_freevars
+            localsplus = e_varnames + e_cellvars + e_freevars
+            assert tuple(c._varname_from_oparg(i) for i in range(len(localsplus))) == localsplus
+            raises(IndexError, c._varname_from_oparg, -1)
+            raises(IndexError, c._varname_from_oparg, len(localsplus))

@@ -1,5 +1,5 @@
 Contributing Guidelines
-===========================
+=======================
 
 .. contents::
 
@@ -25,11 +25,12 @@ important lessons that everyone willing to contribute should learn:
 * PyPy uses an entirely different set of tools - most of them included
   in the PyPy repository. There is no Makefile, nor autoconf. More below.
 
-The first thing to remember is that PyPy project is very different than most
+The first thing to remember is that the PyPy project is very different than most
 projects out there. It's also different from a classic compiler project,
 so academic courses about compilers often don't apply or lead in the wrong
 direction. However, if you want to understand how designing & building a runtime
 works in the real world then this is a great project!
+
 
 Getting involved
 ^^^^^^^^^^^^^^^^
@@ -41,7 +42,7 @@ there are very friendly, and can point you in the right direction.
 
 We give out commit rights usually fairly liberally, so if you want to do something
 with PyPy, you can become a "developer" by logging into https://foss.heptapod.net
-and clicking the "Request Access" link on the `PyPy group page`. We also run
+and clicking the "Request Access" link on the `PyPy group page`_. We also run
 coding sprints which are separately announced and are usually announced on `the
 blog`_.
 
@@ -65,7 +66,7 @@ require a lot of re-work. There are a few reasons why not:
 
 * build times are large
 * PyPy has very thick layer separation
-* context of the cPython runtime is often required
+* context of the CPython runtime is often required
 
 Instead, reach out on the dev mailing list or the IRC channel, and we're more
 than happy to help! :)
@@ -79,13 +80,14 @@ Some ideas for first contributions are:
 .. _nightly builds: https://buildbot.pypy.org/nightly/
 .. _issue tracker: https://github.com/pypy/pypy/issues/
 
+
 Source Control
 --------------
 
 PyPy's main git repositories are hosted here: https://github.com/pypy,
 and legacy repositories are hosted here: https://foss.heptapod.net/pypy.
 
-Pypy's legacy repositories are hosted on `Heptapod <https://heptapod.net/>`_.
+PyPy's legacy repositories are hosted on `Heptapod <https://heptapod.net/>`_.
 Heptapod is a friendly fork of GitLab Community
 Edition supporting Mercurial. https://foss.heptapod.net is a public instance
 for Free and Open-Source Software (more information `here
@@ -110,11 +112,11 @@ Clone
 
 * Clone the PyPy repo to your local machine with the command
   ``git clone https://github.com/pypy/pypy.git``.  It takes a minute or two
-  operation but only ever needs to be done once.  See also
+  but only ever needs to be done once.  See also
   https://pypy.org/download.html#building-from-source .
 
-
 * Now you have a complete copy of the PyPy repo.
+
 
 Edit
 ----
@@ -148,6 +150,7 @@ Edit
   accept it as is for PyPy, asking you instead to improve some things,
   but we are not going to judge you unless you don't write tests.
 
+
 Pull Request
 -------------
 
@@ -165,6 +168,7 @@ Pull Request
   sometimes occur when two people try to push different commits in
   parallel on the same branch.  But it is likely an issue for later ``:-)``
 
+
 Architecture
 ^^^^^^^^^^^^
 
@@ -178,6 +182,7 @@ backend or the garbage collector. Instead it requires writing small tests in
 After that, you can just compile PyPy and things should just work.
 
 Further Reading: :doc:`architecture <architecture>`
+
 
 Where to start?
 ---------------
@@ -213,6 +218,7 @@ points:
    ``xxxobject.py`` contains the implementation for objects of type ``xxx``,
    as a first approximation.  (Some types have multiple implementations.)
 
+
 Building
 ^^^^^^^^
 
@@ -223,14 +229,16 @@ times as long.
 
 Further Reading: :doc:`Build <build>`
 
+
 Coding Guide
 ------------
 
-As well as the usual pep8 and formatting standards, there are a number of
+As well as the usual :pep:`8` and formatting standards, there are a number of
 naming conventions and coding styles that are important to understand before
 browsing the source.
 
 Further Reading: :doc:`Coding Guide <coding-guide>`
+
 
 Testing
 ^^^^^^^
@@ -240,7 +248,7 @@ Test driven development
 
 Instead, we practice a lot of test driven development. This is partly because
 of very high quality requirements for compilers and partly because there is
-simply no other way to get around such complex project, that will keep you sane.
+simply no other way to get around such a complex project, that will keep you sane.
 There are probably people out there who are smart enough not to need it, we're
 not one of those. You may consider familiarizing yourself with `pytest`_,
 since this is a tool we use for tests. We ship our own tweaked version of
@@ -249,10 +257,11 @@ which means our tests need to run with that version of pytest.
 
 We also have post-translation tests in the ``extra_tests`` directory that are
 run in a virtual environment from a separate directory, so they use a more
-up-to-date version of pytest. As much as possible, these are meant to be
+up-to-date version of pytest. As much as possible, these are meant to
 pass with CPython as well.
 
 .. _pytest: https://pytest.org/
+
 
 Running PyPy's unit tests
 -------------------------
@@ -261,7 +270,7 @@ PyPy development always was and is still thoroughly test-driven.
 There are two modes of tests: those that run on top of RPython before
 translation (untranslated tests) and those that run on top of a translated
 ``pypy`` (app tests). Since RPython is a dialect of Python2, the untranslated
-tests run with a python2 host. 
+tests run with a python2 host.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -270,8 +279,8 @@ which you can invoke by typing::
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
-interpreter. The `cpyext` tests also require `pycparser`, and many tests build
-cases with `hypothesis`.
+interpreter. The ``cpyext`` tests also require ``pycparser``, and many tests build
+cases with ``hypothesis``.
 
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
@@ -295,27 +304,28 @@ our own tests in ``pypy/*/test/``.
 
 .. _`build requirements`: build.html#install-build-time-dependencies
 
+
 App level testing
 -----------------
 
-While the usual invocation of `python2 pytest.py` runs app-level tests on an
-untranslated PyPy that runs on top of CPython, we have a test extension to run tests
+While the usual invocation of ``python2 pytest.py`` runs app-level tests on an
+untranslated PyPy that runs on top of python2, we have a test extension to run tests
 directly on the host python. This is very convenient for modules such as
-`cpyext`, to compare and contrast test results between CPython and PyPy.
+``cpyext``, to compare and contrast test results between CPython and PyPy.
 
 App-level tests (ones whose file name start with ``apptest_`` not ``test_``)
-run directly on the host interpreter when passing `-D` or
-`--direct-apptest` to `pytest`::
+run directly on the host interpreter when passing ``-D`` or
+``--direct-apptest`` to ``pytest``::
 
     pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
 
-Mixed-level tests (the usual ones that start with ``test_``) are invoked by using the `-A` or `--runappdirect` option to
-`pytest`::
+Mixed-level tests (the usual ones that start with ``test_``) are invoked by using the ``-A`` or ``--runappdirect`` option to
+``pytest``::
 
     python2 pytest.py -A pypy/module/cpyext/test
 
-where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
-collection phase must be run with `python2` so untranslated tests are run
+where ``python2`` can be either ``python2`` or ``pypy2``. On any of the ``py3*`` branches, the
+collection phase must be run with ``python2`` so untranslated tests are run
 with::
 
     python2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
@@ -335,19 +345,19 @@ Python way, i.e. (use the exact binary name)::
     # or
     ./pypy3-c lib-python/3/test/test_audit.py
 
+
 Buildbot
 --------
 
 PyPy runs a buildbot-based CI system at https://buildbot.pypy.org. This is
-driven by the code at https://foss.heptapod.net/pypy/buildbot. The linux
+driven by the code at https://foss.heptapod.net/pypy/buildbot. The Linux
 runners on x86_64, i686, and aarch64 use a docker container, which manages
-dependencies. See the Dockerfile_ for more info. The windows runner uses
-dependencies from the ``win64_14x`` branch of the externals_ repo. The macos
+dependencies. See the Dockerfile_ for more info. The Windows runner uses
+dependencies from the ``win64_14x`` branch of the externals_ repo. The macOS
 runners (x86_64, arm64), use a venv on a M1 machine.
 
 .. _Dockerfile: https://foss.heptapod.net/pypy/buildbot/-/tree/branch/default/docker
 .. _externals: https://foss.heptapod.net/pypy/externals
-
 
 
 Tooling & Utilities
@@ -398,11 +408,12 @@ it runs on CPython level. If you want to return to PyPy, press <Ctrl-D> (under
 Linux) or <Ctrl-Z>, <Enter> (under Windows).
 
 Also note that not all modules are available by default in this mode (for
-example: ``_continuation`` needed by ``greenlet``) , you may need to use one of
+example: ``_continuation`` needed by ``greenlet``), you may need to use one of
 ``--withmod-...`` command line options.
 
 You may be interested in reading more about the distinction between
 :ref:`interpreter-level and app-level <interpreter-level>`.
+
 
 pyinteractive.py options
 ------------------------

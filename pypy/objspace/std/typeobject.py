@@ -167,6 +167,7 @@ class W_TypeObject(W_Root):
                           "flag_sequence_bug_compat",
                           "flag_patma_collection?",
                           "flag_map_or_seq",    # '?' or 'M' or 'S'
+                          "flag_method_descriptor",
                           "compares_by_identity_status?",
                           'hasuserdel',
                           'weakrefable',
@@ -192,6 +193,8 @@ class W_TypeObject(W_Root):
 
     # set to True by cpyext _before_ it even calls __init__() below
     flag_cpytype = False
+
+    flag_method_descriptor = False
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
@@ -250,6 +253,7 @@ class W_TypeObject(W_Root):
         # management, which means from the point of view of mapdict there is no
         # dict.
         typedef = self.layout.typedef
+        self.flag_method_descriptor = typedef.method_descriptor
         if (self.hasdict and not typedef.hasdict):
             self.terminator = DictTerminator(space, self)
         else:
@@ -611,10 +615,8 @@ class W_TypeObject(W_Root):
         space = self.space
         if self.is_heaptype():
             return self.getdictvalue(space, '__module__')
-        elif self.is_cpytype():
-            dot = self.name.rfind('.')
         else:
-            dot = self.name.find('.')
+            dot = self.name.rfind('.')
         if dot >= 0:
             mod = self.name[:dot]
         else:
@@ -625,10 +627,7 @@ class W_TypeObject(W_Root):
         if self.is_heaptype():
             result = self.name
         else:
-            if self.is_cpytype():
-                dot = self.name.rfind('.')
-            else:
-                dot = self.name.find('.')
+            dot = self.name.rfind('.')
             if dot >= 0:
                 result = self.name[dot+1:]
             else:
@@ -761,11 +760,11 @@ class W_TypeObject(W_Root):
         from pypy.module.cpyext.methodobject import W_PyCFunctionObject
 
         if isinstance(w_newdescr, W_PyCFunctionObject):
-            return self._really_hack_which_new_to_call(w_newtype, w_newdescr)
+            return self._find_which_tp_new_to_call(w_newtype, w_newdescr)
         else:
             return w_newtype, w_newdescr
 
-    def _really_hack_which_new_to_call(self, w_newtype, w_newdescr):
+    def _find_which_tp_new_to_call(self, w_newtype, w_newdescr):
         # This logic is moved in yet another helper function that
         # is recursive.  We call this only if we see a
         # W_PyCFunctionObject.  That's a performance optimization
@@ -779,9 +778,20 @@ class W_TypeObject(W_Root):
                 is_tp_new_wrapper(self.space, w_newdescr.ml)):
             w_bestbase = find_best_base(self.bases_w)
             if w_bestbase is not None:
-                w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
-                return w_bestbase._really_hack_which_new_to_call(w_newtype,
-                                                                 w_newdescr)
+                w_newtype2, w_newdescr2 = w_bestbase.lookup_where('__new__')
+                # Do not follow if the best base only has object.__new__.
+                # This happens when find_best_base() picks a Python mixin
+                # instead of the C type because they share the same layout
+                # (e.g. tp_basicsize == sizeof(PyObject)).
+                # See https://github.com/pypy/pypy/issues/5418
+                if w_newtype2 is self.space.w_object:
+                    pass
+                elif (isinstance(w_newdescr2, W_PyCFunctionObject) and
+                        is_tp_new_wrapper(self.space, w_newdescr2.ml)):
+                    return w_bestbase._find_which_tp_new_to_call(
+                        w_newtype2, w_newdescr2)
+                else:
+                    return w_newtype2, w_newdescr2
         return w_newtype, w_newdescr
 
     def descr_repr(self, space):
@@ -869,6 +879,8 @@ class W_TypeObject(W_Root):
             flags |= PATMA_MAPPING
         elif self.flag_patma_collection == "S":
             flags |= PATMA_SEQUENCE
+        if self.flag_method_descriptor:
+            flags |= 1 << 17  # Py_TPFLAGS_METHOD_DESCRIPTOR
         return flags
 
 def descr__new__(space, w_typetype, __args__):
@@ -1385,9 +1397,26 @@ def check_and_find_best_base(space, bases_w, is_cpytype=False):
         if isinstance(w_base, W_TypeObject):
             layout = w_base.layout
             if not best_layout.issublayout(layout):
+                if _layouts_equivalent(best_layout, layout) and (
+                        is_cpytype or
+                        (w_base.is_cpytype() and w_bestbase.is_cpytype())):
+                    continue
                 raise oefmt(space.w_TypeError,
                             "instance layout conflicts in multiple inheritance")
     return w_bestbase
+
+def _layouts_equivalent(l1, l2):
+    """Return True if two Layout objects are structurally identical - same
+    typedef, nslots, slot names, and base chain - but are different Python
+    objects because force_new_layout created them independently.
+
+    Used to allow multiple inheritance between two cpytypes that have the same
+    tp_basicsize/tp_itemsize. CPython's solid_base() logic permits
+    this combination because both types share the same solid ancestor."""
+    return (l1.typedef is l2.typedef and
+            l1.nslots == l2.nslots and
+            l1.newslotnames == l2.newslotnames and
+            l1.base_layout is l2.base_layout)
 
 def copy_flags_from_bases(w_self, w_bestbase):
     hasoldstylebase = False
@@ -1527,11 +1556,7 @@ def setup_user_defined_type(w_self, force_new_layout):
 def setup_builtin_type(w_self, instancetypedef):
     w_self.hasdict = instancetypedef.hasdict
     w_self.weakrefable = instancetypedef.weakrefable
-    if isinstance(instancetypedef.doc, W_Root):
-        w_doc = instancetypedef.doc
-    else:
-        w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
-    w_self.w_doc = w_doc
+    w_self.w_doc = w_self.space.newtext_or_none(instancetypedef.doc)
     w_self.text_signature = instancetypedef.text_signature
     ensure_common_attributes(w_self)
     #
@@ -1776,6 +1801,7 @@ class TypeCache(SpaceCache):
                     qualname = (w_type.getqualname(space).encode('utf-8')
                                 + '.' + name)
                     w_obj.set_qualname(qualname)
+                    w_obj.set_objclass(w_type)
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat

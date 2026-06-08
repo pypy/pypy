@@ -255,7 +255,7 @@ def get_so_suffix():
 def get_sys_info_app(base_dir):
     from distutils.sysconfig import get_python_inc
     if sys.platform == 'win32':
-        compile_extra = ["/we4013"]
+        compile_extra = ["/we4013", "/std:c11"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
     elif sys.platform.startswith('linux'):
         compile_extra = [

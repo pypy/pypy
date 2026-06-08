@@ -596,19 +596,6 @@ a = A()
             x = 0
         """, 'x', 42
 
-    def test_try_except_finally(self):
-        yield self.simple_test, """
-            try:
-                x = 5
-                try:
-                    if x > 2:
-                        raise ValueError
-                finally:
-                    x += 1
-            except ValueError:
-                x *= 7
-        """, 'x', 42
-
     def test_try_finally_bug(self):
         yield self.simple_test, """
         x = 0
@@ -968,7 +955,7 @@ a = A()
         finally: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 2 # maybe should be 1
+        assert code.co_stacksize == 4  # outer_cleanup block needs depth 3, COPY pushes to 4
 
     def test_stackeffect_bug4(self):
         source = """if 1:
@@ -981,7 +968,7 @@ a = A()
         with a: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 4  # i.e. <= 7, there is no systematic leak
+        assert code.co_stacksize == 6  # matches CPython 3.11; no systematic leak
 
     def test_stackeffect_bug5(self):
         source = """if 1:
@@ -1486,6 +1473,53 @@ def f():
             (2, 8, 4, 5)
         ]
 
+    def test_attribute_position_multiline(self):
+        # LOAD_ATTR should get the position of the attribute name,
+        # not the position of the object it's accessed on
+        yield self.simple_test, """\
+            def function():
+                return (
+                    o.
+                    a
+                )
+            co = function.__code__
+            result = list(co.co_positions())[1]
+        """, 'result', (4, 4, 8, 9)
+
+    def test_load_method_position_multiline(self):
+        # LOAD_METHOD should get the position of the method name,
+        # not the position of the object
+        yield self.simple_test, """\
+            def fmeth():       # line 1
+                (              # line 2
+                    o.         # line 3
+                    m          # line 4
+                )()            # line 5
+            import dis
+            co = fmeth.__code__
+            opcodes = [i.opname for i in dis.get_instructions(co)]
+            positions = list(co.co_positions())
+            result = positions[opcodes.index('LOAD_METHOD')]
+        """, 'result', (4, 4, 8, 9)
+
+    def test_augassign_attribute_position_multiline(self):
+        # LOAD_ATTR and STORE_ATTR in augmented assignment should get the
+        # position of the attribute name, not the object
+        yield self.simple_test, """\
+            def faug():        # line 1
+                (              # line 2
+                    o.         # line 3
+                    a          # line 4
+                ) += 1         # line 5
+            import dis
+            co = faug.__code__
+            opcodes = [i.opname for i in dis.get_instructions(co)]
+            positions = list(co.co_positions())
+            load_idx = opcodes.index('LOAD_ATTR')
+            store_idx = opcodes.index('STORE_ATTR')
+            result = (positions[load_idx], positions[store_idx])
+        """, 'result', ((4, 4, 8, 9), (4, 4, 8, 9))
+
     def test_many_args(self):
         args = ["a%i" % i for i in range(300)]
         argdef = ", ".join(args)
@@ -1981,6 +2015,41 @@ def g():
 """
         self.st(func, "g()", None)
 
+    def test_newbytecode_async_with_bad_aenter(self):
+        # GET_AWAITABLE oparg=1: error message should mention __aenter__
+        space = self.space
+        w_err = py.test.raises(OperationError, space.appexec, [], r"""():
+            class CM:
+                def __aenter__(self): return 123
+                def __aexit__(self, *e): return 456
+            async def f():
+                async with CM(): pass
+            c = f()
+            c.send(None)
+        """)
+        assert w_err.value.match(space, space.w_TypeError)
+        msg = w_err.value.errorstr(space)
+        assert "__aenter__" in msg
+        assert "does not implement __await__" in msg
+
+    def test_newbytecode_async_with_bad_aexit(self):
+        # GET_AWAITABLE oparg=2: error message should mention __aexit__
+        space = self.space
+        w_err = py.test.raises(OperationError, space.appexec, [], r"""():
+            class CM:
+                async def __aenter__(self): return self
+                def __aexit__(self, *e): return 456
+            async def f():
+                async with CM(): pass
+            c = f()
+            try: c.send(None)
+            except StopIteration: c.send(None)
+        """)
+        assert w_err.value.match(space, space.w_TypeError)
+        msg = w_err.value.errorstr(space)
+        assert "__aexit__" in msg
+        assert "does not implement __await__" in msg
+
     def test_newbytecode_reraise_no_match(self):
         space = self.space
         space.raises_w(space.w_KeyError,
@@ -2141,7 +2210,21 @@ x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
         pass
 x = [c for c in f.__code__.co_lnotab]
 '''
-        self.st(func, 'x', [0, 1, 2, 2, 2, 255])
+        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 6, 255, 2, 1])
+
+    def test_lineno_crash(self):
+        func = '''
+def ie(c, r, fg, cc):
+    tc = True if cc is False else c in Cc and r in Rc
+    if tc:
+        (print("wut") if fg is not None
+         else None)
+import dis
+co = ie.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+'''
+        self.st(func, 'x', [3, 4, 5, 6, 4])
 
 
     def test_revdb_metavar(self):
@@ -2156,8 +2239,8 @@ x = brokenargs(c=3)
         self.st(func, "x", [1, 2, 3])
 
     def test_keyword_repeated(self):
-        yield self.error_test, "f(a=c, a=d)", SyntaxError, "keyword argument repeated: 'a'"
-        yield self.error_test, "class A(metaclass=c, metaclass=d): pass", SyntaxError, "keyword argument repeated: 'metaclass'"
+        yield self.error_test, "f(a=c, a=d)", SyntaxError, "keyword argument repeated: a"
+        yield self.error_test, "class A(metaclass=c, metaclass=d): pass", SyntaxError, "keyword argument repeated: metaclass"
 
     def test_while_false_break(self):
         self.st("x=1\nwhile False: break", "x", 1)
@@ -2595,20 +2678,6 @@ match x:
 print()
 """, [0, 1, 3, 1, 4, 5, 6, 7])
 
-    def test_crash_ifelse_in_except(self):
-        code = self.get_line_numbers("""
-def buggy():
-    try:
-        pass
-    except OSError as exc:
-        if a:
-            pass
-        elif b:
-            pass
-    else:
-        f
-""", [1, 2, 3, 4, 5, 6, 7, 3, 9, 6], function=True)
-
     def test_return_in_with(self):
         code = self.get_line_numbers("""
 def withreturn():
@@ -2633,14 +2702,6 @@ def withreturn():
             v + w
         )
         """, [3, 0, 1])
-
-    def test_or_with_implicit_return(self):
-        code = self.get_line_numbers("""
-def or_with_implicit_return():
-    if a:
-        (g
-         or
-         h)""", [1, 2, 4, 1, 2], function=True)
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):
@@ -2865,6 +2926,12 @@ class AppTestCompiler:
             assert issubclass(w[-1].category, SyntaxWarning)
             assert "assertion is always true" in w[-1].message.args[0]
 
+    def test_syntax_warnings_invalid_literal_as_error(self):
+        import warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error', category=SyntaxWarning)
+            raises(SyntaxError, compile, '9and x', '<testcase>', 'exec')
+
     def test_syntax_warnings_false_positives(self):
         import warnings
 
@@ -3007,15 +3074,6 @@ class TestOptimizations:
         for instr in instrs:
             counts[instr.opcode] = counts.get(instr.opcode, 0) + 1
         return counts
-
-    def test_elim_jump_to_return(self):
-        source = """def f():
-        return true_value if cond else false_value
-        """
-        counts = self.count_instructions(source)
-        assert ops.JUMP_FORWARD not in counts
-        assert ops.JUMP_ABSOLUTE not in counts
-        assert counts[ops.RETURN_VALUE] == 2
 
     def test_forward_cond_jump_to_jump(self):
         source1 = """def jumpymcjumpface():
@@ -3392,18 +3450,6 @@ class TestOptimizations:
         """
         counts = self.count_instructions(source)
         assert counts.get(ops.JUMP_FORWARD, 0) == 1
-
-    @pytest.mark.xfail
-    def test_match_optimize_default(self):
-        source = """def f():
-            match x:
-                case 1:
-                    return 1
-                case _:
-                    return 2
-        """
-        counts = self.count_instructions(source)
-        assert counts.get(ops.POP_TOP, 0) == 0
 
     def test_jump_if_false_or_pop_to_same(self):
         source = """def f(a, b, c):

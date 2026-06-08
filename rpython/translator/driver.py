@@ -503,11 +503,11 @@ class TranslationDriver(SimpleTaskEngine):
                     shutil.copyfile(str(oldlibname), libname)
                     self.log.info("copied: %s to %s" % (oldlibname, libname,))
                     # the pdb file goes in the same place as pypy(w).exe
-                    ext_to_copy = ['pdb',]
-                    for ext in ext_to_copy:
-                        name = soname.new(ext=ext)
+                    pdb = "pdb"
+                    if soname.new(ext=pdb).exists():
+                        name = soname.new(ext=pdb)
                         newname = newexename.new(basename=soname.basename)
-                        shutil.copyfile(str(name), str(newname.new(ext=ext)))
+                        shutil.copyfile(str(name), str(newname.new(ext=pdb)))
                         self.log.info("copied: %s" % (newname,))
                     # HACK: copy libcffi-*.dll which is required for venvs
                     # At some point, we should stop doing this, and instead

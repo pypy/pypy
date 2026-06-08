@@ -4,7 +4,7 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, wrap_oserror, exception_from_saved_errno
+from pypy.interpreter.error import oefmt, wrap_oserror, exception_from_saved_errno, OperationError
 from rpython.rlib import rtermios
 from rpython.rlib import rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -50,7 +50,7 @@ def tcgetattr(space, w_fd):
     l_w = [space.newint(i) for i in [iflag, oflag, cflag, lflag, ispeed, ospeed]]
     # last one need to be chosen carefully
     cc_w = [space.newbytes(i) for i in cc]
-    if lflag & rtermios.ICANON:
+    if not (lflag & rtermios.ICANON):
         cc_w[rtermios.VMIN] = space.newint(ord(cc[rtermios.VMIN][0]))
         cc_w[rtermios.VTIME] = space.newint(ord(cc[rtermios.VTIME][0]))
     w_cc = space.newlist(cc_w)
@@ -88,8 +88,8 @@ def tcflow(space, w_fd, action):
     except OSError as e:
         raise convert_error(space, e)
 
-@unwrap_spec(fd=int)
-def tcgetwinsize(space, fd):
+def tcgetwinsize(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
     if rtermios.TIOCGWINSZ:
         with lltype.scoped_alloc(rposix.WINSIZE) as winsize:
             failed = rposix.c_ioctl_voidp(fd, rtermios.TIOCGWINSZ, winsize)
@@ -103,10 +103,16 @@ def tcgetwinsize(space, fd):
         raise oefmt(space.w_NotImplementedError, "TIOCGSIZE not supported")
     else:
         raise oefmt(space.w_NotImplementedError, "requires termios.TIOCGWINSZ")
-         
-@unwrap_spec(fd=int)
-def tcsetwinsize(space, fd, w_winsz):
-    winsz_w = space.listview(w_winsz)
+
+def tcsetwinsize(space, w_fd, w_winsz):
+    fd = space.c_filedescriptor_w(w_fd)
+    try:
+        winsz_w = space.unpackiterable(w_winsz, expected_length=2)
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            raise oefmt(space.w_TypeError,
+                        "tcsetwinsize: argument 2 must be a 2-sequence")
+        raise
     rows = space.int_w(winsz_w[0])
     cols = space.int_w(winsz_w[1])
     if rtermios.TIOCGWINSZ and rtermios.TIOCSWINSZ:

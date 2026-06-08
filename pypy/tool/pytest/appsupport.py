@@ -51,7 +51,8 @@ class AppFrame(py.code.Frame):
         self.code = AppCode(space, \
             space.unwrap(space.getattr(pyframe, space.wrap('f_code'))))
         #self.code = py.code.Code(pyframe.pycode)
-        self.lineno = space.unwrap(space.getattr(pyframe, space.wrap('f_lineno'))) - 1
+        lineno = space.unwrap(space.getattr(pyframe, space.wrap('f_lineno')))
+        self.lineno = (lineno - 1) if lineno is not None else 0
         #pyframe.get_last_lineno() - 1
         self.space = space
         self.w_globals = space.getattr(pyframe, space.wrap('f_globals'))

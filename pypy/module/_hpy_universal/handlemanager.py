@@ -144,6 +144,23 @@ class AbstractHandleManager(object):
     def get_ctx(self):
         raise NotImplementedError
 
+    def get_ctx_for_handles(self):
+        """Return the context that is consistent with handles created by new().
+
+        For DebugHandleManager, get_ctx() tracks the currently-valid debug
+        context (which may be next_dctx during before_call/after_call), but
+        new() always uses self.ctx.  Callers that create handles and then pass
+        both the handle and the context to a C function must use the same
+        context for both; get_ctx_for_handles() satisfies that requirement.
+        """
+        return self.get_ctx()
+
+    def debug_before_call(self):
+        raise NotImplementedError
+
+    def debug_after_call(self, next_ctx):
+        raise NotImplementedError
+
     @specialize.arg(0)
     def using(self, *w_objs):
         """
@@ -217,6 +234,12 @@ class HandleManager(AbstractHandleManager):
 
     def get_ctx(self):
         return self.ctx
+
+    def debug_before_call(self):
+        return self.get_ctx()
+
+    def debug_after_call(self, next_ctx):
+        pass
 
     def new(self, w_object):
         if len(self.free_list) == 0:
@@ -306,6 +329,15 @@ class DebugHandleManager(AbstractHandleManager):
         llapi.hpy_debug_set_ctx(self.ctx)
 
     def get_ctx(self):
+        return llapi.hpy_debug_get_current_ctx()
+
+    def get_ctx_for_handles(self):
+        # new() always opens debug handles with self.ctx, so callers that
+        # pair a freshly-created handle with a context must use self.ctx too.
+        # get_ctx() may return next_dctx during a before_call/after_call cycle
+        # (e.g. when the GC finalizer fires inside a C callback), which would
+        # cause hpy_debug_unwrap_handle to return NULL for a handle created
+        # with self.ctx, leading to a segfault.
         return self.ctx
 
     def new(self, w_object):
@@ -344,6 +376,12 @@ class DebugHandleManager(AbstractHandleManager):
         uh = llapi.hpy_debug_unwrap_handle(self.ctx, index)
         self.u_handles.attach_release_callback(uh, cb)
 
+    def debug_before_call(self):
+        return llapi.hpy_debug_ctx_before_call(self.ctx)
+
+    def debug_after_call(self, next_ctx):
+        llapi.hpy_debug_ctx_after_call(self.ctx, next_ctx)
+
     def str2ownedptr(self, s, owner):
         return self.u_handles.str2ownedptr(s, owner)
 
@@ -378,7 +416,13 @@ class TraceHandleManager(AbstractHandleManager):
             setattr(ctx, ctx_field, funcptr)
 
     def get_ctx(self):
-        return llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        return llapi.hpy_trace_get_stored_ctx()
+
+    def debug_before_call(self):
+        return self.get_ctx()
+
+    def debug_after_call(self, next_ctx):
+        pass
 
     def new(self, w_object):
         return self.u_handles.new(w_object)

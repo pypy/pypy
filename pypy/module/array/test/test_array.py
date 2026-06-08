@@ -608,7 +608,7 @@ class AppTestArray(object):
         assert not a >= 2*a
 
     def test_reduce(self):
-        import pickle
+        import _pickle as pickle
         a = self.array('i', [1, 2, 3])
         s = pickle.dumps(a)
         b = pickle.loads(s)

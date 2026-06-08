@@ -254,6 +254,15 @@ class W_SRE_Pattern(W_Root):
                 ctx.w_unicode_obj = w_unicode_obj
             return ctx
         elif self.is_known_unicode():
+            if not space.isinstance_w(w_string, space.w_bytes):
+                try:
+                    space.readbuf_w(w_string)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    raise oefmt(space.w_TypeError,
+                                "expected string or bytes-like object, "
+                                "got '%T'", w_string)
             raise oefmt(space.w_TypeError,
                         "can't use a string pattern on a bytes-like "
                         "object")

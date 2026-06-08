@@ -24,6 +24,9 @@ int pypysig_set_wakeup_fd(int fd, int with_nul_byte);
 /* utility to poll for signals that arrived */
 RPY_EXTERN
 int pypysig_poll(void);   /* => signum or -1 */
+/* errno from last failed wakeup-fd write (0 if none); clears on read */
+RPY_EXTERN
+int pypysig_get_wakeup_fd_write_errno(void);
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
@@ -51,6 +54,12 @@ RPY_EXPORTED struct pypysig_long_struct pypysig_counter;
 RPY_EXTERN
 void *pypysig_getaddr_occurred(void);
 #define pypysig_getaddr_occurred()   ((void *)(&pypysig_counter))
+
+/* siginterrupt(2) is deprecated on Linux; use sigaction instead */
+#ifndef _WIN32
+RPY_EXTERN
+int pypysig_siginterrupt(int sig, int flag);
+#endif
 
 inline static char pypysig_check_and_reset(void) {
     /* used by reverse_debugging */

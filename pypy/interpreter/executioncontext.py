@@ -189,7 +189,8 @@ class ExecutionContext(object):
         d = frame.getorcreatedebug()
         lastline = d.f_lineno
         lineno = frame.pycode._get_lineno_for_pc_tracing(frame.last_instr)
-        d.f_lineno = lineno
+        if lineno != -1:
+            d.f_lineno = lineno
         if d.f_trace_lines and lineno != -1:
             # when we are at a start of a line, or executing a backwards jump,
             # produce a line event
@@ -214,7 +215,6 @@ class ExecutionContext(object):
         "Trace function called upon OperationError."
         if self.gettrace() is not None:
             self._trace(frame, 'exception', None, operationerr)
-        #operationerr.print_detailed_traceback(self.space)
 
     def sys_exc_info(self):
         """Implements sys.exc_info().
@@ -395,7 +395,13 @@ class ExecutionContext(object):
                     raise
             finally:
                 if d.f_lineno == lineno:
-                    d.f_lineno = old_lineno
+                    # For generator/coroutine resumptions (last_instr >= 0 at
+                    # call time), keep d.f_lineno at the yield line so the
+                    # instruction immediately after YIELD_VALUE (still on the
+                    # same source line) does not fire a spurious line event.
+                    # This mirrors CPython's RESUME instruction behaviour.
+                    if event != 'call' or frame.last_instr < 0:
+                        d.f_lineno = old_lineno
                 self.is_tracing -= 1
                 d.is_in_line_tracing = prev_line_tracing
                 if d.w_locals is not None:

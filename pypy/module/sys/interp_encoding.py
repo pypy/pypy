@@ -1,6 +1,4 @@
 import sys
-from rpython.rlib import rlocale
-from rpython.rlib.objectmodel import we_are_translated
 
 def getdefaultencoding(space):
     """Return the current default string encoding used by the Unicode
@@ -15,18 +13,8 @@ else:
     base_error = "surrogateescape"
 
 def _getfilesystemencoding(space):
-    """If LC_CTYPE is currently C or POSIX, set it to "en_US", and return "utf-8"
-       In CPython this checks other cases, that we ignore 
-    """
-    encoding = base_encoding
-    if rlocale.HAVE_LANGINFO:
-        try:
-            oldlocale = rlocale.setlocale(rlocale.LC_CTYPE, None)
-            if oldlocale in ("C", "POSIX"):
-                rlocale.setlocale(rlocale.LC_CTYPE, "en_US.UTF-8")
-        except rlocale.LocaleError:
-            pass
-    return encoding
+    """Return the filesystem encoding. Always utf-8 on PyPy."""
+    return base_encoding
 
 def getfilesystemencoding(space):
     """Return the encoding used to convert Unicode filenames in

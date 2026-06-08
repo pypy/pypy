@@ -802,6 +802,10 @@ class PydocDocTest(unittest.TestCase):
         # so we need to update __subclasshook__ and __init_subclass__.
         expected['__subclasshook__'] = TestClass.__subclasshook__
         expected['__init_subclass__'] = TestClass.__init_subclass__
+        #PyPy change: object.__new__ is a staticmethod descriptor in PyPy (not a raw
+        # builtin like in CPython); pydoc.allmethods resolves it via getattr, so align.
+        if isinstance(expected.get('__new__'), staticmethod):
+            expected['__new__'] = getattr(object, '__new__')
 
         methods = pydoc.allmethods(TestClass)
         self.assertDictEqual(methods, expected)

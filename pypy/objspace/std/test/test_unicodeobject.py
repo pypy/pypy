@@ -8,6 +8,32 @@ except ImportError:
 
 from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError
+from pypy.objspace.std.unicodeobject import unicodedb
+
+if HAS_HYPOTHESIS:
+    @strategies.composite
+    def random_split_input(draw):
+        def make_spaces():
+            spaces = draw(strategies.text(strategies.characters(whitelist_categories=['Zs']), min_size=1))
+            # some discrepancies between pypy2 and 3.11 (uni db 14)
+            spaces = u"".join(c for c in spaces if unicodedb.isspace(ord(c)))
+            if not spaces:
+                spaces = u" "
+            return spaces
+
+        length = draw(strategies.integers(min_value=0, max_value=20))
+        res_list = []
+        all_list = []
+        for i in range(length):
+            all_list.append(make_spaces())
+            next_non_space = draw(strategies.text(min_size=1))
+            next_non_space = u"".join(c for c in next_non_space if not unicodedb.isspace(ord(c)))
+            if next_non_space:
+                all_list.append(next_non_space)
+                res_list.append(next_non_space)
+        if draw(strategies.booleans()):
+            all_list.append(make_spaces())
+        return u"".join(all_list), res_list
 
 
 class TestUnicodeObject:
@@ -94,6 +120,26 @@ class TestUnicodeObject:
                                         space.newint(start),
                                         space.newint(start + len1))
             assert space.int_w(w_index) == rexpected
+
+        @given(random_split_input())
+        def test_hypo_split(self, inp):
+            space = self.space
+            input, expected = inp
+            w_u = space.newtext(input.encode('utf8'))
+            for methname in ('split', 'rsplit'):
+                w_l = space.call_method(w_u, methname)
+                l_w = space.unpackiterable(w_l)
+                assert len(l_w) == len(expected)
+                for i, w_elt in enumerate(l_w):
+                    assert space.text_w(w_elt) == expected[i].encode('utf8')
+            for maxsplit in range(len(expected)):
+                w_l = space.call_method(w_u, 'split', space.w_None, space.newint(maxsplit))
+                l_w = space.unpackiterable(w_l)
+                assert len(l_w) == maxsplit + 1
+                for i, w_elt in enumerate(l_w[:-1]):
+                    assert space.text_w(w_elt) == expected[i].encode('utf8')
+                assert input.encode('utf8').endswith(space.text_w(l_w[-1]))
+
 
     def test_getitem_constant_index_jit(self):
         # test it directly, to prevent only seeing bugs in jitted code

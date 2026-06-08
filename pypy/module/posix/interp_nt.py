@@ -169,6 +169,47 @@ _getfileinformation = make__getfileinformation_impl(utf8_traits)
 _getfinalpathname = make__getfinalpathname_impl(utf8_traits)
 
 
+_PULARGE = rffi.CArrayPtr(rffi.ULONGLONG)
+_GetDiskFreeSpaceExW = rffi.llexternal(
+    'GetDiskFreeSpaceExW',
+    [rffi.CWCHARP, _PULARGE, _PULARGE, _PULARGE],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+ERROR_DIRECTORY = 267
+
+def win32_getdiskusage(utf8):
+    ncp = codepoints_in_utf8(utf8)
+    with rffi.scoped_utf82wcharp(utf8, ncp) as buf:
+        with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as avail_p:
+            with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as total_p:
+                with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as free_p:
+                    ret = _GetDiskFreeSpaceExW(buf, avail_p, total_p, free_p)
+                    if ret:
+                        total = rffi.cast(lltype.SignedLongLong, total_p[0])
+                        free_ = rffi.cast(lltype.SignedLongLong, free_p[0])
+                        return total, free_
+                    if rwin32.GetLastError_saved() != ERROR_DIRECTORY:
+                        raise rwin32.lastSavedWindowsError("GetDiskFreeSpaceExW")
+    # ERROR_DIRECTORY: path is a file; retry with its parent directory
+    idx = utf8.rfind('\\')
+    if idx < 0:
+        idx = utf8.rfind('/')
+    dir_utf8 = utf8[:idx] if idx >= 0 else utf8
+    ncp2 = codepoints_in_utf8(dir_utf8)
+    with rffi.scoped_utf82wcharp(dir_utf8, ncp2) as buf2:
+        with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as avail_p:
+            with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as total_p:
+                with lltype.scoped_alloc(rffi.CArray(rffi.ULONGLONG), 1) as free_p:
+                    ret = _GetDiskFreeSpaceExW(buf2, avail_p, total_p, free_p)
+                    if not ret:
+                        raise rwin32.lastSavedWindowsError("GetDiskFreeSpaceExW")
+                    total = rffi.cast(lltype.SignedLongLong, total_p[0])
+                    free_ = rffi.cast(lltype.SignedLongLong, free_p[0])
+    return total, free_
+
+
 def win32_getppid():
     ret = pypy_Getppid()
     if ret == rffi.cast(rwin32.DWORD, -1):

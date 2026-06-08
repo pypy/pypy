@@ -717,10 +717,10 @@ class OptString(Optimization):
         handled, result = self.handle_str_equal_level1(arg2, arg1, op, mode)
         if handled:
             return True, result
-        handled, result = self.handle_str_equal_level2(arg1, arg2, op, mode)
+        handled, result = self.handle_str_equal_level2(arg1, arg2, l2box, op, mode)
         if handled:
             return True, result
-        handled, result = self.handle_str_equal_level2(arg2, arg1, op, mode)
+        handled, result = self.handle_str_equal_level2(arg2, arg1, l1box, op, mode)
         if handled:
             return True, result
         #
@@ -786,12 +786,9 @@ class OptString(Optimization):
         #
         return False, None
 
-    def handle_str_equal_level2(self, arg1, arg2, resultbox, mode):
+    def handle_str_equal_level2(self, arg1, arg2, l2box, resultbox, mode):
         i1 = getptrinfo(arg1)
         i2 = getptrinfo(arg2)
-        l2box = None
-        if i2:
-            l2box = i2.getstrlen(arg1, self, mode)
         if l2box:
             l2info = self.getintbound(l2box)
             if l2info.is_constant():

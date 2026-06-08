@@ -24,7 +24,7 @@ performance, has been improved and it is now possible to manually manage the
 GC by using a combination of ``gc.disable`` and ``gc.collect_step``. See the
 `GC blog post`_.
 
-.. _`GC hooks`: https://doc.pypy.org/en/latest/gc_info.html#semi-manual-gc-management
+.. _`GC hooks`: https://doc.pypy.org/gc_info.html#semi-manual-gc-management
 
 We updated the `cffi`_ module included in PyPy to version 1.12, and the
 `cppyy`_ backend to 1.4. Please use these to wrap your C and C++ code,
@@ -115,7 +115,7 @@ If not specified, the changes are shared across versions
   for the v7.0.0 release.  For more information, see
   https://bitbucket.org/pypy/revdb
 * Support underscores in numerical literals like ``'4_2'`` (Py3.6)
-* Pre-emptively raise MemoryError if the size of dequeue in ``_collections.deque``
+* Preemptively raise MemoryError if the size of dequeue in ``_collections.deque``
   is too large (Py3.5)
 * Fix multithreading issues in calls to ``os.setenv``
 * Add missing defines and typedefs for numpy and pandas on MSVC
@@ -149,4 +149,4 @@ We also refactored many parts of the JIT bridge optimizations, as well as cpyext
 internals, and together with new contributors fixed issues, added new
 documentation, and cleaned up the codebase.
 
-.. _contributing: https://doc.pypy.org/en/latest/contributing.html
+.. _contributing: https://doc.pypy.org/contributing.html

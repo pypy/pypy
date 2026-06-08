@@ -90,7 +90,7 @@ the release or is not ready yet. Highlights include:
 Cheers,
 The PyPy Team
 
-.. _`brief overview`: https://doc.pypy.org/en/latest/jit-hooks.html
+.. _`brief overview`: https://doc.pypy.org/jit-hooks.html
 .. _`numpy status page`: https://buildbot.pypy.org/numpy-status/latest.html
 .. _`numpy status update blog report`: https://morepypy.blogspot.com/2012/01/numpypy-status-update.html
 .. _`numpypy`: https://pypy.org/numpydonate.html

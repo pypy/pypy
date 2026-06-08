@@ -4,25 +4,25 @@ try:
 except ImportError:
     pass      # for tests only
 
-def factorial(x):
-    """factorial(x) -> Integral
+def factorial(n, /):
+    """factorial(n, /) -> int
 
-    "Find x!. Raise a ValueError if x is negative or non-integral."""
-    if '__index__' not in dir(x):
-        raise TypeError("'%s' object cannot be interpreted as an integer" % type(x).__name__)
-    if x > sys.maxsize:
+    Find n!. Raise a ValueError if n is negative or non-integral."""
+    if '__index__' not in dir(n):
+        raise TypeError("'%s' object cannot be interpreted as an integer" % type(n).__name__)
+    if n > sys.maxsize:
         raise OverflowError("Too large for a factorial")
 
-    if x <= 100:
-        if x < 0:
-            raise ValueError("x must be >= 0")
+    if n <= 100:
+        if n < 0:
+            raise ValueError("n must be a non-negative integer")
         res = 1
-        for i in range(2, x + 1):
+        for i in range(2, n + 1):
             res *= i
         return res
 
     # Experimentally this gap seems good
-    gap = max(100, x >> 7)
+    gap = max(100, n >> 7)
     def _fac_odd(low, high):
         if low + gap >= high:
             t = 1
@@ -41,7 +41,7 @@ def factorial(x):
         g *= _fac_odd((x2 + 1) | 1, x + 1)
         return (f * g, g, shift + x2)
 
-    res, _, shift = _fac1(x)
+    res, _, shift = _fac1(n)
     return res << shift
 
 
@@ -130,7 +130,7 @@ def remainder(x, y):
     return x
 
 
-def isqrt(n):
+def isqrt(n, /):
     """
     Return the integer part of the square root of the input.
     """

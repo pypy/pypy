@@ -39,7 +39,7 @@ class AppTestCodecs:
         raises(SyntaxError, eval, 'u\'\\Uffffffff\'')
 
     def test_insecure_pickle(self):
-        import pickle
+        import _pickle as pickle
         insecure = [b"abc", b"2 + 2", # not quoted
                     #"'abc' + 'def'", # not a single quoted string
                     b"'abc", # quote is not closed

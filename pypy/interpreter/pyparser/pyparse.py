@@ -92,6 +92,7 @@ class CompileInfo(object):
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
         self.feature_version = feature_version
+        self.source_ends_with_newline = False
 
 
 class PythonParser(object): # leave class for mergeability of _handle_encoding
@@ -114,6 +115,7 @@ class PythonParser(object): # leave class for mergeability of _handle_encoding
             explicit_encoding = (decl_enc is not None)
             if decl_enc and _normalize_encoding(decl_enc) != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with %s coding cookie" % decl_enc,
+                                        offset=-1,
                                         filename=compile_info.filename)
             textsrc = bytessrc
         else:
@@ -176,6 +178,18 @@ class PegParser(object):
         Everything from decoding the source to tokenizing to building the parse
         tree is handled here.
         """
+        if '\x00' in bytessrc:
+            null_pos = bytessrc.find('\x00')
+            assert null_pos >= 0
+            text_before = bytessrc[:null_pos]
+            lineno = text_before.count('\n') + 1
+            line_start = text_before.rfind('\n') + 1
+            assert line_start >= 0
+            line_text = text_before[line_start:] + '\n'
+            raise error.SyntaxError("source code cannot contain null bytes",
+                                    lineno=lineno,
+                                    text=line_text,
+                                    filename=compile_info.filename)
         textsrc = PythonParser._handle_encoding(bytessrc, compile_info, self.space)
         return self._parse(textsrc, compile_info)
 
@@ -186,10 +200,18 @@ class PegParser(object):
 
         # The tokenizer is very picky about how it wants its input.
         source_lines = textsrc.splitlines(True)
-        if source_lines and not source_lines[-1].endswith("\n"):
+        compile_info.source_ends_with_newline = textsrc.endswith("\n")
+        if source_lines and not compile_info.source_ends_with_newline:
             source_lines[-1] += '\n'
-        if textsrc and textsrc[-1] == "\n" or compile_info.mode != "single":
+        if compile_info.source_ends_with_newline or compile_info.mode != "single":
             flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+            compile_info.flags &= ~consts.PyCF_DONT_IMPLY_DEDENT
+        else:
+            # single mode and source does not end with '\n': the input may be
+            # genuinely incomplete (more lines could follow). Mark this in
+            # compile_info.flags so parse_meth_or_raise can use the heuristic.
+            # (We do NOT change 'flags' here, to preserve tokenizer behaviour.)
+            compile_info.flags |= consts.PyCF_DONT_IMPLY_DEDENT
 
         mode = compile_info.mode
         token_exc = None
@@ -201,12 +223,20 @@ class PegParser(object):
         except (error.TokenError, error.TokenIndentationError) as e:
             e.filename = compile_info.filename
             if (isinstance(e, error.TokenError) and
-                    compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
-                    ((e.msg.startswith("unterminated ") and "string literal " in e.msg) or
-                     'was never closed' in e.msg or
-                     pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg)):
-                e.msg = "incomplete input"
-                raise
+                    compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT):
+                single_quote_finalized = (
+                    pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
+                    not textsrc.endswith('\\') and
+                    not textsrc.endswith('\\\n') and
+                    not textsrc.endswith('\\\r') and
+                    not textsrc.endswith('\\\r\n'))
+                if not single_quote_finalized and (
+                        pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        'was never closed' in e.msg or
+                        pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg):
+                    e.msg = "incomplete input"
+                    raise
             token_exc, tokens = e, e.tokens
             tokens.append(
                 parser.Token(

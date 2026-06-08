@@ -588,7 +588,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module.set_test_null(a)
         assert not hasattr(a, "test")
 
-class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+class AppTestPyBufferObject(AppTestCpythonExtensionBase):
     """
     PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
     """
@@ -713,10 +713,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         raises((BufferError, ValueError), module.fillinfo)
 
 
-class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
-    """
-    PyBuffer_Release releases the resources held by a Py_buffer.
-    """
     def test_decrefObject(self):
         """
         The PyObject referenced by Py_buffer.obj has its reference count
@@ -744,7 +740,6 @@ class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
         assert module.release() is None
 
 
-class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
     def test_richcomp_nan(self):
         module = self.import_extension('foo', [
                ("comp_eq", "METH_VARARGS",

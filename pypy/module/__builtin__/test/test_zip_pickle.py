@@ -2,7 +2,7 @@ class AppTestZipPickle:
     spaceconfig = dict(usemodules=['struct'])
 
     def test_zip_pickle(self):
-        import pickle
+        import _pickle as pickle
 
         def check_pickle_unpickle(itr):
             d = pickle.dumps(itr)

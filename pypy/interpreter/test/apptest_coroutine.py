@@ -858,6 +858,25 @@ def test_runtime_warning_origin_tracking():
     assert str(w).endswith("foobaz' was never awaited")
     assert "test_runtime_warning_origin_tracking" in str(w)
 
+def test_cr_frame_access_before_await_no_spurious_warning():
+    # issue 5454: accessing cr_frame before awaiting must not emit a warning
+    import warnings
+    async def other_async_thing():
+        pass
+    gc.collect()
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter("always")
+        coro = other_async_thing()
+        _ = coro.cr_frame    # inspect frame before awaiting
+        try:
+            coro.send(None)  # drive to completion
+        except StopIteration:
+            pass
+        gc.collect()
+        gc.collect()
+    runtime_warnings = [w for w in l if issubclass(w.category, RuntimeWarning)]
+    assert runtime_warnings == [], repr(runtime_warnings)
+
 def test_await_multiple_times_same_gen():
     async def async_iterate():
         yield 1
@@ -980,3 +999,89 @@ def test_ag_suspended():
         coro_b.send(None)
     assert not coro_b.cr_suspended
 
+
+def _run_async(coro):
+    import types
+    assert type(coro) in {types.GeneratorType, types.CoroutineType}
+    result = None
+    while True:
+        try:
+            coro.send(None)
+        except StopIteration as ex:
+            result = ex.args[0] if ex.args else None
+            break
+    return result
+
+def test_async_with_break_non_awaitable_aexit():
+    # async with whose __aexit__ returns a non-awaitable, body exits via break.
+    # Should raise TypeError (not segfault).
+    class CM:
+        async def __aenter__(self):
+            return self
+        def __aexit__(self, *e):
+            return 456  # not awaitable
+
+    async def foo():
+        for i in range(2):
+            async with CM():
+                break
+
+    with raises(TypeError, match="'async with' received an object from __aexit__"):
+        _run_async(foo())
+
+def test_async_with_continue_non_awaitable_aexit():
+    # async with whose __aexit__ returns a non-awaitable, body exits via continue.
+    # Same cleanup path as break; should raise TypeError.
+    class CM:
+        async def __aenter__(self):
+            return self
+        def __aexit__(self, *e):
+            return 456  # not awaitable
+
+    async def foo():
+        for i in range(1):
+            async with CM():
+                continue
+
+    with raises(TypeError, match="'async with' received an object from __aexit__"):
+        _run_async(foo())
+
+def test_async_with_return_non_awaitable_aexit():
+    # async with whose __aexit__ returns a non-awaitable, body exits via return.
+    # Exercises the preserve_tos cleanup path; should raise TypeError.
+    class CM:
+        async def __aenter__(self):
+            return self
+        def __aexit__(self, *e):
+            return 456  # not awaitable
+
+    async def foo():
+        async with CM():
+            return 42
+
+    with raises(TypeError, match="'async with' received an object from __aexit__"):
+        _run_async(foo())
+
+def test_nested_async_with_break_non_awaitable_aexit():
+    # nested async with; inner __aexit__ returns non-awaitable, body exits via break.
+    # Verifies outer exception table entry is not accidentally triggered.
+    class GoodCM:
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, *e):
+            return False
+
+    class BadCM:
+        async def __aenter__(self):
+            return self
+        def __aexit__(self, *e):
+            return 456  # not awaitable
+
+    async def foo():
+        for i in range(1):
+            async with GoodCM():
+                async with BadCM():
+                    break
+
+    with raises(TypeError, match="'async with' received an object from __aexit__"):
+        _run_async(foo())

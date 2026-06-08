@@ -581,7 +581,8 @@ class AstValidator(ast.ASTVisitor):
             self._validate_expr(node.format_spec)
 
     def visit_NamedExpr(self, node):
-        self._validate_expr(node.target, ast.Store)
+        if not isinstance(node.target, ast.Name):
+            raise ValidationTypeError("NamedExpr target must be a Name")
         self._validate_expr(node.value)
 
     def visit_FunctionType(self, node):

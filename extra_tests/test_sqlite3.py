@@ -766,8 +766,8 @@ class TestBlob:
         con.execute("create table test(b blob)")
         data = b"this blob data string is exactly fifty bytes long!"
         con.execute("insert into test(b) values (?)", (data, ))
-        blob = con.blobopen("test", "b", 1)
-        assert blob.read(len(data)) == data
+        with con.blobopen("test", "b", 1) as blob:
+            assert blob.read(len(data)) == data
 
     def test_write(self, con):
         con.execute("create table test(b blob)")
@@ -860,3 +860,6 @@ def test_weird_reinit(con):
     with pytest.raises(_sqlite3.ProgrammingError):
         con.execute('select 1')
     con.__init__(':memory:')
+
+def test_module():
+    assert _sqlite3.DataError.__module__ == "sqlite3"

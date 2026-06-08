@@ -4,7 +4,7 @@ import functools
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, ovfcheck
 from rpython.rlib.rbigint import SHIFT, _load_unsigned_digit, rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
@@ -205,33 +205,58 @@ class W_LongObject(W_AbstractLongObject):
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
         from pypy.objspace.std.intobject import invmod
+        exp_int = 0
+        exp_bigint = None
+        sign = 0
+
         if isinstance(w_exponent, W_IntObject):
-            w_exponent = w_exponent.as_w_long(space)
+            exp_int = w_exponent.int_w(space)
+            if exp_int > 0:
+                sign = 1
+            elif exp_int < 0:
+                sign = -1
         elif not isinstance(w_exponent, W_AbstractLongObject):
             return space.w_NotImplemented
+        else:
+            exp_bigint = w_exponent.asbigint()
+            sign = exp_bigint.get_sign()
 
-        exponent = w_exponent.asbigint()
         if space.is_none(w_modulus):
-            if exponent.get_sign() < 0:
+            if sign < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
-            return W_LongObject(self.num.pow(exponent))
-        elif isinstance(w_modulus, W_IntObject):
-            w_modulus = w_modulus.as_w_long(space)
+            if not exp_bigint:
+                return W_LongObject(self.num.int_pow(exp_int))
+            else:
+                return W_LongObject(self.num.pow(exp_bigint))
+
+        elif isinstance(w_modulus, W_AbstractIntObject):
+            pass
+
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
 
         base = self.num
-        if exponent.get_sign() < 0:
+        if sign < 0:
             w_base = invmod(space, self, space.abs(w_modulus))
             if isinstance(w_base, W_IntObject):
                 w_base = w_base.as_w_long(space)
             base = w_base.asbigint()
 
-            exponent = exponent.neg()
+            if exp_bigint is not None:
+                exp_bigint = exp_bigint.neg()
+            else:
+                try:
+                    exp_int = ovfcheck(-exp_int)
+                except OverflowError:
+                    # MININT
+                    exp_bigint = rbigint.fromint(exp_int).neg()
         try:
-            result = base.pow(exponent, w_modulus.asbigint())
+            if not exp_bigint:
+                result = base.int_pow(exp_int, w_modulus.asbigint())
+            else:
+                result = base.pow(exp_bigint, w_modulus.asbigint())
         except ValueError:
             raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
         return W_LongObject(result)

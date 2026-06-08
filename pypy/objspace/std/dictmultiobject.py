@@ -1408,10 +1408,12 @@ def update1_dict_dict(space, w_dict, w_data):
 
 
 def update1_pairs(space, w_dict, data_w):
-    for w_pair in data_w:
+    for i, w_pair in enumerate(data_w):
         pair = space.fixedview(w_pair)
         if len(pair) != 2:
-            raise oefmt(space.w_ValueError, "sequence of pairs expected")
+            raise oefmt(space.w_ValueError,
+                "dictionary update sequence element #%d has length %d; 2 is required",
+                i, len(pair))
         w_key, w_value = pair
         w_dict.setitem(w_key, w_value)
 
@@ -1426,6 +1428,11 @@ init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
 
 def init_or_update(space, w_dict, __args__, funcname):
+    nargs = len(__args__.arguments_w)
+    if nargs > 1:
+        shortname = funcname.split('.')[-1]
+        raise oefmt(space.w_TypeError,
+            "%s expected at most 1 argument, got %d", shortname, nargs)
     w_src, w_kwds = __args__.parse_obj(
             None, funcname,
             init_signature, # signature

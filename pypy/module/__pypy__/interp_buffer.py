@@ -98,11 +98,12 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
               "shape %s does not match strides %s",
               str(shape), str(strides))
     # check that the strides are not too big
-    for i in range(ndim):
-        if strides[i] * shape[i] > nbytes:
-            raise oefmt(space.w_ValueError,
-                  "shape %s and strides %s exceed object size %d",
-                  shape, strides, nbytes)
+    if nbytes > 0:
+        for i in range(ndim):
+            if strides[i] * shape[i] > nbytes:
+                raise oefmt(space.w_ValueError,
+                      "shape %s and strides %s exceed object size %d",
+                      shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
                                                   shape, strides, w_obj=view.w_obj))

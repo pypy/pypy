@@ -52,7 +52,7 @@ def test_start_new_session():
         child_pgid = int(output)
         assert parent_pgid != child_pgid
 
-def test_cpython_issue15736():
+def test_seq_bytes_to_charp_array():
     n = 0
     class Z(object):
         def __len__(self):

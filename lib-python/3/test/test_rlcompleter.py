@@ -44,12 +44,12 @@ class TestRlcompleter(unittest.TestCase):
 
         # test with a customized namespace
         self.assertEqual(self.completer.global_matches('CompleteM'),
-                ['CompleteMe(' if IS_PYPY or MISSING_C_DOCSTRINGS else 'CompleteMe()'])
+                ['CompleteMe(' if MISSING_C_DOCSTRINGS else 'CompleteMe()'])
         self.assertEqual(self.completer.global_matches('eg'),
                          ['egg('])
         # XXX: see issue5256
         self.assertEqual(self.completer.global_matches('CompleteM'),
-                ['CompleteMe(' if IS_PYPY or MISSING_C_DOCSTRINGS else 'CompleteMe()'])
+                ['CompleteMe(' if MISSING_C_DOCSTRINGS else 'CompleteMe()'])
 
     def test_attr_matches(self):
         # test with builtins namespace
@@ -57,11 +57,12 @@ class TestRlcompleter(unittest.TestCase):
                          ['str.{}('.format(x) for x in dir(str)
                           if x.startswith('s')])
         self.assertEqual(self.stdcompleter.attr_matches('tuple.foospamegg'), [])
-        # PyPy changes: CPython 3.10 has ( for everything exept __doc__
+        # PyPy: CPython 3.11 has ( for everything except __doc__; PyPy returns
+        # empty signatures for these builtins so rlcompleter appends ().
         expected = sorted({'None.%s%s' % (x,
                                           '()' if x in (
-            '__bool__', '__dir__', '__getstate__', '__hash__', '__init_subclass__',
-            '__reduce__', '__repr__', '__str__')
+            '__bool__', '__class__', '__dir__', '__getstate__', '__hash__',
+            '__init_subclass__', '__new__', '__reduce__', '__repr__', '__str__')
                                           else '' if x == '__doc__'
                                           else '(')
                            for x in dir(None)})

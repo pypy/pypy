@@ -1,3 +1,4 @@
+import sys
 import py
 from rpython.jit.metainterp.test import support
 from rpython.rlib.rsre.test.test_match import get_code
@@ -184,6 +185,7 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 30
         self.check_resops(call=0)
 
+    @py.test.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_match_jit_bug(self):
         pattern = ".a" * 2500
         text = "a" * 6000
@@ -201,4 +203,4 @@ class TestJitRSre(support.LLJitMixin):
         text = "a" + "bB2b2bB1" * 2000 + "c"
         res = self.meta_interp_match(pattern, text)
         self.check_enter_count(1)
-        self.check_history(int_is_true=0)
+        self.check_resops(int_is_true=0)

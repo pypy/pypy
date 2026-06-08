@@ -267,6 +267,11 @@ def pypy_find_stdlib(space, executable):
     space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.newtext('base_prefix'), w_prefix)
     space.setitem(space.sys.w_dict, space.newtext('base_exec_prefix'), w_prefix)
+    for p in path:
+        if os.path.isfile(os.path.join(p, 'os.py')):
+            space.setitem(space.sys.w_dict, space.newtext('_stdlib_dir'),
+                          space.newfilename(p))
+            break
     return space.newlist([space.newfilename(p) for p in path])
 
 def pypy_initfsencoding(space):

@@ -186,6 +186,7 @@ corresponding Unix manual entries for more information on calls."""
                 '_getfullpathname': 'interp_posix._getfullpathname',
                 '_getfileinformation': 'interp_posix._getfileinformation',
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
+                '_getdiskusage': 'interp_posix._getdiskusage',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
                 'set_handle_inheritable': 'interp_posix.set_handle_inheritable',
                 '_path_splitroot': 'interp_posix._path_splitroot',

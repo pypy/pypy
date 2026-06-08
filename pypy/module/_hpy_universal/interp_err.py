@@ -91,7 +91,7 @@ def HPyErr_SetFromErrnoWithFilenameObjects(space, handles, ctx, h_exc_type, h_fn
             w_error = space.call_function(w_exc_type,
                                           space.newint(errno),
                                           space.newtext(msg, lgt),
-                                          w_fname1, None, w_fname2)
+                                          w_fname1, space.w_None, w_fname2)
         else:
             w_error = space.call_function(w_exc_type,
                                           space.newint(errno),

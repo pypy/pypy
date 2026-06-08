@@ -334,6 +334,7 @@ class UnixConsole(Console):
         raw.cc[termios.VMIN] = 1
         raw.cc[termios.VTIME] = 0
         tcsetattr(self.input_fd, termios.TCSADRAIN, raw)
+        self.__rawstate = raw
 
         # In macOS terminal we need to deactivate line wrap via ANSI escape code
         if platform.system() == "Darwin" and os.getenv("TERM_PROGRAM") == "Apple_Terminal":
@@ -373,6 +374,20 @@ class UnixConsole(Console):
         if hasattr(self, "old_sigwinch"):
             signal.signal(signal.SIGWINCH, self.old_sigwinch)
             del self.old_sigwinch
+
+    def restore_output(self) -> None:
+        """Temporarily re-enable terminal output processing (OPOST/ONLCR) so
+        that user-supplied callbacks can use print() with normal \\r\\n output.
+        Input stays in raw mode so pyrepl keeps control of the keyboard."""
+        self.flushoutput()
+        with_opost = self.__rawstate.copy()
+        with_opost.oflag = self.__svtermstate.oflag  # restore original output flags
+        tcsetattr(self.input_fd, termios.TCSANOW, with_opost)
+
+    def prepare_output(self) -> None:
+        """Re-enter raw output mode after restore_output()."""
+        self.flushoutput()
+        tcsetattr(self.input_fd, termios.TCSANOW, self.__rawstate)
 
     def push_char(self, char: int | bytes) -> None:
         """

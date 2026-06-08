@@ -620,9 +620,9 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
                 self.limit_loop_break = (self.assembler.mc.get_relative_pos() +
                                              LIMIT_LOOP_BREAK)
             i += 1
-        assert not self.rm.reg_bindings
-        assert not self.fprm.reg_bindings
-        assert not self.vrm.reg_bindings
+        assert not len(self.rm.reg_bindings)
+        assert not len(self.fprm.reg_bindings)
+        assert not len(self.vrm.reg_bindings)
         self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
         self.operations = None

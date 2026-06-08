@@ -25,9 +25,9 @@ int Py_LegacyWindowsStdioFlag = 0;
 
 const unsigned long Py_Version = PY_VERSION_HEX;
 
-const char *Py_FileSystemDefaultEncoding;  /* filled when cpyext is imported */
+const char *_PyPy_FileSystemDefaultEncoding;  /* filled when cpyext is imported */
 void _Py_setfilesystemdefaultencoding(const char *enc) {
-    Py_FileSystemDefaultEncoding = enc;
+    _PyPy_FileSystemDefaultEncoding = enc;
 }
 
 #ifdef CPYEXT_TESTS

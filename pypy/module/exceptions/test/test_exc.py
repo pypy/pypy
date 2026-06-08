@@ -324,7 +324,7 @@ class AppTestExc(object):
         assert ImportError("message", path="y").path == "y"
         with raises(TypeError) as e:
             ImportError(invalid="z")
-        assert "__init__() got an unexpected keyword argument 'invalid'" in str(e.value)
+        assert "'invalid' is an invalid keyword argument for ImportError" in str(e.value)
         assert ImportError("message").msg == "message"
         assert ImportError("message").args == ("message", )
         assert ImportError("message", "foo").msg is None

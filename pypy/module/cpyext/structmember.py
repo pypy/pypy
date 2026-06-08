@@ -187,6 +187,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         casted = rffi.cast(rffi.LONG, value)
         array[0] = casted
     elif member_type == T_ULONG:
+        w_value = space.index(w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.ULONG), addr)
         if space.is_true(space.lt(w_value, space.newint(0))):
             value = PyLong_AsLong(space, w_value)
@@ -199,7 +200,9 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             casted = rffi.cast(rffi.ULONG, value)
         array[0] = casted
     elif member_type == T_PYSSIZET:
-        value = PyLong_AsSsize_t(space, w_value)
+        if not space.isinstance_w(w_value, space.w_int):
+            raise oefmt(space.w_TypeError, "an integer is required")
+        value = space.int_w(w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.SSIZE_T), addr)
         casted = rffi.cast(rffi.SSIZE_T, value)
         array[0] = casted

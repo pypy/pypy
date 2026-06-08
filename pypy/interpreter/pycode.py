@@ -18,7 +18,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.objectmodel import compute_hash, we_are_translated, not_rpython
+from rpython.rlib.objectmodel import compute_hash, we_are_translated, not_rpython, always_inline
 from rpython.rlib import jit, rstring
 
 
@@ -40,7 +40,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 416 # bump it by 16
+pypy_incremental_magic = 432 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -78,7 +78,7 @@ def replace(self, kwds):
                  "co_nlocals", "co_stacksize", "co_flags", "co_code",
                  "co_consts", "co_names", "co_varnames", "co_filename",
                  "co_name", "co_qualname", "co_firstlineno", "co_linetable", "co_freevars",
-                 "co_cellvars"):
+                 "co_cellvars", "co_exceptiontable"):
         if attr not in kwds:
             args.append(getattr(self, attr))
         else:
@@ -101,6 +101,7 @@ class PyCode(eval.Code):
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]",
                           "co_linetable",
+                          "co_exceptiontable",
                           "w_globals?",
                           "cell_families[*]"]
 
@@ -108,7 +109,8 @@ class PyCode(eval.Code):
                      nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
                      name, qualname, firstlineno, linetable, freevars, cellvars,
-                     hidden_applevel=False, magic=default_magic):
+                     hidden_applevel=False, magic=default_magic,
+                     exceptiontable=''):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
         self.space = space
@@ -140,6 +142,7 @@ class PyCode(eval.Code):
         assert isinstance(firstlineno, int)
         self.co_firstlineno = firstlineno
         self.co_linetable = linetable
+        self.co_exceptiontable = exceptiontable
         # store the first globals object that the code object is run in in
         # here. if a frame is run in that globals object, it does not need to
         # store it at all
@@ -222,6 +225,33 @@ class PyCode(eval.Code):
 
     def signature(self):
         return self._signature
+
+    @jit.elidable
+    def lookup_exceptiontable(self, instr_offset):
+        """Search co_exceptiontable for a handler covering instr_offset.
+        Returns (target, depth, lasti) as (r_uint, int, bool).
+        depth == -1 means no handler was found (sentinel for not-found)."""
+        table = self.co_exceptiontable
+        best = (r_uint(0), -1, False)
+        if not table:
+            return best
+        i = 0
+        n = len(table)
+        while i < n:
+            start_raw, i = _decode_varint(table, i)
+            start = start_raw * 2
+            length_raw, i = _decode_varint(table, i)
+            length = length_raw * 2
+            target_raw, i = _decode_varint(table, i)
+            target = target_raw * 2
+            dl, i = _decode_varint(table, i)
+            depth = dl >> 1
+            lasti = bool(dl & 1)
+            if start <= instr_offset < start + length:
+                best = (r_uint(target), depth, lasti)
+            elif start > instr_offset:
+                break
+        return best  # depth == -1 means not found
 
     def _compute_flatcall(self):
         # Speed hack!
@@ -308,6 +338,27 @@ class PyCode(eval.Code):
     def fget_co_freevars(self, space):
         return space.newtuple([space.newtext(name) for name in self.co_freevars])
 
+    @unwrap_spec(index=int)
+    def descr__varname_from_oparg(self, space, index):
+        """Return the local variable name for the given oparg index.
+
+        The index maps into co_varnames + co_cellvars + co_freevars.
+        """
+        nlocals = self.co_nlocals
+        ncellvars = len(self.co_cellvars)
+        nfreevars = len(self.co_freevars)
+
+        if index >= 0:
+            if index < nlocals:
+                return space.newtext(self.co_varnames[index])
+            index -= nlocals
+            if index < ncellvars:
+                return space.newtext(self.co_cellvars[index])
+            index -= ncellvars
+            if index < nfreevars:
+                return space.newtext(self.co_freevars[index])
+        raise oefmt(space.w_IndexError, "tuple index out of range")
+
     def descr_code__eq__(self, w_other):
         space = self.space
         if not isinstance(w_other, PyCode):
@@ -378,14 +429,14 @@ class PyCode(eval.Code):
                  nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
                  filename='fsencode', name='text', qualname='text', firstlineno=int,
-                 linetable='bytes', magic=int)
+                 linetable='bytes', exceptiontable='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, posonlyargcount, kwonlyargcount,
                           nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, qualname, firstlineno,
                           linetable, w_freevars=None, w_cellvars=None,
-                          magic=default_magic):
+                          exceptiontable='', magic=default_magic):
         if argcount < 0:
             raise oefmt(space.w_ValueError,
                         "code: argcount must not be negative")
@@ -413,7 +464,8 @@ class PyCode(eval.Code):
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
-                      varnames, filename, name, qualname, firstlineno, linetable, freevars, cellvars, magic=magic)
+                      varnames, filename, name, qualname, firstlineno, linetable, freevars, cellvars, magic=magic,
+                      exceptiontable=exceptiontable)
         return code
 
     def descr__reduce__(self, space):
@@ -439,6 +491,7 @@ class PyCode(eval.Code):
             space.newbytes(self.co_linetable),
             space.newtuple([space.newtext(v) for v in self.co_freevars]),
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
+            space.newbytes(self.co_exceptiontable),
             space.newint(self.magic),
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
@@ -452,11 +505,20 @@ class PyCode(eval.Code):
                 return space.w_None
             return space.newint(i)
 
+        # Check for -X no_debug_ranges / PYTHONNODEBUGRANGES: strip column info.
+        no_debug_ranges = False
+        w_xopts = space.sys.getdictvalue(space, '_xoptions')
+        if w_xopts is not None:
+            try:
+                space.getitem(w_xopts, space.newtext('no_debug_ranges'))
+                no_debug_ranges = True
+            except OperationError:
+                pass
+
         if self.co_linetable == '':
             return space.newlist([])
 
         table_w = []
-        prev_line_no = self.co_firstlineno
         position = 0
         table = self.co_linetable
         while position < len(table):
@@ -464,6 +526,10 @@ class PyCode(eval.Code):
                 lineno, end_lineno, col_offset, end_col_offset, position = _decode_entry(table, self.co_firstlineno, position)
             except DecodeError:
                 break
+            if no_debug_ranges and lineno != -1:
+                end_lineno = lineno
+                col_offset = -1
+                end_col_offset = -1
             tup_w = [
                 w(space, lineno),
                 w(space, end_lineno),
@@ -475,7 +541,7 @@ class PyCode(eval.Code):
 
 
     def descr_replace(self, space, __args__):
-        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_linetable=None)
+        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_linetable=None, co_exceptiontable=None)
  |      Return a new code object with new specified fields.
         """
         w_args, w_kwds = __args__.topacked()
@@ -511,24 +577,24 @@ class PyCode(eval.Code):
         # values, each representing the line number of a range of bytecodes.
         # Each tuple will consist of three values:
         #
-        #     • start – The offset (inclusive) of the start of the bytecode
+        #     - start - The offset (inclusive) of the start of the bytecode
         #       range
-        #     • end – The offset (exclusive) of the end of the bytecode range
-        #     • line – The line number, or None if the bytecodes in the given
+        #     - end - The offset (exclusive) of the end of the bytecode range
+        #     - line - The line number, or None if the bytecodes in the given
         #       range do not have a line number.
         #
         #
         # The sequence generated will have the following properties:
         #
-        #     • The first range in the sequence with have a start of 0
-        #     • The (start, end) ranges will be non-decreasing and consecutive.
+        #     - The first range in the sequence with have a start of 0
+        #     - The (start, end) ranges will be non-decreasing and consecutive.
         #       That is, for any pair of tuples the start of the second will
         #       equal to the end of the first.
-        #     • No range will be backwards, that is end >= start for all
+        #     - No range will be backwards, that is end >= start for all
         #       triples.
-        #     • The final range in the sequence with have end equal to the size
+        #     - The final range in the sequence with have end equal to the size
         #       of the bytecode.
-        #     • line will either be a positive integer, or None
+        #     - line will either be a positive integer, or None
         return W_LineIterator(self.space, self)
 
     def fget_co_lnotab(self, space):
@@ -612,6 +678,22 @@ class W_LineIterator(W_Root):
             space.newint(lineno) if lineno != -1 else space.w_None,
         ])
         return w_res
+
+@always_inline # to not have to allocate the tuple result
+def _decode_varint(table, i):
+    """Decode one CPython-3.11-compatible varint from table at byte position i.
+    Returns (value, new_i).  Reads 6 bits per byte, MSB first.  Bit 6 is the
+    continuation flag; bit 7 is the start-of-entry marker which is ignored
+    here (masked off along with the continuation bit by ``& 63``)."""
+    b = ord(table[i])
+    i += 1
+    value = b & 63
+    while b & 64:
+        b = ord(table[i])
+        i += 1
+        value = (value << 6) | (b & 63)
+    return value, i
+
 
 def _compute_args_as_cellvars(varnames, cellvars, argcount):
     # Cell vars could shadow already-set arguments.

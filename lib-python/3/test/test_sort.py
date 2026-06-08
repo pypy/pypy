@@ -205,6 +205,7 @@ class TestDecorateSortUndecorate(unittest.TestCase):
             return x
         self.assertRaises(ValueError, data.sort, key=k)
 
+    @support.cpython_only  # PyPy's GC doesn't call __del__ immediately (no refcounting)
     def test_key_with_mutating_del(self):
         data = list(range(10))
         class SortKiller(object):

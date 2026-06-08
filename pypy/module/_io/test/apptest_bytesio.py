@@ -100,12 +100,12 @@ def test_readinto():
         exc = raises(TypeError, readinto, u"hello")
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not 'str'")
+        assert " read-write b" in msg and msg.endswith(", not str")
         #
         exc = raises(TypeError, readinto, memoryview(b"hello"))
         msg = str(exc.value)
         # print(msg)
-        assert " read-write b" in msg and msg.endswith(", not 'memoryview'")
+        assert " read-write b" in msg and msg.endswith(", not memoryview")
         #
         b.close()
         assert a1 == b"h"
@@ -117,6 +117,7 @@ def test_getbuffer():
     buf = memio.getbuffer()
     assert bytes(buf) == b"1234567890"
     memio.seek(5)
+    buf.release()
     buf = memio.getbuffer()
     assert bytes(buf) == b"1234567890"
     assert buf[5] == ord(b"6")
@@ -125,7 +126,7 @@ def test_getbuffer():
     assert bytes(buf) == b"123abc7890"
     assert memio.getvalue() == b"123abc7890"
     # After the buffer gets released, we can resize the BytesIO again
-    del buf
+    buf.release()
     memio.truncate()
     memio.close()
     raises(ValueError, memio.getbuffer)
@@ -157,6 +158,21 @@ def test_subclass_bytesio_rawiobase():
     # check that _RawIOBase methods work
     res = _io._RawIOBase.read(x)
     assert res == b'abc'
+
+def test_getbuffer_export_count():
+    memio = _io.BytesIO()
+    buf = memio.getbuffer()
+    assert bytes(buf) == b""
+    # write raises BufferError while buffer is exported
+    raises(BufferError, memio.write, b'x')
+    buf2 = memio.getbuffer()
+    raises(BufferError, memio.write, b'x')
+    buf.release()
+    # still one export remaining
+    raises(BufferError, memio.write, b'x')
+    buf2.release()
+    # all released, write succeeds
+    memio.write(b'x')
 
 def test_truncate_on_read_only():
     rawio = _io.BytesIO(b"abc")

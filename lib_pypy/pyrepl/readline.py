@@ -84,13 +84,97 @@ __all__ = [
     "set_auto_history",
     "set_completer",
     "set_completer_delims",
+    "set_completion_display_matches_hook",
     "set_history_length",
-    # "set_pre_input_hook",
+    "set_pre_input_hook",
     "set_startup_hook",
     "write_history_file",
     # ---- multiline extensions ----
     "multiline_input",
 ]
+
+# Map GNU readline command names to pyrepl equivalents.
+_RL_CMD_TO_PYREPL: dict[str, str] = {
+    'backward-char':        'left',
+    'forward-char':         'right',
+    'backward-word':        'backward-word',
+    'forward-word':         'forward-word',
+    'beginning-of-line':    'beginning-of-line',
+    'end-of-line':          'end-of-line',
+    'kill-line':            'kill-line',
+    'backward-kill-word':   'backward-kill-word',
+    'kill-word':            'kill-word',
+    'unix-line-discard':    'unix-line-discard',
+    'unix-word-rubout':     'unix-word-rubout',
+    'yank':                 'yank',
+    'complete':             'complete',
+    'accept-line':          'accept',
+    'clear-screen':         'clear-screen',
+    'transpose-chars':      'transpose-characters',
+}
+
+
+def _rl_keyspec_to_pyrepl(keyspec: str) -> str:
+    """Convert a GNU readline key name (from parse_and_bind) to pyrepl keyspec."""
+    if keyspec.startswith('"') and keyspec.endswith('"'):
+        # Already in backslash-escape format (e.g. "\t", "\C-x") -- strip quotes.
+        return keyspec[1:-1]
+    lower = keyspec.lower()
+    if lower.startswith('control-'):
+        return r'\C-' + keyspec[8:]
+    if lower.startswith('meta-'):
+        return r'\M-' + keyspec[5:]
+    _named = {
+        'tab': r'\t', 'return': r'\r', 'escape': r'\033',
+        'space': ' ', 'del': r'\x7f', 'delete': r'\x7f', 'rubout': r'\x7f',
+    }
+    if lower in _named:
+        return _named[lower]
+    if len(keyspec) == 1:
+        return keyspec
+    raise ValueError("unrecognized readline key spec: %r" % keyspec)
+
+
+def _decode_readline_macro(text: str) -> str:
+    """Decode backslash escapes inside a readline macro string value."""
+    result = []
+    i = 0
+    while i < len(text):
+        if text[i] != '\\' or i + 1 >= len(text):
+            result.append(text[i])
+            i += 1
+            continue
+        c = text[i + 1]
+        if c in ('x', 'X'):
+            result.append(chr(int(text[i + 2:i + 4], 16)))
+            i += 4
+        elif c.isdigit():
+            result.append(chr(int(text[i + 1:i + 4], 8)))
+            i += 4
+        elif c in _MACRO_ESCAPES:
+            result.append(_MACRO_ESCAPES[c])
+            i += 2
+        else:
+            result.append('\\')
+            result.append(c)
+            i += 2
+    return ''.join(result)
+
+_MACRO_ESCAPES = {
+    'n': '\n', 'r': '\r', 't': '\t', 'a': '\a',
+    'b': '\b', 'f': '\f', 'v': '\v', 'e': '\033',
+    '\\': '\\', '"': '"', "'": "'",
+}
+
+
+def _make_macro_command(text: str) -> type:
+    """Return a new Command subclass that inserts 'text' when invoked."""
+    class macro_insert(commands.Command):
+        _text = text
+        def do(self) -> None:
+            self.reader.insert(self._text)
+    return macro_insert
+
 
 # ____________________________________________________________
 
@@ -98,6 +182,7 @@ __all__ = [
 class ReadlineConfig:
     readline_completer: Completer | None = None
     completer_delims: frozenset[str] = frozenset(" \t\n`~!@#$%^&*()-=+[{]}\\|;:'\",<>/?")
+    completion_display_matches_hook: Callable | None = None
 
 
 @dataclass(kw_only=True)
@@ -121,6 +206,9 @@ class ReadlineAlikeReader(historical_reader.HistoricalReader, CompletingReader):
 
     def error(self, msg: str = "none") -> None:
         pass  # don't show error messages by default
+
+    def get_completion_display_matches_hook(self) -> Callable | None:
+        return self.config.completion_display_matches_hook
 
     def get_stem(self) -> str:
         b = self.buffer
@@ -146,15 +234,19 @@ class ReadlineAlikeReader(historical_reader.HistoricalReader, CompletingReader):
             except UnicodeEncodeError:
                 pass  # but feed unicode anyway if we have no choice
             state = 0
-            while True:
-                try:
-                    next = function(stem, state)
-                except Exception:
-                    break
-                if not isinstance(next, str):
-                    break
-                result.append(next)
-                state += 1
+            self.console.restore_output()
+            try:
+                while True:
+                    try:
+                        next = function(stem, state)
+                    except Exception:
+                        break
+                    if not isinstance(next, str):
+                        break
+                    result.append(next)
+                    state += 1
+            finally:
+                self.console.prepare_output()
             # emulate the behavior of the standard readline that sorts
             # the completions before displaying them.
             result.sort()
@@ -344,7 +436,10 @@ class _ReadlineWrapper:
     reader: ReadlineAlikeReader | None = field(default=None, repr=False)
     saved_history_length: int = -1
     startup_hook: Callback | None = None
+    pre_input_hook: Callback | None = None
     config: ReadlineConfig = field(default_factory=ReadlineConfig, repr=False)
+    _pending_bindings: list = field(default_factory=list, repr=False)
+    _pending_macro_commands: dict = field(default_factory=dict, repr=False)
 
     def __post_init__(self) -> None:
         if self.f_in == -1:
@@ -356,6 +451,10 @@ class _ReadlineWrapper:
         if self.reader is None:
             console = Console(self.f_in, self.f_out, encoding=ENCODING)
             self.reader = ReadlineAlikeReader(console=console, config=self.config)
+            for name, cls in self._pending_macro_commands.items():
+                self.reader.commands[name] = cls
+            for keyspec, cmd_name in self._pending_bindings:
+                self.reader.bind(keyspec, cmd_name)
         return self.reader
 
     def input(self, prompt: object = "") -> str:
@@ -365,7 +464,11 @@ class _ReadlineWrapper:
             assert raw_input is not None
             return raw_input(prompt)
         reader.ps1 = str(prompt)
-        return reader.readline(startup_hook=self.startup_hook)
+        hooks = [h for h in (self.startup_hook, self.pre_input_hook) if h is not None]
+        def combined_hook() -> None:
+            for h in hooks:
+                h()
+        return reader.readline(startup_hook=combined_hook if hooks else None)
 
     def multiline_input(self, more_lines: MoreLinesCallable, ps1: str, ps2: str) -> str:
         """Read an input on possibly multiple lines, asking for more
@@ -387,7 +490,32 @@ class _ReadlineWrapper:
             reader.paste_mode = False
 
     def parse_and_bind(self, string: str) -> None:
-        pass  # XXX we don't support parsing GNU-readline-style init files
+        string = string.strip()
+        if string.startswith('set '):
+            return  # ignore variable assignments
+        colon = string.find(':')
+        if colon == -1:
+            return
+        key_part = string[:colon].strip()
+        val_part = string[colon + 1:].strip()
+        try:
+            pyrepl_spec = _rl_keyspec_to_pyrepl(key_part)
+        except ValueError:
+            return  # unrecognized key, ignore
+        if val_part.startswith('"') and val_part.endswith('"') and len(val_part) >= 2:
+            text = _decode_readline_macro(val_part[1:-1])
+            cmd_name = 'macro_' + text.encode('unicode_escape').decode('ascii')
+            if cmd_name not in self._pending_macro_commands:
+                self._pending_macro_commands[cmd_name] = _make_macro_command(text)
+        else:
+            cmd_name = _RL_CMD_TO_PYREPL.get(val_part, val_part)
+        if self.reader is not None:
+            for name, cls in self._pending_macro_commands.items():
+                if name not in self.reader.commands:
+                    self.reader.commands[name] = cls
+            self.reader.bind(pyrepl_spec, cmd_name)
+        else:
+            self._pending_bindings.append((pyrepl_spec, cmd_name))
 
     def set_completer(self, function: Completer | None = None) -> None:
         self.config.readline_completer = function
@@ -475,6 +603,12 @@ class _ReadlineWrapper:
     def add_history(self, line: str) -> None:
         self.get_reader().history.append(self._histline(line))
 
+    def set_completion_display_matches_hook(self, function: Callable | None = None) -> None:
+        self.config.completion_display_matches_hook = function
+
+    def set_pre_input_hook(self, function: Callback | None = None) -> None:
+        self.pre_input_hook = function
+
     def set_startup_hook(self, function: Callback | None = None) -> None:
         self.startup_hook = function
 
@@ -520,6 +654,8 @@ get_history_item = _wrapper.get_history_item
 remove_history_item = _wrapper.remove_history_item
 replace_history_item = _wrapper.replace_history_item
 add_history = _wrapper.add_history
+set_completion_display_matches_hook = _wrapper.set_completion_display_matches_hook
+set_pre_input_hook = _wrapper.set_pre_input_hook
 set_startup_hook = _wrapper.set_startup_hook
 get_line_buffer = _wrapper.get_line_buffer
 get_begidx = _wrapper.get_begidx
@@ -549,7 +685,6 @@ def _make_stub(_name: str, _ret: object) -> None:
 for _name, _ret in [
     ("read_init_file", None),
     ("redisplay", None),
-    ("set_pre_input_hook", None),
 ]:
     assert _name not in globals(), _name
     _make_stub(_name, _ret)

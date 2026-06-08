@@ -78,7 +78,9 @@ class W_ExtensionFunctionMixin(object):
 
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-        h_result = func(self.handles.get_ctx(), h_self)
+        next_ctx = self.handles.debug_before_call()
+        h_result = func(next_ctx, h_self)
+        self.handles.debug_after_call(next_ctx)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -86,7 +88,9 @@ class W_ExtensionFunctionMixin(object):
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-            h_result = func(self.handles.get_ctx(), h_self, h_arg)
+            next_ctx = self.handles.debug_before_call()
+            h_result = func(next_ctx, h_self, h_arg)
+            self.handles.debug_after_call(next_ctx)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -137,13 +141,19 @@ class W_ExtensionFunctionMixin(object):
 
     def call_varargs(self, space, h_self, args_h, n):
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
-        return fptr(self.handles.get_ctx(), h_self, args_h, n)
+        next_ctx = self.handles.debug_before_call()
+        result = fptr(next_ctx, h_self, args_h, n)
+        self.handles.debug_after_call(next_ctx)
+        return result
 
     def call_keywords(self, space, h_self, args_h, n, h_kw=0):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
-        return fptr(self.handles.get_ctx(), h_self, args_h, n, h_kw)
+        next_ctx = self.handles.debug_before_call()
+        result = fptr(next_ctx, h_self, args_h, n, h_kw)
+        self.handles.debug_after_call(next_ctx)
+        return result
 
     def descr_call(self, space, __args__):
         with self.handles.using(self.w_self) as h_self:

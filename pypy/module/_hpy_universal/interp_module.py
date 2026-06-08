@@ -92,7 +92,7 @@ def hpymod_create(handles, modname, hpydef):
                 h = func(handles.get_ctx(), h_arg, h_arg)
             if h == 0:
                 space.fromcache(State).raise_current_exception()
-            w_result = handles.deref(h)
+            w_result = handles.consume(h)
             if w_result and isinstance(w_result, type(w_mod)):
                 raise oefmt(space.w_SystemError,
                     "HPy_mod_create slot returned a builtin module object. "

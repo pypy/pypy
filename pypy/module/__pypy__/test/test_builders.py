@@ -36,6 +36,13 @@ class AppTestBuilders(object):
         s = b.build()
         assert s.encode("utf-8") == b"cdeb\xc4\x83"
 
+    def test_module_attribute(self):
+        from __pypy__.builders import BytesBuilder, StringBuilder
+        assert BytesBuilder.__module__ == '__pypy__.builders'
+        assert BytesBuilder.__name__ == 'BytesBuilder'
+        assert StringBuilder.__module__ == '__pypy__.builders'
+        assert StringBuilder.__name__ == 'StringBuilder'
+
     def test_stringbuilder(self):
         from __pypy__.builders import BytesBuilder
         b = BytesBuilder()

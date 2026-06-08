@@ -9,11 +9,12 @@ try:
 except ImportError:
     pytestmark = pytest.mark.skip('can only run these tests on pypy')
 
-if not sys.platform.startswith('linux'):
+if sys.platform.startswith('linux'):
+    import _pypy_remote_debug
+    import _vmprof
+else:
     pytestmark = pytest.mark.skip('only works on linux so far')
-
-import _pypy_remote_debug
-import _vmprof
+    _vmprof = None
 
 def test_parse_maps():
     maps = _pypy_remote_debug._read_and_parse_maps('self', sys.executable)
@@ -286,7 +287,7 @@ def test_symbolify_vmprof():
     result = _vmprof.resolve_addr(1)
     assert result is None
 
-@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_many_addrs'), reason="not implemented")
+@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_many_addr'), reason="not implemented")
 def test_symbolify_vmprof_many():
     import _vmprof, ctypes
     names = [b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_seek']
@@ -302,7 +303,7 @@ def test_symbolify_vmprof_many():
         all.append(address_of_function)
     all.append(1)
 
-    res = _vmprof.resolve_many_addrs(all)
+    res = _vmprof.resolve_many_addr(all)
     for index, name in enumerate(names + names2):
         addr = all[index]
         if isinstance(name, bytes):

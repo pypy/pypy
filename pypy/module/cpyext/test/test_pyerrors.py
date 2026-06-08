@@ -488,8 +488,6 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
     def test_PyErr_Display(self):
         from sys import version_info
-        if self.runappdirect and (version_info.major < 3 or version_info.minor < 3):
-            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("display_error", "METH_VARARGS",
              r'''
@@ -518,9 +516,6 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         "XXX seems to pass, but doesn't: 'py.test -s' shows errors in PyObject_Free")
     def test_GetSetExcInfo(self):
         import sys
-        if self.runappdirect and (sys.version_info.major < 3 or
-                                  sys.version_info.minor < 3):
-            skip('PyErr_{GS}etExcInfo introduced in python 3.3')
         module = self.import_extension('foo', [
             ("getset_exc_info", "METH_VARARGS",
              r'''
@@ -831,3 +826,24 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert new_sys_exception == new_exception
         else:
             assert False
+
+    def test_exc_set_object_broken_subclasscheck(self):
+        # taken from test_capi test_set_object:
+        # PyErr_SetObject triggers normalization which calls issubclass();
+        # if the exc type's metaclass __subclasscheck__ raises, that
+        # exception should propagate out of the C call.
+        module = self.import_extension('foo', [
+            ('exc_set_object', "METH_VARARGS",
+            """
+                PyObject *exc, *obj;
+                if (!PyArg_ParseTuple(args, "OO:exc_set_object", &exc, &obj))
+                    return NULL;
+                PyErr_SetObject(exc, obj);
+                return NULL;
+            """),
+        ])
+        def broken_subclasscheck(cls, sub):
+            1/0
+        Meta = type('Meta', (type,), {'__subclasscheck__': broken_subclasscheck})
+        Broken = Meta('Broken', (Exception,), {})
+        raises(ZeroDivisionError, module.exc_set_object, Broken, Broken())

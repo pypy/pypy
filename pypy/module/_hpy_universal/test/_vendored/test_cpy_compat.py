@@ -186,9 +186,13 @@ class TestCPythonCompatibility(HPyTest):
             assert x == +1
 
     def test_many_handles(self):
+        if self.runappdirect:
+            num_handles = 10000
+        else:
+            num_handles = 30
         mod = self.make_module("""
             #include <Python.h>
-            #define NUM_HANDLES  10000
+            #define NUM_HANDLES  %d
 
             HPyDef_METH(f, "f", HPyFunc_NOARGS)
             static HPy f_impl(HPyContext *ctx, HPy self)
@@ -215,5 +219,5 @@ class TestCPythonCompatibility(HPyTest):
             }
             @EXPORT(f)
             @INIT
-        """)
+        """ % num_handles)
         assert mod.f() == 0

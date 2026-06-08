@@ -513,7 +513,7 @@ LL_OPERATIONS = {
     'gc_get_rpy_memory_usage': LLOp(),
     'gc_get_rpy_type_index': LLOp(),
     'gc_is_rpy_instance'  : LLOp(),
-    'gc_dump_rpy_heap'    : LLOp(),
+    'gc_dump_rpy_heap'    : LLOp(canraise=(OSError,)),
     'gc_typeids_z'        : LLOp(),
     'gc_typeids_list'     : LLOp(),
     'gc_gettypeid'        : LLOp(),

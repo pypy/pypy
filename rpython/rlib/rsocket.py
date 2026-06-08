@@ -31,6 +31,15 @@ def mallocbuf(buffersize):
 
 
 constants = _c.constants
+HAS_AF_ALG = 'AF_ALG' in constants
+
+# Copy CPython: needed for AF_ALG but sometimes not defined in headers
+for name, value in (("SOL_ALG", 279), ("ALG_SET_AEAD_ASSOCLEN", 4),
+        ("ALG_SET_AEAD_AUTHSIZE", 5), ("ALG_SET_PUB_KEY", 6), ("ALG_OP_SIGN", 2),
+        ("ALG_OP_VERIFY", 3)):
+    if name not in constants:
+        constants[name] = value
+
 locals().update(constants)  # Define constants from _c
 
 HAS_SO_PROTOCOL = hasattr(_c, 'SO_PROTOCOL')
@@ -266,7 +275,7 @@ if HAS_AF_PACKET:
             lgt = rffi.getintfield(a, 'c_sll_halen')
             d = []
             for i in range(lgt):
-                d.append(a.c_sll_addr[i])
+                d.append(chr(a.c_sll_addr[i]))
             res = "".join(d)
             self.unlock()
             return res
@@ -466,6 +475,48 @@ if HAS_AF_NETLINK:
 
         def __repr__(self):
             return '<NETLINKAddress %r %r>' % (self.get_pid(), self.get_groups())
+
+# ____________________________________________________________
+
+if HAS_AF_ALG:
+    class AlgAddress(Address):
+        family = AF_ALG
+        struct = _c.sockaddr_alg
+        maxlen = minlen = sizeof(struct)
+
+        def __init__(self, algtype, algname, salg_feat=0, salg_mask=0):
+            addr = lltype.malloc(self.struct, flavor='raw', zero=True,
+                                 track_allocation=False)
+            self.setdata(addr, self.maxlen)
+            rffi.setintfield(addr, 'c_salg_family', AF_ALG)
+            rffi.str2chararray(algtype,
+                               rffi.cast(rffi.CCHARP, addr.c_salg_type), 14)
+            rffi.setintfield(addr, 'c_salg_feat', salg_feat)
+            rffi.setintfield(addr, 'c_salg_mask', salg_mask)
+            rffi.str2chararray(algname,
+                               rffi.cast(rffi.CCHARP, addr.c_salg_name), 64)
+
+HAS_AF_QIPCRTR = 'AF_QIPCRTR' in constants
+if HAS_AF_QIPCRTR:
+    class QrtrAddress(Address):
+        family = AF_QIPCRTR
+        struct = _c.sockaddr_qrtr
+        maxlen = minlen = sizeof(struct)
+
+        def __init__(self, node, port):
+            addr = lltype.malloc(self.struct, flavor='raw', zero=True,
+                                 track_allocation=False)
+            self.setdata(addr, self.maxlen)
+            rffi.setintfield(addr, 'c_sq_family', AF_QIPCRTR)
+            rffi.setintfield(addr, 'c_sq_node', node)
+            rffi.setintfield(addr, 'c_sq_port', port)
+
+        def get_data(self):
+            a = self.lock(_c.sockaddr_qrtr)
+            node = a.c_sq_node
+            port = a.c_sq_port
+            self.unlock()
+            return (node, port)
 
 # ____________________________________________________________
 
@@ -677,6 +728,19 @@ class RSocket(object):
         Return (new socket fd, client address)."""
         if self._select(False) == 1:
             raise SocketTimeout
+        if HAS_AF_ALG and self.family == AF_ALG:
+            # AF_ALG does not support accept() with address buffer; pass NULL
+            null_addr = lltype.nullptr(_c.sockaddr_ptr.TO)
+            null_addrlen = lltype.nullptr(_c.socklen_t_ptr.TO)
+            newfd = _c.socketaccept(self.fd, null_addr, null_addrlen)
+            if _c.invalid_socket(newfd):
+                raise self.error_handler()
+            if not inheritable:
+                sock_set_inheritable(newfd, False)
+            if _c._WIN32:
+                newfd = rffi.cast(lltype.Signed, newfd)
+            address, _ = make_null_address(self.family)
+            return (newfd, address)
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             remove_inheritable = not inheritable
@@ -719,6 +783,12 @@ class RSocket(object):
             res = _c.socketclose(fd)
             if res != 0:
                 raise self.error_handler()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def detach(self):
         fd = self.fd
@@ -1241,6 +1311,13 @@ class RSocket(object):
             if res < 0:
                 raise self.error_handler()
 
+    def setsockopt_None(self, level, option, optlen):
+        res = _c.socketsetsockopt(self.fd, level, option,
+                                  rffi.cast(rffi.VOIDP, 0),
+                                  optlen)
+        if res < 0:
+            raise self.error_handler()
+
     def setsockopt_int(self, level, option, value):
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as flag_p:
             flag_p[0] = rffi.cast(rffi.INT, value)
@@ -1440,7 +1517,7 @@ if _c.HAVE_SENDMSG:
         Socket method to determine the optimal byte size of the ancillary.
         Recommended to be used when computing the ancillary size for recvmsg.
         :param demanded_len: an integer with the minimum size required.
-        :return: an integer with the minimum memory needed for the required size. The value is not memory alligned
+        :return: an integer with the minimum memory needed for the required size. The value is not memory aligned
         """
         if demanded_len < 0:
             return 0
@@ -1452,7 +1529,7 @@ if _c.HAVE_SENDMSG:
         Socket method to determine the optimal byte size of the ancillary.
         Recommended to be used when computing the ancillary size for recvmsg.
         :param demanded_size: an integer with the minimum size required.
-        :return: an integer with the minimum memory needed for the required size. The value is memory alligned
+        :return: an integer with the minimum memory needed for the required size. The value is memory aligned
         """
         if demanded_size < 0:
             return 0
@@ -1464,9 +1541,14 @@ if _c.WIN32:
         with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
+            if inheritable:
+                flags = rffi.cast(rwin32.DWORD, 0)
+            else:
+                flags = rffi.cast(rwin32.DWORD,
+                                  _c.WSA_FLAG_NO_HANDLE_INHERIT)
             result = _c.WSASocket(
                 _c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
-                _c.FROM_PROTOCOL_INFO, info, 0, 0)
+                _c.FROM_PROTOCOL_INFO, info, 0, flags)
             result = rffi.cast(lltype.Signed, result)
             if result == INVALID_SOCKET:
                 raise last_error()
@@ -1811,4 +1893,4 @@ def if_nameindex():
             break
         out.append((v.c_if_index, rffi.charp2str(v.c_if_name)))
         i += 1
-    return out 
+    return out

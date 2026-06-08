@@ -1587,7 +1587,7 @@ class AppTestPosix:
         # Pytest can capture stdout, which then returns None for this API
         assert encoding is None or type(encoding) is str
         if encoding and self.posix.__name__ != "nt":
-            assert encoding == "UTF-8"
+            assert encoding == "utf-8"
 
     if os.name == 'nt':
         def test__getfileinformation(self):
@@ -1718,6 +1718,13 @@ class AppTestPosix:
                 os.write(fd, s)
             finally:
                 os.close(fd)
+
+        def test_memfd_create_error(self):
+            import errno
+            os = self.posix
+            with raises(OSError) as exc_info:
+                fd = os.memfd_create("abc", flags=-1)
+            assert exc_info.value.errno == errno.EINVAL
 
     def test_get_terminal_size(self):
         os = self.posix

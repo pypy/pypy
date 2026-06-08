@@ -1290,7 +1290,7 @@ class AppTestItertools27(object):
         assert type(A('', 0)) is A
 
     def test_copy_pickle(self):
-        import itertools, copy, pickle, sys
+        import itertools, copy, pickle as pickle, sys
         for value in [42, -sys.maxsize*99]:
             for step in [1, sys.maxsize*42, 5.5]:
                 expected = [value, value+step, value+2*step]
@@ -1323,7 +1323,7 @@ class AppTestItertools27(object):
 
     def test_combinations_pickle(self):
         from itertools import combinations
-        import pickle
+        import _pickle as pickle
         for op in (lambda a:a, lambda a:pickle.loads(pickle.dumps(a))):
             assert list(op(combinations('abc', 32))) == []     # r > n
             assert list(op(combinations('ABCD', 2))) == [
@@ -1422,7 +1422,7 @@ class AppTestItertools32:
 
     def test_accumulate_initial(self):
         from itertools import accumulate
-        import pickle
+        import _pickle as pickle
         assert list(accumulate([1, 1, 1], initial=1)) == [1, 2, 3, 4]
         assert list(accumulate([1, 2, 3], initial=8)) == [8, 9, 11, 14]
         assert list(accumulate([1, 2, 3], func=max, initial=8)) == [8] * 4

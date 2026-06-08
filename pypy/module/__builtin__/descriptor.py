@@ -14,7 +14,13 @@ class W_Super(W_Root):
         self.w_objtype = None
         self.w_self = None
 
-    def descr_init(self, space, w_starttype=None, w_obj_or_type=None):
+    def descr_init(self, space, args_w):
+        if len(args_w) > 2:
+            raise oefmt(space.w_TypeError,
+                        "super() expected at most 2 arguments (%d given)",
+                        len(args_w))
+        w_starttype = args_w[0] if len(args_w) >= 1 else space.w_None
+        w_obj_or_type = args_w[1] if len(args_w) >= 2 else space.w_None
         if space.is_none(w_starttype):
             frame = space.getexecutioncontext().gettopframe()
             w_starttype, w_obj_or_type = _super_from_frame(space, frame)

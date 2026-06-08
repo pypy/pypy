@@ -10,7 +10,7 @@
 
     Insert '--help' before 'bpnn.py' for a list of translation options,
     or see the Overview of Command Line Options for translation at
-    https://doc.pypy.org/en/latest/config/index.html
+    https://doc.pypy.org/config/index.html
 """
 # Back-Propagation Neural Networks
 # 

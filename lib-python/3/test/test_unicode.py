@@ -565,6 +565,7 @@ class UnicodeTest(string_tests.CommonTest,
 
     @unittest.skipIf(sys.maxsize > 2**32,
         'needs too much memory on a 64-bit platform')
+    @support.cpython_only
     def test_join_overflow(self):
         size = int(sys.maxsize**0.5) + 1
         seq = ('A' * size,) * size

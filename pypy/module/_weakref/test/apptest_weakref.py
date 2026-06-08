@@ -308,8 +308,12 @@ def test_del_and_callback_and_id():
     import gc, weakref
     seen_del = []
     class A(object):
+        acount = 1010
+        def __init__(self):
+            self.acount = A.acount
+            A.acount += 1
         def __del__(self):
-            seen_del.append(id())
+            seen_del.append(self.acount)
             seen_del.append(w1() is None)
             seen_del.append(w2() is None)
     seen_callback = []
@@ -320,12 +324,12 @@ def test_del_and_callback_and_id():
     a = A()
     w1 = weakref.ref(a)
     w2 = weakref.ref(a, callback)
-    aid = id(a)
+    acount = a.acount
     del a
     for i in range(5):
         gc.collect()
     if seen_del:
-        assert seen_del == [aid, True, True]
+        assert seen_del == [acount, True, True]
     if seen_callback:
         assert seen_callback == [True, True, True]
 

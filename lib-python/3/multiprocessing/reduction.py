@@ -39,6 +39,8 @@ class ForkingPickler(pickle.Pickler):
         super().__init__(*args)
         self.dispatch_table = self._copyreg_dispatch_table.copy()
         self.dispatch_table.update(self._extra_reducers)
+        if hasattr(self, 'pypy_extensions'):
+            self.pypy_extensions = True
 
     @classmethod
     def register(cls, type, reduce):

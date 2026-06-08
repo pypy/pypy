@@ -13,18 +13,20 @@ Even when using PyPy2.7 to build PyPy, translation is time-consuming -- 20
 minutes on a fast machine -- and RAM-hungry.  You will need **at least** 3 GB
 of memory on a 32-bit machine and 6GB on a 64-bit machine.
 
+
 Before you start
 ----------------
 
 Our normal development workflow avoids a full translation by using test-driven
 development. You can read more about how to develop PyPy here_, and latest
 translated (hopefully functional) binary packages are available on our
-buildbot's `nightly builds`_
+buildbot's `nightly builds`_.
 
 .. _here: contributing.html
 .. _`nightly builds`: https://buildbot.pypy.org/nightly
 
 You will need the build dependencies below to run the tests.
+
 
 Clone the repository
 --------------------
@@ -54,18 +56,18 @@ using::
 
     git checkout XXXXX
 
-where XXXXX is the revision hash.
+where ``XXXXX`` is the revision hash.
 
 .. _our nightly tests: https://buildbot.pypy.org/summary?branch=main
 
 
 Install build-time dependencies
 -------------------------------
-(**Note**: for some hints on how to translate the Python interpreter under
-Windows, see the `windows document`_ . 
 
-.. _`windows document`: windows.html
-.. _`RPython documentation`: https://rpython.readthedocs.org
+.. note::
+
+   For some hints on how to translate the Python interpreter under
+   Windows, see the :ref:`Windows document <translating-on-windows>`.
 
 The host Python2 needs to have CFFI installed. If translating on PyPy, CFFI
 is already installed. If translating on CPython, you need to install it, e.g.
@@ -94,10 +96,8 @@ Make sure to have these libraries (with development headers) installed
 before building PyPy, otherwise the resulting binary will not contain
 these modules.  Furthermore, the following libraries should be present
 after building PyPy, otherwise the corresponding CFFI modules are not
-built (you can run or re-run `lib_pypy/pypy_tools/build_cffi_imports.py`_ to
-build them; you don't need to re-translate the whole PyPy):
-
-.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://github.com/pypy/pypy/blob/main/lib_pypy/pypy_tools/build_cffi_imports.py
+built (you can run or re-run :source:`lib_pypy/pypy_tools/build_cffi_imports.py`
+to build them; you don't need to re-translate the whole PyPy):
 
 sqlite3
     libsqlite3
@@ -119,7 +119,7 @@ lzma (PyPy3 only)
     liblzma or libxz, version 5 and up
 
 To run untranslated tests, you need the Boehm garbage collector libgc, version
-7.4 and up
+7.4 and later.
 
 On Debian and Ubuntu (16.04 onwards), this is the command to install
 all build-time dependencies::
@@ -127,13 +127,13 @@ all build-time dependencies::
     apt-get install gcc make libffi-dev pkg-config zlib1g-dev libbz2-dev \
     libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev \
     tk-dev libgc-dev \
-    liblzma-dev libncursesw5-dev     # these two only needed on PyPy3
+    liblzma-dev libncursesw5-dev     # These two are only needed on PyPy3
 
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel gc-devel\
+    gdbm-devel gc-devel \
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
@@ -189,6 +189,7 @@ The following environment variables can be used to tweak the result:
 |                        | ones will be deleted. Defaults to 3                       |
 +------------------------+-----------------------------------------------------------+
 
+
 Run the translation
 -------------------
 
@@ -229,7 +230,6 @@ If everything works correctly this will:
 3. Copy the needed binaries to the current directory.
 4. Generate c-extension modules for any cffi-based stdlib modules.
 
-
 The resulting executable behaves mostly like a normal Python
 interpreter (see :doc:`cpython_differences`), and is ready for testing, for
 use as a base interpreter for a new virtualenv, or for packaging into a binary
@@ -251,6 +251,7 @@ Appropriate compilation flags are added to add debug info, and for ``lldebug0``
 compiler optimizations are fully disabled. If you stop in a debugger, you will
 see the very wordy machine-generated C code from the rpython translation step,
 which takes a little bit of reading to relate back to the rpython code.
+
 
 Build cffi import libraries for the stdlib
 ------------------------------------------
@@ -287,6 +288,7 @@ invariably become out-of-date.  If you want to write custom scripts
 anyway, note an easy-to-miss point: some modules are written with CFFI,
 and require some compilation.  If you install PyPy as root without
 pre-compiling them, normal users will get errors.
+
 
 Installation
 ------------

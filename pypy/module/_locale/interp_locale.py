@@ -155,6 +155,20 @@ if rlocale.HAVE_LANGINFO:
         return space.call_function(space.w_unicode, w_val,
              space.newtext('utf-8'), space.newtext('surrogateescape'))
 
+def _getencoding():
+    """RPython helper: return the locale encoding as a plain str."""
+    if rlocale.HAVE_LANGINFO:
+        try:
+            return rlocale.nl_langinfo(rlocale.CODESET)
+        except ValueError:
+            pass
+    return 'ascii'
+
+def getencoding(space):
+    """getencoding() -> string
+    Get the encoding used by conversion functions such as chr."""
+    return space.newtext(_getencoding())
+
 #___________________________________________________________________
 # HAVE_LIBINTL dependence
 

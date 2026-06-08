@@ -343,7 +343,7 @@ def test_index_method_mutates():
 
 def test_DequeIter_pickle():
     from _collections import deque
-    import pickle
+    import _pickle as pickle
     for i in range(4):
         d = deque([1,2,3])
         iterator = iter(d)
@@ -356,7 +356,7 @@ def test_DequeIter_pickle():
 
 def test_DequeRevIter_pickle():
     from _collections import deque
-    import pickle
+    import _pickle as pickle
     for i in range(4):
         d = deque([1,2,3])
         iterator = reversed(d)

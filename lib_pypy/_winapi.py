@@ -437,6 +437,76 @@ def GetModuleFileName(module):
 def ExitProcess(exitcode):
     _kernel32.ExitProcess(exitcode)
 
+def CreateJunction(src_path, dst_path):
+    import struct
+
+    IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+    FSCTL_SET_REPARSE_POINT    = 0x000900A4
+
+    if src_path is None or dst_path is None or src_path[:4] == '\\??\\':
+        SetLastError(ERROR_INVALID_PARAMETER)
+        raise_WinError()
+
+    # Get the full (absolute) path of the link target.
+    buf_size = _kernel32.GetFullPathNameW(src_path, 0, _ffi.NULL, _ffi.NULL)
+    if buf_size == 0:
+        raise_WinError()
+    full_buf = _ffi.new("wchar_t[]", buf_size)
+    if _kernel32.GetFullPathNameW(src_path, buf_size, full_buf, _ffi.NULL) == 0:
+        raise_WinError()
+    full_path = _ffi.string(full_buf)
+
+    # Build the reparse data buffer (UTF-16LE, NUL-terminated entries).
+    sub_str   = '\\??\\'  + full_path
+    sub_bytes = sub_str.encode('utf-16-le')
+    prt_bytes = full_path.encode('utf-16-le')
+    nul       = b'\x00\x00'
+    path_buf  = sub_bytes + nul + prt_bytes + nul
+
+    reparse_data_len = 8 + len(path_buf)   # 8 = MountPoint fixed header size
+    header = struct.pack('<IHHHHHH',
+        IO_REPARSE_TAG_MOUNT_POINT,
+        reparse_data_len,
+        0,                        # Reserved
+        0,                        # SubstituteNameOffset
+        len(sub_bytes),           # SubstituteNameLength
+        len(sub_bytes) + 2,       # PrintNameOffset
+        len(prt_bytes),           # PrintNameLength
+    )
+    rdb     = header + path_buf
+    rdb_buf = _ffi.new("char[]", rdb)
+
+    if not _kernel32.CreateDirectoryW(dst_path, _ffi.NULL):
+        raise_WinError()
+
+    junction = _kernel32.CreateFileW(
+        dst_path,
+        GENERIC_WRITE, 0, _ffi.NULL,
+        OPEN_EXISTING,
+        FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
+        _ffi.NULL,
+    )
+    if junction == INVALID_HANDLE_VALUE:
+        err = _kernel32.GetLastError()
+        _kernel32.RemoveDirectoryW(dst_path)
+        _kernel32.SetLastError(err)
+        raise_WinError()
+
+    try:
+        returned = _ffi.new("DWORD[1]")
+        ok = _kernel32.DeviceIoControl(
+            junction,
+            FSCTL_SET_REPARSE_POINT,
+            rdb_buf, len(rdb),
+            _ffi.NULL, 0,
+            returned,
+            _ffi.NULL,
+        )
+        if not ok:
+            raise_WinError()
+    finally:
+        _kernel32.CloseHandle(junction)
+
 ZERO_MEMORY = 0x00000008
 
 def malloc(size):
@@ -511,7 +581,8 @@ ERROR_IO_PENDING        = 997
 ERROR_NOT_FOUND          = 1168
 ERROR_CONNECTION_REFUSED = 1225
 ERROR_CONNECTION_ABORTED = 1236
-ERROR_ALREADY_EXISTS = 0xB7
+ERROR_ALREADY_EXISTS     = 0xB7
+ERROR_INVALID_PARAMETER  = 87
 
 
 PIPE_ACCESS_INBOUND = 0x00000001

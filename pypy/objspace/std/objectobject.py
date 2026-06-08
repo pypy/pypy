@@ -184,6 +184,9 @@ def descr_set___class__(space, w_obj, w_newcls):
 def descr__repr__(space, w_obj):
     classname = space.getfulltypename(w_obj)
     return w_obj.getrepr(space, '%s object' % (classname,))
+descr__repr__.__text_signature__ = '($self, /)'
+descr__init__.__text_signature__ = '($self, /, *args, **kwargs)'
+descr__new__.__text_signature__ = '($type, *args, **kwargs)'
 
 
 def descr__str__(space, w_obj):
@@ -284,16 +287,20 @@ def descr__reduce_ex__(space, w_obj, proto):
 
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):
+        if space.len_w(w_format_spec) > 0:
+            raise oefmt(space.w_TypeError,
+                         "unsupported format string passed to %T.__format__",
+                         w_obj)
         w_as_str = space.call_function(space.w_unicode, w_obj)
     elif space.isinstance_w(w_format_spec, space.w_bytes):
+        if space.len_w(w_format_spec) > 0:
+            raise oefmt(space.w_TypeError,
+                         "unsupported format string passed to %T.__format__",
+                         w_obj)
         w_as_str = space.str(w_obj)
     else:
         raise oefmt(space.w_TypeError, "format_spec must be a string")
-    if space.len_w(w_format_spec) > 0:
-        raise oefmt(space.w_TypeError,
-                     "unsupported format string passed to %T.__format__",
-                     w_obj);
-    return space.format(w_as_str, w_format_spec)
+    return w_as_str
 
 def descr__eq__(space, w_self, w_other):
     if space.is_w(w_self, w_other):
@@ -321,50 +328,81 @@ def descr__dir__(space, w_obj):
 class ObjectObjectDocstrings:
 
     def __new__():
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+        """Create and return a new object.  See help(type) for accurate signature."""
+
+    def __init__():
+        """Initialize self.  See help(type(self)) for accurate signature."""
+
+    def __class__():
+        """type(object) -> the object's type
+type(name, bases, dict, **kwds) -> a new type"""
+
+    def __repr__():
+        """Return repr(self)."""
+
+    def __str__():
+        """Return str(self)."""
+
+    def __hash__():
+        """Return hash(self)."""
+
+    def __eq__():
+        """Return self==value."""
+
+    def __ne__():
+        """Return self!=value."""
+
+    def __lt__():
+        """Return self<value."""
+
+    def __le__():
+        """Return self<=value."""
+
+    def __gt__():
+        """Return self>value."""
+
+    def __ge__():
+        """Return self>=value."""
+
+    def __getattribute__():
+        """Return getattr(self, name)."""
+
+    def __setattr__():
+        """Implement setattr(self, name, value)."""
+
+    def __delattr__():
+        """Implement delattr(self, name)."""
+
+    def __dir__():
+        """Default dir() implementation."""
+
+    def __format__():
+        """Default object formatter."""
+
+    def __reduce__():
+        """Helper for pickle."""
+
+    def __reduce_ex__():
+        """Helper for pickle."""
+
+    def __getstate__():
+        """Helper for pickle."""
 
     def __subclasshook__():
         """Abstract classes can override this to customize issubclass().
 
-        This is invoked early on by abc.ABCMeta.__subclasscheck__().
-        It should return True, False or NotImplemented.  If it returns
-        NotImplemented, the normal algorithm is used.  Otherwise, it
-        overrides the normal algorithm (and the outcome is cached).
-        """
+This is invoked early on by abc.ABCMeta.__subclasscheck__().
+It should return True, False or NotImplemented.  If it returns
+NotImplemented, the normal algorithm is used.  Otherwise, it
+overrides the normal algorithm (and the outcome is cached).
+"""
 
-    def __hash__():
-        """x.__hash__() <==> hash(x)"""
+    def __init_subclass__():
+        """This method is called when a class is subclassed.
 
-    def __setattr__():
-        """x.__setattr__('name', value) <==> x.name = value"""
-
-    def __getattribute__():
-        """"x.__getattribute__('name') <==> x.name"""
-
-    def __delattr__():
-        """x.__delattr__('name') <==> del x.name"""
-
-    def __init__():
-        """x.__init__(...) initializes x; see help(type(x)) for signature."""
-
-    def __class__():
-        """type(object) -> the object's type
-        type(name, bases, dict) -> a new type"""
-
-    def __repr__():
-        """x.__repr__() <==> repr(x)"""
-
-    def __str__():
-        """x.__str__() <==> str(x)"""
-
-    def __reduce__():
-        """helper for pickle"""
-
-    def __reduce_ex__():
-        """helper for pickle"""
-
-    def __format__():
-        """default object formatter"""
+The default implementation does nothing. It may be
+overridden to extend subclasses.
+"""
 
 W_ObjectObject.typedef = TypeDef("object",
     __rpython_level_class__ = W_ObjectObject,
@@ -374,7 +412,8 @@ W_ObjectObject.typedef = TypeDef("object",
                          doc=ObjectObjectDocstrings.__new__.__doc__),
     __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True,
                                   doc=ObjectObjectDocstrings.__subclasshook__.__doc__),
-    __init_subclass__ = interp2app(descr___init_subclass__, as_classmethod=True),
+    __init_subclass__ = interp2app(descr___init_subclass__, as_classmethod=True,
+                                   doc=ObjectObjectDocstrings.__init_subclass__.__doc__),
 
     # these are actually implemented in pypy.objspace.descroperation
     __getattribute__ = interp2app(Object.descr__getattribute__.im_func,
@@ -384,7 +423,8 @@ W_ObjectObject.typedef = TypeDef("object",
     __delattr__ = interp2app(Object.descr__delattr__.im_func,
                              doc=ObjectObjectDocstrings.__delattr__.__doc__),
 
-    __getstate__ = interp2app(descr__getstate__),
+    __getstate__ = interp2app(descr__getstate__,
+                              doc=ObjectObjectDocstrings.__getstate__.__doc__),
     __init__ = interp2app(descr__init__,
                           doc=ObjectObjectDocstrings.__init__.__doc__),
     __class__ = GetSetProperty(descr_get___class__, descr_set___class__,
@@ -401,12 +441,19 @@ W_ObjectObject.typedef = TypeDef("object",
                                doc=ObjectObjectDocstrings.__reduce_ex__.__doc__),
     __format__ = interp2app(descr___format__,
                             doc=ObjectObjectDocstrings.__format__.__doc__),
-    __dir__ = interp2app(descr__dir__),
+    __dir__ = interp2app(descr__dir__,
+                         doc=ObjectObjectDocstrings.__dir__.__doc__),
 
-    __eq__ = interp2app(descr__eq__),
-    __ne__ = interp2app(descr__ne__),
-    __le__ = interp2app(descr_richcompare),
-    __lt__ = interp2app(descr_richcompare),
-    __ge__ = interp2app(descr_richcompare),
-    __gt__ = interp2app(descr_richcompare),
+    __eq__ = interp2app(descr__eq__,
+                        doc=ObjectObjectDocstrings.__eq__.__doc__),
+    __ne__ = interp2app(descr__ne__,
+                        doc=ObjectObjectDocstrings.__ne__.__doc__),
+    __le__ = interp2app(descr_richcompare,
+                        doc=ObjectObjectDocstrings.__le__.__doc__),
+    __lt__ = interp2app(descr_richcompare,
+                        doc=ObjectObjectDocstrings.__lt__.__doc__),
+    __ge__ = interp2app(descr_richcompare,
+                        doc=ObjectObjectDocstrings.__ge__.__doc__),
+    __gt__ = interp2app(descr_richcompare,
+                        doc=ObjectObjectDocstrings.__gt__.__doc__),
 )

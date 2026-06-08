@@ -70,3 +70,21 @@ if _WIN32:
         import sys
         isatty = os.isatty(sys.stderr.fileno())
         assert os._supports_virtual_terminal() == isatty
+
+    def test__getdiskusage():
+        import nt
+        total, free = nt._getdiskusage(nt.getcwd())
+        assert isinstance(total, int)
+        assert isinstance(free, int)
+        assert total > 0
+        assert free >= 0
+        assert free <= total
+
+    def test__getfinalpathname_bytes():
+        import nt
+        path = nt.getcwd().encode()
+        result = nt._getfinalpathname(path)
+        assert isinstance(result, bytes)
+        prefix = b'\\\\?\\'
+        stripped = result[len(prefix):] if result.startswith(prefix) else result
+        assert stripped.lower() == path.lower()

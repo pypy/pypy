@@ -52,7 +52,7 @@ class TestMemoryViewObject(BaseApiTest):
         assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
          
 
-class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+class AppTestPyBuffer(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
         module = self.import_extension('foo', [
                 ("fillinfo", "METH_VARARGS",
@@ -105,7 +105,6 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
         assert result.itemsize == 13
         assert result.tobytes() == b'hello, world.'
 
-class AppTestBufferProtocol(AppTestCpythonExtensionBase):
     def test_fromobject(self):
         foo = self.import_extension('foo', [
             ("make_view", "METH_O",

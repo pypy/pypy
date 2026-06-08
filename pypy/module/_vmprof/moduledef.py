@@ -13,7 +13,7 @@ class Module(MixedModule):
     }
     if sys.platform.startswith('linux'):
         appleveldefs['resolve_addr'] = 'app_vmprof.resolve_addr'
-        appleveldefs['resolve_many_addrs'] = 'app_vmprof.resolve_many_addrs'
+        appleveldefs['resolve_many_addr'] = 'app_vmprof.resolve_many_addr'
 
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',

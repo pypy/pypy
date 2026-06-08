@@ -127,6 +127,16 @@ static void write_str(int fd, const char *p)
 HANDLE pypy_sigint_interrupt_event = NULL;
 #endif
 
+/* Stores the errno from a failed wakeup-fd write so it can be reported
+   at the next Python checkpoint via sys.stderr rather than directly to fd 2. */
+static volatile int pypysig_wakeup_fd_write_errno = 0;
+
+int pypysig_get_wakeup_fd_write_errno(void) {
+    int e = pypysig_wakeup_fd_write_errno;
+    pypysig_wakeup_fd_write_errno = 0;
+    return e;
+}
+
 static void signal_setflag_handler(int signum)
 {
     pypysig_pushback(signum);
@@ -149,20 +159,10 @@ static void signal_setflag_handler(int signum)
             res = write(wakeup_fd, &byte, 1);
         if (res < 0 && ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
                         errno != EAGAIN)) {
-            unsigned int e = (unsigned int)errno;
-            char c[27], *p;
-            if (e == EINTR)
+            if (errno == EINTR)
                 goto retry;
-            write_str(2, "Exception ignored when trying to write to the "
-                         "signal wakeup fd: Errno ");
-            p = c + sizeof(c);
-            *--p = 0;
-            *--p = '\n';
-            do {
-                *--p = '0' + e % 10;
-                e /= 10;
-            } while (e != 0);
-            write_str(2, p);
+            /* Store errno for reporting at the next Python checkpoint */
+            pypysig_wakeup_fd_write_errno = errno;
         }
         errno = old_errno;
     }
@@ -221,6 +221,27 @@ int pypysig_poll(void)
     }
     return -1;  /* no pending signal */
 }
+
+#ifndef _WIN32
+/* siginterrupt(2) is deprecated on Linux (glibc 2.21+); implement the
+ * same semantics via sigaction so we avoid the -Wdeprecated-declarations
+ * warning.  Falls back to the raw syscall on platforms without SA_RESTART. */
+int pypysig_siginterrupt(int sig, int flag)
+{
+#ifdef SA_RESTART
+    struct sigaction act;
+    if (sigaction(sig, NULL, &act) < 0)
+        return -1;
+    if (flag)
+        act.sa_flags &= ~SA_RESTART;
+    else
+        act.sa_flags |= SA_RESTART;
+    return sigaction(sig, &act, NULL);
+#else
+    return siginterrupt(sig, flag);
+#endif
+}
+#endif
 
 int pypysig_set_wakeup_fd(int fd, int send_flags)
 {

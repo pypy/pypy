@@ -136,6 +136,33 @@ def test_encode_jisx0208(space):
     s = encode(space, c, u'\u83ca\u5730\u6642\u592b'.encode('utf8'), 4)
     assert s == '\x1b$B5FCO;~IW\x1b(B' and type(s) is str
 
+def test_enc_getstate_iso2022_jp(space):
+    # iso2022_jp initial codec state has ASCII mode flags \x42\x42
+    c = getcodec('iso2022_jp')
+    encodebuf = c_codecs.pypy_cjk_enc_new(c)
+    state = c_codecs.enc_getstate(encodebuf)
+    assert state == '\x42\x42\x00\x00\x00\x00\x00\x00'
+    c_codecs.pypy_cjk_enc_free(encodebuf)
+
+def test_enc_setstate_restores_mode(space):
+    c = getcodec('iso2022_jp')
+    encodebuf = c_codecs.pypy_cjk_enc_new(c)
+    # use MBERR_TOOFEW to avoid resetting state (incremental encode style)
+    c_codecs.encodeex(space, encodebuf, u'\u3042'.encode('utf-8'), 1,
+                      ignore_error=c_codecs.MBERR_TOOFEW)
+    jp_state = c_codecs.enc_getstate(encodebuf)
+    assert jp_state != '\x42\x42\x00\x00\x00\x00\x00\x00'
+    # restore ASCII state, confirm JIS mode is gone
+    ascii_state = '\x42\x42\x00\x00\x00\x00\x00\x00'
+    c_codecs.enc_setstate(encodebuf, ascii_state)
+    assert c_codecs.enc_getstate(encodebuf) == ascii_state
+    # restore JIS state; encoding \u3042 should not emit mode-switch prefix
+    c_codecs.enc_setstate(encodebuf, jp_state)
+    out = c_codecs.encodeex(space, encodebuf, u'\u3042'.encode('utf-8'), 1,
+                            ignore_error=c_codecs.MBERR_TOOFEW)
+    assert out == '\x24\x22'
+    c_codecs.pypy_cjk_enc_free(encodebuf)
+
 def test_encode_custom_error_handler_bytes(space):
     py.test.skip("needs revamping in py3k")
     c = getcodec("hz")

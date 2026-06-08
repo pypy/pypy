@@ -27,3 +27,21 @@ def test_replace_co_qualname():
     assert co.co_qualname == "<module>"
     co2 = co.replace(co_qualname="abc")
     assert co2.co_qualname == "abc"
+
+def test_co_positions_no_debug_ranges():
+    import sys
+    def f():
+        x = 1
+        return x
+    saved = sys._xoptions.copy()
+    try:
+        sys._xoptions['no_debug_ranges'] = True
+        for line, end_line, column, end_column in f.__code__.co_positions():
+            if line is None:
+                continue
+            assert line == end_line
+            assert column is None
+            assert end_column is None
+    finally:
+        sys._xoptions.clear()
+        sys._xoptions.update(saved)

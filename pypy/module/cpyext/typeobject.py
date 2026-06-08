@@ -21,6 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
+    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR,
     PyObject, PyVarObject,
     )
 
@@ -208,7 +209,8 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
     object. The values must not be modified.
     """
     py_getsetdescr = cts.cast('PyGetSetDescrObject*', py_obj)
-    if isinstance(w_obj, GetSetProperty):
+    if not isinstance(w_obj, W_GetSetPropertyEx):
+        assert isinstance(w_obj, GetSetProperty)
         py_getsetdef = make_GetSet(space, w_obj)
         assert space.isinstance_w(w_userdata, space.w_type)
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
@@ -505,6 +507,26 @@ def inherit_special(space, pto, w_obj, base_pto):
         flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
         flags |= Py_TPFLAGS_DICT_SUBCLASS
+
+    # Inherit Py_TPFLAGS_METHOD_DESCRIPTOR for non-heap static types,
+    # but only when tp_descr_get is also inherited (not overridden).
+    if not (flags & Py_TPFLAGS_HEAPTYPE):
+        if widen(base_pto.c_tp_flags) & Py_TPFLAGS_METHOD_DESCRIPTOR:
+            if not pto.c_tp_descr_get or pto.c_tp_descr_get == base_pto.c_tp_descr_get:
+                flags |= Py_TPFLAGS_METHOD_DESCRIPTOR
+
+    # Inherit Py_TPFLAGS_HAVE_VECTORCALL for non-heap static types that do
+    # not override tp_vectorcall_offset or tp_call.
+    # Note: inherit_slots runs after inherit_special, so a zero offset here
+    # means "not overridden" and will be inherited from base.
+    if not (flags & Py_TPFLAGS_HEAPTYPE):
+        if widen(base_pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL:
+            same_offset = (pto.c_tp_vectorcall_offset == 0 or
+                           pto.c_tp_vectorcall_offset == base_pto.c_tp_vectorcall_offset)
+            if (same_offset
+                    and (not pto.c_tp_call or pto.c_tp_call == base_pto.c_tp_call)):
+                flags |= Py_TPFLAGS_HAVE_VECTORCALL
+
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):
@@ -604,7 +626,6 @@ class W_PyCTypeObject(W_TypeObject):
             raw_doc = rffi.constcharp2str(pto.c_tp_doc)
             dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
         if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
-            print(name, flags, Py_TPFLAGS_DISALLOW_INSTANTIATION, flags & Py_TPFLAGS_DISALLOW_INSTANTIATION)
             add_disallow_new(space, dict_w, pto)
         elif pto.c_tp_new:
             add_tp_new_wrapper(space, dict_w, pto)
@@ -616,11 +637,29 @@ class W_PyCTypeObject(W_TypeObject):
                 key = space.text_w(w_key)
                 dict_w[key] = space.getitem(w_dict, w_key)
 
-        if flag_heaptype:
+        # Manual heaptypes (allocated via PyType_Type.tp_alloc, then PyType_Ready)
+        # set tp_basicsize = sizeof(PyHeapTypeObject).  For those, new_layout is
+        # True only when the type adds fields *beyond* PyHeapTypeObject.
+        #
+        # Spec-created types (PyType_FromSpecWithBases / PyType_FromModuleAndSpec)
+        # also carry Py_TPFLAGS_HEAPTYPE but their tp_basicsize is the *instance*
+        # struct size, which is always smaller than sizeof(PyHeapTypeObject).
+        # Using sizeof(PyHeapTypeObject) as minsize for those types incorrectly
+        # gives new_layout=False, causing find_best_base() to prefer any Python
+        # type over a C type, giving a too-small minsize
+        #
+        # Distinguish the two cases by the magnitude of tp_basicsize:
+        if flag_heaptype and (pto.c_tp_basicsize >=
+                              rffi.sizeof(PyHeapTypeObject.TO)):
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
         else:
             minsize = rffi.sizeof(PyObject.TO)
-        new_layout = (pto.c_tp_basicsize > minsize or pto.c_tp_itemsize > 0)
+        extra = pto.c_tp_basicsize - minsize
+        if pto.c_tp_dictoffset > 0:
+            extra -= rffi.sizeof(rffi.VOIDP)
+        if pto.c_tp_weaklistoffset > 0:
+            extra -= rffi.sizeof(rffi.VOIDP)
+        new_layout = (extra > 0 or pto.c_tp_itemsize > 0)
         self.flag_cpytype = True
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
@@ -787,7 +826,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
         # Do not override pto.c_tp_itemsize here, it is done elsewhere
-
     if w_type.is_heaptype():
         update_all_slots(space, w_type, pto)
     else:
@@ -1135,6 +1173,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     # - calculate tp_doc if Py_tp_doc is used
     nmembers = weaklistoffset = dictoffset = vectorcalloffset = 0;
     tp_doc = None
+    tp_txtsig = None
     module_from_spec = False
     i = 0
     while True:
@@ -1177,6 +1216,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
                 from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
                 # Remove the signature if any from the docstring
                 tp_doc = extract_doc(from_pfunc, name)
+                tp_txtsig = extract_txtsig(from_pfunc, name)
         i += 1
     if not spec.c_name:
         raise oefmt(space.w_SystemError,
@@ -1277,6 +1317,9 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
 
     res_obj = cts.cast('PyObject*', res)
     w_type = from_ref(space, res_obj)
+    if tp_txtsig is not None:
+        assert isinstance(w_type, W_PyCTypeObject)
+        w_type.text_signature = tp_txtsig
     if not module_from_spec and modname is not None:
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
     # Convert getsets

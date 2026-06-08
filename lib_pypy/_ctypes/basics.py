@@ -37,6 +37,12 @@ def store_reference(where, base_key, target):
 class ArgumentError(Exception):
     pass
 
+class _ctypes_property(property):
+    """A property subclass that raises TypeError (not AttributeError) on delete,
+    matching CPython ctypes behaviour."""
+    def __delete__(self, obj):
+        raise TypeError("cannot delete attribute")
+
 class COMError(Exception):
     "Raised when a COM method call failed."
     def __init__(self, hresult, text, details):
@@ -165,7 +171,7 @@ class CArgObject(object):
         self._buffer = None
 
     def __repr__(self):
-        return '<CArgObject %r>' % (self._obj,)
+        return repr(self._obj)
 
     def __eq__(self, other):
         return self._obj == other
@@ -288,6 +294,21 @@ def is_struct_shape(shape):
             isinstance(shape[0], _rawffi.Structure) and
             shape[1] == 1)
 
+# Adding proper longdouble support would require:
+# 1. rpython/rlib/libffi.py — add types.longdouble =
+#    clibffi.ffi_type_longdouble in _import(), and add elif ffi_type is
+#    types.longdouble: return 'L' in getkind(). getkind() needs a new kind.
+# 2. rpython/rlib/libffi.py (rest of file) — all dispatch on getkind() result
+#    would need an 'L' case. Likely just a handful of places where 'f'/'s' are
+#    handled.
+# 3. pypy/module/_rawffi/alt/interp_ffitype.py — add W_FFIType('longdouble',
+#    libffi.types.longdouble) to the types list, and add is_longdouble() method.
+# 4. pypy/module/_rawffi/alt/type_converter.py — add an elif
+#    w_ffitype.is_longdouble(): self._longdouble(...) branch, plus
+#    handle_longdouble() abstract method and concrete implementations.
+# 5. lib_pypy/_ctypes/basics.py — add 'g': _ffi.types.longdouble to the typemap.
+
+
 def _shape_to_ffi_type(shape):
     try:
         return _shape_to_ffi_type.typemap[shape]
@@ -295,7 +316,9 @@ def _shape_to_ffi_type(shape):
         pass
     if is_struct_shape(shape):
         return shape[0].get_ffi_type()
-    #
+    if shape == 'g':  # c_longdouble exists but FFI calls are not yet implemented
+        raise NotImplementedError(
+            "c_longdouble is not supported as a ctypes FFI argument or return type in PyPy")
     assert False, 'unknown shape %s' % (shape,)
 
 

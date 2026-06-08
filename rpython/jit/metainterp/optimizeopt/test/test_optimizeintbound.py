@@ -1,3 +1,4 @@
+import sys
 import pytest
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
@@ -1059,6 +1060,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_ushift_lshift(self):
         ops = """
         [i0]
@@ -1105,16 +1107,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         ops = """
         [i1]
-        i2 = int_lshift(i1, 30)
-        i3 = uint_rshift(i2, 30)
+        i2 = int_lshift(i1, 15)
+        i3 = uint_rshift(i2, 15)
         jump(i3) # equal
         """
+        mask = (2 ** LONG_BIT - 1)
         expected = """
         [i1]
-        i2 = int_lshift(i1, 30) # dead, removed by backend
-        i3 = int_and(i1, 17179869183)
+        i2 = int_lshift(i1, 15) # dead, removed by backend
+        i3 = int_and(i1, %s)
         jump(i3) # equal
-        """
+        """ % (((mask << 15) & mask) >> 15)
         self.optimize_loop(ops, expected)
 
 
@@ -4326,19 +4329,89 @@ finish()
         ops = """
         [i1]
         i2 = uint_rshift(i1, 16)
-        i3 = int_and(i2, 65535)
+        i3 = int_and(i2, 4095)
         i4 = int_or(2293760, i3)
-        i5 = int_and(i4, 65535)
+        i5 = int_and(i4, 4095)
         jump(i5, i3) # equal
         """
         expected = """
         [i1]
         i2 = uint_rshift(i1, 16)
-        i3 = int_and(i2, 65535)
+        i3 = int_and(i2, 4095)
         i4 = int_or(2293760, i3) # dead
         jump(i3, i3) # equal
         """
         self.optimize_loop(ops, expected)
+
+    @pytest.mark.skipif("LONG_BIT != 64")
+    def test_and_or_and2(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16)
+        i6 = int_or(i5, i4)
+        i7 = int_and(i6, 65535)
+        jump(i7, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16) # dead
+        i6 = int_or(i5, i4) # dead
+        jump(i4, i4) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_add(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 255)
+        i3 = int_add(255, i2)
+        i4 = int_and(i3, 255)
+        i5 = int_add(1, i4)
+        i6 = int_and(i5, 255)
+        jump(i6, i2) # equal
+        """
+        # tricky: this is (x - 1) + 1, but for 8 bit ints. we don't optimize it
+        # so far
+        expected = ops
+        self.optimize_loop(ops, expected)
+
+    def test_xor_reassoc_consts(self):
+        ops = """
+        [i0]
+        i1 = int_xor(i0, 1)
+        i2 = int_xor(i1, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_xor(i0, 1) # dead
+        i2 = int_xor(i0, 3)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_xor_is_bool_not(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_xor(i1, 1) # negate the bool
+        i3 = int_is_true(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_is_zero(i1) # negate the bool
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

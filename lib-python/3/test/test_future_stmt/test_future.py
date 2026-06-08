@@ -19,7 +19,13 @@ def get_error_location(msg):
 class FutureTest(unittest.TestCase):
 
     def check_syntax_error(self, err, basename, lineno, offset=1):
-        self.assertIn('%s.py, line %d' % (basename, lineno), str(err))
+        #PyPy change: PyPy may format multi-line spans as "lines X-Y" instead of "line X"
+        err_str = str(err)
+        self.assertTrue(
+            '%s.py, line %d' % (basename, lineno) in err_str or
+            '%s.py, lines %d-' % (basename, lineno) in err_str,
+            '%r not found in %r' % ('%s.py, line(s) %d' % (basename, lineno), err_str)
+        )
         self.assertEqual(os.path.basename(err.filename), basename + '.py')
         self.assertEqual(err.lineno, lineno)
         self.assertEqual(err.offset, offset)
@@ -75,7 +81,9 @@ class FutureTest(unittest.TestCase):
     def test_badfuture7(self):
         with self.assertRaises(SyntaxError) as cm:
             from test.test_future_stmt import badsyntax_future7
-        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 53)
+        #PyPy change: PyPy (like CPython 3.12+) reports offset 54 here; CPython 3.11 reported 53
+        offset = 54 if sys.implementation.name == 'pypy' else 53
+        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, offset)
 
     def test_badfuture8(self):
         with self.assertRaises(SyntaxError) as cm:

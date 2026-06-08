@@ -15,7 +15,7 @@ from . import _parser
 from ._constants import *
 from ._casefix import _EXTRA_CASES
 
-assert _sre.MAGIC == MAGIC, "SRE module mismatch"
+assert _sre.MAGIC == MAGIC, f"SRE module mismatch {_sre.MAGIC=} {MAGIC=}"
 
 _LITERAL_CODES = {LITERAL, NOT_LITERAL}
 _SUCCESS_CODES = {SUCCESS, FAILURE}

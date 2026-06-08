@@ -93,6 +93,7 @@ copyrighted by one or more of the following people and organizations:
   Alex Martelli
   Adrien Di Mascio
   Anders Hammarquist
+  Oskar Haarklou Veileborg
   Ondrej Baranovič
   Logan Chien
   Mark Young
@@ -142,6 +143,7 @@ copyrighted by one or more of the following people and organizations:
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
+  Stan Ulbrych
   Tyler Wade
   Paul deGrandis
   Tadeu Zagallo
@@ -253,6 +255,7 @@ copyrighted by one or more of the following people and organizations:
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
+  Charalampos Stratakis
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -271,6 +274,8 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Dennis Sweeney
+  Samuel Ytterbrink
   Pierre Augier
   Ilya Egorov
   Paul Gey
@@ -297,6 +302,8 @@ copyrighted by one or more of the following people and organizations:
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Victorien
+  Jeongseop Lim
   Julian Waters
   Sam James
   Christian Clauss
@@ -304,7 +311,6 @@ copyrighted by one or more of the following people and organizations:
   Renaud Blanch
   h-vertini
   Alex Orange
-  Dennis Sweeney
   alexprengere
   Georges Racinet
   Lin Cheng
@@ -350,12 +356,13 @@ copyrighted by one or more of the following people and organizations:
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Jeong, YunWon
+  Alex Willmer
   Ariel Volovik
   Martin Teichmann
   diath
   robinverduijn
   obafgkmdh
-  Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
   Isuru Fernando
@@ -585,3 +592,10 @@ The cffi bindings to liblzma (in lib_pypy/_lzma.py) are derived from
 the lzmaffi project which is distributed under a BSD license:
 
     https://pypi.python.org/pypi/lzmaffi/0.3.0
+
+License for 'libexpat'
+----------------------
+
+The pyexpat module includes code from libexpat which is distributed under an MIT license:
+
+    https://github.com/libexpat/libexpat/blob/R_2_7_4/COPYING

@@ -199,7 +199,7 @@ allocated consecutive numbers starting at 1, this behavior should not
 be relied upon, and the number should be seen purely as a magic cookie.
 A thread's identity may be reused for another thread after it exits."""
     ident = rthread.get_ident()
-    return space.newint(ident)
+    return space.newint_from_size_t(ident)
 
 def get_native_id(space):
     """Return the native integral Thread ID of the current thread assigned by

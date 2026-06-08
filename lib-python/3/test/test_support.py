@@ -638,6 +638,7 @@ class TestSupport(unittest.TestCase):
         """)
         script_helper.assert_python_ok("-c", code)
 
+    @support.impl_detail('not supported on PyPy', pypy=False)
     def test_recursion(self):
         # Test infinite_recursion() and get_recursion_available() functions.
         def recursive_function(depth):

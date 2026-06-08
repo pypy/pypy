@@ -611,6 +611,7 @@ class TestPEP590(unittest.TestCase):
             pass
         self.assertFalse(MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
 
+    @cpython_only
     def test_vectorcall_override(self):
         # Check that tp_call can correctly override vectorcall.
         # MethodDescriptorNopGet implements tp_call but it inherits from

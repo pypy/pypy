@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
+bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'tcl8', 'tk8', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel',
           'panelw', 'z', 'bz2']
 

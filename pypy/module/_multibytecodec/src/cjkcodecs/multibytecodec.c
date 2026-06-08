@@ -122,7 +122,7 @@ Py_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
 
 struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec)
 {
-  struct pypy_cjk_enc_s *d = malloc(sizeof(struct pypy_cjk_enc_s));
+  struct pypy_cjk_enc_s *d = calloc(1, sizeof(struct pypy_cjk_enc_s));
   if (!d)
     return NULL;
   if (codec->encinit != NULL && codec->encinit(&d->state, codec->config) != 0)
@@ -138,6 +138,16 @@ struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec)
 void pypy_cjk_enc_copystate(struct pypy_cjk_enc_s *dst, struct pypy_cjk_enc_s *src)
 {
     dst->state = src->state;
+}
+
+void pypy_cjk_enc_getstate(struct pypy_cjk_enc_s *d, unsigned char *buf)
+{
+    memcpy(buf, d->state.c, sizeof(d->state.c));
+}
+
+void pypy_cjk_enc_setstate(struct pypy_cjk_enc_s *d, const unsigned char *buf)
+{
+    memcpy(d->state.c, buf, sizeof(d->state.c));
 }
 
 Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,

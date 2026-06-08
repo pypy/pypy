@@ -13,7 +13,7 @@ import threading
 import time
 import unittest
 from test import support
-from test.support import os_helper
+from test.support import os_helper, cpython_only
 from test.support.script_helper import assert_python_ok, spawn_python
 from test.support import threading_helper
 try:
@@ -1442,6 +1442,7 @@ class RaiseSignalTest(unittest.TestCase):
         signal.raise_signal(signal.SIGINT)
         self.assertTrue(is_ok)
 
+    @cpython_only  # PyPy does not shutdown cleanly
     def test__thread_interrupt_main(self):
         # See https://github.com/python/cpython/issues/102397
         code = """if 1:

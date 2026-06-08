@@ -10,7 +10,7 @@ from pypy.objspace.descroperation import (
 from pypy.objspace.std import frame, transparent, callmethod
 from rpython.rlib.objectmodel import instantiate, specialize, is_annotation_constant
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.rarithmetic import base_int, widen, is_valid_int
+from rpython.rlib.rarithmetic import base_int, widen, is_valid_int, intmask
 from rpython.rlib.objectmodel import import_from_mixin, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib import jit, rutf8, types
@@ -318,6 +318,16 @@ class StdObjSpace(ObjSpace):
             return self.newint(val.toint())
         except OverflowError:
             return newlong(self, val)
+
+    def newint_from_size_t(self, val):
+        # val is a Signed holding an unsigned machine word (e.g. size_t, pthread_t).
+        # On 64-bit the fast path always fires; on 32-bit large unsigned values
+        # appear negative and take the rbigint path to return a positive int.
+        if val >= 0:
+            return self.newint(val)
+        from rpython.rlib.rarithmetic import r_uint
+        from rpython.rlib.rbigint import rbigint
+        return self.newlong_from_rbigint(rbigint.fromrarith_int(r_uint(val)))
 
     def newtuple(self, list_w):
         from pypy.objspace.std.tupleobject import wraptuple

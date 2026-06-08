@@ -804,7 +804,7 @@ class AppTestFfi(object):
         cb.free()
 
     def test_raising_callback(self):
-        import _rawffi, sys
+        import _rawffi, sys, dis
         from io import StringIO
         lib = _rawffi.CDLL(self.lib_name)
         err = StringIO()

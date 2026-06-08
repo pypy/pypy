@@ -525,7 +525,7 @@ converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
         }
         else if (c == ':' || c == ';' || c == '\0')
             break;
-        else if (level == 0 && isalpha(c))
+        else if (level == 0 && isalpha(c) && c != 'e')
             n++;
     }
 

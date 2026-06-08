@@ -47,9 +47,9 @@ We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
 installed, you can follow instructions from `pypy documentation`_ on how
 to proceed. This document also covers other `installation schemes`_.
 
-.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`pypy documentation`: https://doc.pypy.org/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: https://www.virtualenv.org/en/latest/
-.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`installation schemes`: https://doc.pypy.org/getting-started.html#installing-pypy
 
 Highlights
 ==========
@@ -86,7 +86,7 @@ Improvements since 1.9
 .. _`eventlet`: https://eventlet.net/
 .. _`gevent`: https://www.gevent.org/
 .. _`cffi`: https://cffi.readthedocs.org/en/release-0.6/
-.. _`JIT hooks`: https://doc.pypy.org/en/latest/jit-hooks.html
+.. _`JIT hooks`: https://doc.pypy.org/jit-hooks.html
 .. _`pypycore`: https://github.com/gevent-on-pypy/pypycore
 .. _`pypy-hacks`: https://github.com/schmir/gevent/tree/pypy-hacks
 .. _`_curses.py`: https://bitbucket.org/pypy/pypy/src/aefddd47f224e3c12e2ea74f5c796d76f4355bdb/lib_pypy/_curses.py?at=default

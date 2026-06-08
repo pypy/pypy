@@ -127,6 +127,9 @@ class Field(object):
             suba = obj._subarray(fieldtype, self.name)
             return fieldtype._CData_output(suba, obj, offset)
 
+    def __delete__(self, obj):
+        raise TypeError("cannot delete attribute")
+
     def __set__(self, obj, value):
         if self.inside_anon_field is not None:
             setattr(self.inside_anon_field.__get__(obj), self.name, value)

@@ -12,6 +12,21 @@ def need_symbol(name):
     return unittest.skipUnless(name in ctypes_symbols,
                                '{!r} is required'.format(name))
 
+# added for PyPy: skip longdouble FFI tests if not supported
+def _longdouble_ffi_supported():
+    """Return True if c_longdouble is fully supported as an FFI call type."""
+    try:
+        from _ctypes.basics import _shape_to_ffi_type
+        _shape_to_ffi_type('g')
+        return True
+    except (ImportError, NotImplementedError, AssertionError, KeyError):
+        return False
+
+need_longdouble = unittest.skipUnless(
+    'c_longdouble' in ctypes_symbols and _longdouble_ffi_supported(),
+    'c_longdouble FFI calls not supported'
+)
+
 def load_tests(*args):
     return support.load_package_tests(os.path.dirname(__file__), *args)
 

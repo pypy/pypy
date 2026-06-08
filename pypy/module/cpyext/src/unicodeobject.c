@@ -220,6 +220,11 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
                 n++;
                 break;
             case 'd': case 'u': case 'i': case 'x':
+#ifdef HAVE_LONG_LONG
+                if (longlongflag)
+                    (void) va_arg(count, long long);
+                else
+#endif
                 (void) va_arg(count, int);
 #ifdef HAVE_LONG_LONG
                 if (longlongflag) {

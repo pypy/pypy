@@ -680,3 +680,7 @@ def test_has_complex_special_method():
 
     assert complex(C(1 + 1j)) == -10-10j
 
+
+def test_text_signature():
+    assert complex.__text_signature__ == '(real=0, imag=0)'
+

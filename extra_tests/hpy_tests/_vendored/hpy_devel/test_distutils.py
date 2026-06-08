@@ -66,7 +66,7 @@ def venv_template(request, tmpdir_factory):
     #
     try:
         atomic_run(
-            [str(d.python), '-m', 'pip', 'install', '-U', 'pip', 'wheel', 'setuptools'],
+            [str(d.python), '-m', 'pip', 'install', '-U', 'pip', 'wheel', 'setuptools<72'],
             check=True,
             capture_output=True,
         )

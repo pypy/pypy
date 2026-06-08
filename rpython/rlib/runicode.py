@@ -1608,17 +1608,15 @@ def make_unicode_escape_function(pass_printable=False, unicode_output=False,
             # for testing on top of a host Python where sys.maxunicode == 0xffff
             if ((MAXUNICODE < 65536 or is_narrow_host())
                 and 0xD800 <= oc < 0xDC00 and pos + 1 < size):
-                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
-                pos += 1
-                oc2 = ord(s[pos])
+                # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes.
+                oc2 = ord(s[pos + 1])
 
                 if 0xDC00 <= oc2 <= 0xDFFF:
                     ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
                     char_escape_helper(result, ucs)
-                    pos += 1
+                    pos += 2
                     continue
-                # Fall through: isolated surrogates are copied as-is
-                pos -= 1
+                # Fall through: isolated surrogate, process ch/oc as-is below
 
             # Map special whitespace to '\t', \n', '\r'
             if ch == STR('\t'):
@@ -1729,17 +1727,16 @@ def unicode_encode_raw_unicode_escape(s, size, errors, errorhandler=None):
         oc = ord(s[pos])
 
         if MAXUNICODE < 65536 and 0xD800 <= oc < 0xDC00 and pos + 1 < size:
-            # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes
-            pos += 1
-            oc2 = ord(s[pos])
+            # Map UTF-16 surrogate pairs to Unicode \UXXXXXXXX escapes.
+            # Peek at pos+1 without advancing so pos never needs to be
+            oc2 = ord(s[pos + 1])
 
             if 0xDC00 <= oc2 <= 0xDFFF:
                 ucs = (((oc & 0x03FF) << 10) | (oc2 & 0x03FF)) + 0x00010000
                 raw_unicode_escape_helper(result, ucs)
-                pos += 1
+                pos += 2
                 continue
-            # Fall through: isolated surrogates are copied as-is
-            pos -= 1
+            # Fall through: isolated surrogate, process oc as-is below
 
         if oc < 0x100:
             result.append(chr(oc))

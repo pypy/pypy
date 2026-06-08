@@ -80,6 +80,8 @@ PYPYSIG_NO_WARN_FULL  = 0x04
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd',
                                  [rffi.INT, rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
+pypysig_get_wakeup_fd_write_errno = external('pypysig_get_wakeup_fd_write_errno',
+                                             [], rffi.INT, releasegil=False)
 # don't bother releasing the GIL around a call to pypysig_poll: it's
 # pointless and a performance issue
 pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
@@ -115,7 +117,7 @@ pypysig_check_and_reset = external('pypysig_check_and_reset', [],
                                    lltype.Bool, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
-c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
+c_siginterrupt = external('pypysig_siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 c_raise = external('raise', [rffi.INT], rffi.INT)
 

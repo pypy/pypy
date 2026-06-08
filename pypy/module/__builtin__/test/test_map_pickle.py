@@ -3,7 +3,7 @@ class AppTestMapPickle:
 
     def test_map_pickle(self):
         """Pickle a map with one sequence."""
-        import pickle
+        import _pickle as pickle
 
         def pickle_unpickle(obj):
             d = pickle.dumps(obj)
@@ -16,7 +16,7 @@ class AppTestMapPickle:
 
     def test_map2_pickle(self):
         """Pickle a map with multiple sequences."""
-        import pickle
+        import _pickle as pickle
 
         def pickle_unpickle(obj):
             d = pickle.dumps(obj)
@@ -29,7 +29,7 @@ class AppTestMapPickle:
 
     def test_map2_adv_pickle(self):
         """If some iterator was advanced, the pickling preserves it."""
-        import pickle
+        import _pickle as pickle
 
         def pickle_unpickle(obj):
             d = pickle.dumps(obj)

@@ -1,10 +1,18 @@
 #include "trace_internal.h"
 #include "tctx.h"
 
+// Cache the trace context pointer so it can be retrieved without re-initialising.
+static HPyContext *g_pypy_trace_ctx = NULL;
+
 // the default symbol visibility is hidden: the easiest way to export
 // these two functions is to write a small wrapper.
 HPyContext* pypy_hpy_trace_get_ctx(HPyContext *uctx) {
-    return hpy_trace_get_ctx(uctx);
+    g_pypy_trace_ctx = hpy_trace_get_ctx(uctx);
+    return g_pypy_trace_ctx;
+}
+
+HPyContext* pypy_hpy_trace_get_stored_ctx(void) {
+    return g_pypy_trace_ctx;
 }
 
 int pypy_hpy_trace_ctx_init(HPyContext *tctx, HPyContext *uctx) {

@@ -295,22 +295,24 @@ def unmarshal_bytes(space, u, tc):
     return space.newbytes(u.get_str())
 
 
-def _marshal_tuple(space, tuple_w, m):
+def _tuple_typecode(tuple_w, m):
     if m.version >= 4 and len(tuple_w) < 256:
-        typecode = TYPE_SMALL_TUPLE
-        single_byte_size = True
-    else:
-        typecode = TYPE_TUPLE
-        single_byte_size = False
-    # -- does it make any sense to try to share tuples, based on the
-    # -- *identity* of the tuple object?  I'd guess not really
-    #typecode = write_ref(typecode, w_tuple, m)
-    #if typecode != FLAG_DONE:
+        return TYPE_SMALL_TUPLE, True
+    return TYPE_TUPLE, False
+
+def _marshal_tuple(space, tuple_w, m):
+    """Marshal a list of wrapped objects as a tuple (for code object internals)."""
+    typecode, single_byte_size = _tuple_typecode(tuple_w, m)
     m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
 
 @marshaller(W_AbstractTupleObject)
 def marshal_tuple(space, w_tuple, m):
-    _marshal_tuple(space, w_tuple.tolist(), m)
+    tuple_w = w_tuple.tolist()
+    typecode, single_byte_size = _tuple_typecode(tuple_w, m)
+    typecode = write_ref(typecode, w_tuple, m)
+    if typecode == FLAG_DONE:
+        return
+    m.put_tuple_w(typecode, tuple_w, single_byte_size=single_byte_size)
 
 @unmarshaller(TYPE_TUPLE)
 def unmarshal_tuple(space, u, tc):
@@ -373,8 +375,10 @@ def unmarshal_NULL(self, u, tc):
 
 @marshaller(PyCode)
 def marshal_pycode(space, w_pycode, m):
-    # (no attempt at using write_ref here, there is little point imho)
-    m.start(TYPE_CODE)
+    typecode = write_ref(TYPE_CODE, w_pycode, m)
+    if typecode == FLAG_DONE:
+        return
+    m.start(typecode)
     # see pypy.interpreter.pycode for the layout
     x = space.interp_w(PyCode, w_pycode)
     m.put_int(x.co_argcount)
@@ -397,6 +401,7 @@ def marshal_pycode(space, w_pycode, m):
     _marshal_unicode(space, x.co_qualname, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_linetable)
+    m.atom_str(TYPE_STRING, x.co_exceptiontable)
 
 # helper for unmarshalling "tuple of string" objects
 # into rpython-level lists of strings.  Only for code objects.
@@ -437,11 +442,13 @@ def unmarshal_pycode(space, u, tc):
     qualname    = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
     position_info = space.bytes_w(u.load_w_obj())
+    exceptiontable = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
                   name, qualname, firstlineno, position_info, freevars, cellvars,
+                  exceptiontable=exceptiontable,
                   hidden_applevel=u.hidden_applevel)
     return w_codeobj
 
@@ -529,6 +536,8 @@ def _unmarshal_ascii(space, u, short_length, interned):
     except rutf8.CheckError:
         raise oefmt(space.w_ValueError, "bad marshal data (string is not ascii)")
     w_u = u.space.newtext(s, len(s)) # ascii is valid utf-8
+    if interned:
+        w_u = u.space.new_interned_w_str(w_u)
     return w_u
 
 @unmarshaller(TYPE_ASCII)

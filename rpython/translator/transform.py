@@ -199,6 +199,7 @@ def cutoff_alwaysraising_block(self, block):
 
 def insert_ll_stackcheck(translator):
     from rpython.translator.backendopt.support import find_calls_from
+    from rpython.translator.backendopt import canraise, inline
     from rpython.rlib.rstack import stack_check
     from rpython.tool.algo.graphlib import Edge, make_edge_dict, break_cycles_v
     rtyper = translator.rtyper
@@ -231,6 +232,8 @@ def insert_ll_stackcheck(translator):
     for block in break_cycles_v(edgedict, edgedict):
         insert_in.add(block)
 
+    raise_analyzer = canraise.RaiseAnalyzer(translator)
+    lltype_to_classdef = translator.rtyper.lltype_to_classdef_mapping()
     for block in insert_in:
         v = Variable()
         v.concretetype = lltype.Void
@@ -240,6 +243,10 @@ def insert_ll_stackcheck(translator):
         # not consume any stack, so would turn into potentially infinite loops
         graph = block2graph[block]
         graph.inhibit_tail_call = True
+        inliner = inline.OneShotInliner(
+            translator, graph, lltype_to_classdef,
+            raise_analyzer=raise_analyzer)
+        inliner.inline_once(block, 0)
     return len(insert_in)
 
 

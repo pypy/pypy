@@ -43,6 +43,8 @@ def frame_attach(space, py_obj, w_obj, w_userdata=None):
         py_frame.c_f_back = rffi.cast(PyFrameObject, make_ref(space, f_back))
     else:
         py_frame.c_f_back = rffi.cast(PyFrameObject, 0)
+    # TODO: reads d.f_lineno directly, which can be stale when f_trace is set
+    # but no trace call has fired yet; should use frame.get_last_lineno() instead
     rffi.setintfield(py_frame, 'c_f_lineno', frame.getorcreatedebug().f_lineno)
 
 @slot_function([PyObject], lltype.Void)

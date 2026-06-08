@@ -402,7 +402,7 @@ pypy_subprocess_child_exec(
            int (*preexec_fn)(void*),
            void *preexec_fn_arg)
 {
-    int i, saved_errno, unused, reached_preexec = 0;
+    int i, saved_errno, unused, reached_preexec = 0, failed_chdir = 0;
     int result;
     const char* err_msg = "";
     /* Buffer large enough to hold a hex integer.  We can't malloc. */
@@ -464,8 +464,12 @@ pypy_subprocess_child_exec(
     /* We no longer manually close p2cread, c2pwrite, and errwrite here as
      * _close_open_fds takes care when it is not already non-inheritable. */
 
-    if (cwd)
-        POSIX_CALL(chdir(cwd));
+    if (cwd) {
+        if (chdir(cwd) == -1) {
+            failed_chdir = 1;
+            goto error;
+        }
+    }
 
     if (child_umask >= 0)
         umask(child_umask);  /* umask() always succeeds. */
@@ -566,7 +570,10 @@ error:
         unused = write(errpipe_write, ":", 1);
         if (!reached_preexec) {
             /* Indicate to the parent that the error happened before exec(). */
-            unused = write(errpipe_write, "noexec", 6);
+            if (failed_chdir)
+                unused = write(errpipe_write, "noexec:chdir", 12);
+            else
+                unused = write(errpipe_write, "noexec", 6);
         }
         /* We can't call strerror(saved_errno).  It is not async signal safe.
          * The parent process will look the error message up. */

@@ -811,6 +811,7 @@ class CmdLineTest(unittest.TestCase):
         self.assertEqual(proc.stdout.rstrip(), name)
         self.assertEqual(proc.returncode, 0)
 
+    @support.impl_detail('no malloc options on PyPy', pypy=False)
     def test_pythonmalloc(self):
         # Test the PYTHONMALLOC environment variable
         try:
@@ -934,6 +935,7 @@ class IgnoreEnvironmentTest(unittest.TestCase):
         self.run_ignoring_vars("'{}' not in sys.path".format(path),
                                PYTHONPATH=path)
 
+    @support.impl_detail('no hash randomization on PyPy', pypy=False)
     def test_ignore_PYTHONHASHSEED(self):
         self.run_ignoring_vars("sys.flags.hash_randomization == 1",
                                PYTHONHASHSEED="0")

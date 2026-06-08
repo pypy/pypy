@@ -88,8 +88,12 @@ class TestImportLock:
     def test_lock(self, space, monkeypatch):
         from pypy.module.imp.importing import getimportlock, importhook
 
-        # Monkeypatch the import lock and add a counter
+        # Reset the import lock OS mutex in case a thread from a prior test
+        # is still holding it (the space is shared across tests via _SPACECACHE).
         importlock = getimportlock(space)
+        importlock.lock = None
+        importlock.lockowner = None
+        importlock.lockcounter = 0
         original_acquire = importlock.acquire_lock
         def acquire_lock():
             importlock.count += 1

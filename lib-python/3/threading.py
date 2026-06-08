@@ -1678,6 +1678,10 @@ def _after_fork():
                 # All the others are already stopped.
                 thread._reset_internal_locks(False)
                 thread._stop()
+                # PyPy: explicitly remove stopped threads from _dangling since
+                # PyPy's GC doesn't immediately collect unreferenced objects
+                # (no refcounting), unlike CPython.
+                _dangling.discard(thread)
 
         _limbo.clear()
         _active.clear()

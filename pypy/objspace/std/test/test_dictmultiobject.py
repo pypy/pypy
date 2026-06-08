@@ -516,6 +516,12 @@ class AppTest_DictObject:
         d.update({'foo': 'bar'}, baz=1)
         assert d == {'foo': 'bar', 'baz': 1}
 
+    def test_update_error_messages(self):
+        e = raises(TypeError, {}.update, 1, 2)
+        assert str(e.value) == "update expected at most 1 argument, got 2"
+        e = raises(ValueError, {}.update, [(1, 2, 3, 4, 5)])
+        assert str(e.value) == "dictionary update sequence element #0 has length 5; 2 is required"
+
     def test_update_keys_method(self):
         class Foo(object):
             def keys(self):

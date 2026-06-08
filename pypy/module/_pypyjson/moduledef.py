@@ -9,4 +9,5 @@ class Module(MixedModule):
         'loads' : 'interp_decoder.loads',
         'raw_encode_basestring_ascii':
             'interp_encoder.raw_encode_basestring_ascii',
+        'make_encoder': 'interp_encoder.make_encoder',
         }

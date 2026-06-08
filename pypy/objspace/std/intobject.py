@@ -14,7 +14,8 @@ from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
 from rpython.rlib.rbigint import (
-    InvalidEndiannessError, InvalidSignednessError, rbigint, bit_length_int)
+    InvalidEndiannessError, InvalidSignednessError, rbigint, bit_length_int,
+    frombytes_int, tobytes_int)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     ParseStringError, ParseStringOverflowError, MaxDigitsError)
@@ -80,23 +81,28 @@ class W_AbstractIntObject(W_Root):
         complement is used to represent the integer.
         """
         from pypy.objspace.std.bytesobject import makebytesdata_w
-        bytes = makebytesdata_w(space, w_obj)
-        try:
+        def frombytes(space, bytes, byteorder, signed):
+            try:
+                value = frombytes_int(bytes, byteorder=byteorder,
+                                      signed=signed)
+            except OverflowError:
+                pass
+            else:
+                return space.newint(value)
             bigint = rbigint.frombytes(bytes, byteorder=byteorder,
                                        signed=signed)
+            return space.newlong_from_rbigint(bigint)
+        bytes = makebytesdata_w(space, w_obj)
+        try:
+            w_obj = frombytes(space, bytes, byteorder, signed)
         except InvalidEndiannessError:
             raise oefmt(space.w_ValueError,
                         "byteorder must be either 'little' or 'big'")
-        try:
-            as_int = bigint.toint()
-        except OverflowError:
-            w_obj = space.newlong_from_rbigint(bigint)
-        else:
-            w_obj = space.newint(as_int)
         if not space.is_w(w_inttype, space.w_int):
             # That's what from_bytes() does in CPython 3.5.2 too
             w_obj = space.call_function(w_inttype, w_obj)
         return w_obj
+    descr_from_bytes.__func__.__text_signature__ = "($type, /, bytes, byteorder='big', *, signed=False)"
 
     @unwrap_spec(length=int, byteorder='text', signed=bool)
     def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
@@ -133,6 +139,7 @@ class W_AbstractIntObject(W_Root):
         except OverflowError:
             raise oefmt(space.w_OverflowError, "int too big to convert")
         return space.newbytes(byte_string)
+    descr_to_bytes.__text_signature__ = "($self, /, length=1, byteorder='big', *, signed=False)"
 
     def descr_round(self, space, w_ndigits=None):
         """Rounding an Integral returns itself.
@@ -478,9 +485,9 @@ def _pow_ovf2long(space, iv, w_iv, iw, w_iw, w_modulus):
     from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
     if w_iv is None or not isinstance(w_iv, W_AbstractLongObject):
         w_iv = W_LongObject.fromint(space, iv)
-    if w_iw is None or not isinstance(w_iw, W_AbstractLongObject):
-        w_iw = W_LongObject.fromint(space, iw)
-
+    # *don't* convert w_iw. W_LongObject.descr_pow can deal with w_iw being an
+    # int just fine
+    assert w_iw is not None
     return w_iv.descr_pow(space, w_iw, w_modulus)
 
 
@@ -499,6 +506,10 @@ def _make_ovf2long(opname, ovf2small=None):
             a = r_longlong(x)
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
+        if opname == 'add':
+            return space.newlong_from_rbigint(rbigint.add_int_int_bigint_result(x, y))
+        if opname == 'sub':
+            return space.newlong_from_rbigint(rbigint.sub_int_int_bigint_result(x, y))
         if opname == 'mul':
             return space.newlong_from_rbigint(rbigint.mul_int_int_bigint_result(x, y))
         from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
@@ -851,13 +862,7 @@ class W_IntObject(W_AbstractIntObject):
         if _recover_with_smalllong(space):
             return _lshift_ovf2small(space, x, y)
 
-        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
-        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
-            w_x = W_LongObject.fromint(space, x)
-
-        # crucially, *don't* convert w_y to W_LongObject, it will just be
-        # converted back (huge lshifts always overflow)
-        return w_x._int_lshift(space, y)
+        return space.newlong_from_rbigint(rbigint.lshift_int_int_bigint_result(x, y))
 
     descr_lshift, descr_rlshift = _make_descr_binop(
         _lshift, ovf_func=_ovf2long_lshift)
@@ -868,6 +873,21 @@ class W_IntObject(W_AbstractIntObject):
     descr_mod, descr_rmod = _make_descr_binop(_mod)
     descr_divmod, descr_rdivmod = _make_descr_binop(
         _divmod, ovf2small=_divmod_ovf2small)
+
+    def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
+        x = self.intval
+        try:
+            byte_string = tobytes_int(x, length, byteorder=byteorder,
+                                      signed=signed)
+        except InvalidEndiannessError:
+            raise oefmt(space.w_ValueError,
+                        "byteorder must be either 'little' or 'big'")
+        except InvalidSignednessError:
+            raise oefmt(space.w_OverflowError,
+                        "can't convert negative int to unsigned")
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "int too big to convert")
+        return space.newbytes(byte_string)
 
 
 def setup_prebuilt(space):
@@ -956,7 +976,8 @@ def _string_to_int_or_long(space, w_source, string, base=10):
     try:
         value = string_to_int(string, base, allow_underscores=True,
                               no_implicit_octal=True,
-                              max_str_digits=max_str_digits)
+                              max_str_digits=max_str_digits,
+                              disallow_whitespace_after_sign=True)
         return wrapint(space, value)
     except MaxDigitsError as e:
         raise oefmt(space.w_ValueError,

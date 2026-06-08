@@ -188,6 +188,14 @@ def AsObj(value):
             argv[i] = AsObj(value[i])
         return tklib.Tcl_NewListObj(len(value), argv)
     if isinstance(value, str):
+        try:
+            encoded_utf8 = value.encode('utf-8')
+        except UnicodeEncodeError:
+            # String contains surrogate-escaped bytes (U+DC80-U+DCFF).
+            # Pass as raw bytes so Tcl sees the original byte values
+            # rather than storing the surrogates as Unicode characters.
+            encoded_utf8 = value.encode('utf-8', 'surrogateescape')
+            return tklib.Tcl_NewStringObj(encoded_utf8, len(encoded_utf8))
         encoded = value.encode('utf-16', 'surrogatepass')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)

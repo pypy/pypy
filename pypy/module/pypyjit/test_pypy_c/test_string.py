@@ -118,7 +118,7 @@ class TestString(BaseTestPyPyC):
             p25 = newstr(1)
             i23 = strgetitem(ConstPtr(ptr92), i19)
             strsetitem(p25, 0, i23)
-            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, 0, descr=<Calli . riiii EF=4>)
+            i107 = call_i(ConstClass(string_to_int), p25, 16, 1, 1, 0, 1, descr=<Calli . riiiii EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i107)
             guard_no_overflow(descr=...)
@@ -473,3 +473,28 @@ class TestString(BaseTestPyPyC):
         assert "call_may_force_r" not in opnames
         assert "call_r" not in opnames
         assert opnames.count("call_i") == 2 # _strip_none_ascii_unboxed_left/right
+
+    def test_unicode_splitlines_doesnt_allocate_uniobject(self):
+        log = self.run("""
+        def main(n):
+            res = 0
+            for i in range(n):
+                data = str(i) + "\\n"
+                res += len(data.splitlines()) # ID: splitlines
+            return res
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.ops_by_id('splitlines'))
+        assert "new_with_vtable" not in opnames
+
+    def test_textiowrapper_write_is_inlined(self):
+        log = self.run("""
+        def main(n):
+            import io
+            tw = io.TextIOWrapper(io.BytesIO())
+            for i in range(n):
+                tw.write('a')
+        """, [10000])
+        loop1 = log.loops_by_filename(self.filepath)
+        # check that the encoding of the string is inlined
+        assert any(c.code and c.code.name == 'encode' for c in loop1[0].chunks)

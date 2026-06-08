@@ -891,29 +891,29 @@ class GeneralModuleTests(unittest.TestCase):
         sockname = s.getsockname()
         if sys.implementation.name == 'pypy':
             nonemsg = "is not iterable"
+            quotedstr = "not str"
+            quotedcomplex = "not complex"
         else:
             nonemsg = "not NoneType"
+            quotedstr = "not 'str'"
+            quotedcomplex = "not 'complex'"
         # 2 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None)
         self.assertIn(nonemsg, str(cm.exception))
         # 3 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, None)
         self.assertIn(nonemsg, str(cm.exception))
@@ -6547,8 +6547,14 @@ class LinuxKernelCryptoAPI(unittest.TestCase):
             self.assertEqual(len(dec), msglen * multiplier)
             self.assertEqual(dec, msg * multiplier)
 
-    @support.requires_linux_version(4, 9)  # see issue29324
+    @support.requires_linux_version(4, 9)  # see gh-73510
     def test_aead_aes_gcm(self):
+        kernel_version = support._get_kernel_version("Linux")
+        if kernel_version is not None:
+            if kernel_version >= (6, 16) and kernel_version < (6, 18):
+                # See https://github.com/python/cpython/issues/139310.
+                self.skipTest("upstream Linux kernel issue")
+
         key = bytes.fromhex('c939cc13397c1d37de6ae0e1cb7c423c')
         iv = bytes.fromhex('b3d8cc017cbb89b39e0f67e2')
         plain = bytes.fromhex('c3b3c41f113a31b73d9a5cd432103069')

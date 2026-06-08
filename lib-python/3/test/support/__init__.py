@@ -305,6 +305,16 @@ def requires(resource, msg=None):
     if resource == 'gui' and not _is_gui_available():
         raise ResourceDenied(_is_gui_available.reason)
 
+def _get_kernel_version(sysname="Linux"):
+    import platform
+    if platform.system() != sysname:
+        return None
+    version_txt = platform.release().split('-', 1)[0]
+    try:
+        return tuple(map(int, version_txt.split('.')))
+    except ValueError:
+        return None
+
 def _requires_unix_version(sysname, min_version):
     """Decorator raising SkipTest if the OS is `sysname` and the version is less
     than `min_version`.
@@ -828,6 +838,31 @@ def check_sizeof(test, o, size):
     msg = 'wrong size for %s: got %d, expected %d' \
             % (type(o), result, size)
     test.assertEqual(result, size, msg)
+
+def subTests(arg_names, arg_values, /, *, _do_cleanups=False):
+    """Run multiple subtests with different parameters.
+    """
+    single_param = False
+    if isinstance(arg_names, str):
+        arg_names = arg_names.replace(',',' ').split()
+        if len(arg_names) == 1:
+            single_param = True
+    arg_values = tuple(arg_values)
+    def decorator(func):
+        if isinstance(func, type):
+            raise TypeError('subTests() can only decorate methods, not classes')
+        @functools.wraps(func)
+        def wrapper(self, /, *args, **kwargs):
+            for values in arg_values:
+                if single_param:
+                    values = (values,)
+                subtest_kwargs = dict(zip(arg_names, values))
+                with self.subTest(**subtest_kwargs):
+                    func(self, *args, **kwargs, **subtest_kwargs)
+                if _do_cleanups:
+                    self.doCleanups()
+        return wrapper
+    return decorator
 
 #=======================================================================
 # Decorator for running a function in a different locale, correctly resetting
@@ -2281,3 +2316,10 @@ def initialized_with_pyrepl():
 #Windows doesn't have os.uname() but it doesn't support s390x.
 skip_on_s390x = unittest.skipIf(hasattr(os, 'uname') and os.uname().machine == 's390x',
                                 'skipped on s390x')
+
+
+def control_characters_c0() -> list[str]:
+    """Returns a list of C0 control characters as strings.
+    C0 control characters defined as the byte range 0x00-0x1F, and 0x7F.
+    """
+    return [chr(c) for c in range(0x00, 0x20)] + ["\x7F"]

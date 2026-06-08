@@ -417,6 +417,34 @@ class TestRunnerNoThreads(RunnerTests):
 
         assert sorted(res) == ['pkg/test_normal2', 'test_normal1']
 
+    def test_cherrypick_dir(self):
+        run_param = runner.RunParam(self.manydir)
+        run_param.cherrypick = ['two/test_normal1']
+        testdirs = []
+        for p in run_param.cherrypick:
+            run_param.collect_testdirs(testdirs, self.manydir.join(p))
+        assert testdirs == ['two/test_normal1']
+
+    def test_cherrypick_file(self):
+        test_file = sorted(self.manydir.join('two', 'test_normal1').listdir('test_*.py'))[0]
+        relpath = 'two/test_normal1/' + test_file.basename
+        run_param = runner.RunParam(self.manydir)
+        run_param.cherrypick = [relpath]
+        testdirs = []
+        for p in run_param.cherrypick:
+            run_param.collect_testdirs(testdirs, self.manydir.join(p))
+        assert testdirs == [relpath]
+
+    def test_ignoretest(self):
+        run_param = runner.RunParam(self.manydir)
+        testdirs = []
+        run_param.collect_testdirs(testdirs)
+        assert sorted(testdirs) == ['one/test_normal', 'two/pkg/test_normal2', 'two/test_normal1']
+        run_param.ignoretest = ['two/pkg']
+        filtered = [d for d in testdirs
+                    if not any(d.startswith(ign) for ign in run_param.ignoretest)]
+        assert sorted(filtered) == ['one/test_normal', 'two/test_normal1']
+
 
 class TestRunner(RunnerTests):
     pass

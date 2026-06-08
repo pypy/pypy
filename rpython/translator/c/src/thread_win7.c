@@ -591,6 +591,13 @@ static INLINE void mutex2_unlock(mutex2_t *mutex) {
     ASSERT_STATUS(PyMUTEX_UNLOCK(&mutex->cs));
     PyCOND_SIGNAL(&mutex->cv);
 }
+static INLINE void mutex2_signal(mutex2_t *mutex) {
+    /* Signal without changing locked state.  Used to wake a stealer that
+       is sleeping in SleepConditionVariableSRW so it can re-check rpy_fastgil.
+       Safe to call without holding mutex->cs; a missed wakeup is benign
+       because the stealer's SleepConditionVariableSRW has a fallback timeout. */
+    PyCOND_SIGNAL(&mutex->cv);
+}
 
 static INLINE void mutex2_loop_start(mutex2_t *mutex) {
     ASSERT_STATUS(PyMUTEX_LOCK(&mutex->cs));

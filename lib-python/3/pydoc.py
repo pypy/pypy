@@ -810,7 +810,9 @@ class HTMLDoc(Doc):
             docloc = ''
         result = self.heading(head, '<a href=".">index</a><br>' + filelink + docloc)
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        #PyPy change: filter by visiblename to exclude __builtins__ (a module in PyPy, dict in CPython)
+        modules = [(k, v) for k, v in inspect.getmembers(object, inspect.ismodule)
+                   if visiblename(k, all, object)]
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):
@@ -1076,7 +1078,9 @@ class HTMLDoc(Doc):
                 note = ' method of %s instance' % self.classlink(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              inspect.ismethodwrapper(object)):
+              #PyPy change
+              inspect.ismethodwrapper(object) or
+              hasattr(object, '__objclass__')):
             try:
                 objclass = object.__objclass__
             except AttributeError:
@@ -1534,7 +1538,9 @@ location listed above.
                 note = ' method of %s instance' % classname(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              inspect.ismethodwrapper(object)):
+              #PyPy change
+              inspect.ismethodwrapper(object) or
+              hasattr(object, '__objclass__')):
             try:
                 objclass = object.__objclass__
             except AttributeError:

@@ -1,30 +1,26 @@
 import os, py
-from rpython.rlib import rlocale
 from pypy.module.sys.interp_encoding import _getfilesystemencoding
 from pypy.module.sys.interp_encoding import base_encoding
 
 
 def test__getfilesystemencoding(space):
-    if not (rlocale.HAVE_LANGINFO and rlocale.CODESET):
-        py.test.skip("requires HAVE_LANGINFO and CODESET")
+    assert _getfilesystemencoding(space) == base_encoding
 
-    def clear():
-        for key in os.environ.keys():
-            if key == 'LANG' or key.startswith('LC_'):
-                del os.environ[key]
 
-    def get(**env):
-        original_env = os.environ.copy()
-        try:
-            clear()
-            os.environ.update(env)
-            return _getfilesystemencoding(space)
-        finally:
-            clear()
-            os.environ.update(original_env)
+def test__getfilesystemencoding_does_not_coerce_locale(space):
+    """_getfilesystemencoding must not modify LC_CTYPE as a side effect.
 
-    assert get() in (base_encoding, 'ascii')
-    assert get(LANG='foobar') in (base_encoding, 'ascii')
-    assert get(LANG='en_US.UTF-8') == 'utf-8'
-    assert get(LC_ALL='en_US.UTF-8') == 'utf-8'
-    assert get(LC_CTYPE='en_US.UTF-8') == 'utf-8'
+    Previously it coerced LC_CTYPE from 'C'/'POSIX' to 'en_US.UTF-8', which
+    caused app_main.py's POSIX locale detection (for utf8_mode) to miss the
+    'C' locale and set utf8_mode=0 instead of 1.
+    """
+    from rpython.rlib import rlocale
+    if not rlocale.HAVE_LANGINFO:
+        py.test.skip("requires HAVE_LANGINFO")
+    original = rlocale.setlocale(rlocale.LC_CTYPE, None)
+    try:
+        rlocale.setlocale(rlocale.LC_CTYPE, "C")
+        _getfilesystemencoding(space)
+        assert rlocale.setlocale(rlocale.LC_CTYPE, None) == "C"
+    finally:
+        rlocale.setlocale(rlocale.LC_CTYPE, original)

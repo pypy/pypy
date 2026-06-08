@@ -125,6 +125,8 @@
 #define XML_UseParserAsHandlerArg       PyExpat_XML_UseParserAsHandlerArg
 #define XmlUtf16Encode                  PyExpat_XmlUtf16Encode
 #define XmlUtf8Encode                   PyExpat_XmlUtf8Encode
+#define XML_SetAllocTrackerActivationThreshold PyExpat_XML_SetAllocTrackerActivationThreshold
+#define XML_SetAllocTrackerMaximumAmplification PyExpat_XML_SetAllocTrackerMaximumAmplification
 
 
 #endif /* !PYEXPATNS_H */

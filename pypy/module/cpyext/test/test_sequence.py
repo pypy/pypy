@@ -191,29 +191,6 @@ class TestSequence(BaseApiTest):
         assert p1 == p2
 
 
-class AppTestSetObject(AppTestCpythonExtensionBase):
-    def test_sequence_macro_cast(self):
-        module = self.import_extension('foo', [
-            ("test_macro_cast", "METH_NOARGS",
-             """
-             PyObject *o = PyList_New(0);
-             PyListObject* l;
-             PyList_Append(o, o);
-             l = (PyListObject*)o;
-
-             PySequence_Fast_GET_ITEM(o, 0);
-             PySequence_Fast_GET_ITEM(l, 0);
-
-             PySequence_Fast_GET_SIZE(o);
-             PySequence_Fast_GET_SIZE(l);
-
-             PySequence_ITEM(o, 0);
-             PySequence_ITEM(l, 0);
-
-             return o;
-             """
-            )
-        ])
 class TestCPyListStrategy(BaseApiTest):
     def test_getitem_setitem(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])
@@ -270,8 +247,30 @@ class TestCPyListStrategy(BaseApiTest):
         space.setitem(w_l1, space.newslice(w(0), w(0), w(1)), w_l)
         assert map(space.unwrap, space.unpackiterable(w_l1)) == [1, 2, 3, 4]
 
-
 class AppTestSequenceObject(AppTestCpythonExtensionBase):
+    def test_sequence_macro_cast(self):
+        module = self.import_extension('foo', [
+            ("test_macro_cast", "METH_NOARGS",
+             """
+             PyObject *o = PyList_New(0);
+             PyListObject* l;
+             PyList_Append(o, o);
+             l = (PyListObject*)o;
+
+             PySequence_Fast_GET_ITEM(o, 0);
+             PySequence_Fast_GET_ITEM(l, 0);
+
+             PySequence_Fast_GET_SIZE(o);
+             PySequence_Fast_GET_SIZE(l);
+
+             PySequence_ITEM(o, 0);
+             PySequence_ITEM(l, 0);
+
+             return o;
+             """
+            )
+        ])
+
     def test_fast(self):
         module = self.import_extension('foo', [
             ("test_fast_sequence", "METH_VARARGS",

@@ -293,6 +293,11 @@ class Dawg(object):
             # the starting position. we'll have to do further iterations anyway,
             # but the size is at least a lower limit then
             node.packed_offset = 2 ** 30 + i * 2 ** 10
+            # minimum varint byte count per edge's info field, enforced to grow
+            # monotonically so the fixpoint cannot oscillate (span-dependent
+            # instruction problem: a smaller encoding shifts targets, which can
+            # require a larger encoding, which shifts them back, ad infinitum).
+            node.min_info_bytes = [1] * len(node.linear_edges)
 
         # due to the varint encoding of edge targets we need to run this to
         # fixpoint
@@ -317,7 +322,8 @@ class Dawg(object):
                     info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
                     if edgeindex == 0:
                         assert info != 0
-                    encode_varint_unsigned(info, result)
+                    used = _encode_varint_unsigned_min(info, result, node.min_info_bytes[edgeindex])
+                    node.min_info_bytes[edgeindex] = max(node.min_info_bytes[edgeindex], used)
                     prev_child_offset = child_offset
                     if len(label) > 1:
                         encode_varint_unsigned(len(label), result)
@@ -357,18 +363,37 @@ def number_split_bits(x, n, acc=()):
 def encode_varint_unsigned(i, res):
     # https://en.wikipedia.org/wiki/LEB128 unsigned variant
     more = True
-    startlen = len(res)
+    count = 0
     if i < 0:
         raise ValueError("only positive numbers supported", i)
     while more:
         lowest7bits = i & 0b1111111
         i >>= 7
+        count += 1
         if i == 0:
             more = False
         else:
             lowest7bits |= 0b10000000
         res.append(chr(lowest7bits))
-    return len(res) - startlen
+    return count
+
+def _encode_varint_unsigned_min(i, res, min_bytes):
+    # LEB128 padded to at least min_bytes; valid because decode_varint_unsigned
+    # handles continuation bytes with zero value.
+    more = True
+    count = 0
+    if i < 0:
+        raise ValueError("only positive numbers supported", i)
+    while more:
+        lowest7bits = i & 0b1111111
+        i >>= 7
+        count += 1
+        if i == 0 and count >= min_bytes:
+            more = False
+        else:
+            lowest7bits |= 0b10000000
+        res.append(chr(lowest7bits))
+    return count
 
 @objectmodel.always_inline
 def decode_varint_unsigned(b, index=0):
@@ -541,7 +566,7 @@ def build_compression_dawg(outfile, ucdata):
     for name, value in sorted(ucdata.items()):
         d.insert(name, value)
     packed, pos_to_code, reversedict = d.finish()
-    print("size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code))
+    # print("size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code))
     outfile.print_code("from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup")
     outfile.print_code("packed_dawg = (")
     outfile.print_uncounted(d.packed_pp)

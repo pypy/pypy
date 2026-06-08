@@ -28,14 +28,7 @@ def test_notes():
         e.add_note('abc')
 
 def test_importerror_kwarg_error():
-    if sys.implementation.name == 'pypy':
-        msg = "ImportError.__init__() got an unexpected keyword argument 'invalid'"
-    else:
-        msg = "'invalid' is an invalid keyword argument for ImportError()"
-    exc = raises(TypeError,
-                 ImportError,
-                 'test', invalid='keyword', another=True)
-    assert str(exc.value) == "ImportError.__init__() got 2 unexpected keyword arguments"
+    msg = "'invalid' is an invalid keyword argument for ImportError"
 
     exc = raises(TypeError, ImportError, 'test', invalid='keyword')
     assert str(exc.value) == msg

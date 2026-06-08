@@ -2522,8 +2522,11 @@ class UnicodeEscapeTest(ReadTest, unittest.TestCase):
             check(br"\8", "\\8")
         with self.assertWarns(DeprecationWarning):
             check(br"\9", "\\9")
-        with self.assertWarnsRegex(DeprecationWarning,
-                r"invalid escape sequence '\\\xfa'") as cm:
+        if sys.implementation.name == 'pypy':
+            xfa_pattern = r"invalid escape sequence: '\\' followed by b'\\xfa'"
+        else:
+            xfa_pattern = r"invalid escape sequence '\\\xfa'"
+        with self.assertWarnsRegex(DeprecationWarning, xfa_pattern) as cm:
             check(b"\\\xfa", "\\\xfa")
         for i in range(0o400, 0o1000):
             with self.assertWarnsRegex(DeprecationWarning,

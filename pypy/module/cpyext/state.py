@@ -75,6 +75,7 @@ class State:
         operror = ec.cpyext_operror
         if operror:
             self.clear_exception()
+            operror.normalize_exception(self.space)
             raise operror
         if always:
             raise oefmt(self.space.w_SystemError,

@@ -86,6 +86,48 @@ def test_builtin():
         assert c.foobar("hello") == 5
     """)
 
+def test_builtin_no_self_prepend():
+    # builtin_function (e.g. len/repr) must NOT use the fast method path.
+    # If it did, LOAD_METHOD would push (len, c) and CALL_METHOD would call
+    # len(c, "hello") instead of len("hello"), causing a TypeError.
+    exec("""if 1:
+        class C(object):
+            describe = repr
+            count = len
+        c = C()
+        assert c.describe("x") == repr("x")
+        assert c.count("hello") == 5
+    """)
+
+def test_method_descriptor_direct_call_contract():
+    # For any type used via the fast method path (flag_method_descriptor=True),
+    # calling descriptor(self, *args) must equal descriptor.__get__(self, T)(*args).
+    # Verifies the behavioral contract the LOAD_METHOD optimization relies on.
+    exec("""if 1:
+        class C(object):
+            def f(self, x):
+                return (self, x)
+            def g(self, x, y=0):
+                return (self, x, y)
+
+        c = C()
+        # fast path calls C.f(c, 1) directly; bound method calls c.f(1)
+        assert C.f(c, 1) == c.f(1)
+        assert C.g(c, 2, y=3) == c.g(2, y=3)
+
+        # staticmethod: __get__ strips self, direct call must NOT prepend self
+        class D(object):
+            sm = staticmethod(lambda x: x * 2)
+        d = D()
+        assert d.sm(4) == 8
+
+        # classmethod: __get__ prepends the class, not the instance
+        class E(object):
+            cm = classmethod(lambda cls, x: (cls, x))
+        e = E()
+        assert e.cm(5) == (E, 5)
+    """)
+
 def test_attributeerror():
     exec("""if 1:
         assert 5 .__add__(6) == 11

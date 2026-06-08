@@ -141,6 +141,23 @@ def make_hpy_apptest(collector, name, cls):
     setattr(collector.obj, appname, appcls)
     return appname
 
+def pytest_sessionstart(session):
+    from pypy.module._hpy_universal.test import support as _support
+    from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
+    from pypy.module._hpy_universal.llapi import BASE_DIR
+    if 'libs' not in _support._static_lib_cache:
+        hpy_devel = HPyDevel(str(BASE_DIR))
+        result = _support._try_build_static_lib(hpy_devel, 'universal')
+        _support._static_lib_cache['libs'] = result
+        if not result:
+            import warnings
+            warnings.warn(
+                "HPy static-lib build failed; "
+                "falling back to per-test source compilation.",
+                stacklevel=1,
+            )
+
+
 @pytest.fixture(scope='class')
 def python_subprocess(request):
     pytest.skip("no subprocess available")

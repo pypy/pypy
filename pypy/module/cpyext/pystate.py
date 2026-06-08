@@ -445,11 +445,10 @@ def PyThreadState_SetAsyncExc(space, id, w_exc):
     NULL, the pending exception (if any) for the thread is cleared. This raises
     no exceptions.
     """
-    from rpython.rlib.rarithmetic import intmask
+    from rpython.rlib.rarithmetic import r_uint
     from pypy.module.__pypy__.interp_signal import _raise_in_thread
-    tid = intmask(id)
     try:
-        _raise_in_thread(space, tid, w_exc)
+        _raise_in_thread(space, r_uint(id), w_exc)
     except OperationError as e:
         if not e.match(space, space.w_ValueError):
             e.write_unraisable(space, "PyThreadState_SetAsyncExc")

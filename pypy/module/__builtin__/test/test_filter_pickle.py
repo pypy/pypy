@@ -3,7 +3,7 @@ class AppTestFilterPickle:
 
     def test_filter_unpickle(self):
         """Test just the unpickling."""
-        import pickle
+        import _pickle as pickle
 
         # This is filter(None, 'abc') pickled with cpython
         dump = b'\x80\x03cbuiltins\nfilter\nq\x00Ncbuiltins\niter\nq\x01X\x03'\
@@ -13,7 +13,7 @@ class AppTestFilterPickle:
 
     def test_iterator_pickle(self):
         """Pickle and unpickle just a simple iterator."""
-        import pickle
+        import _pickle as pickle
 
         i0 = iter("abc")
         i1 = iter("abc")
@@ -38,7 +38,7 @@ class AppTestFilterPickle:
 
     def test_nonfilter_pickle(self):
         """Pickle and unpickle a filter with no filtering."""
-        import pickle
+        import _pickle as pickle
 
         f0 = filter(None, "abc")
         d = pickle.dumps(f0)
@@ -46,7 +46,7 @@ class AppTestFilterPickle:
 
     def test_filter_pickle(self):
         """Clone of the original test."""
-        import pickle
+        import _pickle as pickle
 
         def check_iter_pickle(it, seq):
             itorg = it

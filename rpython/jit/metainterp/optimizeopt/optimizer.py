@@ -163,6 +163,9 @@ class Optimization(object):
     def ensure_ptr_info_arg0(self, op):
         return self.optimizer.ensure_ptr_info_arg0(op)
 
+    def ensure_ptr_info_arg0_array(self, op):
+        return self.optimizer.ensure_ptr_info_arg0_array(op)
+
     def make_constant(self, box, constbox):
         return self.optimizer.make_constant(box, constbox)
 
@@ -495,6 +498,30 @@ class Optimizer(Optimization):
             assert False, "operations %s unsupported" % op
         assert isinstance(opinfo, info.NonNullPtrInfo)
         opinfo.last_guard_pos = last_guard_pos
+        arg0.set_forwarded(opinfo)
+        return opinfo
+
+    def ensure_ptr_info_arg0_array(self, op):
+        # like ensure_ptr_info_arg0, but calling getlenbound on the result is
+        # safe
+        from rpython.jit.metainterp.optimizeopt import vstring
+
+        arg0 = self.get_box_replacement(op.getarg(0))
+        if arg0.is_constant():
+            return info.ConstPtrInfo(arg0)
+        opinfo = arg0.get_forwarded()
+        if isinstance(opinfo, info.ArrayPtrInfo):
+            return opinfo
+        if isinstance(opinfo, info.AbstractStructPtrInfo):
+            raise InvalidLoop("trying to use a struct in place of an array")
+        assert opinfo is None or opinfo.__class__ is info.NonNullPtrInfo
+        opnum = op.opnum
+        if (rop.is_getarrayitem(opnum) or opnum == rop.SETARRAYITEM_GC or
+              opnum == rop.ARRAYLEN_GC):
+            opinfo = info.ArrayPtrInfo(op.getdescr())
+        else:
+            assert False, "operations %s unsupported" % op
+        assert isinstance(opinfo, info.ArrayPtrInfo)
         arg0.set_forwarded(opinfo)
         return opinfo
 

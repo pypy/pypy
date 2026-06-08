@@ -5,7 +5,8 @@ from rpython.translator.c.database import LowLevelDatabase
 from rpython.flowspace.model import Constant, Variable, SpaceOperation
 from rpython.flowspace.model import Block, Link, FunctionGraph
 from rpython.rtyper.lltypesystem.lltype import getfunctionptr
-from rpython.rtyper.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
+from rpython.rtyper.lltypesystem.rffi import (VOIDP, INT_real, INT, CArrayPtr,
+                                              CONST_CCHARP, CONST_VOIDP)
 
 
 def dump_on_stdout(database):
@@ -256,4 +257,14 @@ def test_typedef():
 
     F = FuncType((A,), A)
     assert db.gettype(F) == "test4 (@)(test4)"
+
+def test_const_types():
+    db = LowLevelDatabase()
+
+    assert db.gettype(CONST_CCHARP) == "char const *@"
+    assert db.gettype(CONST_VOIDP) == "const void *@"
+
+    CONST_CCHARPP = Ptr(Array(CONST_CCHARP, hints={'nolength': True, 'render_as_const': True}))
+    tp = db.gettype(CONST_CCHARPP)
+    assert tp == "char const *const *@"
 

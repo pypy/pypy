@@ -725,22 +725,22 @@ only close to themselves."""
               diff <= abs_tol)
     return space.newbool(result)
 
-def gcd(space, args_w):
+def gcd(space, integers_w):
     """greatest common divisor"""
-    if len(args_w) == 0:
+    if len(integers_w) == 0:
         return space.newint(0)
-    if len(args_w) == 1:
-        space.index(args_w[0]) # for the error
-        return space.abs(args_w[0])
-    if len(args_w) == 2:
-        return gcd_two(space, args_w[0], args_w[1])
-    return _gcd_many(space, args_w)
+    if len(integers_w) == 1:
+        space.index(integers_w[0]) # for the error
+        return space.abs(integers_w[0])
+    if len(integers_w) == 2:
+        return gcd_two(space, integers_w[0], integers_w[1])
+    return _gcd_many(space, integers_w)
 
-def _gcd_many(space, args_w):
-    w_res = args_w[0]
+def _gcd_many(space, integers_w):
+    w_res = integers_w[0]
     # could jit this, but do we care?
-    for i in range(1, len(args_w)):
-        w_res = gcd_two(space, w_res, args_w[i])
+    for i in range(1, len(integers_w)):
+        w_res = gcd_two(space, w_res, integers_w[i])
     return w_res
 
 
