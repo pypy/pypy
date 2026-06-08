@@ -1,8 +1,25 @@
 """ core implementation of testing process: init, session, runtest loop. """
-import imp
 import os
 import re
 import sys
+
+try:
+    import imp as _imp
+    _IMP_PKG_DIRECTORY = _imp.PKG_DIRECTORY
+    def _find_module(name, path):
+        return _imp.find_module(name, path)
+except ImportError:
+    import importlib.util as _importlib_util
+    _IMP_PKG_DIRECTORY = 5
+    def _find_module(name, path):
+        for d in path:
+            pkg = os.path.join(d, name)
+            if os.path.isdir(pkg) and os.path.isfile(os.path.join(pkg, '__init__.py')):
+                return None, pkg, ('', '', _IMP_PKG_DIRECTORY)
+            src = os.path.join(d, name + '.py')
+            if os.path.isfile(src):
+                return None, src, ('.py', 'r', 1)
+        raise ImportError("No module named %r" % name)
 
 import _pytest
 import _pytest._code
@@ -25,7 +42,7 @@ EXIT_INTERNALERROR = 3
 EXIT_USAGEERROR = 4
 EXIT_NOTESTSCOLLECTED = 5
 
-name_re = re.compile("^[a-zA-Z_]\w*$")
+name_re = re.compile(r"^[a-zA-Z_]\w*$")
 
 def pytest_addoption(parser):
     parser.addini("norecursedirs", "directory patterns to avoid for recursion",
@@ -660,14 +677,14 @@ class Session(FSCollector):
             if name_re.match(name) is None:
                 return x
             try:
-                fd, mod, type_ = imp.find_module(name, path)
+                fd, mod, type_ = _find_module(name, path)
             except ImportError:
                 return x
             else:
                 if fd is not None:
                     fd.close()
 
-            if type_[2] != imp.PKG_DIRECTORY:
+            if type_[2] != _IMP_PKG_DIRECTORY:
                 path = [os.path.dirname(mod)]
             else:
                 path = [mod]

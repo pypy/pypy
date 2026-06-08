@@ -254,23 +254,23 @@ def test_parseerror_lineno():
         eval('f"\\\n\\\n{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == '{,}"\n'
+    assert excinfo.value.text == 'f"\\\n\\\n{,}"'
     assert excinfo.value.msg == emsg
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 ,}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
-    assert excinfo.value.text == ',}"""\n'
+    assert excinfo.value.text == ',}"""'
     assert excinfo.value.msg == emsg
 
 def test_multiline_fstring_error_lineno():
-    # An error in a multi-line f-string should report end_lineno as lineno,
-    # and text should be only the end line (not the full multi-line span).
+    # Python 3.12: error is reported on the line where {} appears (lineno==1),
+    # not end_lineno; the empty-expression message also changed.
     with raises(SyntaxError) as excinfo:
         eval('f"""{}\nfoo"""')
-    assert excinfo.value.lineno == 2
-    assert excinfo.value.msg == "f-string: empty expression not allowed"
+    assert excinfo.value.lineno == 1
+    assert excinfo.value.msg == "f-string: valid expression required before '}'"
     assert excinfo.value.text is not None
     assert '\n' not in excinfo.value.text.rstrip('\n')  # single line
 
@@ -298,13 +298,13 @@ def test_tokenerror_lineno():
         eval('f"\\\n\\\n{$}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == '{$}"\n'
+    assert excinfo.value.text == 'f"\\\n\\\n{$}"'
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 $}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
-    assert excinfo.value.text == '$}"""\n'
+    assert excinfo.value.text == '$}"""'
     with raises(SyntaxError) as excinfo:
         eval("f'''{\xa0}'''")
     assert excinfo.value.lineno == 1
@@ -417,14 +417,18 @@ def test_backslash_char():
 def test_lambda_in_fstring():
     assert f'{(lambda x: x + 1)(2)}' == '3'
 
-    for format_spec in ('', '10', '{10}'):
+    for format_spec in ('', '10'):
         with raises(SyntaxError) as info:
             eval(f"f'{{lambda x:{format_spec}}}'")
-
         assert info.value.msg == "f-string: lambda expressions are not allowed without parentheses"
+
+    with raises(SyntaxError) as info:
+        eval("f'{lambda x:{10}}'")
+    assert info.value.msg == "f-string: expecting '=', or '!', or ':', or '}'"
 
 def test_empty_expression_closing_brace():
     for s in ["f'{}'", "f'{ }'", "f' {} '"]:
         with raises(SyntaxError) as info:
             eval(s)
-        assert str(info.value).startswith("f-string: empty expression not allowed")
+        assert str(info.value).startswith("f-string: valid expression required before '}'")
+

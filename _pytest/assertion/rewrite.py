@@ -2,8 +2,8 @@
 
 import ast
 import errno
+import importlib.util
 import itertools
-import imp
 import marshal
 import os
 import re
@@ -14,10 +14,28 @@ import types
 import py
 from _pytest.assertion import util
 
+_PY_SOURCE = 1
+_PY_COMPILED = 2
+_PKG_DIRECTORY = 5
+
+def _find_module(name, path=None):
+    search = path if path is not None else sys.path
+    for d in search:
+        pkg = os.path.join(d, name)
+        if os.path.isdir(pkg) and os.path.isfile(os.path.join(pkg, '__init__.py')):
+            return None, pkg, ('', '', _PKG_DIRECTORY)
+        src = os.path.join(d, name + '.py')
+        if os.path.isfile(src):
+            return None, src, ('.py', 'r', _PY_SOURCE)
+        pyc = os.path.join(d, name + '.pyc')
+        if os.path.isfile(pyc):
+            return None, pyc, ('.pyc', 'rb', _PY_COMPILED)
+    raise ImportError("No module named %r" % name)
+
 
 # pytest caches rewritten pycs in __pycache__.
-if hasattr(imp, "get_tag"):
-    PYTEST_TAG = imp.get_tag() + "-PYTEST"
+if hasattr(sys, "implementation") and hasattr(sys.implementation, "cache_tag"):
+    PYTEST_TAG = sys.implementation.cache_tag + "-PYTEST"
 else:
     if hasattr(sys, "pypy_version_info"):
         impl = "pypy"
@@ -70,18 +88,18 @@ class AssertionRewritingHook(object):
                 pth = path[0]
         if pth is None:
             try:
-                fd, fn, desc = imp.find_module(lastname, path)
+                fd, fn, desc = _find_module(lastname, path)
             except ImportError:
                 return None
             if fd is not None:
                 fd.close()
             tp = desc[2]
-            if tp == imp.PY_COMPILED:
-                if hasattr(imp, "source_from_cache"):
-                    fn = imp.source_from_cache(fn)
-                else:
+            if tp == _PY_COMPILED:
+                try:
+                    fn = importlib.util.source_from_cache(fn)
+                except (NotImplementedError, ValueError):
                     fn = fn[:-1]
-            elif tp != imp.PY_SOURCE:
+            elif tp != _PY_SOURCE:
                 # Don't know what this is.
                 return None
         else:
@@ -162,7 +180,7 @@ class AssertionRewritingHook(object):
         # I wish I could just call imp.load_compiled here, but __file__ has to
         # be set properly. In Python 3.2+, this all would be handled correctly
         # by load_compiled.
-        mod = sys.modules[name] = imp.new_module(name)
+        mod = sys.modules[name] = types.ModuleType(name)
         try:
             mod.__file__ = co.co_filename
             # Normally, this attribute is 3.2+.
@@ -178,13 +196,13 @@ class AssertionRewritingHook(object):
 
     def is_package(self, name):
         try:
-            fd, fn, desc = imp.find_module(name)
+            fd, fn, desc = _find_module(name)
         except ImportError:
             return False
         if fd is not None:
             fd.close()
         tp = desc[2]
-        return tp == imp.PKG_DIRECTORY
+        return tp == _PKG_DIRECTORY
 
     @classmethod
     def _register_with_pkg_resources(cls):
@@ -226,7 +244,7 @@ def _write_pyc(state, co, source_stat, pyc):
         # file etc.
         return False
     try:
-        fp.write(imp.get_magic())
+        fp.write(importlib.util.MAGIC_NUMBER)
         mtime = int(source_stat.mtime)
         size = source_stat.size & 0xFFFFFFFF
         fp.write(struct.pack("<ll", mtime, size))
@@ -328,7 +346,7 @@ def _read_pyc(source, pyc, trace=lambda x: None):
             trace('_read_pyc(%s): EnvironmentError %s' % (source, e))
             return None
         # Check for invalid or out of date pyc file.
-        if (len(data) != 12 or data[:4] != imp.get_magic() or
+        if (len(data) != 12 or data[:4] != importlib.util.MAGIC_NUMBER or
                 struct.unpack("<ll", data[4:]) != (mtime, size)):
             trace('_read_pyc(%s): invalid or out of date pyc' % source)
             return None
