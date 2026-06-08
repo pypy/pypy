@@ -1839,6 +1839,22 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_and_signext_and(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 255)
+        i2 = int_signext(i1, 1)
+        i3 = int_and(i2, 255)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 255)
+        i2 = int_signext(i0, 1) # dead
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_backpropagate_int_signext(self):
         ops = """
         [i0]

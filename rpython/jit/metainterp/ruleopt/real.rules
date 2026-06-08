@@ -397,3 +397,10 @@ signext_in_range: int_signext(x, C)
     check x.known_lt_const(stop)
     => x
 
+signext_and: int_signext(int_and(x, C1), C2)
+    check C1 == (1 << (C2 * 8)) - 1
+    => int_signext(x, C2)
+
+and_signext: int_and(int_signext(x, C2), C1)
+    check C1 == (1 << (C2 * 8)) - 1
+    => int_and(x, C1)
