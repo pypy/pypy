@@ -147,6 +147,11 @@ def z3_expression(opname, arg0, arg1=None):
         expr = ~arg0
     elif opname == "int_force_ge_zero":
         expr = z3.If(arg0 < 0, 0, arg0)
+    elif opname == "int_signext":
+        mask = (z3.BitVecVal(1, LONG_BIT) << (arg1 * 8)) - 1
+        arg0 = arg0 & mask
+        m = z3.BitVecVal(1, LONG_BIT) << (arg1 * 8 - 1)
+        return (arg0 ^ m) - m, valid
     else:
         expr, valid = z3_bool_expression(opname, arg0, arg1)
         return z3_cond(expr), valid

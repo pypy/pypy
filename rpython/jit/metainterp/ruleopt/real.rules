@@ -384,3 +384,16 @@ neg_neg: int_neg(int_neg(x))
 #    check C1 == C3 + C2
 #    check C4 == (1 << C2) - 1
 #    => uint_rshift(x, C3)
+#
+
+signext_in_range: int_signext(x, C)
+    check 0 < C
+    check C < 100
+    numbits = C * 8
+    check numbits <= LONG_BIT
+    start = 0 - (1 << (numbits - 1))
+    stop = 1 << (numbits - 1)
+    check x.known_ge_const(start)
+    check x.known_lt_const(stop)
+    => x
+

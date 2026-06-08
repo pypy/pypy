@@ -448,16 +448,6 @@ class OptIntBounds(Optimization):
                 assert r.get_constant_int() == 0
                 self.make_unsigned_lt(op.getarg(0), op.getarg(1))
 
-    def optimize_INT_SIGNEXT(self, op):
-        b = self.getintbound(op.getarg(0))
-        numbits = op.getarg(1).getint() * 8
-        start = -(1 << (numbits - 1))
-        stop = 1 << (numbits - 1)
-        if b.is_within_range(start, stop - 1):
-            self.make_equal_to(op, op.getarg(0))
-        else:
-            return self.emit(op)
-
     def postprocess_INT_SIGNEXT(self, op):
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
