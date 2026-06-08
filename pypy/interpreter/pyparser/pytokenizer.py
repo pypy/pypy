@@ -776,10 +776,17 @@ class Tokenizer(object):
         contstrs = self.state.contstrs
         contstrs.append(self.line[self.pos:end_offset])
         content = "".join(contstrs)
-        if content or self.token_list[-1].token_type == tokens.COLON:
-            # We want to emit an empty FSTRING_MIDDLE token after a colon
-            # to enable matching of the 'invalid_expression' grammar rule
-            # for lambdas in f-strings.
+        next_char = self.line[end_offset] if end_offset < len(self.line) else ''
+        prev_is_colon = self.token_list[-1].token_type == tokens.COLON
+        if (content
+                or (prev_is_colon and next_char != '{')
+                or (mode.format_specifier and next_char == '}')):
+            # Emit FSTRING_MIDDLE:
+            # - always when there is content
+            # - after ':' when the format spec does not start with '{' (a nested
+            #   expression), so the lambda-without-parens grammar rule can fire
+            # - before '}' in format spec mode (after a nested expression closes),
+            #   matching CPython's token stream
             self._add_token(tokens.FSTRING_MIDDLE, content,
                             mode.middle_linenumber, mode.middle_offset,
                             self.line, self.lnum, end_offset)

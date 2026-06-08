@@ -254,6 +254,17 @@ class Parser:
             self._tokens.append(tok)
             if not self._path and tok.line and tok.lineno not in self._lines:
                 self._lines[tok.lineno] = tok.line
+            # For FSTRING_MIDDLE tokens spanning multiple lines (e.g. continuation
+            # f-strings), populate _lines for the intermediate lines from the
+            # token value so that _raise_syntax_error can reconstruct the full
+            # logical line.
+            if (not self._path and tok.token_type == tokens.FSTRING_MIDDLE
+                    and tok.end_lineno > tok.lineno):
+                val_lines = tok.value.splitlines(True)
+                for i in range(1, len(val_lines)):
+                    lnum = tok.lineno + i
+                    if lnum not in self._lines:
+                        self._lines[lnum] = val_lines[i]
         self._index = 0
         self._highwatermark = 0
 
@@ -1106,9 +1117,22 @@ class Parser:
             tok = self.diagnose()
             line = tok.line
         else:
+            # Walk backwards from start_lineno to find the start of the
+            # logical line, following \ line-continuation characters.
+            logical_start = start_lineno
+            while logical_start > 1:
+                prev = self._lines.get(logical_start - 1, "")
+                if prev.endswith("\\\n") or prev.endswith("\\\r\n"):
+                    logical_start -= 1
+                else:
+                    break
             line = "".join(
-                self.get_lines(range(start_lineno, end_lineno + 1))
+                self.get_lines(range(logical_start, end_lineno + 1))
             )
+            # Strip the trailing newline that was added when compiling the source
+            # (e.g. eval() adds one), matching CPython's SyntaxError.text behaviour.
+            if line.endswith("\n"):
+                line = line[:-1]
         raise cls(
             message,
             start_lineno, start_col_offset + 1, line, self.compile_info.filename,
