@@ -160,7 +160,7 @@ def _report_wakeup_fd_error(space, errno_val):
         operr = OperationError(space.w_OSError, w_exc)
         operr.write_unraisable(
             space,
-            "when trying to write to the signal wakeup fd",
+            "when trying to send to the signal wakeup fd",
             with_traceback=True)
     except Exception:
         pass

@@ -157,12 +157,26 @@ static void signal_setflag_handler(int signum)
             res = send(wakeup_fd, &byte, 1, 0);
         else
             res = write(wakeup_fd, &byte, 1);
-        if (res < 0 && ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
-                        errno != EAGAIN)) {
-            if (errno == EINTR)
-                goto retry;
-            /* Store errno for reporting at the next Python checkpoint */
-            pypysig_wakeup_fd_write_errno = errno;
+        if (res < 0) {
+#ifdef _WIN32
+            if (wakeup_send_flags & PYPYSIG_USE_SEND) {
+                /* On Windows, socket errors go through WSAGetLastError(),
+                   not errno.  WSAEWOULDBLOCK is the socket equivalent of
+                   EAGAIN for the warn_on_full_buffer suppression. */
+                int werr = WSAGetLastError();
+                if ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
+                        werr != WSAEWOULDBLOCK) {
+                    pypysig_wakeup_fd_write_errno = werr;
+                }
+            } else
+#endif
+            if ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
+                        errno != EAGAIN) {
+                if (errno == EINTR)
+                    goto retry;
+                /* Store errno for reporting at the next Python checkpoint */
+                pypysig_wakeup_fd_write_errno = errno;
+            }
         }
         errno = old_errno;
     }
