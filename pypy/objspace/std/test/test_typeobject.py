@@ -1008,7 +1008,7 @@ class AppTestTypeObject:
         assert Abc.__name__ == 'Def'
         raises(TypeError, "Abc.__name__ = 42")
         raises(TypeError, "Abc.__name__ = b'A'")
-        raises(UnicodeEncodeError, "Abc.__name__ = 'A\udcdcB'")
+        raises(UnicodeEncodeError, setattr, Abc, '__name__', 'A\udcdcB')
         for v, err in [('G\x00hi', "type name must not contain null characters"),
                        ]:
             try:
