@@ -850,9 +850,14 @@ def generate_tokens(lines, flags, filename='<unknown>'):
         raise
     # If _generate_tokens raised but the Tokenizer didn't, and there are no
     # FSTRING tokens (i.e. it's not an f-string case), propagate the error.
-    if (err1 is not None and
-            all(t.token_type != tokens.FSTRING_START for t in token_list2)):
-        raise err1
+    if err1 is not None:
+        has_fstring = False
+        for t in token_list2:
+            if t.token_type is tokens.FSTRING_START:
+                has_fstring = True
+                break
+        if not has_fstring:
+            raise err1
     #assert len(token_list) == len(token_list2)
     if (
         not objectmodel.we_are_translated()

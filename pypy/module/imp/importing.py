@@ -92,7 +92,6 @@ def importhook(space, modulename, w_globals=None, w_locals=None, w_fromlist=None
     # A minimal version, that can only import builtin and lib_pypy modules!
     # The actual __import__ is
     # pypy.module._frozenimportlib.interp_import.interp___import__
-    assert w_locals is w_globals
     assert level == 0
 
     w_mod = check_sys_modules_w(space, modulename)
