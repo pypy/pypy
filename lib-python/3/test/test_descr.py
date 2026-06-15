@@ -15,11 +15,17 @@ import weakref
 from copy import deepcopy
 from contextlib import redirect_stdout
 from test import support
+from test.support.testcase import ExtraAssertions
 
 try:
     import _testcapi
 except ImportError:
     _testcapi = None
+
+try:
+    import xxsubtype
+except ImportError:
+    xxsubtype = None
 
 
 class OperatorsTest(unittest.TestCase):
@@ -299,6 +305,7 @@ class OperatorsTest(unittest.TestCase):
         self.assertEqual(float.__rsub__(3.0, 1), -2.0)
 
     @support.impl_detail("the module 'xxsubtype' is internal")
+    @unittest.skipIf(xxsubtype is None, "requires xxsubtype module")
     def test_spam_lists(self):
         # Testing spamlist operations...
         import copy, xxsubtype as spam
@@ -343,6 +350,7 @@ class OperatorsTest(unittest.TestCase):
         self.assertEqual(a.getstate(), 42)
 
     @support.impl_detail("the module 'xxsubtype' is internal")
+    @unittest.skipIf(xxsubtype is None, "requires xxsubtype module")
     def test_spam_dicts(self):
         # Testing spamdict operations...
         import copy, xxsubtype as spam
@@ -396,15 +404,7 @@ class OperatorsTest(unittest.TestCase):
         self.assertEqual(range(sys.maxsize).__len__(), sys.maxsize)
 
 
-class ClassPropertiesAndMethods(unittest.TestCase):
-
-    def assertHasAttr(self, obj, name):
-        self.assertTrue(hasattr(obj, name),
-                        '%r has no attribute %r' % (obj, name))
-
-    def assertNotHasAttr(self, obj, name):
-        self.assertFalse(hasattr(obj, name),
-                         '%r has unexpected attribute %r' % (obj, name))
+class ClassPropertiesAndMethods(unittest.TestCase, ExtraAssertions):
 
     def test_python_dicts(self):
         # Testing Python subclass of dict...
@@ -426,7 +426,7 @@ class ClassPropertiesAndMethods(unittest.TestCase):
             def __getitem__(self, key):
                 return self.get(key, 0)
             def __setitem__(self_local, key, value):
-                self.assertIsInstance(key, type(0))
+                self.assertIsInstance(key, int)
                 dict.__setitem__(self_local, key, value)
             def setstate(self, state):
                 self.state = state
@@ -838,7 +838,7 @@ class ClassPropertiesAndMethods(unittest.TestCase):
                                ("getattr", "foo"),
                                ("delattr", "foo")])
 
-        # http://python.org/sf/1174712
+        # https://bugs.python.org/issue1174712
         try:
             class Module(types.ModuleType, str):
                 pass
@@ -871,7 +871,7 @@ class ClassPropertiesAndMethods(unittest.TestCase):
         self.assertEqual(a.getstate(), 10)
         class D(dict, C):
             def __init__(self):
-                type({}).__init__(self)
+                dict.__init__(self)
                 C.__init__(self)
         d = D()
         self.assertEqual(list(d.keys()), [])
@@ -1275,7 +1275,7 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        if hasattr(gc, 'get_objects') and support.check_impl_detail(pypy=False):
+        if hasattr(gc, 'get_objects'):
             class G(object):
                 def __eq__(self, other):
                     return False
@@ -1613,6 +1613,7 @@ order (MRO) for bases """
         self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
 
     @support.impl_detail("the module 'xxsubtype' is internal")
+    @unittest.skipIf(xxsubtype is None, "requires xxsubtype module")
     def test_classmethods_in_c(self):
         # Testing C-based class methods...
         import xxsubtype as spam
@@ -1696,6 +1697,7 @@ order (MRO) for bases """
         self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
 
     @support.impl_detail("the module 'xxsubtype' is internal")
+    @unittest.skipIf(xxsubtype is None, "requires xxsubtype module")
     def test_staticmethods_in_c(self):
         # Testing C-based static methods...
         import xxsubtype as spam
@@ -1783,8 +1785,7 @@ order (MRO) for bases """
         self.assertEqual(b.foo, 3)
         self.assertEqual(b.__class__, D)
 
-    #@unittest.expectedFailure --- on CPython.  On PyPy, the test passes
-    @support.impl_detail(cpython=False)
+    @unittest.expectedFailure
     def test_bad_new(self):
         self.assertRaises(TypeError, object.__new__)
         self.assertRaises(TypeError, object.__new__, '')
@@ -1831,8 +1832,7 @@ order (MRO) for bases """
         object.__init__(A(3))
         self.assertRaises(TypeError, object.__init__, A(3), 5)
 
-    # Does not fail on PyPy
-    # @unittest.expectedFailure
+    @unittest.expectedFailure
     def test_restored_object_new(self):
         class A(object):
             def __new__(cls, *args, **kwargs):
@@ -2078,8 +2078,7 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "__next__" : stop}),
-            # PyPy: no sys.getsizeof
-            # ("__sizeof__", sys.getsizeof, zero, set(), {}),
+            ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -2257,8 +2256,7 @@ order (MRO) for bases """
         except TypeError as msg:
             self.assertIn("weak reference", str(msg))
         else:
-            if support.check_impl_detail(pypy=False):
-                self.fail("weakref.ref(no) should be illegal")
+            self.fail("weakref.ref(no) should be illegal")
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -3301,7 +3299,7 @@ order (MRO) for bases """
         cant(True, int)
         cant(2, bool)
         o = object()
-        cant(o, type(1))
+        cant(o, int)
         cant(o, type(None))
         del o
         class G(object):
@@ -3327,16 +3325,7 @@ order (MRO) for bases """
         class R(J):
             __slots__ = ["__dict__", "__weakref__"]
 
-        if support.check_impl_detail(pypy=False):
-            lst = ((G, H), (G, I), (I, H), (Q, R), (R, Q))
-        else:
-            # Not supported in pypy: changing the __class__ of an object
-            # to another __class__ that just happens to have the same slots.
-            # If needed, we can add the feature, but what we'll likely do
-            # then is to allow mostly any __class__ assignment, even if the
-            # classes have different __slots__, because we it's easier.
-            lst = ((Q, R), (R, Q))
-        for cls, cls2 in lst:
+        for cls, cls2 in ((G, H), (G, I), (I, H), (Q, R), (R, Q)):
             x = cls()
             x.a = 1
             x.__class__ = cls2
@@ -3419,8 +3408,7 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                if support.check_impl_detail(pypy=False):
-                    self.fail("%r's __dict__ can be modified" % cls)
+                self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):
@@ -3586,7 +3574,6 @@ order (MRO) for bases """
     def test_str_of_str_subclass(self):
         # Testing __str__ defined in subclass of str ...
         import binascii
-        import io
 
         class octetstring(str):
             def __str__(self):
@@ -4429,7 +4416,6 @@ order (MRO) for bases """
         except TypeError:
             self.fail("setattr through direct base types should be legal")
 
-    @support.impl_detail("this is only unsafe on CPython")
     def test_carloverre_multi_inherit_invalid(self):
         class A(type):
             def __setattr__(cls, key, value):
@@ -4555,8 +4541,7 @@ order (MRO) for bases """
         self.assertNotOrderable(l.__add__, l.__add__)
         self.assertEqual(l.__add__.__name__, '__add__')
         self.assertIs(l.__add__.__self__, l)
-        if sys.implementation.name != 'pypy':
-            self.assertIs(l.__add__.__objclass__, list)
+        self.assertIs(l.__add__.__objclass__, list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         # hash([].__add__) should not be based on hash([])
         hash(l.__add__)
@@ -4575,9 +4560,7 @@ order (MRO) for bases """
         self.assertNotOrderable(l.append, l.append)
         self.assertEqual(l.append.__name__, 'append')
         self.assertIs(l.append.__self__, l)
-        if sys.implementation.name != 'pypy':
-            pass
-            # self.assertIs(l.append.__objclass__, list) --- could be added?
+        # self.assertIs(l.append.__objclass__, list) --- could be added?
         self.assertEqual(l.append.__doc__, list.append.__doc__)
         # hash([].append) should not be based on hash([])
         hash(l.append)
@@ -4590,8 +4573,7 @@ order (MRO) for bases """
         self.assertTrue(list.__add__ != list.__mul__)
         self.assertNotOrderable(list.__add__, list.__add__)
         self.assertEqual(list.__add__.__name__, '__add__')
-        if sys.implementation.name != 'pypy':
-            self.assertIs(list.__add__.__objclass__, list)
+        self.assertIs(list.__add__.__objclass__, list)
 
         # Testing objects of <type 'method_descriptor'>...
         self.assertTrue(list.append == list.append)
@@ -4600,24 +4582,21 @@ order (MRO) for bases """
         self.assertTrue(list.append != list.pop)
         self.assertNotOrderable(list.append, list.append)
         self.assertEqual(list.append.__name__, 'append')
-        if sys.implementation.name != 'pypy':
-            self.assertIs(list.append.__objclass__, list)
+        self.assertIs(list.append.__objclass__, list)
 
     def test_not_implemented(self):
         # Testing NotImplemented...
         # all binary methods should be able to return a NotImplemented
-        import operator
 
         def specialmethod(self, other):
             return NotImplemented
 
         def check(expr, x, y):
-            try:
-                exec(expr, {'x': x, 'y': y, 'operator': operator})
-            except TypeError:
-                pass
-            else:
-                self.fail("no TypeError from %r" % (expr,))
+            with (
+                self.subTest(expr=expr, x=x, y=y),
+                self.assertRaises(TypeError),
+            ):
+                exec(expr, {'x': x, 'y': y})
 
         N1 = sys.maxsize + 1    # might trigger OverflowErrors instead of
                                 # TypeErrors
@@ -4638,12 +4617,23 @@ order (MRO) for bases """
                 ('__and__',      'x & y',                   'x &= y'),
                 ('__or__',       'x | y',                   'x |= y'),
                 ('__xor__',      'x ^ y',                   'x ^= y')]:
-            rname = '__r' + name[2:]
+            # Defines 'left' magic method:
             A = type('A', (), {name: specialmethod})
             a = A()
             check(expr, a, a)
             check(expr, a, N1)
             check(expr, a, N2)
+            # Defines 'right' magic method:
+            rname = '__r' + name[2:]
+            B = type('B', (), {rname: specialmethod})
+            b = B()
+            check(expr, b, b)
+            check(expr, a, b)
+            check(expr, b, a)
+            check(expr, b, N1)
+            check(expr, b, N2)
+            check(expr, N1, b)
+            check(expr, N2, b)
             if iexpr:
                 check(iexpr, a, a)
                 check(iexpr, a, N1)
@@ -4842,26 +4832,22 @@ order (MRO) for bases """
             type(list).__dict__["__doc__"].__set__(list, "blah")
         self.assertIn("cannot set '__doc__' attribute of immutable type 'list'", str(cm.exception))
 
-        with self.assertRaises((TypeError, AttributeError)) as cm:
+        with self.assertRaises(TypeError) as cm:
             type(X).__dict__["__doc__"].__delete__(X)
         self.assertIn("cannot delete '__doc__' attribute of immutable type 'X'", str(cm.exception))
         self.assertEqual(X.__doc__, "banana")
 
     def test_qualname(self):
         descriptors = [str.lower, complex.real, float.real, int.__add__]
-        if sys.implementation.name == 'pypy':
-            types = ['function', 'getset_descriptor', 'getset_descriptor', 'function']
-        else:
-            types = ['method_descriptor', 'member_descriptor', 'getset_descriptor', 'wrapper_descriptor']
+        types = ['method', 'member', 'getset', 'wrapper']
 
         # make sure we have an example of each type of descriptor
         for d, n in zip(descriptors, types):
-            self.assertEqual(type(d).__name__, n)
+            self.assertEqual(type(d).__name__, n + '_descriptor')
 
-        if sys.implementation.name != 'pypy':
-            for d in descriptors:
-                qualname = d.__objclass__.__qualname__ + '.' + d.__name__
-                self.assertEqual(d.__qualname__, qualname)
+        for d in descriptors:
+            qualname = d.__objclass__.__qualname__ + '.' + d.__name__
+            self.assertEqual(d.__qualname__, qualname)
 
         self.assertEqual(str.lower.__qualname__, 'str.lower')
         self.assertEqual(complex.real.__qualname__, 'complex.real')
@@ -4870,12 +4856,11 @@ order (MRO) for bases """
 
         class X:
             pass
-        # PYPY: raises AttributeError
-        with self.assertRaises((TypeError, AttributeError)):
+        with self.assertRaises(TypeError):
             del X.__qualname__
 
-        with self.assertRaises((TypeError, AttributeError)):
-            type.__dict__['__qualname__'].__set__(str, 'Oink')
+        self.assertRaises(TypeError, type.__dict__['__qualname__'].__set__,
+                          str, 'Oink')
 
         global Y
         class Y:
@@ -5026,7 +5011,7 @@ order (MRO) for bases """
         self.assertEqual(Parent.__subclasses__(), [])
 
     def test_attr_raise_through_property(self):
-        # add test case for gh-103272
+        # test case for gh-103272
         class A:
             def __getattr__(self, name):
                 raise ValueError("FOO")
@@ -5037,6 +5022,19 @@ order (MRO) for bases """
 
         with self.assertRaisesRegex(ValueError, "FOO"):
             A().foo
+
+        # test case for gh-103551
+        class B:
+            @property
+            def __getattr__(self, name):
+                raise ValueError("FOO")
+
+            @property
+            def foo(self):
+                raise NotImplementedError("BAR")
+
+        with self.assertRaisesRegex(NotImplementedError, "BAR"):
+            B().foo
 
 
 class DictProxyTests(unittest.TestCase):
@@ -5125,8 +5123,6 @@ class AAAPTypesLongInitTest(unittest.TestCase):
 
 
 class MiscTests(unittest.TestCase):
-    # XXX PyPy difference: type.__dict__ must use str keys
-    @support.cpython_only
     def test_type_lookup_mro_reference(self):
         # Issue #14199: _PyType_Lookup() has to keep a strong reference to
         # the type MRO because it may be modified during the lookup, if

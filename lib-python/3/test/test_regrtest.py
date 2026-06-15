@@ -21,6 +21,8 @@ import sysconfig
 import tempfile
 import textwrap
 import unittest
+from xml.etree import ElementTree
+
 from test import support
 from test.support import os_helper
 from test.libregrtest import cmdline
@@ -37,6 +39,17 @@ if not support.has_subprocess_support:
 ROOT_DIR = os.path.join(os.path.dirname(__file__), '..', '..')
 ROOT_DIR = os.path.abspath(os.path.normpath(ROOT_DIR))
 LOG_PREFIX = r'[0-9]+:[0-9]+:[0-9]+ (?:load avg: [0-9]+\.[0-9]{2} )?'
+RESULT_REGEX = (
+    'passed',
+    'failed',
+    'skipped',
+    'interrupted',
+    'env changed',
+    'timed out',
+    'ran no tests',
+    'worker non-zero exit code',
+)
+RESULT_REGEX = fr'(?:{"|".join(RESULT_REGEX)})'
 
 EXITCODE_BAD_TEST = 2
 EXITCODE_ENV_CHANGED = 3
@@ -396,8 +409,7 @@ class ParseArgsTestCase(unittest.TestCase):
         # which has an unclear API
         with os_helper.EnvironmentVarGuard() as env:
             # Ignore SOURCE_DATE_EPOCH env var if it's set
-            if 'SOURCE_DATE_EPOCH' in env:
-                del env['SOURCE_DATE_EPOCH']
+            del env['SOURCE_DATE_EPOCH']
 
             regrtest = main.Regrtest(ns)
 
@@ -464,14 +476,18 @@ class ParseArgsTestCase(unittest.TestCase):
         self.assertEqual(regrtest.hunt_refleak.runs, 10)
         self.assertFalse(regrtest.output_on_failure)
 
-    def test_xml_huntrleaks(self):
-        args = ['-R', '3:12', '--junit-xml', 'output.xml']
+    def test_single_process(self):
+        args = ['-j2', '--single-process']
         with support.captured_stderr():
             regrtest = self.create_regrtest(args)
-        self.assertIsNotNone(regrtest.hunt_refleak)
-        self.assertEqual(regrtest.hunt_refleak.warmups, 3)
-        self.assertEqual(regrtest.hunt_refleak.runs, 12)
-        self.assertIsNone(regrtest.junit_filename)
+        self.assertEqual(regrtest.num_workers, 0)
+        self.assertTrue(regrtest.single_process)
+
+        args = ['--fast-ci', '--single-process']
+        with support.captured_stderr():
+            regrtest = self.create_regrtest(args)
+        self.assertEqual(regrtest.num_workers, 0)
+        self.assertTrue(regrtest.single_process)
 
 
 @dataclasses.dataclass(slots=True)
@@ -537,8 +553,8 @@ class BaseTestCase(unittest.TestCase):
         self.assertRegex(output, regex)
 
     def parse_executed_tests(self, output):
-        regex = (r'^%s\[ *[0-9]+(?:/ *[0-9]+)*\] (%s)'
-                 % (LOG_PREFIX, self.TESTNAME_REGEX))
+        regex = (fr'^{LOG_PREFIX}\[ *[0-9]+(?:/ *[0-9]+)*\] '
+                 fr'({self.TESTNAME_REGEX}) {RESULT_REGEX}')
         parser = re.finditer(regex, output, re.MULTILINE)
         return list(match.group(1) for match in parser)
 
@@ -1786,7 +1802,6 @@ class ArgsTestCase(BaseTestCase):
         # --fail-env-changed must catch unraisable exception.
         # The exception must be displayed even if sys.stderr is redirected.
         code = textwrap.dedent(r"""
-            import gc
             import unittest
             import weakref
             from test.support import captured_stderr
@@ -1805,7 +1820,6 @@ class ArgsTestCase(BaseTestCase):
                         # call weakref_callback() which logs
                         # an unraisable exception
                         obj = None
-                        gc.collect()
                     self.assertEqual(stderr.getvalue(), '')
         """)
         testname = self.create_test(code=code)
@@ -2125,7 +2139,7 @@ class ArgsTestCase(BaseTestCase):
             use_environment = (support.is_emscripten or support.is_wasi)
 
             class WorkerTests(unittest.TestCase):
-                @unittest.skipUnless(get_config is not None, 'need get_config()')
+                @unittest.skipUnless(get_config is None, 'need get_config()')
                 def test_config(self):
                     config = get_config()['config']
                     # -u option
@@ -2231,6 +2245,44 @@ class ArgsTestCase(BaseTestCase):
             output = self.run_tests("-R", "3:3", "-j1", "--verbose3", testname)
             self.check_executed_tests(output, testname, stats=1, parallel=True)
             self.assertNotIn('SPAM SPAM SPAM', output)
+
+    def test_xml(self):
+        code = textwrap.dedent(r"""
+            import unittest
+            from test import support
+
+            class VerboseTests(unittest.TestCase):
+                def test_failed(self):
+                    print("abc \x1b def")
+                    self.fail()
+        """)
+        testname = self.create_test(code=code)
+
+        # Run sequentially
+        filename = os_helper.TESTFN
+        self.addCleanup(os_helper.unlink, filename)
+
+        output = self.run_tests(testname, "--junit-xml", filename,
+                                exitcode=EXITCODE_BAD_TEST)
+        self.check_executed_tests(output, testname,
+                                  failed=testname,
+                                  stats=TestStats(1, 1, 0))
+
+        # Test generated XML
+        with open(filename, encoding="utf8") as fp:
+            content = fp.read()
+
+        testsuite = ElementTree.fromstring(content)
+        self.assertEqual(int(testsuite.get('tests')), 1)
+        self.assertEqual(int(testsuite.get('errors')), 0)
+        self.assertEqual(int(testsuite.get('failures')), 1)
+
+        testcase = testsuite[0][0]
+        self.assertEqual(testcase.get('status'), 'run')
+        self.assertEqual(testcase.get('result'), 'completed')
+        self.assertGreater(float(testcase.get('time')), 0)
+        for out in testcase.iter('system-out'):
+            self.assertEqual(out.text, r"abc \x1b def")
 
 
 class TestUtils(unittest.TestCase):
@@ -2413,6 +2465,25 @@ class TestUtils(unittest.TestCase):
             self.assertFalse(match_test(test_access))
             self.assertTrue(match_test(test_chdir))
             self.assertFalse(match_test(test_copy))
+
+    def test_sanitize_xml(self):
+        sanitize_xml = utils.sanitize_xml
+
+        # escape invalid XML characters
+        self.assertEqual(sanitize_xml('abc \x1b\x1f def'),
+                         r'abc \x1b\x1f def')
+        self.assertEqual(sanitize_xml('nul:\x00, bell:\x07'),
+                         r'nul:\x00, bell:\x07')
+        self.assertEqual(sanitize_xml('surrogate:\uDC80'),
+                         r'surrogate:\udc80')
+        self.assertEqual(sanitize_xml('illegal \uFFFE and \uFFFF'),
+                         r'illegal \ufffe and \uffff')
+
+        # no escape for valid XML characters
+        self.assertEqual(sanitize_xml('a\n\tb'),
+                         'a\n\tb')
+        self.assertEqual(sanitize_xml('valid t\xe9xt \u20ac'),
+                         'valid t\xe9xt \u20ac')
 
 
 if __name__ == '__main__':

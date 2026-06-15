@@ -263,10 +263,37 @@ class TestBisect:
         for f in (self.module.insort_left, self.module.insort_right):
             self.assertRaises(TypeError, f, x, y, key = "b")
 
+    def test_lt_returns_non_bool(self):
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def __lt__(self, other):
+                return "nonempty" if self.val < other.val else ""
+
+        data = [A(i) for i in range(100)]
+        i1 = self.module.bisect_left(data, A(33))
+        i2 = self.module.bisect_right(data, A(33))
+        self.assertEqual(i1, 33)
+        self.assertEqual(i2, 34)
+
+    def test_lt_returns_notimplemented(self):
+        class A:
+            def __init__(self, val):
+                self.val = val
+            def __lt__(self, other):
+                return NotImplemented
+            def __gt__(self, other):
+                return self.val > other.val
+
+        data = [A(i) for i in range(100)]
+        i1 = self.module.bisect_left(data, A(40))
+        i2 = self.module.bisect_right(data, A(40))
+        self.assertEqual(i1, 40)
+        self.assertEqual(i2, 41)
+
 class TestBisectPython(TestBisect, unittest.TestCase):
     module = py_bisect
 
-@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestBisectC(TestBisect, unittest.TestCase):
     module = c_bisect
 
@@ -302,7 +329,6 @@ class TestInsort:
 class TestInsortPython(TestInsort, unittest.TestCase):
     module = py_bisect
 
-@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestInsortC(TestInsort, unittest.TestCase):
     module = c_bisect
 
@@ -358,7 +384,6 @@ class TestErrorHandling:
 class TestErrorHandlingPython(TestErrorHandling, unittest.TestCase):
     module = py_bisect
 
-@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestErrorHandlingC(TestErrorHandling, unittest.TestCase):
     module = c_bisect
 
@@ -386,7 +411,6 @@ class TestDocExample:
 class TestDocExamplePython(TestDocExample, unittest.TestCase):
     module = py_bisect
 
-@unittest.skipUnless(c_bisect, 'requires _bisect')
 class TestDocExampleC(TestDocExample, unittest.TestCase):
     module = c_bisect
 

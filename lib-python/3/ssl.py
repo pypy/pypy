@@ -106,7 +106,7 @@ from _ssl import (
     SSLSyscallError, SSLEOFError, SSLCertVerificationError
     )
 from _ssl import txt2obj as _txt2obj, nid2obj as _nid2obj
-from _ssl import RAND_status, RAND_add, RAND_bytes, RAND_pseudo_bytes
+from _ssl import RAND_status, RAND_add, RAND_bytes
 try:
     from _ssl import RAND_egd
 except ImportError:
@@ -373,68 +373,6 @@ def _ipaddress_match(cert_ipaddress, host_ip):
     return ip == host_ip
 
 
-def match_hostname(cert, hostname):
-    """Verify that *cert* (in decoded format as returned by
-    SSLSocket.getpeercert()) matches the *hostname*.  RFC 2818 and RFC 6125
-    rules are followed.
-
-    The function matches IP addresses rather than dNSNames if hostname is a
-    valid ipaddress string. IPv4 addresses are supported on all platforms.
-    IPv6 addresses are supported on platforms with IPv6 support (AF_INET6
-    and inet_pton).
-
-    CertificateError is raised on failure. On success, the function
-    returns nothing.
-    """
-    warnings.warn(
-        "ssl.match_hostname() is deprecated",
-        category=DeprecationWarning,
-        stacklevel=2
-    )
-    if not cert:
-        raise ValueError("empty or no certificate, match_hostname needs a "
-                         "SSL socket or SSL context with either "
-                         "CERT_OPTIONAL or CERT_REQUIRED")
-    try:
-        host_ip = _inet_paton(hostname)
-    except ValueError:
-        # Not an IP address (common case)
-        host_ip = None
-    dnsnames = []
-    san = cert.get('subjectAltName', ())
-    for key, value in san:
-        if key == 'DNS':
-            if host_ip is None and _dnsname_match(value, hostname):
-                return
-            dnsnames.append(value)
-        elif key == 'IP Address':
-            if host_ip is not None and _ipaddress_match(value, host_ip):
-                return
-            dnsnames.append(value)
-    if not dnsnames:
-        # The subject is only checked when there is no dNSName entry
-        # in subjectAltName
-        for sub in cert.get('subject', ()):
-            for key, value in sub:
-                # XXX according to RFC 2818, the most specific Common Name
-                # must be used.
-                if key == 'commonName':
-                    if _dnsname_match(value, hostname):
-                        return
-                    dnsnames.append(value)
-    if len(dnsnames) > 1:
-        raise CertificateError("hostname %r "
-            "doesn't match either of %s"
-            % (hostname, ', '.join(map(repr, dnsnames))))
-    elif len(dnsnames) == 1:
-        raise CertificateError("hostname %r "
-            "doesn't match %r"
-            % (hostname, dnsnames[0]))
-    else:
-        raise CertificateError("no appropriate commonName or "
-            "subjectAltName fields were found")
-
-
 DefaultVerifyPaths = namedtuple("DefaultVerifyPaths",
     "cafile capath openssl_cafile_env openssl_cafile openssl_capath_env "
     "openssl_capath")
@@ -575,18 +513,17 @@ class SSLContext(_SSLContext):
         self._set_alpn_protocols(protos)
 
     def _load_windows_store_certs(self, storename, purpose):
-        certs = bytearray()
         try:
             for cert, encoding, trust in enum_certificates(storename):
                 # CA certs are never PKCS#7 encoded
                 if encoding == "x509_asn":
                     if trust is True or purpose.oid in trust:
-                        certs.extend(cert)
+                        try:
+                            self.load_verify_locations(cadata=cert)
+                        except SSLError as exc:
+                            warnings.warn(f"Bad certificate in Windows certificate store: {exc!s}")
         except PermissionError:
             warnings.warn("unable to enumerate Windows certificate store")
-        if certs:
-            self.load_verify_locations(cadata=certs)
-        return certs
 
     def load_default_certs(self, purpose=Purpose.SERVER_AUTH):
         if not isinstance(purpose, _ASN1Object):
@@ -1243,20 +1180,6 @@ class SSLSocket(socket):
         else:
             return super().send(data, flags)
 
-    def _send_with_length(self, data, lgt, flags=0):
-        """ PyPy modification
-        """
-        self._checkClosed()
-        if self._sslobj is not None:
-            if flags != 0:
-                raise ValueError(
-                    "non-zero flags not allowed in calls to send() on %s" %
-                    self.__class__)
-            return self._sslobj._write_with_length(data, lgt)
-        else:
-            return super().send(data, flags)
-
-
     def sendto(self, data, flags_or_addr, addr=None):
         self._checkClosed()
         if self._sslobj is not None:
@@ -1274,8 +1197,6 @@ class SSLSocket(socket):
                                   self.__class__)
 
     def sendall(self, data, flags=0):
-        from _cffi_backend import _offset_in_bytes
-
         self._checkClosed()
         if self._sslobj is not None:
             if flags != 0:
@@ -1283,17 +1204,11 @@ class SSLSocket(socket):
                     "non-zero flags not allowed in calls to sendall() on %s" %
                     self.__class__)
             count = 0
-            if type(data) is bytes:
-                amount = len(data)
+            with memoryview(data) as view, view.cast("B") as byte_view:
+                amount = len(byte_view)
                 while count < amount:
-                    v = self._send_with_length(_offset_in_bytes(data, count), amount - count)
+                    v = self.send(byte_view[count:])
                     count += v
-            else:
-                with memoryview(data) as view, view.cast("B") as byte_view:
-                    amount = len(byte_view)
-                    while count < amount:
-                        v = self.send(byte_view[count:])
-                        count += v
         else:
             return super().sendall(data, flags)
 
@@ -1476,36 +1391,6 @@ class SSLSocket(socket):
 SSLContext.sslsocket_class = SSLSocket
 SSLContext.sslobject_class = SSLObject
 
-
-def wrap_socket(sock, keyfile=None, certfile=None,
-                server_side=False, cert_reqs=CERT_NONE,
-                ssl_version=PROTOCOL_TLS, ca_certs=None,
-                do_handshake_on_connect=True,
-                suppress_ragged_eofs=True,
-                ciphers=None):
-    warnings.warn(
-        "ssl.wrap_socket() is deprecated, use SSLContext.wrap_socket()",
-        category=DeprecationWarning,
-        stacklevel=2
-    )
-    if server_side and not certfile:
-        raise ValueError("certfile must be specified for server-side "
-                         "operations")
-    if keyfile and not certfile:
-        raise ValueError("certfile must be specified")
-    context = SSLContext(ssl_version)
-    context.verify_mode = cert_reqs
-    if ca_certs:
-        context.load_verify_locations(ca_certs)
-    if certfile:
-        context.load_cert_chain(certfile, keyfile)
-    if ciphers:
-        context.set_ciphers(ciphers)
-    return context.wrap_socket(
-        sock=sock, server_side=server_side,
-        do_handshake_on_connect=do_handshake_on_connect,
-        suppress_ragged_eofs=suppress_ragged_eofs
-    )
 
 # some utility functions
 

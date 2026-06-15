@@ -1,5 +1,6 @@
 import textwrap
 import unittest
+from test.support import run_code
 
 class TypeAnnotationTests(unittest.TestCase):
 
@@ -111,8 +112,7 @@ class TestSetupAnnotations(unittest.TestCase):
             with self.subTest(scope=scope):
                 if scope == "class":
                     code = f"class C:\n{textwrap.indent(code, '    ')}"
-                ns = {}
-                exec(code, ns)
+                ns = run_code(code)
                 if scope == "class":
                     annotations = ns["C"].__annotations__
                 else:

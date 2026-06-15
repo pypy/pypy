@@ -54,6 +54,7 @@ Richard Chamberlain, for the first implementation of textdoc.
 #     the current directory is changed with os.chdir(), an incorrect
 #     path will be displayed.
 
+import ast
 import __future__
 import builtins
 import importlib._bootstrap
@@ -209,7 +210,7 @@ def parentname(object, modname):
     if necessary) or module."""
     if '.' in object.__qualname__:
         name = object.__qualname__.rpartition('.')[0]
-        if object.__module__ and object.__module__ != modname:
+        if object.__module__ != modname and object.__module__ is not None:
             return object.__module__ + '.' + name
         else:
             return name
@@ -346,21 +347,29 @@ def ispackage(path):
     return False
 
 def source_synopsis(file):
-    line = file.readline()
-    while line[:1] == '#' or not line.strip():
-        line = file.readline()
-        if not line: break
-    line = line.strip()
-    if line[:4] == 'r"""': line = line[1:]
-    if line[:3] == '"""':
-        line = line[3:]
-        if line[-1:] == '\\': line = line[:-1]
-        while not line.strip():
-            line = file.readline()
-            if not line: break
-        result = line.split('"""')[0].strip()
-    else: result = None
-    return result
+    """Return the one-line summary of a file object, if present"""
+
+    string = ''
+    try:
+        tokens = tokenize.generate_tokens(file.readline)
+        for tok_type, tok_string, _, _, _ in tokens:
+            if tok_type == tokenize.STRING:
+                string += tok_string
+            elif tok_type == tokenize.NEWLINE:
+                with warnings.catch_warnings():
+                    # Ignore the "invalid escape sequence" warning.
+                    warnings.simplefilter("ignore", SyntaxWarning)
+                    docstring = ast.literal_eval(string)
+                if not isinstance(docstring, str):
+                    return None
+                return docstring.strip().split('\n')[0].strip()
+            elif tok_type == tokenize.OP and tok_string in ('(', ')'):
+                string += tok_string
+            elif tok_type not in (tokenize.COMMENT, tokenize.NL, tokenize.ENCODING):
+                return None
+    except (tokenize.TokenError, UnicodeDecodeError, SyntaxError):
+        return None
+    return None
 
 def synopsis(filename, cache={}):
     """Get the one-line summary out of a module file."""
@@ -404,8 +413,17 @@ def synopsis(filename, cache={}):
 class ErrorDuringImport(Exception):
     """Errors that occurred while trying to import something to document it."""
     def __init__(self, filename, exc_info):
+        if not isinstance(exc_info, tuple):
+            assert isinstance(exc_info, BaseException)
+            self.exc = type(exc_info)
+            self.value = exc_info
+            self.tb = exc_info.__traceback__
+        else:
+            warnings.warn("A tuple value for exc_info is deprecated, use an exception instance",
+                          DeprecationWarning)
+
+            self.exc, self.value, self.tb = exc_info
         self.filename = filename
-        self.exc, self.value, self.tb = exc_info
 
     def __str__(self):
         exc = self.exc.__name__
@@ -426,8 +444,8 @@ def importfile(path):
     spec = importlib.util.spec_from_file_location(name, path, loader=loader)
     try:
         return importlib._bootstrap._load(spec)
-    except:
-        raise ErrorDuringImport(path, sys.exc_info())
+    except BaseException as err:
+        raise ErrorDuringImport(path, err)
 
 def safeimport(path, forceload=0, cache={}):
     """Import a module; handle errors; return None if the module isn't found.
@@ -454,25 +472,21 @@ def safeimport(path, forceload=0, cache={}):
                     # Prevent garbage collection.
                     cache[key] = sys.modules[key]
                     del sys.modules[key]
-        module = __import__(path)
-    except:
+        module = importlib.import_module(path)
+    except BaseException as err:
         # Did the error occur before or after the module was found?
-        (exc, value, tb) = info = sys.exc_info()
         if path in sys.modules:
             # An error occurred while executing the imported module.
-            raise ErrorDuringImport(sys.modules[path].__file__, info)
-        elif exc is SyntaxError:
+            raise ErrorDuringImport(sys.modules[path].__file__, err)
+        elif type(err) is SyntaxError:
             # A SyntaxError occurred before we could execute the module.
-            raise ErrorDuringImport(value.filename, info)
-        elif issubclass(exc, ImportError) and value.name == path:
+            raise ErrorDuringImport(err.filename, err)
+        elif isinstance(err, ImportError) and err.name == path:
             # No such module in the path.
             return None
         else:
             # Some other error occurred during the importing process.
-            raise ErrorDuringImport(path, sys.exc_info())
-    for part in path.split('.')[1:]:
-        try: module = getattr(module, part)
-        except AttributeError: return None
+            raise ErrorDuringImport(path, err)
     return module
 
 # ---------------------------------------------------- formatter base class
@@ -519,7 +533,7 @@ class Doc:
 
         basedir = os.path.normcase(basedir)
         if (isinstance(object, type(os)) and
-            (object.__name__ in ('errno', 'exceptions', 'gc', 'imp',
+            (object.__name__ in ('errno', 'exceptions', 'gc',
                                  'marshal', 'posix', 'signal', 'sys',
                                  '_thread', 'zipimport') or
              (file.startswith(basedir) and
@@ -720,9 +734,7 @@ class HTMLDoc(Doc):
                                 r'RFC[- ]?(\d+)|'
                                 r'PEP[- ]?(\d+)|'
                                 r'(self\.)?(\w+))')
-        while True:
-            match = pattern.search(text, here)
-            if not match: break
+        while match := pattern.search(text, here):
             start, end = match.span()
             results.append(escape(text[here:start]))
 
@@ -757,7 +769,7 @@ class HTMLDoc(Doc):
         """Produce HTML for a class tree as given by inspect.getclasstree()."""
         result = ''
         for entry in tree:
-            if type(entry) is type(()):
+            if isinstance(entry, tuple):
                 c, bases = entry
                 result = result + '<dt class="heading-text">'
                 result = result + self.classlink(c, modname)
@@ -767,7 +779,7 @@ class HTMLDoc(Doc):
                         parents.append(self.classlink(base, modname))
                     result = result + '(' + ', '.join(parents) + ')'
                 result = result + '\n</dt>'
-            elif type(entry) is type([]):
+            elif isinstance(entry, list):
                 result = result + '<dd>\n%s</dd>\n' % self.formattree(
                     entry, modname, c)
         return '<dl>\n%s</dl>\n' % result
@@ -810,9 +822,7 @@ class HTMLDoc(Doc):
             docloc = ''
         result = self.heading(head, '<a href=".">index</a><br>' + filelink + docloc)
 
-        #PyPy change: filter by visiblename to exclude __builtins__ (a module in PyPy, dict in CPython)
-        modules = [(k, v) for k, v in inspect.getmembers(object, inspect.ismodule)
-                   if visiblename(k, all, object)]
+        modules = inspect.getmembers(object, inspect.ismodule)
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):
@@ -1078,9 +1088,7 @@ class HTMLDoc(Doc):
                 note = ' method of %s instance' % self.classlink(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              #PyPy change
-              inspect.ismethodwrapper(object) or
-              hasattr(object, '__objclass__')):
+              inspect.ismethodwrapper(object)):
             try:
                 objclass = object.__objclass__
             except AttributeError:
@@ -1233,8 +1241,7 @@ class TextDoc(Doc):
     def indent(self, text, prefix='    '):
         """Indent text by prepending a given prefix to each line."""
         if not text: return ''
-        lines = [prefix + line for line in text.split('\n')]
-        if lines: lines[-1] = lines[-1].rstrip()
+        lines = [(prefix + line).rstrip() for line in text.split('\n')]
         return '\n'.join(lines)
 
     def section(self, title, contents):
@@ -1248,14 +1255,14 @@ class TextDoc(Doc):
         """Render in text a class tree as returned by inspect.getclasstree()."""
         result = ''
         for entry in tree:
-            if type(entry) is type(()):
+            if isinstance(entry, tuple):
                 c, bases = entry
                 result = result + prefix + classname(c, modname)
                 if bases and bases != (parent,):
                     parents = (classname(c, modname) for c in bases)
                     result = result + '(%s)' % ', '.join(parents)
                 result = result + '\n'
-            elif type(entry) is type([]):
+            elif isinstance(entry, list):
                 result = result + self.formattree(
                     entry, modname, c, prefix + '    ')
         return result
@@ -1538,9 +1545,7 @@ location listed above.
                 note = ' method of %s instance' % classname(
                     imself.__class__, mod)
         elif (inspect.ismethoddescriptor(object) or
-              #PyPy change
-              inspect.ismethodwrapper(object) or
-              hasattr(object, '__objclass__')):
+              inspect.ismethodwrapper(object)):
             try:
                 objclass = object.__objclass__
             except AttributeError:
@@ -2098,8 +2103,8 @@ class Helper:
         if request is not self._GoInteractive:
             try:
                 self.help(request)
-            except ImportError as e:
-                self.output.write(f'{e}\n')
+            except ImportError as err:
+                self.output.write(f'{err}\n')
         else:
             self.intro()
             self.interact()
@@ -2152,7 +2157,7 @@ has the same effect as typing a particular string at the help> prompt.
             elif request in self.symbols: self.showsymbol(request)
             elif request in ['True', 'False', 'None']:
                 # special case these keywords since they are objects too
-                doc(eval(request), 'Help on %s:', is_cli=is_cli)
+                doc(eval(request), 'Help on %s:', output=self._output, is_cli=is_cli)
             elif request in self.keywords: self.showtopic(request)
             elif request in self.topics: self.showtopic(request)
             elif request: doc(request, 'Help on %s:', output=self._output, is_cli=is_cli)
@@ -2228,7 +2233,7 @@ module "pydoc_data.topics" could not be found.
         if not target:
             self.output.write('no documentation found for %s\n' % repr(topic))
             return
-        if type(target) is type(''):
+        if isinstance(target, str):
             return self.showtopic(target, more_xrefs)
 
         label, xrefs = target
@@ -2245,7 +2250,11 @@ module "pydoc_data.topics" could not be found.
             text = 'Related help topics: ' + ', '.join(xrefs.split()) + '\n'
             wrapped_text = textwrap.wrap(text, 72)
             doc += '\n%s\n' % '\n'.join(wrapped_text)
-        pager(doc)
+
+        if self._output is None:
+            pager(doc)
+        else:
+            self.output.write(doc)
 
     def _gettopic(self, topic, more_xrefs=''):
         """Return unbuffered tuple of (topic, xrefs).
@@ -2337,7 +2346,7 @@ class ModuleScanner:
                 callback(None, modname, '')
             else:
                 try:
-                    spec = pkgutil._get_spec(importer, modname)
+                    spec = importer.find_spec(modname)
                 except SyntaxError:
                     # raised by tests for bad coding cookies or BOM
                     continue
@@ -2509,8 +2518,8 @@ def _start_server(urlhandler, hostname, port):
                 docsvr = DocServer(self.host, self.port, self.ready)
                 self.docserver = docsvr
                 docsvr.serve_until_quit()
-            except Exception as e:
-                self.error = e
+            except Exception as err:
+                self.error = err
 
         def ready(self, server):
             self.serving = True

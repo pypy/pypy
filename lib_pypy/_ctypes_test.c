@@ -164,7 +164,7 @@ _testfunc_array_in_struct3B_set_defaults(void)
 
 /*
  * Test3C struct tests the MAX_STRUCT_SIZE 32. Structs containing arrays of up
- * to four floating point types are passed in registers on Arm platforms.
+ * to four floating-point types are passed in registers on Arm platforms.
  * This struct is used for within bounds test on Arm platfroms and for an
  * out-of-bounds tests for platfroms where MAX_STRUCT_SIZE is less than 32.
  * See gh-110190.
@@ -188,7 +188,7 @@ _testfunc_array_in_struct3C_set_defaults(void)
 
 /*
  * Test3D struct tests the MAX_STRUCT_SIZE 64. Structs containing arrays of up
- * to eight floating point types are passed in registers on PPC64LE platforms.
+ * to eight floating-point types are passed in registers on PPC64LE platforms.
  * This struct is used for within bounds test on PPC64LE platfroms and for an
  * out-of-bounds tests for platfroms where MAX_STRUCT_SIZE is less than 64.
  * See gh-110190.
@@ -1132,6 +1132,19 @@ EXPORT (HRESULT) KeepObject(IUnknown *punk)
 
 #endif
 
+#ifdef MS_WIN32
+
+// i38748: c stub for testing stack corruption
+// When executing a Python callback with a long and a long long
+
+typedef long(__stdcall *_test_i38748_funcType)(long, long long);
+
+EXPORT(long) _test_i38748_runCallback(_test_i38748_funcType callback, int a, int b) {
+    return callback(a, b);
+}
+
+#endif
+
 EXPORT(int)
 _testfunc_pylist_append(PyObject *list, PyObject *item)
 {
@@ -1139,6 +1152,7 @@ _testfunc_pylist_append(PyObject *list, PyObject *item)
 }
 
 static struct PyModuleDef_Slot _ctypes_test_slots[] = {
+    {Py_mod_multiple_interpreters, Py_MOD_PER_INTERPRETER_GIL_SUPPORTED},
     {0, NULL}
 };
 

@@ -6,10 +6,10 @@ Process for upgrading the stdlib to a new cpython version
     overly detailed
 
 0. make sure your working dir is clean
-1. check out this branch
+1. check out vendor/stdlib-3-*
 2. upgrade the files there
    2a. `rm -rf lib-python/3/*`
-   2b. copy the files from the cpython repo
+   2b. copy the files from the cpython repo Lib to lib-python/3
    2c. copy to `lib_pypy`
      - `Modules/_ctypes/_ctypes_test.c`
      - `Modules/_testcapimodule.c`
@@ -22,13 +22,13 @@ Process for upgrading the stdlib to a new cpython version
    2g. Do not delete the CPython token.py, it is needed for app_main tests
 3. update stdlib-version.txt with the output of `git status` from the cpython repo
 4. commit
-5. update to py3.11
+5. update to py3.12
 6. create a integration branch for the new stdlib
    (just git branch stdlib-$version)
-7. merge vendor/stdlib or vendor/stdlib-3-*
+7. merge vendor/stdlib-3-*
 8. commit
 10. fix issues. Note especially changes in datetime.py, venv/__init__.py, and others.
-11. commit --close-branch
+11. commit 
 14. update version numbers in sys/version.py and cpyext/include/patch_level.h
 
 Process for updating a point release if the diff is small

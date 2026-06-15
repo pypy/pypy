@@ -180,19 +180,9 @@ class CmdLineTest(unittest.TestCase):
             stderr = p.stdout
         try:
             # Drain stderr until prompt
-            if support.check_impl_detail(pypy=True):
-                ps1 = b">>>> "
-                # PyPy: the prompt is still printed to stdout, like it
-                # is in CPython 2.7.  This messes up the logic below
-                # if stdout and stderr are different.  Skip for now.
-                if separate_stderr:
-                    self.skipTest("the prompt is still written to "
-                                  "stdout in pypy")
-            else:
-                ps1 = b">>> "
             while True:
-                data = stderr.read(len(ps1))
-                if data == ps1:
+                data = stderr.read(4)
+                if data == b">>> ":
                     break
                 stderr.readline()
             yield p
@@ -646,9 +636,9 @@ class CmdLineTest(unittest.TestCase):
             self.assertEqual(
                 stderr.splitlines()[-3:],
                 [
-                    b'    foo"""',
-                    b'          ^',
-                    b'SyntaxError: f-string: empty expression not allowed',
+                    b'    foo = f"""{}',
+                    b'               ^',
+                    b'SyntaxError: f-string: valid expression required before \'}\'',
                 ],
             )
 
@@ -662,7 +652,7 @@ class CmdLineTest(unittest.TestCase):
             self.assertEqual(
                 stderr.splitlines()[-3:],
                 [   b'    foo = """\\q"""',
-                    b'          ^^^^^^^^',
+                    b'             ^^',
                     b'SyntaxError: invalid escape sequence \'\\q\''
                 ],
             )

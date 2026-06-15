@@ -59,11 +59,7 @@ __all__ = ['NullTranslations', 'GNUTranslations', 'Catalog',
            'dnpgettext'
            ]
 
-try:
-    _default_localedir = os.path.join(sys.base_prefix, 'share', 'locale')
-except AttributeError:
-    pass   # pypy: sys.base_prefix is not set if pypy3-c is issuing
-           # "Library path not found, using compiled-in sys.path"
+_default_localedir = os.path.join(sys.base_prefix, 'share', 'locale')
 
 # Expression parsing for plural form selection.
 #

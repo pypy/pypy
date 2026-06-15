@@ -423,7 +423,6 @@ class TestWeakSet(unittest.TestCase):
         self.assertIn(n1, (0, 1))
         self.assertEqual(n2, 0)
 
-    @support.impl_detail("PyPy has no cyclic collection", pypy=False)
     def test_len_race(self):
         # Extended sanity checks for len() in the face of cyclic collection
         self.addCleanup(gc.set_threshold, *gc.get_threshold())

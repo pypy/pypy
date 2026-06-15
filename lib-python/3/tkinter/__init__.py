@@ -34,11 +34,6 @@ import collections
 import enum
 import sys
 import types
-try:
-    from __pypy__ import add_memory_pressure
-except ModuleNotFoundError:
-    def add_memory_pressure(*args):
-        pass
 
 import _tkinter # If this fails your Python may not be configured for Tk
 TclError = _tkinter.TclError
@@ -46,6 +41,7 @@ from tkinter.constants import *
 import re
 
 wantobjects = 1
+_debug = False  # set to True to print executed Tcl/Tk commands
 
 TkVersion = float(_tkinter.TK_VERSION)
 TclVersion = float(_tkinter.TCL_VERSION)
@@ -74,7 +70,10 @@ def _stringify(value):
         else:
             value = '{%s}' % _join(value)
     else:
-        value = str(value)
+        if isinstance(value, bytes):
+            value = str(value, 'latin1')
+        else:
+            value = str(value)
         if not value:
             value = '{}'
         elif _magic_re.search(value):
@@ -416,7 +415,6 @@ class Variable:
             self._tk.globalunsetvar(self._name)
         if self._tclCommands is not None:
             for name in self._tclCommands:
-                #print '- Tkinter: deleted command', name
                 self._tk.deletecommand(name)
             self._tclCommands = None
 
@@ -688,7 +686,6 @@ class Misc:
         this widget in the Tcl interpreter."""
         if self._tclCommands is not None:
             for name in self._tclCommands:
-                #print '- Tkinter: deleted command', name
                 self.tk.deletecommand(name)
             self._tclCommands = None
 
@@ -696,7 +693,6 @@ class Misc:
         """Internal function.
 
         Delete the Tcl command provided in NAME."""
-        #print '- Tkinter: deleted command', name
         self.tk.deletecommand(name)
         try:
             self._tclCommands.remove(name)
@@ -2154,7 +2150,7 @@ class Wm:
         explicitly.  DEFAULT can be the relative path to a .ico file
         (example: root.iconbitmap(default='myicon.ico') ).  See Tk
         documentation for more information."""
-        if default:
+        if default is not None:
             return self.tk.call('wm', 'iconbitmap', self._w, '-default', default)
         else:
             return self.tk.call('wm', 'iconbitmap', self._w, bitmap)
@@ -2348,6 +2344,8 @@ class Tk(Misc, Wm):
                 baseName = baseName + ext
         interactive = False
         self.tk = _tkinter.create(screenName, baseName, className, interactive, wantobjects, useTk, sync, use)
+        if _debug:
+            self.tk.settrace(_print_command)
         if useTk:
             self._loadtk()
         if not sys.flags.ignore_environment:
@@ -2424,6 +2422,7 @@ class Tk(Misc, Wm):
         should when sys.stderr is None."""
         import traceback
         print("Exception in Tkinter callback", file=sys.stderr)
+        sys.last_exc = val
         sys.last_type = exc
         sys.last_value = val
         sys.last_traceback = tb
@@ -2432,6 +2431,14 @@ class Tk(Misc, Wm):
     def __getattr__(self, attr):
         "Delegate attribute access to the interpreter object"
         return getattr(self.tk, attr)
+
+
+def _print_command(cmd, *, file=sys.stderr):
+    # Print executed Tcl/Tk commands.
+    assert isinstance(cmd, tuple)
+    cmd = _join(cmd)
+    print(cmd, file=file)
+
 
 # Ideally, the classes Pack, Place and Grid disappear, the
 # pack/place/grid methods are defined on the Widget class, and
@@ -2619,6 +2626,8 @@ class BaseWidget(Misc):
             del cnf['name']
         if not name:
             name = self.__class__.__name__.lower()
+            if name[-1].isdigit():
+                name += "!"  # Avoid duplication when calculating names below
             if master._last_child_ids is None:
                 master._last_child_ids = {}
             count = master._last_child_ids.get(name, 0) + 1
@@ -2838,7 +2847,7 @@ class Canvas(Widget, XView, YView):
 
     def coords(self, *args):
         """Return a list of coordinates for the item given in ARGS."""
-        # XXX Should use _flatten on args
+        args = _flatten(args)
         return [self.tk.getdouble(x) for x in
                            self.tk.splitlist(
                    self.tk.call((self._w, 'coords') + args))]
@@ -4101,7 +4110,6 @@ class Image:
             options = options + ('-'+k, v)
         self.tk.call(('image', 'create', imgtype, name,) + options)
         self.name = name
-        add_memory_pressure(self.width() * self.height() * 3)
 
     def __str__(self): return self.name
 

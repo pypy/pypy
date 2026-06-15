@@ -1,4 +1,4 @@
-# Copyright 2001-2023 by Vinay Sajip. All Rights Reserved.
+# Copyright 2001-2022 by Vinay Sajip. All Rights Reserved.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation for any purpose and without fee is hereby granted,
@@ -16,9 +16,8 @@
 
 """Test harness for the logging module. Run all tests.
 
-Copyright (C) 2001-2023 Vinay Sajip. All Rights Reserved.
+Copyright (C) 2001-2022 Vinay Sajip. All Rights Reserved.
 """
-
 import logging
 import logging.handlers
 import logging.config
@@ -30,6 +29,7 @@ import datetime
 import pathlib
 import pickle
 import io
+import itertools
 import gc
 import json
 import os
@@ -43,27 +43,27 @@ import sys
 import tempfile
 from test.support.script_helper import assert_python_ok, assert_python_failure
 from test import support
+from test.support import import_helper
 from test.support import os_helper
 from test.support import socket_helper
 from test.support import threading_helper
 from test.support import warnings_helper
+from test.support import asyncore
+from test.support import smtpd
 from test.support.logging_helper import TestHandler
 import textwrap
 import threading
+import asyncio
 import time
 import unittest
 import warnings
 import weakref
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from unittest.mock import patch
 from urllib.parse import urlparse, parse_qs
 from socketserver import (ThreadingUDPServer, DatagramRequestHandler,
                           ThreadingTCPServer, StreamRequestHandler)
-
-
-asyncore = warnings_helper.import_deprecated('asyncore')
-smtpd = warnings_helper.import_deprecated('smtpd')
-
 
 try:
     import win32evtlog, win32evtlogutil, pywintypes
@@ -81,6 +81,9 @@ except ImportError:
 skip_if_asan_fork = unittest.skipIf(
     support.HAVE_ASAN_FORK_BUG,
     "libasan has a pthread_create() dead lock related to thread+fork")
+skip_if_tsan_fork = unittest.skipIf(
+    support.check_sanitizer(thread=True),
+    "TSAN doesn't support threads after fork")
 
 
 class BaseTest(unittest.TestCase):
@@ -474,6 +477,51 @@ class CustomLevelsAndFiltersTest(BaseTest):
         for lvl in LEVEL_RANGE:
             logger.log(lvl, self.next_message())
 
+    def test_handler_filter_replaces_record(self):
+        def replace_message(record: logging.LogRecord):
+            record = copy.copy(record)
+            record.msg = "new message!"
+            return record
+
+        # Set up a logging hierarchy such that "child" and it's handler
+        # (and thus `replace_message()`) always get called before
+        # propagating up to "parent".
+        # Then we can confirm that `replace_message()` was able to
+        # replace the log record without having a side effect on
+        # other loggers or handlers.
+        parent = logging.getLogger("parent")
+        child = logging.getLogger("parent.child")
+        stream_1 = io.StringIO()
+        stream_2 = io.StringIO()
+        handler_1 = logging.StreamHandler(stream_1)
+        handler_2 = logging.StreamHandler(stream_2)
+        handler_2.addFilter(replace_message)
+        parent.addHandler(handler_1)
+        child.addHandler(handler_2)
+
+        child.info("original message")
+        handler_1.flush()
+        handler_2.flush()
+        self.assertEqual(stream_1.getvalue(), "original message\n")
+        self.assertEqual(stream_2.getvalue(), "new message!\n")
+
+    def test_logging_filter_replaces_record(self):
+        records = set()
+
+        class RecordingFilter(logging.Filter):
+            def filter(self, record: logging.LogRecord):
+                records.add(id(record))
+                return copy.copy(record)
+
+        logger = logging.getLogger("logger")
+        logger.setLevel(logging.INFO)
+        logger.addFilter(RecordingFilter())
+        logger.addFilter(RecordingFilter())
+
+        logger.info("msg")
+
+        self.assertEqual(2, len(records))
+
     def test_logger_filter(self):
         # Filter at logger level.
         self.root_logger.setLevel(VERBOSE)
@@ -547,6 +595,12 @@ class CustomLevelsAndFiltersTest(BaseTest):
             handler.removeFilter(garr)
 
 
+def make_temp_file(*args, **kwargs):
+    fd, fn = tempfile.mkstemp(*args, **kwargs)
+    os.close(fd)
+    return fn
+
+
 class HandlerTest(BaseTest):
     def test_name(self):
         h = logging.Handler()
@@ -561,8 +615,7 @@ class HandlerTest(BaseTest):
         # but we can try instantiating them with various options
         if sys.platform in ('linux', 'darwin'):
             for existing in (True, False):
-                fd, fn = tempfile.mkstemp()
-                os.close(fd)
+                fn = make_temp_file()
                 if not existing:
                     os.unlink(fn)
                 h = logging.handlers.WatchedFileHandler(fn, encoding='utf-8', delay=True)
@@ -610,16 +663,15 @@ class HandlerTest(BaseTest):
         self.assertFalse(h.shouldFlush(r))
         h.close()
 
-    def test_path_objects(self):
+    def test_pathlike_objects(self):
         """
-        Test that Path objects are accepted as filename arguments to handlers.
+        Test that path-like objects are accepted as filename arguments to handlers.
 
         See Issue #27493.
         """
-        fd, fn = tempfile.mkstemp()
-        os.close(fd)
+        fn = make_temp_file()
         os.unlink(fn)
-        pfn = pathlib.Path(fn)
+        pfn = os_helper.FakePath(fn)
         cases = (
                     (logging.FileHandler, (pfn, 'w')),
                     (logging.handlers.RotatingFileHandler, (pfn, 'a')),
@@ -657,8 +709,7 @@ class HandlerTest(BaseTest):
         self.deletion_time = None
 
         for delay in (False, True):
-            fd, fn = tempfile.mkstemp('.log', 'test_logging-3-')
-            os.close(fd)
+            fn = make_temp_file('.log', 'test_logging-3-')
             remover = threading.Thread(target=remove_loop, args=(fn, del_count))
             remover.daemon = True
             remover.start()
@@ -690,6 +741,7 @@ class HandlerTest(BaseTest):
     @support.requires_fork()
     @threading_helper.requires_working_threading()
     @skip_if_asan_fork
+    @skip_if_tsan_fork
     def test_post_fork_child_no_deadlock(self):
         """Ensure child logging locks are not held; bpo-6721 & bpo-36533."""
         class _OurHandler(logging.Handler):
@@ -1184,6 +1236,35 @@ class MemoryHandlerTest(BaseTest):
         # assert that no new lines have been added
         self.assert_log_lines(lines)  # no change
 
+    def test_shutdown_flush_on_close(self):
+        """
+        Test that the flush-on-close configuration is respected by the
+        shutdown method.
+        """
+        self.mem_logger.debug(self.next_message())
+        self.assert_log_lines([])
+        self.mem_logger.info(self.next_message())
+        self.assert_log_lines([])
+        # Default behaviour is to flush on close. Check that it happens.
+        logging.shutdown(handlerList=[logging.weakref.ref(self.mem_hdlr)])
+        lines = [
+            ('DEBUG', '1'),
+            ('INFO', '2'),
+        ]
+        self.assert_log_lines(lines)
+        # Now configure for flushing not to be done on close.
+        self.mem_hdlr = logging.handlers.MemoryHandler(10, logging.WARNING,
+                                                       self.root_hdlr,
+                                                       False)
+        self.mem_logger.addHandler(self.mem_hdlr)
+        self.mem_logger.debug(self.next_message())
+        self.assert_log_lines(lines)  # no change
+        self.mem_logger.info(self.next_message())
+        self.assert_log_lines(lines)  # no change
+        # assert that no new lines have been added after shutdown
+        logging.shutdown(handlerList=[logging.weakref.ref(self.mem_hdlr)])
+        self.assert_log_lines(lines) # no change
+
     @threading_helper.requires_working_threading()
     def test_race_between_set_target_and_flush(self):
         class MockRaceConditionHandler:
@@ -1217,6 +1298,9 @@ class ExceptionFormatter(logging.Formatter):
     def formatException(self, ei):
         return "Got a [%s]" % ei[0].__name__
 
+def closeFileHandler(h, fn):
+    h.close()
+    os.remove(fn)
 
 class ConfigFileTest(BaseTest):
 
@@ -1453,6 +1537,32 @@ class ConfigFileTest(BaseTest):
     kwargs={{"encoding": "utf-8"}}
     """
 
+
+    config9 = """
+    [loggers]
+    keys=root
+
+    [handlers]
+    keys=hand1
+
+    [formatters]
+    keys=form1
+
+    [logger_root]
+    level=WARNING
+    handlers=hand1
+
+    [handler_hand1]
+    class=StreamHandler
+    level=NOTSET
+    formatter=form1
+    args=(sys.stdout,)
+
+    [formatter_form1]
+    format=%(message)s ++ %(customfield)s
+    defaults={"customfield": "defaultvalue"}
+    """
+
     disable_test = """
     [loggers]
     keys=root
@@ -1600,13 +1710,8 @@ class ConfigFileTest(BaseTest):
 
     def test_config8_ok(self):
 
-        def cleanup(h1, fn):
-            h1.close()
-            os.remove(fn)
-
         with self.check_no_resource_warning():
-            fd, fn = tempfile.mkstemp(".log", "test_logging-X-")
-            os.close(fd)
+            fn = make_temp_file(".log", "test_logging-X-")
 
             # Replace single backslash with double backslash in windows
             # to avoid unicode error during string formatting
@@ -1619,7 +1724,17 @@ class ConfigFileTest(BaseTest):
             self.apply_config(config8)
 
         handler = logging.root.handlers[0]
-        self.addCleanup(cleanup, handler, fn)
+        self.addCleanup(closeFileHandler, handler, fn)
+
+    def test_config9_ok(self):
+        self.apply_config(self.config9)
+        formatter = logging.root.handlers[0].formatter
+        result = formatter.format(logging.makeLogRecord({'msg': 'test'}))
+        self.assertEqual(result, 'test ++ defaultvalue')
+        result = formatter.format(logging.makeLogRecord(
+            {'msg': 'test', 'customfield': "customvalue"}))
+        self.assertEqual(result, 'test ++ customvalue')
+
 
     def test_logger_disabling(self):
         self.apply_config(self.disable_test)
@@ -1826,13 +1941,6 @@ class SocketHandlerTest(BaseTest):
         time.sleep(self.sock_hdlr.retryTime - now + 0.001)
         self.root_logger.error('Nor this')
 
-def _get_temp_domain_socket():
-    fd, fn = tempfile.mkstemp(prefix='test_logging_', suffix='.sock')
-    os.close(fd)
-    # just need a name - file can't be present, or we'll get an
-    # 'address already in use' error.
-    os.remove(fn)
-    return fn
 
 @unittest.skipUnless(hasattr(socket, "AF_UNIX"), "Unix sockets required")
 class UnixSocketHandlerTest(SocketHandlerTest):
@@ -1844,12 +1952,9 @@ class UnixSocketHandlerTest(SocketHandlerTest):
 
     def setUp(self):
         # override the definition in the base class
-        self.address = _get_temp_domain_socket()
+        self.address = socket_helper.create_unix_domain_name()
+        self.addCleanup(os_helper.unlink, self.address)
         SocketHandlerTest.setUp(self)
-
-    def tearDown(self):
-        SocketHandlerTest.tearDown(self)
-        os_helper.unlink(self.address)
 
 @support.requires_working_socket()
 @threading_helper.requires_working_threading()
@@ -1927,12 +2032,9 @@ class UnixDatagramHandlerTest(DatagramHandlerTest):
 
     def setUp(self):
         # override the definition in the base class
-        self.address = _get_temp_domain_socket()
+        self.address = socket_helper.create_unix_domain_name()
+        self.addCleanup(os_helper.unlink, self.address)
         DatagramHandlerTest.setUp(self)
-
-    def tearDown(self):
-        DatagramHandlerTest.tearDown(self)
-        os_helper.unlink(self.address)
 
 @support.requires_working_socket()
 @threading_helper.requires_working_threading()
@@ -2021,12 +2123,9 @@ class UnixSysLogHandlerTest(SysLogHandlerTest):
 
     def setUp(self):
         # override the definition in the base class
-        self.address = _get_temp_domain_socket()
+        self.address = socket_helper.create_unix_domain_name()
+        self.addCleanup(os_helper.unlink, self.address)
         SysLogHandlerTest.setUp(self)
-
-    def tearDown(self):
-        SysLogHandlerTest.tearDown(self)
-        os_helper.unlink(self.address)
 
 @unittest.skipUnless(socket_helper.IPV6_ENABLED,
                      'IPv6 support required for this test.')
@@ -2180,8 +2279,7 @@ class EncodingTest(BaseTest):
     def test_encoding_plain_file(self):
         # In Python 2.x, a plain file object is treated as having no encoding.
         log = logging.getLogger("test")
-        fd, fn = tempfile.mkstemp(".log", "test_logging-1-")
-        os.close(fd)
+        fn = make_temp_file(".log", "test_logging-1-")
         # the non-ascii data we write to the log.
         data = "foo\x80"
         try:
@@ -2277,6 +2375,47 @@ def handlerFunc():
 
 class CustomHandler(logging.StreamHandler):
     pass
+
+class CustomListener(logging.handlers.QueueListener):
+    pass
+
+class CustomQueue(queue.Queue):
+    pass
+
+class CustomQueueProtocol:
+    def __init__(self, maxsize=0):
+        self.queue = queue.Queue(maxsize)
+
+    def __getattr__(self, attribute):
+        queue = object.__getattribute__(self, 'queue')
+        return getattr(queue, attribute)
+
+class CustomQueueFakeProtocol(CustomQueueProtocol):
+    # An object implementing the minimial Queue API for
+    # the logging module but with incorrect signatures.
+    #
+    # The object will be considered a valid queue class since we
+    # do not check the signatures (only callability of methods)
+    # but will NOT be usable in production since a TypeError will
+    # be raised due to the extra argument in 'put_nowait'.
+    def put_nowait(self):
+        pass
+
+class CustomQueueWrongProtocol(CustomQueueProtocol):
+    put_nowait = None
+
+class MinimalQueueProtocol:
+    def put_nowait(self, x): pass
+    def get(self): pass
+
+def queueMaker():
+    return queue.Queue()
+
+def listenerMaker(arg1, arg2, respect_handler_level=False):
+    def func(queue, *handlers, **kwargs):
+        kwargs.setdefault('respect_handler_level', respect_handler_level)
+        return CustomListener(queue, *handlers, **kwargs)
+    return func
 
 class ConfigDictTest(BaseTest):
 
@@ -2881,6 +3020,30 @@ class ConfigDictTest(BaseTest):
         },
     }
 
+    # config0 but with default values for formatter. Skipped 15, it is defined
+    # in the test code.
+    config16 = {
+        'version': 1,
+        'formatters': {
+            'form1' : {
+                'format' : '%(message)s ++ %(customfield)s',
+                'defaults': {"customfield": "defaultvalue"}
+            },
+        },
+        'handlers' : {
+            'hand1' : {
+                'class' : 'logging.StreamHandler',
+                'formatter' : 'form1',
+                'level' : 'NOTSET',
+                'stream'  : 'ext://sys.stdout',
+            },
+        },
+        'root' : {
+            'level' : 'WARNING',
+            'handlers' : ['hand1'],
+        },
+    }
+
     class CustomFormatter(logging.Formatter):
         custom_property = "."
 
@@ -2914,7 +3077,31 @@ class ConfigDictTest(BaseTest):
         },
     }
 
-    out_of_order = {
+    config18  = {
+        "version": 1,
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": "DEBUG",
+            },
+            "buffering": {
+                "class": "logging.handlers.MemoryHandler",
+                "capacity": 5,
+                "target": "console",
+                "level": "DEBUG",
+                "flushLevel": "ERROR"
+            }
+        },
+        "loggers": {
+            "mymodule": {
+                "level": "DEBUG",
+                "handlers": ["buffering"],
+                "propagate": "true"
+            }
+        }
+    }
+
+    bad_format = {
         "version": 1,
         "formatters": {
             "mySimpleFormatter": {
@@ -2934,7 +3121,7 @@ class ConfigDictTest(BaseTest):
                 "formatter": "mySimpleFormatter",
                 "target": "fileGlobal",
                 "level": "DEBUG"
-                }
+            }
         },
         "loggers": {
             "mymodule": {
@@ -3026,7 +3213,7 @@ class ConfigDictTest(BaseTest):
         }
     }
 
-    # Configuration with custom function and 'validate' set to False
+    # Configuration with custom function, 'validate' set to False and no defaults
     custom_formatter_with_function = {
         'version': 1,
         'formatters': {
@@ -3053,13 +3240,63 @@ class ConfigDictTest(BaseTest):
         }
     }
 
+    # Configuration with custom function, and defaults
+    custom_formatter_with_defaults = {
+        'version': 1,
+        'formatters': {
+            'form1': {
+                '()': formatFunc,
+                'format': '%(levelname)s:%(name)s:%(message)s:%(customfield)s',
+                'defaults': {"customfield": "myvalue"}
+            },
+        },
+        'handlers' : {
+            'hand1' : {
+                'class': 'logging.StreamHandler',
+                'formatter': 'form1',
+                'level': 'NOTSET',
+                'stream': 'ext://sys.stdout',
+            },
+        },
+        "loggers": {
+            "my_test_logger_custom_formatter": {
+                "level": "DEBUG",
+                "handlers": ["hand1"],
+                "propagate": "true"
+            }
+        }
+    }
+
+    config_queue_handler = {
+        'version': 1,
+        'handlers' : {
+            'h1' : {
+                'class': 'logging.FileHandler',
+            },
+             # key is before depended on handlers to test that deferred config works
+            'ah' : {
+                'class': 'logging.handlers.QueueHandler',
+                'handlers': ['h1']
+            },
+        },
+        "root": {
+            "level": "DEBUG",
+            "handlers": ["ah"]
+        }
+    }
+
     def apply_config(self, conf):
         logging.config.dictConfig(conf)
+
+    def check_handler(self, name, cls):
+        h = logging.getHandlerByName(name)
+        self.assertIsInstance(h, cls)
 
     def test_config0_ok(self):
         # A simple config which overrides the default settings.
         with support.captured_stdout() as output:
             self.apply_config(self.config0)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger()
             # Won't output anything
             logger.info(self.next_message())
@@ -3106,6 +3343,7 @@ class ConfigDictTest(BaseTest):
         # A config specifying a custom formatter class.
         with support.captured_stdout() as output:
             self.apply_config(self.config4)
+            self.check_handler('hand1', logging.StreamHandler)
             #logger = logging.getLogger()
             try:
                 raise RuntimeError()
@@ -3134,6 +3372,7 @@ class ConfigDictTest(BaseTest):
 
     def test_config5_ok(self):
         self.test_config1_ok(config=self.config5)
+        self.check_handler('hand1', CustomHandler)
 
     def test_config6_failure(self):
         self.assertRaises(Exception, self.apply_config, self.config6)
@@ -3153,6 +3392,7 @@ class ConfigDictTest(BaseTest):
             self.assert_log_lines([])
         with support.captured_stdout() as output:
             self.apply_config(self.config7)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             self.assertTrue(logger.disabled)
             logger = logging.getLogger("compiler.lexer")
@@ -3182,6 +3422,7 @@ class ConfigDictTest(BaseTest):
             self.assert_log_lines([])
         with support.captured_stdout() as output:
             self.apply_config(self.config8)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             self.assertFalse(logger.disabled)
             # Both will output a message
@@ -3203,6 +3444,7 @@ class ConfigDictTest(BaseTest):
     def test_config_8a_ok(self):
         with support.captured_stdout() as output:
             self.apply_config(self.config1a)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             # See issue #11424. compiler-hyphenated sorts
             # between compiler and compiler.xyz and this
@@ -3223,6 +3465,7 @@ class ConfigDictTest(BaseTest):
             self.assert_log_lines([])
         with support.captured_stdout() as output:
             self.apply_config(self.config8a)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             self.assertFalse(logger.disabled)
             # Both will output a message
@@ -3246,6 +3489,7 @@ class ConfigDictTest(BaseTest):
     def test_config_9_ok(self):
         with support.captured_stdout() as output:
             self.apply_config(self.config9)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             # Nothing will be output since both handler and logger are set to WARNING
             logger.info(self.next_message())
@@ -3264,6 +3508,7 @@ class ConfigDictTest(BaseTest):
     def test_config_10_ok(self):
         with support.captured_stdout() as output:
             self.apply_config(self.config10)
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             logger.warning(self.next_message())
             logger = logging.getLogger('compiler')
@@ -3300,13 +3545,8 @@ class ConfigDictTest(BaseTest):
 
     def test_config15_ok(self):
 
-        def cleanup(h1, fn):
-            h1.close()
-            os.remove(fn)
-
         with self.check_no_resource_warning():
-            fd, fn = tempfile.mkstemp(".log", "test_logging-X-")
-            os.close(fd)
+            fn = make_temp_file(".log", "test_logging-X-")
 
             config = {
                 "version": 1,
@@ -3326,12 +3566,31 @@ class ConfigDictTest(BaseTest):
             self.apply_config(config)
 
         handler = logging.root.handlers[0]
-        self.addCleanup(cleanup, handler, fn)
+        self.addCleanup(closeFileHandler, handler, fn)
+
+    def test_config16_ok(self):
+        self.apply_config(self.config16)
+        h = logging._handlers['hand1']
+
+        # Custom value
+        result = h.formatter.format(logging.makeLogRecord(
+            {'msg': 'Hello', 'customfield': 'customvalue'}))
+        self.assertEqual(result, 'Hello ++ customvalue')
+
+        # Default value
+        result = h.formatter.format(logging.makeLogRecord(
+            {'msg': 'Hello'}))
+        self.assertEqual(result, 'Hello ++ defaultvalue')
 
     def test_config17_ok(self):
         self.apply_config(self.config17)
         h = logging._handlers['hand1']
         self.assertEqual(h.formatter.custom_property, 'value')
+
+    def test_config18_ok(self):
+        self.apply_config(self.config18)
+        handler = logging.getLogger('mymodule').handlers[0]
+        self.assertEqual(handler.flushLevel, logging.ERROR)
 
     def setup_via_listener(self, text, verify=None):
         text = text.encode("utf-8")
@@ -3365,6 +3624,7 @@ class ConfigDictTest(BaseTest):
     def test_listen_config_10_ok(self):
         with support.captured_stdout() as output:
             self.setup_via_listener(json.dumps(self.config10))
+            self.check_handler('hand1', logging.StreamHandler)
             logger = logging.getLogger("compiler.parser")
             logger.warning(self.next_message())
             logger = logging.getLogger('compiler')
@@ -3459,11 +3719,11 @@ class ConfigDictTest(BaseTest):
             ('ERROR', '2'),
         ], pat=r"^[\w.]+ -> (\w+): (\d+)$")
 
-    def test_out_of_order(self):
-        self.assertRaises(ValueError, self.apply_config, self.out_of_order)
+    def test_bad_format(self):
+        self.assertRaises(ValueError, self.apply_config, self.bad_format)
 
-    def test_out_of_order_with_dollar_style(self):
-        config = copy.deepcopy(self.out_of_order)
+    def test_bad_format_with_dollar_style(self):
+        config = copy.deepcopy(self.bad_format)
         config['formatters']['mySimpleFormatter']['format'] = "${asctime} (${name}) ${levelname}: ${message}"
 
         self.apply_config(config)
@@ -3471,6 +3731,8 @@ class ConfigDictTest(BaseTest):
         self.assertIsInstance(handler.target, logging.Handler)
         self.assertIsInstance(handler.formatter._style,
                               logging.StringTemplateStyle)
+        self.assertEqual(sorted(logging.getHandlerNames()),
+                         ['bufferGlobal', 'fileGlobal'])
 
     def test_custom_formatter_class_with_validate(self):
         self.apply_config(self.custom_formatter_class_validate)
@@ -3486,7 +3748,7 @@ class ConfigDictTest(BaseTest):
         config = self.custom_formatter_class_validate.copy()
         config['formatters']['form1']['style'] = "$"
 
-        # Exception should not be raise as we have configured 'validate' to False
+        # Exception should not be raised as we have configured 'validate' to False
         self.apply_config(config)
         handler = logging.getLogger("my_test_logger_custom_formatter").handlers[0]
         self.assertIsInstance(handler.formatter, ExceptionFormatter)
@@ -3496,6 +3758,9 @@ class ConfigDictTest(BaseTest):
 
     def test_custom_formatter_function_with_validate(self):
         self.assertRaises(ValueError, self.apply_config, self.custom_formatter_with_function)
+
+    def test_custom_formatter_function_with_defaults(self):
+        self.assertRaises(ValueError, self.apply_config, self.custom_formatter_with_defaults)
 
     def test_baseconfig(self):
         d = {
@@ -3587,6 +3852,207 @@ class ConfigDictTest(BaseTest):
                 {"version": 1, "root": {"level": "DEBUG", "filters": [filter_]}}
             )
 
+    def do_queuehandler_configuration(self, qspec, lspec):
+        cd = copy.deepcopy(self.config_queue_handler)
+        fn = make_temp_file('.log', 'test_logging-cqh-')
+        cd['handlers']['h1']['filename'] = fn
+        if qspec is not None:
+            cd['handlers']['ah']['queue'] = qspec
+        if lspec is not None:
+            cd['handlers']['ah']['listener'] = lspec
+        qh = None
+        try:
+            self.apply_config(cd)
+            qh = logging.getHandlerByName('ah')
+            self.assertEqual(sorted(logging.getHandlerNames()), ['ah', 'h1'])
+            self.assertIsNotNone(qh.listener)
+            qh.listener.start()
+            logging.debug('foo')
+            logging.info('bar')
+            logging.warning('baz')
+
+            # Need to let the listener thread finish its work
+            while support.sleeping_retry(support.LONG_TIMEOUT,
+                                         "queue not empty"):
+                if qh.listener.queue.empty():
+                    break
+
+            # wait until the handler completed its last task
+            qh.listener.queue.join()
+
+            with open(fn, encoding='utf-8') as f:
+                data = f.read().splitlines()
+            self.assertEqual(data, ['foo', 'bar', 'baz'])
+        finally:
+            if qh:
+                qh.listener.stop()
+            h = logging.getHandlerByName('h1')
+            if h:
+                self.addCleanup(closeFileHandler, h, fn)
+            else:
+                self.addCleanup(os.remove, fn)
+
+    @threading_helper.requires_working_threading()
+    @support.requires_subprocess()
+    def test_config_queue_handler(self):
+        qs = [CustomQueue(), CustomQueueProtocol()]
+        dqs = [{'()': f'{__name__}.{cls}', 'maxsize': 10}
+               for cls in ['CustomQueue', 'CustomQueueProtocol']]
+        dl = {
+            '()': __name__ + '.listenerMaker',
+            'arg1': None,
+            'arg2': None,
+            'respect_handler_level': True
+        }
+        qvalues = (None, __name__ + '.queueMaker', __name__ + '.CustomQueue', *dqs, *qs)
+        lvalues = (None, __name__ + '.CustomListener', dl, CustomListener)
+        for qspec, lspec in itertools.product(qvalues, lvalues):
+            self.do_queuehandler_configuration(qspec, lspec)
+
+        # Some failure cases
+        qvalues = (None, 4, int, '', 'foo')
+        lvalues = (None, 4, int, '', 'bar')
+        for qspec, lspec in itertools.product(qvalues, lvalues):
+            if lspec is None and qspec is None:
+                continue
+            with self.assertRaises(ValueError) as ctx:
+                self.do_queuehandler_configuration(qspec, lspec)
+            msg = str(ctx.exception)
+            self.assertEqual(msg, "Unable to configure handler 'ah'")
+
+    def _apply_simple_queue_listener_configuration(self, qspec):
+        self.apply_config({
+            "version": 1,
+            "handlers": {
+                "queue_listener": {
+                    "class": "logging.handlers.QueueHandler",
+                    "queue": qspec,
+                },
+            },
+        })
+
+    @threading_helper.requires_working_threading()
+    @support.requires_subprocess()
+    @patch("multiprocessing.Manager")
+    def test_config_queue_handler_does_not_create_multiprocessing_manager(self, manager):
+        # gh-120868, gh-121723, gh-124653
+
+        for qspec in [
+            {"()": "queue.Queue", "maxsize": -1},
+            queue.Queue(),
+            # queue.SimpleQueue does not inherit from queue.Queue
+            queue.SimpleQueue(),
+            # CustomQueueFakeProtocol passes the checks but will not be usable
+            # since the signatures are incompatible. Checking the Queue API
+            # without testing the type of the actual queue is a trade-off
+            # between usability and the work we need to do in order to safely
+            # check that the queue object correctly implements the API.
+            CustomQueueFakeProtocol(),
+            MinimalQueueProtocol(),
+        ]:
+            with self.subTest(qspec=qspec):
+                self._apply_simple_queue_listener_configuration(qspec)
+                manager.assert_not_called()
+
+    @patch("multiprocessing.Manager")
+    def test_config_queue_handler_invalid_config_does_not_create_multiprocessing_manager(self, manager):
+        # gh-120868, gh-121723
+
+        for qspec in [object(), CustomQueueWrongProtocol()]:
+            with self.subTest(qspec=qspec), self.assertRaises(ValueError):
+                self._apply_simple_queue_listener_configuration(qspec)
+                manager.assert_not_called()
+
+    @skip_if_tsan_fork
+    @support.requires_subprocess()
+    @unittest.skipUnless(support.Py_DEBUG, "requires a debug build for testing"
+                                           " assertions in multiprocessing")
+    def test_config_reject_simple_queue_handler_multiprocessing_context(self):
+        # multiprocessing.SimpleQueue does not implement 'put_nowait'
+        # and thus cannot be used as a queue-like object (gh-124653)
+
+        import multiprocessing
+
+        if support.MS_WINDOWS:
+            start_methods = ['spawn']
+        else:
+            start_methods = ['spawn', 'fork', 'forkserver']
+
+        for start_method in start_methods:
+            with self.subTest(start_method=start_method):
+                ctx = multiprocessing.get_context(start_method)
+                qspec = ctx.SimpleQueue()
+                with self.assertRaises(ValueError):
+                    self._apply_simple_queue_listener_configuration(qspec)
+
+    @skip_if_tsan_fork
+    @support.requires_subprocess()
+    @unittest.skipUnless(support.Py_DEBUG, "requires a debug build for testing"
+                                           "assertions in multiprocessing")
+    def test_config_queue_handler_multiprocessing_context(self):
+        # regression test for gh-121723
+        if support.MS_WINDOWS:
+            start_methods = ['spawn']
+        else:
+            start_methods = ['spawn', 'fork', 'forkserver']
+        for start_method in start_methods:
+            with self.subTest(start_method=start_method):
+                ctx = multiprocessing.get_context(start_method)
+                with ctx.Manager() as manager:
+                    q = manager.Queue()
+                    records = []
+                    # use 1 process and 1 task per child to put 1 record
+                    with ctx.Pool(1, initializer=self._mpinit_issue121723,
+                                  initargs=(q, "text"), maxtasksperchild=1):
+                        records.append(q.get(timeout=60))
+                    self.assertTrue(q.empty())
+                self.assertEqual(len(records), 1)
+
+    @staticmethod
+    def _mpinit_issue121723(qspec, message_to_log):
+        # static method for pickling support
+        logging.config.dictConfig({
+            'version': 1,
+            'disable_existing_loggers': True,
+            'handlers': {
+                'log_to_parent': {
+                    'class': 'logging.handlers.QueueHandler',
+                    'queue': qspec
+                }
+            },
+            'root': {'handlers': ['log_to_parent'], 'level': 'DEBUG'}
+        })
+        # log a message (this creates a record put in the queue)
+        logging.getLogger().info(message_to_log)
+
+    @support.requires_subprocess()
+    def test_multiprocessing_queues(self):
+        # See gh-119819
+
+        cd = copy.deepcopy(self.config_queue_handler)
+        from multiprocessing import Queue as MQ, Manager as MM
+        q1 = MQ()  # this can't be pickled
+        q2 = MM().Queue()  # a proxy queue for use when pickling is needed
+        q3 = MM().JoinableQueue()  # a joinable proxy queue
+        for qspec in (q1, q2, q3):
+            fn = make_temp_file('.log', 'test_logging-cmpqh-')
+            cd['handlers']['h1']['filename'] = fn
+            cd['handlers']['ah']['queue'] = qspec
+            qh = None
+            try:
+                self.apply_config(cd)
+                qh = logging.getHandlerByName('ah')
+                self.assertEqual(sorted(logging.getHandlerNames()), ['ah', 'h1'])
+                self.assertIsNotNone(qh.listener)
+                self.assertIs(qh.queue, qspec)
+                self.assertIs(qh.listener.queue, qspec)
+            finally:
+                h = logging.getHandlerByName('h1')
+                if h:
+                    self.addCleanup(closeFileHandler, h, fn)
+                else:
+                    self.addCleanup(os.remove, fn)
+
     def test_90195(self):
         # See gh-90195
         config = {
@@ -3616,6 +4082,55 @@ class ConfigDictTest(BaseTest):
         self.apply_config(config)
         # Logger should be enabled, since explicitly mentioned
         self.assertFalse(logger.disabled)
+
+    def test_111615(self):
+        # See gh-111615
+        import_helper.import_module('_multiprocessing')  # see gh-113692
+        mp = import_helper.import_module('multiprocessing')
+
+        config = {
+            'version': 1,
+            'handlers': {
+                'sink': {
+                    'class': 'logging.handlers.QueueHandler',
+                    'queue': mp.get_context('spawn').Queue(),
+                },
+            },
+            'root': {
+                'handlers': ['sink'],
+                'level': 'DEBUG',
+            },
+        }
+        logging.config.dictConfig(config)
+
+    # gh-118868: check if kwargs are passed to logging QueueHandler
+    def test_kwargs_passing(self):
+        class CustomQueueHandler(logging.handlers.QueueHandler):
+            def __init__(self, *args, **kwargs):
+                super().__init__(queue.Queue())
+                self.custom_kwargs = kwargs
+
+        custom_kwargs = {'foo': 'bar'}
+
+        config = {
+            'version': 1,
+            'handlers': {
+                'custom': {
+                    'class': CustomQueueHandler,
+                    **custom_kwargs
+                },
+            },
+            'root': {
+                'level': 'DEBUG',
+                'handlers': ['custom']
+            }
+        }
+
+        logging.config.dictConfig(config)
+
+        handler = logging.getHandlerByName('custom')
+        self.assertEqual(handler.custom_kwargs, custom_kwargs)
+
 
 class ManagerTest(BaseTest):
     def test_manager_loggerclass(self):
@@ -3656,6 +4171,20 @@ class ChildLoggerTest(BaseTest):
         self.assertIs(c2, logging.getLogger('abc.def.ghi'))
         self.assertIs(c2, c3)
 
+    def test_get_children(self):
+        r = logging.getLogger()
+        l1 = logging.getLogger('foo')
+        l2 = logging.getLogger('foo.bar')
+        l3 = logging.getLogger('foo.bar.baz.bozz')
+        l4 = logging.getLogger('bar')
+        kids = r.getChildren()
+        expected = {l1, l4}
+        self.assertEqual(expected, kids & expected)  # might be other kids for root
+        self.assertNotIn(l2, expected)
+        kids = l1.getChildren()
+        self.assertEqual({l2}, kids)
+        kids = l2.getChildren()
+        self.assertEqual(set(), kids)
 
 class DerivedLogRecord(logging.LogRecord):
     pass
@@ -4518,7 +5047,6 @@ class ModuleLevelMiscTest(BaseTest):
             h.close()
             logging.setLoggerClass(logging.Logger)
 
-    @support.cpython_only    # PyPy doesn't call __del__() at shutdown
     def test_logging_at_shutdown(self):
         # bpo-20037: Doing text I/O late at interpreter shutdown must not crash
         code = textwrap.dedent("""
@@ -4538,7 +5066,6 @@ class ModuleLevelMiscTest(BaseTest):
         self.assertIn("exception in __del__", err)
         self.assertIn("ValueError: some error", err)
 
-    @support.cpython_only    # PyPy doesn't call __del__() at shutdown
     def test_logging_at_shutdown_open(self):
         # bpo-26789: FileHandler keeps a reference to the builtin open()
         # function to be able to open or reopen the file during Python
@@ -4676,29 +5203,65 @@ class LogRecordTest(BaseTest):
                 import multiprocessing
 
     def test_optional(self):
-        r = logging.makeLogRecord({})
+        NONE = self.assertIsNone
         NOT_NONE = self.assertIsNotNone
+
+        r = logging.makeLogRecord({})
         NOT_NONE(r.thread)
         NOT_NONE(r.threadName)
         NOT_NONE(r.process)
         NOT_NONE(r.processName)
+        NONE(r.taskName)
         log_threads = logging.logThreads
         log_processes = logging.logProcesses
         log_multiprocessing = logging.logMultiprocessing
+        log_asyncio_tasks = logging.logAsyncioTasks
         try:
             logging.logThreads = False
             logging.logProcesses = False
             logging.logMultiprocessing = False
+            logging.logAsyncioTasks = False
             r = logging.makeLogRecord({})
-            NONE = self.assertIsNone
+
             NONE(r.thread)
             NONE(r.threadName)
             NONE(r.process)
             NONE(r.processName)
+            NONE(r.taskName)
         finally:
             logging.logThreads = log_threads
             logging.logProcesses = log_processes
             logging.logMultiprocessing = log_multiprocessing
+            logging.logAsyncioTasks = log_asyncio_tasks
+
+    async def _make_record_async(self, assertion):
+        r = logging.makeLogRecord({})
+        assertion(r.taskName)
+
+    @support.requires_working_socket()
+    def test_taskName_with_asyncio_imported(self):
+        try:
+            make_record = self._make_record_async
+            with asyncio.Runner() as runner:
+                logging.logAsyncioTasks = True
+                runner.run(make_record(self.assertIsNotNone))
+                logging.logAsyncioTasks = False
+                runner.run(make_record(self.assertIsNone))
+        finally:
+            asyncio.set_event_loop_policy(None)
+
+    @support.requires_working_socket()
+    def test_taskName_without_asyncio_imported(self):
+        try:
+            make_record = self._make_record_async
+            with asyncio.Runner() as runner, support.swap_item(sys.modules, 'asyncio', None):
+                logging.logAsyncioTasks = True
+                runner.run(make_record(self.assertIsNone))
+                logging.logAsyncioTasks = False
+                runner.run(make_record(self.assertIsNone))
+        finally:
+            asyncio.set_event_loop_policy(None)
+
 
 class BasicConfigTest(unittest.TestCase):
 
@@ -4961,8 +5524,7 @@ class BasicConfigTest(unittest.TestCase):
             message = []
 
             def dummy_handle_error(record):
-                _, v, _ = sys.exc_info()
-                message.append(str(v))
+                message.append(str(sys.exception()))
 
             handler.handleError = dummy_handle_error
             logging.debug('The Øresund Bridge joins Copenhagen to Malmö')
@@ -4976,6 +5538,35 @@ class BasicConfigTest(unittest.TestCase):
             os.remove('test.log')
             # didn't write anything due to the encoding error
             self.assertEqual(data, r'')
+
+    @support.requires_working_socket()
+    def test_log_taskName(self):
+        async def log_record():
+            logging.warning('hello world')
+
+        handler = None
+        log_filename = make_temp_file('.log', 'test-logging-taskname-')
+        self.addCleanup(os.remove, log_filename)
+        try:
+            encoding = 'utf-8'
+            logging.basicConfig(filename=log_filename, errors='strict',
+                                encoding=encoding, level=logging.WARNING,
+                                format='%(taskName)s - %(message)s')
+
+            self.assertEqual(len(logging.root.handlers), 1)
+            handler = logging.root.handlers[0]
+            self.assertIsInstance(handler, logging.FileHandler)
+
+            with asyncio.Runner(debug=True) as runner:
+                logging.logAsyncioTasks = True
+                runner.run(log_record())
+            with open(log_filename, encoding='utf-8') as f:
+                data = f.read().strip()
+            self.assertRegex(data, r'Task-\d+ - hello world')
+        finally:
+            asyncio.set_event_loop_policy(None)
+            if handler:
+                handler.close()
 
 
     def _test_log(self, method, level=None):
@@ -5451,8 +6042,7 @@ class BaseFileTest(BaseTest):
 
     def setUp(self):
         BaseTest.setUp(self)
-        fd, self.fn = tempfile.mkstemp(".log", "test_logging-2-")
-        os.close(fd)
+        self.fn = make_temp_file(".log", "test_logging-2-")
         self.rmfiles = []
 
     def tearDown(self):
@@ -5495,13 +6085,28 @@ class FileHandlerTest(BaseFileTest):
             self.assertEqual(fp.read().strip(), '1')
 
 class RotatingFileHandlerTest(BaseFileTest):
-    @unittest.skipIf(support.is_wasi, "WASI does not have /dev/null.")
     def test_should_not_rollover(self):
-        # If maxbytes is zero rollover never occurs
+        # If file is empty rollover never occurs
+        rh = logging.handlers.RotatingFileHandler(
+            self.fn, encoding="utf-8", maxBytes=1)
+        self.assertFalse(rh.shouldRollover(None))
+        rh.close()
+
+        # If maxBytes is zero rollover never occurs
         rh = logging.handlers.RotatingFileHandler(
                 self.fn, encoding="utf-8", maxBytes=0)
         self.assertFalse(rh.shouldRollover(None))
         rh.close()
+
+        with open(self.fn, 'wb') as f:
+            f.write(b'\n')
+        rh = logging.handlers.RotatingFileHandler(
+                self.fn, encoding="utf-8", maxBytes=0)
+        self.assertFalse(rh.shouldRollover(None))
+        rh.close()
+
+    @unittest.skipIf(support.is_wasi, "WASI does not have /dev/null.")
+    def test_should_not_rollover_non_file(self):
         # bpo-45401 - test with special file
         # We set maxBytes to 1 so that rollover would normally happen, except
         # for the check for regular files
@@ -5511,17 +6116,46 @@ class RotatingFileHandlerTest(BaseFileTest):
         rh.close()
 
     def test_should_rollover(self):
-        rh = logging.handlers.RotatingFileHandler(self.fn, encoding="utf-8", maxBytes=1)
+        with open(self.fn, 'wb') as f:
+            f.write(b'\n')
+        rh = logging.handlers.RotatingFileHandler(self.fn, encoding="utf-8", maxBytes=2)
         self.assertTrue(rh.shouldRollover(self.next_rec()))
         rh.close()
 
     def test_file_created(self):
         # checks that the file is created and assumes it was created
         # by us
+        os.unlink(self.fn)
         rh = logging.handlers.RotatingFileHandler(self.fn, encoding="utf-8")
         rh.emit(self.next_rec())
         self.assertLogFile(self.fn)
         rh.close()
+
+    def test_max_bytes(self, delay=False):
+        kwargs = {'delay': delay} if delay else {}
+        os.unlink(self.fn)
+        rh = logging.handlers.RotatingFileHandler(
+            self.fn, encoding="utf-8", backupCount=2, maxBytes=100, **kwargs)
+        self.assertIs(os.path.exists(self.fn), not delay)
+        small = logging.makeLogRecord({'msg': 'a'})
+        large = logging.makeLogRecord({'msg': 'b'*100})
+        self.assertFalse(rh.shouldRollover(small))
+        self.assertFalse(rh.shouldRollover(large))
+        rh.emit(small)
+        self.assertLogFile(self.fn)
+        self.assertFalse(os.path.exists(self.fn + ".1"))
+        self.assertFalse(rh.shouldRollover(small))
+        self.assertTrue(rh.shouldRollover(large))
+        rh.emit(large)
+        self.assertTrue(os.path.exists(self.fn))
+        self.assertLogFile(self.fn + ".1")
+        self.assertFalse(os.path.exists(self.fn + ".2"))
+        self.assertTrue(rh.shouldRollover(small))
+        self.assertTrue(rh.shouldRollover(large))
+        rh.close()
+
+    def test_max_bytes_delay(self):
+        self.test_max_bytes(delay=True)
 
     def test_rollover_filenames(self):
         def namer(name):
@@ -5531,10 +6165,14 @@ class RotatingFileHandlerTest(BaseFileTest):
         rh.namer = namer
         rh.emit(self.next_rec())
         self.assertLogFile(self.fn)
+        self.assertFalse(os.path.exists(namer(self.fn + ".1")))
         rh.emit(self.next_rec())
         self.assertLogFile(namer(self.fn + ".1"))
+        self.assertFalse(os.path.exists(namer(self.fn + ".2")))
         rh.emit(self.next_rec())
         self.assertLogFile(namer(self.fn + ".2"))
+        self.assertFalse(os.path.exists(namer(self.fn + ".3")))
+        rh.emit(self.next_rec())
         self.assertFalse(os.path.exists(namer(self.fn + ".3")))
         rh.close()
 
@@ -6370,7 +7008,7 @@ class MiscTestCase(unittest.TestCase):
             'logThreads', 'logMultiprocessing', 'logProcesses', 'currentframe',
             'PercentStyle', 'StrFormatStyle', 'StringTemplateStyle',
             'Filterer', 'PlaceHolder', 'Manager', 'RootLogger', 'root',
-            'threading'}
+            'threading', 'logAsyncioTasks'}
         support.check__all__(self, logging, not_exported=not_exported)
 
 

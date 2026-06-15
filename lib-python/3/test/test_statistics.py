@@ -1,4 +1,4 @@
-"""Test suite for statistics module, including helper NumericTestCase and
+x = """Test suite for statistics module, including helper NumericTestCase and
 approx_equal function.
 
 """
@@ -1074,7 +1074,7 @@ class UnivariateCommonMixin:
     def test_order_doesnt_matter(self):
         # Test that the order of data points doesn't change the result.
 
-        # CAUTION: due to floating point rounding errors, the result actually
+        # CAUTION: due to floating-point rounding errors, the result actually
         # may depend on the order. Consider this test representing an ideal.
         # To avoid this test failing, only test with exact values such as ints
         # or Fractions.
@@ -2566,6 +2566,22 @@ class TestCorrelationAndCovariance(unittest.TestCase):
         self.assertAlmostEqual(statistics.covariance(x, y), 0.1)
 
 
+    def test_correlation_spearman(self):
+        # https://statistics.laerd.com/statistical-guides/spearmans-rank-order-correlation-statistical-guide-2.php
+        # Compare with:
+        #     >>> import scipy.stats.mstats
+        #     >>> scipy.stats.mstats.spearmanr(reading, mathematics)
+        #     SpearmanrResult(correlation=0.6686960980480712, pvalue=0.03450954165178532)
+        # And Wolfram Alpha gives: 0.668696
+        #     https://www.wolframalpha.com/input?i=SpearmanRho%5B%7B56%2C+75%2C+45%2C+71%2C+61%2C+64%2C+58%2C+80%2C+76%2C+61%7D%2C+%7B66%2C+70%2C+40%2C+60%2C+65%2C+56%2C+59%2C+77%2C+67%2C+63%7D%5D
+        reading = [56, 75, 45, 71, 61, 64, 58, 80, 76, 61]
+        mathematics = [66, 70, 40, 60, 65, 56, 59, 77, 67, 63]
+        self.assertAlmostEqual(statistics.correlation(reading, mathematics, method='ranked'),
+                               0.6686960980480712)
+
+        with self.assertRaises(ValueError):
+            statistics.correlation(reading, mathematics, method='bad_method')
+
 class TestLinearRegression(unittest.TestCase):
 
     def test_constant_input_error(self):
@@ -2594,6 +2610,16 @@ class TestLinearRegression(unittest.TestCase):
         slope, intercept = statistics.linear_regression(x, y, proportional=True)
         self.assertAlmostEqual(slope, 20 + 1/150)
         self.assertEqual(intercept, 0.0)
+
+    def test_float_output(self):
+        x = [Fraction(2, 3), Fraction(3, 4)]
+        y = [Fraction(4, 5), Fraction(5, 6)]
+        slope, intercept = statistics.linear_regression(x, y)
+        self.assertTrue(isinstance(slope, float))
+        self.assertTrue(isinstance(intercept, float))
+        slope, intercept = statistics.linear_regression(x, y, proportional=True)
+        self.assertTrue(isinstance(slope, float))
+        self.assertTrue(isinstance(intercept, float))
 
 class TestNormalDist:
 
@@ -2803,9 +2829,10 @@ class TestNormalDist:
             iq.inv_cdf(1.0)                         # p is one
         with self.assertRaises(self.module.StatisticsError):
             iq.inv_cdf(1.1)                         # p over one
-        with self.assertRaises(self.module.StatisticsError):
-            iq = NormalDist(100, 0)                 # sigma is zero
-            iq.inv_cdf(0.5)
+
+        # Supported case:
+        iq = NormalDist(100, 0)                     # sigma is zero
+        self.assertEqual(iq.inv_cdf(0.5), 100)
 
         # Special values
         self.assertTrue(math.isnan(Z.inv_cdf(float('NaN'))))

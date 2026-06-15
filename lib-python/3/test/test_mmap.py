@@ -190,7 +190,6 @@ class MmapTests(unittest.TestCase):
             with open(TESTFN, "rb") as fp:
                 self.assertEqual(fp.read(), b'a'*mapsize,
                                  "Readonly memory map data file was modified")
-            m.close()  # XXX PyPy change, should upstream
 
         # Opening mmap with size too big
         with open(TESTFN, "r+b") as f:
@@ -310,7 +309,6 @@ class MmapTests(unittest.TestCase):
                 for p in [b"o", b"on", b"two", b"ones", b"s"]:
                     expected = data.find(p, i, j)
                     self.assertEqual(m.find(p, i, j), expected, (p, i, j))
-        m.close()  # XXX PyPy change, should upstream
 
     def test_find_does_not_access_beyond_buffer(self):
         try:
@@ -344,7 +342,6 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.rfind(b'one', 1, -1), 8)
         self.assertEqual(m.rfind(b'one', 1, -2), -1)
         self.assertEqual(m.rfind(bytearray(b'one')), 8)
-        m.close()  # XXX PyPy change, should upstream
 
 
     def test_double_close(self):
@@ -589,8 +586,7 @@ class MmapTests(unittest.TestCase):
         class anon_mmap(mmap.mmap):
             def __new__(klass, *args, **kwargs):
                 return mmap.mmap.__new__(klass, -1, *args, **kwargs)
-        m = anon_mmap(PAGESIZE)
-        m.close()  # XXX PyPy change, should upstream
+        anon_mmap(PAGESIZE)
 
     @unittest.skipUnless(hasattr(mmap, 'PROT_READ'), "needs mmap.PROT_READ")
     def test_prot_readonly(self):
@@ -637,7 +633,6 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.tell(), 9)
         self.assertEqual(m[:], b"012barbaz9")
         self.assertRaises(ValueError, m.write, b"ba")
-        m.close()  # XXX PyPy change, should upstream
 
     def test_non_ascii_byte(self):
         for b in (129, 200, 255): # > 128
@@ -843,7 +838,6 @@ class MmapTests(unittest.TestCase):
         self.assertEqual(m.madvise(mmap.MADV_NORMAL, PAGESIZE, size), None)
         self.assertEqual(m.madvise(mmap.MADV_NORMAL, 0, 2), None)
         self.assertEqual(m.madvise(mmap.MADV_NORMAL, 0, size), None)
-        m.close()  # XXX PyPy change, should upstream
 
     @unittest.skipUnless(os.name == 'nt', 'requires Windows')
     def test_resize_up_when_mapped_to_pagefile(self):
@@ -859,7 +853,6 @@ class MmapTests(unittest.TestCase):
         m.resize(new_size)
         self.assertEqual(len(m), new_size)
         self.assertEqual(m[:start_size], data[:start_size])
-        m.close()  # XXX PyPy change, should upstream
 
     @unittest.skipUnless(os.name == 'nt', 'requires Windows')
     def test_resize_down_when_mapped_to_pagefile(self):
@@ -875,7 +868,6 @@ class MmapTests(unittest.TestCase):
         m.resize(new_size)
         self.assertEqual(len(m), new_size)
         self.assertEqual(m[:new_size], data[:new_size])
-        m.close()  # XXX PyPy change, should upstream
 
     @unittest.skipUnless(os.name == 'nt', 'requires Windows')
     def test_resize_fails_if_mapping_held_elsewhere(self):

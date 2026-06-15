@@ -13,10 +13,7 @@ except ImportError:
 try:
     from _json import make_encoder as c_make_encoder
 except ImportError:
-    try:
-        from _pypyjson import make_encoder as c_make_encoder
-    except ImportError:
-        c_make_encoder = None
+    c_make_encoder = None
 
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
@@ -111,8 +108,8 @@ class JSONEncoder(object):
         """Constructor for JSONEncoder, with sensible defaults.
 
         If skipkeys is false, then it is a TypeError to attempt
-        encoding of keys that are not str, int, float or None.  If
-        skipkeys is True, such items are simply skipped.
+        encoding of keys that are not str, int, float, bool or None.
+        If skipkeys is True, such items are simply skipped.
 
         If ensure_ascii is true, the output is guaranteed to be str
         objects with all incoming non-ASCII characters escaped.  If

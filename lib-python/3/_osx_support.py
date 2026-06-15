@@ -110,9 +110,7 @@ def _get_system_version():
             if m is not None:
                 _SYSTEM_VERSION = '.'.join(m.group(1).split('.')[:2])
             # else: fall back to the default behaviour
-    if not _SYSTEM_VERSION:
-        # minimum supported MACOSX_DEPLOYMENT_TARGET version
-        return '10.9'
+
     return _SYSTEM_VERSION
 
 _SYSTEM_VERSION_TUPLE = None

@@ -35,25 +35,12 @@ import re
 import io
 import codecs
 import _compat_pickle
-try:
-    from __pypy__.builders import BytesBuilder
-    from __pypy__ import identity_dict
-except ImportError:
-    class BytesBuilder():
-        def __init__(self):
-            self.builder = io.BytesIO()
-        def __len__(self):
-            return self.builder.tell()
-        def build(self):
-            return self.builder.getbuffer()
-        def append(self, data):
-            self.builder.write(data)
- 
+
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
 try:
-    from __pypy__ import PickleBuffer
+    from _pickle import PickleBuffer
     __all__.append("PickleBuffer")
     _HAVE_PICKLE_BUFFER = True
 except ImportError:
@@ -110,12 +97,6 @@ class UnpicklingError(PickleError):
 class _Stop(Exception):
     def __init__(self, value):
         self.value = value
-
-# Jython has PyStringMap; it's a dict subclass with string keys
-try:
-    from org.python.core import PyStringMap
-except ImportError:
-    PyStringMap = None
 
 # Pickle opcodes.  See pickletools.py for extensive docs.  The listing
 # here is in kind-of alphabetical order of 1-character pickle code.
@@ -220,18 +201,18 @@ class _Framer:
         self.current_frame = None
 
     def start_framing(self):
-        self.current_frame = BytesBuilder()
+        self.current_frame = io.BytesIO()
 
     def end_framing(self):
-        if self.current_frame and len(self.current_frame) > 0:
+        if self.current_frame and self.current_frame.tell() > 0:
             self.commit_frame(force=True)
             self.current_frame = None
 
     def commit_frame(self, force=False):
-        if self.current_frame is not None:
+        if self.current_frame:
             f = self.current_frame
-            if len(f) >= self._FRAME_SIZE_TARGET or force:
-                data = f.build()
+            if f.tell() >= self._FRAME_SIZE_TARGET or force:
+                data = f.getbuffer()
                 write = self.file_write
                 if len(data) >= self._FRAME_SIZE_MIN:
                     # Issue a single call to the write method of the underlying
@@ -245,16 +226,15 @@ class _Framer:
                 # memory copy.
                 write(data)
 
-                # Start the new frame with a new BytesBuilder instance so that
+                # Start the new frame with a new io.BytesIO instance so that
                 # the file object can have delayed access to the previous frame
                 # contents via an unreleased memoryview of the previous
-                # BytesBuilder instance.
-                self.current_frame = BytesBuilder()
+                # io.BytesIO instance.
+                self.current_frame = io.BytesIO()
 
     def write(self, data):
-        if self.current_frame is not None:
-            self.current_frame.append(data)
-            return len(data)
+        if self.current_frame:
+            return self.current_frame.write(data)
         else:
             return self.file_write(data)
 
@@ -334,16 +314,17 @@ class _Unframer:
 # Tools used for pickling.
 
 def _getattribute(obj, name):
+    top = obj
     for subpath in name.split('.'):
         if subpath == '<locals>':
             raise AttributeError("Can't get local attribute {!r} on {!r}"
-                                 .format(name, obj))
+                                 .format(name, top))
         try:
             parent = obj
             obj = getattr(obj, subpath)
         except AttributeError:
             raise AttributeError("Can't get attribute {!r} on {!r}"
-                                 .format(name, obj)) from None
+                                 .format(name, top)) from None
     return obj, parent
 
 def whichmodule(obj, name):
@@ -416,6 +397,8 @@ def decode_long(data):
     return int.from_bytes(data, byteorder='little', signed=True)
 
 
+_NoValue = object()
+
 # Pickling machinery
 
 class _Pickler:
@@ -469,17 +452,13 @@ class _Pickler:
         except AttributeError:
             raise TypeError("file must have a 'write' attribute")
         self.framer = _Framer(self._file_write)
-        self.memo = identity_dict()
+        self.write = self.framer.write
+        self._write_large_bytes = self.framer.write_large_bytes
+        self.memo = {}
         self.proto = int(protocol)
         self.bin = protocol >= 1
         self.fast = 0
         self.fix_imports = fix_imports and protocol < 3
-
-    def write(self, arg):
-        return self.framer.write(arg)
-
-    def _write_large_bytes(self, arg0, arg1):
-        return self.framer.write_large_bytes(arg0, arg1)
 
     def clear_memo(self):
         """Clears the pickler's "memo".
@@ -523,10 +502,10 @@ class _Pickler:
         # growable) array, indexed by memo key.
         if self.fast:
             return
-        assert obj not in self.memo
+        assert id(obj) not in self.memo
         idx = len(self.memo)
         self.write(self.put(idx))
-        self.memo[obj] = idx, obj
+        self.memo[id(obj)] = idx, obj
 
     # Return a PUT (BINPUT, LONG_BINPUT) opcode string, with argument i.
     def put(self, idx):
@@ -554,13 +533,14 @@ class _Pickler:
         self.framer.commit_frame()
 
         # Check for persistent id (defined by a subclass)
-        pid = self.persistent_id(obj)
-        if pid is not None and save_persistent_id:
-            self.save_pers(pid)
-            return
+        if save_persistent_id:
+            pid = self.persistent_id(obj)
+            if pid is not None:
+                self.save_pers(pid)
+                return
 
         # Check the memo
-        x = self.memo.get(obj)
+        x = self.memo.get(id(obj))
         if x is not None:
             self.write(self.get(x[0]))
             return
@@ -714,8 +694,8 @@ class _Pickler:
             # If the object is already in the memo, this means it is
             # recursive. In this case, throw away everything we put on the
             # stack, and fetch the object back from the memo.
-            if obj in self.memo:
-                write(POP + self.get(self.memo[obj][0]))
+            if id(obj) in self.memo:
+                write(POP + self.get(self.memo[id(obj)][0]))
             else:
                 self.memoize(obj)
 
@@ -804,14 +784,10 @@ class _Pickler:
             self.write(FLOAT + repr(obj).encode("ascii") + b'\n')
     dispatch[float] = save_float
 
-    def save_bytes(self, obj):
-        if self.proto < 3:
-            if not obj: # bytes object is empty
-                self.save_reduce(bytes, (), obj=obj)
-            else:
-                self.save_reduce(codecs.encode,
-                                 (str(obj, 'latin1'), 'latin1'), obj=obj)
-            return
+    def _save_bytes_no_memo(self, obj):
+        # helper for writing bytes objects for protocol >= 3
+        # without memoizing them
+        assert self.proto >= 3
         n = len(obj)
         if n <= 0xff:
             self.write(SHORT_BINBYTES + pack("<B", n) + obj)
@@ -821,8 +797,28 @@ class _Pickler:
             self._write_large_bytes(BINBYTES + pack("<I", n), obj)
         else:
             self.write(BINBYTES + pack("<I", n) + obj)
+
+    def save_bytes(self, obj):
+        if self.proto < 3:
+            if not obj: # bytes object is empty
+                self.save_reduce(bytes, (), obj=obj)
+            else:
+                self.save_reduce(codecs.encode,
+                                 (str(obj, 'latin1'), 'latin1'), obj=obj)
+            return
+        self._save_bytes_no_memo(obj)
         self.memoize(obj)
     dispatch[bytes] = save_bytes
+
+    def _save_bytearray_no_memo(self, obj):
+        # helper for writing bytearray objects for protocol >= 5
+        # without memoizing them
+        assert self.proto >= 5
+        n = len(obj)
+        if n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(BYTEARRAY8 + pack("<Q", n), obj)
+        else:
+            self.write(BYTEARRAY8 + pack("<Q", n) + obj)
 
     def save_bytearray(self, obj):
         if self.proto < 5:
@@ -831,18 +827,14 @@ class _Pickler:
             else:
                 self.save_reduce(bytearray, (bytes(obj),), obj=obj)
             return
-        n = len(obj)
-        if n >= self.framer._FRAME_SIZE_TARGET:
-            self._write_large_bytes(BYTEARRAY8 + pack("<Q", n), obj)
-        else:
-            self.write(BYTEARRAY8 + pack("<Q", n) + obj)
+        self._save_bytearray_no_memo(obj)
         self.memoize(obj)
     dispatch[bytearray] = save_bytearray
 
     if _HAVE_PICKLE_BUFFER:
         def save_picklebuffer(self, obj):
             if self.proto < 5:
-                raise PicklingError("PickleBuffer can only pickled with "
+                raise PicklingError("PickleBuffer can only be pickled with "
                                     "protocol >= 5")
             with obj.raw() as m:
                 if not m.contiguous:
@@ -854,10 +846,18 @@ class _Pickler:
                 if in_band:
                     # Write data in-band
                     # XXX The C implementation avoids a copy here
+                    buf = m.tobytes()
+                    in_memo = id(buf) in self.memo
                     if m.readonly:
-                        self.save_bytes(m.tobytes())
+                        if in_memo:
+                            self._save_bytes_no_memo(buf)
+                        else:
+                            self.save_bytes(buf)
                     else:
-                        self.save_bytearray(m.tobytes())
+                        if in_memo:
+                            self._save_bytearray_no_memo(buf)
+                        else:
+                            self.save_bytearray(buf)
                 else:
                     # Write data out-of-band
                     self.write(NEXT_BUFFER)
@@ -904,8 +904,8 @@ class _Pickler:
             for element in obj:
                 save(element)
             # Subtle.  Same as in the big comment below.
-            if obj in memo:
-                get = self.get(memo[obj][0])
+            if id(obj) in memo:
+                get = self.get(memo[id(obj)][0])
                 self.write(POP * n + get)
             else:
                 self.write(_tuplesize2code[n])
@@ -919,7 +919,7 @@ class _Pickler:
         for element in obj:
             save(element)
 
-        if obj in memo:
+        if id(obj) in memo:
             # Subtle.  d was not in memo when we entered save_tuple(), so
             # the process of saving the tuple's elements must have saved
             # the tuple itself:  the tuple is recursive.  The proper action
@@ -927,7 +927,7 @@ class _Pickler:
             # simply GET the tuple (it's already constructed).  This check
             # could have been done in the "for element" loop instead, but
             # recursive tuples are a rare thing.
-            get = self.get(memo[obj][0])
+            get = self.get(memo[id(obj)][0])
             if self.bin:
                 write(POP_MARK + get)
             else:   # proto 0 -- POP_MARK not available
@@ -990,8 +990,6 @@ class _Pickler:
         self._batch_setitems(obj.items())
 
     dispatch[dict] = save_dict
-    if PyStringMap is not None:
-        dispatch[PyStringMap] = save_dict
 
     def _batch_setitems(self, items):
         # Helper to batch up SETITEMS sequences; proto >= 1 only
@@ -1060,11 +1058,11 @@ class _Pickler:
         for item in obj:
             save(item)
 
-        if obj in self.memo:
+        if id(obj) in self.memo:
             # If the object is already in the memo, this means it is
             # recursive. In this case, throw away everything we put on the
             # stack, and fetch the object back from the memo.
-            write(POP_MARK + self.get(self.memo[obj][0]))
+            write(POP_MARK + self.get(self.memo[id(obj)][0]))
             return
 
         write(FROZENSET)
@@ -1096,11 +1094,16 @@ class _Pickler:
                     (obj, module_name, name))
 
         if self.proto >= 2:
-            code = _extension_registry.get((module_name, name))
-            if code:
-                assert code > 0
+            code = _extension_registry.get((module_name, name), _NoValue)
+            if code is not _NoValue:
                 if code <= 0xff:
-                    write(EXT1 + pack("<B", code))
+                    data = pack("<B", code)
+                    if data == b'\0':
+                        # Should never happen in normal circumstances,
+                        # since the type and the value of the code are
+                        # checked in copyreg.add_extension().
+                        raise RuntimeError("extension code 0 is out of range")
+                    write(EXT1 + data)
                 elif code <= 0xffff:
                     write(EXT2 + pack("<H", code))
                 else:
@@ -1114,11 +1117,35 @@ class _Pickler:
             self.save(module_name)
             self.save(name)
             write(STACK_GLOBAL)
-        elif parent is not module:
-            self.save_reduce(getattr, (parent, lastname))
-        elif self.proto >= 3:
-            write(GLOBAL + bytes(module_name, "utf-8") + b'\n' +
-                  bytes(name, "utf-8") + b'\n')
+        elif '.' in name:
+            # In protocol < 4, objects with multi-part __qualname__
+            # are represented as
+            # getattr(getattr(..., attrname1), attrname2).
+            dotted_path = name.split('.')
+            name = dotted_path.pop(0)
+            save = self.save
+            for attrname in dotted_path:
+                save(getattr)
+                if self.proto < 2:
+                    write(MARK)
+            self._save_toplevel_by_name(module_name, name)
+            for attrname in dotted_path:
+                save(attrname)
+                if self.proto < 2:
+                    write(TUPLE)
+                else:
+                    write(TUPLE2)
+                write(REDUCE)
+        else:
+            self._save_toplevel_by_name(module_name, name)
+
+        self.memoize(obj)
+
+    def _save_toplevel_by_name(self, module_name, name):
+        if self.proto >= 3:
+            # Non-ASCII identifiers are supported only with protocols >= 3.
+            self.write(GLOBAL + bytes(module_name, "utf-8") + b'\n' +
+                       bytes(name, "utf-8") + b'\n')
         else:
             if self.fix_imports:
                 r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
@@ -1128,14 +1155,12 @@ class _Pickler:
                 elif module_name in r_import_mapping:
                     module_name = r_import_mapping[module_name]
             try:
-                write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
-                      bytes(name, "ascii") + b'\n')
+                self.write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
+                           bytes(name, "ascii") + b'\n')
             except UnicodeEncodeError:
                 raise PicklingError(
                     "can't pickle global identifier '%s.%s' using "
-                    "pickle protocol %i" % (module, name, self.proto)) from None
-
-        self.memoize(obj)
+                    "pickle protocol %i" % (module_name, name, self.proto)) from None
 
     def save_type(self, obj):
         if obj is type(None):
@@ -1507,7 +1532,7 @@ class _Unpickler:
                 value = klass(*args)
             except TypeError as err:
                 raise TypeError("in constructor for %s: %s" %
-                                (klass.__name__, str(err)), sys.exc_info()[2])
+                                (klass.__name__, str(err)), err.__traceback__)
         else:
             value = klass.__new__(klass)
         self.append(value)
@@ -1572,9 +1597,8 @@ class _Unpickler:
     dispatch[EXT4[0]] = load_ext4
 
     def get_extension(self, code):
-        nil = []
-        obj = _extension_cache.get(code, nil)
-        if obj is not nil:
+        obj = _extension_cache.get(code, _NoValue)
+        if obj is not _NoValue:
             self.append(obj)
             return
         key = _inverted_registry.get(code)

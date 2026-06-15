@@ -182,12 +182,7 @@ class CoverageResults:
         """Return True if the filename does not refer to a file
         we want to have reported.
         """
-        return ((filename.startswith('<') and filename.endswith('>')) or
-                # XXX PyPy freezes some (pure-Python) modules at
-                # translation-time.  These contain filenames starting with
-                # "<builtin>/" instead of their actual filenames.  Ignore them
-                # for now.
-                filename.startswith("<builtin>/"))
+        return filename.startswith('<') and filename.endswith('>')
 
     def update(self, other):
         """Merge in the data from another CoverageResults"""
@@ -494,10 +489,6 @@ class Trace:
             if len(funcs) == 1:
                 dicts = [d for d in gc.get_referrers(funcs[0])
                              if isinstance(d, dict)]
-                if len(dicts) == 0:
-                    # PyPy may store functions directly on the class
-                    # (more exactly: the container is not a Python object)
-                    dicts = funcs
                 if len(dicts) == 1:
                     classes = [c for c in gc.get_referrers(dicts[0])
                                    if hasattr(c, "__bases__")]
@@ -568,8 +559,12 @@ class Trace:
             if self.start_time:
                 print('%.2f' % (_time() - self.start_time), end=' ')
             bname = os.path.basename(filename)
-            print("%s(%d): %s" % (bname, lineno,
-                                  linecache.getline(filename, lineno)), end='')
+            line = linecache.getline(filename, lineno)
+            print("%s(%d)" % (bname, lineno), end='')
+            if line:
+                print(": ", line, end='')
+            else:
+                print()
         return self.localtrace
 
     def localtrace_trace(self, frame, why, arg):
@@ -581,8 +576,12 @@ class Trace:
             if self.start_time:
                 print('%.2f' % (_time() - self.start_time), end=' ')
             bname = os.path.basename(filename)
-            print("%s(%d): %s" % (bname, lineno,
-                                  linecache.getline(filename, lineno)), end='')
+            line = linecache.getline(filename, lineno)
+            print("%s(%d)" % (bname, lineno), end='')
+            if line:
+                print(": ", line, end='')
+            else:
+                print()
         return self.localtrace
 
     def localtrace_count(self, frame, why, arg):

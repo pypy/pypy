@@ -1,6 +1,7 @@
 import sys
 import unittest
 import textwrap
+from test.support.testcase import ExceptionIsLikeMixin
 
 class TestInvalidExceptStar(unittest.TestCase):
     def test_mixed_except_and_except_star_is_syntax_error(self):
@@ -48,26 +49,21 @@ class TestInvalidExceptStar(unittest.TestCase):
 
 
 class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
-    # PYPY: msg varies by failure
     MSG = (r"'break', 'continue' and 'return'"
            r" cannot appear in an except\* block")
 
-    def check_invalid(self, src, msg):
-        with self.assertRaisesRegex(SyntaxError, msg):
+    def check_invalid(self, src):
+        with self.assertRaisesRegex(SyntaxError, self.MSG):
             compile(textwrap.dedent(src), "<string>", "exec")
 
     def test_break_in_except_star(self):
-        if sys.implementation.name == 'pypy':
-            msg = r"'break' cannot appear in an except\* block"
-        else:
-            msg = self.msg
         self.check_invalid(
             """
             try:
                 raise ValueError
             except* Exception as e:
                 break
-            """, msg)
+            """)
 
         self.check_invalid(
             """
@@ -77,7 +73,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                 except* Exception as e:
                     if i == 2:
                         break
-            """, msg)
+            """)
 
         self.check_invalid(
             """
@@ -89,14 +85,10 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                         break
                 finally:
                     return 0
-            """, msg)
+            """)
 
 
     def test_continue_in_except_star_block_invalid(self):
-        if sys.implementation.name == 'pypy':
-            msg = r"'continue' cannot appear in an except\* block"
-        else:
-            msg = self.msg
         self.check_invalid(
             """
             for i in range(5):
@@ -104,7 +96,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     raise ValueError
                 except* Exception as e:
                     continue
-            """, msg)
+            """)
 
         self.check_invalid(
             """
@@ -114,7 +106,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                 except* Exception as e:
                     if i == 2:
                         continue
-            """, msg)
+            """)
 
         self.check_invalid(
             """
@@ -126,13 +118,9 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                         continue
                 finally:
                     return 0
-            """, msg)
+            """)
 
     def test_return_in_except_star_block_invalid(self):
-        if sys.implementation.name == 'pypy':
-            msg = r"'return' cannot appear in an except\* block"
-        else:
-            msg = self.msg
         self.check_invalid(
             """
             def f():
@@ -140,7 +128,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     raise ValueError
                 except* Exception as e:
                     return 42
-            """, msg)
+            """)
 
         self.check_invalid(
             """
@@ -151,7 +139,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     return 42
                 finally:
                     finished = True
-            """, msg)
+            """)
 
     def test_break_continue_in_except_star_block_valid(self):
         try:
@@ -182,26 +170,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
         self.assertIsInstance(exc, ExceptionGroup)
 
 
-class ExceptStarTest(unittest.TestCase):
-    def assertExceptionIsLike(self, exc, template):
-        if exc is None and template is None:
-            return
-
-        if template is None:
-            self.fail(f"unexpected exception: {exc}")
-
-        if exc is None:
-            self.fail(f"expected an exception like {template!r}, got None")
-
-        if not isinstance(exc, ExceptionGroup):
-            self.assertEqual(exc.__class__, template.__class__)
-            self.assertEqual(exc.args[0], template.args[0])
-        else:
-            self.assertEqual(exc.message, template.message)
-            self.assertEqual(len(exc.exceptions), len(template.exceptions))
-            for e, t in zip(exc.exceptions, template.exceptions):
-                self.assertExceptionIsLike(e, t)
-
+class ExceptStarTest(ExceptionIsLikeMixin, unittest.TestCase):
     def assertMetadataEqual(self, e1, e2):
         if e1 is None or e2 is None:
             self.assertTrue(e1 is None and e2 is None)
@@ -982,6 +951,49 @@ class TestExceptStarExceptionGroupSubclass(ExceptStarTest):
         self.assertExceptionIsLike(exc, FalsyEG("eg", [TypeError(1)]))
         self.assertExceptionIsLike(tes, FalsyEG("eg", [TypeError(1)]))
         self.assertExceptionIsLike(ves, FalsyEG("eg", [ValueError(2)]))
+
+    def test_exception_group_subclass_with_bad_split_func(self):
+        # see gh-128049.
+        class BadEG1(ExceptionGroup):
+            def split(self, *args):
+                return "NOT A 2-TUPLE!"
+
+        class BadEG2(ExceptionGroup):
+            def split(self, *args):
+                return ("NOT A 2-TUPLE!",)
+
+        eg_list = [
+            (BadEG1("eg", [OSError(123), ValueError(456)]),
+             r"split must return a tuple, not str"),
+            (BadEG2("eg", [OSError(123), ValueError(456)]),
+             r"split must return a 2-tuple, got tuple of size 1")
+        ]
+
+        for eg_class, msg in eg_list:
+            with self.assertRaisesRegex(TypeError, msg) as m:
+                try:
+                    raise eg_class
+                except* ValueError:
+                    pass
+                except* OSError:
+                    pass
+
+            self.assertExceptionIsLike(m.exception.__context__, eg_class)
+
+        # we allow tuples of length > 2 for backwards compatibility
+        class WeirdEG(ExceptionGroup):
+            def split(self, *args):
+                return super().split(*args) + ("anything", 123456, None)
+
+        try:
+            raise WeirdEG("eg", [OSError(123), ValueError(456)])
+        except* OSError as e:
+            oeg = e
+        except* ValueError as e:
+            veg = e
+
+        self.assertExceptionIsLike(oeg, WeirdEG("eg", [OSError(123)]))
+        self.assertExceptionIsLike(veg, WeirdEG("eg", [ValueError(456)]))
 
 
 class TestExceptStarCleanup(ExceptStarTest):

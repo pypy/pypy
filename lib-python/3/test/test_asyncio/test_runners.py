@@ -1,7 +1,6 @@
 import _thread
 import asyncio
 import contextvars
-import gc
 import re
 import signal
 import threading
@@ -9,7 +8,6 @@ import unittest
 from test.test_asyncio import utils as test_utils
 from unittest import mock
 from unittest.mock import patch
-from test import support
 
 
 def tearDownModule():
@@ -262,6 +260,16 @@ class RunTests(BaseTest):
         with self.assertRaises(asyncio.CancelledError):
             asyncio.run(main())
 
+    def test_asyncio_run_loop_factory(self):
+        factory = mock.Mock()
+        loop = factory.return_value = self.new_loop()
+
+        async def main():
+            self.assertEqual(asyncio.get_running_loop(), loop)
+
+        asyncio.run(main(), loop_factory=factory)
+        factory.assert_called_once_with()
+
 
 class RunnerTests(BaseTest):
 
@@ -391,8 +399,6 @@ class RunnerTests(BaseTest):
                     ),
                 ):
                     runner.run(f())
-                # PYPY: add gc.collect
-                support.gc_collect()
 
     def test_interrupt_call_soon(self):
         # The only case when task is not suspended by waiting a future
@@ -446,7 +452,7 @@ class RunnerTests(BaseTest):
                 runner.run(coro())
 
     def test_signal_install_not_supported_ok(self):
-        # signal.signal() can throw if the "main thread" doensn't have signals enabled
+        # signal.signal() can throw if the "main thread" doesn't have signals enabled
         assert threading.current_thread() is threading.main_thread()
 
         async def coro():

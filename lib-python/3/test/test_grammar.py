@@ -2,8 +2,7 @@
 # This just tests whether the parser accepts them all.
 
 from test.support import check_syntax_error
-from test.support import import_helper, check_impl_detail
-from test.support.warnings_helper import check_syntax_warning
+from test.support import import_helper
 import inspect
 import unittest
 import sys
@@ -165,7 +164,7 @@ class TokenTests(unittest.TestCase):
         x = 3.14
         x = 314.
         x = 0.314
-        # XXX x = 000.314
+        x = 000.314
         x = .314
         x = 3e14
         x = 3E14
@@ -241,12 +240,9 @@ class TokenTests(unittest.TestCase):
             with self.assertRaisesRegex(SyntaxError, r"invalid character '⁄' \(U\+2044\)"):
                 compile(f"{num}⁄7", "<testcase>", "eval")
 
+            with self.assertWarnsRegex(SyntaxWarning, r'invalid \w+ literal'):
+                compile(f"{num}is x", "<testcase>", "eval")
             with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', '"is" with a literal',
-                                        SyntaxWarning)
-                with self.assertWarnsRegex(SyntaxWarning,
-                            r'invalid \w+ literal'):
-                    compile(f"{num}is x", "<testcase>", "eval")
                 warnings.simplefilter('error', SyntaxWarning)
                 with self.assertRaisesRegex(SyntaxError,
                             r'invalid \w+ literal'):
@@ -1483,14 +1479,22 @@ class GrammarTests(unittest.TestCase):
         if 1 < 1 > 1 == 1 >= 1 <= 1 != 1 in 1 not in x is x is not x: pass
 
     def test_comparison_is_literal(self):
-        def check(test, msg='"is" with a literal'):
+        def check(test, msg):
             self.check_syntax_warning(test, msg)
 
-        check('x is 1')
-        check('x is "thing"')
-        check('1 is x')
-        check('x is y is 1')
-        check('x is not 1', '"is not" with a literal')
+        check('x is 1', '"is" with \'int\' literal')
+        check('x is "thing"', '"is" with \'str\' literal')
+        check('1 is x', '"is" with \'int\' literal')
+        check('x is y is 1', '"is" with \'int\' literal')
+        check('x is not 1', '"is not" with \'int\' literal')
+        check('x is not (1, 2)', '"is not" with \'tuple\' literal')
+        check('(1, 2) is not x', '"is not" with \'tuple\' literal')
+
+        check('None is 1', '"is" with \'int\' literal')
+        check('1 is None', '"is" with \'int\' literal')
+
+        check('x == 3 is y', '"is" with \'int\' literal')
+        check('x == "thing" is y', '"is" with \'str\' literal')
 
         with warnings.catch_warnings():
             warnings.simplefilter('error', SyntaxWarning)
@@ -1498,6 +1502,10 @@ class GrammarTests(unittest.TestCase):
             compile('x is False', '<testcase>', 'exec')
             compile('x is True', '<testcase>', 'exec')
             compile('x is ...', '<testcase>', 'exec')
+            compile('None is x', '<testcase>', 'exec')
+            compile('False is x', '<testcase>', 'exec')
+            compile('True is x', '<testcase>', 'exec')
+            compile('... is x', '<testcase>', 'exec')
 
     def test_warn_missed_comma(self):
         def check(test):
@@ -1560,8 +1568,7 @@ class GrammarTests(unittest.TestCase):
         msg=r'indices must be integers or slices, not generator;'
         check('[[1, 2] [(i for i in range(5))]]')
         msg=r'indices must be integers or slices, not function;'
-        # PyPy: only emits error, not error + warning
-        # check('[[1, 2] [(lambda x, y: x)]]')
+        check('[[1, 2] [(lambda x, y: x)]]')
         msg=r'indices must be integers or slices, not str;'
         check('[[1, 2] [f"{x}"]]')
         check('[[1, 2] [f"x={x}"]]')
@@ -1629,7 +1636,7 @@ class GrammarTests(unittest.TestCase):
         s = a[-5:]
         s = a[:-1]
         s = a[-4:-3]
-        # A rough test of SF bug 1333982.  http://python.org/sf/1333982
+        # A rough test of SF bug 1333982.  https://bugs.python.org/issue1333982
         # The testing here is fairly incomplete.
         # Test cases should include: commas with 1 and 2 colons
         d = {}
@@ -2022,6 +2029,18 @@ class GrammarTests(unittest.TestCase):
 
         with self.assertRaises(Done):
             foo().send(None)
+
+    def test_complex_lambda(self):
+        def test1(foo, bar):
+            return ""
+
+        def test2():
+            return f"{test1(
+                foo=lambda: '、、、、、、、、、、、、、、、、、',
+                bar=lambda: 'abcdefghijklmnopqrstuvwxyz 123456789 123456789',
+            )}"
+
+        self.assertEqual(test2(), "")
 
 
 if __name__ == '__main__':

@@ -11,10 +11,7 @@ except ImportError:
     _functype = None
     from _operator import _compare_digest as compare_digest
 else:
-    # pypy difference: we have a _hashlib, but it does not have a
-    # compare_digest
-    if hasattr(_hashopenssl, "compare_digest"):
-        compare_digest = _hashopenssl.compare_digest
+    compare_digest = _hashopenssl.compare_digest
     _functype = type(_hashopenssl.openssl_sha256)  # builtin type
 
 import hashlib as _hashlib

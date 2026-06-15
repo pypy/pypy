@@ -5,6 +5,7 @@ import unittest
 
 from collections import namedtuple
 import contextlib
+import io
 import json
 import os
 import os.path
@@ -20,7 +21,6 @@ if not support.has_subprocess_support:
     raise unittest.SkipTest("test module requires subprocess")
 
 MACOS = (sys.platform == 'darwin')
-Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 PYMEM_ALLOCATOR_NOT_SET = 0
 PYMEM_ALLOCATOR_DEBUG = 2
 PYMEM_ALLOCATOR_MALLOC = 3
@@ -108,7 +108,7 @@ class EmbeddingTestsMixin:
             print(f"--- {cmd} failed ---")
             print(f"stdout:\n{out}")
             print(f"stderr:\n{err}")
-            print(f"------")
+            print("------")
 
         self.assertEqual(p.returncode, returncode,
                          "bad returncode %d, stderr is %r" %
@@ -345,33 +345,38 @@ class EmbeddingTests(EmbeddingTestsMixin, unittest.TestCase):
         out, err = self.run_embedded_interpreter("test_repeated_simple_init")
         self.assertEqual(out, 'Finalized\n' * INIT_LOOPS)
 
-    def test_quickened_static_code_gets_unquickened_at_Py_FINALIZE(self):
+    @support.requires_specialization
+    def test_specialized_static_code_gets_unspecialized_at_Py_FINALIZE(self):
         # https://github.com/python/cpython/issues/92031
-
-        # Do these imports outside of the code string to avoid using
-        # importlib too much from within the code string, so that
-        # _handle_fromlist doesn't get quickened until we intend it to.
-        from dis import _all_opmap
-        resume = _all_opmap["RESUME"]
-        resume_quick = _all_opmap["RESUME_QUICK"]
-        from test.test_dis import QUICKENING_WARMUP_DELAY
+        from test.test_dis import ADAPTIVE_WARMUP_DELAY
 
         code = textwrap.dedent(f"""\
+            import dis
             import importlib._bootstrap
+            import opcode
+
+            def is_specialized(f):
+                for instruction in dis.get_instructions(f, adaptive=True):
+                    opname = instruction.opname
+                    if (
+                        opname in opcode._specialized_instructions
+                        # Exclude superinstructions:
+                        and "__" not in opname
+                    ):
+                        return True
+                return False
+
             func = importlib._bootstrap._handle_fromlist
-            code = func.__code__
 
-            # Assert initially unquickened.
-            # Use sets to account for byte order.
-            if set(code._co_code_adaptive[:2]) != set([{resume}, 0]):
-                raise AssertionError()
+            # "copy" the code to un-specialize it:
+            func.__code__ = func.__code__.replace()
 
-            for i in range({QUICKENING_WARMUP_DELAY}):
+            assert not is_specialized(func), "specialized instructions found"
+
+            for i in range({ADAPTIVE_WARMUP_DELAY}):
                 func(importlib._bootstrap, ["x"], lambda *args: None)
 
-            # Assert quickening worked
-            if set(code._co_code_adaptive[:2]) != set([{resume_quick}, 0]):
-                raise AssertionError()
+            assert is_specialized(func), "no specialized instructions found"
 
             print("Tests passed")
         """)
@@ -384,6 +389,70 @@ class EmbeddingTests(EmbeddingTestsMixin, unittest.TestCase):
         code = "print('\\N{digit nine}')"
         out, err = self.run_embedded_interpreter("test_repeated_init_exec", code)
         self.assertEqual(out, '9\n' * INIT_LOOPS)
+
+    def test_static_types_inherited_slots(self):
+        script = textwrap.dedent("""
+            import test.support
+
+            results = {}
+            def add(cls, slot, own):
+                value = getattr(cls, slot)
+                try:
+                    subresults = results[cls.__name__]
+                except KeyError:
+                    subresults = results[cls.__name__] = {}
+                subresults[slot] = [repr(value), own]
+
+            for cls in test.support.iter_builtin_types():
+                for slot, own in test.support.iter_slot_wrappers(cls):
+                    add(cls, slot, own)
+            """)
+
+        ns = {}
+        exec(script, ns, ns)
+        all_expected = ns['results']
+        del ns
+
+        script += textwrap.dedent("""
+            import json
+            import sys
+            text = json.dumps(results)
+            print(text, file=sys.stderr)
+            """)
+        out, err = self.run_embedded_interpreter(
+                "test_repeated_init_exec", script, script)
+        results = err.split('--- Loop #')[1:]
+        results = [res.rpartition(' ---\n')[-1] for res in results]
+
+        self.maxDiff = None
+        for i, text in enumerate(results, start=1):
+            result = json.loads(text)
+            for classname, expected in all_expected.items():
+                with self.subTest(loop=i, cls=classname):
+                    slots = result.pop(classname)
+                    self.assertEqual(slots, expected)
+            self.assertEqual(result, {})
+        self.assertEqual(out, '')
+
+    def test_getargs_reset_static_parser(self):
+        # Test _PyArg_Parser initializations via _PyArg_UnpackKeywords()
+        # https://github.com/python/cpython/issues/122334
+        code = textwrap.dedent("""
+            try:
+                import _ssl
+            except ModuleNotFoundError:
+                _ssl = None
+            if _ssl is not None:
+                _ssl.txt2obj(txt='1.3')
+            print('1')
+
+            import _queue
+            _queue.SimpleQueue().put_nowait(item=None)
+            print('2')
+        """)
+        out, err = self.run_embedded_interpreter("test_repeated_init_exec", code)
+        self.assertEqual(out, '1\n2\n' * INIT_LOOPS)
+
 
 class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
     maxDiff = 4096
@@ -439,8 +508,10 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
         'install_signal_handlers': 1,
         'use_hash_seed': 0,
         'hash_seed': 0,
+        'int_max_str_digits': sys.int_info.default_max_str_digits,
         'faulthandler': 0,
         'tracemalloc': 0,
+        'perf_profiling': 0,
         'import_time': 0,
         'code_debug_ranges': 1,
         'show_ref_count': 0,
@@ -499,8 +570,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
         'check_hash_pycs_mode': 'default',
         'pathconfig_warnings': 1,
         '_init_main': 1,
-        '_isolated_interpreter': 0,
-        'use_frozen_modules': not Py_DEBUG,
+        'use_frozen_modules': not support.Py_DEBUG,
         'safe_path': 0,
         '_is_python_build': IGNORE_CONFIG,
     }
@@ -525,6 +595,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
         use_hash_seed=0,
         faulthandler=0,
         tracemalloc=0,
+        perf_profiling=0,
         pathconfig_warnings=0,
     )
     if MS_WINDOWS:
@@ -835,6 +906,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'use_hash_seed': 1,
             'hash_seed': 123,
             'tracemalloc': 2,
+            'perf_profiling': 0,
             'import_time': 1,
             'code_debug_ranges': 0,
             'show_ref_count': 1,
@@ -880,11 +952,10 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'platlibdir': 'my_platlibdir',
             'module_search_paths': self.IGNORE_CONFIG,
             'safe_path': 1,
+            'int_max_str_digits': 31337,
 
             'check_hash_pycs_mode': 'always',
             'pathconfig_warnings': 0,
-
-            '_isolated_interpreter': 1,
         }
         self.check_all_configs("test_init_from_config", config, preconfig,
                                api=API_COMPAT)
@@ -897,6 +968,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'use_hash_seed': 1,
             'hash_seed': 42,
             'tracemalloc': 2,
+            'perf_profiling': 0,
             'import_time': 1,
             'code_debug_ranges': 0,
             'malloc_stats': 1,
@@ -915,6 +987,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'platlibdir': 'env_platlibdir',
             'module_search_paths': self.IGNORE_CONFIG,
             'safe_path': 1,
+            'int_max_str_digits': 4567,
         }
         self.check_all_configs("test_init_compat_env", config, preconfig,
                                api=API_COMPAT)
@@ -928,6 +1001,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'use_hash_seed': 1,
             'hash_seed': 42,
             'tracemalloc': 2,
+            'perf_profiling': 0,
             'import_time': 1,
             'code_debug_ranges': 0,
             'malloc_stats': 1,
@@ -946,6 +1020,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
             'platlibdir': 'env_platlibdir',
             'module_search_paths': self.IGNORE_CONFIG,
             'safe_path': 1,
+            'int_max_str_digits': 4567,
         }
         self.check_all_configs("test_init_python_env", config, preconfig,
                                api=API_PYTHON)
@@ -1206,7 +1281,7 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
              # The current getpath.c doesn't determine the stdlib dir
              # in this case.
             'stdlib_dir': '',
-            'use_frozen_modules': not Py_DEBUG,
+            'use_frozen_modules': not support.Py_DEBUG,
             # overridden by PyConfig
             'program_name': 'conf_program_name',
             'base_executable': 'conf_executable',
@@ -1500,12 +1575,12 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
                 config['base_prefix'] = pyvenv_home
                 config['prefix'] = pyvenv_home
                 config['stdlib_dir'] = os.path.join(pyvenv_home, 'Lib')
-                config['use_frozen_modules'] = int(not Py_DEBUG)
+                config['use_frozen_modules'] = int(not support.Py_DEBUG)
             else:
                 # cannot reliably assume stdlib_dir here because it
                 # depends too much on our build. But it ought to be found
                 config['stdlib_dir'] = self.IGNORE_CONFIG
-                config['use_frozen_modules'] = int(not Py_DEBUG)
+                config['use_frozen_modules'] = int(not support.Py_DEBUG)
 
             env = self.copy_paths_by_env(config)
             self.check_all_configs("test_init_compat_config", config,
@@ -1642,12 +1717,35 @@ class InitConfigTests(EmbeddingTestsMixin, unittest.TestCase):
                 self.check_all_configs("test_init_use_frozen_modules", config,
                                        api=API_PYTHON, env=env)
 
+    def test_init_main_interpreter_settings(self):
+        OBMALLOC = 1<<5
+        EXTENSIONS = 1<<8
+        THREADS = 1<<10
+        DAEMON_THREADS = 1<<11
+        FORK = 1<<15
+        EXEC = 1<<16
+        expected = {
+            # All optional features should be enabled.
+            'feature_flags':
+                OBMALLOC | FORK | EXEC | THREADS | DAEMON_THREADS,
+            'own_gil': True,
+        }
+        out, err = self.run_embedded_interpreter(
+            'test_init_main_interpreter_settings',
+        )
+        self.assertEqual(err, '')
+        try:
+            out = json.loads(out)
+        except json.JSONDecodeError:
+            self.fail(f'fail to decode stdout: {out!r}')
+
+        self.assertEqual(out, expected)
+
 
 class SetConfigTests(unittest.TestCase):
     def test_set_config(self):
         # bpo-42260: Test _PyInterpreterState_SetConfig()
         import_helper.import_module('_testcapi')
-        import_helper.import_module('_testinternalcapi')  # PyPy change
         cmd = [sys.executable, '-X', 'utf8', '-I', '-m', 'test._test_embed_set_config']
         proc = subprocess.run(cmd,
                               stdout=subprocess.PIPE,
@@ -1739,7 +1837,7 @@ class MiscTests(EmbeddingTestsMixin, unittest.TestCase):
         """).lstrip()
         self.assertEqual(out, expected)
 
-    @unittest.skipUnless(hasattr(sys, 'gettotalrefcount'),
+    @unittest.skipUnless(support.Py_DEBUG,
                          '-X showrefcount requires a Python debug build')
     def test_no_memleak(self):
         # bpo-1635741: Python must release all memory at exit
@@ -1766,57 +1864,6 @@ class MiscTests(EmbeddingTestsMixin, unittest.TestCase):
             with self.subTest(frozen_modules=flag, stmt=stmt):
                 self.assertEqual(refs, 0, out)
                 self.assertEqual(blocks, 0, out)
-
-
-class StdPrinterTests(EmbeddingTestsMixin, unittest.TestCase):
-    # Test PyStdPrinter_Type which is used by _PySys_SetPreliminaryStderr():
-    #   "Set up a preliminary stderr printer until we have enough
-    #    infrastructure for the io module in place."
-
-    STDOUT_FD = 1
-
-    def create_printer(self, fd):
-        ctypes = import_helper.import_module('ctypes')
-        PyFile_NewStdPrinter = ctypes.pythonapi.PyFile_NewStdPrinter
-        PyFile_NewStdPrinter.argtypes = (ctypes.c_int,)
-        PyFile_NewStdPrinter.restype = ctypes.py_object
-        return PyFile_NewStdPrinter(fd)
-
-    def test_write(self):
-        message = "unicode:\xe9-\u20ac-\udc80!\n"
-
-        stdout_fd = self.STDOUT_FD
-        stdout_fd_copy = os.dup(stdout_fd)
-        self.addCleanup(os.close, stdout_fd_copy)
-
-        rfd, wfd = os.pipe()
-        self.addCleanup(os.close, rfd)
-        self.addCleanup(os.close, wfd)
-        try:
-            # PyFile_NewStdPrinter() only accepts fileno(stdout)
-            # or fileno(stderr) file descriptor.
-            os.dup2(wfd, stdout_fd)
-
-            printer = self.create_printer(stdout_fd)
-            printer.write(message)
-        finally:
-            os.dup2(stdout_fd_copy, stdout_fd)
-
-        data = os.read(rfd, 100)
-        self.assertEqual(data, message.encode('utf8', 'backslashreplace'))
-
-    def test_methods(self):
-        fd = self.STDOUT_FD
-        printer = self.create_printer(fd)
-        self.assertEqual(printer.fileno(), fd)
-        self.assertEqual(printer.isatty(), os.isatty(fd))
-        printer.flush()  # noop
-        printer.close()  # noop
-
-    def test_disallow_instantiation(self):
-        fd = self.STDOUT_FD
-        printer = self.create_printer(fd)
-        support.check_disallow_instantiation(self, type(printer))
 
 
 if __name__ == "__main__":

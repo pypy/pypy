@@ -6,6 +6,7 @@ import doctest
 import unittest
 import weakref
 import inspect
+import types
 
 from test import support
 
@@ -81,8 +82,7 @@ class FinalizationTest(unittest.TestCase):
         g = gen()
         next(g)
         g.send(g)
-        if hasattr(sys, 'getrefcount'):
-            self.assertGreater(sys.getrefcount(g), 2)
+        self.assertGreater(sys.getrefcount(g), 2)
         self.assertFalse(finalized)
         del g
         support.gc_collect()
@@ -90,9 +90,12 @@ class FinalizationTest(unittest.TestCase):
         self.assertEqual(gc.garbage, old_garbage)
 
     def test_lambda_generator(self):
-        # Issue #23192: Test that a lambda returning a generator behaves
+        # bpo-23192, gh-119897: Test that a lambda returning a generator behaves
         # like the equivalent function
         f = lambda: (yield 1)
+        self.assertIsInstance(f(), types.GeneratorType)
+        self.assertEqual(next(f()), 1)
+
         def g(): return (yield 1)
 
         # test 'yield from'
@@ -131,9 +134,8 @@ class GeneratorTest(unittest.TestCase):
         # generator names must be a string and cannot be deleted
         self.assertRaises(TypeError, setattr, gen, '__name__', 123)
         self.assertRaises(TypeError, setattr, gen, '__qualname__', 123)
-        # PyPy: raises AttributeError
-        self.assertRaises((TypeError, AttributeError), delattr, gen, '__name__')
-        self.assertRaises((TypeError, AttributeError), delattr, gen, '__qualname__')
+        self.assertRaises(TypeError, delattr, gen, '__name__')
+        self.assertRaises(TypeError, delattr, gen, '__qualname__')
 
         # modify names of the function creating the generator
         func.__qualname__ = "func_qualname"
@@ -172,7 +174,6 @@ class GeneratorTest(unittest.TestCase):
             g.send(0)
         self.assertEqual(next(g), 1)
 
-    @support.impl_detail('no gc.threshold', pypy=False)
     def test_handle_frame_object_in_creation(self):
 
         #Attempt to expose partially constructed frames
@@ -228,7 +229,22 @@ class GeneratorTest(unittest.TestCase):
         gi = f()
         self.assertIsNone(gi.gi_frame.f_back)
 
+    def test_issue103488(self):
 
+        def gen_raises():
+            yield
+            raise ValueError()
+
+        def loop():
+            try:
+                for _ in gen_raises():
+                    if True is False:
+                        return
+            except ValueError:
+                pass
+
+        #This should not raise
+        loop()
 
 class ExceptionTest(unittest.TestCase):
     # Tests for the issue #23353: check that the currently handled exception
@@ -237,16 +253,16 @@ class ExceptionTest(unittest.TestCase):
     def test_except_throw(self):
         def store_raise_exc_generator():
             try:
-                self.assertEqual(sys.exc_info()[0], None)
+                self.assertIsNone(sys.exception())
                 yield
             except Exception as exc:
                 # exception raised by gen.throw(exc)
-                self.assertEqual(sys.exc_info()[0], ValueError)
+                self.assertIsInstance(sys.exception(), ValueError)
                 self.assertIsNone(exc.__context__)
                 yield
 
                 # ensure that the exception is not lost
-                self.assertEqual(sys.exc_info()[0], ValueError)
+                self.assertIsInstance(sys.exception(), ValueError)
                 yield
 
                 # we should be able to raise back the ValueError
@@ -268,11 +284,11 @@ class ExceptionTest(unittest.TestCase):
             next(make)
         self.assertIsNone(cm.exception.__context__)
 
-        self.assertEqual(sys.exc_info(), (None, None, None))
+        self.assertIsNone(sys.exception())
 
     def test_except_next(self):
         def gen():
-            self.assertEqual(sys.exc_info()[0], ValueError)
+            self.assertIsInstance(sys.exception(), ValueError)
             yield "done"
 
         g = gen()
@@ -280,23 +296,23 @@ class ExceptionTest(unittest.TestCase):
             raise ValueError
         except Exception:
             self.assertEqual(next(g), "done")
-        self.assertEqual(sys.exc_info(), (None, None, None))
+        self.assertIsNone(sys.exception())
 
     def test_except_gen_except(self):
         def gen():
             try:
-                self.assertEqual(sys.exc_info()[0], None)
+                self.assertIsNone(sys.exception())
                 yield
                 # we are called from "except ValueError:", TypeError must
                 # inherit ValueError in its context
                 raise TypeError()
             except TypeError as exc:
-                self.assertEqual(sys.exc_info()[0], TypeError)
+                self.assertIsInstance(sys.exception(), TypeError)
                 self.assertEqual(type(exc.__context__), ValueError)
             # here we are still called from the "except ValueError:"
-            self.assertEqual(sys.exc_info()[0], ValueError)
+            self.assertIsInstance(sys.exception(), ValueError)
             yield
-            self.assertIsNone(sys.exc_info()[0])
+            self.assertIsNone(sys.exception())
             yield "done"
 
         g = gen()
@@ -307,25 +323,45 @@ class ExceptionTest(unittest.TestCase):
             next(g)
 
         self.assertEqual(next(g), "done")
-        self.assertEqual(sys.exc_info(), (None, None, None))
+        self.assertIsNone(sys.exception())
+
+    def test_nested_gen_except_loop(self):
+        def gen():
+            for i in range(100):
+                self.assertIsInstance(sys.exception(), TypeError)
+                yield "doing"
+
+        def outer():
+            try:
+                raise TypeError
+            except:
+                for x in gen():
+                    yield x
+
+        try:
+            raise ValueError
+        except Exception:
+            for x in outer():
+                self.assertEqual(x, "doing")
+        self.assertEqual(sys.exception(), None)
 
     def test_except_throw_exception_context(self):
         def gen():
             try:
                 try:
-                    self.assertEqual(sys.exc_info()[0], None)
+                    self.assertIsNone(sys.exception())
                     yield
                 except ValueError:
                     # we are called from "except ValueError:"
-                    self.assertEqual(sys.exc_info()[0], ValueError)
+                    self.assertIsInstance(sys.exception(), ValueError)
                     raise TypeError()
             except Exception as exc:
-                self.assertEqual(sys.exc_info()[0], TypeError)
+                self.assertIsInstance(sys.exception(), TypeError)
                 self.assertEqual(type(exc.__context__), ValueError)
             # we are still called from "except ValueError:"
-            self.assertEqual(sys.exc_info()[0], ValueError)
+            self.assertIsInstance(sys.exception(), ValueError)
             yield
-            self.assertIsNone(sys.exc_info()[0])
+            self.assertIsNone(sys.exception())
             yield "done"
 
         g = gen()
@@ -336,7 +372,7 @@ class ExceptionTest(unittest.TestCase):
             g.throw(exc)
 
         self.assertEqual(next(g), "done")
-        self.assertEqual(sys.exc_info(), (None, None, None))
+        self.assertIsNone(sys.exception())
 
     def test_except_throw_bad_exception(self):
         class E(Exception):
@@ -363,6 +399,15 @@ class ExceptionTest(unittest.TestCase):
         next(gen)
         with self.assertRaises(StopIteration):
             gen.throw(E)
+
+    def test_gen_3_arg_deprecation_warning(self):
+        def g():
+            yield 42
+
+        gen = g()
+        with self.assertWarns(DeprecationWarning):
+            with self.assertRaises(TypeError):
+                gen.throw(TypeError, TypeError(24), None)
 
     def test_stopiteration_error(self):
         # See also PEP 479.
@@ -972,10 +1017,7 @@ And more, added later.
 0
 >>> type(i.gi_frame)
 <class 'frame'>
-
-PyPy prints "readonly attribute 'gi_running'" so ignore the exception detail
-
->>> i.gi_running = 42 # doctest: +IGNORE_EXCEPTION_DETAIL
+>>> i.gi_running = 42
 Traceback (most recent call last):
   ...
 AttributeError: attribute 'gi_running' of 'generator' objects is not writable
@@ -2103,6 +2145,16 @@ Traceback (most recent call last):
   ...
 SyntaxError: 'yield' outside function
 
+>>> f=lambda: (yield from (1,2)), (yield from (3,4))
+Traceback (most recent call last):
+  ...
+SyntaxError: 'yield from' outside function
+
+>>> yield from [1,2]
+Traceback (most recent call last):
+  ...
+SyntaxError: 'yield from' outside function
+
 >>> def f(): x = yield = y
 Traceback (most recent call last):
   ...
@@ -2136,6 +2188,13 @@ caught ValueError ()
 
 >>> g.throw(ValueError("xyz"))  # value only
 caught ValueError (xyz)
+
+>>> import warnings
+>>> old_filters = warnings.filters.copy()
+>>> warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Filter DeprecationWarning: regarding the (type, val, tb) signature of throw().
+# Deprecation warnings are re-enabled below.
 
 >>> g.throw(ValueError, ValueError(1))   # value+matching type
 caught ValueError (1)
@@ -2204,6 +2263,11 @@ ValueError: 6
 Traceback (most recent call last):
   ...
 ValueError: 7
+
+>>> warnings.filters[:] = old_filters
+
+# Re-enable DeprecationWarning: the (type, val, tb) exception representation is deprecated,
+#                               and may be removed in a future version of Python.
 
 Plain "raise" inside a generator should preserve the traceback (#13188).
 The traceback should have 3 levels:
@@ -2301,7 +2365,6 @@ Our ill-behaved code should be invoked during GC:
 ...     g = f()
 ...     next(g)
 ...     del g
-...     import gc; gc.collect()
 ...
 ...     cm.unraisable.exc_type == RuntimeError
 ...     "generator ignored GeneratorExit" in str(cm.unraisable.exc_value)
@@ -2364,8 +2427,6 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
->>> from test.support import gc_collect
-
 >>> import itertools
 >>> def leak():
 ...     class gen:
@@ -2417,7 +2478,6 @@ to test.
 >>> with support.catch_unraisable_exception() as cm:
 ...     l = Leaker()
 ...     del l
-...     import gc; gc.collect()
 ...
 ...     cm.unraisable.object == Leaker.__del__
 ...     cm.unraisable.exc_type == RuntimeError

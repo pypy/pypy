@@ -589,10 +589,6 @@ class TestSupport(unittest.TestCase):
         code = textwrap.dedent("""
             from test import support
             import sys
-            try:
-                from _testcapi import USE_STACKCHECK
-            except ImportError:
-                USE_STACKCHECK = False
 
             def check(cond):
                 if not cond:
@@ -617,28 +613,20 @@ class TestSupport(unittest.TestCase):
                 check(get_depth == depth)
                 test_recursive(depth + 1, limit)
 
-            if USE_STACKCHECK:
-                # f-string consumes 2 frames and -1 for USE_STACKCHECK
-                IGNORE = 3
-            else:
-                # f-string consumes 2 frames
-                IGNORE = 2
-
             # depth up to 25
             with support.infinite_recursion(max_depth=25):
                 limit = sys.getrecursionlimit()
                 print(f"test with sys.getrecursionlimit()={limit}")
-                test_recursive(2, limit - IGNORE)
+                test_recursive(2, limit)
 
             # depth up to 500
             with support.infinite_recursion(max_depth=500):
                 limit = sys.getrecursionlimit()
                 print(f"test with sys.getrecursionlimit()={limit}")
-                test_recursive(2, limit - IGNORE)
+                test_recursive(2, limit)
         """)
         script_helper.assert_python_ok("-c", code)
 
-    @support.impl_detail('not supported on PyPy', pypy=False)
     def test_recursion(self):
         # Test infinite_recursion() and get_recursion_available() functions.
         def recursive_function(depth):
@@ -662,10 +650,10 @@ class TestSupport(unittest.TestCase):
                 else:
                     self.fail("RecursionError was not raised")
 
-        # Test the bare minimumum: max_depth=4
-        with support.infinite_recursion(4):
+        # Test the bare minimumum: max_depth=3
+        with support.infinite_recursion(3):
             try:
-                recursive_function(4)
+                recursive_function(3)
             except RecursionError:
                 pass
             else:

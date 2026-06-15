@@ -1,12 +1,13 @@
 import os
 import sys
+import threading
 import time
 import unittest
 from concurrent import futures
 from concurrent.futures.process import BrokenProcessPool
 
 from test import support
-from test.support import hashlib_helper, cpython_only
+from test.support import hashlib_helper
 
 from .executor import ExecutorTest, mul
 from .util import (
@@ -85,7 +86,6 @@ class ProcessPoolExecutorTest(ExecutorTest):
                       f1.getvalue())
 
     @hashlib_helper.requires_hashdigest('md5')
-    @cpython_only
     def test_ressources_gced_in_workers(self):
         # Ensure that argument for a job are correctly gc-ed after the job
         # is finished
@@ -187,6 +187,34 @@ class ProcessPoolExecutorTest(ExecutorTest):
         executor.shutdown()
         for i, future in enumerate(futures):
             self.assertEqual(future.result(), mul(i, i))
+
+    def test_python_finalization_error(self):
+        # gh-109047: Catch RuntimeError on thread creation
+        # during Python finalization.
+
+        context = self.get_context()
+
+        # gh-109047: Mock the threading.start_new_thread() function to inject
+        # RuntimeError: simulate the error raised during Python finalization.
+        # Block the second creation: create _ExecutorManagerThread, but block
+        # QueueFeederThread.
+        orig_start_new_thread = threading._start_new_thread
+        nthread = 0
+        def mock_start_new_thread(func, *args):
+            nonlocal nthread
+            if nthread >= 1:
+                raise RuntimeError("can't create new thread at "
+                                   "interpreter shutdown")
+            nthread += 1
+            return orig_start_new_thread(func, *args)
+
+        with support.swap_attr(threading, '_start_new_thread',
+                               mock_start_new_thread):
+            executor = self.executor_type(max_workers=2, mp_context=context)
+            with executor:
+                with self.assertRaises(BrokenProcessPool):
+                    list(executor.map(mul, [(2, 3)] * 10))
+            executor.shutdown()
 
 
 create_executor_tests(globals(), ProcessPoolExecutorTest,

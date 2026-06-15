@@ -1,7 +1,7 @@
 import textwrap
 import types
+import typing
 import unittest
-from test import support
 
 
 def global_function():
@@ -75,9 +75,13 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.cannot_set_attr(self.b, '__globals__', 2,
                              (AttributeError, TypeError))
 
-    @support.cpython_only
     def test___builtins__(self):
-        self.assertIs(self.b.__builtins__, __builtins__)
+        if __name__ == "__main__":
+            builtins_dict = __builtins__.__dict__
+        else:
+            builtins_dict = __builtins__
+
+        self.assertIs(self.b.__builtins__, builtins_dict)
         self.cannot_set_attr(self.b, '__builtins__', 2,
                              (AttributeError, TypeError))
 
@@ -87,7 +91,7 @@ class FunctionPropertiesTest(FuncAttrsTest):
         ns = {}
         func2 = type(func)(func.__code__, ns)
         self.assertIs(func2.__globals__, ns)
-        self.assertIs(func2.__builtins__, __builtins__)
+        self.assertIs(func2.__builtins__, builtins_dict)
 
         # Make sure that the function actually works.
         self.assertEqual(func2("abc"), 3)
@@ -115,7 +119,7 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.assertEqual(len(c), 1)
         # don't have a type object handy
         self.assertEqual(c[0].__class__.__name__, "cell")
-        self.cannot_set_attr(f, "__closure__", c, (AttributeError, TypeError))
+        self.cannot_set_attr(f, "__closure__", c, AttributeError)
 
     def test_cell_new(self):
         cell_obj = types.CellType(1)
@@ -163,7 +167,7 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.b.__name__ = 'd'
         self.assertEqual(self.b.__name__, 'd')
         # __name__ and __name__ must be a string
-        self.cannot_set_attr(self.b, '__name__', 7, (AttributeError, TypeError))
+        self.cannot_set_attr(self.b, '__name__', 7, TypeError)
         # __name__ must be available when in restricted mode. Exec will raise
         # AttributeError if __name__ is not available on f.
         s = """def f(): pass\nf.__name__"""
@@ -190,8 +194,24 @@ class FunctionPropertiesTest(FuncAttrsTest):
         self.b.__qualname__ = 'd'
         self.assertEqual(self.b.__qualname__, 'd')
         # __qualname__ must be a string
-        self.cannot_set_attr(self.b, '__qualname__', 7,
-                             (TypeError, AttributeError))
+        self.cannot_set_attr(self.b, '__qualname__', 7, TypeError)
+
+    def test___type_params__(self):
+        def generic[T](): pass
+        def not_generic(): pass
+        lambda_ = lambda: ...
+        T, = generic.__type_params__
+        self.assertIsInstance(T, typing.TypeVar)
+        self.assertEqual(generic.__type_params__, (T,))
+        for func in (not_generic, lambda_):
+            with self.subTest(func=func):
+                self.assertEqual(func.__type_params__, ())
+                with self.assertRaises(TypeError):
+                    del func.__type_params__
+                with self.assertRaises(TypeError):
+                    func.__type_params__ = 42
+                func.__type_params__ = (T,)
+                self.assertEqual(func.__type_params__, (T,))
 
     def test___code__(self):
         num_one, num_two = 7, 8
@@ -255,15 +275,15 @@ class InstancemethodAttrTest(FuncAttrsTest):
 
     def test___class__(self):
         self.assertEqual(self.fi.a.__self__.__class__, self.F)
-        self.cannot_set_attr(self.fi.a, "__class__", self.F, (AttributeError, TypeError))
+        self.cannot_set_attr(self.fi.a, "__class__", self.F, TypeError)
 
     def test___func__(self):
         self.assertEqual(self.fi.a.__func__, self.F.a)
-        self.cannot_set_attr(self.fi.a, "__func__", self.F.a, (AttributeError, TypeError))
+        self.cannot_set_attr(self.fi.a, "__func__", self.F.a, AttributeError)
 
     def test___self__(self):
         self.assertEqual(self.fi.a.__self__, self.fi)
-        self.cannot_set_attr(self.fi.a, "__self__", self.fi, (AttributeError, TypeError))
+        self.cannot_set_attr(self.fi.a, "__self__", self.fi, AttributeError)
 
     def test___func___non_method(self):
         # Behavior should be the same when a method is added via an attr
@@ -313,10 +333,10 @@ class ArbitraryFunctionAttrTest(FuncAttrsTest):
 
 class FunctionDictsTest(FuncAttrsTest):
     def test_setting_dict_to_invalid(self):
-        self.cannot_set_attr(self.b, '__dict__', None, (AttributeError, TypeError))
+        self.cannot_set_attr(self.b, '__dict__', None, TypeError)
         from collections import UserDict
         d = UserDict({'known_attr': 7})
-        self.cannot_set_attr(self.fi.a.__func__, '__dict__', d, (AttributeError, TypeError))
+        self.cannot_set_attr(self.fi.a.__func__, '__dict__', d, TypeError)
 
     def test_setting_dict_to_valid(self):
         d = {'known_attr': 7}
@@ -337,7 +357,7 @@ class FunctionDictsTest(FuncAttrsTest):
     def test_delete___dict__(self):
         try:
             del self.b.__dict__
-        except (TypeError, AttributeError):
+        except TypeError:
             pass
         else:
             self.fail("deleting function dictionary should raise TypeError")

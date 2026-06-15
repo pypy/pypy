@@ -29,8 +29,7 @@ class Test_Csv(unittest.TestCase):
     """
     def _test_arg_valid(self, ctor, arg):
         self.assertRaises(TypeError, ctor)
-        # PyPy raises an AttributeError
-        self.assertRaises((TypeError, AttributeError), ctor, None)
+        self.assertRaises(TypeError, ctor, None)
         self.assertRaises(TypeError, ctor, arg, bad_attr = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 0)
         self.assertRaises(TypeError, ctor, arg, delimiter = 'XX')
@@ -180,7 +179,6 @@ class Test_Csv(unittest.TestCase):
             def __str__(self):
                 raise OSError
         self._write_error_test(OSError, [BadItem()])
-
     def test_write_bigfield(self):
         # This exercises the buffer realloc functionality
         bigstring = 'X' * 50000
@@ -199,6 +197,10 @@ class Test_Csv(unittest.TestCase):
                          quoting = csv.QUOTE_ALL)
         self._write_test(['a\nb',1], '"a\nb","1"',
                          quoting = csv.QUOTE_ALL)
+        self._write_test(['a','',None,1], '"a","",,1',
+                         quoting = csv.QUOTE_STRINGS)
+        self._write_test(['a','',None,1], '"a","",,"1"',
+                         quoting = csv.QUOTE_NOTNULL)
 
     def test_write_escape(self):
         self._write_test(['a',1,'p,q'], 'a,1,"p,q"',
@@ -285,12 +287,17 @@ class Test_Csv(unittest.TestCase):
             fileobj.seek(0)
             self.assertEqual(fileobj.read(), 'a\r\n""\r\n')
 
+
     def test_write_empty_fields(self):
         self._write_test((), '')
         self._write_test([''], '""')
         self._write_error_test(csv.Error, [''], quoting=csv.QUOTE_NONE)
+        self._write_test([''], '""', quoting=csv.QUOTE_STRINGS)
+        self._write_test([''], '""', quoting=csv.QUOTE_NOTNULL)
         self._write_test([None], '""')
         self._write_error_test(csv.Error, [None], quoting=csv.QUOTE_NONE)
+        self._write_error_test(csv.Error, [None], quoting=csv.QUOTE_STRINGS)
+        self._write_error_test(csv.Error, [None], quoting=csv.QUOTE_NOTNULL)
         self._write_test(['', ''], ',')
         self._write_test([None, None], ',')
 
@@ -310,12 +317,18 @@ class Test_Csv(unittest.TestCase):
         self._write_error_test(csv.Error, ['', ''],
                                delimiter=' ', skipinitialspace=True,
                                quoting=csv.QUOTE_NONE)
+        for quoting in csv.QUOTE_STRINGS, csv.QUOTE_NOTNULL:
+            self._write_test(['', ''], '"" ""', delimiter=' ', skipinitialspace=False,
+                             quoting=quoting)
+            self._write_test(['', ''], '"" ""', delimiter=' ', skipinitialspace=True,
+                             quoting=quoting)
 
-        self._write_test([None, None], ' ', delimiter=' ', skipinitialspace=False,
-                         quoting=csv.QUOTE_NONE)
-        self._write_error_test(csv.Error, [None, None],
-                               delimiter=' ', skipinitialspace=True,
-                               quoting=csv.QUOTE_NONE)
+        for quoting in csv.QUOTE_NONE, csv.QUOTE_STRINGS, csv.QUOTE_NOTNULL:
+            self._write_test([None, None], ' ', delimiter=' ', skipinitialspace=False,
+                             quoting=quoting)
+            self._write_error_test(csv.Error, [None, None],
+                                   delimiter=' ', skipinitialspace=True,
+                                   quoting=quoting)
 
     def test_writerows_errors(self):
         with TemporaryFile("w+", encoding="utf-8", newline='') as fileobj:
@@ -324,7 +337,7 @@ class Test_Csv(unittest.TestCase):
             self.assertRaises(OSError, writer.writerows, BadIterable())
 
     @support.cpython_only
-    @support.requires_legacy_unicode_capi
+    @support.requires_legacy_unicode_capi()
     @warnings_helper.ignore_warnings(category=DeprecationWarning)
     def test_writerows_legacy_strings(self):
         import _testcapi
@@ -412,6 +425,8 @@ class Test_Csv(unittest.TestCase):
                           quoting=csv.QUOTE_NONNUMERIC)
         self._read_test(['1,@,3,@,5'], [['1', ',3,', '5']], quotechar='@')
         self._read_test(['1,\0,3,\0,5'], [['1', ',3,', '5']], quotechar='\0')
+        self._read_test(['1\\.5,\\.5,.5'], [[1.5, 0.5, 0.5]],
+                        quoting=csv.QUOTE_NONNUMERIC, escapechar='\\')
 
     def test_read_skipinitialspace(self):
         self._read_test(['no space, space,  spaces,\ttab'],
@@ -843,12 +858,48 @@ class TestDictFields(unittest.TestCase):
         dictrow = {'f0': 0, 'f1': 1, 'f2': 2, 'f3': 3}
         self.assertRaises(ValueError, csv.DictWriter.writerow, writer, dictrow)
 
+        # see bpo-44512 (differently cased 'raise' should not result in 'ignore')
+        writer = csv.DictWriter(fileobj, ['f1', 'f2'], extrasaction="RAISE")
+        self.assertRaises(ValueError, csv.DictWriter.writerow, writer, dictrow)
+
     def test_write_field_not_in_field_names_ignore(self):
         fileobj = StringIO()
         writer = csv.DictWriter(fileobj, ['f1', 'f2'], extrasaction="ignore")
         dictrow = {'f0': 0, 'f1': 1, 'f2': 2, 'f3': 3}
         csv.DictWriter.writerow(writer, dictrow)
         self.assertEqual(fileobj.getvalue(), "1,2\r\n")
+
+        # bpo-44512
+        writer = csv.DictWriter(fileobj, ['f1', 'f2'], extrasaction="IGNORE")
+        csv.DictWriter.writerow(writer, dictrow)
+
+    def test_dict_reader_fieldnames_accepts_iter(self):
+        fieldnames = ["a", "b", "c"]
+        f = StringIO()
+        reader = csv.DictReader(f, iter(fieldnames))
+        self.assertEqual(reader.fieldnames, fieldnames)
+
+    def test_dict_reader_fieldnames_accepts_list(self):
+        fieldnames = ["a", "b", "c"]
+        f = StringIO()
+        reader = csv.DictReader(f, fieldnames)
+        self.assertEqual(reader.fieldnames, fieldnames)
+
+    def test_dict_writer_fieldnames_rejects_iter(self):
+        fieldnames = ["a", "b", "c"]
+        f = StringIO()
+        writer = csv.DictWriter(f, iter(fieldnames))
+        self.assertEqual(writer.fieldnames, fieldnames)
+
+    def test_dict_writer_fieldnames_accepts_list(self):
+        fieldnames = ["a", "b", "c"]
+        f = StringIO()
+        writer = csv.DictWriter(f, fieldnames)
+        self.assertEqual(writer.fieldnames, fieldnames)
+
+    def test_dict_reader_fieldnames_is_optional(self):
+        f = StringIO()
+        reader = csv.DictReader(f, fieldnames=None)
 
     def test_read_dict_fields(self):
         with TemporaryFile("w+", encoding="utf-8") as fileobj:
@@ -1019,6 +1070,12 @@ class TestDialectValidity(unittest.TestCase):
 
         mydialect.quoting = None
         self.assertRaises(csv.Error, mydialect)
+
+        mydialect.quoting = 42
+        with self.assertRaises(csv.Error) as cm:
+            mydialect()
+        self.assertEqual(str(cm.exception),
+                         'bad "quoting" value')
 
         mydialect.doublequote = True
         mydialect.quoting = csv.QUOTE_ALL

@@ -84,7 +84,6 @@ class BaseTest(unittest.TestCase):
         os.close(fd)
 
     def tearDown(self):
-        support.gc_collect()
         unlink(self.filename)
 
 
@@ -460,8 +459,6 @@ class BZ2FileTest(BaseTest):
         for i in range(10000):
             o = BZ2File(self.filename)
             del o
-            if i % 100 == 0:
-                support.gc_collect()
 
     def testOpenNonexistent(self):
         self.assertRaises(OSError, BZ2File, "/non/existent")
@@ -479,7 +476,6 @@ class BZ2FileTest(BaseTest):
         self.assertEqual(xlines, [b'Test'])
 
     def testContextProtocol(self):
-        f = None
         with BZ2File(self.filename, "wb") as f:
             f.write(b"xxx")
         f = BZ2File(self.filename, "rb")
@@ -970,6 +966,10 @@ class BZ2DecompressorTest(BaseTest):
         for i in range(100):
             bzd.__init__()
         self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
+
+    def test_uninitialized_BZ2Decompressor_crash(self):
+        self.assertEqual(BZ2Decompressor.__new__(BZ2Decompressor).
+                         decompress(bytes()), b'')
 
 
 class CompressDecompressTest(BaseTest):

@@ -207,7 +207,13 @@ def _normalize_module(module, depth=2):
     elif isinstance(module, str):
         return __import__(module, globals(), locals(), ["*"])
     elif module is None:
-        return sys.modules[sys._getframe(depth).f_globals['__name__']]
+        try:
+            try:
+                return sys.modules[sys._getframemodulename(depth)]
+            except AttributeError:
+                return sys.modules[sys._getframe(depth).f_globals['__name__']]
+        except KeyError:
+            pass
     else:
         raise TypeError("Expected a module, string, or None")
 
@@ -957,8 +963,6 @@ class DocTestFinder:
         elif inspect.getmodule(object) is not None:
             return module is inspect.getmodule(object)
         elif inspect.isfunction(object):
-            if isinstance(object.__code__, inspect._builtin_code_type):
-                return True  # XXX: A PyPy builtin - no way to tell
             return module.__dict__ is object.__globals__
         elif (inspect.ismethoddescriptor(object) or
               inspect.ismethodwrapper(object)):
@@ -1120,7 +1124,14 @@ class DocTestFinder:
             obj = obj.fget
         if inspect.isfunction(obj) and getattr(obj, '__doc__', None):
             # We don't use `docstring` var here, because `obj` can be changed.
-            obj = inspect.unwrap(obj).__code__
+            obj = inspect.unwrap(obj)
+            try:
+                obj = obj.__code__
+            except AttributeError:
+                # Functions implemented in C don't necessarily
+                # have a __code__ attribute.
+                # If there's no code, there's no lineno
+                return None
         if inspect.istraceback(obj): obj = obj.tb_frame
         if inspect.isframe(obj): obj = obj.f_code
         if inspect.iscode(obj):

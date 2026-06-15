@@ -20,6 +20,7 @@ IGNORE = {
     '_testimportmultiple',
     '_testinternalcapi',
     '_testmultiphase',
+    '_testbuffer',
     '_xxsubinterpreters',
     '_xxtestfuzz',
     'distutils.tests',

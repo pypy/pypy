@@ -129,7 +129,8 @@ class RegressionTests(unittest.TestCase):
         con = sqlite.connect(":memory:",detect_types=sqlite.PARSE_DECLTYPES)
         cur = con.cursor()
         cur.execute("create table foo(bar timestamp)")
-        cur.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
+        with self.assertWarnsRegex(DeprecationWarning, "adapter"):
+            cur.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
         cur.execute(SELECT)
         cur.execute("drop table foo")
         cur.execute("create table foo(bar integer)")
@@ -305,7 +306,8 @@ class RegressionTests(unittest.TestCase):
         cur.execute("INSERT INTO t (x) VALUES ('2012-04-04 15:06:00.123456789')")
 
         cur.execute("SELECT * FROM t")
-        values = [x[0] for x in cur.fetchall()]
+        with self.assertWarnsRegex(DeprecationWarning, "converter"):
+            values = [x[0] for x in cur.fetchall()]
 
         self.assertEqual(values, [
             datetime.datetime(2012, 4, 4, 15, 6, 0, 456000),
@@ -471,18 +473,6 @@ class RegressionTests(unittest.TestCase):
             con.executescript("select step(t) from t")
             self.assertEqual(steps, values)
 
-    def test_custom_cursor_object_crash_gh_99886(self):
-        # This test segfaults on GH-99886
-        class MyCursor(sqlite.Cursor):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                # this can go before or after the super call; doesn't matter
-                self.some_attr = None
-
-        with memory_database() as con:
-            cur = con.cursor(MyCursor)
-            cur.close()
-            del cur
 
 class RecursiveUseOfCursors(unittest.TestCase):
     # GH-80254: sqlite3 should not segfault for recursive use of cursors.
@@ -503,21 +493,21 @@ class RecursiveUseOfCursors(unittest.TestCase):
     def test_recursive_cursor_init(self):
         conv = lambda x: self.cur.__init__(self.con)
         with patch.dict(sqlite.converters, {"INIT": conv}):
-            self.cur.execute(f'select x as "x [INIT]", x from test')
+            self.cur.execute('select x as "x [INIT]", x from test')
             self.assertRaisesRegex(sqlite.ProgrammingError, self.msg,
                                    self.cur.fetchall)
 
     def test_recursive_cursor_close(self):
         conv = lambda x: self.cur.close()
         with patch.dict(sqlite.converters, {"CLOSE": conv}):
-            self.cur.execute(f'select x as "x [CLOSE]", x from test')
+            self.cur.execute('select x as "x [CLOSE]", x from test')
             self.assertRaisesRegex(sqlite.ProgrammingError, self.msg,
                                    self.cur.fetchall)
 
     def test_recursive_cursor_iter(self):
         conv = lambda x, l=[]: self.cur.fetchone() if l else l.append(None)
         with patch.dict(sqlite.converters, {"ITER": conv}):
-            self.cur.execute(f'select x as "x [ITER]", x from test')
+            self.cur.execute('select x as "x [ITER]", x from test')
             self.assertRaisesRegex(sqlite.ProgrammingError, self.msg,
                                    self.cur.fetchall)
 

@@ -4,6 +4,7 @@ import collections.abc
 import concurrent.futures
 import functools
 import io
+import multiprocessing
 import os
 import platform
 import re
@@ -22,14 +23,13 @@ import errno
 import unittest
 from unittest import mock
 import weakref
-
+import warnings
 if sys.platform not in ('win32', 'vxworks'):
     import tty
 
 import asyncio
 from asyncio import coroutines
 from asyncio import events
-from asyncio import proactor_events
 from asyncio import selector_events
 from multiprocessing.util import _cleanup_tests as multiprocessing_cleanup_tests
 from test.test_asyncio import utils as test_utils
@@ -289,7 +289,6 @@ class EventLoopTestsMixin:
         ):
             self.assertRaises(
                 RuntimeError, self.loop.run_until_complete, coro2())
-            support.gc_collect()
 
     # Note: because of the default Windows timing granularity of
     # 15.6 msec, we use fairly long sleep times here (~100 msec).
@@ -627,18 +626,14 @@ class EventLoopTestsMixin:
 
         # With the real ssl.create_default_context(), certificate
         # validation will fail
-        if sys.platform.startswith('linux') and sys.implementation.name == 'pypy':
-            pass
-            # PYPY: on the linux64 buildbot with OpenSSL 3.3.1 this fails, see issue 5089
-        else:
-            with self.assertRaises(ssl.SSLError) as cm:
-                conn_fut = create_connection(ssl=True)
-                # Ignore the "SSL handshake failed" log in debug mode
-                with test_utils.disable_logger():
-                    self._basetest_create_ssl_connection(conn_fut, check_sockname,
-                                                         peername)
+        with self.assertRaises(ssl.SSLError) as cm:
+            conn_fut = create_connection(ssl=True)
+            # Ignore the "SSL handshake failed" log in debug mode
+            with test_utils.disable_logger():
+                self._basetest_create_ssl_connection(conn_fut, check_sockname,
+                                                     peername)
 
-            self.assertEqual(cm.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
+        self.assertEqual(cm.exception.reason, 'CERTIFICATE_VERIFY_FAILED')
 
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_create_ssl_connection(self):
@@ -874,6 +869,29 @@ class EventLoopTestsMixin:
         # close server
         server.close()
 
+    def test_create_server_trsock(self):
+        proto = MyProto(self.loop)
+        f = self.loop.create_server(lambda: proto, '0.0.0.0', 0)
+        server = self.loop.run_until_complete(f)
+        self.assertEqual(len(server.sockets), 1)
+        sock = server.sockets[0]
+        self.assertIsInstance(sock, asyncio.trsock.TransportSocket)
+        host, port = sock.getsockname()
+        self.assertEqual(host, '0.0.0.0')
+        dup = sock.dup()
+        self.addCleanup(dup.close)
+        self.assertIsInstance(dup, socket.socket)
+        self.assertFalse(sock.get_inheritable())
+        with self.assertRaises(ValueError):
+            sock.settimeout(1)
+        sock.settimeout(0)
+        self.assertEqual(sock.gettimeout(), 0)
+        with self.assertRaises(ValueError):
+            sock.setblocking(True)
+        sock.setblocking(False)
+        server.close()
+
+
     @unittest.skipUnless(hasattr(socket, 'SO_REUSEPORT'), 'No SO_REUSEPORT')
     def test_create_server_reuse_port(self):
         proto = MyProto(self.loop)
@@ -1108,12 +1126,16 @@ class EventLoopTestsMixin:
         # incorrect server_hostname
         f_c = self.loop.create_connection(MyProto, host, port,
                                           ssl=sslcontext_client)
+
+        # Allow for flexible libssl error messages.
+        regex = re.compile(r"""(
+            IP address mismatch, certificate is not valid for '127.0.0.1'   # OpenSSL
+            |
+            CERTIFICATE_VERIFY_FAILED                                       # AWS-LC
+        )""", re.X)
         with mock.patch.object(self.loop, 'call_exception_handler'):
             with test_utils.disable_logger():
-                with self.assertRaisesRegex(
-                        ssl.CertificateError,
-                        "IP address mismatch, certificate is not valid for "
-                        "'127.0.0.1'"):
+                with self.assertRaisesRegex(ssl.CertificateError, regex):
                     self.loop.run_until_complete(f_c)
 
         # close connection
@@ -2177,12 +2199,16 @@ else:
     class UnixEventLoopTestsMixin(EventLoopTestsMixin):
         def setUp(self):
             super().setUp()
-            watcher = asyncio.SafeChildWatcher()
-            watcher.attach_loop(self.loop)
-            asyncio.set_child_watcher(watcher)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', DeprecationWarning)
+                watcher = asyncio.SafeChildWatcher()
+                watcher.attach_loop(self.loop)
+                asyncio.set_child_watcher(watcher)
 
         def tearDown(self):
-            asyncio.set_child_watcher(None)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', DeprecationWarning)
+                asyncio.set_child_watcher(None)
             super().tearDown()
 
 
@@ -2325,7 +2351,7 @@ class HandleTests(test_utils.TestCase):
         h = asyncio.Handle(cb, (), self.loop)
 
         cb_regex = r'<function HandleTests.test_handle_repr .*>'
-        cb_regex = fr'functools.partialmethod\({cb_regex}, , \)\(\)'
+        cb_regex = fr'functools.partialmethod\({cb_regex}\)\(\)'
         regex = fr'^<Handle {cb_regex} at {re.escape(filename)}:{lineno}>$'
         self.assertRegex(repr(h), regex)
 
@@ -2668,7 +2694,9 @@ class PolicyTests(unittest.TestCase):
     def test_get_event_loop(self):
         policy = asyncio.DefaultEventLoopPolicy()
         self.assertIsNone(policy._local._loop)
-        loop = policy.get_event_loop()
+        with self.assertWarns(DeprecationWarning) as cm:
+            loop = policy.get_event_loop()
+        self.assertEqual(cm.filename, __file__)
         self.assertIsInstance(loop, asyncio.AbstractEventLoop)
 
         self.assertIs(policy._local._loop, loop)
@@ -2682,8 +2710,10 @@ class PolicyTests(unittest.TestCase):
                 policy, "set_event_loop",
                 wraps=policy.set_event_loop) as m_set_event_loop:
 
-            loop = policy.get_event_loop()
+            with self.assertWarns(DeprecationWarning) as cm:
+                loop = policy.get_event_loop()
             self.addCleanup(loop.close)
+            self.assertEqual(cm.filename, __file__)
 
             # policy._local._loop must be set through .set_event_loop()
             # (the unix DefaultEventLoopPolicy needs this call to attach
@@ -2775,14 +2805,18 @@ class GetEventLoopTestsMixin:
         asyncio.set_event_loop(self.loop)
 
         if sys.platform != 'win32':
-            watcher = asyncio.SafeChildWatcher()
-            watcher.attach_loop(self.loop)
-            asyncio.set_child_watcher(watcher)
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', DeprecationWarning)
+                watcher = asyncio.SafeChildWatcher()
+                watcher.attach_loop(self.loop)
+                asyncio.set_child_watcher(watcher)
 
     def tearDown(self):
         try:
             if sys.platform != 'win32':
-                asyncio.set_child_watcher(None)
+                with warnings.catch_warnings():
+                    warnings.simplefilter('ignore', DeprecationWarning)
+                    asyncio.set_child_watcher(None)
 
             super().tearDown()
         finally:
@@ -2810,7 +2844,13 @@ class GetEventLoopTestsMixin:
             self.addCleanup(multiprocessing_cleanup_tests)
 
             async def main():
-                pool = concurrent.futures.ProcessPoolExecutor()
+                if multiprocessing.get_start_method() == 'fork':
+                    # Avoid 'fork' DeprecationWarning.
+                    mp_context = multiprocessing.get_context('forkserver')
+                else:
+                    mp_context = None
+                pool = concurrent.futures.ProcessPoolExecutor(
+                        mp_context=mp_context)
                 result = await self.loop.run_in_executor(
                     pool, _test_get_event_loop_new_process__sub_proc)
                 pool.shutdown()
@@ -2874,8 +2914,10 @@ class GetEventLoopTestsMixin:
             loop = asyncio.new_event_loop()
             self.addCleanup(loop.close)
 
-            loop2 = asyncio.get_event_loop()
+            with self.assertWarns(DeprecationWarning) as cm:
+                loop2 = asyncio.get_event_loop()
             self.addCleanup(loop2.close)
+            self.assertEqual(cm.filename, __file__)
             asyncio.set_event_loop(None)
             with self.assertRaisesRegex(RuntimeError, 'no current'):
                 asyncio.get_event_loop()

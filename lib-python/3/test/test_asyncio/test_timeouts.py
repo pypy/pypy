@@ -4,7 +4,6 @@ import unittest
 import time
 
 import asyncio
-from asyncio import tasks
 
 from test.test_asyncio.utils import await_without_task
 

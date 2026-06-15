@@ -433,8 +433,9 @@ class TracerRun():
         not_empty = ''
         if self.tracer.set_list:
             not_empty += 'All paired tuples have not been processed, '
-            not_empty += ('the last one was number %d' %
+            not_empty += ('the last one was number %d\n' %
                           self.tracer.expect_set_no)
+            not_empty += repr(self.tracer.set_list)
 
         # Make a BdbNotExpectedError a unittest failure.
         if type_ is not None and issubclass(BdbNotExpectedError, type_):
@@ -1201,6 +1202,19 @@ class IssuesTestCase(BaseTestCase):
             ]
             with TracerRun(self) as tracer:
                 tracer.runcall(tfunc_import)
+
+    def test_next_to_botframe(self):
+        # gh-125422
+        # Check that next command won't go to the bottom frame.
+        code = """
+            lno = 2
+        """
+        self.expect_set = [
+            ('line', 2, '<module>'),   ('step', ),
+            ('return', 2, '<module>'), ('next', ),
+        ]
+        with TracerRun(self) as tracer:
+            tracer.run(compile(textwrap.dedent(code), '<string>', 'exec'))
 
 
 class TestRegressions(unittest.TestCase):

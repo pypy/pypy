@@ -17,6 +17,7 @@ from .results import TestResults, EXITCODE_INTERRUPTED
 from .runtests import RunTests, HuntRefleak
 from .setup import setup_process, setup_test_dir
 from .single import run_single_test, PROGRESS_MIN_TIME
+from .tsan import setup_tsan_tests
 from .utils import (
     StrPath, StrJSON, TestName, TestList, TestTuple, TestFilter,
     strip_py_suffix, count, format_duration,
@@ -55,6 +56,7 @@ class Regrtest:
         self.quiet: bool = ns.quiet
         self.pgo: bool = ns.pgo
         self.pgo_extended: bool = ns.pgo_extended
+        self.tsan: bool = ns.tsan
 
         # Test results
         self.results: TestResults = TestResults()
@@ -85,12 +87,13 @@ class Regrtest:
         self.cmdline_args: TestList = ns.args
 
         # Workers
-        if ns.use_mp is None:
-            num_workers = 0  # run sequentially
+        self.single_process: bool = ns.single_process
+        if self.single_process or ns.use_mp is None:
+            num_workers = 0   # run sequentially in a single process
         elif ns.use_mp <= 0:
-            num_workers = -1  # use the number of CPUs
+            num_workers = -1  # run in parallel, use the number of CPUs
         else:
-            num_workers = ns.use_mp
+            num_workers = ns.use_mp  # run in parallel
         self.num_workers: int = num_workers
         self.worker_json: StrJSON | None = ns.worker_json
 
@@ -182,6 +185,9 @@ class Regrtest:
             # add default PGO tests if no tests are specified
             setup_pgo_tests(self.cmdline_args, self.pgo_extended)
 
+        if self.tsan:
+            setup_tsan_tests(self.cmdline_args)
+
         exclude_tests = set()
         if self.exclude:
             for arg in self.cmdline_args:
@@ -229,7 +235,7 @@ class Regrtest:
 
     def _rerun_failed_tests(self, runtests: RunTests):
         # Configure the runner to re-run tests
-        if self.num_workers == 0:
+        if self.num_workers == 0 and not self.single_process:
             # Always run tests in fresh processes to have more deterministic
             # initial state. Don't re-run tests in parallel but limit to a
             # single worker process to have side effects (on the system load
@@ -239,7 +245,6 @@ class Regrtest:
         tests, match_tests_dict = self.results.prepare_rerun()
 
         # Re-run failed tests
-        self.log(f"Re-running {len(tests)} failed tests in verbose mode in subprocesses")
         runtests = runtests.copy(
             tests=tests,
             rerun=True,
@@ -249,7 +254,15 @@ class Regrtest:
             match_tests_dict=match_tests_dict,
             output_on_failure=False)
         self.logger.set_tests(runtests)
-        self._run_tests_mp(runtests, self.num_workers)
+
+        msg = f"Re-running {len(tests)} failed tests in verbose mode"
+        if not self.single_process:
+            msg = f"{msg} in subprocesses"
+            self.log(msg)
+            self._run_tests_mp(runtests, self.num_workers)
+        else:
+            self.log(msg)
+            self.run_tests_sequentially(runtests)
         return runtests
 
     def rerun_failed_tests(self, runtests: RunTests):
@@ -362,20 +375,16 @@ class Regrtest:
             tests = count(jobs, 'test')
         else:
             tests = 'tests'
-        msg = f"Run {tests} sequentially"
+        msg = f"Run {tests} sequentially in a single process"
         if runtests.timeout:
             msg += " (timeout: %s)" % format_duration(runtests.timeout)
         self.log(msg)
 
-        previous_test = None
         tests_iter = runtests.iter_tests()
         for test_index, test_name in enumerate(tests_iter, 1):
             start_time = time.perf_counter()
 
-            text = test_name
-            if previous_test:
-                text = '%s -- %s' % (text, previous_test)
-            self.logger.display_progress(test_index, text)
+            self.logger.display_progress(test_index, test_name)
 
             result = self.run_test(test_name, runtests, tracer)
 
@@ -392,19 +401,14 @@ class Regrtest:
                 except (KeyError, AttributeError):
                     pass
 
-            if result.must_stop(self.fail_fast, self.fail_env_changed):
-                break
-
-            previous_test = str(result)
+            text = str(result)
             test_time = time.perf_counter() - start_time
             if test_time >= PROGRESS_MIN_TIME:
-                previous_test = "%s in %s" % (previous_test, format_duration(test_time))
-            elif result.state == State.PASSED:
-                # be quiet: say nothing if the test passed shortly
-                previous_test = None
+                text = f"{text} in {format_duration(test_time)}"
+            self.logger.display_progress(test_index, text)
 
-        if previous_test:
-            print(previous_test)
+            if result.must_stop(self.fail_fast, self.fail_env_changed):
+                break
 
         return tracer
 
@@ -503,7 +507,7 @@ class Regrtest:
         setup_process()
 
         if (runtests.hunt_refleak is not None) and (not self.num_workers):
-            # gh-109739: WindowsLoadTracker thread interfers with refleak check
+            # gh-109739: WindowsLoadTracker thread interferes with refleak check
             use_load_tracker = False
         else:
             # WindowsLoadTracker is only needed on Windows
@@ -584,7 +588,7 @@ class Regrtest:
             keep_environ = True
 
         if cross_compile and hostrunner:
-            if self.num_workers == 0:
+            if self.num_workers == 0 and not self.single_process:
                 # For now use only two cores for cross-compiled builds;
                 # hostrunner can be expensive.
                 regrtest_opts.extend(['-j', '2'])

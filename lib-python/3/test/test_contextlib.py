@@ -10,6 +10,7 @@ import unittest
 from contextlib import *  # Tests __all__
 from test import support
 from test.support import os_helper
+from test.support.testcase import ExceptionIsLikeMixin
 import weakref
 
 
@@ -433,12 +434,10 @@ class FileContextTestCase(unittest.TestCase):
     def testWithOpen(self):
         tfn = tempfile.mktemp()
         try:
-            f = None
             with open(tfn, "w", encoding="utf-8") as f:
                 self.assertFalse(f.closed)
                 f.write("Booh\n")
             self.assertTrue(f.closed)
-            f = None
             with self.assertRaises(ZeroDivisionError):
                 with open(tfn, "r", encoding="utf-8") as f:
                     self.assertFalse(f.closed)
@@ -1209,7 +1208,7 @@ class TestRedirectStderr(TestRedirectStream, unittest.TestCase):
     orig_stream = "stderr"
 
 
-class TestSuppress(unittest.TestCase):
+class TestSuppress(ExceptionIsLikeMixin, unittest.TestCase):
 
     @support.requires_docstrings
     def test_instance_docs(self):
@@ -1262,6 +1261,48 @@ class TestSuppress(unittest.TestCase):
             outer_continued = True
             1/0
         self.assertTrue(outer_continued)
+
+    def test_exception_groups(self):
+        eg_ve = lambda: ExceptionGroup(
+            "EG with ValueErrors only",
+            [ValueError("ve1"), ValueError("ve2"), ValueError("ve3")],
+        )
+        eg_all = lambda: ExceptionGroup(
+            "EG with many types of exceptions",
+            [ValueError("ve1"), KeyError("ke1"), ValueError("ve2"), KeyError("ke2")],
+        )
+        with suppress(ValueError):
+            raise eg_ve()
+        with suppress(ValueError, KeyError):
+            raise eg_all()
+        with self.assertRaises(ExceptionGroup) as eg1:
+            with suppress(ValueError):
+                raise eg_all()
+        self.assertExceptionIsLike(
+            eg1.exception,
+            ExceptionGroup(
+                "EG with many types of exceptions",
+                [KeyError("ke1"), KeyError("ke2")],
+            ),
+        )
+        # Check handling of BaseExceptionGroup, using GeneratorExit so that
+        # we don't accidentally discard a ctrl-c with KeyboardInterrupt.
+        with suppress(GeneratorExit):
+            raise BaseExceptionGroup("message", [GeneratorExit()])
+        # If we raise a BaseException group, we can still suppress parts
+        with self.assertRaises(BaseExceptionGroup) as eg1:
+            with suppress(KeyError):
+                raise BaseExceptionGroup("message", [GeneratorExit("g"), KeyError("k")])
+        self.assertExceptionIsLike(
+            eg1.exception, BaseExceptionGroup("message", [GeneratorExit("g")]),
+        )
+        # If we suppress all the leaf BaseExceptions, we get a non-base ExceptionGroup
+        with self.assertRaises(ExceptionGroup) as eg1:
+            with suppress(GeneratorExit):
+                raise BaseExceptionGroup("message", [GeneratorExit("g"), KeyError("k")])
+        self.assertExceptionIsLike(
+            eg1.exception, ExceptionGroup("message", [KeyError("k")]),
+        )
 
 
 class TestChdir(unittest.TestCase):

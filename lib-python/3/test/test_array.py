@@ -580,12 +580,9 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        if sys.implementation.name == 'pypy':
-            self.assertEqual(a.__add__(b), NotImplemented)
-            self.assertEqual(a.__add__("bad"), NotImplemented)
-        else:
-            self.assertRaises(TypeError, a.__add__, b)
-            self.assertRaises(TypeError, a.__add__, "bad")
+        self.assertRaises(TypeError, a.__add__, b)
+
+        self.assertRaises(TypeError, a.__add__, "bad")
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -604,12 +601,9 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        if sys.implementation.name == 'pypy':
-            self.assertEqual(a.__iadd__(b), NotImplemented)
-            self.assertEqual(a.__iadd__("bad"), NotImplemented)
-        else:
-            self.assertRaises(TypeError, a.__iadd__, b)
-            self.assertRaises(TypeError, a.__iadd__, "bad")
+        self.assertRaises(TypeError, a.__add__, b)
+
+        self.assertRaises(TypeError, a.__iadd__, "bad")
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -642,10 +636,7 @@ class BaseTest:
             array.array(self.typecode, [a[0]] * 5)
         )
 
-        if sys.implementation.name == 'pypy':
-            self.assertEqual(a.__mul__("bad"), NotImplemented)
-        else:
-            self.assertRaises(TypeError, a.__mul__, "bad")
+        self.assertRaises(TypeError, a.__mul__, "bad")
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -674,10 +665,7 @@ class BaseTest:
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        if sys.implementation.name == 'pypy':
-            self.assertEqual(a.__imul__("bad"), NotImplemented)
-        else:
-            self.assertRaises(TypeError, a.__imul__, "bad")
+        self.assertRaises(TypeError, a.__imul__, "bad")
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)
@@ -1079,10 +1067,6 @@ class BaseTest:
         # Resizing is forbidden when there are buffer exports.
         # For issue 4509, we also check after each error that
         # the array was not modified.
-        if support.check_impl_detail(pypy=True):
-            # PyPy export buffers differently, and allows reallocation
-            # of the underlying object.
-            return
         self.assertRaises(BufferError, a.append, a[0])
         self.assertEqual(m.tobytes(), expected)
         self.assertRaises(BufferError, a.extend, a[0:1])
@@ -1210,8 +1194,6 @@ class UnicodeTest(StringTest, unittest.TestCase):
         self.assertRaises(TypeError, a.fromunicode)
 
     def test_issue17223(self):
-        if support.check_impl_detail(pypy=True):
-            self.skipTest("specific to flexible string representation")
         # this used to crash
         if sizeof_wchar == 4:
             # U+FFFFFFFF is an invalid code point in Unicode 6.0
@@ -1455,7 +1437,7 @@ class FPTest(NumberTest):
                 self.assertEqual(a, b)
             else:
                 # On alphas treating the byte swapped bit patters as
-                # floats/doubles results in floating point exceptions
+                # floats/doubles results in floating-point exceptions
                 # => compare the 8bit string values instead
                 self.assertNotEqual(a.tobytes(), b.tobytes())
             b.byteswap()
@@ -1626,6 +1608,14 @@ class LargeArrayTest(unittest.TestCase):
         self.assertEqual(len(ls), len(example))
         self.assertEqual(ls[:8], list(example[:8]))
         self.assertEqual(ls[-8:], list(example[-8:]))
+
+    def test_gh_128961(self):
+        a = array.array('i')
+        it = iter(a)
+        list(it)
+        it.__setstate__(0)
+        self.assertRaises(StopIteration, next, it)
+
 
 if __name__ == "__main__":
     unittest.main()

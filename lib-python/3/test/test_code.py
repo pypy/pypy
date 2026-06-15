@@ -126,7 +126,6 @@ consts: ('None',)
 """
 
 import inspect
-import re
 import sys
 import threading
 import doctest
@@ -144,7 +143,8 @@ from test.support import (cpython_only,
                           gc_collect)
 from test.support.script_helper import assert_python_ok
 from test.support import threading_helper
-from opcode import opmap
+from opcode import opmap, opname
+COPY_FREE_VARS = opmap['COPY_FREE_VARS']
 
 
 def consts(t):
@@ -186,7 +186,6 @@ class CodeTest(unittest.TestCase):
     def test_closure_injection(self):
         # From https://bugs.python.org/issue32176
         from types import FunctionType
-        COPY_FREE_VARS = opmap['COPY_FREE_VARS']
 
         def create_closure(__class__):
             return (lambda: __class__).__closure__
@@ -216,7 +215,6 @@ class CodeTest(unittest.TestCase):
         obj = List([1, 2, 3])
         self.assertEqual(obj[0], "Foreign getitem: 1")
 
-    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_constructor(self):
         def func(): pass
         co = func.__code__
@@ -288,7 +286,6 @@ class CodeTest(unittest.TestCase):
         self.assertEqual(new_code.co_varnames, code2.co_varnames)
         self.assertEqual(new_code.co_nlocals, code2.co_nlocals)
 
-    @cpython_only  # constructor signature includes co_exceptiontable
     def test_nlocals_mismatch(self):
         def func():
             x = 1
@@ -341,7 +338,28 @@ class CodeTest(unittest.TestCase):
         new_code = code = func.__code__.replace(co_linetable=b'')
         self.assertEqual(list(new_code.co_lines()), [])
 
-    @cpython_only  # checks CPython-specific exception bytecodes (PUSH_EXC_INFO etc.)
+    def test_co_lnotab_is_deprecated(self):  # TODO: remove in 3.14
+        def func():
+            pass
+
+        with self.assertWarns(DeprecationWarning):
+            func.__code__.co_lnotab
+
+    def test_invalid_bytecode(self):
+        def foo():
+            pass
+
+        # assert that opcode 229 is invalid
+        self.assertEqual(opname[229], '<229>')
+
+        # change first opcode to 0xeb (=229)
+        foo.__code__ = foo.__code__.replace(
+            co_code=b'\xe5' + foo.__code__.co_code[1:])
+
+        msg = "unknown opcode 229"
+        with self.assertRaisesRegex(SystemError, msg):
+            foo()
+
     @requires_debug_ranges()
     def test_co_positions_artificial_instructions(self):
         import dis
@@ -433,7 +451,6 @@ class CodeTest(unittest.TestCase):
             self.assertIsNone(line)
             self.assertEqual(end_line, new_code.co_firstlineno + 1)
 
-    @cpython_only  # co_exceptiontable is CPython 3.11-specific
     def test_code_equality(self):
         def f():
             try:
@@ -454,6 +471,51 @@ class CodeTest(unittest.TestCase):
         self.assertNotEqual(code_b, code_c)
         self.assertNotEqual(code_b, code_d)
         self.assertNotEqual(code_c, code_d)
+
+    def test_code_hash_uses_firstlineno(self):
+        c1 = (lambda: 1).__code__
+        c2 = (lambda: 1).__code__
+        self.assertNotEqual(c1, c2)
+        self.assertNotEqual(hash(c1), hash(c2))
+        c3 = c1.replace(co_firstlineno=17)
+        self.assertNotEqual(c1, c3)
+        self.assertNotEqual(hash(c1), hash(c3))
+
+    def test_code_hash_uses_order(self):
+        # Swapping posonlyargcount and kwonlyargcount should change the hash.
+        c = (lambda x, y, *, z=1, w=1: 1).__code__
+        self.assertEqual(c.co_argcount, 2)
+        self.assertEqual(c.co_posonlyargcount, 0)
+        self.assertEqual(c.co_kwonlyargcount, 2)
+        swapped = c.replace(co_posonlyargcount=2, co_kwonlyargcount=0)
+        self.assertNotEqual(c, swapped)
+        self.assertNotEqual(hash(c), hash(swapped))
+
+    def test_code_hash_uses_bytecode(self):
+        c = (lambda x, y: x + y).__code__
+        d = (lambda x, y: x * y).__code__
+        c1 = c.replace(co_code=d.co_code)
+        self.assertNotEqual(c, c1)
+        self.assertNotEqual(hash(c), hash(c1))
+
+    @cpython_only
+    def test_code_equal_with_instrumentation(self):
+        """ GH-109052
+
+        Make sure the instrumentation doesn't affect the code equality
+        The validity of this test relies on the fact that "x is x" and
+        "x in x" have only one different instruction and the instructions
+        have the same argument.
+
+        """
+        code1 = compile("x is x", "example.py", "eval")
+        code2 = compile("x in x", "example.py", "eval")
+        sys._getframe().f_trace_opcodes = True
+        sys.settrace(lambda *args: None)
+        exec(code1, {'x': []})
+        exec(code2, {'x': []})
+        self.assertNotEqual(code1, code2)
+        sys.settrace(None)
 
 
 def isinterned(s):
@@ -653,16 +715,8 @@ def bug93662():
 class CodeLocationTest(unittest.TestCase):
 
     def check_positions(self, func):
-        co = func.__code__
-        pos1 = list(co.co_positions())
-        if sys.implementation.name == 'pypy':
-            # PyPy uses a different co_linetable format; cross-check
-            # co_positions() against co_lines() instead.
-            lines_from_pos = set(l for (l, _, _, _) in pos1 if l is not None)
-            lines_from_table = set(l for (_, _, l) in co.co_lines() if l is not None)
-            self.assertEqual(lines_from_pos, lines_from_table)
-            return
-        pos2 = list(positions_from_location_table(co))
+        pos1 = list(func.__code__.co_positions())
+        pos2 = list(positions_from_location_table(func.__code__))
         for l1, l2 in zip(pos1, pos2):
             self.assertEqual(l1, l2)
         self.assertEqual(len(pos1), len(pos2))
@@ -674,14 +728,8 @@ class CodeLocationTest(unittest.TestCase):
 
     def check_lines(self, func):
         co = func.__code__
-        lines1 = list(dedup(l for (_, _, l) in co.co_lines()))
-        if sys.implementation.name == 'pypy':
-            # PyPy uses a different co_linetable format; cross-check
-            # co_lines() against co_positions() instead.
-            lines_from_table = set(l for l in lines1 if l is not None)
-            lines_from_pos = set(l for (l, _, _, _) in co.co_positions() if l is not None)
-            self.assertEqual(lines_from_table, lines_from_pos)
-            return
+        lines1 = [line for _, _, line in co.co_lines()]
+        self.assertEqual(lines1, list(dedup(lines1)))
         lines2 = list(lines_from_postions(positions_from_location_table(co)))
         for l1, l2 in zip(lines1, lines2):
             self.assertEqual(l1, l2)
@@ -701,6 +749,7 @@ class CodeLocationTest(unittest.TestCase):
             pass
         PY_CODE_LOCATION_INFO_NO_COLUMNS = 13
         f.__code__ = f.__code__.replace(
+            co_stacksize=1,
             co_firstlineno=42,
             co_code=bytes(
                 [
@@ -729,15 +778,15 @@ if check_impl_detail(cpython=True) and ctypes is not None:
     py = ctypes.pythonapi
     freefunc = ctypes.CFUNCTYPE(None,ctypes.c_voidp)
 
-    RequestCodeExtraIndex = py._PyEval_RequestCodeExtraIndex
+    RequestCodeExtraIndex = py.PyUnstable_Eval_RequestCodeExtraIndex
     RequestCodeExtraIndex.argtypes = (freefunc,)
     RequestCodeExtraIndex.restype = ctypes.c_ssize_t
 
-    SetExtra = py._PyCode_SetExtra
+    SetExtra = py.PyUnstable_Code_SetExtra
     SetExtra.argtypes = (ctypes.py_object, ctypes.c_ssize_t, ctypes.c_voidp)
     SetExtra.restype = ctypes.c_int
 
-    GetExtra = py._PyCode_GetExtra
+    GetExtra = py.PyUnstable_Code_GetExtra
     GetExtra.argtypes = (ctypes.py_object, ctypes.c_ssize_t,
                          ctypes.POINTER(ctypes.c_voidp))
     GetExtra.restype = ctypes.c_int
@@ -820,22 +869,7 @@ if check_impl_detail(cpython=True) and ctypes is not None:
 
 
 def load_tests(loader, tests, pattern):
-    if sys.implementation.name == 'pypy':
-        # PyPy sets several flags that CPython 3.11 does not expose publicly:
-        # CO_NOFREE (0x40), CO_GENERATOR_ALLOWED (0x1000),
-        # CO_KILL_DOCSTRING (0x2000000), CO_YIELD_INSIDE_TRY (0x4000000).
-        # Strip them from actual output so the doctest expected values match.
-        _FLAGS_RE = re.compile(r'^(flags: )(\d+)$', re.MULTILINE)
-        _PYPY_ONLY_FLAGS = 0x40 | 0x1000 | 0x2000000 | 0x4000000
-        class _PyPyOutputChecker(doctest.OutputChecker):
-            def check_output(self, want, got, optionflags):
-                got2 = _FLAGS_RE.sub(
-                    lambda m: m.group(1) + str(int(m.group(2)) & ~_PYPY_ONLY_FLAGS),
-                    got)
-                return super().check_output(want, got2, optionflags)
-        tests.addTest(doctest.DocTestSuite(checker=_PyPyOutputChecker()))
-    else:
-        tests.addTest(doctest.DocTestSuite())
+    tests.addTest(doctest.DocTestSuite())
     return tests
 
 

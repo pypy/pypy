@@ -5,7 +5,6 @@ from test import support
 from test.support import threading_helper
 from test.support.import_helper import import_module
 import weakref
-import gc
 
 # Modules under test
 import _thread
@@ -208,6 +207,21 @@ class BaseLocalTest:
             _ = threading.local()
 
         _testcapi.join_temporary_c_thread()
+
+    @support.cpython_only
+    def test_error(self):
+        class Loop(self._local):
+            attr = 1
+
+        # Trick the "if name == '__dict__':" test of __setattr__()
+        # to always be true
+        class NameCompareTrue:
+            def __eq__(self, other):
+                return True
+
+        loop = Loop()
+        with self.assertRaisesRegex(AttributeError, 'Loop.*read-only'):
+            loop.__setattr__(NameCompareTrue(), 2)
 
 
 class ThreadLocalTest(unittest.TestCase, BaseLocalTest):

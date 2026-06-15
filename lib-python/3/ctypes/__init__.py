@@ -5,14 +5,13 @@ import types as _types
 
 __version__ = "1.1.0"
 
-#PyPy change
-import _ffi
 from _ctypes import Union, Structure, Array
 from _ctypes import _Pointer
 from _ctypes import CFuncPtr as _CFuncPtr
 from _ctypes import __version__ as _ctypes_version
 from _ctypes import RTLD_LOCAL, RTLD_GLOBAL
 from _ctypes import ArgumentError
+from _ctypes import SIZEOF_TIME_T
 
 from struct import calcsize as _calcsize
 
@@ -345,6 +344,8 @@ class CDLL(object):
                  use_errno=False,
                  use_last_error=False,
                  winmode=None):
+        if name:
+            name = _os.fspath(name)
         self._name = name
         flags = self._func_flags_
         if use_errno:
@@ -375,12 +376,7 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            # PyPy change
-            if flags & _FUNCFLAG_CDECL:
-                pypy_dll = _ffi.CDLL(name, mode)
-            else:
-                pypy_dll = _ffi.WinDLL(name, mode)
-            self._handle = pypy_dll
+            self._handle = _dlopen(self._name, mode)
         else:
             self._handle = handle
 
@@ -403,13 +399,12 @@ class CDLL(object):
             func.__name__ = name_or_ordinal
         return func
 
-# Not in PyPy
-#class PyDLL(CDLL):
-#    """This class represents the Python library itself.  It allows
-#    accessing Python API functions.  The GIL is not released, and
-#    Python exceptions are handled correctly.
-#    """
-#    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
+class PyDLL(CDLL):
+    """This class represents the Python library itself.  It allows
+    accessing Python API functions.  The GIL is not released, and
+    Python exceptions are handled correctly.
+    """
+    _func_flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
 
 if _os.name == "nt":
 
@@ -451,7 +446,10 @@ class LibraryLoader(object):
     def __getattr__(self, name):
         if name[0] == '_':
             raise AttributeError(name)
-        dll = self._dlltype(name)
+        try:
+            dll = self._dlltype(name)
+        except OSError:
+            raise AttributeError(name)
         setattr(self, name, dll)
         return dll
 
@@ -464,8 +462,15 @@ class LibraryLoader(object):
     __class_getitem__ = classmethod(_types.GenericAlias)
 
 cdll = LibraryLoader(CDLL)
-# not on PyPy
-#pydll = LibraryLoader(PyDLL)
+pydll = LibraryLoader(PyDLL)
+
+if _os.name == "nt":
+    pythonapi = PyDLL("python dll", None, _sys.dllhandle)
+elif _sys.platform == "cygwin":
+    pythonapi = PyDLL("libpython%d.%d.dll" % _sys.version_info[:2])
+else:
+    pythonapi = PyDLL(None)
+
 
 if _os.name == "nt":
     windll = LibraryLoader(WinDLL)
@@ -508,19 +513,15 @@ def PYFUNCTYPE(restype, *argtypes):
         _flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
     return CFunctionType
 
+_cast = PYFUNCTYPE(py_object, c_void_p, py_object, py_object)(_cast_addr)
 def cast(obj, typ):
-    # PyPy difference: call _cast_addr directly, don't wrap it in a PYFUNCTYPE
-    try:
-        c_void_p.from_param(obj)
-    except TypeError as e:
-        raise ArgumentError(str(e))
-    return _cast_addr(obj, obj, typ)
+    return _cast(obj, obj, typ)
 
 _string_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
 def string_at(ptr, size=-1):
-    """string_at(addr[, size]) -> string
+    """string_at(ptr[, size]) -> string
 
-    Return the string at addr."""
+    Return the byte string at void *ptr."""
     return _string_at(ptr, size)
 
 try:
@@ -530,9 +531,9 @@ except ImportError:
 else:
     _wstring_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_wstring_at_addr)
     def wstring_at(ptr, size=-1):
-        """wstring_at(addr[, size]) -> string
+        """wstring_at(ptr[, size]) -> string
 
-        Return the string at addr."""
+        Return the wide-character string at void *ptr."""
         return _wstring_at(ptr, size)
 
 
@@ -567,5 +568,12 @@ for kind in [c_ushort, c_uint, c_ulong, c_ulonglong]:
     elif sizeof(kind) == 4: c_uint32 = kind
     elif sizeof(kind) == 8: c_uint64 = kind
 del(kind)
+
+if SIZEOF_TIME_T == 8:
+    c_time_t = c_int64
+elif SIZEOF_TIME_T == 4:
+    c_time_t = c_int32
+else:
+    raise SystemError(f"Unexpected sizeof(time_t): {SIZEOF_TIME_T=}")
 
 _reset_cache()

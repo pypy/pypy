@@ -4,6 +4,7 @@
 from test.support import verbose, requires_IEEE_754
 from test import support
 import unittest
+import fractions
 import itertools
 import decimal
 import math
@@ -186,6 +187,9 @@ def result_check(expected, got, ulp_tol=5, abs_tol=0.0):
 
     # Check exactly equal (applies also to strings representing exceptions)
     if got == expected:
+        if not got and not expected:
+            if math.copysign(1, got) != math.copysign(1, expected):
+                return f"expected {expected}, got {got} (zero has wrong sign)"
         return None
 
     failure = "not equal"
@@ -656,7 +660,7 @@ class MathTests(unittest.TestCase):
         def msum(iterable):
             """Full precision summation.  Compute sum(iterable) without any
             intermediate accumulation of error.  Based on the 'lsum' function
-            at http://code.activestate.com/recipes/393090/
+            at https://code.activestate.com/recipes/393090-binary-floating-point-summation-accurate-to-full-p/
 
             """
             tmant, texp = 0, 0
@@ -808,11 +812,13 @@ class MathTests(unittest.TestCase):
         # Test allowable types (those with __float__)
         self.assertEqual(hypot(12.0, 5.0), 13.0)
         self.assertEqual(hypot(12, 5), 13)
-        self.assertEqual(hypot(1, -1), math.sqrt(2))
-        self.assertEqual(hypot(1, FloatLike(-1.)), math.sqrt(2))
+        self.assertEqual(hypot(0.75, -1), 1.25)
+        self.assertEqual(hypot(-1, 0.75), 1.25)
+        self.assertEqual(hypot(0.75, FloatLike(-1.)), 1.25)
+        self.assertEqual(hypot(FloatLike(-1.), 0.75), 1.25)
         self.assertEqual(hypot(Decimal(12), Decimal(5)), 13)
         self.assertEqual(hypot(Fraction(12, 32), Fraction(5, 32)), Fraction(13, 32))
-        self.assertEqual(hypot(bool(1), bool(0), bool(1), bool(1)), math.sqrt(3))
+        self.assertEqual(hypot(True, False, True, True, True), 2.0)
 
         # Test corner cases
         self.assertEqual(hypot(0.0, 0.0), 0.0)     # Max input is zero
@@ -968,9 +974,9 @@ class MathTests(unittest.TestCase):
         self.assertEqual(dist((D(14), D(1)), (D(2), D(-4))), D(13))
         self.assertEqual(dist((F(14, 32), F(1, 32)), (F(2, 32), F(-4, 32))),
                          F(13, 32))
-        self.assertEqual(dist((True, True, False, True, False),
-                              (True, False, True, True, False)),
-                         sqrt(2.0))
+        self.assertEqual(dist((True, True, False, False, True, True),
+                              (True, False, True, False, False, False)),
+                         2.0)
 
         # Test corner cases
         self.assertEqual(dist((13.25, 12.5, -3.25),
@@ -1160,9 +1166,7 @@ class MathTests(unittest.TestCase):
         self.assertRaises(TypeError, lcm, 120.0)
         self.assertRaises(TypeError, lcm, 120.0, 84)
         self.assertRaises(TypeError, lcm, 120, 84.0)
-        if sys.implementation.name != 'pypy':
-            # PyPy returns the first 0 so it does not see the float
-            self.assertRaises(TypeError, lcm, 120, 0, 84.0)
+        self.assertRaises(TypeError, lcm, 120, 0, 84.0)
         self.assertEqual(lcm(MyIndexable(120), MyIndexable(84)), 840)
 
     def testLdexp(self):
@@ -1261,6 +1265,277 @@ class MathTests(unittest.TestCase):
         self.assertRaises(ValueError, math.log10, NINF)
         self.assertEqual(math.log(INF), INF)
         self.assertTrue(math.isnan(math.log10(NAN)))
+
+    def testSumProd(self):
+        sumprod = math.sumprod
+        Decimal = decimal.Decimal
+        Fraction = fractions.Fraction
+
+        # Core functionality
+        self.assertEqual(sumprod(iter([10, 20, 30]), (1, 2, 3)), 140)
+        self.assertEqual(sumprod([1.5, 2.5], [3.5, 4.5]), 16.5)
+        self.assertEqual(sumprod([], []), 0)
+        self.assertEqual(sumprod([-1], [1.]), -1)
+        self.assertEqual(sumprod([1.], [-1]), -1)
+
+        # Type preservation and coercion
+        for v in [
+            (10, 20, 30),
+            (1.5, -2.5),
+            (Fraction(3, 5), Fraction(4, 5)),
+            (Decimal(3.5), Decimal(4.5)),
+            (2.5, 10),             # float/int
+            (2.5, Fraction(3, 5)), # float/fraction
+            (25, Fraction(3, 5)),  # int/fraction
+            (25, Decimal(4.5)),    # int/decimal
+        ]:
+            for p, q in [(v, v), (v, v[::-1])]:
+                with self.subTest(p=p, q=q):
+                    expected = sum(p_i * q_i for p_i, q_i in zip(p, q, strict=True))
+                    actual = sumprod(p, q)
+                    self.assertEqual(expected, actual)
+                    self.assertEqual(type(expected), type(actual))
+
+        # Bad arguments
+        self.assertRaises(TypeError, sumprod)               # No args
+        self.assertRaises(TypeError, sumprod, [])           # One arg
+        self.assertRaises(TypeError, sumprod, [], [], [])   # Three args
+        self.assertRaises(TypeError, sumprod, None, [10])   # Non-iterable
+        self.assertRaises(TypeError, sumprod, [10], None)   # Non-iterable
+        self.assertRaises(TypeError, sumprod, ['x'], [1.0])
+
+        # Uneven lengths
+        self.assertRaises(ValueError, sumprod, [10, 20], [30])
+        self.assertRaises(ValueError, sumprod, [10], [20, 30])
+
+        # Overflows
+        self.assertEqual(sumprod([10**20], [1]), 10**20)
+        self.assertEqual(sumprod([1], [10**20]), 10**20)
+        self.assertEqual(sumprod([10**10], [10**10]), 10**20)
+        self.assertEqual(sumprod([10**7]*10**5, [10**7]*10**5), 10**19)
+        self.assertRaises(OverflowError, sumprod, [10**1000], [1.0])
+        self.assertRaises(OverflowError, sumprod, [1.0], [10**1000])
+
+        # Error in iterator
+        def raise_after(n):
+            for i in range(n):
+                yield i
+            raise RuntimeError
+        with self.assertRaises(RuntimeError):
+            sumprod(range(10), raise_after(5))
+        with self.assertRaises(RuntimeError):
+            sumprod(raise_after(5), range(10))
+
+        from test.test_iter import BasicIterClass
+
+        self.assertEqual(sumprod(BasicIterClass(1), [1]), 0)
+        self.assertEqual(sumprod([1], BasicIterClass(1)), 0)
+
+        # Error in multiplication
+        class BadMultiply:
+            def __mul__(self, other):
+                raise RuntimeError
+            def __rmul__(self, other):
+                raise RuntimeError
+        with self.assertRaises(RuntimeError):
+            sumprod([10, BadMultiply(), 30], [1, 2, 3])
+        with self.assertRaises(RuntimeError):
+            sumprod([1, 2, 3], [10, BadMultiply(), 30])
+
+        # Error in addition
+        with self.assertRaises(TypeError):
+            sumprod(['abc', 3], [5, 10])
+        with self.assertRaises(TypeError):
+            sumprod([5, 10], ['abc', 3])
+
+        # Special values should give the same as the pure python recipe
+        self.assertEqual(sumprod([10.1, math.inf], [20.2, 30.3]), math.inf)
+        self.assertEqual(sumprod([10.1, math.inf], [math.inf, 30.3]), math.inf)
+        self.assertEqual(sumprod([10.1, math.inf], [math.inf, math.inf]), math.inf)
+        self.assertEqual(sumprod([10.1, -math.inf], [20.2, 30.3]), -math.inf)
+        self.assertTrue(math.isnan(sumprod([10.1, math.inf], [-math.inf, math.inf])))
+        self.assertTrue(math.isnan(sumprod([10.1, math.nan], [20.2, 30.3])))
+        self.assertTrue(math.isnan(sumprod([10.1, math.inf], [math.nan, 30.3])))
+        self.assertTrue(math.isnan(sumprod([10.1, math.inf], [20.3, math.nan])))
+
+        # Error cases that arose during development
+        args = ((-5, -5, 10), (1.5, 4611686018427387904, 2305843009213693952))
+        self.assertEqual(sumprod(*args), 0.0)
+
+
+    @requires_IEEE_754
+    @unittest.skipIf(HAVE_DOUBLE_ROUNDING,
+                         "sumprod() accuracy not guaranteed on machines with double rounding")
+    @support.cpython_only    # Other implementations may choose a different algorithm
+    def test_sumprod_accuracy(self):
+        sumprod = math.sumprod
+        self.assertEqual(sumprod([0.1] * 10, [1]*10), 1.0)
+        self.assertEqual(sumprod([0.1] * 20, [True, False] * 10), 1.0)
+        self.assertEqual(sumprod([True, False] * 10, [0.1] * 20), 1.0)
+        self.assertEqual(sumprod([1.0, 10E100, 1.0, -10E100], [1.0]*4), 2.0)
+
+    @support.requires_resource('cpu')
+    def test_sumprod_stress(self):
+        sumprod = math.sumprod
+        product = itertools.product
+        Decimal = decimal.Decimal
+        Fraction = fractions.Fraction
+
+        class Int(int):
+            def __add__(self, other):
+                return Int(int(self) + int(other))
+            def __mul__(self, other):
+                return Int(int(self) * int(other))
+            __radd__ = __add__
+            __rmul__ = __mul__
+            def __repr__(self):
+                return f'Int({int(self)})'
+
+        class Flt(float):
+            def __add__(self, other):
+                return Int(int(self) + int(other))
+            def __mul__(self, other):
+                return Int(int(self) * int(other))
+            __radd__ = __add__
+            __rmul__ = __mul__
+            def __repr__(self):
+                return f'Flt({int(self)})'
+
+        def baseline_sumprod(p, q):
+            """This defines the target behavior including exceptions and special values.
+            However, it is subject to rounding errors, so float inputs should be exactly
+            representable with only a few bits.
+            """
+            total = 0
+            for p_i, q_i in zip(p, q, strict=True):
+                total += p_i * q_i
+            return total
+
+        def run(func, *args):
+            "Make comparing functions easier. Returns error status, type, and result."
+            try:
+                result = func(*args)
+            except (AssertionError, NameError):
+                raise
+            except Exception as e:
+                return type(e), None, 'None'
+            return None, type(result), repr(result)
+
+        pools = [
+            (-5, 10, -2**20, 2**31, 2**40, 2**61, 2**62, 2**80, 1.5, Int(7)),
+            (5.25, -3.5, 4.75, 11.25, 400.5, 0.046875, 0.25, -1.0, -0.078125),
+            (-19.0*2**500, 11*2**1000, -3*2**1500, 17*2*333,
+               5.25, -3.25, -3.0*2**(-333),  3, 2**513),
+            (3.75, 2.5, -1.5, float('inf'), -float('inf'), float('NaN'), 14,
+                9, 3+4j, Flt(13), 0.0),
+            (13.25, -4.25, Decimal('10.5'), Decimal('-2.25'), Fraction(13, 8),
+                 Fraction(-11, 16), 4.75 + 0.125j, 97, -41, Int(3)),
+            (Decimal('6.125'), Decimal('12.375'), Decimal('-2.75'), Decimal(0),
+                 Decimal('Inf'), -Decimal('Inf'), Decimal('NaN'), 12, 13.5),
+            (-2.0 ** -1000, 11*2**1000, 3, 7, -37*2**32, -2*2**-537, -2*2**-538,
+                 2*2**-513),
+            (-7 * 2.0 ** -510, 5 * 2.0 ** -520, 17, -19.0, -6.25),
+            (11.25, -3.75, -0.625, 23.375, True, False, 7, Int(5)),
+        ]
+
+        for pool in pools:
+            for size in range(4):
+                for args1 in product(pool, repeat=size):
+                    for args2 in product(pool, repeat=size):
+                        args = (args1, args2)
+                        self.assertEqual(
+                            run(baseline_sumprod, *args),
+                            run(sumprod, *args),
+                            args,
+                        )
+
+    @requires_IEEE_754
+    @unittest.skipIf(HAVE_DOUBLE_ROUNDING,
+                         "sumprod() accuracy not guaranteed on machines with double rounding")
+    @support.cpython_only    # Other implementations may choose a different algorithm
+    @support.requires_resource('cpu')
+    def test_sumprod_extended_precision_accuracy(self):
+        import operator
+        from fractions import Fraction
+        from itertools import starmap
+        from collections import namedtuple
+        from math import log2, exp2, fabs
+        from random import choices, uniform, shuffle
+        from statistics import median
+
+        DotExample = namedtuple('DotExample', ('x', 'y', 'target_sumprod', 'condition'))
+
+        def DotExact(x, y):
+            vec1 = map(Fraction, x)
+            vec2 = map(Fraction, y)
+            return sum(starmap(operator.mul, zip(vec1, vec2, strict=True)))
+
+        def Condition(x, y):
+            return 2.0 * DotExact(map(abs, x), map(abs, y)) / abs(DotExact(x, y))
+
+        def linspace(lo, hi, n):
+            width = (hi - lo) / (n - 1)
+            return [lo + width * i for i in range(n)]
+
+        def GenDot(n, c):
+            """ Algorithm 6.1 (GenDot) works as follows. The condition number (5.7) of
+            the dot product xT y is proportional to the degree of cancellation. In
+            order to achieve a prescribed cancellation, we generate the first half of
+            the vectors x and y randomly within a large exponent range. This range is
+            chosen according to the anticipated condition number. The second half of x
+            and y is then constructed choosing xi randomly with decreasing exponent,
+            and calculating yi such that some cancellation occurs. Finally, we permute
+            the vectors x, y randomly and calculate the achieved condition number.
+            """
+
+            assert n >= 6
+            n2 = n // 2
+            x = [0.0] * n
+            y = [0.0] * n
+            b = log2(c)
+
+            # First half with exponents from 0 to |_b/2_| and random ints in between
+            e = choices(range(int(b/2)), k=n2)
+            e[0] = int(b / 2) + 1
+            e[-1] = 0.0
+
+            x[:n2] = [uniform(-1.0, 1.0) * exp2(p) for p in e]
+            y[:n2] = [uniform(-1.0, 1.0) * exp2(p) for p in e]
+
+            # Second half
+            e = list(map(round, linspace(b/2, 0.0 , n-n2)))
+            for i in range(n2, n):
+                x[i] = uniform(-1.0, 1.0) * exp2(e[i - n2])
+                y[i] = (uniform(-1.0, 1.0) * exp2(e[i - n2]) - DotExact(x, y)) / x[i]
+
+            # Shuffle
+            pairs = list(zip(x, y))
+            shuffle(pairs)
+            x, y = zip(*pairs)
+
+            return DotExample(x, y, DotExact(x, y), Condition(x, y))
+
+        def RelativeError(res, ex):
+            x, y, target_sumprod, condition = ex
+            n = DotExact(list(x) + [-res], list(y) + [1])
+            return fabs(n / target_sumprod)
+
+        def Trial(dotfunc, c, n):
+            ex = GenDot(10, c)
+            res = dotfunc(ex.x, ex.y)
+            return RelativeError(res, ex)
+
+        times = 1000          # Number of trials
+        n = 20                # Length of vectors
+        c = 1e30              # Target condition number
+
+        # If the following test fails, it means that the C math library
+        # implementation of fma() is not compliant with the C99 standard
+        # and is inaccurate.  To solve this problem, make a new build
+        # with the symbol UNRELIABLE_FMA defined.  That will enable a
+        # slower but accurate code path that avoids the fma() call.
+        relative_err = median(Trial(math.sumprod, c, n) for i in range(times))
+        self.assertLess(relative_err, 1e-16)
 
     def testModf(self):
         self.assertRaises(TypeError, math.modf)
@@ -1611,7 +1886,7 @@ class MathTests(unittest.TestCase):
         try:
             self.assertTrue(math.isnan(math.tan(INF)))
             self.assertTrue(math.isnan(math.tan(NINF)))
-        except:
+        except ValueError:
             self.assertRaises(ValueError, math.tan, INF)
             self.assertRaises(ValueError, math.tan, NINF)
         self.assertTrue(math.isnan(math.tan(NAN)))
@@ -1690,11 +1965,11 @@ class MathTests(unittest.TestCase):
         self.assertFalse(math.isinf(0.))
         self.assertFalse(math.isinf(1.))
 
-    @requires_IEEE_754
     def test_nan_constant(self):
+        # `math.nan` must be a quiet NaN with positive sign bit
         self.assertTrue(math.isnan(math.nan))
+        self.assertEqual(math.copysign(1., math.nan), 1.)
 
-    @requires_IEEE_754
     def test_inf_constant(self):
         self.assertTrue(math.isinf(math.inf))
         self.assertGreater(math.inf, 0.0)
@@ -1780,6 +2055,13 @@ class MathTests(unittest.TestCase):
                 result = 'ValueError'
             except OverflowError:
                 result = 'OverflowError'
+
+            # C99+ says for math.h's sqrt: If the argument is +∞ or ±0, it is
+            # returned, unmodified.  On another hand, for csqrt: If z is ±0+0i,
+            # the result is +0+0i.  Lets correct zero sign of er to follow
+            # first convention.
+            if id in ['sqrt0002', 'sqrt0003', 'sqrt1001', 'sqrt1023']:
+                er = math.copysign(er, ar)
 
             # Default tolerances
             ulp_tol, abs_tol = 5, 0.0
@@ -2115,11 +2397,20 @@ class MathTests(unittest.TestCase):
                          float.fromhex('0x1.fffffffffffffp-1'))
         self.assertEqual(math.nextafter(1.0, INF),
                          float.fromhex('0x1.0000000000001p+0'))
+        self.assertEqual(math.nextafter(1.0, -INF, steps=1),
+                         float.fromhex('0x1.fffffffffffffp-1'))
+        self.assertEqual(math.nextafter(1.0, INF, steps=1),
+                         float.fromhex('0x1.0000000000001p+0'))
+        self.assertEqual(math.nextafter(1.0, -INF, steps=3),
+                         float.fromhex('0x1.ffffffffffffdp-1'))
+        self.assertEqual(math.nextafter(1.0, INF, steps=3),
+                         float.fromhex('0x1.0000000000003p+0'))
 
         # x == y: y is returned
-        self.assertEqual(math.nextafter(2.0, 2.0), 2.0)
-        self.assertEqualSign(math.nextafter(-0.0, +0.0), +0.0)
-        self.assertEqualSign(math.nextafter(+0.0, -0.0), -0.0)
+        for steps in range(1, 5):
+            self.assertEqual(math.nextafter(2.0, 2.0, steps=steps), 2.0)
+            self.assertEqualSign(math.nextafter(-0.0, +0.0, steps=steps), +0.0)
+            self.assertEqualSign(math.nextafter(+0.0, -0.0, steps=steps), -0.0)
 
         # around 0.0
         smallest_subnormal = sys.float_info.min * sys.float_info.epsilon
@@ -2143,6 +2434,11 @@ class MathTests(unittest.TestCase):
         self.assertIsNaN(math.nextafter(NAN, 1.0))
         self.assertIsNaN(math.nextafter(1.0, NAN))
         self.assertIsNaN(math.nextafter(NAN, NAN))
+
+        self.assertEqual(1.0, math.nextafter(1.0, INF, steps=0))
+        with self.assertRaises(ValueError):
+            math.nextafter(1.0, INF, steps=-1)
+
 
     @requires_IEEE_754
     def test_ulp(self):

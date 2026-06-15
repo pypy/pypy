@@ -20,10 +20,6 @@ from collections import namedtuple
 from reprlib import recursive_repr
 from _thread import RLock
 from types import GenericAlias
-try:
-    from __pypy__ import hidden_applevel
-except ImportError:
-    hidden_applevel = lambda f: f
 
 
 ################################################################################
@@ -34,7 +30,7 @@ except ImportError:
 # wrapper functions that can handle naive introspection
 
 WRAPPER_ASSIGNMENTS = ('__module__', '__name__', '__qualname__', '__doc__',
-                       '__annotations__')
+                       '__annotations__', '__type_params__')
 WRAPPER_UPDATES = ('__dict__',)
 def update_wrapper(wrapper,
                    wrapped,
@@ -207,7 +203,6 @@ def total_ordering(cls):
 ### cmp_to_key() function converter
 ################################################################################
 
-@hidden_applevel
 def cmp_to_key(mycmp):
     """Convert a cmp= function into a key= function"""
     class K(object):
@@ -239,17 +234,18 @@ except ImportError:
 
 _initial_missing = object()
 
-@hidden_applevel
 def reduce(function, sequence, initial=_initial_missing):
     """
     reduce(function, iterable[, initial]) -> value
 
-    Apply a function of two arguments cumulatively to the items of a sequence
-    or iterable, from left to right, so as to reduce the iterable to a single
-    value.  For example, reduce(lambda x, y: x+y, [1, 2, 3, 4, 5]) calculates
-    ((((1+2)+3)+4)+5).  If initial is present, it is placed before the items
-    of the iterable in the calculation, and serves as a default when the
-    iterable is empty.
+    Apply a function of two arguments cumulatively to the items of an iterable, from left to right.
+
+    This effectively reduces the iterable to a single value.  If initial is present,
+    it is placed before the items of the iterable in the calculation, and serves as
+    a default when the iterable is empty.
+
+    For example, reduce(lambda x, y: x+y, [1, 2, 3, 4, 5])
+    calculates ((((1 + 2) + 3) + 4) + 5).
     """
 
     it = iter(sequence)
@@ -290,9 +286,7 @@ class partial:
         if not callable(func):
             raise TypeError("the first argument must be callable")
 
-        # PyPy modification: the isinstance check is missing in cpython, see
-        # GH-100242
-        if isinstance(func, partial) and hasattr(func, "func"):
+        if hasattr(func, "func"):
             args = func.args + args
             keywords = {**func.keywords, **keywords}
             func = func.func
@@ -304,7 +298,6 @@ class partial:
         self.keywords = keywords
         return self
 
-    @hidden_applevel
     def __call__(self, /, *args, **keywords):
         keywords = {**self.keywords, **keywords}
         return self.func(*self.args, *args, **keywords)
@@ -384,15 +377,13 @@ class partialmethod(object):
             self.keywords = keywords
 
     def __repr__(self):
-        args = ", ".join(map(repr, self.args))
-        keywords = ", ".join("{}={!r}".format(k, v)
-                                 for k, v in self.keywords.items())
-        format_string = "{module}.{cls}({func}, {args}, {keywords})"
-        return format_string.format(module=self.__class__.__module__,
-                                    cls=self.__class__.__qualname__,
-                                    func=self.func,
-                                    args=args,
-                                    keywords=keywords)
+        cls = type(self)
+        module = cls.__module__
+        qualname = cls.__qualname__
+        args = [repr(self.func)]
+        args.extend(map(repr, self.args))
+        args.extend(f"{k}={v!r}" for k, v in self.keywords.items())
+        return f"{module}.{qualname}({', '.join(args)})"
 
     def _make_unbound_method(self):
         def _method(cls_or_self, /, *args, **keywords):
@@ -648,7 +639,7 @@ def _lru_cache_wrapper(user_function, maxsize, typed, _CacheInfo):
 
     wrapper.cache_info = cache_info
     wrapper.cache_clear = cache_clear
-    return hidden_applevel(wrapper)
+    return wrapper
 
 try:
     from _functools import _lru_cache_wrapper
@@ -672,7 +663,7 @@ def cache(user_function, /):
 def _c3_merge(sequences):
     """Merges MROs in *sequences* to a single MRO using the C3 algorithm.
 
-    Adapted from https://www.python.org/download/releases/2.3/mro/.
+    Adapted from https://docs.python.org/3/howto/mro.html.
 
     """
     result = []
@@ -968,18 +959,16 @@ class singledispatchmethod:
 
 
 ################################################################################
-### cached_property() - computed once per instance, cached as attribute
+### cached_property() - property result cached as instance attribute
 ################################################################################
 
 _NOT_FOUND = object()
-
 
 class cached_property:
     def __init__(self, func):
         self.func = func
         self.attrname = None
         self.__doc__ = func.__doc__
-        self.lock = RLock()
 
     def __set_name__(self, owner, name):
         if self.attrname is None:
@@ -1006,19 +995,15 @@ class cached_property:
             raise TypeError(msg) from None
         val = cache.get(self.attrname, _NOT_FOUND)
         if val is _NOT_FOUND:
-            with self.lock:
-                # check if another thread filled cache while we awaited lock
-                val = cache.get(self.attrname, _NOT_FOUND)
-                if val is _NOT_FOUND:
-                    val = self.func(instance)
-                    try:
-                        cache[self.attrname] = val
-                    except TypeError:
-                        msg = (
-                            f"The '__dict__' attribute on {type(instance).__name__!r} instance "
-                            f"does not support item assignment for caching {self.attrname!r} property."
-                        )
-                        raise TypeError(msg) from None
+            val = self.func(instance)
+            try:
+                cache[self.attrname] = val
+            except TypeError:
+                msg = (
+                    f"The '__dict__' attribute on {type(instance).__name__!r} instance "
+                    f"does not support item assignment for caching {self.attrname!r} property."
+                )
+                raise TypeError(msg) from None
         return val
 
     __class_getitem__ = classmethod(GenericAlias)

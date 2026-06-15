@@ -3,9 +3,9 @@
 # testing of error conditions uncovered when using extension types.
 
 import unittest
-import sys
 import typing
 from test import support
+
 
 
 class TestIsInstanceExceptions(unittest.TestCase):
@@ -144,6 +144,7 @@ class TestIsSubclassExceptions(unittest.TestCase):
             __bases__ = property(getbases)
 
         self.assertRaises(TypeError, issubclass, B, C())
+
 
 
 # meta classes for creating abstract classes and instances
@@ -351,8 +352,7 @@ def blowstack(fxn, arg, compare_to):
     # Make sure that calling isinstance with a deeply nested tuple for its
     # argument will raise RecursionError eventually.
     tuple_arg = (compare_to,)
-    # pypy change: need much deeper nested tuples to check this
-    for cnt in range(sys.getrecursionlimit() * 100):
+    for cnt in range(support.C_RECURSION_LIMIT * 2):
         tuple_arg = (tuple_arg,)
         fxn(arg, tuple_arg)
 

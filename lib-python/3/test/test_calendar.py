@@ -8,6 +8,7 @@ import locale
 import sys
 import datetime
 import os
+import warnings
 
 # From https://en.wikipedia.org/wiki/Leap_year_starting_on_Saturday
 result_0_02_text = """\
@@ -455,6 +456,11 @@ class OutputTestCase(unittest.TestCase):
             calendar.TextCalendar().formatmonth(0, 2),
             result_0_02_text
         )
+    def test_formatmonth_with_invalid_month(self):
+        with self.assertRaises(calendar.IllegalMonthError):
+            calendar.TextCalendar().formatmonth(2017, 13)
+        with self.assertRaises(calendar.IllegalMonthError):
+            calendar.TextCalendar().formatmonth(2017, -1)
 
     def test_formatmonthname_with_year(self):
         self.assertEqual(
@@ -490,6 +496,14 @@ class OutputTestCase(unittest.TestCase):
             self.assertEqual(out.getvalue().strip(), "1   2   3")
 
 class CalendarTestCase(unittest.TestCase):
+
+    def test_deprecation_warning(self):
+        with self.assertWarnsRegex(
+            DeprecationWarning,
+            "The 'January' attribute is deprecated, use 'JANUARY' instead"
+        ):
+            calendar.January
+
     def test_isleap(self):
         # Make sure that the return is right for a few years, and
         # ensure that the return values are 1 or 0, not just true or
@@ -963,7 +977,7 @@ class MiscTestCase(unittest.TestCase):
         not_exported = {
             'mdays', 'January', 'February', 'EPOCH',
             'different_locale', 'c', 'prweek', 'week', 'format',
-            'formatstring', 'main', 'monthlen', 'prevmonth', 'nextmonth'}
+            'formatstring', 'main', 'monthlen', 'prevmonth', 'nextmonth', ""}
         support.check__all__(self, calendar, not_exported=not_exported)
 
 
@@ -990,6 +1004,13 @@ class TestSubClassingCase(unittest.TestCase):
     def test_formatmonth(self):
         self.assertIn('class="text-center month"',
                       self.cal.formatmonth(2017, 5))
+
+    def test_formatmonth_with_invalid_month(self):
+        with self.assertRaises(calendar.IllegalMonthError):
+            self.cal.formatmonth(2017, 13)
+        with self.assertRaises(calendar.IllegalMonthError):
+            self.cal.formatmonth(2017, -1)
+
 
     def test_formatweek(self):
         weeks = self.cal.monthdays2calendar(2017, 5)

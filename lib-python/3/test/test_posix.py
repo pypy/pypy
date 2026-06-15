@@ -6,12 +6,14 @@ from test.support import os_helper
 from test.support import warnings_helper
 from test.support.script_helper import assert_python_ok
 
+import copy
 import errno
 import sys
 import signal
 import time
 import os
 import platform
+import pickle
 import stat
 import tempfile
 import unittest
@@ -233,6 +235,9 @@ class PosixTester(unittest.TestCase):
         with self.assertRaises(TypeError, msg="Invalid arg was allowed"):
             # Ensure a combination of valid and invalid is an error.
             os.register_at_fork(before=None, after_in_parent=lambda: 3)
+        with self.assertRaises(TypeError, msg="At least one argument is required"):
+            # when no arg is passed
+            os.register_at_fork()
         with self.assertRaises(TypeError, msg="Invalid arg was allowed"):
             # Ensure a combination of valid and invalid is an error.
             os.register_at_fork(before=lambda: None, after_in_child='')
@@ -408,8 +413,10 @@ class PosixTester(unittest.TestCase):
             # issue33655: Also ignore EINVAL on *BSD since ZFS is also
             # often used there.
             if inst.errno == errno.EINVAL and sys.platform.startswith(
-                ('sunos', 'freebsd', 'netbsd', 'openbsd', 'gnukfreebsd')):
+                ('sunos', 'freebsd', 'openbsd', 'gnukfreebsd')):
                 raise unittest.SkipTest("test may fail on ZFS filesystems")
+            elif inst.errno == errno.EOPNOTSUPP and sys.platform.startswith("netbsd"):
+                raise unittest.SkipTest("test may fail on FFS filesystems")
             else:
                 raise
         finally:
@@ -636,7 +643,7 @@ class PosixTester(unittest.TestCase):
         self.assertTrue(posix.stat(os_helper.TESTFN))
         self.assertTrue(posix.stat(os.fsencode(os_helper.TESTFN)))
 
-        self.assertWarnsRegex(DeprecationWarning,
+        self.assertRaisesRegex(TypeError,
                 'should be string, bytes, os.PathLike or integer, not',
                 posix.stat, bytearray(os.fsencode(os_helper.TESTFN)))
         self.assertRaisesRegex(TypeError,
@@ -700,7 +707,8 @@ class PosixTester(unittest.TestCase):
         self.assertEqual(posix.major(dev), major)
         self.assertRaises(TypeError, posix.major, float(dev))
         self.assertRaises(TypeError, posix.major)
-        self.assertRaises((ValueError, OverflowError), posix.major, -1)
+        for x in -2, 2**64, -2**63-1:
+            self.assertRaises((ValueError, OverflowError), posix.major, x)
 
         minor = posix.minor(dev)
         self.assertIsInstance(minor, int)
@@ -708,13 +716,23 @@ class PosixTester(unittest.TestCase):
         self.assertEqual(posix.minor(dev), minor)
         self.assertRaises(TypeError, posix.minor, float(dev))
         self.assertRaises(TypeError, posix.minor)
-        self.assertRaises((ValueError, OverflowError), posix.minor, -1)
+        for x in -2, 2**64, -2**63-1:
+            self.assertRaises((ValueError, OverflowError), posix.minor, x)
 
         self.assertEqual(posix.makedev(major, minor), dev)
         self.assertRaises(TypeError, posix.makedev, float(major), minor)
         self.assertRaises(TypeError, posix.makedev, major, float(minor))
         self.assertRaises(TypeError, posix.makedev, major)
         self.assertRaises(TypeError, posix.makedev)
+        for x in -2, 2**32, 2**64, -2**63-1:
+            self.assertRaises((ValueError, OverflowError), posix.makedev, x, minor)
+            self.assertRaises((ValueError, OverflowError), posix.makedev, major, x)
+
+        if sys.platform == 'linux':
+            NODEV = -1
+            self.assertEqual(posix.major(NODEV), NODEV)
+            self.assertEqual(posix.minor(NODEV), NODEV)
+            self.assertEqual(posix.makedev(NODEV, NODEV), NODEV)
 
     def _test_all_chown_common(self, chown_func, first_param, stat_func):
         """Common code for chown, fchown and lchown tests."""
@@ -843,11 +861,8 @@ class PosixTester(unittest.TestCase):
 
     def test_listdir_bytes_like(self):
         for cls in bytearray, memoryview:
-            with self.assertWarns(DeprecationWarning):
-                names = posix.listdir(cls(b'.'))
-            self.assertIn(os.fsencode(os_helper.TESTFN), names)
-            for name in names:
-                self.assertIs(type(name), bytes)
+            with self.assertRaises(TypeError):
+                posix.listdir(cls(b'.'))
 
     @unittest.skipUnless(posix.listdir in os.supports_fd,
                          "test needs fd support for posix.listdir()")
@@ -1294,6 +1309,19 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
         param = posix.sched_param(sched_priority=-large)
         self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
+
+    @requires_sched
+    def test_sched_param(self):
+        param = posix.sched_param(1)
+        for proto in range(pickle.HIGHEST_PROTOCOL+1):
+            newparam = pickle.loads(pickle.dumps(param, proto))
+            self.assertEqual(newparam, param)
+        newparam = copy.copy(param)
+        self.assertIsNot(newparam, param)
+        self.assertEqual(newparam, param)
+        newparam = copy.deepcopy(param)
+        self.assertIsNot(newparam, param)
+        self.assertEqual(newparam, param)
 
     @unittest.skipUnless(hasattr(posix, "sched_rr_get_interval"), "no function")
     def test_sched_rr_get_interval(self):
@@ -1780,12 +1808,6 @@ class _PosixSpawnMixin:
             resetids=True
         )
         support.wait_process(pid, exitcode=0)
-
-    def test_resetids_wrong_type(self):
-        with self.assertRaises(TypeError):
-            self.spawn_func(sys.executable,
-                            [sys.executable, "-c", "pass"],
-                            os.environ, resetids=None)
 
     def test_setpgroup(self):
         pid = self.spawn_func(
@@ -2324,6 +2346,53 @@ class TestPosixWeaklinking(unittest.TestCase):
 
             with self.assertRaisesRegex(NotImplementedError, "dir_fd unavailable"):
                 os.utime("path", dir_fd=0)
+
+
+class NamespacesTests(unittest.TestCase):
+    """Tests for os.unshare() and os.setns()."""
+
+    @unittest.skipUnless(hasattr(os, 'unshare'), 'needs os.unshare()')
+    @unittest.skipUnless(hasattr(os, 'setns'), 'needs os.setns()')
+    @unittest.skipUnless(os.path.exists('/proc/self/ns/uts'), 'need /proc/self/ns/uts')
+    @support.requires_linux_version(3, 0, 0)
+    def test_unshare_setns(self):
+        code = """if 1:
+            import errno
+            import os
+            import sys
+            fd = os.open('/proc/self/ns/uts', os.O_RDONLY)
+            try:
+                original = os.readlink('/proc/self/ns/uts')
+                try:
+                    os.unshare(os.CLONE_NEWUTS)
+                except OSError as e:
+                    if e.errno == errno.ENOSPC:
+                        # skip test if limit is exceeded
+                        sys.exit()
+                    raise
+                new = os.readlink('/proc/self/ns/uts')
+                if original == new:
+                    raise Exception('os.unshare failed')
+                os.setns(fd, os.CLONE_NEWUTS)
+                restored = os.readlink('/proc/self/ns/uts')
+                if original != restored:
+                    raise Exception('os.setns failed')
+            except PermissionError:
+                # The calling process did not have the required privileges
+                # for this operation
+                pass
+            except OSError as e:
+                # Skip the test on these errors:
+                # - ENOSYS: syscall not available
+                # - EINVAL: kernel was not configured with the CONFIG_UTS_NS option
+                # - ENOMEM: not enough memory
+                if e.errno not in (errno.ENOSYS, errno.EINVAL, errno.ENOMEM):
+                    raise
+            finally:
+                os.close(fd)
+            """
+
+        assert_python_ok("-c", code)
 
 
 def tearDownModule():

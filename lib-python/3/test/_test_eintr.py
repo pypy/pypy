@@ -18,6 +18,7 @@ import signal
 import socket
 import subprocess
 import sys
+import textwrap
 import time
 import unittest
 
@@ -412,11 +413,9 @@ class SignalEINTRTest(EINTRBaseTest):
         old_mask = signal.pthread_sigmask(signal.SIG_BLOCK, [signum])
         self.addCleanup(signal.pthread_sigmask, signal.SIG_UNBLOCK, [signum])
 
-        t0 = time.monotonic()
         proc = self.subprocess(code)
         with kill_on_error(proc):
             wait_func(signum)
-            dt = time.monotonic() - t0
 
         self.assertEqual(proc.wait(), 0)
 
@@ -494,28 +493,32 @@ class SelectEINTRTest(EINTRBaseTest):
         self.check_elapsed_time(dt)
 
 
-class FNTLEINTRTest(EINTRBaseTest):
+class FCNTLEINTRTest(EINTRBaseTest):
     def _lock(self, lock_func, lock_name):
         self.addCleanup(os_helper.unlink, os_helper.TESTFN)
-        code = '\n'.join((
-            "import fcntl, time",
-            "with open('%s', 'wb') as f:" % os_helper.TESTFN,
-            "   fcntl.%s(f, fcntl.LOCK_EX)" % lock_name,
-            "   time.sleep(%s)" % self.sleep_time))
-        start_time = time.monotonic()
-        proc = self.subprocess(code)
+        rd1, wr1 = os.pipe()
+        rd2, wr2 = os.pipe()
+        for fd in (rd1, wr1, rd2, wr2):
+            self.addCleanup(os.close, fd)
+        code = textwrap.dedent(f"""
+            import fcntl, os, time
+            with open('{os_helper.TESTFN}', 'wb') as f:
+                fcntl.{lock_name}(f, fcntl.LOCK_EX)
+                os.write({wr1}, b"ok")
+                _ = os.read({rd2}, 2)  # wait for parent process
+                time.sleep({self.sleep_time})
+        """)
+        proc = self.subprocess(code, pass_fds=[wr1, rd2])
         with kill_on_error(proc):
             with open(os_helper.TESTFN, 'wb') as f:
-                while True:  # synchronize the subprocess
-                    dt = time.monotonic() - start_time
-                    if dt > 60.0:
-                        raise Exception("failed to sync child in %.1f sec" % dt)
-                    try:
-                        lock_func(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        lock_func(f, fcntl.LOCK_UN)
-                        time.sleep(0.01)
-                    except BlockingIOError:
-                        break
+                # synchronize the subprocess
+                ok = os.read(rd1, 2)
+                self.assertEqual(ok, b"ok")
+
+                # notify the child that the parent is ready
+                start_time = time.monotonic()
+                os.write(wr2, b"go")
+
                 # the child locked the file just a moment ago for 'sleep_time' seconds
                 # that means that the lock below will block for 'sleep_time' minus some
                 # potential context switch delay
