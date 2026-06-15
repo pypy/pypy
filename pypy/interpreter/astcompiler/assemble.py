@@ -1475,7 +1475,7 @@ _static_opcode_stack_effects = {
     ops.POP_TOP: -1,
     ops.ROT_TWO: 0,
     ops.ROT_THREE: 0,
-    ops.ROT_FOUR: 0,
+    # ops.ROT_FOUR: 0,
     ops.DUP_TOP: 1,
     ops.DUP_TOP_TWO: 2,
     ops.COPY: 1,
