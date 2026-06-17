@@ -8,14 +8,13 @@ if sys.platform != 'darwin':
 
 from ctypes import c_int32, c_int64, c_void_p, c_char_p, c_int, cdll
 from ctypes import pointer, create_string_buffer
-from ctypes.util import find_library
 
 kCFNumberSInt32Type = 3
 kCFStringEncodingUTF8 = 134217984
 
 def _CFSetup():
-    sc = cdll.LoadLibrary(find_library("SystemConfiguration"))
-    cf = cdll.LoadLibrary(find_library("CoreFoundation"))
+    sc = cdll.LoadLibrary("/System/Library/Frameworks/SystemConfiguration.framework/SystemConfiguration")
+    cf = cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
     sctable = [
         ('SCDynamicStoreCopyProxies', [c_void_p], c_void_p),
     ]
