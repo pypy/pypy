@@ -95,6 +95,8 @@ class MimeTypes:
         list of standard types, else to the list of non-standard
         types.
         """
+        if not type:
+            return
         self.types_map[strict][ext] = type
         exts = self.types_map_inv[strict].setdefault(type, [])
         if ext not in exts:
@@ -223,10 +225,7 @@ class MimeTypes:
         list of standard types, else to the list of non-standard
         types.
         """
-        while 1:
-            line = fp.readline()
-            if not line:
-                break
+        while line := fp.readline():
             words = line.split()
             for i in range(len(words)):
                 if words[i][0] == '#':
@@ -433,8 +432,8 @@ def _default_mime_types():
     # Make sure the entry with the preferred file extension for a particular mime type
     # appears before any others of the same mimetype.
     types_map = _types_map_default = {
-        '.js'     : 'application/javascript',
-        '.mjs'    : 'application/javascript',
+        '.js'     : 'text/javascript',
+        '.mjs'    : 'text/javascript',
         '.json'   : 'application/json',
         '.webmanifest': 'application/manifest+json',
         '.doc'    : 'application/msword',
@@ -554,6 +553,8 @@ def _default_mime_types():
         '.csv'    : 'text/csv',
         '.html'   : 'text/html',
         '.htm'    : 'text/html',
+        '.md'     : 'text/markdown',
+        '.markdown': 'text/markdown',
         '.n3'     : 'text/n3',
         '.txt'    : 'text/plain',
         '.bat'    : 'text/plain',
@@ -566,6 +567,7 @@ def _default_mime_types():
         '.tsv'    : 'text/tab-separated-values',
         '.vtt'    : 'text/vtt',
         '.py'     : 'text/x-python',
+        '.rst'    : 'text/x-rst',
         '.etx'    : 'text/x-setext',
         '.sgm'    : 'text/x-sgml',
         '.sgml'   : 'text/x-sgml',

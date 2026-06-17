@@ -18,9 +18,6 @@ from test.support.script_helper import (
 if not support.has_subprocess_support:
     raise unittest.SkipTest("test module requires subprocess")
 
-# Debug build?
-Py_DEBUG = hasattr(sys, "gettotalrefcount")
-
 
 # XXX (ncoghlan): Move to script_helper and make consistent with run_python
 def _kill_python_and_exit_code(p):
@@ -139,7 +136,7 @@ class CmdLineTest(unittest.TestCase):
         # "-X showrefcount" shows the refcount, but only in debug builds
         rc, out, err = run_python('-I', '-X', 'showrefcount', '-c', code)
         self.assertEqual(out.rstrip(), b"{'showrefcount': True}")
-        if Py_DEBUG:
+        if support.Py_DEBUG:
             # bpo-46417: Tolerate negative reference count which can occur
             # because of bugs in C extensions. This test is only about checking
             # the showrefcount feature.
@@ -528,7 +525,6 @@ class CmdLineTest(unittest.TestCase):
     def test_no_std_streams(self):
         self._test_no_stdio(['stdin', 'stdout', 'stderr'])
 
-    @support.impl_detail('no hash randomization on PyPy', pypy=False)
     def test_hash_randomization(self):
         # Verify that -R enables hash randomization:
         self.verify_valid_flag('-R')
@@ -705,7 +701,7 @@ class CmdLineTest(unittest.TestCase):
         code = ("import warnings; "
                 "print(' '.join('%s::%s' % (f[0], f[2].__name__) "
                                 "for f in warnings.filters))")
-        if Py_DEBUG:
+        if support.Py_DEBUG:
             expected_filters = "default::Warning"
         else:
             expected_filters = ("default::Warning "
@@ -777,7 +773,7 @@ class CmdLineTest(unittest.TestCase):
         expected_filters = ("error::BytesWarning "
                             "once::UserWarning "
                             "always::UserWarning")
-        if not Py_DEBUG:
+        if not support.Py_DEBUG:
             expected_filters += (" "
                                  "default::DeprecationWarning "
                                  "ignore::DeprecationWarning "
@@ -811,18 +807,14 @@ class CmdLineTest(unittest.TestCase):
         self.assertEqual(proc.stdout.rstrip(), name)
         self.assertEqual(proc.returncode, 0)
 
-    @support.impl_detail('no malloc options on PyPy', pypy=False)
     def test_pythonmalloc(self):
         # Test the PYTHONMALLOC environment variable
-        try:
-            pymalloc = support.with_pymalloc()
-        except AtributeError:
-            pymalloc = None
+        pymalloc = support.with_pymalloc()
         if pymalloc:
-            default_name = 'pymalloc_debug' if Py_DEBUG else 'pymalloc'
+            default_name = 'pymalloc_debug' if support.Py_DEBUG else 'pymalloc'
             default_name_debug = 'pymalloc_debug'
         else:
-            default_name = 'malloc_debug' if Py_DEBUG else 'malloc'
+            default_name = 'malloc_debug' if support.Py_DEBUG else 'malloc'
             default_name_debug = 'malloc_debug'
 
         tests = [
@@ -899,7 +891,8 @@ class CmdLineTest(unittest.TestCase):
             return tuple(int(i) for i in out.split())
 
         res = assert_python_ok('-c', code)
-        self.assertEqual(res2int(res), (-1, sys.get_int_max_str_digits()))
+        current_max = sys.get_int_max_str_digits()
+        self.assertEqual(res2int(res), (current_max, current_max))
         res = assert_python_ok('-X', 'int_max_str_digits=0', '-c', code)
         self.assertEqual(res2int(res), (0, 0))
         res = assert_python_ok('-X', 'int_max_str_digits=4000', '-c', code)
@@ -935,7 +928,6 @@ class IgnoreEnvironmentTest(unittest.TestCase):
         self.run_ignoring_vars("'{}' not in sys.path".format(path),
                                PYTHONPATH=path)
 
-    @support.impl_detail('no hash randomization on PyPy', pypy=False)
     def test_ignore_PYTHONHASHSEED(self):
         self.run_ignoring_vars("sys.flags.hash_randomization == 1",
                                PYTHONHASHSEED="0")

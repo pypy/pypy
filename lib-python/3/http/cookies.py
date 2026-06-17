@@ -225,7 +225,7 @@ def _unquote(str):
 # header.  By default, _getdate() returns the current time in the appropriate
 # "expires" format for a Set-Cookie header.  The one optional argument is an
 # offset from now, in seconds.  For example, an offset of -3600 means "one hour
-# ago".  The offset may be a floating point number.
+# ago".  The offset may be a floating-point number.
 #
 
 _weekdayname = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -440,9 +440,11 @@ _CookiePattern = re.compile(r"""
     (                              # Optional group: there may not be a value.
     \s*=\s*                          # Equal Sign
     (?P<val>                         # Start of group 'val'
-    "(?:[^\\"]|\\.)*"                  # Any doublequoted string
+    "(?:[^\\"]|\\.)*"                  # Any double-quoted string
     |                                  # or
-    \w{3},\s[\w\d\s-]{9,11}\s[\d:]{8}\sGMT  # Special case for "expires" attr
+    # Special case for "expires" attr
+    (\w{3,6}day|\w{3}),\s              # Day of the week or abbreviated day
+    [\w\d\s-]{9,11}\s[\d:]{8}\sGMT     # Date and time in specific format
     |                                  # or
     [""" + _LegalValueChars + r"""]*      # Any word or empty string
     )                                # End of group 'val'

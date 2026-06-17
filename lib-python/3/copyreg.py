@@ -25,16 +25,10 @@ def constructor(object):
 
 # Example: provide pickling support for complex numbers.
 
-try:
-    complex
-except NameError:
-    pass
-else:
+def pickle_complex(c):
+    return complex, (c.real, c.imag)
 
-    def pickle_complex(c):
-        return complex, (c.real, c.imag)
-
-    pickle(complex, pickle_complex, complex)
+pickle(complex, pickle_complex, complex)
 
 def pickle_union(obj):
     import functools, operator
@@ -64,13 +58,9 @@ def _reduce_ex(self, proto):
     for base in cls.__mro__:
         if hasattr(base, '__flags__') and not base.__flags__ & _HEAPTYPE:
             break
-        # XXX PyPy: the following new code cannot work on PyPy. removing it
-        # breaks a single test, test_newobj_overridden_new in pickletester.py
-        # (as opposed to breaking all of pickling), comment it out until we
-        # find an actual solution
-        #new = base.__new__
-        #if isinstance(new, _new_type) and new.__self__ is base:
-        #    break
+        new = base.__new__
+        if isinstance(new, _new_type) and new.__self__ is base:
+            break
     else:
         base = object # not really reachable
     if base is object:
@@ -225,16 +215,3 @@ def clear_extension_cache():
 #   256   Inf   Inf  Reserved for future assignment
 
 # Extension codes are assigned by the Python Software Foundation.
-
-# PYPY: Used in tests. We hide it here so it can be imported in the
-# untranslated tests and found as copyreg.K
-# Hashable immutable key object containing unheshable mutable data.
-class K:
-    def __init__(self, value):
-        self.value = value
-
-    def __reduce__(self):
-        # Shouldn't support the recursion itself
-        return K, (self.value,)
-
-

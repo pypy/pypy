@@ -56,7 +56,7 @@ def _get_c_extension_suffix():
 
 
 def compile_shared(csource, modulename, output_dir):
-    """Compile '_testcapi.c' or '_ctypes_test.c' into an extension module,
+    """Compile csource into an extension module,
     and import it.
     """
     thisdir = os.path.dirname(__file__)

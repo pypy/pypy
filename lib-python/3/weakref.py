@@ -147,13 +147,7 @@ class WeakValueDictionary(_collections_abc.MutableMapping):
     def __len__(self):
         if self._pending_removals:
             self._commit_removals()
-        # PyPy change: we can't rely on len(self.data) at all, because
-        # the weakref callbacks may be called at an unknown later time.
-        # original code was: return len(self.data)
-        result = 0
-        for wr in list(self.data.values()):
-            result += (wr() is not None)
-        return result
+        return len(self.data)
 
     def __contains__(self, key):
         if self._pending_removals:
@@ -421,18 +415,11 @@ class WeakKeyDictionary(_collections_abc.MutableMapping):
         return self.data[ref(key)]
 
     def __len__(self):
-        # PyPy change: we can't rely on len(self.data) at all, because
-        # the weakref callbacks may be called at an unknown later time.
-#        if self._dirty_len and self._pending_removals:
-#            # self._pending_removals may still contain keys which were
-#            # explicitly removed, we have to scrub them (see issue #21173).
-#            self._scrub_removals()
-#        return len(self.data) - len(self._pending_removals)
-#
-        result = 0
-        for wr in list(self.data):
-            result += (wr() is not None)
-        return result
+        if self._dirty_len and self._pending_removals:
+            # self._pending_removals may still contain keys which were
+            # explicitly removed, we have to scrub them (see issue #21173).
+            self._scrub_removals()
+        return len(self.data) - len(self._pending_removals)
 
     def __repr__(self):
         return "<%s at %#x>" % (self.__class__.__name__, id(self))

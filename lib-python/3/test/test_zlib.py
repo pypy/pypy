@@ -7,7 +7,7 @@ import os
 import pickle
 import random
 import sys
-from test.support import bigmemtest, _1G, _4G
+from test.support import bigmemtest, _1G, _4G, is_s390x
 
 
 zlib = import_helper.import_module('zlib')
@@ -34,8 +34,9 @@ def _zlib_runtime_version_tuple(zlib_version=zlib.ZLIB_RUNTIME_VERSION):
 ZLIB_RUNTIME_VERSION_TUPLE = _zlib_runtime_version_tuple()
 
 
-# bpo-46623: On s390x, when a hardware accelerator is used, using different
-# ways to compress data with zlib can produce different compressed data.
+# bpo-46623: When a hardware accelerator is used (currently only on s390x),
+# using different ways to compress data with zlib can produce different
+# compressed data.
 # Simplified test_pair() code:
 #
 #   def func1(data):
@@ -58,10 +59,9 @@ ZLIB_RUNTIME_VERSION_TUPLE = _zlib_runtime_version_tuple()
 #
 #   zlib.decompress(func1(data)) == zlib.decompress(func2(data)) == data
 #
-# Make the assumption that s390x always has an accelerator to simplify the skip
-# condition. Windows doesn't have os.uname() but it doesn't support s390x.
-skip_on_s390x = unittest.skipIf(hasattr(os, 'uname') and os.uname().machine == 's390x',
-                                'skipped on s390x')
+# To simplify the skip condition, make the assumption that s390x always has an
+# accelerator, and nothing else has it.
+HW_ACCELERATED = is_s390x
 
 
 class VersionTestCase(unittest.TestCase):
@@ -227,12 +227,14 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
                                          bufsize=zlib.DEF_BUF_SIZE),
                          HAMLET_SCENE)
 
-    @skip_on_s390x
     def test_speech128(self):
         # compress more data
         data = HAMLET_SCENE * 128
         x = zlib.compress(data)
-        self.assertEqual(zlib.compress(bytearray(data)), x)
+        # With hardware acceleration, the compressed bytes
+        # might not be identical.
+        if not HW_ACCELERATED:
+            self.assertEqual(zlib.compress(bytearray(data)), x)
         for ob in x, bytearray(x):
             self.assertEqual(zlib.decompress(ob), data)
 
@@ -279,7 +281,6 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
 
 class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     # Test compression object
-    @skip_on_s390x
     def test_pair(self):
         # straightforward compress/decompress objects
         datasrc = HAMLET_SCENE * 128
@@ -290,7 +291,10 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             x1 = co.compress(data)
             x2 = co.flush()
             self.assertRaises(zlib.error, co.flush) # second flush should not work
-            self.assertEqual(x1 + x2, datazip)
+            # With hardware acceleration, the compressed bytes might not
+            # be identical.
+            if not HW_ACCELERATED:
+                self.assertEqual(x1 + x2, datazip)
         for v1, v2 in ((x1, x2), (bytearray(x1), bytearray(x2))):
             dco = zlib.decompressobj()
             y1 = dco.decompress(v1 + v2)
@@ -465,8 +469,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     def test_maxlen_large(self):
         # Sizes up to sys.maxsize should be accepted, although zlib is
         # internally limited to expressing sizes with unsigned int
-        # PyPy: DEF_BUF_SIZE is 32*1024, CPython's is 16*1024, so make this larger
-        data = HAMLET_SCENE * 10 * 2
+        data = HAMLET_SCENE * 10
         self.assertGreater(len(data), zlib.DEF_BUF_SIZE)
         compressed = zlib.compress(data, 1)
         dco = zlib.decompressobj()
@@ -503,20 +506,16 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
 
         for sync in sync_opt:
             for level in range(10):
-                try:
+                with self.subTest(sync=sync, level=level):
                     obj = zlib.compressobj( level )
                     a = obj.compress( data[:3000] )
                     b = obj.flush( sync )
                     c = obj.compress( data[3000:] )
                     d = obj.flush()
-                except:
-                    print("Error for flush mode={}, level={}"
-                          .format(sync, level))
-                    raise
-                self.assertEqual(zlib.decompress(b''.join([a,b,c,d])),
-                                 data, ("Decompress failed: flush "
-                                        "mode=%i, level=%i") % (sync, level))
-                del obj
+                    self.assertEqual(zlib.decompress(b''.join([a,b,c,d])),
+                                     data, ("Decompress failed: flush "
+                                            "mode=%i, level=%i") % (sync, level))
+                    del obj
 
     @unittest.skipUnless(hasattr(zlib, 'Z_SYNC_FLUSH'),
                          'requires zlib.Z_SYNC_FLUSH')
@@ -937,6 +936,178 @@ LAERTES
 
        Farewell.
 """
+
+
+class ZlibDecompressorTest(unittest.TestCase):
+    # Test adopted from test_bz2.py
+    TEXT = HAMLET_SCENE
+    DATA = zlib.compress(HAMLET_SCENE)
+    BAD_DATA = b"Not a valid deflate block"
+    BIG_TEXT = DATA * ((128 * 1024 // len(DATA)) + 1)
+    BIG_DATA = zlib.compress(BIG_TEXT)
+
+    def test_Constructor(self):
+        self.assertRaises(TypeError, zlib._ZlibDecompressor, "ASDA")
+        self.assertRaises(TypeError, zlib._ZlibDecompressor, -15, "notbytes")
+        self.assertRaises(TypeError, zlib._ZlibDecompressor, -15, b"bytes", 5)
+
+    def testDecompress(self):
+        zlibd = zlib._ZlibDecompressor()
+        self.assertRaises(TypeError, zlibd.decompress)
+        text = zlibd.decompress(self.DATA)
+        self.assertEqual(text, self.TEXT)
+
+    def testDecompressChunks10(self):
+        zlibd = zlib._ZlibDecompressor()
+        text = b''
+        n = 0
+        while True:
+            str = self.DATA[n*10:(n+1)*10]
+            if not str:
+                break
+            text += zlibd.decompress(str)
+            n += 1
+        self.assertEqual(text, self.TEXT)
+
+    def testDecompressUnusedData(self):
+        zlibd = zlib._ZlibDecompressor()
+        unused_data = b"this is unused data"
+        text = zlibd.decompress(self.DATA+unused_data)
+        self.assertEqual(text, self.TEXT)
+        self.assertEqual(zlibd.unused_data, unused_data)
+
+    def testEOFError(self):
+        zlibd = zlib._ZlibDecompressor()
+        text = zlibd.decompress(self.DATA)
+        self.assertRaises(EOFError, zlibd.decompress, b"anything")
+        self.assertRaises(EOFError, zlibd.decompress, b"")
+
+    @support.skip_if_pgo_task
+    @bigmemtest(size=_4G + 100, memuse=3.3)
+    def testDecompress4G(self, size):
+        # "Test zlib._ZlibDecompressor.decompress() with >4GiB input"
+        blocksize = min(10 * 1024 * 1024, size)
+        block = random.randbytes(blocksize)
+        try:
+            data = block * ((size-1) // blocksize + 1)
+            compressed = zlib.compress(data)
+            zlibd = zlib._ZlibDecompressor()
+            decompressed = zlibd.decompress(compressed)
+            self.assertTrue(decompressed == data)
+        finally:
+            data = None
+            compressed = None
+            decompressed = None
+
+    def testPickle(self):
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.assertRaises(TypeError):
+                pickle.dumps(zlib._ZlibDecompressor(), proto)
+
+    def testDecompressorChunksMaxsize(self):
+        zlibd = zlib._ZlibDecompressor()
+        max_length = 100
+        out = []
+
+        # Feed some input
+        len_ = len(self.BIG_DATA) - 64
+        out.append(zlibd.decompress(self.BIG_DATA[:len_],
+                                  max_length=max_length))
+        self.assertFalse(zlibd.needs_input)
+        self.assertEqual(len(out[-1]), max_length)
+
+        # Retrieve more data without providing more input
+        out.append(zlibd.decompress(b'', max_length=max_length))
+        self.assertFalse(zlibd.needs_input)
+        self.assertEqual(len(out[-1]), max_length)
+
+        # Retrieve more data while providing more input
+        out.append(zlibd.decompress(self.BIG_DATA[len_:],
+                                  max_length=max_length))
+        self.assertLessEqual(len(out[-1]), max_length)
+
+        # Retrieve remaining uncompressed data
+        while not zlibd.eof:
+            out.append(zlibd.decompress(b'', max_length=max_length))
+            self.assertLessEqual(len(out[-1]), max_length)
+
+        out = b"".join(out)
+        self.assertEqual(out, self.BIG_TEXT)
+        self.assertEqual(zlibd.unused_data, b"")
+
+    def test_decompressor_inputbuf_1(self):
+        # Test reusing input buffer after moving existing
+        # contents to beginning
+        zlibd = zlib._ZlibDecompressor()
+        out = []
+
+        # Create input buffer and fill it
+        self.assertEqual(zlibd.decompress(self.DATA[:100],
+                                        max_length=0), b'')
+
+        # Retrieve some results, freeing capacity at beginning
+        # of input buffer
+        out.append(zlibd.decompress(b'', 2))
+
+        # Add more data that fits into input buffer after
+        # moving existing data to beginning
+        out.append(zlibd.decompress(self.DATA[100:105], 15))
+
+        # Decompress rest of data
+        out.append(zlibd.decompress(self.DATA[105:]))
+        self.assertEqual(b''.join(out), self.TEXT)
+
+    def test_decompressor_inputbuf_2(self):
+        # Test reusing input buffer by appending data at the
+        # end right away
+        zlibd = zlib._ZlibDecompressor()
+        out = []
+
+        # Create input buffer and empty it
+        self.assertEqual(zlibd.decompress(self.DATA[:200],
+                                        max_length=0), b'')
+        out.append(zlibd.decompress(b''))
+
+        # Fill buffer with new data
+        out.append(zlibd.decompress(self.DATA[200:280], 2))
+
+        # Append some more data, not enough to require resize
+        out.append(zlibd.decompress(self.DATA[280:300], 2))
+
+        # Decompress rest of data
+        out.append(zlibd.decompress(self.DATA[300:]))
+        self.assertEqual(b''.join(out), self.TEXT)
+
+    def test_decompressor_inputbuf_3(self):
+        # Test reusing input buffer after extending it
+
+        zlibd = zlib._ZlibDecompressor()
+        out = []
+
+        # Create almost full input buffer
+        out.append(zlibd.decompress(self.DATA[:200], 5))
+
+        # Add even more data to it, requiring resize
+        out.append(zlibd.decompress(self.DATA[200:300], 5))
+
+        # Decompress rest of data
+        out.append(zlibd.decompress(self.DATA[300:]))
+        self.assertEqual(b''.join(out), self.TEXT)
+
+    def test_failure(self):
+        zlibd = zlib._ZlibDecompressor()
+        self.assertRaises(Exception, zlibd.decompress, self.BAD_DATA * 30)
+        # Previously, a second call could crash due to internal inconsistency
+        self.assertRaises(Exception, zlibd.decompress, self.BAD_DATA * 30)
+
+    @support.refcount_test
+    def test_refleaks_in___init__(self):
+        gettotalrefcount = support.get_attribute(sys, 'gettotalrefcount')
+        zlibd = zlib._ZlibDecompressor()
+        refs_before = gettotalrefcount()
+        for i in range(100):
+            zlibd.__init__()
+        self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
 
 
 class CustomInt:

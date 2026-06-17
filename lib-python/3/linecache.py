@@ -54,24 +54,26 @@ def checkcache(filename=None):
     (This is not checked upon each call!)"""
 
     if filename is None:
+        # get keys atomically
         filenames = cache.copy().keys()
-    elif filename in cache:
-        filenames = [filename]
     else:
-        return
+        filenames = [filename]
 
     for filename in filenames:
-        # PyPy modification: be careful about disappearing cache keys
-        entry = cache.get(filename)
-        if entry is None or len(entry) == 1:
-            # deleted or lazy cache entry, leave it lazy.
+        try:
+            entry = cache[filename]
+        except KeyError:
+            continue
+
+        if len(entry) == 1:
+            # lazy cache entry, leave it lazy.
             continue
         size, mtime, lines, fullname = entry
         if mtime is None:
             continue   # no-op for files loaded via a __loader__
         try:
             stat = os.stat(fullname)
-        except OSError:
+        except (OSError, ValueError):
             cache.pop(filename, None)
             continue
         if size != stat.st_size or mtime != stat.st_mtime:
@@ -129,10 +131,12 @@ def updatecache(filename, module_globals=None):
             try:
                 stat = os.stat(fullname)
                 break
-            except OSError:
+            except (OSError, ValueError):
                 pass
         else:
             return []
+    except ValueError:  # may be raised by os.stat()
+        return []
     try:
         with tokenize.open(fullname) as fp:
             lines = fp.readlines()
@@ -179,12 +183,3 @@ def lazycache(filename, module_globals):
             cache[filename] = (get_lines,)
             return True
     return False
-
-# pypy modification: ported from cpy 3.13 to support showing the source lines
-# in tracebacks in the repl
-def _register_code(code, string, name):
-    cache[code] = (
-            len(string),
-            None,
-            [line + '\n' for line in string.splitlines()],
-            name)

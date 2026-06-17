@@ -1,9 +1,7 @@
 import collections.abc
-import traceback
 import types
 import unittest
-import sys
-
+from test.support import C_RECURSION_LIMIT
 
 class TestExceptionGroupTypeHierarchy(unittest.TestCase):
     def test_exception_group_types(self):
@@ -23,16 +21,12 @@ class TestExceptionGroupTypeHierarchy(unittest.TestCase):
 
 class BadConstructorArgs(unittest.TestCase):
     def test_bad_EG_construction__too_many_args(self):
-        if sys.implementation.name == 'pypy':
-            MSG1 = r"BaseExceptionGroup.__new__\(\) missing 1 required positional argument: 'exceptions'"
-            MSG2 = r"BaseExceptionGroup.__new__\(\) takes 3 positional arguments but 4 were given"
-        else:
-            MSG1 = MSG2 = r'BaseExceptionGroup.__new__\(\) takes exactly 2 arguments'
-        with self.assertRaisesRegex(TypeError, MSG1):
+        MSG = r'BaseExceptionGroup.__new__\(\) takes exactly 2 arguments'
+        with self.assertRaisesRegex(TypeError, MSG):
             ExceptionGroup('no errors')
-        with self.assertRaisesRegex(TypeError, MSG1):
+        with self.assertRaisesRegex(TypeError, MSG):
             ExceptionGroup([ValueError('no msg')])
-        with self.assertRaisesRegex(TypeError, MSG2):
+        with self.assertRaisesRegex(TypeError, MSG):
             ExceptionGroup('eg', [ValueError('too')], [TypeError('many')])
 
     def test_bad_EG_construction__bad_message(self):
@@ -439,7 +433,7 @@ class ExceptionGroupSplitTests(ExceptionGroupTestBase):
 class DeepRecursionInSplitAndSubgroup(unittest.TestCase):
     def make_deep_eg(self):
         e = TypeError(1)
-        for i in range(2000):
+        for i in range(C_RECURSION_LIMIT + 1):
             e = ExceptionGroup('eg', [e])
         return e
 
@@ -791,6 +785,18 @@ class NestedExceptionGroupSplitTest(ExceptionGroupSplitTestBase):
         match, rest = eg.split(TypeError)
         self.assertFalse(hasattr(match, '__notes__'))
         self.assertFalse(hasattr(rest, '__notes__'))
+
+    def test_drive_invalid_return_value(self):
+        class MyEg(ExceptionGroup):
+            def derive(self, excs):
+                return 42
+
+        eg = MyEg('eg', [TypeError(1), ValueError(2)])
+        msg = "derive must return an instance of BaseExceptionGroup"
+        with self.assertRaisesRegex(TypeError, msg):
+            eg.split(TypeError)
+        with self.assertRaisesRegex(TypeError, msg):
+            eg.subgroup(TypeError)
 
 
 class NestedExceptionGroupSubclassSplitTest(ExceptionGroupSplitTestBase):

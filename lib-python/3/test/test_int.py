@@ -2,9 +2,15 @@ import sys
 import time
 
 import unittest
+from unittest import mock
 from test import support
 from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
                                INVALID_UNDERSCORE_LITERALS)
+
+try:
+    import _pylong
+except ImportError:
+    _pylong = None
 
 L = [
         ('0', 0),
@@ -222,13 +228,12 @@ class IntTestCases(unittest.TestCase):
             int('+')
         with self.assertRaises(ValueError):
             int('-')
-        if sys.implementation.name != 'pypy':
-            with self.assertRaises(ValueError):
-                int('- 1')
-            with self.assertRaises(ValueError):
-                int('+ 1')
-            with self.assertRaises(ValueError):
-                int(' + 1 ')
+        with self.assertRaises(ValueError):
+            int('- 1')
+        with self.assertRaises(ValueError):
+            int('+ 1')
+        with self.assertRaises(ValueError):
+            int(' + 1 ')
 
     def test_unicode(self):
         self.assertEqual(int("१२३४५६७८९०1234567890"), 12345678901234567890)
@@ -434,11 +439,9 @@ class IntTestCases(unittest.TestCase):
                     with self.assertWarns(DeprecationWarning):
                         int(TruncReturnsNonIntegral())
                 except TypeError as e:
-                    if sys.implementation.name == 'pypy':
-                        msg = "__trunc__ returned non-Integral (type 'NonIntegral')"
-                    else:
-                        msg = "__trunc__ returned non-Integral (type NonIntegral)"
-                    self.assertEqual(str(e), msg)
+                    self.assertEqual(str(e),
+                                      "__trunc__ returned non-Integral"
+                                      " (type NonIntegral)")
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))
@@ -686,8 +689,7 @@ class IntStrDigitLimitsTests(unittest.TestCase):
                 str(huge_int)
             seconds_to_fail_huge = get_time() - start
         self.assertIn('conversion', str(err.exception))
-        # PyPy: add a small factor since the time to convert is quite small
-        self.assertLessEqual(seconds_to_fail_huge, seconds_to_convert/2 + 0.5)
+        self.assertLessEqual(seconds_to_fail_huge, seconds_to_convert/2)
 
         # Now we test that a conversion that would take 30x as long also fails
         # in a similarly fast fashion.
@@ -698,8 +700,7 @@ class IntStrDigitLimitsTests(unittest.TestCase):
             str(extra_huge_int)
         seconds_to_fail_extra_huge = get_time() - start
         self.assertIn('conversion', str(err.exception))
-        # PyPy: add a small factor since the time to convert is quite small
-        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/2 +0.5)
+        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/2)
 
     def test_denial_of_service_prevented_str_to_int(self):
         """Regression test: ensure we fail before performing O(N**2) work."""
@@ -795,9 +796,120 @@ class IntStrDigitLimitsTests(unittest.TestCase):
         with self.subTest(base=base):
             self._other_base_helper(base)
 
+    def test_int_max_str_digits_is_per_interpreter(self):
+        # Changing the limit in one interpreter does not change others.
+        code = """if 1:
+        # Subinterpreters maintain and enforce their own limit
+        import sys
+        sys.set_int_max_str_digits(2323)
+        try:
+            int('3'*3333)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('Expected a int max str digits ValueError.')
+        """
+        with support.adjust_int_max_str_digits(4000):
+            before_value = sys.get_int_max_str_digits()
+            self.assertEqual(support.run_in_subinterp(code), 0,
+                             'subinterp code failure, check stderr.')
+            after_value = sys.get_int_max_str_digits()
+            self.assertEqual(before_value, after_value)
+
 
 class IntSubclassStrDigitLimitsTests(IntStrDigitLimitsTests):
     int_class = IntSubclass
+
+
+class PyLongModuleTests(unittest.TestCase):
+    # Tests of the functions in _pylong.py.  Those get used when the
+    # number of digits in the input values are large enough.
+
+    def setUp(self):
+        super().setUp()
+        self._previous_limit = sys.get_int_max_str_digits()
+        sys.set_int_max_str_digits(0)
+
+    def tearDown(self):
+        sys.set_int_max_str_digits(self._previous_limit)
+        super().tearDown()
+
+    def _test_pylong_int_to_decimal(self, n, suffix):
+        s = str(n)
+        self.assertEqual(s[-10:], suffix)
+        s2 = str(-n)
+        self.assertEqual(s2, '-' + s)
+        s3 = '%d' % n
+        self.assertEqual(s3, s)
+        s4 = b'%d' % n
+        self.assertEqual(s4, s.encode('ascii'))
+
+    def test_pylong_int_to_decimal(self):
+        self._test_pylong_int_to_decimal((1 << 100_000), '9883109376')
+        self._test_pylong_int_to_decimal((1 << 100_000) - 1, '9883109375')
+        self._test_pylong_int_to_decimal(10**30_000, '0000000000')
+        self._test_pylong_int_to_decimal(10**30_000 - 1, '9999999999')
+        self._test_pylong_int_to_decimal(3**60_000, '9313200001')
+
+    @support.requires_resource('cpu')
+    def test_pylong_int_to_decimal_2(self):
+        self._test_pylong_int_to_decimal(2**1_000_000, '2747109376')
+        self._test_pylong_int_to_decimal(10**300_000, '0000000000')
+        self._test_pylong_int_to_decimal(3**600_000, '3132000001')
+
+    def test_pylong_int_divmod(self):
+        n = (1 << 100_000)
+        a, b = divmod(n*3 + 1, n)
+        assert a == 3 and b == 1
+
+    def test_pylong_str_to_int(self):
+        v1 = 1 << 100_000
+        s = str(v1)
+        v2 = int(s)
+        assert v1 == v2
+        v3 = int(' -' + s)
+        assert -v1 == v3
+        v4 = int(' +' + s + ' ')
+        assert v1 == v4
+        with self.assertRaises(ValueError) as err:
+            int(s + 'z')
+        with self.assertRaises(ValueError) as err:
+            int(s + '_')
+        with self.assertRaises(ValueError) as err:
+            int('_' + s)
+
+    @support.cpython_only  # tests implementation details of CPython.
+    @unittest.skipUnless(_pylong, "_pylong module required")
+    @mock.patch.object(_pylong, "int_to_decimal_string")
+    def test_pylong_misbehavior_error_path_to_str(
+            self, mock_int_to_str):
+        with support.adjust_int_max_str_digits(20_000):
+            big_value = int('7'*19_999)
+            mock_int_to_str.return_value = None  # not a str
+            with self.assertRaises(TypeError) as ctx:
+                str(big_value)
+            self.assertIn('_pylong.int_to_decimal_string did not',
+                          str(ctx.exception))
+            mock_int_to_str.side_effect = RuntimeError("testABC")
+            with self.assertRaises(RuntimeError):
+                str(big_value)
+
+    @support.cpython_only  # tests implementation details of CPython.
+    @unittest.skipUnless(_pylong, "_pylong module required")
+    @mock.patch.object(_pylong, "int_from_string")
+    def test_pylong_misbehavior_error_path_from_str(
+            self, mock_int_from_str):
+        big_value = '7'*19_999
+        with support.adjust_int_max_str_digits(20_000):
+            mock_int_from_str.return_value = b'not an int'
+            with self.assertRaises(TypeError) as ctx:
+                int(big_value)
+            self.assertIn('_pylong.int_from_string did not',
+                          str(ctx.exception))
+
+            mock_int_from_str.side_effect = RuntimeError("test123")
+            with self.assertRaises(RuntimeError):
+                int(big_value)
 
 
 if __name__ == "__main__":

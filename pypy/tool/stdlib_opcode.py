@@ -6,7 +6,7 @@ Also gives access to opcodes of the host Python PyPy was bootstrapped with
 
 # load opcode.py as pythonopcode from our own lib
 
-__all__ = ['opmap', 'opname', 'HAVE_ARGUMENT',
+__all__ = ['opmap', 'opname', 'HAVE_ARGUMENT', '_pseudo_ops',
            'hasconst', 'hasname', 'hasjrel', 'hasjabs',
            'haslocal', 'hascompare', 'hasfree', 'cmp_op']
 
@@ -31,7 +31,9 @@ def load_pypy_opcode():
 load_pypy_opcode()
 del load_pypy_opcode
 
-bytecode_spec = BytecodeSpec('pypy', opmap, HAVE_ARGUMENT)
+real_opmap = {key: opmap[key] for key in opmap if key not in _pseudo_ops}
+
+bytecode_spec = BytecodeSpec('pypy', real_opmap, HAVE_ARGUMENT)
 bytecode_spec.to_globals(globals())
 
 opcode_method_names = bytecode_spec.method_names

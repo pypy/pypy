@@ -53,6 +53,7 @@ class ExecutorTest:
         self.assertEqual(i.__next__(), (0, 1))
         self.assertRaises(ZeroDivisionError, i.__next__)
 
+    @support.requires_resource('walltime')
     def test_map_timeout(self):
         results = []
         try:
@@ -104,4 +105,7 @@ class ExecutorTest:
             wr = weakref.ref(obj)
             del obj
             support.gc_collect()  # For PyPy or other GCs.
-            self.assertIsNone(wr())
+
+            for _ in support.sleeping_retry(support.SHORT_TIMEOUT):
+                if wr() is None:
+                    break

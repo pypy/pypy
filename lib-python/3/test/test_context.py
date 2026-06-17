@@ -4,7 +4,6 @@ import functools
 import gc
 import random
 import time
-import sys
 import unittest
 import weakref
 from test import support
@@ -27,11 +26,7 @@ def isolated_context(func):
 
 class ContextTest(unittest.TestCase):
     def test_context_var_new_1(self):
-        if sys.implementation.name == 'pypy':
-            msg = 'missing 1 required positional argument'
-        else:
-            msg = 'takes exactly 1'
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, 'takes exactly 1'):
             contextvars.ContextVar()
 
         with self.assertRaisesRegex(TypeError, 'must be a str'):
@@ -80,17 +75,22 @@ class ContextTest(unittest.TestCase):
                 pass
 
     def test_context_new_1(self):
-        if sys.implementation.name == 'pypy':
-            msg = ''
-        else:
-            msg = 'any arguments'
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(1)
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(1, a=1)
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(a=1)
         contextvars.Context(**{})
+
+    def test_context_new_unhashable_str_subclass(self):
+        # gh-132002: it used to crash on unhashable str subtypes.
+        class weird_str(str):
+            def __eq__(self, other):
+                pass
+
+        with self.assertRaisesRegex(TypeError, 'unhashable type'):
+            contextvars.ContextVar(weird_str())
 
     def test_context_typerrors_1(self):
         ctx = contextvars.Context()

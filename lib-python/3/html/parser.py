@@ -125,6 +125,7 @@ class HTMLParser(_markupbase.ParserBase):
         ``noscript`` element is parsed normally; if it's true,
         it's returned as is without being parsed.
         """
+        super().__init__()
         self.convert_charrefs = convert_charrefs
         self.scripting = scripting
         self.reset()
@@ -137,7 +138,7 @@ class HTMLParser(_markupbase.ParserBase):
         self.cdata_elem = None
         self._support_cdata = True
         self._escapable = True
-        _markupbase.ParserBase.reset(self)
+        super().reset()
 
     def feed(self, data):
         r"""Feed data to the parser.

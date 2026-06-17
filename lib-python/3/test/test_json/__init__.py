@@ -11,8 +11,7 @@ from test.support import import_helper
 cjson = import_helper.import_fresh_module('json', fresh=['_json'])
 pyjson = import_helper.import_fresh_module('json', blocked=['_json'])
 # JSONDecodeError is cached inside the _json module
-if cjson is not None:
-    cjson.JSONDecodeError = cjson.decoder.JSONDecodeError = json.JSONDecodeError
+cjson.JSONDecodeError = cjson.decoder.JSONDecodeError = json.JSONDecodeError
 
 # create two base classes that will be used by the other tests
 class PyTest(unittest.TestCase):

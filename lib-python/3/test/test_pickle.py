@@ -16,6 +16,7 @@ from test.support import import_helper
 
 from test.pickletester import AbstractHookTests
 from test.pickletester import AbstractUnpickleTests
+from test.pickletester import AbstractPicklingErrorTests
 from test.pickletester import AbstractPickleTests
 from test.pickletester import AbstractPickleModuleTests
 from test.pickletester import AbstractPersistentPicklerTests
@@ -55,6 +56,18 @@ class PyUnpicklerTests(AbstractUnpickleTests, unittest.TestCase):
         return u.load()
 
 
+class PyPicklingErrorTests(AbstractPicklingErrorTests, unittest.TestCase):
+
+    pickler = pickle._Pickler
+
+    def dumps(self, arg, proto=None, **kwargs):
+        f = io.BytesIO()
+        p = self.pickler(f, proto, **kwargs)
+        p.dump(arg)
+        f.seek(0)
+        return bytes(f.read())
+
+
 class PyPicklerTests(AbstractPickleTests, unittest.TestCase):
 
     pickler = pickle._Pickler
@@ -88,6 +101,8 @@ class InMemoryPickleTests(AbstractPickleTests, AbstractUnpickleTests,
         return pickle.loads(buf, **kwds)
 
     test_framed_write_sizes_with_delayed_writer = None
+    test_find_class = None
+    test_custom_find_class = None
 
 
 class PersistentPicklerUnpicklerMixin(object):
@@ -245,6 +260,9 @@ if has_c_implementation:
         bad_stack_errors = (pickle.UnpicklingError,)
         truncated_errors = (pickle.UnpicklingError,)
 
+    class CPicklingErrorTests(PyPicklingErrorTests):
+        pickler = _pickle.Pickler
+
     class CPicklerTests(PyPicklerTests):
         pickler = _pickle.Pickler
         unpickler = _pickle.Unpickler
@@ -292,6 +310,34 @@ if has_c_implementation:
         class CustomCPicklerClass(_pickle.Pickler, AbstractCustomPicklerClass):
             pass
         pickler_class = CustomCPicklerClass
+
+    @support.cpython_only
+    class HeapTypesTests(unittest.TestCase):
+        def setUp(self):
+            pickler = _pickle.Pickler(io.BytesIO())
+            unpickler = _pickle.Unpickler(io.BytesIO())
+
+            self._types = (
+                _pickle.Pickler,
+                _pickle.Unpickler,
+                type(pickler.memo),
+                type(unpickler.memo),
+
+                # We cannot test the _pickle.Pdata;
+                # there's no way to get to it.
+            )
+
+        def test_have_gc(self):
+            import gc
+            for tp in self._types:
+                with self.subTest(tp=tp):
+                    self.assertTrue(gc.is_tracked(tp))
+
+        def test_immutable(self):
+            for tp in self._types:
+                with self.subTest(tp=tp):
+                    with self.assertRaisesRegex(TypeError, "immutable"):
+                        tp.foo = "bar"
 
     @support.cpython_only
     class SizeofTests(unittest.TestCase):
@@ -533,6 +579,8 @@ class CompatPickleTests(unittest.TestCase):
     def test_multiprocessing_exceptions(self):
         module = import_helper.import_module('multiprocessing.context')
         for name, exc in get_exceptions(module):
+            if issubclass(exc, Warning):
+                continue
             with self.subTest(name):
                 self.assertEqual(reverse_mapping('multiprocessing.context', name),
                                  ('multiprocessing', name))
@@ -541,7 +589,7 @@ class CompatPickleTests(unittest.TestCase):
 
 
 def load_tests(loader, tests, pattern):
-    tests.addTest(doctest.DocTestSuite())
+    tests.addTest(doctest.DocTestSuite(pickle))
     return tests
 
 

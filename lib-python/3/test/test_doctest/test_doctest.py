@@ -3,7 +3,7 @@ Test script for doctest.
 """
 
 from test import support
-from test.support import import_helper, os_helper
+from test.support import import_helper
 from test.support.pty_helper import FakeInput  # used in doctests
 import doctest
 import functools
@@ -14,7 +14,6 @@ import importlib.abc
 import importlib.util
 import unittest
 import tempfile
-import shutil
 import types
 import contextlib
 
@@ -468,7 +467,7 @@ We'll simulate a __file__ attr that ends in pyc:
     >>> tests = finder.find(sample_func)
 
     >>> print(tests)  # doctest: +ELLIPSIS
-    [<DocTest sample_func from test_doctest.py:34 (1 example)>]
+    [<DocTest sample_func from test_doctest.py:33 (1 example)>]
 
 The exact name depends on how test_doctest was invoked, so allow for
 leading path components.
@@ -734,11 +733,10 @@ Finding Doctests in Modules Not Written in Python
 DocTestFinder can also find doctests in most modules not written in Python.
 We'll use builtins as an example, since it almost certainly isn't written in
 plain ol' Python and is guaranteed to be available.
-PyPy change: there are fewer builtin objects with docstrings, change 825 to 725
 
     >>> import builtins
     >>> tests = doctest.DocTestFinder().find(builtins)
-    >>> 725 < len(tests) < 845 # approximate number of objects with docstrings
+    >>> 830 < len(tests) < 860 # approximate number of objects with docstrings
     True
     >>> real_tests = [t for t in tests if len(t.examples) > 0]
     >>> len(real_tests) # objects that actually have doctests
@@ -2490,13 +2488,42 @@ class Wrapper:
         self.func(*args, **kwargs)
 
 @Wrapper
-def test_look_in_unwrapped():
+def wrapped():
     """
     Docstrings in wrapped functions must be detected as well.
 
     >>> 'one other test'
     'one other test'
     """
+
+def test_look_in_unwrapped():
+    """
+    Ensure that wrapped doctests work correctly.
+
+    >>> import doctest
+    >>> doctest.run_docstring_examples(
+    ...     wrapped, {}, name=wrapped.__name__, verbose=True)
+    Finding tests in wrapped
+    Trying:
+        'one other test'
+    Expecting:
+        'one other test'
+    ok
+    """
+
+if support.check_impl_detail(cpython=True):
+    def test_wrapped_c_func():
+        """
+        # https://github.com/python/cpython/issues/117692
+        >>> import binascii
+        >>> from test.test_doctest.decorator_mod import decorator
+
+        >>> c_func_wrapped = decorator(binascii.b2a_hex)
+        >>> tests = doctest.DocTestFinder(exclude_empty=False).find(c_func_wrapped)
+        >>> for test in tests:
+        ...    print(test.lineno, test.name)
+        None b2a_hex
+        """
 
 def test_unittest_reportflags():
     """Default unittest reporting flags can be set to control reporting
@@ -2753,7 +2780,7 @@ Test the verbose output:
     >>> sys.argv = save_argv
 """
 
-class TestImporter(importlib.abc.MetaPathFinder, importlib.abc.ResourceLoader):
+class TestImporter(importlib.abc.MetaPathFinder):
 
     def find_spec(self, fullname, path, target=None):
         return importlib.util.spec_from_file_location(fullname, path, loader=self)
@@ -2761,6 +2788,12 @@ class TestImporter(importlib.abc.MetaPathFinder, importlib.abc.ResourceLoader):
     def get_data(self, path):
         with open(path, mode='rb') as f:
             return f.read()
+
+    def exec_module(self, module):
+        raise ImportError
+
+    def create_module(self, spec):
+        return None
 
 class TestHook:
 
@@ -2839,6 +2872,8 @@ in it, and use a package hook to install a custom loader; on any platform,
 at least one of the line endings will raise a ValueError for inconsistent
 whitespace if doctest does not correctly do the newline conversion.
 
+    >>> from test.support import os_helper
+    >>> import shutil
     >>> dn = tempfile.mkdtemp()
     >>> pkg = os.path.join(dn, "doctest_testpkg")
     >>> os.mkdir(pkg)

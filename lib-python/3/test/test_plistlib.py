@@ -911,13 +911,13 @@ class TestBinaryPlistlib(unittest.TestCase):
         self.assertIs(b['x'], b)
 
     def test_deep_nesting(self):
-        tests = [50, 100_000] if support.is_wasi else [50, 300, 100_000]
+        tests = [50, 100_000] if support.is_wasi else [50, 600, 100_000]
         for N in tests:
             chunks = [b'\xa1' + (i + 1).to_bytes(4, 'big') for i in range(N)]
             try:
                 result = self.decode(*chunks, b'\x54seed', offset_size=4, ref_size=4)
             except RecursionError:
-                self.assertGreater(N, sys.getrecursionlimit()//3)
+                self.assertGreater(N, sys.getrecursionlimit()//2)
             else:
                 for i in range(N):
                     self.assertIsInstance(result, list)
@@ -929,7 +929,7 @@ class TestBinaryPlistlib(unittest.TestCase):
         # Issue #26709: 32-bit timestamp out of range
         for ts in -2**31-1, 2**31:
             with self.subTest(ts=ts):
-                d = (datetime.datetime.utcfromtimestamp(0) +
+                d = (datetime.datetime(1970, 1, 1, 0, 0) +
                      datetime.timedelta(seconds=ts))
                 data = plistlib.dumps(d, fmt=plistlib.FMT_BINARY)
                 self.assertEqual(plistlib.loads(data), d)

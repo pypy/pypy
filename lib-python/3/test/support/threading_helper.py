@@ -27,7 +27,6 @@ def threading_setup():
 
 def threading_cleanup(*original_values):
     orig_count, orig_ndangling = original_values
-    support.gc_collect()
 
     timeout = 1.0
     for _ in support.sleeping_retry(timeout, error=False):
@@ -54,7 +53,6 @@ def threading_cleanup(*original_values):
     # threads explicitly to wait until they complete.
     #
     # To make the warning more likely, reduce the timeout.
-    support.gc_collect()
 
 
 def reap_threads(func):
@@ -120,7 +118,11 @@ def join_thread(thread, timeout=None):
 
 @contextlib.contextmanager
 def start_threads(threads, unlock=None):
-    import faulthandler
+    try:
+        import faulthandler
+    except ImportError:
+        # It isn't supported on subinterpreters yet.
+        faulthandler = None
     threads = list(threads)
     started = []
     try:
@@ -152,7 +154,8 @@ def start_threads(threads, unlock=None):
         finally:
             started = [t for t in started if t.is_alive()]
             if started:
-                faulthandler.dump_traceback(sys.stdout)
+                if faulthandler is not None:
+                    faulthandler.dump_traceback(sys.stdout)
                 raise AssertionError('Unable to join %d threads' % len(started))
 
 

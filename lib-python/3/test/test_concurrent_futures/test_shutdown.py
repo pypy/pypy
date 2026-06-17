@@ -187,11 +187,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         del executor
 
         for t in threads:
-            # t.join()
-            # XXX PyPy change: gc must collect the executor, or test will hang
-            while t.is_alive():
-                support.gc_collect()  # For PyPy or other GCs.
-                t.join(0.01)  # 10 ms
+            t.join()
 
         # Make sure the results were all computed before the
         # executor got shutdown.
@@ -218,30 +214,24 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             self.assertRegex(t.name, r'^SpecialPool_[0-4]$')
-            # t.join()
-            # XXX PyPy change: gc must collect the executor, or test will hang
-            while t.is_alive():
-                support.gc_collect()  # For PyPy or other GCs.
-                t.join(0.01)  # 10 ms
+            t.join()
 
     def test_thread_names_default(self):
         executor = futures.ThreadPoolExecutor(max_workers=5)
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             # Ensure that our default name is reasonably sane and unique when
             # no thread_name_prefix was supplied.
             self.assertRegex(t.name, r'ThreadPoolExecutor-\d+_[0-4]$')
-            # t.join()
-            # XXX PyPy change: gc must collect the executor, or test will hang
-            while t.is_alive():
-                support.gc_collect()  # For PyPy or other GCs.
-                t.join(0.01)  # 10 ms
+            t.join()
 
     def test_cancel_futures_wait_false(self):
         # Can only be reliably tested for TPE, since PPE often hangs with
@@ -305,17 +295,11 @@ class ProcessPoolShutdownTest(ExecutorShutdownTest):
         call_queue = executor._call_queue
         executor_manager_thread = executor._executor_manager_thread
         del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         # Make sure that all the executor resources were properly cleaned by
         # the shutdown process
-        # executor_manager_thread.join()
-        # XXX PyPy change: gc must collect the executor, or test will hang
-        start = time.monotonic()
-        while executor_manager_thread.is_alive():
-            support.gc_collect()  # For PyPy or other GCs.
-            if time.monotonic() - start > 5:
-                assert executor_manager_thread.executor_reference() is None
-            executor_manager_thread.join(0.01)  # 10 ms
+        executor_manager_thread.join()
         for p in processes.values():
             p.join()
         call_queue.join_thread()

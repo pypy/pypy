@@ -4,13 +4,15 @@ from test.support import warnings_helper
 
 # Skip this test if the _testcapi module isn't available.
 import_helper.import_module('_testcapi')
-from _testcapi import _test_structmembersType, \
-    CHAR_MAX, CHAR_MIN, UCHAR_MAX, \
-    SHRT_MAX, SHRT_MIN, USHRT_MAX, \
-    INT_MAX, INT_MIN, UINT_MAX, \
-    LONG_MAX, LONG_MIN, ULONG_MAX, \
-    LLONG_MAX, LLONG_MIN, ULLONG_MAX, \
-    PY_SSIZE_T_MAX, PY_SSIZE_T_MIN
+from _testcapi import (_test_structmembersType_OldAPI,
+    _test_structmembersType_NewAPI,
+    CHAR_MAX, CHAR_MIN, UCHAR_MAX,
+    SHRT_MAX, SHRT_MIN, USHRT_MAX,
+    INT_MAX, INT_MIN, UINT_MAX,
+    LONG_MAX, LONG_MIN, ULONG_MAX,
+    LLONG_MAX, LLONG_MIN, ULLONG_MAX,
+    PY_SSIZE_T_MAX, PY_SSIZE_T_MIN,
+    )
 
 
 class Index:
@@ -19,42 +21,52 @@ class Index:
     def __index__(self):
         return self.value
 
+# There are two classes: one using <structmember.h> and another using
+# `Py_`-prefixed API. They should behave the same in Python
 
-ts=_test_structmembersType(False,  # T_BOOL
-                          1,      # T_BYTE
-                          2,      # T_UBYTE
-                          3,      # T_SHORT
-                          4,      # T_USHORT
-                          5,      # T_INT
-                          6,      # T_UINT
-                          7,      # T_LONG
-                          8,      # T_ULONG
-                          23,     # T_PYSSIZET
-                          9.99999,# T_FLOAT
-                          10.1010101010, # T_DOUBLE
-                          "hi" # T_STRING_INPLACE
-                          )
+def _make_test_object(cls):
+    return cls(False,  # T_BOOL
+               1,      # T_BYTE
+               2,      # T_UBYTE
+               3,      # T_SHORT
+               4,      # T_USHORT
+               5,      # T_INT
+               6,      # T_UINT
+               7,      # T_LONG
+               8,      # T_ULONG
+               23,     # T_PYSSIZET
+               9.99999,# T_FLOAT
+               10.1010101010, # T_DOUBLE
+               "hi",   # T_STRING_INPLACE
+               )
 
-class ReadWriteTests(unittest.TestCase):
+
+class ReadWriteTests:
+    def setUp(self):
+        self.ts = _make_test_object(self.cls)
 
     def _test_write(self, name, value, expected=None):
         if expected is None:
             expected = value
+        ts = self.ts
         setattr(ts, name, value)
         self.assertEqual(getattr(ts, name), expected)
 
     def _test_warn(self, name, value, expected=None):
+        ts = self.ts
         self.assertWarns(RuntimeWarning, setattr, ts, name, value)
         if expected is not None:
             self.assertEqual(getattr(ts, name), expected)
 
     def _test_overflow(self, name, value):
+        ts = self.ts
         self.assertRaises(OverflowError, setattr, ts, name, value)
 
     def _test_int_range(self, name, minval, maxval, *, hardlimit=None,
                         indexlimit=None):
         if hardlimit is None:
             hardlimit = (minval, maxval)
+        ts = self.ts
         self._test_write(name, minval)
         self._test_write(name, maxval)
         hardminval, hardmaxval = hardlimit
@@ -87,6 +99,7 @@ class ReadWriteTests(unittest.TestCase):
                 self._test_warn(name, Index(hardmaxval))
 
     def test_bool(self):
+        ts = self.ts
         ts.T_BOOL = True
         self.assertIs(ts.T_BOOL, True)
         ts.T_BOOL = False
@@ -121,13 +134,13 @@ class ReadWriteTests(unittest.TestCase):
     def test_py_ssize_t(self):
         self._test_int_range('T_PYSSIZET', PY_SSIZE_T_MIN, PY_SSIZE_T_MAX, indexlimit=False)
 
-    @unittest.skipUnless(hasattr(ts, "T_LONGLONG"), "long long not present")
     def test_longlong(self):
         self._test_int_range('T_LONGLONG', LLONG_MIN, LLONG_MAX)
         self._test_int_range('T_ULONGLONG', 0, ULLONG_MAX,
                              hardlimit=(LONG_MIN, ULLONG_MAX))
 
     def test_bad_assignments(self):
+        ts = self.ts
         integer_attributes = [
             'T_BOOL',
             'T_BYTE', 'T_UBYTE',
@@ -145,9 +158,16 @@ class ReadWriteTests(unittest.TestCase):
                 self.assertRaises(TypeError, setattr, ts, attr, nonint)
 
     def test_inplace_string(self):
+        ts = self.ts
         self.assertEqual(ts.T_STRING_INPLACE, "hi")
         self.assertRaises(TypeError, setattr, ts, "T_STRING_INPLACE", "s")
         self.assertRaises(TypeError, delattr, ts, "T_STRING_INPLACE")
+
+class ReadWriteTests_OldAPI(ReadWriteTests, unittest.TestCase):
+    cls = _test_structmembersType_OldAPI
+
+class ReadWriteTests_NewAPI(ReadWriteTests, unittest.TestCase):
+    cls = _test_structmembersType_NewAPI
 
 
 if __name__ == "__main__":

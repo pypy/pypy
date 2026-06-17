@@ -26,6 +26,7 @@ import time
 import datetime
 import threading
 from unittest import mock
+import warnings
 from io import BytesIO, StringIO
 
 import unittest
@@ -321,8 +322,6 @@ class RequestHandlerLoggingTestCase(BaseTestCase):
 
         def do_GET(self):
             self.send_response(HTTPStatus.OK)
-            # Needed for PyPy ???
-            self.send_header('Connection', 'close')
             self.end_headers()
 
         def do_ERROR(self):
@@ -715,7 +714,11 @@ print(f"{content_length} {len(body)}")
         "This test can't be run reliably as root (issue #13308).")
 class CGIHTTPServerTestCase(BaseTestCase):
     class request_handler(NoLogRequestHandler, CGIHTTPRequestHandler):
-        pass
+        def run_cgi(self):
+            # Silence the threading + fork DeprecationWarning this causes.
+            # gh-109096: This is deprecated in 3.13 to go away in 3.15.
+            with warnings.catch_warnings(action='ignore', category=DeprecationWarning):
+                return super().run_cgi()
 
     linesep = os.linesep.encode('ascii')
 
@@ -828,6 +831,9 @@ class CGIHTTPServerTestCase(BaseTestCase):
             os.rmdir(self.cgi_dir_in_sub_dir)
             os.rmdir(self.sub_dir_2)
             os.rmdir(self.sub_dir_1)
+            # The 'gmon.out' file can be written in the current working
+            # directory if C-level code profiling with gprof is enabled.
+            os_helper.unlink(os.path.join(self.parent_dir, 'gmon.out'))
             os.rmdir(self.parent_dir)
         finally:
             BaseTestCase.tearDown(self)

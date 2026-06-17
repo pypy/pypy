@@ -6,10 +6,12 @@ BytesIO -- for bytes
 import unittest
 from test import support
 
+import gc
 import io
 import _pyio as pyio
 import pickle
 import sys
+import weakref
 
 class IntLike:
     def __init__(self, num):
@@ -443,25 +445,22 @@ class PyBytesIOTest(MemoryTestMixin, MemorySeekTestMixin, unittest.TestCase):
         buf = memio.getbuffer()
         self.assertEqual(bytes(buf), b"1234567890")
         memio.seek(5)
-        buf.release()  # PyPy change: GC does not call releasebuffer
         buf = memio.getbuffer()
         self.assertEqual(bytes(buf), b"1234567890")
         # Trying to change the size of the BytesIO while a buffer is exported
         # raises a BufferError.
-        if support.check_impl_detail(pypy=False):
-            # PyPy export buffers differently, and allows reallocation
-            # of the underlying object.
-            self.assertRaises(BufferError, memio.write, b'x' * 100)
-            self.assertRaises(BufferError, memio.truncate)
-            self.assertRaises(BufferError, memio.close)
-            self.assertFalse(memio.closed)
+        self.assertRaises(BufferError, memio.write, b'x' * 100)
+        self.assertRaises(BufferError, memio.truncate)
+        self.assertRaises(BufferError, memio.close)
+        self.assertFalse(memio.closed)
         # Mutating the buffer updates the BytesIO
         buf[3:6] = b"abc"
         self.assertEqual(bytes(buf), b"123abc7890")
         self.assertEqual(memio.getvalue(), b"123abc7890")
         # After the buffer gets released, we can resize and close the BytesIO
         # again
-        buf.release()  # PyPy change: GC does not call releasebuffer
+        del buf
+        support.gc_collect()
         memio.truncate()
         memio.close()
         self.assertRaises(ValueError, memio.getbuffer)
@@ -472,18 +471,32 @@ class PyBytesIOTest(MemoryTestMixin, MemorySeekTestMixin, unittest.TestCase):
         self.assertEqual(bytes(buf), b"")
         # Trying to change the size of the BytesIO while a buffer is exported
         # raises a BufferError.
-        if support.check_impl_detail(pypy=False):
-            # PyPy export buffers differently, and allows reallocation
-            # of the underlying object.
-            self.assertRaises(BufferError, memio.write, b'x')
-            buf2 = memio.getbuffer()
-            self.assertRaises(BufferError, memio.write, b'x')
-            buf.release()
-            self.assertRaises(BufferError, memio.write, b'x')
-            buf2.release()
-        else:
-            buf.release()
+        self.assertRaises(BufferError, memio.write, b'x')
+        buf2 = memio.getbuffer()
+        self.assertRaises(BufferError, memio.write, b'x')
+        buf.release()
+        self.assertRaises(BufferError, memio.write, b'x')
+        buf2.release()
         memio.write(b'x')
+
+    def test_getbuffer_gc_collect(self):
+        memio = self.ioclass(b"1234567890")
+        buf = memio.getbuffer()
+        memiowr = weakref.ref(memio)
+        bufwr = weakref.ref(buf)
+        # Create a reference loop.
+        a = [buf]
+        a.append(a)
+        # The Python implementation emits an unraisable exception.
+        with support.catch_unraisable_exception():
+            del memio
+        del buf
+        del a
+        # The C implementation emits an unraisable exception.
+        with support.catch_unraisable_exception():
+            gc.collect()
+        self.assertIsNone(memiowr())
+        self.assertIsNone(bufwr())
 
     def test_read1(self):
         buf = self.buftype("1234567890")

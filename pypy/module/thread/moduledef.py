@@ -26,6 +26,7 @@ class Module(MixedModule):
         '_local':                 'os_local.Local',
         'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX // 1000000))',
         'error':                  'space.w_RuntimeError',
+        'daemon_threads_allowed': 'os_thread.daemon_threads_allowed',
     }
 
     def __init__(self, space, *args):

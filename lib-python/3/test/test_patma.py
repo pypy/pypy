@@ -1,6 +1,7 @@
 import array
 import collections
 import dataclasses
+import dis
 import enum
 import inspect
 import sys
@@ -2654,6 +2655,20 @@ class TestPatma(unittest.TestCase):
 
         self.assertEqual(y, 'bar')
 
+    def test_patma_249(self):
+        class C:
+            __attr = "eggs"  # mangled to _C__attr
+            _Outer__attr = "bacon"
+        class Outer:
+            def f(self, x):
+                match x:
+                    # looks up __attr, not _C__attr or _Outer__attr
+                    case C(__attr=y):
+                        return y
+        c = C()
+        setattr(c, "__attr", "spam")  # setattr is needed because we're in a class scope
+        self.assertEqual(Outer().f(c), "spam")
+
 
 class TestSyntaxErrors(unittest.TestCase):
 
@@ -3069,6 +3084,24 @@ class TestValueErrors(unittest.TestCase):
         self.assertIs(y, None)
         self.assertIs(z, None)
 
+class TestSourceLocations(unittest.TestCase):
+    def test_jump_threading(self):
+        # See gh-123048
+        def f():
+            x = 0
+            v = 1
+            match v:
+                case 1:
+                    if x < 0:
+                        x = 1
+                case 2:
+                    if x < 0:
+                        x = 1
+            x += 1
+
+        for inst in dis.get_instructions(f):
+            if inst.opcode in dis.hasjrel or inst.opcode in dis.hasjabs:
+                self.assertIsNotNone(inst.positions.lineno, "jump without location")
 
 class TestTracing(unittest.TestCase):
 

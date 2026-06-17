@@ -245,31 +245,44 @@ the suggested approach in the absence of more specific information)."""
 
 def _count(space):
     """_count() -> integer
-Return the number of currently running Python threads, excluding
-the main thread. The returned number comprises all threads created
-through `start_new_thread()` as well as `threading.Thread`, and not
-yet finished.
+    Return the number of currently running Python threads, excluding
+    the main thread. The returned number comprises all threads created
+    through `start_new_thread()` as well as `threading.Thread`, and not
+    yet finished.
 
-This function is meant for internal and specialized purposes only.
-In most applications `threading.enumerate()` should be used instead."""
+    This function is meant for internal and specialized purposes only.
+    In most applications `threading.enumerate()` should be used instead."""
     return space.newint(bootstrapper.nbthreads)
 
 def exit(space):
     """This is synonymous to ``raise SystemExit''.  It will cause the current
-thread to exit silently unless the exception is caught."""
+    thread to exit silently unless the exception is caught."""
     raise OperationError(space.w_SystemExit, space.w_None)
 
 @unwrap_spec(signum=int)
 def interrupt_main(space, signum=SIGINT):
     """interrupt_main(signum=signal.sigint)
 
-Simulate the arrival of the given signal in the main thread,
-where the corresponding signal handler will be executed.
-If *signum* is omitted, SIGINT is assumed.
-A subthread can use this function to interrupt the main thread.
-    
-Note: the default signal handler for SIGINT raises ``KeyboardInterrupt``."""
+    Simulate the arrival of the given signal in the main thread,
+    where the corresponding signal handler will be executed.
+    If *signum* is omitted, SIGINT is assumed.
+    A subthread can use this function to interrupt the main thread.
+        
+    Note: the default signal handler for SIGINT raises ``KeyboardInterrupt``."""
     if space.check_signal_action is None:   # no signal module!
         raise OperationError(space.w_KeyboardInterrupt, space.w_None)
     check_signum_in_range(space, signum)
     space.check_signal_action.set_interrupt(signum)
+
+def daemon_threads_allowed(space):
+    """daemon_threads_allowed()
+
+    Return True if daemon threads are allowed in the current interpreter, and
+    False otherwise."""
+    # In CPython, subinterpreters could be created with this set to 0
+
+    return space.newint(1)
+
+    
+
+

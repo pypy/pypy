@@ -1,8 +1,10 @@
 import contextlib
 import errno
+import os.path
 import socket
-import subprocess
 import sys
+import subprocess
+import tempfile
 import unittest
 
 from .. import support
@@ -273,6 +275,17 @@ def transient_internet(resource_name, *, timeout=_NOT_SET, errnos=()):
         socket.setdefaulttimeout(old_timeout)
 
 
+def create_unix_domain_name():
+    """
+    Create a UNIX domain name: socket.bind() argument of a AF_UNIX socket.
+
+    Return a path relative to the current directory to get a short path
+    (around 27 ASCII characters).
+    """
+    return tempfile.mktemp(prefix="test_python_", suffix='.sock',
+                           dir=os.path.curdir)
+
+
 # consider that sysctl values should not change while tests are running
 _sysctl_cache = {}
 
@@ -290,8 +303,8 @@ def _get_sysctl(name):
                           stderr=subprocess.STDOUT,
                           text=True)
     if proc.returncode:
-        support.print_warning(f"{' '.join(cmd)!r} command failed with "
-                              f"exit code {proc.returncode}")
+        support.print_warning(f'{' '.join(cmd)!r} command failed with '
+                              f'exit code {proc.returncode}')
         # cache the error to only log the warning once
         _sysctl_cache[name] = None
         return None
@@ -301,8 +314,8 @@ def _get_sysctl(name):
     try:
         value = int(output.strip())
     except Exception as exc:
-        support.print_warning(f"Failed to parse {' '.join(cmd)!r} "
-                              f"command output {output!r}: {exc!r}")
+        support.print_warning(f'Failed to parse {' '.join(cmd)!r} '
+                              f'command output {output!r}: {exc!r}')
         # cache the error to only log the warning once
         _sysctl_cache[name] = None
         return None

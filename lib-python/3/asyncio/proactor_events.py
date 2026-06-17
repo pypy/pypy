@@ -288,7 +288,8 @@ class _ProactorReadPipeTransport(_ProactorBasePipeTransport,
                         # we got end-of-file so no need to reschedule a new read
                         return
 
-                    data = self._data[:length]
+                    # It's a new slice so make it immutable so protocols upstream don't have problems
+                    data = bytes(memoryview(self._data)[:length])
                 else:
                     # the future will be replaced by next proactor.recv call
                     fut.cancel()
@@ -723,6 +724,8 @@ class BaseProactorEventLoop(base_events.BaseEventLoop):
         return await self._proactor.sendto(sock, data, 0, address)
 
     async def sock_connect(self, sock, address):
+        if self._debug and sock.gettimeout() != 0:
+            raise ValueError("the socket must be non-blocking")
         return await self._proactor.connect(sock, address)
 
     async def sock_accept(self, sock):

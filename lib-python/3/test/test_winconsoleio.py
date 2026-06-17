@@ -11,10 +11,7 @@ from test.support import os_helper, requires_resource
 if sys.platform != 'win32':
     raise unittest.SkipTest("test only relevant on win32")
 
-try:
-    from _testconsole import write_input
-except Exception:
-    write_input = None
+from _testconsole import write_input
 
 ConIO = io._WindowsConsoleIO
 
@@ -129,7 +126,29 @@ class WindowsConsoleIOTests(unittest.TestCase):
         with ConIO('CONOUT$', 'w') as f:
             self.assertEqual(f.write(b''), 0)
 
-    @unittest.skipIf(not write_input, "no _testconsole.write_input")
+    @requires_resource('console')
+    def test_write(self):
+        testcases = []
+        with ConIO('CONOUT$', 'w') as f:
+            for a in [
+                b'',
+                b'abc',
+                b'\xc2\xa7\xe2\x98\x83\xf0\x9f\x90\x8d',
+                b'\xff'*10,
+            ]:
+                for b in b'\xc2\xa7', b'\xe2\x98\x83', b'\xf0\x9f\x90\x8d':
+                    testcases.append(a + b)
+                    for i in range(1, len(b)):
+                        data = a + b[:i]
+                        testcases.append(data + b'z')
+                        testcases.append(data + b'\xff')
+                        # incomplete multibyte sequence
+                        with self.subTest(data=data):
+                            self.assertEqual(f.write(data), len(a))
+            for data in testcases:
+                with self.subTest(data=data):
+                    self.assertEqual(f.write(data), len(data))
+
     def assertStdinRoundTrip(self, text):
         stdin = open('CONIN$', 'r')
         old_stdin = sys.stdin
@@ -160,7 +179,6 @@ class WindowsConsoleIOTests(unittest.TestCase):
         self.assertStdinRoundTrip('\U00100000\U0010ffff\U0010fffd')
 
     @requires_resource('console')
-    @unittest.skipIf(not write_input, "no _testconsole.write_input")
     def test_partial_reads(self):
         # Test that reading less than 1 full character works when stdin
         # contains multibyte UTF-8 sequences
@@ -197,7 +215,6 @@ class WindowsConsoleIOTests(unittest.TestCase):
                 self.assertEqual(actual, expected, 'stdin.read({})'.format(read_count))
 
     @requires_resource('console')
-    @unittest.skipIf(not write_input, "no _testconsole.write_input")
     def test_ctrl_z(self):
         with open('CONIN$', 'rb', buffering=0) as stdin:
             source = '\xC4\x1A\r\n'.encode('utf-16-le')

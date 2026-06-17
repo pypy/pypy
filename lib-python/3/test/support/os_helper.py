@@ -4,18 +4,17 @@ import errno
 import os
 import re
 import stat
+import string
 import sys
 import time
 import unittest
 import warnings
 
+from test import support
+
 
 # Filename used for testing
-if os.name == 'java':
-    # Jython disallows @ in module names
-    TESTFN_ASCII = '$test'
-else:
-    TESTFN_ASCII = '@test'
+TESTFN_ASCII = '@test'
 
 # Disambiguate TESTFN for parallel testing, while letting it remain a valid
 # module name.
@@ -141,6 +140,11 @@ for name in (
     try:
         name.decode(sys.getfilesystemencoding())
     except UnicodeDecodeError:
+        try:
+            name.decode(sys.getfilesystemencoding(),
+                        sys.getfilesystemencodeerrors())
+        except UnicodeDecodeError:
+            continue
         TESTFN_UNDECODABLE = os.fsencode(TESTFN_ASCII) + name
         break
 
@@ -672,9 +676,10 @@ else:
 
 
 class EnvironmentVarGuard(collections.abc.MutableMapping):
+    """Class to help protect the environment variable properly.
 
-    """Class to help protect the environment variable properly.  Can be used as
-    a context manager."""
+    Can be used as a context manager.
+    """
 
     def __init__(self):
         self._environ = os.environ
@@ -708,8 +713,10 @@ class EnvironmentVarGuard(collections.abc.MutableMapping):
     def set(self, envvar, value):
         self[envvar] = value
 
-    def unset(self, envvar):
-        del self[envvar]
+    def unset(self, envvar, /, *envvars):
+        """Unset one or more environment variables."""
+        for ev in (envvar, *envvars):
+            del self[ev]
 
     def copy(self):
         # We do what os.environ.copy() does.
@@ -726,3 +733,40 @@ class EnvironmentVarGuard(collections.abc.MutableMapping):
             else:
                 self._environ[k] = v
         os.environ = self._environ
+
+
+try:
+    if support.MS_WINDOWS:
+        import ctypes
+        kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+
+        ERROR_FILE_NOT_FOUND = 2
+        DDD_REMOVE_DEFINITION = 2
+        DDD_EXACT_MATCH_ON_REMOVE = 4
+        DDD_NO_BROADCAST_SYSTEM = 8
+    else:
+        raise AttributeError
+except (ImportError, AttributeError):
+    def subst_drive(path):
+        raise unittest.SkipTest('ctypes or kernel32 is not available')
+else:
+    @contextlib.contextmanager
+    def subst_drive(path):
+        """Temporarily yield a substitute drive for a given path."""
+        for c in reversed(string.ascii_uppercase):
+            drive = f'{c}:'
+            if (not kernel32.QueryDosDeviceW(drive, None, 0) and
+                    ctypes.get_last_error() == ERROR_FILE_NOT_FOUND):
+                break
+        else:
+            raise unittest.SkipTest('no available logical drive')
+        if not kernel32.DefineDosDeviceW(
+                DDD_NO_BROADCAST_SYSTEM, drive, path):
+            raise ctypes.WinError(ctypes.get_last_error())
+        try:
+            yield drive
+        finally:
+            if not kernel32.DefineDosDeviceW(
+                    DDD_REMOVE_DEFINITION | DDD_EXACT_MATCH_ON_REMOVE,
+                    drive, path):
+                raise ctypes.WinError(ctypes.get_last_error())

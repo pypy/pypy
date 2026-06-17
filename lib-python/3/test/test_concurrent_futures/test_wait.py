@@ -3,6 +3,7 @@ import threading
 import time
 import unittest
 from concurrent import futures
+from test import support
 
 from .util import (
     CANCELLED_FUTURE, CANCELLED_AND_NOTIFIED_FUTURE, EXCEPTION_FUTURE,
@@ -53,6 +54,7 @@ class WaitTests:
                 finished)
         self.assertEqual(set([future1]), pending)
 
+    @support.requires_resource('walltime')
     def test_first_exception(self):
         future1 = self.executor.submit(mul, 2, 21)
         future2 = self.executor.submit(sleep_and_raise, 1.5)

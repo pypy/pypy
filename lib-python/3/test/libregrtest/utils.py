@@ -5,6 +5,7 @@ import math
 import os.path
 import platform
 import random
+import re
 import shlex
 import signal
 import subprocess
@@ -185,15 +186,6 @@ def clear_caches():
         if stream is not None:
             stream.flush()
 
-    # Clear assorted module caches.
-    # Don't worry about resetting the cache if the module is not loaded
-    try:
-        distutils_dir_util = sys.modules['distutils.dir_util']
-    except KeyError:
-        pass
-    else:
-        distutils_dir_util._path_created.clear()
-
     try:
         re = sys.modules['re']
     except KeyError:
@@ -272,6 +264,35 @@ def clear_caches():
         for f in typing._cleanups:
             f()
 
+        import inspect
+        abs_classes = filter(inspect.isabstract, typing.__dict__.values())
+        for abc in abs_classes:
+            for obj in abc.__subclasses__() + [abc]:
+                obj._abc_caches_clear()
+
+    try:
+        fractions = sys.modules['fractions']
+    except KeyError:
+        pass
+    else:
+        fractions._hash_algorithm.cache_clear()
+
+    try:
+        inspect = sys.modules['inspect']
+    except KeyError:
+        pass
+    else:
+        inspect._shadowed_dict_from_weakref_mro_tuple.cache_clear()
+        inspect._filesbymodname.clear()
+        inspect.modulesbyfile.clear()
+
+    try:
+        importlib_metadata = sys.modules['importlib.metadata']
+    except KeyError:
+        pass
+    else:
+        importlib_metadata.FastPath.__new__.cache_clear()
+
 
 def get_build_info():
     # Get most important configure and build options as a list of strings.
@@ -322,6 +343,11 @@ def get_build_info():
     if support.check_cflags_pgo():
         # PGO (--enable-optimizations)
         optimizations.append('PGO')
+
+    if support.check_bolt_optimized():
+        # BOLT (--enable-bolt)
+        optimizations.append('BOLT')
+
     if optimizations:
         build.append('+'.join(optimizations))
 
@@ -335,6 +361,9 @@ def get_build_info():
     # --with-undefined-behavior-sanitizer
     if support.check_sanitizer(ub=True):
         sanitizers.append("UBSAN")
+    # --with-thread-sanitizer
+    if support.check_sanitizer(thread=True):
+        sanitizers.append("TSAN")
     if sanitizers:
         build.append('+'.join(sanitizers))
 
@@ -635,6 +664,7 @@ def display_header(use_resources: tuple[str, ...],
     asan = support.check_sanitizer(address=True)
     msan = support.check_sanitizer(memory=True)
     ubsan = support.check_sanitizer(ub=True)
+    tsan = support.check_sanitizer(thread=True)
     sanitizers = []
     if asan:
         sanitizers.append("address")
@@ -642,12 +672,15 @@ def display_header(use_resources: tuple[str, ...],
         sanitizers.append("memory")
     if ubsan:
         sanitizers.append("undefined behavior")
+    if tsan:
+        sanitizers.append("thread")
     if sanitizers:
         print(f"== sanitizers: {', '.join(sanitizers)}")
         for sanitizer, env_var in (
             (asan, "ASAN_OPTIONS"),
             (msan, "MSAN_OPTIONS"),
             (ubsan, "UBSAN_OPTIONS"),
+            (tsan, "TSAN_OPTIONS"),
         ):
             options= os.environ.get(env_var)
             if sanitizer and options is not None:
@@ -689,3 +722,24 @@ def get_signal_name(exitcode):
         pass
 
     return None
+
+
+ILLEGAL_XML_CHARS_RE = re.compile(
+    '['
+    # Control characters; newline (\x0A and \x0D) and TAB (\x09) are legal
+    '\x00-\x08\x0B\x0C\x0E-\x1F'
+    # Surrogate characters
+    '\uD800-\uDFFF'
+    # Special Unicode characters
+    '\uFFFE'
+    '\uFFFF'
+    # Match multiple sequential invalid characters for better efficiency
+    ']+')
+
+def _sanitize_xml_replace(regs):
+    text = regs[0]
+    return ''.join(f'\\x{ord(ch):02x}' if ch <= '\xff' else ascii(ch)[1:-1]
+                   for ch in text)
+
+def sanitize_xml(text):
+    return ILLEGAL_XML_CHARS_RE.sub(_sanitize_xml_replace, text)

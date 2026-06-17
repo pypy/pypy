@@ -14,8 +14,8 @@ import shutil
 import threading
 import unittest
 from unittest import mock
-from test.support import verbose, cpython_only
-from test.support.import_helper import forget
+from test.support import verbose
+from test.support.import_helper import forget, mock_register_at_fork
 from test.support.os_helper import (TESTFN, unlink, rmtree)
 from test.support import script_helper, threading_helper
 
@@ -40,12 +40,6 @@ def task(N, done, done_tasks, errors):
         finished = len(done_tasks) == N
         if finished:
             done.set()
-
-def mock_register_at_fork(func):
-    # bpo-30599: Mock os.register_at_fork() when importing the random module,
-    # since this function doesn't allow to unregister callbacks and would leak
-    # memory.
-    return mock.patch('os.register_at_fork', create=True)(func)
 
 # Create a circular import structure: A -> C -> B -> D -> A
 # NOTE: `time` is already loaded and therefore doesn't threaten to deadlock.
@@ -187,10 +181,7 @@ class ThreadedImportTests(unittest.TestCase):
         import test.test_importlib.threaded_import_hangers
         self.assertFalse(test.test_importlib.threaded_import_hangers.errors)
 
-    @cpython_only
     def test_circular_imports(self):
-        # Skip on PyPy, see extra_tests/test_import.py and PyPy issue 3897
-        #
         # The goal of this test is to exercise implementations of the import
         # lock which use a per-module lock, rather than a global lock.
         # In these implementations, there is a possible deadlock with

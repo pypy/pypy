@@ -77,7 +77,7 @@ class Future:
         the default event loop.
         """
         if loop is None:
-            self._loop = events._get_event_loop()
+            self._loop = events.get_event_loop()
         else:
             self._loop = loop
         self._callbacks = []
@@ -194,8 +194,7 @@ class Future:
         the future is done and has an exception set, this exception is raised.
         """
         if self._state == _CANCELLED:
-            exc = self._make_cancelled_error()
-            raise exc
+            raise self._make_cancelled_error()
         if self._state != _FINISHED:
             raise exceptions.InvalidStateError('Result is not ready.')
         self.__log_traceback = False
@@ -212,8 +211,7 @@ class Future:
         InvalidStateError.
         """
         if self._state == _CANCELLED:
-            exc = self._make_cancelled_error()
-            raise exc
+            raise self._make_cancelled_error()
         if self._state != _FINISHED:
             raise exceptions.InvalidStateError('Exception is not set.')
         self.__log_traceback = False
@@ -272,9 +270,13 @@ class Future:
             raise exceptions.InvalidStateError(f'{self._state}: {self!r}')
         if isinstance(exception, type):
             exception = exception()
-        if type(exception) is StopIteration:
-            raise TypeError("StopIteration interacts badly with generators "
-                            "and cannot be raised into a Future")
+        if isinstance(exception, StopIteration):
+            new_exc = RuntimeError("StopIteration interacts badly with "
+                                   "generators and cannot be raised into a "
+                                   "Future")
+            new_exc.__cause__ = exception
+            new_exc.__context__ = exception
+            exception = new_exc
         self._exception = exception
         self._exception_tb = exception.__traceback__
         self._state = _FINISHED
@@ -413,7 +415,7 @@ def wrap_future(future, *, loop=None):
     assert isinstance(future, concurrent.futures.Future), \
         f'concurrent.futures.Future is expected, got {future!r}'
     if loop is None:
-        loop = events._get_event_loop()
+        loop = events.get_event_loop()
     new_future = loop.create_future()
     _chain_future(future, new_future)
     return new_future

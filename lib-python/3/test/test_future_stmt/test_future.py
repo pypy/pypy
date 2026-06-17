@@ -3,8 +3,8 @@
 import __future__
 import ast
 import unittest
-from test import support
 from test.support import import_helper
+from test.support.script_helper import spawn_python, kill_python
 from textwrap import dedent
 import os
 import re
@@ -19,13 +19,7 @@ def get_error_location(msg):
 class FutureTest(unittest.TestCase):
 
     def check_syntax_error(self, err, basename, lineno, offset=1):
-        #PyPy change: PyPy may format multi-line spans as "lines X-Y" instead of "line X"
-        err_str = str(err)
-        self.assertTrue(
-            '%s.py, line %d' % (basename, lineno) in err_str or
-            '%s.py, lines %d-' % (basename, lineno) in err_str,
-            '%r not found in %r' % ('%s.py, line(s) %d' % (basename, lineno), err_str)
-        )
+        self.assertIn('%s.py, line %d' % (basename, lineno), str(err))
         self.assertEqual(os.path.basename(err.filename), basename + '.py')
         self.assertEqual(err.lineno, lineno)
         self.assertEqual(err.offset, offset)
@@ -61,7 +55,7 @@ class FutureTest(unittest.TestCase):
     def test_badfuture3(self):
         with self.assertRaises(SyntaxError) as cm:
             from test.test_future_stmt import badsyntax_future3
-        self.check_syntax_error(cm.exception, "badsyntax_future3", 3)
+        self.check_syntax_error(cm.exception, "badsyntax_future3", 3, 24)
 
     def test_badfuture4(self):
         with self.assertRaises(SyntaxError) as cm:
@@ -81,19 +75,17 @@ class FutureTest(unittest.TestCase):
     def test_badfuture7(self):
         with self.assertRaises(SyntaxError) as cm:
             from test.test_future_stmt import badsyntax_future7
-        #PyPy change: PyPy (like CPython 3.12+) reports offset 54 here; CPython 3.11 reported 53
-        offset = 54 if sys.implementation.name == 'pypy' else 53
-        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, offset)
+        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 54)
 
     def test_badfuture8(self):
         with self.assertRaises(SyntaxError) as cm:
             from test.test_future_stmt import badsyntax_future8
-        self.check_syntax_error(cm.exception, "badsyntax_future8", 3)
+        self.check_syntax_error(cm.exception, "badsyntax_future8", 3, 24)
 
     def test_badfuture9(self):
         with self.assertRaises(SyntaxError) as cm:
             from test.test_future_stmt import badsyntax_future9
-        self.check_syntax_error(cm.exception, "badsyntax_future9", 3)
+        self.check_syntax_error(cm.exception, "badsyntax_future9", 3, 39)
 
     def test_badfuture10(self):
         with self.assertRaises(SyntaxError) as cm:
@@ -115,30 +107,17 @@ class FutureTest(unittest.TestCase):
         }
         self.assertCountEqual(set(flags.values()), flags.values())
 
-    def test_parserhack(self):
-        # test that the parser.c::future_hack function works as expected
-        # Note: although this test must pass, it's not testing the original
-        #       bug as of 2.6 since the with statement is not optional and
-        #       the parser hack disabled. If a new keyword is introduced in
-        #       2.6, change this to refer to the new future import.
-        try:
-            exec("from __future__ import print_function; print 0")
-        except SyntaxError:
-            pass
-        else:
-            self.fail("syntax error didn't occur")
-
-        try:
-            exec("from __future__ import (print_function); print 0")
-        except SyntaxError:
-            pass
-        else:
-            self.fail("syntax error didn't occur")
-
     def test_unicode_literals_exec(self):
         scope = {}
         exec("from __future__ import unicode_literals; x = ''", {}, scope)
         self.assertIsInstance(scope["x"], str)
+
+    def test_syntactical_future_repl(self):
+        p = spawn_python('-i')
+        p.stdin.write(b"from __future__ import barry_as_FLUFL\n")
+        p.stdin.write(b"2 <> 3\n")
+        out = kill_python(p)
+        self.assertNotIn(b'SyntaxError: invalid syntax', out)
 
 class AnnotationsFutureTestCase(unittest.TestCase):
     template = dedent(

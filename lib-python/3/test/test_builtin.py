@@ -9,6 +9,7 @@ import fractions
 import gc
 import io
 import locale
+import math
 import os
 import pickle
 import platform
@@ -17,6 +18,7 @@ import re
 import sys
 import traceback
 import types
+import typing
 import unittest
 import warnings
 from contextlib import ExitStack
@@ -27,15 +29,22 @@ from textwrap import dedent
 from types import AsyncGeneratorType, FunctionType, CellType
 from operator import neg
 from test import support
-from test.support import (swap_attr, maybe_get_event_loop_policy, check_impl_detail)
+from test.support import (cpython_only, swap_attr, maybe_get_event_loop_policy)
 from test.support.os_helper import (EnvironmentVarGuard, TESTFN, unlink)
 from test.support.script_helper import assert_python_ok
 from test.support.warnings_helper import check_warnings
+from test.support import requires_IEEE_754
 from unittest.mock import MagicMock, patch
 try:
     import pty, signal
 except ImportError:
     pty = signal = None
+
+
+# Detect evidence of double-rounding: sum() does not always
+# get improved accuracy on machines that suffer from double rounding.
+x, y = 1e16, 2.9999 # use temporary values to defeat peephole optimizer
+HAVE_DOUBLE_ROUNDING = (x + y == 1e16 + 4)
 
 
 class Squares:
@@ -601,6 +610,11 @@ class BuiltinTest(unittest.TestCase):
         # test that object has a __dir__()
         self.assertEqual(sorted([].__dir__()), dir([]))
 
+    def test___ne__(self):
+        self.assertFalse(None.__ne__(None))
+        self.assertIs(None.__ne__(0), NotImplemented)
+        self.assertIs(None.__ne__("abc"), NotImplemented)
+
     def test_divmod(self):
         self.assertEqual(divmod(12, 7), (1, 5))
         self.assertEqual(divmod(-12, 7), (-2, 2))
@@ -735,7 +749,6 @@ class BuiltinTest(unittest.TestCase):
             del l['__builtins__']
         self.assertEqual((g, l), ({'a': 1}, {'b': 2}))
 
-    @support.cpython_only
     def test_exec_globals(self):
         code = compile("print('Hello World!')", "", "exec")
         # no builtin function
@@ -745,7 +758,6 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError,
                           exec, code, {'__builtins__': 123})
 
-    @support.cpython_only
     def test_exec_globals_frozen(self):
         class frozendict_error(Exception):
             pass
@@ -792,13 +804,11 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(setonlyerror,
                           exec, code, setonlydict({'globalname': 1}))
 
-        if check_impl_detail():
-            # builtins' `__getitem__` raises
-            code = compile("superglobal", "test", "exec")
-            self.assertRaises(setonlyerror, exec, code,
-                              {'__builtins__': setonlydict({'superglobal': 1})})
+        # builtins' `__getitem__` raises
+        code = compile("superglobal", "test", "exec")
+        self.assertRaises(setonlyerror, exec, code,
+                          {'__builtins__': setonlydict({'superglobal': 1})})
 
-    @support.cpython_only
     def test_exec_globals_dict_subclass(self):
         class customdict(dict):  # this one should not do anything fancy
             pass
@@ -810,7 +820,6 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaisesRegex(NameError, "name 'superglobal' is not defined",
                                exec, code, {'__builtins__': customdict()})
 
-    @support.cpython_only
     def test_eval_builtins_mapping(self):
         code = compile("superglobal", "test", "eval")
         # works correctly
@@ -821,7 +830,6 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaisesRegex(NameError, "name 'superglobal' is not defined",
                                eval, code, ns)
 
-    @support.cpython_only
     def test_exec_builtins_mapping_import(self):
         code = compile("import foo.bar", "test", "exec")
         ns = {'__builtins__': types.MappingProxyType({})}
@@ -830,7 +838,6 @@ class BuiltinTest(unittest.TestCase):
         exec(code, ns)
         self.assertEqual(ns['foo'], ('foo.bar', ns, ns, None, 0))
 
-    @support.cpython_only
     def test_eval_builtins_mapping_reduce(self):
         # list_iterator.__reduce__() calls _PyEval_GetBuiltin("iter")
         code = compile("x.__reduce__()", "test", "eval")
@@ -1194,12 +1201,16 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'max.* expected at least (one)|1 argument, got 0'  # PyPy: max(), CPython: max
+            'max expected at least 1 argument, got 0'
         ):
             max()
 
         self.assertRaises(TypeError, max, 42)
-        self.assertRaises(ValueError, max, ())
+        with self.assertRaisesRegex(
+            ValueError,
+            r'max\(\) iterable argument is empty'
+        ):
+            max(())
         class BadSeq:
             def __getitem__(self, index):
                 raise ValueError
@@ -1253,12 +1264,16 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'min.* expected at least (one)|1 argument, got 0'  # PyPy: min(), CPython: min
+            'min expected at least 1 argument, got 0'
         ):
             min()
 
         self.assertRaises(TypeError, min, 42)
-        self.assertRaises(ValueError, min, ())
+        with self.assertRaisesRegex(
+            ValueError,
+            r'min\(\) iterable argument is empty'
+        ):
+            min(())
         class BadSeq:
             def __getitem__(self, index):
                 raise ValueError
@@ -1511,6 +1526,29 @@ class BuiltinTest(unittest.TestCase):
             sys.stdout = savestdout
             fp.close()
 
+    def test_input_gh130163(self):
+        class X(io.StringIO):
+            def __getattribute__(self, name):
+                nonlocal patch
+                if patch:
+                    patch = False
+                    sys.stdout = X()
+                    sys.stderr = X()
+                    sys.stdin = X('input\n')
+                    support.gc_collect()
+                return io.StringIO.__getattribute__(self, name)
+
+        with (support.swap_attr(sys, 'stdout', None),
+              support.swap_attr(sys, 'stderr', None),
+              support.swap_attr(sys, 'stdin', None)):
+            patch = False
+            # the only references:
+            sys.stdout = X()
+            sys.stderr = X()
+            sys.stdin = X('input\n')
+            patch = True
+            input()  # should not crash
+
     # test_int(): see test_int.py for tests of built-in function int().
 
     def test_repr(self):
@@ -1669,6 +1707,8 @@ class BuiltinTest(unittest.TestCase):
         self.assertEqual(repr(sum([-0.0])), '0.0')
         self.assertEqual(repr(sum([-0.0], -0.0)), '-0.0')
         self.assertEqual(repr(sum([], -0.0)), '-0.0')
+        self.assertTrue(math.isinf(sum([float("inf"), float("inf")])))
+        self.assertTrue(math.isinf(sum([1e308, 1e308])))
 
         self.assertRaises(TypeError, sum)
         self.assertRaises(TypeError, sum, 42)
@@ -1692,6 +1732,14 @@ class BuiltinTest(unittest.TestCase):
         empty = []
         sum(([x] for x in range(10)), empty)
         self.assertEqual(empty, [])
+
+    @requires_IEEE_754
+    @unittest.skipIf(HAVE_DOUBLE_ROUNDING,
+                         "sum accuracy not guaranteed on machines with double rounding")
+    @support.cpython_only    # Other implementations may choose a different algorithm
+    def test_sum_accuracy(self):
+        self.assertEqual(sum([0.1] * 10), 1.0)
+        self.assertEqual(sum([1.0, 10E100, 1.0, -10E100]), 2.0)
 
     def test_type(self):
         self.assertEqual(type(''),  type('123'))
@@ -2035,11 +2083,7 @@ class BuiltinTest(unittest.TestCase):
             array.clear()
             yield b'A'
             yield b'B'
-        if support.check_impl_detail(cpython=False):
-            # undefined behavior, b'A,B' is arguably also correct
-            self.assertEqual(bytearray(b'AB'), array.join(iterator()))
-        else:
-            self.assertRaises(BufferError, array.join, iterator())
+        self.assertRaises(BufferError, array.join, iterator())
 
     def test_bytearray_join_with_custom_iterator(self):
         # Issue #112625
@@ -2069,6 +2113,24 @@ class BuiltinTest(unittest.TestCase):
             self.assertTrue(NotImplemented)
         with self.assertWarns(DeprecationWarning):
             self.assertFalse(not NotImplemented)
+
+    def test_singleton_attribute_access(self):
+        for singleton in (NotImplemented, Ellipsis):
+            with self.subTest(singleton):
+                self.assertIs(type(singleton), singleton.__class__)
+                self.assertIs(type(singleton).__class__, type)
+
+                # Missing instance attributes:
+                with self.assertRaises(AttributeError):
+                    singleton.prop = 1
+                with self.assertRaises(AttributeError):
+                    singleton.prop
+
+                # Missing class attributes:
+                with self.assertRaises(TypeError):
+                    type(singleton).prop = 1
+                with self.assertRaises(AttributeError):
+                    type(singleton).prop
 
 
 class TestBreakpoint(unittest.TestCase):
@@ -2174,6 +2236,11 @@ class TestBreakpoint(unittest.TestCase):
             sys.breakpointhook = int
             breakpoint()
             mock.assert_not_called()
+
+    def test_runtime_error_when_hook_is_lost(self):
+        del sys.breakpointhook
+        with self.assertRaises(RuntimeError):
+            breakpoint()
 
 
 @unittest.skipUnless(pty, "the pty and signal modules must be available")
@@ -2293,7 +2360,7 @@ class PtyTests(unittest.TestCase):
         # the readline implementation. In some cases, the Python readline
         # callback rlhandler() is called by readline with a string without
         # non-ASCII characters. Skip tests on non-ASCII characters if the
-        # readline module is loaded, since test_builtin is not intented to test
+        # readline module is loaded, since test_builtin is not intended to test
         # the readline module, but the builtins module.
         if 'readline' in sys.modules:
             self.skipTest("the readline module is loaded")
@@ -2368,8 +2435,6 @@ class TestSorted(unittest.TestCase):
 
 class ShutdownTest(unittest.TestCase):
 
-    # PyPy doesn't do a gc.collect() at shutdown
-    @support.cpython_only
     def test_cleanup(self):
         # Issue #19255: builtins are still available at shutdown
         code = """if 1:
@@ -2400,6 +2465,35 @@ class ShutdownTest(unittest.TestCase):
         rc, out, err = assert_python_ok("-c", code,
                                         PYTHONIOENCODING="ascii")
         self.assertEqual(["before", "after"], out.decode().splitlines())
+
+
+@cpython_only
+class ImmortalTests(unittest.TestCase):
+
+    if sys.maxsize < (1 << 32):
+        IMMORTAL_REFCOUNT = (1 << 30) - 1
+    else:
+        IMMORTAL_REFCOUNT = (1 << 32) - 1
+
+    IMMORTALS = (None, True, False, Ellipsis, NotImplemented, *range(-5, 257))
+
+    def assert_immortal(self, immortal):
+        with self.subTest(immortal):
+            self.assertEqual(sys.getrefcount(immortal), self.IMMORTAL_REFCOUNT)
+
+    def test_immortals(self):
+        for immortal in self.IMMORTALS:
+            self.assert_immortal(immortal)
+
+    def test_list_repeat_respect_immortality(self):
+        refs = list(self.IMMORTALS) * 42
+        for immortal in self.IMMORTALS:
+            self.assert_immortal(immortal)
+
+    def test_tuple_repeat_respect_immortality(self):
+        refs = tuple(self.IMMORTALS) * 42
+        for immortal in self.IMMORTALS:
+            self.assert_immortal(immortal)
 
 
 class TestType(unittest.TestCase):
@@ -2488,13 +2582,23 @@ class TestType(unittest.TestCase):
             A.__qualname__ = b'B'
         self.assertEqual(A.__qualname__, 'D.E')
 
+    def test_type_typeparams(self):
+        class A[T]:
+            pass
+        T, = A.__type_params__
+        self.assertIsInstance(T, typing.TypeVar)
+        A.__type_params__ = "whatever"
+        self.assertEqual(A.__type_params__, "whatever")
+        with self.assertRaises(TypeError):
+            del A.__type_params__
+        self.assertEqual(A.__type_params__, "whatever")
+
     def test_type_doc(self):
         for doc in 'x', '\xc4', '\U0001f40d', 'x\x00y', b'x', 42, None:
             A = type('A', (), {'__doc__': doc})
             self.assertEqual(A.__doc__, doc)
-        if check_impl_detail():     # CPython encodes __doc__ into tp_doc
-            with self.assertRaises(UnicodeEncodeError):
-                type('A', (), {'__doc__': 'x\udcdcy'})
+        with self.assertRaises(UnicodeEncodeError):
+            type('A', (), {'__doc__': 'x\udcdcy'})
 
         A = type('A', (), {})
         self.assertEqual(A.__doc__, None)
@@ -2526,6 +2630,8 @@ class TestType(unittest.TestCase):
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': b'x'})
         with self.assertRaises(TypeError):
+            type('A', (int,), {'__slots__': 'x'})
+        with self.assertRaises(TypeError):
             type('A', (), {'__slots__': ''})
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': '42'})
@@ -2544,12 +2650,6 @@ class TestType(unittest.TestCase):
             type('A', (B,), {'__slots__': '__dict__'})
         with self.assertRaises(TypeError):
             type('A', (B,), {'__slots__': '__weakref__'})
-
-    @support.cpython_only
-    def test_bad_slots_int(self):
-        with self.assertRaises(TypeError):
-            # 'int' is variable-sized on CPython 3.x
-            type('A', (int,), {'__slots__': 'x'})
 
     def test_namespace_order(self):
         # bpo-34320: namespace should preserve order

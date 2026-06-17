@@ -15,11 +15,8 @@ from test import support as test_support
 from test.support import hashlib_helper
 from test.support import socket_helper
 from test.support import threading_helper
-from test.support import warnings_helper
-
-
-asynchat = warnings_helper.import_deprecated('asynchat')
-asyncore = warnings_helper.import_deprecated('asyncore')
+from test.support import asynchat
+from test.support import asyncore
 
 
 test_support.requires_working_socket(module=True)
@@ -292,6 +289,37 @@ class TestPOP3Class(TestCase):
     def test_stat(self):
         self.assertEqual(self.client.stat(), (10, 100))
 
+        original_shortcmd = self.client._shortcmd
+        def mock_shortcmd_invalid_format(cmd):
+            if cmd == 'STAT':
+                return b'+OK'
+            return original_shortcmd(cmd)
+
+        self.client._shortcmd = mock_shortcmd_invalid_format
+        with self.assertRaises(poplib.error_proto):
+            self.client.stat()
+
+        def mock_shortcmd_invalid_data(cmd):
+            if cmd == 'STAT':
+                return b'+OK abc def'
+            return original_shortcmd(cmd)
+
+        self.client._shortcmd = mock_shortcmd_invalid_data
+        with self.assertRaises(poplib.error_proto):
+            self.client.stat()
+
+        def mock_shortcmd_extra_fields(cmd):
+            if cmd == 'STAT':
+                return b'+OK 1 2 3 4 5'
+            return original_shortcmd(cmd)
+
+        self.client._shortcmd = mock_shortcmd_extra_fields
+
+        result = self.client.stat()
+        self.assertEqual(result, (1, 2))
+
+        self.client._shortcmd = original_shortcmd
+
     def test_list(self):
         self.assertEqual(self.client.list()[1:],
                          ([b'1 1', b'2 2', b'3 3', b'4 4', b'5 5'],
@@ -425,13 +453,6 @@ class TestPOP3_SSLClass(TestPOP3Class):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        self.assertRaises(ValueError, poplib.POP3_SSL, self.server.host,
-                            self.server.port, keyfile=CERTFILE, context=ctx)
-        self.assertRaises(ValueError, poplib.POP3_SSL, self.server.host,
-                            self.server.port, certfile=CERTFILE, context=ctx)
-        self.assertRaises(ValueError, poplib.POP3_SSL, self.server.host,
-                            self.server.port, keyfile=CERTFILE,
-                            certfile=CERTFILE, context=ctx)
 
         self.client.quit()
         self.client = poplib.POP3_SSL(self.server.host, self.server.port,

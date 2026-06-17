@@ -83,7 +83,7 @@ class Stats:
     method now take arbitrarily many file names as arguments.
 
     All the print methods now take an argument that indicates how many lines
-    to print.  If the arg is a floating point number between 0 and 1.0, then
+    to print.  If the arg is a floating-point number between 0 and 1.0, then
     it is taken as a decimal percentage of the available lines to be printed
     (e.g., .1 means print 10% of all available lines).  If it is an integer,
     it is taken to mean the number of lines of data that you wish to have
@@ -223,8 +223,6 @@ class Stats:
             for word, tup in self.sort_arg_dict_default.items():
                 fragment = word
                 while fragment:
-                    if not fragment:
-                        break
                     if fragment in dict:
                         bad_list[fragment] = 0
                         break

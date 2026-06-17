@@ -28,6 +28,7 @@ socket.getdefaulttimeout() -- get the default timeout value
 socket.setdefaulttimeout() -- set the default timeout value
 create_connection() -- connects to an address, with an optional timeout and
                        optional source address.
+create_server() -- create a TCP socket and bind it to a specified address.
 
  [*] not available on all platforms!
 
@@ -305,7 +306,8 @@ class socket(_socket.socket):
         """makefile(...) -> an I/O stream connected to the socket
 
         The arguments are as for io.open() after the filename, except the only
-        supported mode values are 'r' (default), 'w' and 'b'.
+        supported mode values are 'r' (default), 'w', 'b', or a combination of
+        those.
         """
         # XXX refactor to share code?
         if not set(mode) <= {"r", "w", "b"}:
@@ -930,7 +932,9 @@ def create_server(address, *, family=AF_INET, backlog=None, reuse_port=False,
                 # Fail later on bind(), for platforms which may not
                 # support this option.
                 pass
-        if reuse_port:
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if reuse_port and family in (AF_INET, AF_INET6):
             sock.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1)
         if has_ipv6 and family == AF_INET6:
             if dualstack_ipv6:

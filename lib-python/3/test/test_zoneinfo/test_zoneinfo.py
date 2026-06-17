@@ -17,10 +17,10 @@ import unittest
 from datetime import date, datetime, time, timedelta, timezone
 from functools import cached_property
 
-from test.support import MISSING_C_DOCSTRINGS, cpython_only
+from test.support import MISSING_C_DOCSTRINGS
 from test.test_zoneinfo import _support as test_support
 from test.test_zoneinfo._support import OS_ENV_LOCK, TZPATH_TEST_LOCK, ZoneInfoTestBase
-from test.support.import_helper import import_module
+from test.support.import_helper import import_module, CleanImport
 
 lzma = import_module('lzma')
 py_zoneinfo, c_zoneinfo = test_support.get_modules()
@@ -404,6 +404,21 @@ class ZoneInfoTest(TzPathUserMixin, ZoneInfoTestBase):
 
 class CZoneInfoTest(ZoneInfoTest):
     module = c_zoneinfo
+
+    @unittest.skipIf(MISSING_C_DOCSTRINGS,
+                     "Signature information for builtins requires docstrings")
+    def test_signatures(self):
+        """Ensure that C module has valid method signatures."""
+        import inspect
+
+        must_have_signatures = (
+            self.klass.clear_cache,
+            self.klass.no_cache,
+            self.klass.from_file,
+        )
+        for method in must_have_signatures:
+            with self.subTest(method=method):
+                inspect.Signature.from_callable(method)
 
     def test_fold_mutate(self):
         """Test that fold isn't mutated when no change is necessary.
@@ -1704,12 +1719,25 @@ class TzPathTest(TzPathUserMixin, ZoneInfoTestBase):
                 with self.subTest("warning", path_var=path_var):
                     # Note: Per PEP 615 the warning is implementation-defined
                     # behavior, other implementations need not warn.
-                    with self.assertWarns(self.module.InvalidTZPathWarning):
+                    with self.assertWarns(self.module.InvalidTZPathWarning) as w:
                         self.module.reset_tzpath()
+                    self.assertEqual(w.warnings[0].filename, __file__)
 
                 tzpath = self.module.TZPATH
                 with self.subTest("filtered", path_var=path_var):
                     self.assertSequenceEqual(tzpath, expected_paths)
+
+    def test_env_variable_relative_paths_warning_location(self):
+        path_var = "path/to/somewhere"
+
+        with self.python_tzpath_context(path_var):
+            with CleanImport("zoneinfo", "zoneinfo._tzpath"):
+                with self.assertWarns(RuntimeWarning) as w:
+                    import zoneinfo
+                InvalidTZPathWarning = zoneinfo.InvalidTZPathWarning
+            self.assertIsInstance(w.warnings[0].message, InvalidTZPathWarning)
+            # It should represent the current file:
+            self.assertEqual(w.warnings[0].filename, __file__)
 
     def test_reset_tzpath_kwarg(self):
         self.module.reset_tzpath(to=["/a/b/c"])
@@ -1886,7 +1914,7 @@ class TestModule(ZoneInfoTestBase):
 class CTestModule(TestModule):
     module = c_zoneinfo
 
-@cpython_only
+
 class ExtensionBuiltTest(unittest.TestCase):
     """Smoke test to ensure that the C and Python extensions are both tested.
 
@@ -1903,12 +1931,10 @@ class ExtensionBuiltTest(unittest.TestCase):
         self.assertTrue(hasattr(py_zoneinfo.ZoneInfo, "_weak_cache"))
 
     def test_gc_tracked(self):
-        # The pure Python version is tracked by the GC but (for now) the C
-        # version is not.
         import gc
 
         self.assertTrue(gc.is_tracked(py_zoneinfo.ZoneInfo))
-        self.assertFalse(gc.is_tracked(c_zoneinfo.ZoneInfo))
+        self.assertTrue(gc.is_tracked(c_zoneinfo.ZoneInfo))
 
 
 @dataclasses.dataclass(frozen=True)

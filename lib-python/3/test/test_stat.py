@@ -245,9 +245,8 @@ class TestFilemode:
             self.assertEqual(value, modvalue, key)
 
 
-if c_stat:
-    class TestFilemodeCStat(TestFilemode, unittest.TestCase):
-        statmod = c_stat
+class TestFilemodeCStat(TestFilemode, unittest.TestCase):
+    statmod = c_stat
 
 
 class TestFilemodePyStat(TestFilemode, unittest.TestCase):

@@ -107,20 +107,20 @@ class UrlParseTestCase(unittest.TestCase):
         if url2 is None:
             url2 = url
         result = urllib.parse.urlparse(url)
-        self.assertEqual(result, parsed)
+        self.assertSequenceEqual(result, parsed)
         t = (result.scheme, result.netloc, result.path,
              result.params, result.query, result.fragment)
-        self.assertEqual(t, parsed)
+        self.assertSequenceEqual(t, parsed)
         # put it back together and it should be the same
         result2 = urllib.parse.urlunparse(result)
-        self.assertEqual(result2, url2)
-        self.assertEqual(result2, result.geturl())
+        self.assertSequenceEqual(result2, url2)
+        self.assertSequenceEqual(result2, result.geturl())
 
         # the result of geturl() is a fixpoint; we can always parse it
         # again to get the same result:
         result3 = urllib.parse.urlparse(result.geturl())
         self.assertEqual(result3.geturl(), result.geturl())
-        self.assertEqual(result3,          result)
+        self.assertSequenceEqual(result3, result)
         self.assertEqual(result3.scheme,   result.scheme)
         self.assertEqual(result3.netloc,   result.netloc)
         self.assertEqual(result3.path,     result.path)
@@ -134,18 +134,18 @@ class UrlParseTestCase(unittest.TestCase):
 
         # check the roundtrip using urlsplit() as well
         result = urllib.parse.urlsplit(url)
-        self.assertEqual(result, split)
+        self.assertSequenceEqual(result, split)
         t = (result.scheme, result.netloc, result.path,
              result.query, result.fragment)
-        self.assertEqual(t, split)
+        self.assertSequenceEqual(t, split)
         result2 = urllib.parse.urlunsplit(result)
-        self.assertEqual(result2, url2)
-        self.assertEqual(result2, result.geturl())
+        self.assertSequenceEqual(result2, url2)
+        self.assertSequenceEqual(result2, result.geturl())
 
         # check the fixpoint property of re-parsing the result of geturl()
         result3 = urllib.parse.urlsplit(result.geturl())
         self.assertEqual(result3.geturl(), result.geturl())
-        self.assertEqual(result3,          result)
+        self.assertSequenceEqual(result3, result)
         self.assertEqual(result3.scheme,   result.scheme)
         self.assertEqual(result3.netloc,   result.netloc)
         self.assertEqual(result3.path,     result.path)
@@ -189,6 +189,9 @@ class UrlParseTestCase(unittest.TestCase):
             ('////path/to/file',
              ('', '', '//path/to/file', '', '', ''),
              ('', '', '//path/to/file', '', '')),
+            ('/////path/to/file',
+             ('', '', '///path/to/file', '', '', ''),
+             ('', '', '///path/to/file', '', '')),
             ('scheme:path/to/file',
              ('scheme', '', 'path/to/file', '', '', ''),
              ('scheme', '', 'path/to/file', '', '')),
@@ -201,6 +204,12 @@ class UrlParseTestCase(unittest.TestCase):
             ('scheme:////path/to/file',
              ('scheme', '', '//path/to/file', '', '', ''),
              ('scheme', '', '//path/to/file', '', '')),
+            ('scheme://///path/to/file',
+             ('scheme', '', '///path/to/file', '', '', ''),
+             ('scheme', '', '///path/to/file', '', '')),
+            ('file:tmp/junk.txt',
+             ('file', '', 'tmp/junk.txt', '', '', ''),
+             ('file', '', 'tmp/junk.txt', '', '')),
             ('file:///tmp/junk.txt',
              ('file', '', '/tmp/junk.txt', '', '', ''),
              ('file', '', '/tmp/junk.txt', '', '')),
@@ -210,6 +219,18 @@ class UrlParseTestCase(unittest.TestCase):
             ('file://///tmp/junk.txt',
              ('file', '', '///tmp/junk.txt', '', '', ''),
              ('file', '', '///tmp/junk.txt', '', '')),
+            ('http:tmp/junk.txt',
+             ('http', '', 'tmp/junk.txt', '', '', ''),
+             ('http', '', 'tmp/junk.txt', '', '')),
+            ('http://example.com/tmp/junk.txt',
+             ('http', 'example.com', '/tmp/junk.txt', '', '', ''),
+             ('http', 'example.com', '/tmp/junk.txt', '', '')),
+            ('http:///example.com/tmp/junk.txt',
+             ('http', '', '/example.com/tmp/junk.txt', '', '', ''),
+             ('http', '', '/example.com/tmp/junk.txt', '', '')),
+            ('http:////example.com/tmp/junk.txt',
+             ('http', '', '//example.com/tmp/junk.txt', '', '', ''),
+             ('http', '', '//example.com/tmp/junk.txt', '', '')),
             ('imap://mail.python.org/mbox1',
              ('imap', 'mail.python.org', '/mbox1', '', '', ''),
              ('imap', 'mail.python.org', '/mbox1', '', '')),
@@ -227,18 +248,35 @@ class UrlParseTestCase(unittest.TestCase):
              ('svn+ssh', 'svn.zope.org', '/repos/main/ZConfig/trunk/',
               '', '')),
             ('git+ssh://git@github.com/user/project.git',
-            ('git+ssh', 'git@github.com','/user/project.git',
-             '','',''),
-            ('git+ssh', 'git@github.com','/user/project.git',
-             '', '')),
+             ('git+ssh', 'git@github.com','/user/project.git',
+              '','',''),
+             ('git+ssh', 'git@github.com','/user/project.git',
+              '', '')),
+            ('itms-services://?action=download-manifest&url=https://example.com/app',
+             ('itms-services', '', '', '',
+              'action=download-manifest&url=https://example.com/app', ''),
+             ('itms-services', '', '',
+              'action=download-manifest&url=https://example.com/app', '')),
+            ('+scheme:path/to/file',
+             ('', '', '+scheme:path/to/file', '', '', ''),
+             ('', '', '+scheme:path/to/file', '', '')),
+            ('sch_me:path/to/file',
+             ('', '', 'sch_me:path/to/file', '', '', ''),
+             ('', '', 'sch_me:path/to/file', '', '')),
             ]
         def _encode(t):
             return (t[0].encode('ascii'),
                     tuple(x.encode('ascii') for x in t[1]),
                     tuple(x.encode('ascii') for x in t[2]))
         bytes_cases = [_encode(x) for x in str_cases]
+        str_cases += [
+            ('schème:path/to/file',
+             ('', '', 'schème:path/to/file', '', '', ''),
+             ('', '', 'schème:path/to/file', '', '')),
+            ]
         for url, parsed, split in str_cases + bytes_cases:
-            self.checkRoundtrips(url, parsed, split)
+            with self.subTest(url):
+                self.checkRoundtrips(url, parsed, split)
 
     def test_roundtrips_normalization(self):
         str_cases = [
@@ -270,7 +308,8 @@ class UrlParseTestCase(unittest.TestCase):
                     tuple(x.encode('ascii') for x in t[3]))
         bytes_cases = [_encode(x) for x in str_cases]
         for url, url2, parsed, split in str_cases + bytes_cases:
-            self.checkRoundtrips(url, parsed, split, url2)
+            with self.subTest(url):
+                self.checkRoundtrips(url, parsed, split, url2)
 
     def test_http_roundtrips(self):
         # urllib.parse.urlsplit treats 'http:' as an optimized special case,
@@ -311,11 +350,17 @@ class UrlParseTestCase(unittest.TestCase):
                     self.checkRoundtrips(url, parsed, split)
 
     def checkJoin(self, base, relurl, expected):
-        str_components = (base, relurl, expected)
-        self.assertEqual(urllib.parse.urljoin(base, relurl), expected)
-        bytes_components = baseb, relurlb, expectedb = [
-                            x.encode('ascii') for x in str_components]
-        self.assertEqual(urllib.parse.urljoin(baseb, relurlb), expectedb)
+        with self.subTest(base=base, relurl=relurl):
+            self.assertEqual(urllib.parse.urljoin(base, relurl), expected)
+            baseb = base.encode('ascii')
+            relurlb = relurl.encode('ascii')
+            expectedb = expected.encode('ascii')
+            self.assertEqual(urllib.parse.urljoin(baseb, relurlb), expectedb)
+
+            relurl = urllib.parse.urlunsplit(urllib.parse.urlsplit(relurl))
+            self.assertEqual(urllib.parse.urljoin(base, relurl), expected)
+            relurlb = urllib.parse.urlunsplit(urllib.parse.urlsplit(relurlb))
+            self.assertEqual(urllib.parse.urljoin(baseb, relurlb), expectedb)
 
     def test_unparse_parse(self):
         str_cases = ['Python', './Python','x-newscheme://foo.com/stuff','x://y','x:/y','x:/','/',]
@@ -1186,6 +1231,10 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(result, 'archaeological%20arcana')
         result = urllib.parse.quote_from_bytes(b'')
         self.assertEqual(result, '')
+        result = urllib.parse.quote_from_bytes(b'A'*10_000)
+        self.assertEqual(result, 'A'*10_000)
+        result = urllib.parse.quote_from_bytes(b'z\x01/ '*253_183)
+        self.assertEqual(result, 'z%01/%20'*253_183)
 
     def test_unquote_to_bytes(self):
         result = urllib.parse.unquote_to_bytes('abc%20def')

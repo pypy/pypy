@@ -75,7 +75,10 @@ class ProactorSocketTransportTests(test_utils.TestCase):
         called_buf = bytearray(self.buffer_size)
         called_buf[:len(buf)] = buf
         self.loop._proactor.recv_into.assert_called_with(self.sock, called_buf)
-        self.protocol.data_received.assert_called_with(bytearray(buf))
+        self.protocol.data_received.assert_called_with(buf)
+        # assert_called_with maps bytearray and bytes to the same thing so check manually
+        # regression test for https://github.com/python/cpython/issues/99941
+        self.assertIsInstance(self.protocol.data_received.call_args.args[0], bytes)
 
     @unittest.skipIf(sys.flags.optimize, "Assertions are disabled in optimized mode")
     def test_loop_reading_no_data(self):
@@ -1003,9 +1006,9 @@ class ProactorEventLoopUnixSockSendfileTests(test_utils.TestCase):
         self.addCleanup(self.file.close)
         super().setUp()
 
-    def make_socket(self, cleanup=True):
+    def make_socket(self, cleanup=True, blocking=False):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.setblocking(False)
+        sock.setblocking(blocking)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
         if cleanup:
@@ -1067,6 +1070,11 @@ class ProactorEventLoopUnixSockSendfileTests(test_utils.TestCase):
                                                           0, None))
         self.assertEqual(self.file.tell(), 0)
 
+    def test_blocking_socket(self):
+        self.loop.set_debug(True)
+        sock = self.make_socket(blocking=True)
+        with self.assertRaisesRegex(ValueError, "must be non-blocking"):
+            self.run_loop(self.loop.sock_sendfile(sock, self.file))
 
 if __name__ == '__main__':
     unittest.main()

@@ -186,7 +186,7 @@ def test_monkeypatch():
     )
 
 
-def test_open():
+def test_open(testfn):
     # SSLContext.load_dh_params uses _Py_fopen_obj rather than normal open()
     try:
         import ssl
@@ -199,16 +199,24 @@ def test_open():
     # All of them should fail
     with TestHook(raise_on_events={"open"}) as hook:
         for fn, *args in [
-            (open, sys.argv[2], "r"),
+            (open, testfn, "r"),
             (open, sys.executable, "rb"),
             (open, 3, "wb"),
-            (open, sys.argv[2], "w", -1, None, None, None, False, lambda *a: 1),
-            (load_dh_params, sys.argv[2]),
+            (open, testfn, "w", -1, None, None, None, False, lambda *a: 1),
+            (load_dh_params, testfn),
         ]:
             if not fn:
                 continue
             with assertRaises(RuntimeError):
-                fn(*args)
+                try:
+                    fn(*args)
+                except NotImplementedError:
+                    if fn == load_dh_params:
+                        # Not callable in some builds
+                        load_dh_params = None
+                        raise RuntimeError
+                    else:
+                        raise
 
     actual_mode = [(a[0], a[1]) for e, a in hook.seen if e == "open" and a[1]]
     actual_flag = [(a[0], a[2]) for e, a in hook.seen if e == "open" and not a[1]]
@@ -216,11 +224,11 @@ def test_open():
         [
             i
             for i in [
-                (sys.argv[2], "r"),
+                (testfn, "r"),
                 (sys.executable, "r"),
                 (3, "w"),
-                (sys.argv[2], "w"),
-                (sys.argv[2], "rb") if load_dh_params else None,
+                (testfn, "w"),
+                (testfn, "rb") if load_dh_params else None,
             ]
             if i is not None
         ],
@@ -359,9 +367,7 @@ def test_gc():
 
     sys.addaudithook(hook)
 
-    # gc.get_objects(generation=1)
-    # PyPy does not accept an integer argument to get_objects
-    gc.get_objects(generation=None)
+    gc.get_objects(generation=1)
 
     x = object()
     y = [x]
@@ -421,6 +427,69 @@ def test_sys_getframe():
     sys._getframe()
 
 
+def test_sys_getframemodulename():
+    import sys
+
+    def hook(event, args):
+        if event.startswith("sys."):
+            print(event, *args)
+
+    sys.addaudithook(hook)
+    sys._getframemodulename()
+
+
+def test_threading():
+    import _thread
+
+    def hook(event, args):
+        if event.startswith(("_thread.", "cpython.PyThreadState", "test.")):
+            print(event, args)
+
+    sys.addaudithook(hook)
+
+    lock = _thread.allocate_lock()
+    lock.acquire()
+
+    class test_func:
+        def __repr__(self): return "<test_func>"
+        def __call__(self):
+            sys.audit("test.test_func")
+            lock.release()
+
+    i = _thread.start_new_thread(test_func(), ())
+    lock.acquire()
+
+
+def test_threading_abort():
+    # Ensures that aborting PyThreadState_New raises the correct exception
+    import _thread
+
+    class ThreadNewAbortError(Exception):
+        pass
+
+    def hook(event, args):
+        if event == "cpython.PyThreadState_New":
+            raise ThreadNewAbortError()
+
+    sys.addaudithook(hook)
+
+    try:
+        _thread.start_new_thread(lambda: None, ())
+    except ThreadNewAbortError:
+        # Other exceptions are raised and the test will fail
+        pass
+
+
+def test_wmi_exec_query():
+    import _wmi
+
+    def hook(event, args):
+        if event.startswith("_wmi."):
+            print(event, args[0])
+
+    sys.addaudithook(hook)
+    _wmi.exec_query("SELECT * FROM Win32_OperatingSystem")
+
 def test_syslog():
     import syslog
 
@@ -453,10 +522,32 @@ def test_not_in_gc():
             assert hook not in o
 
 
+def test_sys_monitoring_register_callback():
+    import sys
+
+    def hook(event, args):
+        if event.startswith("sys.monitoring"):
+            print(event, args)
+
+    sys.addaudithook(hook)
+    sys.monitoring.register_callback(1, 1, None)
+
+
+def test_winapi_createnamedpipe(pipe_name):
+    import _winapi
+
+    def hook(event, args):
+        if event == "_winapi.CreateNamedPipe":
+            print(event, args)
+
+    sys.addaudithook(hook)
+    _winapi.CreateNamedPipe(pipe_name, _winapi.PIPE_ACCESS_DUPLEX, 8, 2, 0, 0, 0, 0)
+
+
 if __name__ == "__main__":
     from test.support import suppress_msvcrt_asserts
 
     suppress_msvcrt_asserts()
 
     test = sys.argv[1]
-    globals()[test]()
+    globals()[test](*sys.argv[2:])

@@ -14,14 +14,8 @@
 # update when constants are added or removed
 
 MAGIC = 20221023
-import sys
-_IS_PYPY = sys.implementation.name == 'pypy'
 
 from _sre import MAXREPEAT, MAXGROUPS
-if _IS_PYPY:
-    from _sre import OPCODES as _internal_opcodes
-else:
-    _internal_opcodes = []
 
 # SRE standard exception (access as sre.error)
 # should this really be here?
@@ -72,17 +66,12 @@ class _NamedIntConstant(int):
 
 MAXREPEAT = _NamedIntConstant(MAXREPEAT, 'MAXREPEAT')
 
-def _makecodes(*names, preexisting_values=None):
-    # pypy change: preexisting_values support
-    items = [_NamedIntConstant(preexisting_values[name] if preexisting_values else i, name) for i, name in enumerate(names)]
+def _makecodes(*names):
+    items = [_NamedIntConstant(i, name) for i, name in enumerate(names)]
     globals().update({item.name: item for item in items})
     return items
 
 # operators
-_preexisting_values = {name.upper(): i for i, name in enumerate(_internal_opcodes)}
-if _IS_PYPY:
-    _preexisting_values['MIN_REPEAT'] = max(_preexisting_values.values()) + 1
-    _preexisting_values['MAX_REPEAT'] = max(_preexisting_values.values()) + 1
 OPCODES = _makecodes(
     # failure=0 success=1 (just because it looks better that way :-)
     'FAILURE', 'SUCCESS',
@@ -131,9 +120,6 @@ OPCODES = _makecodes(
     # The following opcodes are only occurred in the parser output,
     # but not in the compiled code.
     'MIN_REPEAT', 'MAX_REPEAT',
-
-    # pypy change: use the internal opcode values
-    preexisting_values=_preexisting_values
 )
 del OPCODES[-2:] # remove MIN_REPEAT and MAX_REPEAT
 

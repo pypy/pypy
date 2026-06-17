@@ -23,6 +23,7 @@ class AuditTest(unittest.TestCase):
         with subprocess.Popen(
             [sys.executable, "-X utf8", AUDIT_TESTS_PY, *args],
             encoding="utf-8",
+            errors="backslashreplace",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         ) as p:
@@ -58,7 +59,6 @@ class AuditTest(unittest.TestCase):
     def test_block_add_hook_baseexception(self):
         self.do_test("test_block_add_hook_baseexception")
 
-    @support.cpython_only
     def test_marshal(self):
         import_helper.import_module("marshal")
 
@@ -69,17 +69,13 @@ class AuditTest(unittest.TestCase):
 
         self.do_test("test_pickle")
 
-    @support.cpython_only
     def test_monkeypatch(self):
-        # No audit("object.__setattr__"), audit("object.__delattr__") on PyPy
         self.do_test("test_monkeypatch")
 
     def test_open(self):
         self.do_test("test_open", os_helper.TESTFN)
 
-    @support.cpython_only
     def test_cantrace(self):
-        # The test uses frame-specific behaviour that is not supported on PyPy
         self.do_test("test_cantrace")
 
     def test_mmap(self):
@@ -145,6 +141,7 @@ class AuditTest(unittest.TestCase):
         )
 
 
+    @support.requires_resource('network')
     def test_http(self):
         import_helper.import_module("http.client")
         returncode, events, stderr = self.run_python("test_http_client")
@@ -191,6 +188,48 @@ class AuditTest(unittest.TestCase):
 
         self.assertEqual(actual, expected)
 
+    def test_sys_getframemodulename(self):
+        returncode, events, stderr = self.run_python("test_sys_getframemodulename")
+        if returncode:
+            self.fail(stderr)
+
+        if support.verbose:
+            print(*events, sep='\n')
+        actual = [(ev[0], ev[2]) for ev in events]
+        expected = [("sys._getframemodulename", "0")]
+
+        self.assertEqual(actual, expected)
+
+
+    def test_threading(self):
+        returncode, events, stderr = self.run_python("test_threading")
+        if returncode:
+            self.fail(stderr)
+
+        if support.verbose:
+            print(*events, sep='\n')
+        actual = [(ev[0], ev[2]) for ev in events]
+        expected = [
+            ("_thread.start_new_thread", "(<test_func>, (), None)"),
+            ("test.test_func", "()"),
+        ]
+
+        self.assertEqual(actual, expected)
+
+
+    def test_wmi_exec_query(self):
+        import_helper.import_module("_wmi")
+        returncode, events, stderr = self.run_python("test_wmi_exec_query")
+        if returncode:
+            self.fail(stderr)
+
+        if support.verbose:
+            print(*events, sep='\n')
+        actual = [(ev[0], ev[2]) for ev in events]
+        expected = [("_wmi.exec_query", "SELECT * FROM Win32_OperatingSystem")]
+
+        self.assertEqual(actual, expected)
+
     def test_syslog(self):
         syslog = import_helper.import_module("syslog")
 
@@ -219,6 +258,33 @@ class AuditTest(unittest.TestCase):
         if returncode:
             self.fail(stderr)
 
+
+    def test_sys_monitoring_register_callback(self):
+        returncode, events, stderr = self.run_python("test_sys_monitoring_register_callback")
+        if returncode:
+            self.fail(stderr)
+
+        if support.verbose:
+            print(*events, sep='\n')
+        actual = [(ev[0], ev[2]) for ev in events]
+        expected = [("sys.monitoring.register_callback", "(None,)")]
+
+        self.assertEqual(actual, expected)
+
+    def test_winapi_createnamedpipe(self):
+        winapi = import_helper.import_module("_winapi")
+
+        pipe_name = r"\\.\pipe\LOCAL\test_winapi_createnamed_pipe"
+        returncode, events, stderr = self.run_python("test_winapi_createnamedpipe", pipe_name)
+        if returncode:
+            self.fail(stderr)
+
+        if support.verbose:
+            print(*events, sep='\n')
+        actual = [(ev[0], ev[2]) for ev in events]
+        expected = [("_winapi.CreateNamedPipe", f"({pipe_name!r}, 3, 8)")]
+
+        self.assertEqual(actual, expected)
 
 if __name__ == "__main__":
     unittest.main()

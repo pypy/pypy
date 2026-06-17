@@ -83,7 +83,6 @@ else:
 ### Tests
 ###############################################################################
 
-@cpython_only
 class GCTests(unittest.TestCase):
     def test_list(self):
         l = []
@@ -1388,6 +1387,31 @@ class GCTogglingTests(unittest.TestCase):
             # empty __dict__.
             self.assertEqual(x, None)
 
+    def test_indirect_calls_with_gc_disabled(self):
+        junk = []
+        i = 0
+        detector = GC_Detector()
+        while not detector.gc_happened:
+            i += 1
+            if i > 10000:
+                self.fail("gc didn't happen after 10000 iterations")
+            junk.append([])  # this will eventually trigger gc
+
+        try:
+            gc.disable()
+            junk = []
+            i = 0
+            detector = GC_Detector()
+            while not detector.gc_happened:
+                i += 1
+                if i > 10000:
+                    break
+                junk.append([])  # this may eventually trigger gc (if it is enabled)
+
+            self.assertEqual(i, 10001)
+        finally:
+            gc.enable()
+
 
 class PythonFinalizationTests(unittest.TestCase):
     def test_ast_fini(self):
@@ -1399,19 +1423,13 @@ class PythonFinalizationTests(unittest.TestCase):
         code = textwrap.dedent("""
             import ast
             import codecs
+            from test import support
 
             # Small AST tree to keep their AST types alive
             tree = ast.parse("def f(x, y): return 2*x-y")
-            x = [tree]
-            x.append(x)
 
-            # Put the cycle somewhere to survive until the last GC collection.
-            # Codec search functions are only cleared at the end of
-            # interpreter_clear().
-            def search_func(encoding):
-                return None
-            search_func.a = x
-            codecs.register(search_func)
+            # Store the tree somewhere to survive until the last GC collection
+            support.late_deletion(tree)
         """)
         assert_python_ok("-c", code)
 

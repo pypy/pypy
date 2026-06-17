@@ -162,10 +162,7 @@ def filemode(mode):
                 perm.append(char)
                 break
         else:
-            if not perm:
-                perm.append("?")
-            else:
-                perm.append("-")
+            perm.append("-")
     return "".join(perm)
 
 
@@ -189,8 +186,6 @@ FILE_ATTRIBUTE_SPARSE_FILE = 512
 FILE_ATTRIBUTE_SYSTEM = 4
 FILE_ATTRIBUTE_TEMPORARY = 256
 FILE_ATTRIBUTE_VIRTUAL = 65536
-
-IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
 
 
 # If available, use C implementation

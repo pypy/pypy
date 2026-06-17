@@ -45,12 +45,6 @@ def temporary_filename():
     finally:
         os_helper.unlink(filename)
 
-# NOTE: all the tests give a sensible result on PyPy too (tested
-# manually in py3.5, revision e0ba73be669b, by setting maxDiff=None in
-# the class).  The details of the outputs differ too much to make it
-# easy to generalize the tests to accept both CPython's and PyPy's
-# style.  For now let's skip the tests on PyPy.
-@support.cpython_only
 class FaultHandlerTests(unittest.TestCase):
 
     def get_output(self, code, filename=None, fd=None):
@@ -242,7 +236,7 @@ class FaultHandlerTests(unittest.TestCase):
             faulthandler._sigfpe()
             """,
             3,
-            'Floating point exception')
+            'Floating-point exception')
 
     @unittest.skipIf(_testcapi is None, 'need _testcapi')
     @unittest.skipUnless(hasattr(signal, 'SIGBUS'), 'need signal.SIGBUS')
@@ -281,7 +275,7 @@ class FaultHandlerTests(unittest.TestCase):
                 """,
                 2,
                 'xyz',
-                func='test_fatal_error',
+                func='_testcapi_fatal_error_impl',
                 py_fatal_error=True)
 
     def test_fatal_error(self):

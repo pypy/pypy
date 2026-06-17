@@ -109,66 +109,87 @@ class TestLiterals(unittest.TestCase):
         for b in range(1, 128):
             if b in b"""\n\r"'01234567NU\\abfnrtuvx""":
                 continue
-            with self.assertWarns(DeprecationWarning):
+            with self.assertWarns(SyntaxWarning):
                 self.assertEqual(eval(r"'\%c'" % b), '\\' + chr(b))
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always', category=DeprecationWarning)
+            warnings.simplefilter('always', category=SyntaxWarning)
             eval("'''\n\\z'''")
         self.assertEqual(len(w), 1)
         self.assertEqual(str(w[0].message), r"invalid escape sequence '\z'")
         self.assertEqual(w[0].filename, '<string>')
-        self.assertEqual(w[0].lineno, 1)
+        self.assertEqual(w[0].lineno, 2)
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('error', category=DeprecationWarning)
+            warnings.simplefilter('error', category=SyntaxWarning)
             with self.assertRaises(SyntaxError) as cm:
                 eval("'''\n\\z'''")
             exc = cm.exception
         self.assertEqual(w, [])
         self.assertEqual(exc.msg, r"invalid escape sequence '\z'")
         self.assertEqual(exc.filename, '<string>')
-        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.lineno, 2)
         self.assertEqual(exc.offset, 1)
 
-        # Check that the warning is raised ony once if there are syntax errors
-        # PyPy: skipped as the parser raises SyntaxError during tokenization
-        # before the AST builder gets a chance to emit the deprecation warning
-        with self.assertRaises(AssertionError):
-            with warnings.catch_warnings(record=True) as w:
-                warnings.simplefilter('always', category=DeprecationWarning)
-                with self.assertRaises(SyntaxError) as cm:
-                    eval("'\\e' $")
-                exc = cm.exception
-            self.assertEqual(len(w), 1)
-            self.assertEqual(w[0].category, DeprecationWarning)
-            self.assertRegex(str(w[0].message), 'invalid escape sequence')
-            self.assertEqual(w[0].filename, '<string>')
+        # Check that the warning is raised only once if there are syntax errors
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always', category=SyntaxWarning)
+            with self.assertRaises(SyntaxError) as cm:
+                eval("'\\e' $")
+            exc = cm.exception
+        self.assertEqual(len(w), 1)
+        self.assertEqual(w[0].category, SyntaxWarning)
+        self.assertRegex(str(w[0].message), 'invalid escape sequence')
+        self.assertEqual(w[0].filename, '<string>')
 
     def test_eval_str_invalid_octal_escape(self):
         for i in range(0o400, 0o1000):
-            with self.assertWarns(DeprecationWarning):
+            with self.assertWarns(SyntaxWarning):
                 self.assertEqual(eval(r"'\%o'" % i), chr(i))
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always', category=DeprecationWarning)
+            warnings.simplefilter('always', category=SyntaxWarning)
             eval("'''\n\\407'''")
         self.assertEqual(len(w), 1)
         self.assertEqual(str(w[0].message),
                          r"invalid octal escape sequence '\407'")
         self.assertEqual(w[0].filename, '<string>')
-        self.assertEqual(w[0].lineno, 1)
+        self.assertEqual(w[0].lineno, 2)
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('error', category=DeprecationWarning)
+            warnings.simplefilter('error', category=SyntaxWarning)
             with self.assertRaises(SyntaxError) as cm:
                 eval("'''\n\\407'''")
             exc = cm.exception
         self.assertEqual(w, [])
         self.assertEqual(exc.msg, r"invalid octal escape sequence '\407'")
         self.assertEqual(exc.filename, '<string>')
-        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.lineno, 2)
         self.assertEqual(exc.offset, 1)
+
+    def test_invalid_escape_locations_with_offset(self):
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('error', category=SyntaxWarning)
+            with self.assertRaises(SyntaxError) as cm:
+                eval("\"'''''''''''''''''''''invalid\\ Escape\"")
+            exc = cm.exception
+        self.assertEqual(w, [])
+        self.assertEqual(exc.msg, r"invalid escape sequence '\ '")
+        self.assertEqual(exc.filename, '<string>')
+        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.offset, 30)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('error', category=SyntaxWarning)
+            with self.assertRaises(SyntaxError) as cm:
+                eval("\"''Incorrect \\ logic?\"")
+            exc = cm.exception
+        self.assertEqual(w, [])
+        self.assertEqual(exc.msg, r"invalid escape sequence '\ '")
+        self.assertEqual(exc.filename, '<string>')
+        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.offset, 14)
 
     def test_eval_str_raw(self):
         self.assertEqual(eval(""" r'x' """), 'x')
@@ -200,50 +221,50 @@ class TestLiterals(unittest.TestCase):
         for b in range(1, 128):
             if b in b"""\n\r"'01234567\\abfnrtvx""":
                 continue
-            with self.assertWarns(DeprecationWarning):
+            with self.assertWarns(SyntaxWarning):
                 self.assertEqual(eval(r"b'\%c'" % b), b'\\' + bytes([b]))
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always', category=DeprecationWarning)
+            warnings.simplefilter('always', category=SyntaxWarning)
             eval("b'''\n\\z'''")
         self.assertEqual(len(w), 1)
         self.assertEqual(str(w[0].message), r"invalid escape sequence '\z'")
         self.assertEqual(w[0].filename, '<string>')
-        self.assertEqual(w[0].lineno, 1)
+        self.assertEqual(w[0].lineno, 2)
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('error', category=DeprecationWarning)
+            warnings.simplefilter('error', category=SyntaxWarning)
             with self.assertRaises(SyntaxError) as cm:
                 eval("b'''\n\\z'''")
             exc = cm.exception
         self.assertEqual(w, [])
         self.assertEqual(exc.msg, r"invalid escape sequence '\z'")
         self.assertEqual(exc.filename, '<string>')
-        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.lineno, 2)
 
     def test_eval_bytes_invalid_octal_escape(self):
         for i in range(0o400, 0o1000):
-            with self.assertWarns(DeprecationWarning):
+            with self.assertWarns(SyntaxWarning):
                 self.assertEqual(eval(r"b'\%o'" % i), bytes([i & 0o377]))
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('always', category=DeprecationWarning)
+            warnings.simplefilter('always', category=SyntaxWarning)
             eval("b'''\n\\407'''")
         self.assertEqual(len(w), 1)
         self.assertEqual(str(w[0].message),
                          r"invalid octal escape sequence '\407'")
         self.assertEqual(w[0].filename, '<string>')
-        self.assertEqual(w[0].lineno, 1)
+        self.assertEqual(w[0].lineno, 2)
 
         with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter('error', category=DeprecationWarning)
+            warnings.simplefilter('error', category=SyntaxWarning)
             with self.assertRaises(SyntaxError) as cm:
                 eval("b'''\n\\407'''")
             exc = cm.exception
         self.assertEqual(w, [])
         self.assertEqual(exc.msg, r"invalid octal escape sequence '\407'")
         self.assertEqual(exc.filename, '<string>')
-        self.assertEqual(exc.lineno, 1)
+        self.assertEqual(exc.lineno, 2)
 
     def test_eval_bytes_raw(self):
         self.assertEqual(eval(""" br'x' """), b'x')

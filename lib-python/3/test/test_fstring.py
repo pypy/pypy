@@ -14,7 +14,6 @@ import re
 import types
 import decimal
 import unittest
-from test.support import cpython_only
 import warnings
 from test import support
 from test.support.os_helper import temp_cwd
@@ -596,7 +595,6 @@ x = (
         )
         self.assertRaises(SyntaxError, eval, "f'{" + "(" * 500 + "}'")
 
-    @cpython_only  # No stack limit on PyPy (FIXME?)
     @unittest.skipIf(support.is_wasi, "exhausts limited stack on WASI")
     def test_fstring_nested_too_deeply(self):
         self.assertAllRaise(
@@ -1448,7 +1446,7 @@ x = (
             self.assertAllRaise(
                 SyntaxError,
                 "f-string: conversion type must come right after the"
-                " exclamation mark",
+                " exclamanation mark",
                 ["f'{3!" + conv + "}'"],
             )
 
@@ -1483,7 +1481,7 @@ x = (
             ],
         )
 
-    def test_mismatched_braces_fail(self):
+    def test_mismatched_braces(self):
         self.assertAllRaise(
             SyntaxError,
             "f-string: single '}' is not allowed",
@@ -1529,7 +1527,6 @@ x = (
             ],
         )
 
-    def test_mismatched_braces_ok(self):
         # But these are just normal strings.
         self.assertEqual(f'{"{"}', "{")
         self.assertEqual(f'{"}"}', "}")
@@ -1812,8 +1809,7 @@ x = (
             f"{1:_,}"
 
     def test_syntax_error_for_starred_expressions(self):
-        error_msg = re.escape("cannot use starred expression here")
-        with self.assertRaisesRegex(SyntaxError, error_msg):
+        with self.assertRaisesRegex(SyntaxError, "can't use starred expression here"):
             compile("f'{*a}'", "?", "exec")
 
         with self.assertRaisesRegex(
@@ -1839,7 +1835,7 @@ sdfsdfs{1+
         try:
             compile(data, "?", "exec")
         except SyntaxError as e:
-            self.assertEqual(e.text, 'z = f"""\n')
+            self.assertEqual(e.text, 'z = f"""')
             self.assertEqual(e.lineno, 3)
 
     def test_syntax_error_after_debug(self):

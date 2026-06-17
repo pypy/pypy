@@ -33,20 +33,28 @@ class TestMakefile(unittest.TestCase):
                     if '\t' not in line:
                         break
                     result.append(line.replace('\\', '').strip())
-
-        # In Python 3.11 (and lower), many test modules are not in
-        # the tests/ directory. This check ignores them.
-        result = [d for d in result if d.startswith('test/') or d == 'test']
-
         return result
 
     def test_makefile_test_folders(self):
         test_dirs = self.list_test_dirs()
+        idle_test = 'idlelib/idle_test'
+        self.assertIn(idle_test, test_dirs)
 
-        used = []
-        for dirpath, _, _ in os.walk(support.TEST_HOME_DIR):
+        used = [idle_test]
+        for dirpath, dirs, files in os.walk(support.TEST_HOME_DIR):
             dirname = os.path.basename(dirpath)
-            if dirname == '__pycache__':
+            # Skip temporary dirs:
+            if dirname == '__pycache__' or dirname.startswith('.'):
+                dirs.clear()  # do not process subfolders
+                continue
+            # Skip empty dirs:
+            if not dirs and not files:
+                continue
+            # Skip dirs with hidden-only files:
+            if files and all(
+                filename.startswith('.') or filename == '__pycache__'
+                for filename in files
+            ):
                 continue
 
             relpath = os.path.relpath(dirpath, support.STDLIB_DIR)
@@ -60,6 +68,10 @@ class TestMakefile(unittest.TestCase):
                     )
                 )
                 used.append(relpath)
+
+        # Don't check the wheel dir when Python is built --with-wheel-pkg-dir
+        if sysconfig.get_config_var('WHEEL_PKG_DIR'):
+            test_dirs.remove('test/wheeldata')
 
         # Check that there are no extra entries:
         unique_test_dirs = set(test_dirs)

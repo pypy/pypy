@@ -2,7 +2,8 @@
 
 import os
 import sys
-from os.path import pardir, realpath
+import threading
+from os.path import realpath
 
 __all__ = [
     'get_config_h_filename',
@@ -25,24 +26,24 @@ _ALWAYS_STR = {
 
 _INSTALL_SCHEMES = {
     'posix_prefix': {
-        'stdlib': '{installed_base}/{platlibdir}/{implementation_lower}{py_version_short}',
-        'platstdlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}',
-        'purelib': '{base}/lib/{implementation_lower}{py_version_short}/site-packages',
-        'platlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
+        'stdlib': '{installed_base}/{platlibdir}/python{py_version_short}',
+        'platstdlib': '{platbase}/{platlibdir}/python{py_version_short}',
+        'purelib': '{base}/lib/python{py_version_short}/site-packages',
+        'platlib': '{platbase}/{platlibdir}/python{py_version_short}/site-packages',
         'include':
-            '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
+            '{installed_base}/include/python{py_version_short}{abiflags}',
         'platinclude':
-            '{installed_platbase}/include/{implementation_lower}{py_version_short}{abiflags}',
+            '{installed_platbase}/include/python{py_version_short}{abiflags}',
         'scripts': '{base}/bin',
         'data': '{base}',
         },
     'posix_home': {
-        'stdlib': '{installed_base}/lib/{implementation_lower}',
-        'platstdlib': '{base}/lib/{implementation_lower}',
-        'purelib': '{base}/lib/{implementation_lower}',
-        'platlib': '{base}/lib/{implementation_lower}',
-        'include': '{installed_base}/include/{implementation_lower}',
-        'platinclude': '{installed_base}/include/{implementation_lower}',
+        'stdlib': '{installed_base}/lib/python',
+        'platstdlib': '{base}/lib/python',
+        'purelib': '{base}/lib/python',
+        'platlib': '{base}/lib/python',
+        'include': '{installed_base}/include/python',
+        'platinclude': '{installed_base}/include/python',
         'scripts': '{base}/bin',
         'data': '{base}',
         },
@@ -74,14 +75,14 @@ _INSTALL_SCHEMES = {
     # Downstream distributors who patch posix_prefix/nt scheme are encouraged to
     # leave the following schemes unchanged
     'posix_venv': {
-        'stdlib': '{installed_base}/{platlibdir}/{implementation_lower}{py_version_short}',
-        'platstdlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}',
-        'purelib': '{base}/lib/{implementation_lower}{py_version_short}/site-packages',
-        'platlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
+        'stdlib': '{installed_base}/{platlibdir}/python{py_version_short}',
+        'platstdlib': '{platbase}/{platlibdir}/python{py_version_short}',
+        'purelib': '{base}/lib/python{py_version_short}/site-packages',
+        'platlib': '{platbase}/{platlibdir}/python{py_version_short}/site-packages',
         'include':
-            '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
+            '{installed_base}/include/python{py_version_short}{abiflags}',
         'platinclude':
-            '{installed_platbase}/include/{implementation_lower}{py_version_short}{abiflags}',
+            '{installed_platbase}/include/python{py_version_short}{abiflags}',
         'scripts': '{base}/bin',
         'data': '{base}',
         },
@@ -106,14 +107,6 @@ else:
 
 # NOTE: site.py has copy of this function.
 # Sync it when modify this function.
-def _get_implementation():
-    if sys.implementation.name == 'pypy':
-        return 'PyPy'
-    return 'Python'
-
-
-# NOTE: site.py has copy of this function.
-# Sync it when modify this function.
 def _getuserbase():
     env_base = os.environ.get("PYTHONUSERBASE", None)
     if env_base:
@@ -128,7 +121,7 @@ def _getuserbase():
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        return joinuser(base, _get_implementation())
+        return joinuser(base, "Python")
 
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,
@@ -142,29 +135,29 @@ if _HAS_USER_BASE:
     _INSTALL_SCHEMES |= {
         # NOTE: When modifying "purelib" scheme, update site._get_path() too.
         'nt_user': {
-            'stdlib': '{userbase}/{implementation}{py_version_nodot_plat}',
-            'platstdlib': '{userbase}/{implementation}{py_version_nodot_plat}',
-            'purelib': '{userbase}/{implementation}{py_version_nodot_plat}/site-packages',
-            'platlib': '{userbase}/{implementation}{py_version_nodot_plat}/site-packages',
-            'include': '{userbase}/{implementation}{py_version_nodot_plat}/Include',
-            'scripts': '{userbase}/{implementation}{py_version_nodot_plat}/Scripts',
+            'stdlib': '{userbase}/Python{py_version_nodot_plat}',
+            'platstdlib': '{userbase}/Python{py_version_nodot_plat}',
+            'purelib': '{userbase}/Python{py_version_nodot_plat}/site-packages',
+            'platlib': '{userbase}/Python{py_version_nodot_plat}/site-packages',
+            'include': '{userbase}/Python{py_version_nodot_plat}/Include',
+            'scripts': '{userbase}/Python{py_version_nodot_plat}/Scripts',
             'data': '{userbase}',
             },
         'posix_user': {
-            'stdlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}',
-            'platstdlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}',
-            'purelib': '{userbase}/lib/{implementation_lower}{py_version_short}/site-packages',
-            'platlib': '{userbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
-            'include': '{userbase}/include/{implementation_lower}{py_version_short}',
+            'stdlib': '{userbase}/{platlibdir}/python{py_version_short}',
+            'platstdlib': '{userbase}/{platlibdir}/python{py_version_short}',
+            'purelib': '{userbase}/lib/python{py_version_short}/site-packages',
+            'platlib': '{userbase}/lib/python{py_version_short}/site-packages',
+            'include': '{userbase}/include/python{py_version_short}',
             'scripts': '{userbase}/bin',
             'data': '{userbase}',
             },
         'osx_framework_user': {
-            'stdlib': '{userbase}/lib/{implementation_lower}',
-            'platstdlib': '{userbase}/lib/{implementation_lower}',
-            'purelib': '{userbase}/lib/{implementation_lower}/site-packages',
-            'platlib': '{userbase}/lib/{implementation_lower}/site-packages',
-            'include': '{userbase}/include/{implementation_lower}{py_version_short}',
+            'stdlib': '{userbase}/lib/python',
+            'platstdlib': '{userbase}/lib/python',
+            'purelib': '{userbase}/lib/python/site-packages',
+            'platlib': '{userbase}/lib/python/site-packages',
+            'include': '{userbase}/include/python{py_version_short}',
             'scripts': '{userbase}/bin',
             'data': '{userbase}',
             },
@@ -176,11 +169,13 @@ _SCHEME_KEYS = ('stdlib', 'platstdlib', 'purelib', 'platlib', 'include',
 _PY_VERSION = sys.version.split()[0]
 _PY_VERSION_SHORT = f'{sys.version_info[0]}.{sys.version_info[1]}'
 _PY_VERSION_SHORT_NO_DOT = f'{sys.version_info[0]}{sys.version_info[1]}'
-_PREFIX = os.path.normpath(sys.prefix)
 _BASE_PREFIX = os.path.normpath(sys.base_prefix)
-_EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 _BASE_EXEC_PREFIX = os.path.normpath(sys.base_exec_prefix)
+# Mutex guarding initialization of _CONFIG_VARS.
+_CONFIG_VARS_LOCK = threading.RLock()
 _CONFIG_VARS = None
+# True iff _CONFIG_VARS has been fully initialized.
+_CONFIG_VARS_INITIALIZED = False
 _USER_BASE = None
 
 # Regexes needed for parsing Makefile (and similar syntaxes,
@@ -227,8 +222,15 @@ if "_PYTHON_PROJECT_BASE" in os.environ:
 def is_python_build(check_home=None):
     if check_home is not None:
         import warnings
-        warnings.warn("check_home argument is deprecated and ignored.",
-                      DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            (
+                'The check_home argument of sysconfig.is_python_build is '
+                'deprecated and its value is ignored. '
+                'It will be removed in Python 3.15.'
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
     for fn in ("Setup", "Setup.local"):
         if os.path.isfile(os.path.join(_PROJECT_BASE, "Modules", fn)):
             return True
@@ -469,43 +471,35 @@ def _get_sysconfigdata_name():
     )
 
 
-def _generate_posix_vars(args):
+def _generate_posix_vars():
     """Generate the Python module containing build-time variables."""
     import pprint
     vars = {}
-    if sys.implementation.name == 'pypy':
-        import _sysconfigdata
-        vars = _sysconfigdata.build_time_vars
-    else:
-        # load the installed Makefile:
-        makefile = get_makefile_filename()
-        try:
-            _parse_makefile(makefile, vars)
-        except OSError as e:
-            msg = f"invalid Python installation: unable to open {makefile}"
-            if hasattr(e, "strerror"):
-                msg = f"{msg} ({e.strerror})"
-            raise OSError(msg)
-        # load the installed pyconfig.h:
-        config_h = get_config_h_filename()
-        try:
-            with open(config_h, encoding="utf-8") as f:
-                parse_config_h(f, vars)
-        except OSError as e:
-            msg = f"invalid Python installation: unable to open {config_h}"
-            if hasattr(e, "strerror"):
-                msg = f"{msg} ({e.strerror})"
-            raise OSError(msg)
-        # On AIX, there are wrong paths to the linker scripts in the Makefile
-        # -- these paths are relative to the Python source, but when installed
-        # the scripts are in another directory.
-        if _PYTHON_BUILD:
-            vars['BLDSHARED'] = vars['LDSHARED']
+    # load the installed Makefile:
+    makefile = get_makefile_filename()
+    try:
+        _parse_makefile(makefile, vars)
+    except OSError as e:
+        msg = f"invalid Python installation: unable to open {makefile}"
+        if hasattr(e, "strerror"):
+            msg = f"{msg} ({e.strerror})"
+        raise OSError(msg)
+    # load the installed pyconfig.h:
+    config_h = get_config_h_filename()
+    try:
+        with open(config_h, encoding="utf-8") as f:
+            parse_config_h(f, vars)
+    except OSError as e:
+        msg = f"invalid Python installation: unable to open {config_h}"
+        if hasattr(e, "strerror"):
+            msg = f"{msg} ({e.strerror})"
+        raise OSError(msg)
+    # On AIX, there are wrong paths to the linker scripts in the Makefile
+    # -- these paths are relative to the Python source, but when installed
+    # the scripts are in another directory.
+    if _PYTHON_BUILD:
+        vars['BLDSHARED'] = vars['LDSHARED']
 
-    if args:
-        # PyPy extension: they should be key, value pairs
-        for k, v in zip(args[::2], args[1::2]):
-            vars[k] = v
     # There's a chicken-and-egg situation on OS X with regards to the
     # _sysconfigdata module after the changes introduced by #15298:
     # get_config_vars() is called by get_platform() as part of the
@@ -542,21 +536,9 @@ def _generate_posix_vars(args):
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
-    # CPython: _sysconfigdata_* is generated at build time, see _generate_posix_vars()
-    # name = _get_sysconfigdata_name()
-    # PyPy: _sysconfigdata is a dynamic module (uses sys to determine values),
-    #       while _sysconfigdata_* is a static version of the same values
-    #       generated by calling _generate_posix_vars as part of packaging.py.
-    #       To prevent chicken-and-egg problems of needing the values before
-    #       generating them, fall back to the dynamic version here.
+    # _sysconfigdata is generated at build time, see _generate_posix_vars()
     name = _get_sysconfigdata_name()
-    try:
-        _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
-    except ImportError:
-        if '_PYTHON_SYSCONFIGDATA_NAME' in os.environ:
-            raise
-        _temp = __import__("_sysconfigdata", globals(), locals(), ['build_time_vars'], 0)
-
+    _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
     build_time_vars = _temp.build_time_vars
     vars.update(build_time_vars)
 
@@ -567,14 +549,16 @@ def _init_non_posix(vars):
     vars['LIBDEST'] = get_path('stdlib')
     vars['BINLIBDEST'] = get_path('platstdlib')
     vars['INCLUDEPY'] = get_path('include')
-    vars['EXT_SUFFIX'] = _imp.extension_suffixes()[0]
+    try:
+        # GH-99201: _imp.extension_suffixes may be empty when
+        # HAVE_DYNAMIC_LOADING is not set. In this case, don't set EXT_SUFFIX.
+        vars['EXT_SUFFIX'] = _imp.extension_suffixes()[0]
+    except IndexError:
+        pass
     vars['EXE'] = '.exe'
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
     vars['TZPATH'] = ''
-    # pypy: give us control over the ABI tag in a wheel name
-    so_ext = _imp.extension_suffixes()[0]
-    vars['SOABI']= so_ext.split('.')[1]
 
 #
 # public APIs
@@ -657,6 +641,73 @@ def get_path(name, scheme=get_default_scheme(), vars=None, expand=True):
     return get_paths(scheme, vars, expand)[name]
 
 
+def _init_config_vars():
+    global _CONFIG_VARS
+    _CONFIG_VARS = {}
+    # Normalized versions of prefix and exec_prefix are handy to have;
+    # in fact, these are the standard versions used most places in the
+    # Distutils.
+    _PREFIX = os.path.normpath(sys.prefix)
+    _EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
+    _CONFIG_VARS['prefix'] = _PREFIX  # FIXME: This gets overwriten by _init_posix.
+    _CONFIG_VARS['exec_prefix'] = _EXEC_PREFIX  # FIXME: This gets overwriten by _init_posix.
+    _CONFIG_VARS['py_version'] = _PY_VERSION
+    _CONFIG_VARS['py_version_short'] = _PY_VERSION_SHORT
+    _CONFIG_VARS['py_version_nodot'] = _PY_VERSION_SHORT_NO_DOT
+    _CONFIG_VARS['installed_base'] = _BASE_PREFIX
+    _CONFIG_VARS['base'] = _PREFIX
+    _CONFIG_VARS['installed_platbase'] = _BASE_EXEC_PREFIX
+    _CONFIG_VARS['platbase'] = _EXEC_PREFIX
+    _CONFIG_VARS['projectbase'] = _PROJECT_BASE
+    _CONFIG_VARS['platlibdir'] = sys.platlibdir
+    try:
+        _CONFIG_VARS['abiflags'] = sys.abiflags
+    except AttributeError:
+        # sys.abiflags may not be defined on all platforms.
+        _CONFIG_VARS['abiflags'] = ''
+    try:
+        _CONFIG_VARS['py_version_nodot_plat'] = sys.winver.replace('.', '')
+    except AttributeError:
+        _CONFIG_VARS['py_version_nodot_plat'] = ''
+
+    if os.name == 'nt':
+        _init_non_posix(_CONFIG_VARS)
+        _CONFIG_VARS['VPATH'] = sys._vpath
+    if os.name == 'posix':
+        _init_posix(_CONFIG_VARS)
+    if _HAS_USER_BASE:
+        # Setting 'userbase' is done below the call to the
+        # init function to enable using 'get_config_var' in
+        # the init-function.
+        _CONFIG_VARS['userbase'] = _getuserbase()
+
+    # Always convert srcdir to an absolute path
+    srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
+    if os.name == 'posix':
+        if _PYTHON_BUILD:
+            # If srcdir is a relative path (typically '.' or '..')
+            # then it should be interpreted relative to the directory
+            # containing Makefile.
+            base = os.path.dirname(get_makefile_filename())
+            srcdir = os.path.join(base, srcdir)
+        else:
+            # srcdir is not meaningful since the installation is
+            # spread about the filesystem.  We choose the
+            # directory containing the Makefile since we know it
+            # exists.
+            srcdir = os.path.dirname(get_makefile_filename())
+    _CONFIG_VARS['srcdir'] = _safe_realpath(srcdir)
+
+    # OS X platforms require special customization to handle
+    # multi-architecture, multi-os-version installers
+    if sys.platform == 'darwin':
+        import _osx_support
+        _osx_support.customize_config_vars(_CONFIG_VARS)
+
+    global _CONFIG_VARS_INITIALIZED
+    _CONFIG_VARS_INITIALIZED = True
+
+
 def get_config_vars(*args):
     """With no arguments, return a dictionary of all configuration
     variables relevant for the current platform.
@@ -667,71 +718,26 @@ def get_config_vars(*args):
     With arguments, return a list of values that result from looking up
     each argument in the configuration variable dictionary.
     """
-    global _CONFIG_VARS
-    if _CONFIG_VARS is None:
-        _CONFIG_VARS = {}
-        # Normalized versions of prefix and exec_prefix are handy to have;
-        # in fact, these are the standard versions used most places in the
-        # Distutils.
-        _CONFIG_VARS['prefix'] = _PREFIX
-        _CONFIG_VARS['exec_prefix'] = _EXEC_PREFIX
-        _CONFIG_VARS['py_version'] = _PY_VERSION
-        _CONFIG_VARS['py_version_short'] = _PY_VERSION_SHORT
-        _CONFIG_VARS['py_version_nodot'] = _PY_VERSION_SHORT_NO_DOT
-        _CONFIG_VARS['installed_base'] = _BASE_PREFIX
-        _CONFIG_VARS['base'] = _PREFIX
-        _CONFIG_VARS['installed_platbase'] = _BASE_EXEC_PREFIX
-        _CONFIG_VARS['platbase'] = _EXEC_PREFIX
-        _CONFIG_VARS['projectbase'] = _PROJECT_BASE
-        _CONFIG_VARS['platlibdir'] = sys.platlibdir
-        try:
-            _CONFIG_VARS['abiflags'] = sys.abiflags
-        except AttributeError:
-            # sys.abiflags may not be defined on all platforms.
-            _CONFIG_VARS['abiflags'] = ''
-        _CONFIG_VARS['implementation'] = _get_implementation()
-        _CONFIG_VARS['implementation_lower'] = _get_implementation().lower()
-        _CONFIG_VARS['LIBRARY'] = ''
-        try:
-            _CONFIG_VARS['py_version_nodot_plat'] = sys.winver.replace('.', '')
-        except AttributeError:
-            _CONFIG_VARS['py_version_nodot_plat'] = ''
+    global _CONFIG_VARS_INITIALIZED
 
-        if os.name == 'nt':
-            _init_non_posix(_CONFIG_VARS)
-            _CONFIG_VARS['VPATH'] = sys._vpath
-        if os.name == 'posix':
-            _init_posix(_CONFIG_VARS)
-        if _HAS_USER_BASE:
-            # Setting 'userbase' is done below the call to the
-            # init function to enable using 'get_config_var' in
-            # the init-function.
-            _CONFIG_VARS['userbase'] = _getuserbase()
-
-        # Always convert srcdir to an absolute path
-        srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
-        if os.name == 'posix':
-            if sys.implementation.name == 'pypy':
-                pass
-            elif _PYTHON_BUILD:
-                # If srcdir is a relative path (typically '.' or '..')
-                # then it should be interpreted relative to the directory
-                # containing Makefile.
-                base = os.path.dirname(get_makefile_filename())
-                srcdir = os.path.join(base, srcdir)
-            else:
-                # srcdir is not meaningful since the installation is
-                # spread about the filesystem.  We choose the
-                # directory containing the Makefile since we know it
-                # exists.
-                srcdir = os.path.dirname(get_makefile_filename())
-        _CONFIG_VARS['srcdir'] = _safe_realpath(srcdir)
-
-        # OS X platforms require special customization to handle
-        # multi-architecture, multi-os-version installers
-        if sys.platform == 'darwin':
-            import _osx_support
-            _osx_support.customize_config_vars(_CONFIG_VARS)
+    # Avoid claiming the lock once initialization is complete.
+    if not _CONFIG_VARS_INITIALIZED:
+        with _CONFIG_VARS_LOCK:
+            # Test again with the lock held to avoid races. Note that
+            # we test _CONFIG_VARS here, not _CONFIG_VARS_INITIALIZED,
+            # to ensure that recursive calls to get_config_vars()
+            # don't re-enter init_config_vars().
+            if _CONFIG_VARS is None:
+                _init_config_vars()
+    else:
+        # If the site module initialization happened after _CONFIG_VARS was
+        # initialized, a virtual environment might have been activated, resulting in
+        # variables like sys.prefix changing their value, so we need to re-init the
+        # config vars (see GH-126789).
+        if _CONFIG_VARS['base'] != os.path.normpath(sys.prefix):
+            with _CONFIG_VARS_LOCK:
+                _CONFIG_VARS_INITIALIZED = False
+                _init_config_vars()
 
     if args:
         vals = []
@@ -766,7 +772,8 @@ def get_platform():
        solaris-2.6-sun4u
 
     Windows will return one of:
-       win-amd64 (64bit Windows on AMD64 (aka x86_64, Intel64, EM64T, etc)
+       win-amd64 (64-bit Windows on AMD64 (aka x86_64, Intel64, EM64T, etc)
+       win-arm64 (64-bit Windows on ARM64 (aka AArch64)
        win32 (all others - specifically, sys.platform is returned)
 
     For other non-POSIX platforms, currently just returns 'sys.platform'.
@@ -872,7 +879,7 @@ def _print_dict(title, data):
 def _main():
     """Display all information sysconfig detains."""
     if '--generate-posix-vars' in sys.argv:
-        _generate_posix_vars(sys.argv[2:])
+        _generate_posix_vars()
         return
     print(f'Platform: "{get_platform()}"')
     print(f'Python version: "{get_python_version()}"')

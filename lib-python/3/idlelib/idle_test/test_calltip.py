@@ -9,7 +9,6 @@ import re
 from idlelib.idle_test.mock_tk import Text
 from test.support import MISSING_C_DOCSTRINGS
 
-from test.support import impl_detail
 
 # Test Class TC is used in multiple get_argspec test methods
 class TC:
@@ -54,7 +53,6 @@ class Get_argspecTest(unittest.TestCase):
 
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
-    @impl_detail("pypy and cpython builtins have different docstrings", pypy=False)
     def test_builtins(self):
 
         def tiptest(obj, out):
@@ -153,17 +151,12 @@ you\'ll probably have to override _wrap_chunks().''')
                      "Signature information for builtins requires docstrings")
     def test_multiline_docstring(self):
         # Test fewer lines than max.
-        # PYPY: there is an extra first line, filter it out
-        docstring = get_spec(range)
-        docstring = '\n'.join(docstring.split('\n')[1:])
-        self.assertEqual(docstring,
+        self.assertEqual(get_spec(range),
                 "range(stop) -> range object\n"
                 "range(start, stop[, step]) -> range object")
 
         # Test max lines
-        docstring = get_spec(bytes)
-        docstring = '\n'.join(docstring.split('\n')[1:])
-        self.assertEqual(docstring, '''\
+        self.assertEqual(get_spec(bytes), '''\
 bytes(iterable_of_ints) -> bytes
 bytes(string, encoding[, errors]) -> bytes
 bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer

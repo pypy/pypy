@@ -5,7 +5,6 @@
 from functools import partial
 from test import support, test_tools
 from test.support import os_helper
-from test.support import SHORT_TIMEOUT, requires_subprocess
 from test.support.os_helper import TESTFN, unlink
 from textwrap import dedent
 from unittest import TestCase
@@ -396,7 +395,7 @@ class ClinicGroupPermuterTest(TestCase):
     def test_have_left_options_but_required_is_empty(self):
         def fn():
             clinic.permute_optional_groups(['a'], [], [])
-        self.assertRaises(AssertionError, fn)
+        self.assertRaises(ValueError, fn)
 
 
 class ClinicLinearFormatTest(TestCase):
@@ -616,7 +615,6 @@ class ClinicParserTest(_ParserBase):
                 follow_symlinks: bool = True
                 something_else: str = ''
         """)
-        p = function.parameters['follow_symlinks']
         self.assertEqual(3, len(function.parameters))
         conv = function.parameters['something_else'].converter
         self.assertIsInstance(conv, clinic.str_converter)
@@ -1201,6 +1199,22 @@ class ClinicParserTest(_ParserBase):
                 out = self.parse_function_should_fail(block)
                 self.assertEqual(out, expected_failure_message)
 
+    def test_kwarg_splats_disallowed_in_function_call_annotations(self):
+        expected_error_msg = (
+            "Error on line 0:\n"
+            "Cannot use a kwarg splat in a function-call annotation\n"
+        )
+        dataset = (
+            'module fo\nfo.barbaz\n   o: bool(**{None: "bang!"})',
+            'module fo\nfo.barbaz -> bool(**{None: "bang!"})',
+            'module fo\nfo.barbaz -> bool(**{"bang": 42})',
+            'module fo\nfo.barbaz\n   o: bool(**{"bang": None})',
+        )
+        for fn in dataset:
+            with self.subTest(fn=fn):
+                out = self.parse_function_should_fail(fn)
+                self.assertEqual(out, expected_error_msg)
+
     def test_self_param_placement(self):
         expected_error_msg = (
             "Error on line 0:\n"
@@ -1295,6 +1309,66 @@ class ClinicParserTest(_ParserBase):
         """)
         self.assertEqual(out, expected_error_msg)
 
+    def test_unused_param(self):
+        block = self.parse("""
+            module foo
+            foo.func
+                fn: object
+                k: float
+                i: float(unused=True)
+                /
+                *
+                flag: bool(unused=True) = False
+        """)
+        sig = block.signatures[1]  # Function index == 1
+        params = sig.parameters
+        conv = lambda fn: params[fn].converter
+        dataset = (
+            {"name": "fn", "unused": False},
+            {"name": "k", "unused": False},
+            {"name": "i", "unused": True},
+            {"name": "flag", "unused": True},
+        )
+        for param in dataset:
+            name, unused = param.values()
+            with self.subTest(name=name, unused=unused):
+                p = conv(name)
+                # Verify that the unused flag is parsed correctly.
+                self.assertEqual(unused, p.unused)
+
+                # Now, check that we'll produce correct code.
+                decl = p.simple_declaration(in_parser=False)
+                if unused:
+                    self.assertIn("Py_UNUSED", decl)
+                else:
+                    self.assertNotIn("Py_UNUSED", decl)
+
+                # Make sure the Py_UNUSED macro is not used in the parser body.
+                parser_decl = p.simple_declaration(in_parser=True)
+                self.assertNotIn("Py_UNUSED", parser_decl)
+
+    def test_kind_defining_class(self):
+        function = self.parse_function("""
+            module m
+            class m.C "PyObject *" ""
+            m.C.meth
+                cls: defining_class
+        """, signatures_in_block=3, function_index=2)
+        p = function.parameters['cls']
+        self.assertEqual(p.kind, inspect.Parameter.POSITIONAL_ONLY)
+
+    def test_disallow_defining_class_at_module_level(self):
+        expected_error_msg = (
+            "Error on line 0:\n"
+            "A 'defining_class' parameter cannot be defined at module level.\n"
+        )
+        out = self.parse_function_should_fail("""
+            module m
+            m.func
+                cls: defining_class
+        """)
+        self.assertEqual(out, expected_error_msg)
+
     def parse(self, text):
         c = FakeClinic()
         parser = DSLParser(c)
@@ -1361,7 +1435,7 @@ class ClinicExternalTest(TestCase):
     def test_external(self):
         CLINIC_TEST = 'clinic.test.c'
         source = support.findfile(CLINIC_TEST)
-        with open(source, 'r', encoding='utf-8') as f:
+        with open(source, encoding='utf-8') as f:
             orig_contents = f.read()
 
         # Run clinic CLI and verify that it does not complain.
@@ -1369,7 +1443,7 @@ class ClinicExternalTest(TestCase):
         out = self.expect_success("-f", "-o", TESTFN, source)
         self.assertEqual(out, "")
 
-        with open(TESTFN, 'r', encoding='utf-8') as f:
+        with open(TESTFN, encoding='utf-8') as f:
             new_contents = f.read()
 
         self.assertEqual(new_contents, orig_contents)
@@ -1428,9 +1502,9 @@ class ClinicExternalTest(TestCase):
             # Verify by checking the checksum.
             checksum = (
                 "/*[clinic end generated code: "
-                "output=6c2289b73f32bc19 input=9543a8d2da235301]*/\n"
+                "output=99dd9b13ffdc660d input=9543a8d2da235301]*/\n"
             )
-            with open(fn, 'r', encoding='utf-8') as f:
+            with open(fn, encoding='utf-8') as f:
                 generated = f.read()
             self.assertTrue(generated.endswith(checksum))
 
@@ -1535,7 +1609,6 @@ class ClinicExternalTest(TestCase):
                 init()
                 int()
                 long()
-                NoneType()
                 Py_ssize_t()
                 size_t()
                 unsigned_int()
@@ -2020,11 +2093,27 @@ class ClinicFunctionalTest(unittest.TestCase):
         self.assertEqual(ac_tester.vararg(1, 2, 3, 4), (1, (2, 3, 4)))
 
     def test_vararg_with_default(self):
-        with self.assertRaises(TypeError):
-            ac_tester.vararg_with_default()
-        self.assertEqual(ac_tester.vararg_with_default(1, b=False), (1, (), False))
-        self.assertEqual(ac_tester.vararg_with_default(1, 2, 3, 4), (1, (2, 3, 4), False))
-        self.assertEqual(ac_tester.vararg_with_default(1, 2, 3, 4, b=True), (1, (2, 3, 4), True))
+        fn = ac_tester.vararg_with_default
+        self.assertRaises(TypeError, fn)
+        self.assertRaises(TypeError, fn, 1, a=2)
+        self.assertEqual(fn(1, b=2), (1, (), True))
+        self.assertEqual(fn(1, 2, 3, 4), (1, (2, 3, 4), False))
+        self.assertEqual(fn(1, 2, 3, 4, b=5), (1, (2, 3, 4), True))
+        self.assertEqual(fn(a=1), (1, (), False))
+        self.assertEqual(fn(a=1, b=2), (1, (), True))
+
+    def test_vararg_with_default2(self):
+        fn = ac_tester.vararg_with_default2
+        self.assertRaises(TypeError, fn)
+        self.assertRaises(TypeError, fn, 1, a=2)
+        self.assertEqual(fn(1, b=2), (1, (), 2, None))
+        self.assertEqual(fn(1, b=2, c=3), (1, (), 2, 3))
+        self.assertEqual(fn(1, 2, 3), (1, (2, 3), None, None))
+        self.assertEqual(fn(1, 2, 3, b=4), (1, (2, 3), 4, None))
+        self.assertEqual(fn(1, 2, 3, b=4, c=5), (1, (2, 3), 4, 5))
+        self.assertEqual(fn(a=1), (1, (), None, None))
+        self.assertEqual(fn(a=1, b=2), (1, (), 2, None))
+        self.assertEqual(fn(a=1, b=2, c=3), (1, (), 2, 3))
 
     def test_vararg_with_only_defaults(self):
         self.assertEqual(ac_tester.vararg_with_only_defaults(), ((), None))
@@ -2050,6 +2139,19 @@ class ClinicFunctionalTest(unittest.TestCase):
         expected_error = r'gh_99240_double_free\(\) argument 2 must be encoded string without null bytes, not str'
         with self.assertRaisesRegex(TypeError, expected_error):
             ac_tester.gh_99240_double_free('a', '\0b')
+
+    def test_cloned_func_exception_message(self):
+        incorrect_arg = -1  # f1() and f2() accept a single str
+        with self.assertRaisesRegex(TypeError, "clone_f1"):
+            ac_tester.clone_f1(incorrect_arg)
+        with self.assertRaisesRegex(TypeError, "clone_f2"):
+            ac_tester.clone_f2(incorrect_arg)
+
+    def test_cloned_func_with_converter_exception_message(self):
+        for name in "clone_with_conv_f1", "clone_with_conv_f2":
+            with self.subTest(name=name):
+                func = getattr(ac_tester, name)
+                self.assertEqual(func(), name)
 
     def test_meth_method_no_params(self):
         obj = ac_tester.TestClass()
@@ -2176,6 +2278,170 @@ class PermutationTests(unittest.TestCase):
                 permutations = clinic.permute_optional_groups(left, required, right)
                 actual = tuple(permutations)
                 self.assertEqual(actual, expected)
+
+
+class FormatHelperTests(unittest.TestCase):
+
+    def test_strip_leading_and_trailing_blank_lines(self):
+        dataset = (
+            # Input lines, expected output.
+            ("a\nb",            "a\nb"),
+            ("a\nb\n",          "a\nb"),
+            ("a\nb ",           "a\nb"),
+            ("\na\nb\n\n",      "a\nb"),
+            ("\n\na\nb\n\n",    "a\nb"),
+            ("\n\na\n\nb\n\n",  "a\n\nb"),
+            # Note, leading whitespace is preserved:
+            (" a\nb",               " a\nb"),
+            (" a\nb ",              " a\nb"),
+            (" \n \n a\nb \n \n ",  " a\nb"),
+        )
+        for lines, expected in dataset:
+            with self.subTest(lines=lines, expected=expected):
+                out = clinic.strip_leading_and_trailing_blank_lines(lines)
+                self.assertEqual(out, expected)
+
+    def test_normalize_snippet(self):
+        snippet = """
+            one
+            two
+            three
+        """
+
+        # Expected outputs:
+        zero_indent = (
+            "one\n"
+            "two\n"
+            "three"
+        )
+        four_indent = (
+            "    one\n"
+            "    two\n"
+            "    three"
+        )
+        eight_indent = (
+            "        one\n"
+            "        two\n"
+            "        three"
+        )
+        expected_outputs = {0: zero_indent, 4: four_indent, 8: eight_indent}
+        for indent, expected in expected_outputs.items():
+            with self.subTest(indent=indent):
+                actual = clinic.normalize_snippet(snippet, indent=indent)
+                self.assertEqual(actual, expected)
+
+    def test_accumulator(self):
+        acc = clinic.text_accumulator()
+        self.assertEqual(acc.output(), "")
+        acc.append("a")
+        self.assertEqual(acc.output(), "a")
+        self.assertEqual(acc.output(), "")
+        acc.append("b")
+        self.assertEqual(acc.output(), "b")
+        self.assertEqual(acc.output(), "")
+        acc.append("c")
+        acc.append("d")
+        self.assertEqual(acc.output(), "cd")
+        self.assertEqual(acc.output(), "")
+
+    def test_quoted_for_c_string(self):
+        dataset = (
+            # input,    expected
+            (r"abc",    r"abc"),
+            (r"\abc",   r"\\abc"),
+            (r"\a\bc",  r"\\a\\bc"),
+            (r"\a\\bc", r"\\a\\\\bc"),
+            (r'"abc"',  r'\"abc\"'),
+            (r"'a'",    r"\'a\'"),
+        )
+        for line, expected in dataset:
+            with self.subTest(line=line, expected=expected):
+                out = clinic.quoted_for_c_string(line)
+                self.assertEqual(out, expected)
+
+    def test_rstrip_lines(self):
+        lines = (
+            "a \n"
+            "b\n"
+            " c\n"
+            " d \n"
+        )
+        expected = (
+            "a\n"
+            "b\n"
+            " c\n"
+            " d\n"
+        )
+        out = clinic.rstrip_lines(lines)
+        self.assertEqual(out, expected)
+
+    def test_format_escape(self):
+        line = "{}, {a}"
+        expected = "{{}}, {{a}}"
+        out = clinic.format_escape(line)
+        self.assertEqual(out, expected)
+
+    def test_indent_all_lines(self):
+        # Blank lines are expected to be unchanged.
+        self.assertEqual(clinic.indent_all_lines("", prefix="bar"), "")
+
+        lines = (
+            "one\n"
+            "two"  # The missing newline is deliberate.
+        )
+        expected = (
+            "barone\n"
+            "bartwo"
+        )
+        out = clinic.indent_all_lines(lines, prefix="bar")
+        self.assertEqual(out, expected)
+
+        # If last line is empty, expect it to be unchanged.
+        lines = (
+            "\n"
+            "one\n"
+            "two\n"
+            ""
+        )
+        expected = (
+            "bar\n"
+            "barone\n"
+            "bartwo\n"
+            ""
+        )
+        out = clinic.indent_all_lines(lines, prefix="bar")
+        self.assertEqual(out, expected)
+
+    def test_suffix_all_lines(self):
+        # Blank lines are expected to be unchanged.
+        self.assertEqual(clinic.suffix_all_lines("", suffix="foo"), "")
+
+        lines = (
+            "one\n"
+            "two"  # The missing newline is deliberate.
+        )
+        expected = (
+            "onefoo\n"
+            "twofoo"
+        )
+        out = clinic.suffix_all_lines(lines, suffix="foo")
+        self.assertEqual(out, expected)
+
+        # If last line is empty, expect it to be unchanged.
+        lines = (
+            "\n"
+            "one\n"
+            "two\n"
+            ""
+        )
+        expected = (
+            "foo\n"
+            "onefoo\n"
+            "twofoo\n"
+            ""
+        )
+        out = clinic.suffix_all_lines(lines, suffix="foo")
+        self.assertEqual(out, expected)
 
 
 if __name__ == "__main__":

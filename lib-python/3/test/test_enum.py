@@ -20,7 +20,6 @@ from pickle import dumps, loads, PicklingError, HIGHEST_PROTOCOL
 from test import support
 from test.support import ALWAYS_EQ, REPO_ROOT
 from test.support import threading_helper
-from textwrap import dedent
 from datetime import timedelta
 
 python_version = sys.version_info[:2]
@@ -242,11 +241,83 @@ class _EnumTests:
     values = None
 
     def setUp(self):
-        class BaseEnum(self.enum_type):
+        if self.__class__.__name__[-5:] == 'Class':
+            class BaseEnum(self.enum_type):
+                @enum.property
+                def first(self):
+                    return '%s is first!' % self.name
+            class MainEnum(BaseEnum):
+                first = auto()
+                second = auto()
+                third = auto()
+                if issubclass(self.enum_type, Flag):
+                    dupe = 3
+                else:
+                    dupe = third
+            self.MainEnum = MainEnum
+            #
+            class NewStrEnum(self.enum_type):
+                def __str__(self):
+                    return self.name.upper()
+                first = auto()
+            self.NewStrEnum = NewStrEnum
+            #
+            class NewFormatEnum(self.enum_type):
+                def __format__(self, spec):
+                    return self.name.upper()
+                first = auto()
+            self.NewFormatEnum = NewFormatEnum
+            #
+            class NewStrFormatEnum(self.enum_type):
+                def __str__(self):
+                    return self.name.title()
+                def __format__(self, spec):
+                    return ''.join(reversed(self.name))
+                first = auto()
+            self.NewStrFormatEnum = NewStrFormatEnum
+            #
+            class NewBaseEnum(self.enum_type):
+                def __str__(self):
+                    return self.name.title()
+                def __format__(self, spec):
+                    return ''.join(reversed(self.name))
+            self.NewBaseEnum = NewBaseEnum
+            class NewSubEnum(NewBaseEnum):
+                first = auto()
+            self.NewSubEnum = NewSubEnum
+            #
+            class LazyGNV(self.enum_type):
+                def _generate_next_value_(name, start, last, values):
+                    pass
+            self.LazyGNV = LazyGNV
+            #
+            class BusyGNV(self.enum_type):
+                @staticmethod
+                def _generate_next_value_(name, start, last, values):
+                    pass
+            self.BusyGNV = BusyGNV
+            #
+            self.is_flag = False
+            self.names = ['first', 'second', 'third']
+            if issubclass(MainEnum, StrEnum):
+                self.values = self.names
+            elif MainEnum._member_type_ is str:
+                self.values = ['1', '2', '3']
+            elif issubclass(self.enum_type, Flag):
+                self.values = [1, 2, 4]
+                self.is_flag = True
+                self.dupe2 = MainEnum(5)
+            else:
+                self.values = self.values or [1, 2, 3]
+            #
+            if not getattr(self, 'source_values', False):
+                self.source_values = self.values
+        elif self.__class__.__name__[-8:] == 'Function':
             @enum.property
             def first(self):
                 return '%s is first!' % self.name
-        class MainEnum(BaseEnum):
+            BaseEnum = self.enum_type('BaseEnum', {'first':first})
+            #
             first = auto()
             second = auto()
             third = auto()
@@ -254,52 +325,58 @@ class _EnumTests:
                 dupe = 3
             else:
                 dupe = third
-        self.MainEnum = MainEnum
-        #
-        class NewStrEnum(self.enum_type):
+            self.MainEnum = MainEnum = BaseEnum('MainEnum', dict(first=first, second=second, third=third, dupe=dupe))
+            #
             def __str__(self):
                 return self.name.upper()
             first = auto()
-        self.NewStrEnum = NewStrEnum
-        #
-        class NewFormatEnum(self.enum_type):
+            self.NewStrEnum = self.enum_type('NewStrEnum', (('first',first),('__str__',__str__)))
+            #
             def __format__(self, spec):
                 return self.name.upper()
             first = auto()
-        self.NewFormatEnum = NewFormatEnum
-        #
-        class NewStrFormatEnum(self.enum_type):
+            self.NewFormatEnum = self.enum_type('NewFormatEnum', [('first',first),('__format__',__format__)])
+            #
             def __str__(self):
                 return self.name.title()
             def __format__(self, spec):
                 return ''.join(reversed(self.name))
             first = auto()
-        self.NewStrFormatEnum = NewStrFormatEnum
-        #
-        class NewBaseEnum(self.enum_type):
+            self.NewStrFormatEnum = self.enum_type('NewStrFormatEnum', dict(first=first, __format__=__format__, __str__=__str__))
+            #
             def __str__(self):
                 return self.name.title()
             def __format__(self, spec):
                 return ''.join(reversed(self.name))
-        class NewSubEnum(NewBaseEnum):
-            first = auto()
-        self.NewSubEnum = NewSubEnum
-        #
-        self.is_flag = False
-        self.names = ['first', 'second', 'third']
-        if issubclass(MainEnum, StrEnum):
-            self.values = self.names
-        elif MainEnum._member_type_ is str:
-            self.values = ['1', '2', '3']
-        elif issubclass(self.enum_type, Flag):
-            self.values = [1, 2, 4]
-            self.is_flag = True
-            self.dupe2 = MainEnum(5)
+            self.NewBaseEnum = self.enum_type('NewBaseEnum', dict(__format__=__format__, __str__=__str__))
+            self.NewSubEnum = self.NewBaseEnum('NewSubEnum', 'first')
+            #
+            def _generate_next_value_(name, start, last, values):
+                pass
+            self.LazyGNV = self.enum_type('LazyGNV', {'_generate_next_value_':_generate_next_value_})
+            #
+            @staticmethod
+            def _generate_next_value_(name, start, last, values):
+                pass
+            self.BusyGNV = self.enum_type('BusyGNV', {'_generate_next_value_':_generate_next_value_})
+            #
+            self.is_flag = False
+            self.names = ['first', 'second', 'third']
+            if issubclass(MainEnum, StrEnum):
+                self.values = self.names
+            elif MainEnum._member_type_ is str:
+                self.values = ['1', '2', '3']
+            elif issubclass(self.enum_type, Flag):
+                self.values = [1, 2, 4]
+                self.is_flag = True
+                self.dupe2 = MainEnum(5)
+            else:
+                self.values = self.values or [1, 2, 3]
+            #
+            if not getattr(self, 'source_values', False):
+                self.source_values = self.values
         else:
-            self.values = self.values or [1, 2, 3]
-        #
-        if not getattr(self, 'source_values', False):
-            self.source_values = self.values
+            raise ValueError('unknown enum style: %r' % self.__class__.__name__)
 
     def assertFormatIsValue(self, spec, member):
         self.assertEqual(spec.format(member), spec.format(member.value))
@@ -345,6 +422,7 @@ class _EnumTests:
             self.assertEqual(str(TE), "<flag 'MainEnum'>")
             self.assertEqual(format(TE), "<flag 'MainEnum'>")
             self.assertTrue(TE(5) is self.dupe2)
+            self.assertTrue(7 in TE)
         else:
             self.assertEqual(repr(TE), "<enum 'MainEnum'>")
             self.assertEqual(str(TE), "<enum 'MainEnum'>")
@@ -389,36 +467,12 @@ class _EnumTests:
         with self.assertRaises(AttributeError):
             self.MainEnum.second = 'really first'
 
-    @unittest.skipIf(
-            python_version >= (3, 12),
-            '__contains__ now returns True/False for all inputs',
-            )
-    def test_contains_er(self):
-        MainEnum = self.MainEnum
-        self.assertIn(MainEnum.third, MainEnum)
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                self.source_values[1] in MainEnum
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                'first' in MainEnum
-        val = MainEnum.dupe
-        self.assertIn(val, MainEnum)
-        #
-        class OtherEnum(Enum):
-            one = auto()
-            two = auto()
-        self.assertNotIn(OtherEnum.two, MainEnum)
-
-    @unittest.skipIf(
-            python_version < (3, 12),
-            '__contains__ works only with enum memmbers before 3.12',
-            )
     def test_contains_tf(self):
         MainEnum = self.MainEnum
         self.assertIn(MainEnum.first, MainEnum)
-        self.assertTrue(self.source_values[0] in MainEnum)
-        self.assertFalse('first' in MainEnum)
+        self.assertTrue(self.values[0] in MainEnum)
+        if type(self) not in (TestStrEnumClass, TestStrEnumFunction):
+            self.assertFalse('first' in MainEnum)
         val = MainEnum.dupe
         self.assertIn(val, MainEnum)
         #
@@ -426,6 +480,43 @@ class _EnumTests:
             one = auto()
             two = auto()
         self.assertNotIn(OtherEnum.two, MainEnum)
+        #
+        if MainEnum._member_type_ is object:
+            # enums without mixed data types will always be False
+            class NotEqualEnum(self.enum_type):
+                this = self.source_values[0]
+                that = self.source_values[1]
+            self.assertNotIn(NotEqualEnum.this, MainEnum)
+            self.assertNotIn(NotEqualEnum.that, MainEnum)
+        else:
+            # enums with mixed data types may be True
+            class EqualEnum(self.enum_type):
+                this = self.source_values[0]
+                that = self.source_values[1]
+            self.assertIn(EqualEnum.this, MainEnum)
+            self.assertIn(EqualEnum.that, MainEnum)
+
+    def test_contains_same_name_diff_enum_diff_values(self):
+        MainEnum = self.MainEnum
+        #
+        class OtherEnum(Enum):
+            first = "brand"
+            second = "new"
+            third = "values"
+        #
+        self.assertIn(MainEnum.first, MainEnum)
+        self.assertIn(MainEnum.second, MainEnum)
+        self.assertIn(MainEnum.third, MainEnum)
+        self.assertNotIn(MainEnum.first, OtherEnum)
+        self.assertNotIn(MainEnum.second, OtherEnum)
+        self.assertNotIn(MainEnum.third, OtherEnum)
+        #
+        self.assertIn(OtherEnum.first, OtherEnum)
+        self.assertIn(OtherEnum.second, OtherEnum)
+        self.assertIn(OtherEnum.third, OtherEnum)
+        self.assertNotIn(OtherEnum.first, MainEnum)
+        self.assertNotIn(OtherEnum.second, MainEnum)
+        self.assertNotIn(OtherEnum.third, MainEnum)
 
     def test_dir_on_class(self):
         TE = self.MainEnum
@@ -475,9 +566,19 @@ class _EnumTests:
         self.assertTrue('description' not in dir(SubEnum))
         self.assertTrue('description' in dir(SubEnum.sample), dir(SubEnum.sample))
 
+    def test_empty_enum_has_no_values(self):
+        with self.assertRaisesRegex(TypeError, "<.... 'NewBaseEnum'> has no members"):
+            self.NewBaseEnum(7)
+
     def test_enum_in_enum_out(self):
         Main = self.MainEnum
         self.assertIs(Main(Main.first), Main.first)
+
+    def test_gnv_is_static(self):
+        lazy = self.LazyGNV
+        busy = self.BusyGNV
+        self.assertTrue(type(lazy.__dict__['_generate_next_value_']) is staticmethod)
+        self.assertTrue(type(busy.__dict__['_generate_next_value_']) is staticmethod)
 
     def test_hash(self):
         MainEnum = self.MainEnum
@@ -896,11 +997,15 @@ class _FlagTests:
             self.assertTrue(~OpenXYZ(0), (X|Y|Z))
 
 
-class TestPlainEnum(_EnumTests, _PlainOutputTests, unittest.TestCase):
+class TestPlainEnumClass(_EnumTests, _PlainOutputTests, unittest.TestCase):
     enum_type = Enum
 
 
-class TestPlainFlag(_EnumTests, _PlainOutputTests, _FlagTests, unittest.TestCase):
+class TestPlainEnumFunction(_EnumTests, _PlainOutputTests, unittest.TestCase):
+    enum_type = Enum
+
+
+class TestPlainFlagClass(_EnumTests, _PlainOutputTests, _FlagTests, unittest.TestCase):
     enum_type = Flag
 
     def test_none_member(self):
@@ -920,70 +1025,178 @@ class TestPlainFlag(_EnumTests, _PlainOutputTests, _FlagTests, unittest.TestCase
             ~FlagWithNoneMember.E
 
 
-class TestIntEnum(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+class TestPlainFlagFunction(_EnumTests, _PlainOutputTests, _FlagTests, unittest.TestCase):
+    enum_type = Flag
+
+
+class TestIntEnumClass(_EnumTests, _MinimalOutputTests, unittest.TestCase):
     enum_type = IntEnum
+    #
+    def test_shadowed_attr(self):
+        class Number(IntEnum):
+            divisor = 1
+            numerator = 2
+        #
+        self.assertEqual(Number.divisor.numerator, 1)
+        self.assertIs(Number.numerator.divisor, Number.divisor)
 
 
-class TestStrEnum(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+class TestIntEnumFunction(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    enum_type = IntEnum
+    #
+    def test_shadowed_attr(self):
+        Number = IntEnum('Number', ('divisor', 'numerator'))
+        #
+        self.assertEqual(Number.divisor.numerator, 1)
+        self.assertIs(Number.numerator.divisor, Number.divisor)
+
+
+class TestStrEnumClass(_EnumTests, _MinimalOutputTests, unittest.TestCase):
     enum_type = StrEnum
+    #
+    def test_shadowed_attr(self):
+        class Book(StrEnum):
+            author = 'author'
+            title = 'title'
+        #
+        self.assertEqual(Book.author.title(), 'Author')
+        self.assertEqual(Book.title.title(), 'Title')
+        self.assertIs(Book.title.author, Book.author)
 
 
-class TestIntFlag(_EnumTests, _MinimalOutputTests, _FlagTests, unittest.TestCase):
+class TestStrEnumFunction(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    enum_type = StrEnum
+    #
+    def test_shadowed_attr(self):
+        Book = StrEnum('Book', ('author', 'title'))
+        #
+        self.assertEqual(Book.author.title(), 'Author')
+        self.assertEqual(Book.title.title(), 'Title')
+        self.assertIs(Book.title.author, Book.author)
+
+
+class TestIntFlagClass(_EnumTests, _MinimalOutputTests, _FlagTests, unittest.TestCase):
     enum_type = IntFlag
 
 
-class TestMixedInt(_EnumTests, _MixedOutputTests, unittest.TestCase):
+class TestIntFlagFunction(_EnumTests, _MinimalOutputTests, _FlagTests, unittest.TestCase):
+    enum_type = IntFlag
+
+
+class TestMixedIntClass(_EnumTests, _MixedOutputTests, unittest.TestCase):
     class enum_type(int, Enum): pass
 
 
-class TestMixedStr(_EnumTests, _MixedOutputTests, unittest.TestCase):
+class TestMixedIntFunction(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    enum_type = Enum('enum_type', type=int)
+
+
+class TestMixedStrClass(_EnumTests, _MixedOutputTests, unittest.TestCase):
     class enum_type(str, Enum): pass
 
 
-class TestMixedIntFlag(_EnumTests, _MixedOutputTests, _FlagTests, unittest.TestCase):
+class TestMixedStrFunction(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    enum_type = Enum('enum_type', type=str)
+
+
+class TestMixedIntFlagClass(_EnumTests, _MixedOutputTests, _FlagTests, unittest.TestCase):
     class enum_type(int, Flag): pass
 
 
-class TestMixedDate(_EnumTests, _MixedOutputTests, unittest.TestCase):
+class TestMixedIntFlagFunction(_EnumTests, _MixedOutputTests, _FlagTests, unittest.TestCase):
+    enum_type = Flag('enum_type', type=int)
 
+
+class TestMixedDateClass(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    #
     values = [date(2021, 12, 25), date(2020, 3, 15), date(2019, 11, 27)]
     source_values = [(2021, 12, 25), (2020, 3, 15), (2019, 11, 27)]
-
+    #
     class enum_type(date, Enum):
+        @staticmethod
         def _generate_next_value_(name, start, count, last_values):
             values = [(2021, 12, 25), (2020, 3, 15), (2019, 11, 27)]
             return values[count]
 
 
-class TestMinimalDate(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+class TestMixedDateFunction(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    #
+    values = [date(2021, 12, 25), date(2020, 3, 15), date(2019, 11, 27)]
+    source_values = [(2021, 12, 25), (2020, 3, 15), (2019, 11, 27)]
+    #
+    # staticmethod decorator will be added by EnumType if not present
+    def _generate_next_value_(name, start, count, last_values):
+        values = [(2021, 12, 25), (2020, 3, 15), (2019, 11, 27)]
+        return values[count]
+    #
+    enum_type = Enum('enum_type', {'_generate_next_value_':_generate_next_value_}, type=date)
 
+
+class TestMinimalDateClass(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    #
     values = [date(2023, 12, 1), date(2016, 2, 29), date(2009, 1, 1)]
     source_values = [(2023, 12, 1), (2016, 2, 29), (2009, 1, 1)]
-
+    #
     class enum_type(date, ReprEnum):
+        # staticmethod decorator will be added by EnumType if absent
         def _generate_next_value_(name, start, count, last_values):
             values = [(2023, 12, 1), (2016, 2, 29), (2009, 1, 1)]
             return values[count]
 
 
-class TestMixedFloat(_EnumTests, _MixedOutputTests, unittest.TestCase):
+class TestMinimalDateFunction(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    #
+    values = [date(2023, 12, 1), date(2016, 2, 29), date(2009, 1, 1)]
+    source_values = [(2023, 12, 1), (2016, 2, 29), (2009, 1, 1)]
+    #
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        values = [(2023, 12, 1), (2016, 2, 29), (2009, 1, 1)]
+        return values[count]
+    #
+    enum_type = ReprEnum('enum_type', {'_generate_next_value_':_generate_next_value_}, type=date)
 
+
+class TestMixedFloatClass(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    #
     values = [1.1, 2.2, 3.3]
-
+    #
     class enum_type(float, Enum):
         def _generate_next_value_(name, start, count, last_values):
             values = [1.1, 2.2, 3.3]
             return values[count]
 
 
-class TestMinimalFloat(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+class TestMixedFloatFunction(_EnumTests, _MixedOutputTests, unittest.TestCase):
+    #
+    values = [1.1, 2.2, 3.3]
+    #
+    def _generate_next_value_(name, start, count, last_values):
+        values = [1.1, 2.2, 3.3]
+        return values[count]
+    #
+    enum_type = Enum('enum_type', {'_generate_next_value_':_generate_next_value_}, type=float)
 
+
+class TestMinimalFloatClass(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    #
     values = [4.4, 5.5, 6.6]
-
+    #
     class enum_type(float, ReprEnum):
         def _generate_next_value_(name, start, count, last_values):
             values = [4.4, 5.5, 6.6]
             return values[count]
+
+
+class TestMinimalFloatFunction(_EnumTests, _MinimalOutputTests, unittest.TestCase):
+    #
+    values = [4.4, 5.5, 6.6]
+    #
+    def _generate_next_value_(name, start, count, last_values):
+        values = [4.4, 5.5, 6.6]
+        return values[count]
+    #
+    enum_type = ReprEnum('enum_type', {'_generate_next_value_':_generate_next_value_}, type=float)
 
 
 class TestSpecial(unittest.TestCase):
@@ -1243,6 +1456,27 @@ class TestSpecial(unittest.TestCase):
             spam = nonmember(SpamEnumIsInner)
         self.assertTrue(SpamEnum.spam is SpamEnumIsInner)
 
+    def test_using_members_as_nonmember(self):
+        class Example(Flag):
+            A = 1
+            B = 2
+            ALL = nonmember(A | B)
+
+        self.assertEqual(Example.A.value, 1)
+        self.assertEqual(Example.B.value, 2)
+        self.assertEqual(Example.ALL, 3)
+        self.assertIs(type(Example.ALL), int)
+
+        class Example(Flag):
+            A = auto()
+            B = auto()
+            ALL = nonmember(A | B)
+
+        self.assertEqual(Example.A.value, 1)
+        self.assertEqual(Example.B.value, 2)
+        self.assertEqual(Example.ALL, 3)
+        self.assertIs(type(Example.ALL), int)
+
     def test_nested_classes_in_enum_with_member(self):
         """Support locally-defined nested classes."""
         class Outer(Enum):
@@ -1273,6 +1507,28 @@ class TestSpecial(unittest.TestCase):
         self.assertEqual(Huh.name.name, 'name')
         self.assertEqual(Huh.name.value, 1)
 
+    def test_contains_name_and_value_overlap(self):
+        class IntEnum1(IntEnum):
+            X = 1
+        class IntEnum2(IntEnum):
+            X = 1
+        class IntEnum3(IntEnum):
+            X = 2
+        class IntEnum4(IntEnum):
+            Y = 1
+        self.assertIn(IntEnum1.X, IntEnum1)
+        self.assertIn(IntEnum1.X, IntEnum2)
+        self.assertNotIn(IntEnum1.X, IntEnum3)
+        self.assertIn(IntEnum1.X, IntEnum4)
+
+    def test_contains_different_types_same_members(self):
+        class IntEnum1(IntEnum):
+            X = 1
+        class IntFlag1(IntFlag):
+            X = 1
+        self.assertIn(IntEnum1.X, IntFlag1)
+        self.assertIn(IntFlag1.X, IntEnum1)
+
     def test_inherited_data_type(self):
         class HexInt(int):
             __qualname__ = 'HexInt'
@@ -1291,7 +1547,6 @@ class TestSpecial(unittest.TestCase):
         #
         class SillyInt(HexInt):
             __qualname__ = 'SillyInt'
-            pass
         class MyOtherEnum(SillyInt, enum.Enum):
             __qualname__ = 'MyOtherEnum'
             D = 4
@@ -1424,6 +1679,21 @@ class TestSpecial(unittest.TestCase):
             self.assertEqual(e.name, month)
             self.assertIn(e, MinorEnum)
             self.assertIs(type(e), MinorEnum)
+
+    def test_programmatic_function_is_value_call(self):
+        class TwoPart(Enum):
+            ONE = 1, 1.0
+            TWO = 2, 2.0
+            THREE = 3, 3.0
+        self.assertRaisesRegex(ValueError, '1 is not a valid .*TwoPart', TwoPart, 1)
+        self.assertIs(TwoPart((1, 1.0)), TwoPart.ONE)
+        self.assertIs(TwoPart(1, 1.0), TwoPart.ONE)
+        class ThreePart(Enum):
+            ONE = 1, 1.0, 'one'
+            TWO = 2, 2.0, 'two'
+            THREE = 3, 3.0, 'three'
+        self.assertIs(ThreePart((3, 3.0, 'three')), ThreePart.THREE)
+        self.assertIs(ThreePart(3, 3.0, 'three'), ThreePart.THREE)
 
     def test_intenum_from_bytes(self):
         self.assertIs(IntStooges.from_bytes(b'\x00\x03', 'big'), IntStooges.MOE)
@@ -1566,7 +1836,7 @@ class TestSpecial(unittest.TestCase):
             class EvenMoreColor(Color, IntEnum):
                 chartruese = 7
         #
-        with self.assertRaisesRegex(TypeError, "<enum .Foo.> cannot extend <enum .Color.>"):
+        with self.assertRaisesRegex(ValueError, r"\(.Foo., \(.pink., .black.\)\) is not a valid .*Color"):
             Color('Foo', ('pink', 'black'))
 
     def test_exclude_methods(self):
@@ -1582,6 +1852,25 @@ class TestSpecial(unittest.TestCase):
         with self.assertRaises(TypeError):
             class Wrong(Enum, str):
                 NotHere = 'error before this point'
+
+    def test_raise_custom_error_on_creation(self):
+        class InvalidRgbColorError(ValueError):
+            def __init__(self, r, g, b):
+                self.r = r
+                self.g = g
+                self.b = b
+                super().__init__(f'({r}, {g}, {b}) is not a valid RGB color')
+
+        with self.assertRaises(InvalidRgbColorError):
+            class RgbColor(Enum):
+                RED = (255, 0, 0)
+                GREEN = (0, 255, 0)
+                BLUE = (0, 0, 255)
+                INVALID = (256, 0, 0)
+
+                def __init__(self, r, g, b):
+                    if not all(0 <= val <= 255 for val in (r, g, b)):
+                        raise InvalidRgbColorError(r, g, b)
 
     def test_intenum_transitivity(self):
         class number(IntEnum):
@@ -2075,6 +2364,40 @@ class TestSpecial(unittest.TestCase):
         self.assertEqual(SomeTuple.third, (3, 'for the music'))
         globals()['SomeTuple'] = SomeTuple
         test_pickle_dump_load(self.assertIs, SomeTuple.first)
+
+    def test_tuple_subclass_with_auto_1(self):
+        from collections import namedtuple
+        T = namedtuple('T', 'index desc')
+        class SomeEnum(T, Enum):
+            __qualname__ = 'SomeEnum'      # needed for pickle protocol 4
+            first = auto(), 'for the money'
+            second = auto(), 'for the show'
+            third = auto(), 'for the music'
+        self.assertIs(type(SomeEnum.first), SomeEnum)
+        self.assertEqual(SomeEnum.third.value, (3, 'for the music'))
+        self.assertIsInstance(SomeEnum.third.value, T)
+        self.assertEqual(SomeEnum.first.index, 1)
+        self.assertEqual(SomeEnum.second.desc, 'for the show')
+        globals()['SomeEnum'] = SomeEnum
+        globals()['T'] = T
+        test_pickle_dump_load(self.assertIs, SomeEnum.first)
+
+    def test_tuple_subclass_with_auto_2(self):
+        from collections import namedtuple
+        T = namedtuple('T', 'index desc')
+        class SomeEnum(Enum):
+            __qualname__ = 'SomeEnum'      # needed for pickle protocol 4
+            first = T(auto(), 'for the money')
+            second = T(auto(), 'for the show')
+            third = T(auto(), 'for the music')
+        self.assertIs(type(SomeEnum.first), SomeEnum)
+        self.assertEqual(SomeEnum.third.value, (3, 'for the music'))
+        self.assertIsInstance(SomeEnum.third.value, T)
+        self.assertEqual(SomeEnum.first.value.index, 1)
+        self.assertEqual(SomeEnum.second.value.desc, 'for the show')
+        globals()['SomeEnum'] = SomeEnum
+        globals()['T'] = T
+        test_pickle_dump_load(self.assertIs, SomeEnum.first)
 
     def test_duplicate_values_give_unique_enum_items(self):
         class AutoNumber(Enum):
@@ -2714,15 +3037,11 @@ class TestSpecial(unittest.TestCase):
         class ThirdFailedStrEnum(CustomStrEnum):
             one = '1'
             two = 2  # this will become '2'
-        if sys.implementation.name == 'pypy':
-            msg = 'expected str, got '
-        else:
-            msg = '.encoding. must be str, not '
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, '.encoding. must be str, not '):
             class ThirdFailedStrEnum(CustomStrEnum):
                 one = '1'
                 two = b'2', sys.getdefaultencoding
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, '.errors. must be str, not '):
             class ThirdFailedStrEnum(CustomStrEnum):
                 one = '1'
                 two = b'2', 'ascii', 9
@@ -2799,24 +3118,74 @@ class TestSpecial(unittest.TestCase):
 
     def test_repr_with_dataclass(self):
         "ensure dataclass-mixin has correct repr()"
-        from dataclasses import dataclass
-        @dataclass
+        #
+        # check overridden dataclass __repr__ is used
+        #
+        from dataclasses import dataclass, field
+        @dataclass(repr=False)
         class Foo:
             __qualname__ = 'Foo'
             a: int
+            def __repr__(self):
+                return 'ha hah!'
         class Entries(Foo, Enum):
             ENTRY1 = 1
+        self.assertEqual(repr(Entries.ENTRY1), '<Entries.ENTRY1: ha hah!>')
+        self.assertTrue(Entries.ENTRY1.value == Foo(1), Entries.ENTRY1.value)
         self.assertTrue(isinstance(Entries.ENTRY1, Foo))
         self.assertTrue(Entries._member_type_ is Foo, Entries._member_type_)
-        self.assertTrue(Entries.ENTRY1.value == Foo(1), Entries.ENTRY1.value)
-        self.assertEqual(repr(Entries.ENTRY1), '<Entries.ENTRY1: Foo(a=1)>')
+        #
+        # check auto-generated dataclass __repr__ is not used
+        #
+        @dataclass
+        class CreatureDataMixin:
+            __qualname__ = 'CreatureDataMixin'
+            size: str
+            legs: int
+            tail: bool = field(repr=False, default=True)
+        class Creature(CreatureDataMixin, Enum):
+            __qualname__ = 'Creature'
+            BEETLE = ('small', 6)
+            DOG = ('medium', 4)
+        self.assertEqual(repr(Creature.DOG), "<Creature.DOG: size='medium', legs=4>")
+        #
+        # check inherited repr used
+        #
+        class Huh:
+            def __repr__(self):
+                return 'inherited'
+        @dataclass(repr=False)
+        class CreatureDataMixin(Huh):
+            __qualname__ = 'CreatureDataMixin'
+            size: str
+            legs: int
+            tail: bool = field(repr=False, default=True)
+        class Creature(CreatureDataMixin, Enum):
+            __qualname__ = 'Creature'
+            BEETLE = ('small', 6)
+            DOG = ('medium', 4)
+        self.assertEqual(repr(Creature.DOG), "<Creature.DOG: inherited>")
+        #
+        # check default object.__repr__ used if nothing provided
+        #
+        @dataclass(repr=False)
+        class CreatureDataMixin:
+            __qualname__ = 'CreatureDataMixin'
+            size: str
+            legs: int
+            tail: bool = field(repr=False, default=True)
+        class Creature(CreatureDataMixin, Enum):
+            __qualname__ = 'Creature'
+            BEETLE = ('small', 6)
+            DOG = ('medium', 4)
+        self.assertRegex(repr(Creature.DOG), "<Creature.DOG: .*CreatureDataMixin object at .*>")
 
     def test_repr_with_init_mixin(self):
         class Foo:
             def __init__(self, a):
                 self.a = a
             def __repr__(self):
-                return 'Foo(a=%r)' % self._value_
+                return f'Foo(a={self.a!r})'
         class Entries(Foo, Enum):
             ENTRY1 = 1
         #
@@ -2886,6 +3255,37 @@ class TestSpecial(unittest.TestCase):
                 [TTuple(id=0, a=0, blist=[]), TTuple(id=1, a=2, blist=[4]), TTuple(id=2, a=4, blist=[0, 1, 2])],
                 )
 
+        self.assertRaises(AttributeError, getattr, NTEnum.NONE, 'id')
+        #
+        class NTCEnum(TTuple, Enum):
+            NONE = 0, 0, []
+            A = 1, 2, [4]
+            B = 2, 4, [0, 1, 2]
+        self.assertEqual(repr(NTCEnum.NONE), "<NTCEnum.NONE: TTuple(id=0, a=0, blist=[])>")
+        self.assertEqual(NTCEnum.NONE.value, TTuple(id=0, a=0, blist=[]))
+        self.assertEqual(NTCEnum.NONE.id, 0)
+        self.assertEqual(NTCEnum.A.a, 2)
+        self.assertEqual(NTCEnum.B.blist, [0, 1 ,2])
+        self.assertEqual(
+                [x.value for x in NTCEnum],
+                [TTuple(id=0, a=0, blist=[]), TTuple(id=1, a=2, blist=[4]), TTuple(id=2, a=4, blist=[0, 1, 2])],
+                )
+        #
+        class NTDEnum(Enum):
+            def __new__(cls, id, a, blist):
+                member = object.__new__(cls)
+                member.id = id
+                member.a = a
+                member.blist = blist
+                return member
+            NONE = TTuple(0, 0, [])
+            A = TTuple(1, 2, [4])
+            B = TTuple(2, 4, [0, 1, 2])
+        self.assertEqual(repr(NTDEnum.NONE), "<NTDEnum.NONE: TTuple(id=0, a=0, blist=[])>")
+        self.assertEqual(NTDEnum.NONE.id, 0)
+        self.assertEqual(NTDEnum.A.a, 2)
+        self.assertEqual(NTDEnum.B.blist, [0, 1 ,2])
+
     def test_flag_with_custom_new(self):
         class FlagFromChar(IntFlag):
             def __new__(cls, c):
@@ -2952,6 +3352,36 @@ class TestSpecial(unittest.TestCase):
                     member = Base.__new__(cls)
                     member._value_ = Base(value)
                     return member
+
+    def test_second_tuple_item_is_falsey(self):
+        class Cardinal(Enum):
+            RIGHT = (1, 0)
+            UP = (0, 1)
+            LEFT = (-1, 0)
+            DOWN = (0, -1)
+        self.assertIs(Cardinal(1, 0), Cardinal.RIGHT)
+        self.assertIs(Cardinal(-1, 0), Cardinal.LEFT)
+
+    def test_no_members(self):
+        with self.assertRaisesRegex(
+                TypeError,
+                'has no members',
+            ):
+            Enum(7)
+        with self.assertRaisesRegex(
+                TypeError,
+                'has no members',
+            ):
+            Flag(7)
+
+    def test_empty_names(self):
+        for nothing in '', [], {}:
+            for e_type in None, int:
+                empty_enum = Enum('empty_enum', nothing, type=e_type)
+                self.assertEqual(len(empty_enum), 0)
+                self.assertRaisesRegex(TypeError, 'has no members', empty_enum, 0)
+        self.assertRaisesRegex(TypeError, '.int. object is not iterable', Enum, 'bad_enum', names=0)
+        self.assertRaisesRegex(TypeError, '.int. object is not iterable', Enum, 'bad_enum', 0, type=int)
 
 
 class TestOrder(unittest.TestCase):
@@ -3277,32 +3707,6 @@ class OldTestFlag(unittest.TestCase):
         test_pickle_dump_load(self.assertEqual,
                         IntFlagStoogesWithZero.CURLY|IntFlagStoogesWithZero.BIG)
 
-    @unittest.skipIf(
-            python_version >= (3, 12),
-            '__contains__ now returns True/False for all inputs',
-            )
-    def test_contains_er(self):
-        Open = self.Open
-        Color = self.Color
-        self.assertFalse(Color.BLACK in Open)
-        self.assertFalse(Open.RO in Color)
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                'BLACK' in Color
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                'RO' in Open
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                1 in Color
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                1 in Open
-
-    @unittest.skipIf(
-            python_version < (3, 12),
-            '__contains__ only works with enum memmbers before 3.12',
-            )
     def test_contains_tf(self):
         Open = self.Open
         Color = self.Color
@@ -3310,6 +3714,8 @@ class OldTestFlag(unittest.TestCase):
         self.assertFalse(Open.RO in Color)
         self.assertFalse('BLACK' in Color)
         self.assertFalse('RO' in Open)
+        self.assertTrue(Color.BLACK in Color)
+        self.assertTrue(Open.RO in Open)
         self.assertTrue(1 in Color)
         self.assertTrue(1 in Open)
 
@@ -3594,9 +4000,8 @@ class OldTestIntFlag(unittest.TestCase):
                 )
 
     def test_global_enum_str(self):
-        # PyPy: use regex
-        self.assertRegex(repr(NoName.ONE), 'ONE$')
-        self.assertRegex(repr(NoName(0)), r'NoName\(0\)$')
+        self.assertEqual(repr(NoName.ONE), 'test_enum.ONE')
+        self.assertEqual(repr(NoName(0)), 'test_enum.NoName(0)')
         self.assertEqual(str(NoName.ONE & NoName.TWO), 'NoName(0)')
         self.assertEqual(str(NoName(0)), 'NoName(0)')
 
@@ -3852,41 +4257,11 @@ class OldTestIntFlag(unittest.TestCase):
         self.assertEqual(len(lst), len(Thing))
         self.assertEqual(len(Thing), 0, Thing)
 
-    @unittest.skipIf(
-            python_version >= (3, 12),
-            '__contains__ now returns True/False for all inputs',
-            )
-    def test_contains_er(self):
-        Open = self.Open
-        Color = self.Color
-        self.assertTrue(Color.GREEN in Color)
-        self.assertTrue(Open.RW in Open)
-        self.assertFalse(Color.GREEN in Open)
-        self.assertFalse(Open.RW in Color)
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                'GREEN' in Color
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                'RW' in Open
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                2 in Color
-        with self.assertRaises(TypeError):
-            with self.assertWarns(DeprecationWarning):
-                2 in Open
-
-    @unittest.skipIf(
-            python_version < (3, 12),
-            '__contains__ only works with enum memmbers before 3.12',
-            )
     def test_contains_tf(self):
         Open = self.Open
         Color = self.Color
         self.assertTrue(Color.GREEN in Color)
         self.assertTrue(Open.RW in Open)
-        self.assertTrue(Color.GREEN in Open)
-        self.assertTrue(Open.RW in Color)
         self.assertFalse('GREEN' in Color)
         self.assertFalse('RW' in Open)
         self.assertTrue(2 in Color)
@@ -4441,55 +4816,56 @@ expected_help_output_with_docs = """\
 Help on class Color in module %s:
 
 class Color(enum.Enum)
- |  Color(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)
- |\x20\x20
+ |  Color(*values)
+ |
  |  Method resolution order:
  |      Color
  |      enum.Enum
  |      builtins.object
- |\x20\x20
+ |
  |  Data and other attributes defined here:
- |\x20\x20
+ |
  |  CYAN = <Color.CYAN: 1>
- |\x20\x20
+ |
  |  MAGENTA = <Color.MAGENTA: 2>
- |\x20\x20
+ |
  |  YELLOW = <Color.YELLOW: 3>
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Data descriptors inherited from enum.Enum:
- |\x20\x20
+ |
  |  name
  |      The name of the Enum member.
- |\x20\x20
+ |
  |  value
  |      The value of the Enum member.
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Static methods inherited from enum.EnumType:
- |\x20\x20
- |  __contains__(member)
- |      Return True if member is a member of this enum
- |      raises TypeError if member is not an enum member
- |\x20\x20\x20\x20\x20\x20
- |      note: in 3.12 TypeError will no longer be raised, and True will also be
- |      returned if member is the value of a member in this enum
- |\x20\x20
+ |
+ |  __contains__(value)
+ |      Return True if `value` is in `cls`.
+ |
+ |      `value` is in `cls` if:
+ |      1) `value` is a member of `cls`, or
+ |      2) `value` is the value of one of the `cls`'s members.
+ |      3) `value` is a pseudo-member (flags)
+ |
  |  __getitem__(name)
  |      Return the member matching `name`.
- |\x20\x20
+ |
  |  __iter__()
  |      Return members in definition order.
- |\x20\x20
+ |
  |  __len__()
  |      Return the number of members (no aliases)
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Readonly properties inherited from enum.EnumType:
- |\x20\x20
+ |
  |  __members__
  |      Returns a mapping of member name->value.
- |\x20\x20\x20\x20\x20\x20
+ |
  |      This mapping lists all enum members, including aliases. Note that this
  |      is a read-only view of the internal mapping."""
 
@@ -4497,42 +4873,42 @@ expected_help_output_without_docs = """\
 Help on class Color in module %s:
 
 class Color(enum.Enum)
- |  Color(value, names=None, *, module=None, qualname=None, type=None, start=1, boundary=None)
- |\x20\x20
+ |  Color(*values)
+ |
  |  Method resolution order:
  |      Color
  |      enum.Enum
  |      builtins.object
- |\x20\x20
+ |
  |  Data and other attributes defined here:
- |\x20\x20
+ |
  |  CYAN = <Color.CYAN: 1>
- |\x20\x20
+ |
  |  MAGENTA = <Color.MAGENTA: 2>
- |\x20\x20
+ |
  |  YELLOW = <Color.YELLOW: 3>
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Data descriptors inherited from enum.Enum:
- |\x20\x20
+ |
  |  name
- |\x20\x20
+ |
  |  value
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Static methods inherited from enum.EnumType:
- |\x20\x20
- |  __contains__(member)
- |\x20\x20
+ |
+ |  __contains__(value)
+ |
  |  __getitem__(name)
- |\x20\x20
+ |
  |  __iter__()
- |\x20\x20
+ |
  |  __len__()
- |\x20\x20
+ |
  |  ----------------------------------------------------------------------
  |  Readonly properties inherited from enum.EnumType:
- |\x20\x20
+ |
  |  __members__"""
 
 class TestStdLib(unittest.TestCase):
@@ -4655,6 +5031,27 @@ class TestStdLib(unittest.TestCase):
         if failed:
             self.fail("result does not equal expected, see print above")
 
+    def test_inspect_signatures(self):
+        from inspect import signature, Signature, Parameter
+        self.assertEqual(
+                signature(Enum),
+                Signature([
+                    Parameter('new_class_name', Parameter.POSITIONAL_ONLY),
+                    Parameter('names', Parameter.POSITIONAL_OR_KEYWORD),
+                    Parameter('module', Parameter.KEYWORD_ONLY, default=None),
+                    Parameter('qualname', Parameter.KEYWORD_ONLY, default=None),
+                    Parameter('type', Parameter.KEYWORD_ONLY, default=None),
+                    Parameter('start', Parameter.KEYWORD_ONLY, default=1),
+                    Parameter('boundary', Parameter.KEYWORD_ONLY, default=None),
+                    ]),
+                )
+        self.assertEqual(
+                signature(enum.FlagBoundary),
+                Signature([
+                    Parameter('values', Parameter.VAR_POSITIONAL),
+                    ]),
+                )
+
     def test_test_simple_enum(self):
         @_simple_enum(Enum)
         class SimpleColor:
@@ -4758,11 +5155,6 @@ COMPLEX_C = 1j
 COMPLEX_A = 2j
 COMPLEX_B = 3j
 
-class _ModuleWrapper:
-    """We use this class as a namespace for swapping modules."""
-    def __init__(self, module):
-        self.__dict__.update(module.__dict__)
-
 class TestConvert(unittest.TestCase):
     def tearDown(self):
         # Reset the module-level test variables to their original integer
@@ -4786,7 +5178,7 @@ class TestConvert(unittest.TestCase):
                 filter=lambda x: x.startswith('CONVERT_TEST_'))
         # We don't want the reverse lookup value to vary when there are
         # multiple possible names for a given value.  It should always
-        # report the first lexigraphical name in that case.
+        # report the first lexicographical name in that case.
         self.assertEqual(test_type(5).name, 'CONVERT_TEST_NAME_A')
 
     def test_convert_int(self):
@@ -4802,12 +5194,6 @@ class TestConvert(unittest.TestCase):
         self.assertEqual(test_type.CONVERT_TEST_NAME_D, 5)
         self.assertEqual(test_type.CONVERT_TEST_NAME_E, 5)
         # Ensure that test_type only picked up names matching the filter.
-        int_dir = dir(int) + [
-                'CONVERT_TEST_NAME_A', 'CONVERT_TEST_NAME_B', 'CONVERT_TEST_NAME_C',
-                'CONVERT_TEST_NAME_D', 'CONVERT_TEST_NAME_E', 'CONVERT_TEST_NAME_F',
-                'CONVERT_TEST_SIGABRT', 'CONVERT_TEST_SIGIOT',
-                'CONVERT_TEST_EIO', 'CONVERT_TEST_EBUS',
-                ]
         extra = [name for name in dir(test_type) if name not in enum_dir(test_type)]
         missing = [name for name in enum_dir(test_type) if name not in dir(test_type)]
         self.assertEqual(
@@ -4849,7 +5235,6 @@ class TestConvert(unittest.TestCase):
         self.assertEqual(test_type.CONVERT_STR_TEST_1, 'hello')
         self.assertEqual(test_type.CONVERT_STR_TEST_2, 'goodbye')
         # Ensure that test_type only picked up names matching the filter.
-        str_dir = dir(str) + ['CONVERT_STR_TEST_1', 'CONVERT_STR_TEST_2']
         extra = [name for name in dir(test_type) if name not in enum_dir(test_type)]
         missing = [name for name in enum_dir(test_type) if name not in dir(test_type)]
         self.assertEqual(
@@ -4916,8 +5301,6 @@ def member_dir(member):
             elif name not in member._member_map_:
                 allowed.add(name)
     return sorted(allowed)
-
-missing = object()
 
 
 if __name__ == '__main__':

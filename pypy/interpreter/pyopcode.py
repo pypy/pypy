@@ -412,8 +412,8 @@ class __extend__(pyframe.PyFrame):
                 self.PUSH_EXC_INFO(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
                 self.RAISE_VARARGS(oparg, next_instr)
-            elif opcode == opcodedesc.ROT_FOUR.index:
-                self.ROT_FOUR(oparg, next_instr)
+            #elif opcode == opcodedesc.ROT_FOUR.index:
+            #    self.ROT_FOUR(oparg, next_instr)
             elif opcode == opcodedesc.ROT_THREE.index:
                 self.ROT_THREE(oparg, next_instr)
             elif opcode == opcodedesc.ROT_TWO.index:
@@ -682,15 +682,15 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
-    def ROT_FOUR(self, oparg, next_instr):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        w_3 = self.popvalue()
-        w_4 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_4)
-        self.pushvalue(w_3)
-        self.pushvalue(w_2)
+    # def ROT_FOUR(self, oparg, next_instr):
+    #     w_1 = self.popvalue()
+    #     w_2 = self.popvalue()
+    #     w_3 = self.popvalue()
+    #     w_4 = self.popvalue()
+    #     self.pushvalue(w_1)
+    #     self.pushvalue(w_4)
+    #     self.pushvalue(w_3)
+    #     self.pushvalue(w_2)
 
     def DUP_TOP(self, oparg, next_instr):
         w_1 = self.peekvalue()

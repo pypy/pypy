@@ -2,19 +2,19 @@
 
 See https://www.zope.dev/Members/fdrake/DateTimeWiki/TestCases
 """
-import io
-import itertools
 import bisect
 import copy
 import decimal
-import functools
-import sys
+import io
+import itertools
 import os
 import pickle
 import random
 import re
 import struct
+import sys
 import unittest
+import warnings
 
 from array import array
 
@@ -40,6 +40,10 @@ except ImportError:
 
 # Needed by test_datetime
 import _strptime
+try:
+    import _pydatetime
+except ImportError:
+    pass
 #
 
 pickle_loads = {pickle.loads, pickle._loads}
@@ -48,10 +52,11 @@ pickle_choices = [(pickle, pickle, proto)
                   for proto in range(pickle.HIGHEST_PROTOCOL + 1)]
 assert len(pickle_choices) == pickle.HIGHEST_PROTOCOL + 1
 
+EPOCH_NAIVE = datetime(1970, 1, 1, 0, 0)  # For calculating transitions
+
 # An arbitrary collection of objects of non-datetime types, for testing
 # mixed-type comparisons.
 OTHERSTUFF = (10, 34.5, "abc", {}, [], ())
-
 
 # XXX Copied from test_float.
 INF = float("inf")
@@ -93,7 +98,7 @@ class TestModule(unittest.TestCase):
         if '_Fast' in self.__class__.__name__:
             self.skipTest('Only run for Pure Python implementation')
 
-        dar = datetime_module._divide_and_round
+        dar = _pydatetime._divide_and_round
 
         self.assertEqual(dar(-10, -3), 3)
         self.assertEqual(dar(5, -2), -2)
@@ -1326,6 +1331,11 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
             self.assertRaises(OverflowError, self.theclass.fromtimestamp,
                               insane)
 
+    def test_fromtimestamp_with_none_arg(self):
+        # See gh-120268 for more details
+        with self.assertRaises(TypeError):
+            self.theclass.fromtimestamp(None)
+
     def test_today(self):
         import time
 
@@ -1464,8 +1474,8 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         # test that unicode input is allowed (issue 2782)
         self.assertEqual(t.strftime("%m"), "03")
 
-        # A naive object replaces %z and %Z w/ empty strings.
-        self.assertEqual(t.strftime("'%z' '%Z'"), "'' ''")
+        # A naive object replaces %z, %:z and %Z w/ empty strings.
+        self.assertEqual(t.strftime("'%z' '%:z' '%Z'"), "'' '' ''")
 
         #make sure that invalid format specifiers are handled correctly
         #self.assertRaises(ValueError, t.strftime, "%e")
@@ -1489,6 +1499,9 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
 
         #check that this standard extension works
         t.strftime("%f")
+
+        # bpo-41260: The parameter was named "fmt" in the pure python impl.
+        t.strftime(format="%f")
 
     def test_strftime_trailing_percent(self):
         # bpo-35066: Make sure trailing '%' doesn't cause datetime's strftime to
@@ -1529,7 +1542,7 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
 
         for fmt in ["m:%m d:%d y:%y",
                     "m:%m d:%d y:%y H:%H M:%M S:%S",
-                    "%z %Z",
+                    "%z %:z %Z",
                     ]:
             self.assertEqual(dt.__format__(fmt), dt.strftime(fmt))
             self.assertEqual(a.__format__(fmt), dt.strftime(fmt))
@@ -1710,10 +1723,17 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
 
     def test_subclass_replace(self):
         class DateSubclass(self.theclass):
-            pass
+            def __new__(cls, *args, **kwargs):
+                result = self.theclass.__new__(cls, *args, **kwargs)
+                result.extra = 7
+                return result
 
         dt = DateSubclass(2012, 1, 1)
-        self.assertIs(type(dt.replace(year=2013)), DateSubclass)
+        res = dt.replace(year=2013)
+        self.assertIs(type(res), DateSubclass)
+        self.assertEqual(res.year, 2013)
+        self.assertEqual(res.month, 1)
+        self.assertEqual(res.extra, 7)
 
     def test_subclass_date(self):
 
@@ -1900,6 +1920,10 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
             '2009-02-29',       # Invalid leap day
             '2019-W53-1',       # No week 53 in 2019
             '2020-W54-1',       # No week 54
+            '0000-W25-1',       # Invalid year
+            '10000-W25-1',      # Invalid year
+            '2020-W25-0',       # Invalid day-of-week
+            '2020-W25-8',       # Invalid day-of-week
             '2009\ud80002\ud80028',     # Separators are surrogate codepoints
         ]
 
@@ -2135,7 +2159,7 @@ class TestDateTime(TestDate):
 
         for fmt in ["m:%m d:%d y:%y",
                     "m:%m d:%d y:%y H:%H M:%M S:%S",
-                    "%z %Z",
+                    "%z %:z %Z",
                     ]:
             self.assertEqual(dt.__format__(fmt), dt.strftime(fmt))
             self.assertEqual(a.__format__(fmt), dt.strftime(fmt))
@@ -2424,12 +2448,19 @@ class TestDateTime(TestDate):
         got = self.theclass.fromtimestamp(ts)
         self.verify_field_equality(expected, got)
 
+    def test_fromtimestamp_keyword_arg(self):
+        import time
+
+        # gh-85432: The parameter was named "t" in the pure-Python impl.
+        self.theclass.fromtimestamp(timestamp=time.time())
+
     def test_utcfromtimestamp(self):
         import time
 
         ts = time.time()
         expected = time.gmtime(ts)
-        got = self.theclass.utcfromtimestamp(ts)
+        with self.assertWarns(DeprecationWarning):
+            got = self.theclass.utcfromtimestamp(ts)
         self.verify_field_equality(expected, got)
 
     # Run with US-style DST rules: DST begins 2 a.m. on second Sunday in
@@ -2475,8 +2506,12 @@ class TestDateTime(TestDate):
 
     @support.run_with_tz('MSK-03')  # Something east of Greenwich
     def test_microsecond_rounding(self):
+        def utcfromtimestamp(*args, **kwargs):
+            with self.assertWarns(DeprecationWarning):
+                return self.theclass.utcfromtimestamp(*args, **kwargs)
+
         for fts in [self.theclass.fromtimestamp,
-                    self.theclass.utcfromtimestamp]:
+                    utcfromtimestamp]:
             zero = fts(0)
             self.assertEqual(zero.second, 0)
             self.assertEqual(zero.microsecond, 0)
@@ -2573,10 +2608,11 @@ class TestDateTime(TestDate):
                     self.theclass.fromtimestamp(ts)
 
     def test_utcfromtimestamp_limits(self):
-        try:
-            self.theclass.utcfromtimestamp(-2**32 - 1)
-        except (OSError, OverflowError):
-            self.skipTest("Test not valid on this platform")
+        with self.assertWarns(DeprecationWarning):
+            try:
+                self.theclass.utcfromtimestamp(-2**32 - 1)
+            except (OSError, OverflowError):
+                self.skipTest("Test not valid on this platform")
 
         min_dt = self.theclass.min.replace(tzinfo=timezone.utc)
         min_ts = min_dt.timestamp()
@@ -2589,10 +2625,11 @@ class TestDateTime(TestDate):
                 ("maximum", max_ts, max_dt.replace(tzinfo=None)),
         ]:
             with self.subTest(test_name, ts=ts, expected=expected):
-                try:
-                    actual = self.theclass.utcfromtimestamp(ts)
-                except (OSError, OverflowError) as exc:
-                    self.skipTest(str(exc))
+                with self.assertWarns(DeprecationWarning):
+                    try:
+                        actual = self.theclass.utcfromtimestamp(ts)
+                    except (OSError, OverflowError) as exc:
+                        self.skipTest(str(exc))
 
                 self.assertEqual(actual, expected)
 
@@ -2607,9 +2644,10 @@ class TestDateTime(TestDate):
         for test_name, ts in test_cases:
             with self.subTest(test_name, ts=ts):
                 with self.assertRaises((ValueError, OverflowError)):
-                    # converting a Python int to C time_t can raise a
-                    # OverflowError, especially on 32-bit platforms.
-                    self.theclass.utcfromtimestamp(ts)
+                    with self.assertWarns(DeprecationWarning):
+                        # converting a Python int to C time_t can raise a
+                        # OverflowError, especially on 32-bit platforms.
+                        self.theclass.utcfromtimestamp(ts)
 
     def test_insane_fromtimestamp(self):
         # It's possible that some platform maps time_t to double,
@@ -2626,8 +2664,9 @@ class TestDateTime(TestDate):
         # exempt such platforms (provided they return reasonable
         # results!).
         for insane in -1e200, 1e200:
-            self.assertRaises(OverflowError, self.theclass.utcfromtimestamp,
-                              insane)
+            with self.assertWarns(DeprecationWarning):
+                self.assertRaises(OverflowError, self.theclass.utcfromtimestamp,
+                                  insane)
 
     @unittest.skipIf(sys.platform == "win32", "Windows doesn't accept negative timestamps")
     def test_negative_float_fromtimestamp(self):
@@ -2637,7 +2676,8 @@ class TestDateTime(TestDate):
 
     @unittest.skipIf(sys.platform == "win32", "Windows doesn't accept negative timestamps")
     def test_negative_float_utcfromtimestamp(self):
-        d = self.theclass.utcfromtimestamp(-1.05)
+        with self.assertWarns(DeprecationWarning):
+            d = self.theclass.utcfromtimestamp(-1.05)
         self.assertEqual(d, self.theclass(1969, 12, 31, 23, 59, 58, 950000))
 
     def test_utcnow(self):
@@ -2647,8 +2687,11 @@ class TestDateTime(TestDate):
         # a second of each other.
         tolerance = timedelta(seconds=1)
         for dummy in range(3):
-            from_now = self.theclass.utcnow()
-            from_timestamp = self.theclass.utcfromtimestamp(time.time())
+            with self.assertWarns(DeprecationWarning):
+                from_now = self.theclass.utcnow()
+
+            with self.assertWarns(DeprecationWarning):
+                from_timestamp = self.theclass.utcfromtimestamp(time.time())
             if abs(from_timestamp - from_now) <= tolerance:
                 break
             # Else try again a few times.
@@ -2778,12 +2821,34 @@ class TestDateTime(TestDate):
             tz = timezone(-timedelta(hours=2, seconds=s, microseconds=us))
             t = t.replace(tzinfo=tz)
             self.assertEqual(t.strftime("%z"), "-0200" + z)
+            self.assertEqual(t.strftime("%:z"), "-02:00:" + z)
 
-        # bpo-34482: Check that surrogates don't cause a crash.
-        try:
-            t.strftime('%y\ud800%m %H\ud800%M')
-        except UnicodeEncodeError:
-            pass
+    def test_strftime_special(self):
+        t = self.theclass(2004, 12, 31, 6, 22, 33, 47)
+        s1 = t.strftime('%c')
+        s2 = t.strftime('%B')
+        # gh-52551, gh-78662: Unicode strings should pass through strftime,
+        # independently from locale.
+        self.assertEqual(t.strftime('\U0001f40d'), '\U0001f40d')
+        self.assertEqual(t.strftime('\U0001f4bb%c\U0001f40d%B'), f'\U0001f4bb{s1}\U0001f40d{s2}')
+        self.assertEqual(t.strftime('%c\U0001f4bb%B\U0001f40d'), f'{s1}\U0001f4bb{s2}\U0001f40d')
+        # Lone surrogates should pass through.
+        self.assertEqual(t.strftime('\ud83d'), '\ud83d')
+        self.assertEqual(t.strftime('\udc0d'), '\udc0d')
+        self.assertEqual(t.strftime('\ud83d%c\udc0d%B'), f'\ud83d{s1}\udc0d{s2}')
+        self.assertEqual(t.strftime('%c\ud83d%B\udc0d'), f'{s1}\ud83d{s2}\udc0d')
+        self.assertEqual(t.strftime('%c\udc0d%B\ud83d'), f'{s1}\udc0d{s2}\ud83d')
+        # Surrogate pairs should not recombine.
+        self.assertEqual(t.strftime('\ud83d\udc0d'), '\ud83d\udc0d')
+        self.assertEqual(t.strftime('%c\ud83d\udc0d%B'), f'{s1}\ud83d\udc0d{s2}')
+        # Surrogate-escaped bytes should not recombine.
+        self.assertEqual(t.strftime('\udcf0\udc9f\udc90\udc8d'), '\udcf0\udc9f\udc90\udc8d')
+        self.assertEqual(t.strftime('%c\udcf0\udc9f\udc90\udc8d%B'), f'{s1}\udcf0\udc9f\udc90\udc8d{s2}')
+        # gh-124531: The null character should not terminate the format string.
+        self.assertEqual(t.strftime('\0'), '\0')
+        self.assertEqual(t.strftime('\0'*1000), '\0'*1000)
+        self.assertEqual(t.strftime('\0%c\0%B'), f'\0{s1}\0{s2}')
+        self.assertEqual(t.strftime('%c\0%B\0'), f'{s1}\0{s2}\0')
 
     def test_extract(self):
         dt = self.theclass(2002, 3, 4, 18, 45, 3, 1234)
@@ -2947,7 +3012,11 @@ class TestDateTime(TestDate):
                                   constr_name=constr_name):
                     constructor = getattr(base_obj, constr_name)
 
-                    dt = constructor(*constr_args)
+                    if constr_name == "utcfromtimestamp":
+                        with self.assertWarns(DeprecationWarning):
+                            dt = constructor(*constr_args)
+                    else:
+                        dt = constructor(*constr_args)
 
                     # Test that it creates the right subclass
                     self.assertIsInstance(dt, DateTimeSubclass)
@@ -2977,10 +3046,32 @@ class TestDateTime(TestDate):
         for name, meth_name, kwargs in test_cases:
             with self.subTest(name):
                 constr = getattr(DateTimeSubclass, meth_name)
-                dt = constr(**kwargs)
+                if meth_name == "utcnow":
+                    with self.assertWarns(DeprecationWarning):
+                        dt = constr(**kwargs)
+                else:
+                    dt = constr(**kwargs)
 
                 self.assertIsInstance(dt, DateTimeSubclass)
                 self.assertEqual(dt.extra, 7)
+
+    def test_subclass_replace_fold(self):
+        class DateTimeSubclass(self.theclass):
+            pass
+
+        dt = DateTimeSubclass(2012, 1, 1)
+        dt2 = DateTimeSubclass(2012, 1, 1, fold=1)
+
+        test_cases = [
+            ('self.replace', dt.replace(year=2013), 0),
+            ('self.replace', dt2.replace(year=2013), 1),
+        ]
+
+        for name, res, fold in test_cases:
+            with self.subTest(name, fold=fold):
+                self.assertIs(type(res), DateTimeSubclass)
+                self.assertEqual(res.year, 2013)
+                self.assertEqual(res.fold, fold)
 
     def test_fromisoformat_datetime(self):
         # Test that isoformat() is reversible
@@ -3259,6 +3350,9 @@ class TestDateTime(TestDate):
             '2009-04-19T12:30:45.123456-05:00a',    # Extra text
             '2009-04-19T12:30:45.123-05:00a',       # Extra text
             '2009-04-19T12:30:45-05:00a',           # Extra text
+            '2009-04-19T12:30:45.400 +02:30',  # Space between ms and timezone (gh-130959)
+            '2009-04-19T12:30:45.400 ',        # Trailing space (gh-130959)
+            '2009-04-19T12:30:45. 400',        # Space before fraction (gh-130959)
         ]
 
         for bad_str in bad_strs:
@@ -3516,14 +3610,44 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
     def test_strftime(self):
         t = self.theclass(1, 2, 3, 4)
         self.assertEqual(t.strftime('%H %M %S %f'), "01 02 03 000004")
-        # A naive object replaces %z and %Z with empty strings.
-        self.assertEqual(t.strftime("'%z' '%Z'"), "'' ''")
+        # A naive object replaces %z, %:z and %Z with empty strings.
+        self.assertEqual(t.strftime("'%z' '%:z' '%Z'"), "'' '' ''")
 
         # bpo-34482: Check that surrogates don't cause a crash.
         try:
             t.strftime('%H\ud800%M')
         except UnicodeEncodeError:
             pass
+
+        # gh-85432: The parameter was named "fmt" in the pure-Python impl.
+        t.strftime(format="%f")
+
+    def test_strftime_special(self):
+        t = self.theclass(1, 2, 3, 4)
+        s1 = t.strftime('%I%p%Z')
+        s2 = t.strftime('%X')
+        # gh-52551, gh-78662: Unicode strings should pass through strftime,
+        # independently from locale.
+        self.assertEqual(t.strftime('\U0001f40d'), '\U0001f40d')
+        self.assertEqual(t.strftime('\U0001f4bb%I%p%Z\U0001f40d%X'), f'\U0001f4bb{s1}\U0001f40d{s2}')
+        self.assertEqual(t.strftime('%I%p%Z\U0001f4bb%X\U0001f40d'), f'{s1}\U0001f4bb{s2}\U0001f40d')
+        # Lone surrogates should pass through.
+        self.assertEqual(t.strftime('\ud83d'), '\ud83d')
+        self.assertEqual(t.strftime('\udc0d'), '\udc0d')
+        self.assertEqual(t.strftime('\ud83d%I%p%Z\udc0d%X'), f'\ud83d{s1}\udc0d{s2}')
+        self.assertEqual(t.strftime('%I%p%Z\ud83d%X\udc0d'), f'{s1}\ud83d{s2}\udc0d')
+        self.assertEqual(t.strftime('%I%p%Z\udc0d%X\ud83d'), f'{s1}\udc0d{s2}\ud83d')
+        # Surrogate pairs should not recombine.
+        self.assertEqual(t.strftime('\ud83d\udc0d'), '\ud83d\udc0d')
+        self.assertEqual(t.strftime('%I%p%Z\ud83d\udc0d%X'), f'{s1}\ud83d\udc0d{s2}')
+        # Surrogate-escaped bytes should not recombine.
+        self.assertEqual(t.strftime('\udcf0\udc9f\udc90\udc8d'), '\udcf0\udc9f\udc90\udc8d')
+        self.assertEqual(t.strftime('%I%p%Z\udcf0\udc9f\udc90\udc8d%X'), f'{s1}\udcf0\udc9f\udc90\udc8d{s2}')
+        # gh-124531: The null character should not terminate the format string.
+        self.assertEqual(t.strftime('\0'), '\0')
+        self.assertEqual(t.strftime('\0'*1000), '\0'*1000)
+        self.assertEqual(t.strftime('\0%I%p%Z\0%X'), f'\0{s1}\0{s2}')
+        self.assertEqual(t.strftime('%I%p%Z\0%X\0'), f'{s1}\0{s2}\0')
 
     def test_format(self):
         t = self.theclass(1, 2, 3, 4)
@@ -3655,10 +3779,26 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
 
     def test_subclass_replace(self):
         class TimeSubclass(self.theclass):
-            pass
+            def __new__(cls, *args, **kwargs):
+                result = self.theclass.__new__(cls, *args, **kwargs)
+                result.extra = 7
+                return result
 
         ctime = TimeSubclass(12, 30)
-        self.assertIs(type(ctime.replace(hour=10)), TimeSubclass)
+        ctime2 = TimeSubclass(12, 30, fold=1)
+
+        test_cases = [
+            ('self.replace', ctime.replace(hour=10), 0),
+            ('self.replace', ctime2.replace(hour=10), 1),
+        ]
+
+        for name, res, fold in test_cases:
+            with self.subTest(name, fold=fold):
+                self.assertIs(type(res), TimeSubclass)
+                self.assertEqual(res.hour, 10)
+                self.assertEqual(res.minute, 30)
+                self.assertEqual(res.extra, 7)
+                self.assertEqual(res.fold, fold)
 
     def test_subclass_time(self):
 
@@ -3935,10 +4075,10 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
         self.assertEqual(repr(t4), d + "(0, 0, 0, 40)")
         self.assertEqual(repr(t5), d + "(0, 0, 0, 40, tzinfo=utc)")
 
-        self.assertEqual(t1.strftime("%H:%M:%S %%Z=%Z %%z=%z"),
-                                     "07:47:00 %Z=EST %z=-0500")
-        self.assertEqual(t2.strftime("%H:%M:%S %Z %z"), "12:47:00 UTC +0000")
-        self.assertEqual(t3.strftime("%H:%M:%S %Z %z"), "13:47:00 MET +0100")
+        self.assertEqual(t1.strftime("%H:%M:%S %%Z=%Z %%z=%z %%:z=%:z"),
+                                     "07:47:00 %Z=EST %z=-0500 %:z=-05:00")
+        self.assertEqual(t2.strftime("%H:%M:%S %Z %z %:z"), "12:47:00 UTC +0000 +00:00")
+        self.assertEqual(t3.strftime("%H:%M:%S %Z %z %:z"), "13:47:00 MET +0100 +01:00")
 
         yuck = FixedOffset(-1439, "%z %Z %%z%%Z")
         t1 = time(23, 59, tzinfo=yuck)
@@ -3954,9 +4094,8 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
         self.assertRaises(TypeError, t.strftime, "%Z")
 
         # Issue #6697:
-        if '_Fast' in self.__class__.__name__:
-            Badtzname.tz = '\ud800'
-            self.assertRaises(ValueError, t.strftime, "%Z")
+        Badtzname.tz = '\ud800'
+        self.assertEqual(t.strftime("%Z"), '\ud800')
 
     def test_hash_edge_cases(self):
         # Offsets that overflow a basic time.
@@ -4282,6 +4421,9 @@ class TestTimeTZ(TestTime, TZInfoBase, unittest.TestCase):
             '12:30:45.123456-',         # Extra at end of microsecond time
             '12:30:45.123456+',         # Extra at end of microsecond time
             '12:30:45.123456+12:00:30a',    # Extra at end of full time
+            '12:30:45.400 +02:30',      # Space between ms and timezone (gh-130959)
+            '12:30:45.400 ',            # Trailing space (gh-130959)
+            '12:30:45. 400',            # Space before fraction (gh-130959)
         ]
 
         for bad_str in bad_strs:
@@ -4630,7 +4772,8 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
             for dummy in range(3):
                 now = datetime.now(weirdtz)
                 self.assertIs(now.tzinfo, weirdtz)
-                utcnow = datetime.utcnow().replace(tzinfo=utc)
+                with self.assertWarns(DeprecationWarning):
+                    utcnow = datetime.utcnow().replace(tzinfo=utc)
                 now2 = utcnow.astimezone(weirdtz)
                 if abs(now - now2) < timedelta(seconds=30):
                     break
@@ -4664,7 +4807,8 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
 
         # Try to make sure tz= actually does some conversion.
         timestamp = 1000000000
-        utcdatetime = datetime.utcfromtimestamp(timestamp)
+        with self.assertWarns(DeprecationWarning):
+            utcdatetime = datetime.utcfromtimestamp(timestamp)
         # In POSIX (epoch 1970), that's 2001-09-09 01:46:40 UTC, give or take.
         # But on some flavor of Mac, it's nowhere near that.  So we can't have
         # any idea here what time that actually is, we can only test that
@@ -4678,7 +4822,8 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
     def test_tzinfo_utcnow(self):
         meth = self.theclass.utcnow
         # Ensure it doesn't require tzinfo (i.e., that this doesn't blow up).
-        base = meth()
+        with self.assertWarns(DeprecationWarning):
+            base = meth()
         # Try with and without naming the keyword; for whatever reason,
         # utcnow() doesn't accept a tzinfo argument.
         off42 = FixedOffset(42, "42")
@@ -4690,12 +4835,15 @@ class TestDateTimeTZ(TestDateTime, TZInfoBase, unittest.TestCase):
         meth = self.theclass.utcfromtimestamp
         ts = time.time()
         # Ensure it doesn't require tzinfo (i.e., that this doesn't blow up).
-        base = meth(ts)
+        with self.assertWarns(DeprecationWarning):
+            base = meth(ts)
         # Try with and without naming the keyword; for whatever reason,
         # utcfromtimestamp() doesn't accept a tzinfo argument.
         off42 = FixedOffset(42, "42")
-        self.assertRaises(TypeError, meth, ts, off42)
-        self.assertRaises(TypeError, meth, ts, tzinfo=off42)
+        with warnings.catch_warnings(category=DeprecationWarning):
+            warnings.simplefilter("ignore", category=DeprecationWarning)
+            self.assertRaises(TypeError, meth, ts, off42)
+            self.assertRaises(TypeError, meth, ts, tzinfo=off42)
 
     def test_tzinfo_timetuple(self):
         # TestDateTime tested most of this.  datetime adds a twist to the
@@ -5297,7 +5445,7 @@ class TestTimezoneConversions(unittest.TestCase):
 
     def test_fromutc(self):
         self.assertRaises(TypeError, Eastern.fromutc)   # not enough args
-        now = datetime.utcnow().replace(tzinfo=utc_real)
+        now = datetime.now(tz=utc_real)
         self.assertRaises(ValueError, Eastern.fromutc, now) # wrong tzinfo
         now = now.replace(tzinfo=Eastern)   # insert correct tzinfo
         enow = Eastern.fromutc(now)         # doesn't blow up
@@ -5399,9 +5547,11 @@ class Oddballs(unittest.TestCase):
         self.assertEqual(datetime_sc, as_datetime)
 
     def test_extra_attributes(self):
+        with self.assertWarns(DeprecationWarning):
+            utcnow = datetime.utcnow()
         for x in [date.today(),
                   time(),
-                  datetime.utcnow(),
+                  utcnow,
                   timedelta(),
                   tzinfo(),
                   timezone(timedelta())]:
@@ -6061,14 +6211,14 @@ class ZoneInfo(tzinfo):
     def transitions(self):
         for (_, prev_ti), (t, ti) in pairs(zip(self.ut, self.ti)):
             shift = ti[0] - prev_ti[0]
-            yield datetime.utcfromtimestamp(t), shift
+            yield (EPOCH_NAIVE + timedelta(seconds=t)), shift
 
     def nondst_folds(self):
         """Find all folds with the same value of isdst on both sides of the transition."""
         for (_, prev_ti), (t, ti) in pairs(zip(self.ut, self.ti)):
             shift = ti[0] - prev_ti[0]
             if shift < ZERO and ti[1] == prev_ti[1]:
-                yield datetime.utcfromtimestamp(t), -shift, prev_ti[2], ti[2]
+                yield _utcfromtimestamp(datetime, t,), -shift, prev_ti[2], ti[2]
 
     @classmethod
     def print_all_nondst_folds(cls, same_abbr=False, start_year=1):
@@ -6161,7 +6311,7 @@ class ZoneInfoTest(unittest.TestCase):
                 self.assertEqual(ldt.fold, 0)
 
     @unittest.skipUnless(
-        hasattr(time, "tzset"), "time module has no attribute tzset"
+        hasattr(_time, "tzset"), "time module has no attribute tzset"
     )
     def test_system_transitions(self):
         if ('Riyadh8' in self.zonename or
@@ -6200,6 +6350,10 @@ class ZoneInfoTest(unittest.TestCase):
                     ts1 = dt.replace(fold=1).timestamp()
                     self.assertEqual(ts0, s0 + ss / 2)
                     self.assertEqual(ts1, s0 - ss / 2)
+                    # gh-83861
+                    utc0 = dt.astimezone(timezone.utc)
+                    utc1 = dt.replace(fold=1).astimezone(timezone.utc)
+                    self.assertEqual(utc0, utc1 + timedelta(0, ss))
         finally:
             if TZ is None:
                 del os.environ['TZ']
@@ -6229,8 +6383,7 @@ class IranTest(ZoneInfoTest):
 class CapiTest(unittest.TestCase):
     def setUp(self):
         # Since the C API is not present in the _Pure tests, skip all tests
-        # but run them on PyPy
-        if self.__class__.__name__.endswith('Pure') and sys.implementation.name != 'pypy':
+        if self.__class__.__name__.endswith('Pure'):
             self.skipTest('Not relevant in pure Python')
 
         # This *must* be called, and it must be called first, so until either

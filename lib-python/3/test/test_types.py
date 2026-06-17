@@ -1,6 +1,10 @@
 # Python test set -- part 6, built-in types
 
-from test.support import run_with_locale, cpython_only, MISSING_C_DOCSTRINGS, impl_detail
+from test.support import (
+    run_with_locale, cpython_only, iter_builtin_types, iter_slot_wrappers,
+    MISSING_C_DOCSTRINGS,
+)
+from test.test_import import no_rerun
 import collections.abc
 from collections import namedtuple
 import copy
@@ -9,6 +13,7 @@ import inspect
 import pickle
 import locale
 import sys
+import textwrap
 import types
 import unittest.mock
 import weakref
@@ -392,7 +397,7 @@ class TypesTests(unittest.TestCase):
         test(123456, "1=20", '11111111111111123456')
         test(123456, "*=20", '**************123456')
 
-    @run_with_locale('LC_NUMERIC', 'en_US.UTF8')
+    @run_with_locale('LC_NUMERIC', 'en_US.UTF8', '')
     def test_float__format__locale(self):
         # test locale support for __format__ code 'n'
 
@@ -401,7 +406,7 @@ class TypesTests(unittest.TestCase):
             self.assertEqual(locale.format_string('%g', x, grouping=True), format(x, 'n'))
             self.assertEqual(locale.format_string('%.10g', x, grouping=True), format(x, '.10n'))
 
-    @run_with_locale('LC_NUMERIC', 'en_US.UTF8')
+    @run_with_locale('LC_NUMERIC', 'en_US.UTF8', '')
     def test_int__format__locale(self):
         # test locale support for __format__ code 'n' for integers
 
@@ -587,7 +592,6 @@ class TypesTests(unittest.TestCase):
         for code in 'xXobns':
             self.assertRaises(ValueError, format, 0, ',' + code)
 
-    @impl_detail('no __basicsize__', pypy=False)
     def test_internal_sizes(self):
         self.assertGreater(object.__basicsize__, 0)
         self.assertGreater(tuple.__itemsize__, 0)
@@ -620,8 +624,7 @@ class TypesTests(unittest.TestCase):
 
         self.assertIsInstance(int.__dict__['from_bytes'], types.ClassMethodDescriptorType)
         self.assertIsInstance(int.from_bytes, types.BuiltinMethodType)
-        # Not on PyPy ...
-        # self.assertIsInstance(int.__new__, types.BuiltinMethodType)
+        self.assertIsInstance(int.__new__, types.BuiltinMethodType)
 
     def test_ellipsis_type(self):
         self.assertIsInstance(Ellipsis, types.EllipsisType)
@@ -1258,6 +1261,16 @@ class MappingProxyTests(unittest.TestCase):
         self.assertDictEqual(mapping, {'a': 0, 'b': 1, 'c': 2})
         self.assertDictEqual(other, {'c': 3, 'p': 0})
 
+    def test_hash(self):
+        class HashableDict(dict):
+            def __hash__(self):
+                return 3844817361
+        view = self.mappingproxy({'a': 1, 'b': 2})
+        self.assertRaises(TypeError, hash, view)
+        mapping = HashableDict({'a': 1, 'b': 2})
+        view = self.mappingproxy(mapping)
+        self.assertEqual(hash(view), hash(mapping))
+
 
 class ClassCreationTests(unittest.TestCase):
 
@@ -1404,6 +1417,80 @@ class ClassCreationTests(unittest.TestCase):
         class C: pass
         D = types.new_class('D', (A(), C, B()), {})
         self.assertEqual(D.__bases__, (A1, A2, A3, C, B1, B2))
+
+    def test_get_original_bases(self):
+        T = typing.TypeVar('T')
+        class A: pass
+        class B(typing.Generic[T]): pass
+        class C(B[int]): pass
+        class D(B[str], float): pass
+
+        self.assertEqual(types.get_original_bases(A), (object,))
+        self.assertEqual(types.get_original_bases(B), (typing.Generic[T],))
+        self.assertEqual(types.get_original_bases(C), (B[int],))
+        self.assertEqual(types.get_original_bases(int), (object,))
+        self.assertEqual(types.get_original_bases(D), (B[str], float))
+
+        class E(list[T]): pass
+        class F(list[int]): pass
+
+        self.assertEqual(types.get_original_bases(E), (list[T],))
+        self.assertEqual(types.get_original_bases(F), (list[int],))
+
+        class FirstBase(typing.Generic[T]): pass
+        class SecondBase(typing.Generic[T]): pass
+        class First(FirstBase[int]): pass
+        class Second(SecondBase[int]): pass
+        class G(First, Second): pass
+        self.assertEqual(types.get_original_bases(G), (First, Second))
+
+        class First_(typing.Generic[T]): pass
+        class Second_(typing.Generic[T]): pass
+        class H(First_, Second_): pass
+        self.assertEqual(types.get_original_bases(H), (First_, Second_))
+
+        class ClassBasedNamedTuple(typing.NamedTuple):
+            x: int
+
+        class GenericNamedTuple(typing.NamedTuple, typing.Generic[T]):
+            x: T
+
+        CallBasedNamedTuple = typing.NamedTuple("CallBasedNamedTuple", [("x", int)])
+
+        self.assertIs(
+            types.get_original_bases(ClassBasedNamedTuple)[0], typing.NamedTuple
+        )
+        self.assertEqual(
+            types.get_original_bases(GenericNamedTuple),
+            (typing.NamedTuple, typing.Generic[T])
+        )
+        self.assertIs(
+            types.get_original_bases(CallBasedNamedTuple)[0], typing.NamedTuple
+        )
+
+        class ClassBasedTypedDict(typing.TypedDict):
+            x: int
+
+        class GenericTypedDict(typing.TypedDict, typing.Generic[T]):
+            x: T
+
+        CallBasedTypedDict = typing.TypedDict("CallBasedTypedDict", {"x": int})
+
+        self.assertIs(
+            types.get_original_bases(ClassBasedTypedDict)[0],
+            typing.TypedDict
+        )
+        self.assertEqual(
+            types.get_original_bases(GenericTypedDict),
+            (typing.TypedDict, typing.Generic[T])
+        )
+        self.assertIs(
+            types.get_original_bases(CallBasedTypedDict)[0],
+            typing.TypedDict
+        )
+
+        with self.assertRaisesRegex(TypeError, "Expected an instance of type"):
+            types.get_original_bases(object())
 
     # Many of the following tests are derived from test_descr.py
     def test_prepare_class(self):
@@ -1630,12 +1717,7 @@ class ClassCreationTests(unittest.TestCase):
             X = types.new_class("X", (int(), C))
 
     def test_one_argument_type(self):
-        if sys.implementation.name == 'pypy':
-            expected_message1 = 'M.__new__() takes exactly 3 arguments (1 given)'
-            expected_message2 = 'N.__new__() takes exactly 3 arguments (1 given)'
-        else:
-            expected_message1 = 'type.__new__() takes exactly 3 arguments (1 given)'
-            expected_message2 = expected_message1
+        expected_message = 'type.__new__() takes exactly 3 arguments (1 given)'
 
         # Only type itself can use the one-argument form (#27157)
         self.assertIs(type(5), int)
@@ -1644,13 +1726,13 @@ class ClassCreationTests(unittest.TestCase):
             pass
         with self.assertRaises(TypeError) as cm:
             M(5)
-        self.assertEqual(str(cm.exception), expected_message1)
+        self.assertEqual(str(cm.exception), expected_message)
 
         class N(type, metaclass=M):
             pass
         with self.assertRaises(TypeError) as cm:
             N(5)
-        self.assertEqual(str(cm.exception), expected_message2)
+        self.assertEqual(str(cm.exception), expected_message)
 
     def test_metaclass_new_error(self):
         # bpo-44232: The C function type_new() must properly report the
@@ -1756,11 +1838,8 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns2._y = 5
         name = "namespace"
 
-        # self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
-        # self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
-        # PyPy sorts the kwarg
-        self.assertEqual(repr(ns1), "{name}(w=3, x=1, y=2)".format(name=name))
-        self.assertEqual(repr(ns2), "{name}(_y=5, x='spam')".format(name=name))
+        self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
+        self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
 
     def test_equal(self):
         ns1 = types.SimpleNamespace(x=1)
@@ -1809,9 +1888,7 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns3.spam = ns2
         name = "namespace"
         repr1 = "{name}(c='cookie', spam={name}(...))".format(name=name)
-        # PyPy sorts the kwargs
-        # repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
-        repr2 = "{name}(spam={name}(spam={name}(...), x=1))".format(name=name)
+        repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
 
         self.assertEqual(repr(ns1), repr1)
         self.assertEqual(repr(ns2), repr2)
@@ -2127,7 +2204,7 @@ class CoroutineTests(unittest.TestCase):
         wrapper = foo()
         wrapper.send(None)
         with self.assertRaisesRegex(Exception, 'ham'):
-            wrapper.throw(Exception, Exception('ham'))
+            wrapper.throw(Exception('ham'))
 
         # decorate foo second time
         foo = types.coroutine(foo)
@@ -2178,6 +2255,52 @@ class CoroutineTests(unittest.TestCase):
             '__await__', '__iter__', '__next__', 'cr_code', 'cr_running',
             'cr_frame', 'gi_code', 'gi_frame', 'gi_running', 'send',
             'close', 'throw'}))
+
+
+class SubinterpreterTests(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        global interpreters
+        try:
+            from test.support import interpreters
+        except ModuleNotFoundError:
+            raise unittest.SkipTest('subinterpreters required')
+
+    @cpython_only
+    @no_rerun('channels (and queues) might have a refleak; see gh-122199')
+    def test_static_types_inherited_slots(self):
+        rch, sch = interpreters.create_channel()
+
+        slots = []
+        script = ''
+        for cls in iter_builtin_types():
+            for slot, own in iter_slot_wrappers(cls):
+                slots.append((cls, slot, own))
+                attr = f'{cls.__name__}.{slot}'
+                script += textwrap.dedent(f"""
+                    sch.send_nowait('{attr}: ' + repr({attr}))
+                    """)
+
+        exec(script)
+        all_expected = []
+        for cls, slot, _ in slots:
+            result = rch.recv()
+            assert result.startswith(f'{cls.__name__}.{slot}: '), (cls, slot, result)
+            all_expected.append(result)
+
+        interp = interpreters.create()
+        interp.run(textwrap.dedent(f"""
+            from test.support import interpreters
+            sch = interpreters.SendChannel({sch.id})
+            """))
+        interp.run(script)
+
+        for i, (cls, slot, _) in enumerate(slots):
+            with self.subTest(cls=cls, slot=slot):
+                expected = all_expected[i]
+                result = rch.recv()
+                self.assertEqual(result, expected)
 
 
 if __name__ == '__main__':

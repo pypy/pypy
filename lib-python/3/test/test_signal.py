@@ -13,7 +13,7 @@ import threading
 import time
 import unittest
 from test import support
-from test.support import os_helper, cpython_only
+from test.support import os_helper
 from test.support.script_helper import assert_python_ok, spawn_python
 from test.support import threading_helper
 try:
@@ -122,6 +122,8 @@ class PosixTests(unittest.TestCase):
         self.assertEqual(signal.getsignal(signal.SIGHUP), hup)
         self.assertEqual(0, argument.repr_count)
 
+    @unittest.skipIf(sys.platform.startswith("netbsd"),
+                     "gh-124083: strsignal is not supported on NetBSD")
     def test_strsignal(self):
         self.assertIn("Interrupt", signal.strsignal(signal.SIGINT))
         self.assertIn("Terminated", signal.strsignal(signal.SIGTERM))
@@ -697,7 +699,7 @@ class WakeupSocketSignalTests(unittest.TestCase):
 @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
 class SiginterruptTest(unittest.TestCase):
 
-    def readpipe_interrupted(self, interrupt):
+    def readpipe_interrupted(self, interrupt, timeout=support.SHORT_TIMEOUT):
         """Perform a read during which a signal will arrive.  Return True if the
         read is interrupted by the signal and raises an exception.  Return False
         if it returns normally.
@@ -745,7 +747,7 @@ class SiginterruptTest(unittest.TestCase):
                 # wait until the child process is loaded and has started
                 first_line = process.stdout.readline()
 
-                stdout, stderr = process.communicate(timeout=support.SHORT_TIMEOUT)
+                stdout, stderr = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
                 process.kill()
                 return False
@@ -776,7 +778,7 @@ class SiginterruptTest(unittest.TestCase):
         # If a signal handler is installed and siginterrupt is called with
         # a false value for the second argument, when that signal arrives, it
         # does not interrupt a syscall that's in progress.
-        interrupted = self.readpipe_interrupted(False)
+        interrupted = self.readpipe_interrupted(False, timeout=2)
         self.assertFalse(interrupted)
 
 
@@ -837,18 +839,14 @@ class ItimerTest(unittest.TestCase):
     def test_itimer_virtual(self):
         self.itimer = signal.ITIMER_VIRTUAL
         signal.signal(signal.SIGVTALRM, self.sig_vtalrm)
-        signal.setitimer(self.itimer, 0.3, 0.2)
+        signal.setitimer(self.itimer, 0.001, 0.001)
 
-        for _ in support.busy_retry(60.0, error=False):
+        for _ in support.busy_retry(support.LONG_TIMEOUT):
             # use up some virtual time by doing real work
-            _ = pow(12345, 67890, 10000019)
+            _ = sum(i * i for i in range(10**5))
             if signal.getitimer(self.itimer) == (0.0, 0.0):
                 # sig_vtalrm handler stopped this itimer
                 break
-        else:
-            # bpo-8424
-            self.skipTest("timeout: likely cause: machine too slow or load too "
-                          "high")
 
         # virtual itimer should be (0.0, 0.0) now
         self.assertEqual(signal.getitimer(self.itimer), (0.0, 0.0))
@@ -860,16 +858,12 @@ class ItimerTest(unittest.TestCase):
         signal.signal(signal.SIGPROF, self.sig_prof)
         signal.setitimer(self.itimer, 0.2, 0.2)
 
-        for _ in support.busy_retry(60.0, error=False):
+        for _ in support.busy_retry(support.LONG_TIMEOUT):
             # do some work
-            _ = pow(12345, 67890, 10000019)
+            _ = sum(i * i for i in range(10**5))
             if signal.getitimer(self.itimer) == (0.0, 0.0):
                 # sig_prof handler stopped this itimer
                 break
-        else:
-            # bpo-8424
-            self.skipTest("timeout: likely cause: machine too slow or load too "
-                          "high")
 
         # profiling itimer should be (0.0, 0.0) now
         self.assertEqual(signal.getitimer(self.itimer), (0.0, 0.0))
@@ -1344,7 +1338,7 @@ class StressTest(unittest.TestCase):
 
             expected_sigs += 2
             # Wait for handlers to run to avoid signal coalescing
-            for _ in support.sleeping_retry(support.SHORT_TIMEOUT, error=False):
+            for _ in support.sleeping_retry(support.SHORT_TIMEOUT):
                 if len(sigs) >= expected_sigs:
                     break
 
@@ -1442,7 +1436,6 @@ class RaiseSignalTest(unittest.TestCase):
         signal.raise_signal(signal.SIGINT)
         self.assertTrue(is_ok)
 
-    @cpython_only  # PyPy does not shutdown cleanly
     def test__thread_interrupt_main(self):
         # See https://github.com/python/cpython/issues/102397
         code = """if 1:

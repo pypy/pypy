@@ -5,11 +5,13 @@ import unittest
 from test.support import cpython_only
 from test.support.os_helper import TESTFN, unlink
 from test.support import check_free_after_iterating, ALWAYS_EQ, NEVER_EQ
+from test.support import BrokenIter
 import pickle
 import collections.abc
 import functools
 import contextlib
 import builtins
+import traceback
 
 # Test result of triple loop (too big to inline)
 TRIPLETS = [(0, 0, 0), (0, 0, 1), (0, 0, 2),
@@ -247,7 +249,6 @@ class TestCase(unittest.TestCase):
         self.assertEqual(list(empit), [5, 6])
         self.assertEqual(list(a), [0, 1, 2, 3, 4, 5, 6])
 
-    @cpython_only
     def test_reduce_mutating_builtins_iter(self):
         # This is a reproducer of issue #101765
         # where iter `__reduce__` calls could lead to a segfault or SystemError
@@ -329,9 +330,7 @@ class TestCase(unittest.TestCase):
 
     # Test two-argument iter() with callable instance
     def test_iter_callable(self):
-        import sys
-        pickle = sys.implementation.name == 'cpython'
-        self.check_iterator(iter(CallableIterClass(), 10), list(range(10)), pickle=pickle)
+        self.check_iterator(iter(CallableIterClass(), 10), list(range(10)), pickle=True)
 
     # Test two-argument iter() with function
     def test_iter_function(self):
@@ -1145,6 +1144,46 @@ class TestCase(unittest.TestCase):
         for typ in (DefaultIterClass, NoIterClass):
             self.assertRaises(TypeError, iter, typ())
         self.assertRaises(ZeroDivisionError, iter, BadIterableClass())
+
+    def test_exception_locations(self):
+        # The location of an exception raised from __init__ or
+        # __next__ should should be the iterator expression
+
+        def init_raises():
+            try:
+                for x in BrokenIter(init_raises=True):
+                    pass
+            except Exception as e:
+                return e
+
+        def next_raises():
+            try:
+                for x in BrokenIter(next_raises=True):
+                    pass
+            except Exception as e:
+                return e
+
+        def iter_raises():
+            try:
+                for x in BrokenIter(iter_raises=True):
+                    pass
+            except Exception as e:
+                return e
+
+        for func, expected in [(init_raises, "BrokenIter(init_raises=True)"),
+                               (next_raises, "BrokenIter(next_raises=True)"),
+                               (iter_raises, "BrokenIter(iter_raises=True)"),
+                              ]:
+            with self.subTest(func):
+                exc = func()
+                f = traceback.extract_tb(exc.__traceback__)[0]
+                indent = 16
+                co = func.__code__
+                self.assertEqual(f.lineno, co.co_firstlineno + 2)
+                self.assertEqual(f.end_lineno, co.co_firstlineno + 2)
+                self.assertEqual(f.line[f.colno - indent : f.end_colno - indent],
+                                 expected)
+
 
 
 if __name__ == "__main__":

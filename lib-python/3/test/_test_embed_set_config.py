@@ -5,11 +5,12 @@
 # does reset sys attributes to their state of the Python startup
 # (before the site module is run).
 
+import _testinternalcapi
 import os
 import sys
 import unittest
 from test.support import MS_WINDOWS
-import _testinternalcapi
+
 
 MAX_HASH_SEED = 4294967295
 
@@ -83,7 +84,6 @@ class SetConfigTests(unittest.TestCase):
             'skip_source_first_line',
             '_install_importlib',
             '_init_main',
-            '_isolated_interpreter',
         ]
         if MS_WINDOWS:
             options.append('legacy_windows_stdio')

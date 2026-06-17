@@ -14,7 +14,7 @@ from io import BytesIO, StringIO
 # Intrapackage imports
 from email import utils
 from email import errors
-from email._policybase import Policy, compat32
+from email._policybase import compat32
 from email import charset as _charset
 from email._encoded_words import decode_b
 Charset = _charset.Charset
@@ -292,15 +292,19 @@ class Message:
         if i is not None and not isinstance(self._payload, list):
             raise TypeError('Expected list, got %s' % type(self._payload))
         payload = self._payload
-        # cte might be a Header, so for now stringify it.
-        cte = str(self.get('content-transfer-encoding', '')).lower()
+        cte = self.get('content-transfer-encoding', '')
+        if hasattr(cte, 'cte'):
+            cte = cte.cte
+        else:
+            # cte might be a Header, so for now stringify it.
+            cte = str(cte).strip().lower()
         # payload may be bytes here.
         if not decode:
             if isinstance(payload, str) and utils._has_surrogates(payload):
                 try:
                     bpayload = payload.encode('ascii', 'surrogateescape')
                     try:
-                        payload = bpayload.decode(self.get_param('charset', 'ascii'), 'replace')
+                        payload = bpayload.decode(self.get_content_charset('ascii'), 'replace')
                     except LookupError:
                         payload = bpayload.decode('ascii', 'replace')
                 except UnicodeEncodeError:
@@ -455,7 +459,11 @@ class Message:
         self._headers = newheaders
 
     def __contains__(self, name):
-        return name.lower() in [k.lower() for k, v in self._headers]
+        name_lower = name.lower()
+        for k, v in self._headers:
+            if name_lower == k.lower():
+                return True
+        return False
 
     def __iter__(self):
         for field, value in self._headers:
