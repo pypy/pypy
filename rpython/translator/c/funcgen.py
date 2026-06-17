@@ -13,6 +13,7 @@ from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.tool.sourcetools import getsourcelines
 
 
 LOCALVAR = 'l_%s'
@@ -57,6 +58,16 @@ def make_funcgen(graph, db, exception_policy, functionname):
     if db.gctransformer:
         db.gctransformer.transform_graph(graph)
     return FunctionCodeGenerator(graph, db, exception_policy, functionname)
+
+# Cache (func -> (src_lines, startline)) so getsourcelines() is called at most
+# once per function rather than once per block/operation.
+_source_lines_cache = {}
+
+def escape_c_comments(py_src):
+    # Escape C comment delimiters within RPython source.
+    py_src = py_src.replace('/*', '/ *')
+    py_src = py_src.replace('*/', '* /')
+    return py_src
 
 class FunctionCodeGenerator(object):
     """
@@ -241,6 +252,28 @@ class FunctionCodeGenerator(object):
             if extra_enter_text:
                 yield extra_enter_text
         graph = self.graph
+        # Try to print python source code:
+        if hasattr(graph, 'func'):
+            func = graph.func
+            if func not in _source_lines_cache:
+                _source_lines_cache[func] = getsourcelines(func)
+            cached = _source_lines_cache[func]
+            if cached is not None:
+                src, startline = cached
+                filename = getattr(getattr(func, '__code__', None),
+                                   'co_filename', '<unknown>')
+                yield '/* RPython source %r' % filename
+                for i, line in enumerate(src):
+                    line = line.rstrip()
+                    line = escape_c_comments(line)
+                    # FuncNode.funcgen_implementation treats lines ending in ':'
+                    # as C blocks and special-cases them, which messes up the
+                    # formatting.
+                    # Work around this by adding a trailing space:
+                    if line.endswith(':'):
+                        line += ' '
+                    yield ' * %4d : %s' % (startline + i, line)
+                yield ' */'
 
         # ----- for gc_enter_roots_frame
         _seen = set()
@@ -278,10 +311,27 @@ class FunctionCodeGenerator(object):
             for line in self.gen_block(block):
                 yield line
 
+    def _source_comment(self, func, linenum):
+        """Yield a C comment with the RPython source line, or nothing on error."""
+        if func not in _source_lines_cache:
+            _source_lines_cache[func] = getsourcelines(func)
+        cached = _source_lines_cache[func]
+        if cached is None:
+            return
+        src, startline = cached
+        i = linenum - startline
+        if 0 <= i < len(src):
+            yield '/* %s:%d: %s */' % (
+                func.__name__, linenum, escape_c_comments(src[i].strip()))
+
     def gen_block(self, block):
         if 1:      # (preserve indentation)
             self._current_block = block
             myblocknum = self.blocknum[block]
+            if hasattr(block, 'source_func') and hasattr(block, 'source_line'):
+                for line in self._source_comment(block.source_func,
+                                                  block.source_line):
+                    yield line
             if block in self.inlinable_blocks:
                 # debug comment
                 yield '/* block%d: (inlined) */' % myblocknum
@@ -291,7 +341,17 @@ class FunctionCodeGenerator(object):
                 for line in self.gen_while_loop_hack(block):
                     yield line
                 return
+            cur_sf = getattr(block, 'source_func', None)
+            cur_sl = getattr(block, 'source_line', None)
             for i, op in enumerate(block.operations):
+                op_sf = getattr(op, 'source_func', None)
+                if op_sf is not None:
+                    op_sl = getattr(op, 'source_line', None)
+                    if op_sf is not cur_sf or op_sl != cur_sl:
+                        for line in self._source_comment(op_sf, op_sl):
+                            yield line
+                        cur_sf = op_sf
+                        cur_sl = op_sl
                 for line in self.gen_op(op):
                     yield line
             if len(block.exits) == 0:

@@ -756,7 +756,7 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
     elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
         raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
     else:
-        s = space.charbuf_w(w_obj)
+        s = space.bufferstr_w(w_obj)
     return _pyunicode_decode(space, s, encoding, errors)
 
 
@@ -865,8 +865,8 @@ def PyUnicode_FSDecoder(space, w_obj, result):
             space.warn(space.newtext(
                 "path should be %s, not %s" % (allowed_types, tp,)),
                 space.w_DeprecationWarning)
-            buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
-            w_output =  space.fsdecode(space.newbytes(buffer.as_str()))
+            with space.buffer_w(w_obj, space.BUF_FULL_RO) as buffer:
+                w_output = space.fsdecode(space.newbytes(buffer.as_str()))
     if not space.isinstance_w(w_output, space.w_unicode):
         raise oefmt(space.w_TypeError, "decoder failed to return unicode")
     data = space.utf8_0_w(w_output)  # Check for NUL bytes

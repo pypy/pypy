@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
@@ -63,7 +64,7 @@ def w_array(space, w_cls, typecode, __args__):
             a.descr_fromlist(space, w_initializer)
         else:
             try:
-                buf = space.charbuf_w(w_initializer)
+                buf = space.bufferstr_w(w_initializer)
             except OperationError as e:
                 if not e.match(space, space.w_TypeError):
                     raise
@@ -172,7 +173,7 @@ def index_count_array(arr, w_val, count=False, start=0, stop=sys.maxint):
 UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}))
 
-class W_ArrayBase(W_Root):
+class W_ArrayBase(W_BufferExporter):
     _attrs_ = ('space', 'len', 'allocated', '_lifeline_', '_buffer')
 
     def __init__(self, space):
@@ -306,6 +307,15 @@ class W_ArrayBase(W_Root):
     def buffer_w(self, space, flags):
         return ArrayView(ArrayBuffer(self), self.typecode, self.itemsize, False, w_obj=self)
 
+    def bf_getbuffer(self, space, view, flags):
+        # CPython-style protocol: fill a passive Py_buffer.  array.array
+        # does not track exports (unlike bytearray), so releasebuffer is
+        # a no-op inherited from W_Root.
+        from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        fill_py_buffer_1d(view, self, ArrayBuffer(self),
+                          readonly=False,
+                          itemsize=self.itemsize, format=self.typecode)
+
     def descr_append(self, space, w_x):
         """ append(x)
 
@@ -429,7 +439,7 @@ class W_ArrayBase(W_Root):
         """
         # For some reason, CPython rejects arguments with itemsize != 1 here
         # (like array.array('i')). We don't apply that restriction.
-        s = space.charbuf_w(w_s)
+        s = space.bufferstr_w(w_s)
         self._frombytes(space, s)
 
     def _frombytes(self, space, s):

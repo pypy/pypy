@@ -109,10 +109,16 @@ def _get_common_types(space, w_dict):
 # ____________________________________________________________
 
 def _fetch_as_read_buffer(space, w_x):
-    return space.readbuf_w(w_x)
+    # Returns (view, raw_buffer).  The BufferView still owns the export
+    # ref-count; the caller is responsible either for passing it to a
+    # long-lived holder (e.g. W_CDataFromBuffer) or for releasing it
+    # explicitly when the raw pointer is no longer needed.
+    view = space.buffer_w(w_x, space.BUF_SIMPLE)
+    return view, view.as_readbuf()
 
 def _fetch_as_write_buffer(space, w_x):
-    return space.writebuf_w(w_x)
+    view = space.buffer_w(w_x, space.BUF_WRITABLE)
+    return view, view.as_writebuf()
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, require_writable=int)
 def from_buffer(space, w_ctype, w_x, require_writable=0):
@@ -125,9 +131,9 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
         raise oefmt(space.w_TypeError,
                 "from_buffer() cannot return the address of a unicode object")
     if require_writable:
-        buf = _fetch_as_write_buffer(space, w_x)
+        view, buf = _fetch_as_write_buffer(space, w_x)
     else:
-        buf = _fetch_as_read_buffer(space, w_x)
+        view, buf = _fetch_as_read_buffer(space, w_x)
     if space.isinstance_w(w_x, space.w_bytes):
         _cdata = get_raw_address_of_string(space, w_x)
     else:
@@ -172,7 +178,7 @@ def from_buffer(space, w_ctype, w_x, require_writable=0):
                     "cannot be computed", w_ctype.name)
     #
     return cdataobj.W_CDataFromBuffer(space, _cdata, arraylength,
-                                      w_ctype, buf, w_x)
+                                      w_ctype, buf, w_x, view)
 
 # ____________________________________________________________
 
@@ -236,59 +242,67 @@ def memmove(space, w_dest, w_src, n):
         raise oefmt(space.w_ValueError, "negative size")
 
     # cases...
-    src_buf = None
-    src_data = lltype.nullptr(rffi.CCHARP.TO)
-    if space.isinstance_w(w_src, space.w_bytes):
-        src_is_ptr = False
-        src_string = space.bytes_w(w_src)
-    else:
-        if isinstance(w_src, cdataobj.W_CData):
-            src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
-            src_is_ptr = True
+    src_view = None
+    dest_view = None
+    try:
+        src_buf = None
+        src_data = lltype.nullptr(rffi.CCHARP.TO)
+        if space.isinstance_w(w_src, space.w_bytes):
+            src_is_ptr = False
+            src_string = space.bytes_w(w_src)
         else:
-            src_buf = _fetch_as_read_buffer(space, w_src)
-            try:
-                src_data = src_buf.get_raw_address()
+            if isinstance(w_src, cdataobj.W_CData):
+                src_data = unsafe_escaping_ptr_for_ptr_or_array(w_src)
                 src_is_ptr = True
-            except ValueError:
-                src_is_ptr = False
-
-        if src_is_ptr:
-            src_string = None
-        else:
-            if n == src_buf.getlength():
-                src_string = src_buf.as_str()
             else:
-                src_string = src_buf.getslice(0, 1, n)
+                src_view, src_buf = _fetch_as_read_buffer(space, w_src)
+                try:
+                    src_data = src_buf.get_raw_address()
+                    src_is_ptr = True
+                except ValueError:
+                    src_is_ptr = False
 
-    dest_buf = None
-    dest_data = lltype.nullptr(rffi.CCHARP.TO)
-    if isinstance(w_dest, cdataobj.W_CData):
-        dest_data = unsafe_escaping_ptr_for_ptr_or_array(w_dest)
-        dest_is_ptr = True
-    else:
-        dest_buf = _fetch_as_write_buffer(space, w_dest)
-        try:
-            dest_data = dest_buf.get_raw_address()
+            if src_is_ptr:
+                src_string = None
+            else:
+                if n == src_buf.getlength():
+                    src_string = src_buf.as_str()
+                else:
+                    src_string = src_buf.getslice(0, 1, n)
+
+        dest_buf = None
+        dest_data = lltype.nullptr(rffi.CCHARP.TO)
+        if isinstance(w_dest, cdataobj.W_CData):
+            dest_data = unsafe_escaping_ptr_for_ptr_or_array(w_dest)
             dest_is_ptr = True
-        except ValueError:
-            dest_is_ptr = False
+        else:
+            dest_view, dest_buf = _fetch_as_write_buffer(space, w_dest)
+            try:
+                dest_data = dest_buf.get_raw_address()
+                dest_is_ptr = True
+            except ValueError:
+                dest_is_ptr = False
 
-    if dest_is_ptr:
-        if src_is_ptr:
-            c_memmove(dest_data, src_data, rffi.cast(rffi.SIZE_T, n))
+        if dest_is_ptr:
+            if src_is_ptr:
+                c_memmove(dest_data, src_data, rffi.cast(rffi.SIZE_T, n))
+            else:
+                copy_string_to_raw(llstr(src_string), dest_data, 0, n)
         else:
-            copy_string_to_raw(llstr(src_string), dest_data, 0, n)
-    else:
-        # nowadays this case should be rare or impossible: as far as
-        # I know, all common types implementing the *writable* buffer
-        # interface now support get_raw_address()
-        if src_is_ptr:
-            for i in range(n):
-                dest_buf.setitem(i, src_data[i])
-        else:
-            for i in range(n):
-                dest_buf.setitem(i, src_string[i])
+            # nowadays this case should be rare or impossible: as far as
+            # I know, all common types implementing the *writable* buffer
+            # interface now support get_raw_address()
+            if src_is_ptr:
+                for i in range(n):
+                    dest_buf.setitem(i, src_data[i])
+            else:
+                for i in range(n):
+                    dest_buf.setitem(i, src_string[i])
+    finally:
+        if src_view is not None:
+            src_view.releasebuffer()
+        if dest_view is not None:
+            dest_view.releasebuffer()
 
     keepalive_until_here(src_buf)
     keepalive_until_here(dest_buf)

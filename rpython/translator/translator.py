@@ -18,6 +18,29 @@ from rpython.config.translationoption import get_platform
 
 log = AnsiLogger("flowgraph")
 
+def _annotate_blocks_with_source(graph):
+    """After simplify_graph, tag each block with source_func/source_line.
+
+    SpaceOp offsets (set during flow graph construction) are used to map
+    back to source line numbers.  Block objects are stable at this point.
+    """
+    from rpython.tool.error import offset2lineno
+    if not getattr(graph, 'func', None):
+        return
+    func = graph.func
+    pycode = getattr(func, '__code__', None)
+    if pycode is None:
+        return
+    for block in graph.iterblocks():
+        if block.operations and block.operations[0].offset >= 0:
+            try:
+                block.source_line = offset2lineno(pycode,
+                                                  block.operations[0].offset)
+                block.source_func = func
+            except Exception:
+                pass
+
+
 class TranslationContext(object):
     FLOWING_FLAGS = {
         'verbose': False,
@@ -54,6 +77,7 @@ class TranslationContext(object):
                 log(nice_repr_for_func(func))
             graph = build_flow(func)
             simplify.simplify_graph(graph)
+            _annotate_blocks_with_source(graph)
             if self.config.translation.list_comprehension_operations:
                 simplify.detect_list_comprehension(graph)
             if not self.config.translation.verbose and not mute_dot:

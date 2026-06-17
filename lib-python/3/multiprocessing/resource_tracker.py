@@ -61,6 +61,11 @@ class ResourceTracker(object):
         self._lock = threading.RLock()
         self._fd = None
         self._pid = None
+        # PYPY change: shadow registry for restart resilience -- if the tracker
+        # subprocess dies and is relaunched, we replay all outstanding REGISTERs
+        # so the new tracker has a complete view of resources to clean up.
+        self._registered = {}
+        # PYPY change end
 
     def _reentrant_call_error(self):
         # gh-109629: this happens if an explicit call to the ResourceTracker
@@ -180,6 +185,14 @@ class ResourceTracker(object):
             else:
                 self._fd = w
                 self._pid = pid
+                # PYPY change: replay outstanding registrations to the new
+                # tracker.  On first start _registered is empty so this is a
+                # no-op; on restart it re-syncs the new tracker's cache.
+                for pending_name, pending_rtype in list(self._registered.items()):
+                    replay_msg = 'REGISTER:{0}:{1}\n'.format(
+                        pending_name, pending_rtype).encode('ascii')
+                    os.write(self._fd, replay_msg)
+                # PYPY change end
             finally:
                 os.close(r)
 
@@ -196,11 +209,25 @@ class ResourceTracker(object):
 
     def register(self, name, rtype):
         '''Register name of resource with resource tracker.'''
+        # PYPY change: send BEFORE updating the shadow registry so that if
+        # _send raises (e.g. ValueError for a too-long name) the name is not
+        # left as a stale entry that would be replayed to a restarted tracker.
+        # This ordering is safe: ensure_running() inside _send replays
+        # _registered before os.write() is called, so adding the name
+        # afterwards still lands in _registered in time for any subsequent
+        # restart.
         self._send('REGISTER', name, rtype)
+        self._registered[name] = rtype
+        # PYPY change end
 
     def unregister(self, name, rtype):
         '''Unregister name of resource with resource tracker.'''
         self._send('UNREGISTER', name, rtype)
+        # PYPY change: remove from shadow registry *after* sending so that a
+        # tracker restart during send still replays the entry before the
+        # UNREGISTER lands on the new tracker.
+        self._registered.pop(name, None)
+        # PYPY change end
 
     def _send(self, cmd, name, rtype):
         try:
@@ -214,6 +241,15 @@ class ResourceTracker(object):
                 f"ResourceTracker called reentrantly for resource cleanup, "
                 f"which is unsupported. "
                 f"The {rtype} object {name!r} might leak.")
+        # PYPY change: only bail out when _fd is None, i.e. we are in the
+        # middle of (re)starting the tracker and os.write(None,...) would
+        # crash.  When _fd is valid the tracker is alive and the write
+        # below is safe even though ensure_running() detected reentrancy;
+        # delivering the message avoids a spurious "leaked / ENOENT" pair
+        # at shutdown caused by the tracker never receiving the UNREGISTER.
+        if self._fd is None:
+             return
+        # PYPY change end
         msg = '{0}:{1}:{2}\n'.format(cmd, name, rtype).encode('ascii')
         if len(msg) > 512:
             # posix guarantees that writes to a pipe of less than PIPE_BUF
@@ -261,7 +297,12 @@ def main(fd):
                     if cmd == 'REGISTER':
                         cache[rtype].add(name)
                     elif cmd == 'UNREGISTER':
-                        cache[rtype].remove(name)
+                        # PYPY change: use discard instead of remove so an
+                        # out-of-order UNREGISTER (arriving before its REGISTER
+                        # due to a tracker restart or reentrant GC) does not
+                        # print a KeyError traceback to stderr and fail tests.
+                        cache[rtype].discard(name)
+                        # PYPY change end
                     elif cmd == 'PROBE':
                         pass
                     else:

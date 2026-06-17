@@ -1,5 +1,6 @@
 import sys
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.buffer import SimpleView
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -351,7 +352,7 @@ class W_DataShape(W_Root):
                                space.newint(self.alignment))
 
 
-class W_DataInstance(W_Root):
+class W_DataInstance(W_BufferExporter):
     fmt = 'B'
     itemsize = 1
     def __init__(self, space, size, address=r_uint(0)):
@@ -392,6 +393,10 @@ class W_DataInstance(W_Root):
 
     def buffer_w(self, space, flags):
         return SimpleView(RawFFIBuffer(self), w_obj=self)
+
+    def bf_getbuffer(self, space, view, flags):
+        from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        fill_py_buffer_1d(view, self, RawFFIBuffer(self), readonly=False)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")

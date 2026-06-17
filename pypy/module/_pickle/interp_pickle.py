@@ -13,6 +13,7 @@ from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
 from pypy.module._pickle.state import State
 from pypy.module.__pypy__.interp_buffer import W_PickleBuffer
+from pypy.module.cpyext.methodobject import W_PyCFunctionObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 
@@ -487,6 +488,7 @@ class DispatchCache(object):
         self.dispatch[space.w_bytearray]   = save_bytearray
         w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
         self.dispatch[w_function]     = save_global
+        self.dispatch[space.gettypefor(W_PyCFunctionObject)] = save_global
         self.dispatch4 = self.dispatch.copy()
         self.dispatch4[space.w_frozenset] = save_frozenset
 
@@ -1641,13 +1643,15 @@ def save_bytearray(self, w_obj):
     space = self.space
     n = space.len_w(w_obj)
     if self.proto >= 5:
-        obj = space.buffer_w(w_obj, 0).as_str()
+        with space.buffer_w(w_obj, 0) as view:
+            obj = view.as_str()
         save_raw_bytearray(self, n, obj)
         self.memoize(w_obj)
     elif n == 0:
         self.save_reduce(space.w_bytearray, space.newtuple([]), w_obj=w_obj)
     else:
-        obj = space.buffer_w(w_obj, 0).as_str()
+        with space.buffer_w(w_obj, 0) as view:
+            obj = view.as_str()
         w_bytes = space.newbytes(obj)
         self.save_reduce(space.w_bytearray, space.newtuple([w_bytes]), w_obj=w_obj)
 

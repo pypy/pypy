@@ -140,6 +140,15 @@ class AppTestPickleCpyextFunction(AppTestCpythonExtensionBase):
             result = _pickle.loads(data)
             assert result is module.identity
 
+        # Also test via the high-level pickle module, which imports pickle.py
+        # and previously installed a broken copyreg.dispatch_table entry that
+        # caused the same TypeError when _pickle then looked it up.
+        import pickle
+        for proto in range(6):
+            data = pickle.dumps(module.identity, protocol=proto)
+            result = pickle.loads(data)
+            assert result is module.identity
+
     def test_pickle_reduce_returning_cpyext_function(self):
         # Regression for issue #5445: object whose __reduce__ returns a cpyext
         # function as the callable also triggered the TypeError.

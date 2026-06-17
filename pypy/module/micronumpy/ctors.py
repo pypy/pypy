@@ -335,14 +335,8 @@ def is_scalar_like(space, w_obj, dtype):
     return False
 
 def _find_shape_and_elems(space, w_iterable, is_rec_type=False):
-    from pypy.objspace.std.bufferobject import W_Buffer
     shape = [space.len_w(w_iterable)]
-    if space.isinstance_w(w_iterable, space.w_buffer):
-        batch = [space.newint(0)] * shape[0]
-        for i in range(shape[0]):
-            batch[i] = space.ord(space.getitem(w_iterable, space.newint(i)))
-    else:
-        batch = space.listview(w_iterable)
+    batch = space.listview(w_iterable)
     while True:
         if not batch:
             return shape[:], []
@@ -530,13 +524,14 @@ def fromstring(space, s, w_dtype=None, count=-1, sep=''):
         return _fromstring_text(space, s, count, sep, length, dtype)
 
 
-def _getbuffer(space, w_buffer):
+def _acquire_buffer(space, w_buffer):
+    """Acquire a buffer for numpy use. Returns (view, buf). Caller must release view."""
     try:
-        return space.writebuf_w(w_buffer)
+        return space.acquire_writebuf(w_buffer)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
-        return space.readbuf_w(w_buffer)
+        return space.acquire_readbuf(w_buffer)
 
 
 @unwrap_spec(count=int, offset=int)
@@ -547,16 +542,17 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
         raise oefmt(space.w_ValueError, "itemsize cannot be zero in type")
 
     try:
-        buf = _getbuffer(space, w_buffer)
+        view, buf = _acquire_buffer(space, w_buffer)
     except OperationError as e:
         if not e.match(space, space.w_TypeError):
             raise
         w_buffer = space.call_method(w_buffer, '__buffer__',
                                     space.newint(space.BUF_FULL_RO))
-        buf = _getbuffer(space, w_buffer)
+        view, buf = _acquire_buffer(space, w_buffer)
 
     ts = buf.getlength()
     if offset < 0 or offset > ts:
+        view.releasebuffer()
         raise oefmt(space.w_ValueError,
                     "offset must be non-negative and no greater than "
                     "buffer length (%d)", ts)
@@ -570,11 +566,13 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     assert itemsize > 0
     if n < 0:
         if s % itemsize != 0:
+            view.releasebuffer()
             raise oefmt(space.w_ValueError,
                         "buffer size must be a multiple of element size")
         n = s / itemsize
     else:
         if s < n * itemsize:
+            view.releasebuffer()
             raise oefmt(space.w_ValueError,
                         "buffer is smaller than requested size")
 
@@ -583,8 +581,18 @@ def frombuffer(space, w_buffer, w_dtype=None, count=-1, offset=0):
     except ValueError:
         a = W_NDimArray.from_shape(space, [n], dtype=dtype)
         loop.fromstring_loop(space, a, dtype, itemsize, buf.as_str())
+        view.releasebuffer()
         return a
+    writable = not buf.readonly
+    try:
+        a = W_NDimArray.from_shape_and_storage(space, [n], storage, storage_bytes=s,
+                                    dtype=dtype, w_base=w_buffer, writable=writable)
+    except OperationError:
+        view.releasebuffer()
+        raise
+    if view.needs_release():
+        a.buf_view = view
+        a.register_finalizer(space)
     else:
-        writable = not buf.readonly
-    return W_NDimArray.from_shape_and_storage(space, [n], storage, storage_bytes=s,
-                                dtype=dtype, w_base=w_buffer, writable=writable)
+        view.releasebuffer()
+    return a

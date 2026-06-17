@@ -482,13 +482,20 @@ def _cleanup_tests():
     from multiprocessing import forkserver
     forkserver._forkserver._stop()
 
-    # Stop the ResourceTracker process if it's running
+    # PYPY: run outstanding Finalize callbacks (e.g. SemLock._cleanup,
+    # temporary directories from get_temp_dir()) BEFORE stopping the
+    # ResourceTracker, so their UNREGISTER messages reach it while it is
+    # still alive.  In CPython, reference-counting destroys objects eagerly
+    # and these callbacks have already fired by this point; in PyPy the GC
+    # may not have collected them yet, so we must flush manually.
+    # bpo-37421: also covers temporary directories created by get_temp_dir().
+    support.gc_collect()
+    _run_finalizers()
+
+    # Stop the ResourceTracker process if it's running.  All UNREGISTER
+    # messages have already been sent above, so the tracker should see an
+    # empty cache and exit without printing "leaked object" warnings.
     from multiprocessing import resource_tracker
     resource_tracker._resource_tracker._stop()
-
-    # bpo-37421: Explicitly call _run_finalizers() to remove immediately
-    # temporary directories created by multiprocessing.util.get_temp_dir().
-    _run_finalizers()
-    support.gc_collect()
 
     support.reap_children()

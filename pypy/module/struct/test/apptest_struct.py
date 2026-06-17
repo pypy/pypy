@@ -409,6 +409,19 @@ def test_unpack_buffer():
     exc = raises(struct.error, struct.unpack_from, "ii", memoryview(b''))
     assert str(exc.value).startswith("unpack_from requires a buffer of at least 8 bytes")
 
+def test_unpack_from_memoryview_of_bytes_slice():
+    # Regression: audioop._get_sample does
+    #     chars = memoryview(cp)[start:end]
+    #     struct.unpack_from(fmt, chars)
+    # A memoryview slice over an immutable bytes object must be accepted
+    # by struct.unpack_from (BUF_SIMPLE).  Exercised by test_aifc.
+    cp = struct.pack("ii", 62, 12)
+    mv = memoryview(cp)
+    chars = mv[0:4]
+    assert struct.unpack_from("i", chars) == (62,)
+    chars2 = mv[4:8]
+    assert struct.unpack_from("i", chars2) == (12,)
+
 def test_iter_unpack():
     import array
     b = array.array('b', b'\0' * 16)
@@ -572,3 +585,42 @@ def test_boundary_error_message_with_large_offset():
     exc = raises(struct.error, struct.pack_into,
                  '<I', bytearray(10), sys.maxsize, 1)
     assert str(exc.value) == expected
+
+
+def test_iter_unpack_holds_bytearray_export():
+    # A live iter_unpack iterator must lock the bytearray (prevent resize).
+    import struct, gc
+    b = bytearray(b'\x01\x02\x03\x04\x05\x06\x07\x08')
+    it = struct.iter_unpack('!I', b)
+    try:
+        b.extend(b'\x00\x00\x00\x00')
+    except BufferError:
+        pass
+    else:
+        raise AssertionError("expected BufferError while iterator alive")
+    list(it)   # exhaust -> eager release
+    del it
+    gc.collect()
+    b.extend(b'\x00\x00\x00\x00')   # must succeed after exhaustion
+
+
+def test_iter_unpack_dropped_releases_bytearray_export():
+    # Bug 1: W_UnpackIter defines _finalize_ but never calls
+    # register_finalizer.  Dropping a mid-iteration iterator leaks _exports
+    # and leaves the bytearray permanently locked.
+    import struct, gc
+    b = bytearray(b'\x01\x02\x03\x04\x05\x06\x07\x08')
+    it = struct.iter_unpack('!I', b)
+    next(it)    # consume one item; eager path only fires on exhaustion
+
+    try:
+        b.extend(b'\x00\x00\x00\x00')   # must raise: iterator still alive
+    except BufferError:
+        pass
+    else:
+        raise AssertionError("expected BufferError while iterator alive")
+
+    del it
+    gc.collect()
+    gc.collect()   # FinalizerQueue may need a second cycle
+    b.extend(b'\x00\x00\x00\x00')   # must NOT raise: GC must release the export

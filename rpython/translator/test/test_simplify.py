@@ -226,6 +226,66 @@ def test_join_blocks_cleans_links():
     remove_same_as(graph)
     backend_optimizations(t)
 
+def test_join_blocks_propagates_source_attribution():
+    # When join_blocks absorbs a block B into its single predecessor, any
+    # operation moved from B must inherit B's source_func/source_line.
+    # This lets the C backend emit per-operation RPython source comments even
+    # after block boundaries have been erased.
+    from rpython.translator.simplify import join_blocks
+    from rpython.flowspace.model import FunctionGraph, Variable, SpaceOperation
+    from rpython.rtyper.lltypesystem import lltype
+
+    sentinel_func = lambda x: x   # used as a source_func tag
+
+    def make_var(name):
+        v = Variable(name)
+        v.concretetype = lltype.Signed
+        return v
+
+    # Build a two-block graph:
+    #   b_prev: [v0] -> op_prev(v0) -> r0 ; single exit to b_target
+    #   b_target: [r0] -> op_target(r0) -> r1 ; single exit to returnblock
+    # b_target has source_func/source_line set.
+    v0, r0, r1 = make_var('v0'), make_var('r0'), make_var('r1')
+
+    from rpython.flowspace.model import Link
+
+    b_prev = Block([v0])
+    op_prev = SpaceOperation('int_neg', [v0], r0)
+    b_prev.operations = [op_prev]
+
+    b_target = Block([r0])
+    b_target.source_func = sentinel_func
+    b_target.source_line = 99
+    op_target = SpaceOperation('int_abs', [r0], r1)
+    b_target.operations = [op_target]
+
+    returnblock = Block([r1])
+    returnblock.operations = ()
+
+    b_prev.closeblock(Link([r0], b_target))
+    b_target.closeblock(Link([r1], returnblock))
+
+    graph = FunctionGraph('test_join', b_prev, r1)
+
+    # Sanity: before joining, op_target has no source_func.
+    assert not hasattr(op_target, 'source_func')
+
+    join_blocks(graph)
+
+    # After joining, b_target was absorbed into b_prev.
+    # The op that came from b_target must now carry source_func/source_line.
+    assert len(b_prev.operations) == 2
+    moved_op = b_prev.operations[1]
+    assert moved_op.opname == 'int_abs'
+    assert getattr(moved_op, 'source_func', None) is sentinel_func
+    assert getattr(moved_op, 'source_line', None) == 99
+
+    # The op originally in b_prev (which had no block-level source_func)
+    # should NOT have source_func added to it.
+    assert not hasattr(b_prev.operations[0], 'source_func')
+
+
 def test_transform_dead_op_vars_bug():
     from rpython.rtyper.llinterp import LLInterpreter, LLException
     exc = ValueError()

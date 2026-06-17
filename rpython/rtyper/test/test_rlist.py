@@ -1766,6 +1766,95 @@ class TestRlist(BaseRtypingTest):
         #
         assert 2 <= res <= 10
 
+    def test_alloc_and_set_none(self):
+        # [None] * n must produce a correctly zeroed GC pointer list
+        class A:
+            pass
+        def fn(n):
+            lst = [None] * n
+            ok = True
+            for i in range(n):
+                if lst[i] is not None:
+                    ok = False
+            return ok
+        res = self.interpret(fn, [10])
+        assert res
+
+    def test_alloc_and_set_none_codegen(self):
+        # [None] * n for a GC pointer list must generate raw_memclear (-> memset)
+        # not a loop of individual stores with write barriers
+        class A:
+            pass
+        def fn(n):
+            lst = [None] * n
+            a = A()
+            lst[0] = a
+            return len(lst)
+        t, rtyper, graph = self.gengraph(fn, [int])
+        found = []
+        for g in t.graphs:
+            for block in g.iterblocks():
+                for op in block.operations:
+                    if op.opname == 'raw_memclear':
+                        found.append(g.name)
+        assert found, "expected raw_memclear in graphs, got none"
+
+    def test_alloc_and_set_obj_no_setitem_call(self):
+        # [obj] * n where obj is a GC instance: _ll_alloc_and_set_nojit fills the
+        # freshly allocated (always young) list via ll_arrayfill/bare_setarrayitem,
+        # not ll_fixed_setitem_fast, so the GC transformer adds no write barriers.
+        class A:
+            pass
+        def fn(n):
+            a = A()
+            lst = [a] * n
+            return len(lst)
+        t, rtyper, graph = self.gengraph(fn, [int])
+        alloc_and_set_graphs = [g for g in t.graphs
+                                if '_ll_alloc_and_set_nojit' in g.name]
+        assert alloc_and_set_graphs, "expected _ll_alloc_and_set_nojit in graphs"
+        setitem_calls = []
+        for g in alloc_and_set_graphs:
+            for block in g.iterblocks():
+                for op in block.operations:
+                    if op.opname == 'direct_call':
+                        try:
+                            fname = op.args[0].value._obj.graph.name
+                        except AttributeError:
+                            fname = ''
+                        if 'setitem' in fname:
+                            setitem_calls.append(fname)
+        assert not setitem_calls, (
+            "expected no setitem call in _ll_alloc_and_set_nojit fill loop; "
+            "got %r" % setitem_calls)
+
+    def test_setitem_loop_has_setarrayitem(self):
+        # lst[i] = A() in a while-loop on an existing list must use setarrayitem
+        # (which becomes gc_writebarrier + bare_setarrayitem after GC transform).
+        # This guards the correctness requirement: the optimization of
+        # _ll_alloc_and_set_nojit must not remove barriers from user-level setitem.
+        class A:
+            pass
+        def fn(n):
+            a = A()
+            lst = [a] * n
+            i = 0
+            while i < n:
+                lst[i] = A()
+                i += 1
+            return len(lst)
+        t, rtyper, graph = self.gengraph(fn, [int])
+        # ll_fixed_setitem_fast contains setarrayitem; its presence in the graphs
+        # confirms write barriers will be added for user-level loop setitem stores
+        sa_found = False
+        for g in t.graphs:
+            for block in g.iterblocks():
+                for op in block.operations:
+                    if op.opname == 'setarrayitem':
+                        sa_found = True
+        assert sa_found, ("expected setarrayitem (-> gc_writebarrier after GC"
+                          " transform) in loop-setitem graphs")
+
     def test_alloc_and_set(self):
         def fn(i):
             lst = [0] * r_uint(i)

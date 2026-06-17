@@ -193,6 +193,13 @@ class W_ArrayInstance(W_DataInstance):
             RawFFIBuffer(self), self.shape.itemcode, self.shape.size,
             w_obj=self)
 
+    def bf_getbuffer(self, space, view, flags):
+        from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        fill_py_buffer_1d(view, self, RawFFIBuffer(self),
+                          readonly=False,
+                          itemsize=self.shape.size,
+                          format=self.shape.itemcode)
+
 
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance', None, None, "read-write",

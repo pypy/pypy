@@ -66,3 +66,37 @@ class AppTestMinimal:
         m = newmemoryview(memoryview(b), 8, '<d')
         print(m.nbytes)
         assert m.nbytes == 8
+
+    def test_newmemoryview_export_via_inner_memoryview(self):
+        # The export lock on the bytearray is held by m1 (the inner
+        # memoryview).  m2 (derived via newmemoryview) borrows that export
+        # and must not decrement the counter when released.
+        from __pypy__ import newmemoryview
+        b = bytearray(b'hello')
+        m1 = memoryview(b)
+        m2 = newmemoryview(m1, 1, 'B', [5])
+        # m1 holds the export; b cannot be resized
+        raises(BufferError, b.append, ord('x'))
+        # releasing m2 must NOT free the export (m1 still holds it)
+        m2.release()
+        raises(BufferError, b.append, ord('x'))
+        # releasing m1 frees the export
+        m1.release()
+        b.append(ord('x'))
+        assert b == bytearray(b'hellox')
+
+    def test_newmemoryview_gc_releases_export(self):
+        # When both the derived and inner memoryview are GC-collected,
+        # the bytearray export must be released exactly once.
+        # Two gc.collect() passes are needed: the first collects m2 (releasing
+        # the reference that keeps m1 alive), the second collects m1 (running
+        # its finalizer which decrements _exports).
+        from __pypy__ import newmemoryview
+        import gc
+        b = bytearray(b'hello')
+        m1 = memoryview(b)
+        m2 = newmemoryview(m1, 1, 'B', [5])
+        del m1, m2
+        gc.collect()
+        gc.collect()
+        b.append(ord('x'))   # must not raise BufferError

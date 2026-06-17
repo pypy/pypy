@@ -60,8 +60,8 @@ def compare_digest(space, w_a, w_b):
 
 
 def compare_digest_buffer(space, w_a, w_b):
-    a = space.charbuf_w(w_a)
-    b = space.charbuf_w(w_b)
+    a = space.bufferstr_w(w_a)
+    b = space.bufferstr_w(w_b)
     return space.newbool(_compare_two_strings(a, b))
 
 def _compare_two_strings(a, b):

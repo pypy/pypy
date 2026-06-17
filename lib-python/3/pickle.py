@@ -36,6 +36,26 @@ import io
 import codecs
 import _compat_pickle
 
+try:
+    from __pypy__.builders import BytesBuilder
+    from __pypy__ import identity_dict
+except ImportError:
+    class identity_dict(dict):
+        def __getitem__(self, key): return super().__getitem__(id(key))
+        def __setitem__(self, key, val): super().__setitem__(id(key), val)
+        def __contains__(self, key): return super().__contains__(id(key))
+        def get(self, key, default=None):
+            return super().get(id(key), default)
+    class BytesBuilder():
+        def __init__(self):
+            self.builder = io.BytesIO()
+        def __len__(self):
+            return self.builder.tell()
+        def build(self):
+            return self.builder.getbuffer()
+        def append(self, data):
+            self.builder.write(data)
+ 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 

@@ -396,6 +396,9 @@ class W_GenericBox(W_NumpyObject):
     def buffer_w(self, space, flags):
         return self.descr_ravel(space).buffer_w(space, flags)
 
+    def bf_getbuffer(self, space, view, flags):
+        self.descr_ravel(space).bf_getbuffer(space, view, flags)
+
     def descr_byteswap(self, space):
         return self.get_dtype(space).itemtype.byteswap(self)
 

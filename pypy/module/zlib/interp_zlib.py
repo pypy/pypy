@@ -237,7 +237,7 @@ def Compress___new__(space, w_subtype, level=rzlib.Z_DEFAULT_COMPRESSION,
     if space.is_none(w_zdict):
         zdict = None
     else:
-        zdict = space.charbuf_w(w_zdict)
+        zdict = space.bufferstr_w(w_zdict)
     w_stream = space.allocate_instance(Compress, w_subtype)
     w_stream = space.interp_w(Compress, w_stream)
     try:
@@ -404,7 +404,7 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     if space.is_none(w_zdict):
         zdict = None
     else:
-        zdict = space.charbuf_w(w_zdict)
+        zdict = space.bufferstr_w(w_zdict)
     w_stream = space.allocate_instance(Decompress, w_subtype)
     w_stream = space.interp_w(Decompress, w_stream)
     try:

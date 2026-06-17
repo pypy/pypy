@@ -15,6 +15,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
+from pypy.interpreter.executioncontext import TICK_COUNTER_STEP
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
@@ -198,18 +199,34 @@ class __extend__(pyframe.PyFrame):
             assert next_instr & 1 == 0
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
-                ec.bytecode_only_trace(self)
+                _d = self.debugdata
+                if ec.space.reverse_debugging or (
+                        _d is not None and _d.w_f_trace is not None):
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
             else:
-                ec.bytecode_trace(self)
-            next_instr = r_uint(self.last_instr)
-            assert next_instr & 1 == 0
+                # Only reload next_instr from last_instr when something that
+                # can modify it actually ran (trace function or action
+                # dispatcher). In the common case (no trace, positive ticker)
+                # next_instr is unchanged and the round-trip is skipped.
+                _d = self.debugdata
+                if ec.space.reverse_debugging or (
+                        _d is not None and _d.w_f_trace is not None) or (
+                        not we_are_translated() and
+                        'bytecode_only_trace' in ec.__dict__):
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
+                actionflag = ec.space.actionflag
+                if actionflag.decrement_ticker(TICK_COUNTER_STEP) < 0:
+                    actionflag.action_dispatcher(ec, self)
+                    next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             oparg = ord(co_code[next_instr + 1])
             next_instr += 2
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
-            # turned into a switch().
+            # turned into computed gotos.
 
             while opcode == opcodedesc.EXTENDED_ARG.index:
                 opcode = ord(co_code[next_instr])
@@ -2001,7 +2018,8 @@ def source_as_str(space, w_source, funcname, what, flags):
                 raise
             raise oefmt(space.w_TypeError,
                         "%s() arg 1 must be a %s object", funcname, what)
-        source = buf.as_str()
+        with buf:
+            source = buf.as_str()
 
     if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
         if '\x00' in source:

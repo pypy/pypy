@@ -155,6 +155,7 @@ class TestStruct(BaseTestPyPyC):
         # W_BytearrayObject._offset
         assert loop.match_by_id('unpack', """
             guard_not_invalidated(descr=...)
+            setfield_gc(_, _, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__exports \d+>)
             i70 = gc_load_indexed_i(p48, i46, 1, _, -2)
         """)
 
@@ -194,12 +195,14 @@ class TestStruct(BaseTestPyPyC):
             dummy_get_utf8?
             guard_not_invalidated(descr=...)
             dummy_get_utf8?
+            _ = int_add(_, 1)
             p68 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__data \d+>)
             i69 = getfield_gc_i(p68, descr=<FieldS list.length \d+>)
             i70 = getfield_gc_i(p14, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__offset \d+>)
             i71 = int_sub(i69, i70)
             i72 = int_sub(i71, 1)
             i73 = int_sub(i71, 5)
+            setfield_gc(p14, _, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__exports \d+>)
             i75 = int_lt(i73, 2)
             guard_false(i75, descr=...)
             i77 = int_le(i62, 32767)
@@ -207,4 +210,8 @@ class TestStruct(BaseTestPyPyC):
             p78 = getfield_gc_r(p68, descr=<FieldP list.items \d+>)
             i81 = int_add(4, i70)
             gc_store_indexed(p78, i81, i62, 1, _, 2, descr=<ArrayS 2>)
+            _ = getfield_gc_i(p14, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__exports \d+>)
+            _ = int_le(_, 0)
+            guard_false(_, descr=...)
+            _ = int_sub(_, 1)
         """)
