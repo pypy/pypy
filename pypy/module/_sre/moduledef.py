@@ -3,6 +3,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
 
     appleveldefs = {
+        'template': 'app_sre.template',
     }
 
     interpleveldefs = {

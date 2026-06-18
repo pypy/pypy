@@ -483,15 +483,13 @@ For each match, the iterator returns a match object."""
                 w_filter = w_ptemplate
                 filter_is_callable = False
             else:
-                # not a literal; hand it over to the template compiler
-                # FIX for a CPython 3.5 bug: if w_ptemplate is a buffer
-                # (e.g. a bytearray), convert it to a byte string here.
+                # not a literal; compile the replacement template
                 if is_buffer:
                     w_ptemplate = space.newbytes(filter_as_string)
                 w_re = import_re(space)
-                w_filter = space.call_method(w_re, '_subx',
+                w_filter = space.call_method(w_re, '_compile_template',
                                              self, w_ptemplate)
-                filter_is_callable = space.is_true(space.callable(w_filter))
+                filter_is_callable = True
         #
         ctx = self.make_ctx(w_string)
         ctx_end = ctx.end
@@ -776,8 +774,9 @@ For 0 returns the entire match."""
     def expand_w(self, w_template):
         space = self.space
         w_re = import_re(space)
-        return space.call_method(w_re, '_expand', self.srepat,
-                                 self, w_template)
+        w_compiled = space.call_method(w_re, '_compile_template',
+                                       self.srepat, w_template)
+        return space.call_function(w_compiled, self)
 
     @unwrap_spec(w_groupnum=WrappedDefault(0))
     def start_w(self, w_groupnum):

@@ -641,3 +641,45 @@ def test_search_releases_buffer():
     s[:] = b'xyz'
     assert m.group() == b'xyz'
     assert m2.group() == b''
+
+
+# ---------------------------------------------------------------------------
+# Tests ported from CPython commits listed in issue gh-5507
+# ---------------------------------------------------------------------------
+
+def test_re_groupref_exists_validation_bug():
+    # gh-98740: validation of conditional expressions in RE
+    import re
+    for i in range(256):
+        re.compile(r'()(?(1)\x%02x?)' % i)
+
+
+def test_sre_template_invalid_group_index():
+    # gh-106524: crash in _sre.template() with invalid indices
+    import _sre
+    with pytest.raises(TypeError, match="invalid template"):
+        _sre.template("", ["", -1, ""])
+    with pytest.raises(TypeError, match="an integer is required"):
+        _sre.template("", ["", (), ""])
+
+
+def test_bug_gh106052():
+    # gh-106052 and gh-100061: possessive quantifiers with backtracking sub-patterns
+    import re
+    assert re.match('(?>(?:ab?c)+)', 'aca').span() == (0, 2)
+    assert re.match('(?:ab?c)++', 'aca').span() == (0, 2)
+    assert re.match('(?>(?:ab?c)*)', 'aca').span() == (0, 2)
+    assert re.match('(?:ab?c)*+', 'aca').span() == (0, 2)
+    assert re.match('(?>(?:ab?c)?)', 'a').span() == (0, 0)
+    assert re.match('(?:ab?c)?+', 'a').span() == (0, 0)
+    assert re.match('(?>(?:ab?c){1,3})', 'aca').span() == (0, 2)
+    assert re.match('(?:ab?c){1,3}+', 'aca').span() == (0, 2)
+    # gh-100061: restore input pointer after possessive sub-pattern
+    assert re.match('(?>(?:.(?!D))+)', 'ABCDE').span() == (0, 2)
+    assert re.match('(?:.(?!D))++', 'ABCDE').span() == (0, 2)
+    assert re.match('(?>(?:.(?!D))*)', 'ABCDE').span() == (0, 2)
+    assert re.match('(?:.(?!D))*+', 'ABCDE').span() == (0, 2)
+    assert re.match('(?>(?:.(?!D))?)', 'CDE').span() == (0, 0)
+    assert re.match('(?:.(?!D))?+', 'CDE').span() == (0, 0)
+    assert re.match('(?>(?:.(?!D)){1,3})', 'ABCDE').span() == (0, 2)
+    assert re.match('(?:.(?!D)){1,3}+', 'ABCDE').span() == (0, 2)
