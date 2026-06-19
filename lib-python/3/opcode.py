@@ -44,8 +44,8 @@ oplists = [hasarg, hasconst, hasname, hasjrel, hasjabs,
 
 opmap = {}
 
-## pseudo opcodes (used in the compiler) mapped to the values
-## they can become in the actual code.
+# pseudo opcodes (used in the compiler) mapped to the values
+# they can become in the actual code.
 _pseudo_ops = {}
 
 def def_op(name, op):
