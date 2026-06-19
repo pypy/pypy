@@ -58,9 +58,13 @@ def _reduce_ex(self, proto):
     for base in cls.__mro__:
         if hasattr(base, '__flags__') and not base.__flags__ & _HEAPTYPE:
             break
-        new = base.__new__
-        if isinstance(new, _new_type) and new.__self__ is base:
-            break
+        # XXX PyPy: new.__self__ does not work for PyPy's __new__ methods;
+        # comment out until a proper solution is found (same as py3.11 branch).
+        # Removing this breaks test_newobj_overridden_new in pickletester.py,
+        # but leaving the broken code breaks all pickling.
+        #new = base.__new__
+        #if isinstance(new, _new_type) and new.__self__ is base:
+        #    break
     else:
         base = object # not really reachable
     if base is object:
