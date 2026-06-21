@@ -3,8 +3,10 @@ This will create the _ctypes_test c-extension module. Unlike _testcapi, the
 extension cannot be wrapped with a _ctypes_test.py module since test.importlib
 explicitly does a c-extension import
 """
-import imp
+import importlib.machinery
+import importlib.util
 import os
+import sys
 
 try:
     import cpyext
@@ -22,8 +24,19 @@ else:
     _ctypes.PyObj_FromPtr = None
     del _ctypes
     try:
-        fp, filename, description = imp.find_module('_ctypes_test', path=[thisdir])
-        with fp:
-            imp.load_module('_ctypes_test', fp, filename, description)
+        # Look for an already-compiled _ctypes_test extension in thisdir
+        # (replaces imp.find_module/imp.load_module, removed in 3.12).
+        filename = None
+        for suffix in importlib.machinery.EXTENSION_SUFFIXES:
+            candidate = os.path.join(thisdir, '_ctypes_test' + suffix)
+            if os.path.exists(candidate):
+                filename = candidate
+                break
+        if filename is None:
+            raise ImportError('_ctypes_test')
+        spec = importlib.util.spec_from_file_location('_ctypes_test', filename)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['_ctypes_test'] = module
+        spec.loader.exec_module(module)
     except ImportError:
         _pypy_testcapi.compile_shared('_ctypes_test.c', '_ctypes_test', thisdir)

@@ -5,7 +5,6 @@ test.importlib explicitly does a c-extension import
 """
 
 
-import imp
 import os
 import shutil
 
