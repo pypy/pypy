@@ -162,6 +162,35 @@ class TestObjSpace:
         assert not is_callable(w_instance)
 
 
+    def test_is_number(self):
+        space = self.space
+        def is_number(w_obj):
+            return space.is_true(space.is_number(w_obj))
+
+        assert is_number(space.wrap(42))
+        assert is_number(space.wrap(42.1))
+        assert is_number(space.wrap(1 + 2j))
+        assert is_number(space.wrap(True))
+        assert not is_number(space.wrap("foo"))
+        assert not is_number(space.wrap([1, 2]))
+        assert not is_number(space.w_None)
+
+        # __index__ is enough (mirrors CPython's nb_index check)
+        w_indexable = space.appexec([], """():
+            class Indexable(object):
+                def __index__(self): return 1
+            return Indexable()""")
+        assert is_number(w_indexable)
+
+        w_floatable = space.appexec([], """():
+            class Floatable(object):
+                def __float__(self): return 1.0
+            return Floatable()""")
+        assert is_number(w_floatable)
+
+        w_plain = space.appexec([], "():\n class Plain(object): pass\n return Plain()")
+        assert not is_number(w_plain)
+
     def test_int_w(self):
         space = self.space
         w_x = space.wrap(42)

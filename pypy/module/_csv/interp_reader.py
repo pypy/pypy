@@ -100,6 +100,8 @@ class W_Reader(W_Root):
                         state = IN_QUOTED_FIELD
                     elif c == dialect.escapechar:
                         # possible escaped character
+                        if dialect.quoting == QUOTE_NONNUMERIC:
+                            self.numeric_field = 1
                         state = ESCAPED_CHAR
                     elif c == ord(u' ') and dialect.skipinitialspace:
                         # ignore space at start of field

@@ -5,7 +5,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w
 from pypy.module._csv.interp_csv import _build_dialect, NOT_SET
-from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
+from pypy.module._csv.interp_csv import (QUOTE_STRINGS, QUOTE_ALL, QUOTE_NOTNULL,
                                          QUOTE_NONNUMERIC, QUOTE_NONE)
 
 
@@ -31,6 +31,31 @@ class W_Writer(W_Root):
         w_error = space.getattr(w_module, space.newtext('Error'))
         return OperationError(w_error, space.newtext(msg))
 
+    def field_needs_quoting(self, field, quoted):
+        # First pass over the field data (CPython's join_append_data called
+        # with copy_phase=0): decide whether the field must be quoted.  This
+        # has to happen before the opening quote is written, because a special
+        # character anywhere in the field can force quoting of the whole field.
+        dialect = self.dialect
+        if quoted:
+            # already known to need quoting (QUOTE_ALL, QUOTE_NONNUMERIC of a
+            # non-number, ...); the scan below can only ever set quoted=True,
+            # so there is nothing to discover - skip the extra pass.
+            return quoted
+        if dialect.quoting == QUOTE_NONE:
+            return quoted
+        special_characters = self.special_characters
+        for c in Utf8StringIterator(field):
+            if c in special_characters:
+                if c == dialect.quotechar:
+                    if not dialect.doublequote:
+                        continue    # want_escape, does not force quoting
+                elif c == dialect.escapechar:
+                    continue        # want_escape, does not force quoting
+                quoted = True
+                break
+        return quoted
+
     def writerow(self, w_fields):
         """Construct and write a CSV record from a sequence of fields.
         Non-string elements will be converted to string."""
@@ -44,10 +69,24 @@ class W_Writer(W_Root):
             
         dialect = self.dialect
         rec = Utf8StringBuilder(80)
+        # remember whether the last field was None, for the single empty
+        # field record check below (CPython's null_field)
+        null_field = False
         #
         for field_index in range(len(fields_w)):
             w_field = fields_w[field_index]
-            if space.is_w(w_field, space.w_None):
+            if dialect.quoting == QUOTE_NONNUMERIC:
+                quoted = not space.is_number_w(w_field)
+            elif dialect.quoting == QUOTE_ALL:
+                quoted = True
+            elif dialect.quoting == QUOTE_STRINGS:
+                quoted = space.isinstance_w(w_field, space.w_text)
+            elif dialect.quoting == QUOTE_NOTNULL:
+                quoted = not space.is_none(w_field)
+            else:
+                quoted = False
+            null_field = space.is_w(w_field, space.w_None)
+            if null_field:
                 field = ""
                 length = 0
             elif space.isinstance_w(w_field, space.w_float):
@@ -55,46 +94,20 @@ class W_Writer(W_Root):
             else:
                 field, length = space.utf8_len_w(space.str(w_field))
             #
-            if dialect.quoting == QUOTE_NONNUMERIC:
-                try:
-                    space.float_w(w_field)    # is it an int/long/float?
-                    quoted = False
-                except OperationError as e:
-                    if e.async(space):
-                        raise
-                    quoted = True
-            elif dialect.quoting == QUOTE_ALL:
-                quoted = True
-            elif dialect.quoting == QUOTE_MINIMAL:
-                # Find out if we really need quoting.
-                special_characters = self.special_characters
-                for c in Utf8StringIterator(field):
-                    if c not in special_characters:
-                        continue
-                    if c == dialect.escapechar:
-                        # we want to escape, but not necessarily to quote
-                        continue
-                    if c != dialect.quotechar or dialect.doublequote:
-                        quoted = True
-                        break
-                else:
-                    quoted = False
-            else:
-                quoted = False
             if len(field) == 0:
                 if dialect.delimiter == ord(' ') and dialect.skipinitialspace:
-                    if dialect.quoting == QUOTE_NONE:
+                    if (dialect.quoting == QUOTE_NONE or
+                            (null_field and dialect.quoting in
+                                 (QUOTE_STRINGS, QUOTE_NOTNULL))):
                         raise self.error(
                              "empty field must be quoted if delimiter is a space "
                              "and skipinitialspace is true")
                     quoted = True
 
-                # If field is empty check if it needs to be quoted
-                if len(fields_w) == 1:
-                    if dialect.quoting == QUOTE_NONE:
-                        raise self.error("single empty field record "
-                                         "must be quoted")
-                    quoted = True
+            # Decide whether the field must be quoted before writing the
+            # opening quote: a special character anywhere in the field forces
+            # quoting (CPython does this in join_append_data's copy_phase=0).
+            quoted = self.field_needs_quoting(field, quoted)
 
             # If this is not the first field we need a field separator
             if field_index > 0:
@@ -104,34 +117,46 @@ class W_Writer(W_Root):
             if quoted:
                 rec.append_code(dialect.quotechar)
 
-            # Copy field data
+            # Copy/count field data
+            # If field is null just pass over
             special_characters = self.special_characters
             for c in Utf8StringIterator(field):
+                want_escape = False
                 if c in special_characters:
                     if dialect.quoting == QUOTE_NONE:
                         want_escape = True
                     else:
-                        want_escape = False
                         if c == dialect.quotechar:
                             if dialect.doublequote:
                                 rec.append_code(dialect.quotechar)
                             else:
                                 want_escape = True
-                        if c == dialect.escapechar:
+                        elif c == dialect.escapechar:
                             want_escape = True
+                        if not want_escape:
+                            quoted = True
                     if want_escape:
                         if dialect.escapechar == NOT_SET:
                             raise self.error("need to escape, "
                                              "but no escapechar set")
                         rec.append_code(dialect.escapechar)
-                    else:
-                        assert quoted
                 # Copy field character into record buffer
                 rec.append_code(c)
 
             # Handle final quote
             if quoted:
                 rec.append_code(dialect.quotechar)
+
+        # If the record consists of a single empty field, it must be quoted
+        # (CPython csv_writerow); otherwise it would be indistinguishable from
+        # an empty record.
+        if len(fields_w) > 0 and rec.getlength() == 0:
+            if (dialect.quoting == QUOTE_NONE or
+                    (null_field and dialect.quoting in
+                         (QUOTE_STRINGS, QUOTE_NOTNULL))):
+                raise self.error("single empty field record must be quoted")
+            rec.append_code(dialect.quotechar)
+            rec.append_code(dialect.quotechar)
 
         # Add line terminator
         rec.append(dialect.lineterminator)

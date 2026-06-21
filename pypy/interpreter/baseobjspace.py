@@ -1307,6 +1307,17 @@ class ObjSpace(object):
     def callable(self, w_obj):
         return self.newbool(self.callable_w(w_obj))
 
+    def is_number_w(self, w_obj):
+        # Like CPython's PyNumber_Check: the type provides __index__, __int__
+        # or __float__ (i.e. nb_index/nb_int/nb_float), or it is a complex.
+        return (self.lookup(w_obj, '__index__') is not None or
+                self.lookup(w_obj, '__int__') is not None or
+                self.lookup(w_obj, '__float__') is not None or
+                self.isinstance_w(w_obj, self.w_complex))
+
+    def is_number(self, w_obj):
+        return self.newbool(self.is_number_w(w_obj))
+
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
