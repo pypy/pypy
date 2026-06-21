@@ -54,5 +54,11 @@ class Module(MixedModule):
             if hasattr(clibffi, name):
                 Module.interpleveldefs[name] = "space.wrap(%r)" % getattr(clibffi, name)
 
+        # CPython 3.12's ctypes/__init__.py does "from _ctypes import
+        # SIZEOF_TIME_T" to pick the integer type backing c_time_t.
+        from rpython.rtyper.lltypesystem import rffi
+        Module.interpleveldefs['SIZEOF_TIME_T'] = (
+            "space.wrap(%r)" % rffi.sizeof(rffi.TIME_T))
+
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)
