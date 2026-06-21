@@ -497,8 +497,8 @@ class PyCode(eval.Code):
         return space.newtuple2(new_inst, space.newtuple(tup))
 
     def descr_co_positions(self, space):
-        """A list of 4-element tuples that represent the position information corresponding to each
-        instruction."""
+        """Returns an iterator of 4-element tuples that represent the position
+        information corresponding to each instruction."""
         from pypy.interpreter.location import _decode_entry, DecodeError
         def w(space, i):
             if i == -1:
@@ -516,7 +516,7 @@ class PyCode(eval.Code):
                 pass
 
         if self.co_linetable == '':
-            return space.newlist([])
+            return space.iter(space.newlist([]))
 
         table_w = []
         position = 0
@@ -537,7 +537,7 @@ class PyCode(eval.Code):
                 w(space, end_col_offset)
             ]
             table_w.append(space.newtuple(tup_w))
-        return space.newlist(table_w)
+        return space.iter(space.newlist(table_w))
 
 
     def descr_replace(self, space, __args__):
