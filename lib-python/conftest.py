@@ -17,6 +17,22 @@ from pypy.tool.pytest.confpath import pypydir, testdir
 pytest_plugins = "resultlog",
 rsyncdirs = ['.', '../pypy/']
 
+# The vendored pytest's assertion-rewrite module is Python 3 only (it does
+# "import importlib.util"), so it cannot be imported when the test runner runs
+# on top of the pypy2.7 host.  Force the reinterp assertion mode here, the same
+# way pypy/conftest.py does for the pypy/ tests (that conftest is only loaded
+# for pypy/ paths, not for lib-python ones).
+if pytest.__version__[0] > '6':
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_load_initial_conftests(args):
+        if not (set(args) & {'-D', '--direct-apptest'}):
+            args.append('--assert=reinterp')
+else:
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_cmdline_preparse(config, args):
+        if not (set(args) & {'-D', '--direct-apptest'}):
+            args.append('--assert=reinterp')
+
 #
 # Interfacing/Integrating with pytest's collection process
 #
