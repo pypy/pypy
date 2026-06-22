@@ -28,11 +28,11 @@ class AppTestImpModule:
         return fname
 
     def w__pyc_file(self):
-        import marshal, imp
+        import marshal, importlib.util
         co = compile("marker=42", "x.py", "exec")
         fname = self.udir + '/@TEST.pyc'
         f = open(fname, 'wb')
-        f.write(imp.get_magic())
+        f.write(importlib.util.MAGIC_NUMBER)
         f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
@@ -40,27 +40,25 @@ class AppTestImpModule:
         f.close()
         return fname
 
-    def test_find_module(self):
-        import os, imp
-        file, pathname, description = imp.find_module('cmd')
-        assert file is not None
-        file.close()
-        assert os.path.exists(pathname)
-        pathname = pathname.lower()
-        assert pathname.endswith('.py') # even if .pyc is up-to-date
-        assert description in imp.get_suffixes()
+    def w_load_source(self, name, path):
+        # replaces imp.load_source(name, path), removed in 3.12
+        import importlib.util, importlib.machinery, sys
+        loader = importlib.machinery.SourceFileLoader(name, path)
+        spec = importlib.util.spec_from_file_location(name, path, loader=loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        loader.exec_module(module)
+        return module
 
-    def test_find_module_with_encoding(self):
-        import sys, imp
-        sys.path.insert(0, self.udir)
-        try:
-            file, pathname, description = imp.find_module('latin1')
-            assert file.encoding == 'iso-8859-1'
-            #
-            file, pathname, description = imp.find_module('fake_latin1')
-            assert file.encoding == 'utf-8'
-        finally:
-            del sys.path[0]
+    def w_load_compiled(self, name, path):
+        # replaces imp.load_compiled(name, path), removed in 3.12
+        import importlib.util, importlib.machinery, sys
+        loader = importlib.machinery.SourcelessFileLoader(name, path)
+        spec = importlib.util.spec_from_file_location(name, path, loader=loader)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        loader.exec_module(module)
+        return module
 
     def test_create_dynamic(self):
         import _imp
@@ -82,21 +80,6 @@ class AppTestImpModule:
         # functions that don't check the type of the argument.
         raises(TypeError, _imp.create_dynamic, FakeSpec(b'foo'))
 
-    def test_suffixes(self):
-        import imp
-        for suffix, mode, type in imp.get_suffixes():
-            if type == imp.PY_SOURCE:
-                assert suffix in ('.py', '.pyw')
-                assert mode == 'r'
-            elif type == imp.PY_COMPILED:
-                assert suffix == '.pyc'
-                assert mode == 'rb'
-            elif type == imp.C_EXTENSION:
-                assert suffix.endswith(('.pyd', '.so'))
-                assert mode == 'rb'
-            else:
-                assert False, ("Unknown type", suffix, mode, type)
-
     def test_ext_suffixes(self):
         import _imp
         for suffix in _imp.extension_suffixes():
@@ -104,68 +87,40 @@ class AppTestImpModule:
             assert suffix.endswith(('.pyd', '.so'))
 
     def test_obscure_functions(self):
-        import imp
-        mod = imp.new_module('hi')
+        import _imp, types
+        mod = types.ModuleType('hi')
         assert mod.__name__ == 'hi'
-        mod = imp.init_builtin('hello.world.this.is.never.a.builtin.module.name')
+        mod = _imp.init_frozen('hello.world.this.is.never.a.frozen.module.name')
         assert mod is None
-        mod = imp.init_frozen('hello.world.this.is.never.a.frozen.module.name')
-        assert mod is None
-        assert imp.is_builtin('sys')
-        assert not imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
-        assert not imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
+        assert _imp.is_builtin('sys')
+        assert not _imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
+        assert not _imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
     def test_find_frozen(self):
         import _imp
         assert _imp.find_frozen('hello.what.now') is None
 
     def test_is_builtin(self):
-        import sys, imp
+        import sys, _imp
+        from importlib.machinery import BuiltinImporter
         for name in sys.builtin_module_names:
-            assert imp.is_builtin(name)
-            mod = imp.init_builtin(name)
-            assert mod
-            assert mod.__spec__
+            assert _imp.is_builtin(name)
+            spec = BuiltinImporter.find_spec(name)
+            assert spec is not None
     test_is_builtin.dont_track_allocations = True
 
-    def test_load_module_py(self):
-        import imp
-        fn = self._py_file()
-        descr = ('.py', 'r', imp.PY_SOURCE)
-        f = open(fn, 'r')
-        mod = imp.load_module('test_imp_extra_AUTO1', f, fn, descr)
-        f.close()
-        assert mod.MARKER == 42
-        import test_imp_extra_AUTO1
-        assert mod is test_imp_extra_AUTO1
-
-    def test_load_module_pyc_1(self):
-        import os, imp
-        fn = self._pyc_file()
-        try:
-            descr = ('.pyc', 'rb', imp.PY_COMPILED)
-            f = open(fn, 'rb')
-            mod = imp.load_module('test_imp_extra_AUTO2', f, fn, descr)
-            f.close()
-            assert mod.marker == 42
-            import test_imp_extra_AUTO2
-            assert mod is test_imp_extra_AUTO2
-        finally:
-            os.unlink(fn)
-
     def test_load_source(self):
-        import imp
         fn = self._py_file()
-        mod = imp.load_source('test_imp_extra_AUTO3', fn)
+        mod = self.load_source('test_imp_extra_AUTO3', fn)
         assert mod.MARKER == 42
         import test_imp_extra_AUTO3
         assert mod is test_imp_extra_AUTO3
 
     def test_load_module_pyc_2(self):
-        import os, imp
+        import os
         fn = self._pyc_file()
         try:
-            mod = imp.load_compiled('test_imp_extra_AUTO4', fn)
+            mod = self.load_compiled('test_imp_extra_AUTO4', fn)
             assert mod.marker == 42
             import test_imp_extra_AUTO4
             assert mod is test_imp_extra_AUTO4
@@ -173,32 +128,13 @@ class AppTestImpModule:
             os.unlink(fn)
 
     def test_load_broken_pyc(self):
-        import imp
         fn = self._py_file()
         try:
-            imp.load_compiled('test_imp_extra_AUTO5', fn)
+            self.load_compiled('test_imp_extra_AUTO5', fn)
         except ImportError:
             pass
         else:
             raise Exception("expected an ImportError")
-
-    def test_load_module_in_sys_modules(self):
-        import imp
-        fn = self._py_file()
-        f = open(fn, 'rb')
-        descr = ('.py', 'r', imp.PY_SOURCE)
-        mod = imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
-        f.close()
-        f = open(fn, 'rb')
-        mod2 = imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
-        f.close()
-        assert mod2 is mod
-
-    def test_nullimporter(self):
-        import os, imp
-        importer = imp.NullImporter("path")
-        assert importer.find_module(1) is None
-        raises(ImportError, imp.NullImporter, os.getcwd())
 
     def test_path_importer_cache(self):
         import os
@@ -318,11 +254,10 @@ class AppTestImpModule:
             time1.process_time = old
 
     def test_get_tag(self):
-        import imp
         import sys
         if not hasattr(sys, 'pypy_version_info'):
             skip('This test is PyPy-only')
-        assert imp.get_tag() == 'pypy%d%d' % (sys.version_info[:2])
+        assert sys.implementation.cache_tag == 'pypy%d%d' % (sys.version_info[:2])
 
     def test_unicode_in_sys_path(self):
         # issue 3112: when _getimporter calls

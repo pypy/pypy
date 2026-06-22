@@ -61,7 +61,7 @@ def setup_directory_structure(cls):
                     a = "imamodule = 1\ninpackage = 0",
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
-                    infinite_reload = "import infinite_reload, imp; imp.reload(infinite_reload)",
+                    infinite_reload = "import infinite_reload, importlib; importlib.reload(infinite_reload)",
                     del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
                     gc = "should_never_be_seen = 42\n",
                     )
@@ -81,8 +81,8 @@ def setup_directory_structure(cls):
              absolute   = "from __future__ import absolute_import\nimport struct",
              relative_b = "from __future__ import absolute_import\nfrom . import struct",
              relative_c = "from __future__ import absolute_import\nfrom .struct import inpackage",
-             relative_f = "from .imp import get_magic",
-             relative_g = "import imp; from .imp import get_magic",
+             relative_f = "from .os import path",
+             relative_g = "import os; from .os import path",
              inpackage  = "inpackage = 1",
              function_a = "g = {'__name__': 'pkg.a'}; __import__('inpackage', g); print(g)",
              function_b = "g = {'__name__': 'not.a'}; __import__('inpackage', g); print(g)",
@@ -411,11 +411,12 @@ class AppTestImport(BaseFSEncodeTest):
         raises(ValueError, __import__, "")
 
     def test_py_directory(self):
-        import imp, os, sys
+        import importlib.util, os, sys
         source = os.path.join(sys.path[0], 'foo.py')
         os.mkdir(source)
         try:
-            raises(ImportError, imp.find_module, 'foo')
+            # a directory called 'foo.py' is not an importable module
+            assert importlib.util.find_spec('foo') is None
         finally:
             os.rmdir(source)
 
@@ -439,13 +440,13 @@ class AppTestImport(BaseFSEncodeTest):
         def imp():
             from pkg import relative_f
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named 'pkg.imp'"
+        assert exc.value.args[0] == "No module named 'pkg.os'"
 
     def test_no_relative_import_bug(self):
         def imp():
             from pkg import relative_g
         exc = raises(ImportError, imp)
-        assert exc.value.args[0] == "No module named 'pkg.imp'"
+        assert exc.value.args[0] == "No module named 'pkg.os'"
 
     def test_import_msg(self):
         def imp():
@@ -494,8 +495,8 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_relative_import_with___name__and___path__(self):
         import sys
-        import imp
-        foo = imp.new_module('foo')
+        import types
+        foo = types.ModuleType('foo')
         sys.modules['sys.foo'] = foo
         mydict = {'__name__': 'sys.foo', '__path__': '/some/path'}
         res = __import__('', mydict, mydict, ('bar',), 1)
@@ -503,10 +504,10 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_relative_import_pkg(self):
         import sys
-        import imp
-        pkg = imp.new_module('newpkg')
+        import types
+        pkg = types.ModuleType('newpkg')
         sys.modules['newpkg'] = pkg
-        sys.modules['newpkg.foo'] = imp.new_module('newpkg.foo')
+        sys.modules['newpkg.foo'] = types.ModuleType('newpkg.foo')
         mydict = {'__name__': 'newpkg.foo', '__path__': '/some/path'}
         res = __import__('', mydict, None, ['bar'], 2)
         assert res is pkg
@@ -578,7 +579,7 @@ class AppTestImport(BaseFSEncodeTest):
         assert mod.c == "foo\nbar"
 
     def test_reload(self):
-        import test_reload, imp
+        import test_reload, importlib
         try:
             test_reload.test()
         except ValueError:
@@ -593,7 +594,7 @@ class AppTestImport(BaseFSEncodeTest):
 
         with open(test_reload.__file__, "w") as f:
             f.write("def test():\n    raise NotImplementedError\n")
-        imp.reload(test_reload)
+        importlib.reload(test_reload)
         try:
             test_reload.test()
         except NotImplementedError:
@@ -610,28 +611,28 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_reload_failing(self):
         import test_reload
-        import time, imp
+        import time, importlib
         time.sleep(1)
         with open(test_reload.__file__, "w") as f:
             f.write("a = 10 // 0\n")
 
         # A failing reload should leave the previous module in sys.modules
-        raises(ZeroDivisionError, imp.reload, test_reload)
+        raises(ZeroDivisionError, importlib.reload, test_reload)
         import os, sys
         assert 'test_reload' in sys.modules
         assert test_reload.test
         os.unlink(test_reload.__file__)
 
     def test_reload_submodule(self):
-        import pkg.a, imp
-        imp.reload(pkg.a)
+        import pkg.a, importlib
+        importlib.reload(pkg.a)
 
     def test_reload_builtin_doesnt_clear(self):
-        import imp
+        import importlib
         import sys
         sys.foobar = "baz"
         try:
-            imp.reload(sys)
+            importlib.reload(sys)
             assert sys.foobar == "baz"
         finally:
             del sys.foobar
@@ -652,7 +653,7 @@ class AppTestImport(BaseFSEncodeTest):
         assert not hasattr(time, 'foo')
 
     def test_reimport_builtin(self):
-        import imp, sys, time
+        import importlib, sys, time
         old_sleep = time.sleep
         time.sleep = "<test_reimport_builtin removed this>"
 
@@ -662,7 +663,7 @@ class AppTestImport(BaseFSEncodeTest):
 
         assert time.sleep == "<test_reimport_builtin removed this>"
 
-        imp.reload(time1)   # don't leave a broken time.sleep behind
+        importlib.reload(time1)   # don't leave a broken time.sleep behind
         import time
         assert time.sleep is old_sleep
 
@@ -670,7 +671,7 @@ class AppTestImport(BaseFSEncodeTest):
         import infinite_reload
 
     def test_reload_module_subclass(self):
-        import types, imp
+        import types, importlib
 
         #MyModType = types.ModuleType
         class MyModType(types.ModuleType):
@@ -680,7 +681,7 @@ class AppTestImport(BaseFSEncodeTest):
         with raises(ImportError):
             # Fails because the module is not in sys.modules, but *not* because
             # it's a subtype of ModuleType.
-            imp.reload(m)
+            importlib.reload(m)
 
 
     def test_explicitly_missing(self):
@@ -704,33 +705,17 @@ class AppTestImport(BaseFSEncodeTest):
             assert False, 'should not work'
 
     def test_cache_from_source(self):
-        import imp, sys
+        import importlib.util, sys
         if sys.platform == 'win32':
             sep = '\\'
         else:
             sep = '/'
         tag = sys.implementation.cache_tag
-        pycfile = imp.cache_from_source('a/b/c.py')
+        pycfile = importlib.util.cache_from_source('a/b/c.py')
         assert pycfile == sep.join(('a/b', '__pycache__', 'c.%s.pyc' % tag))
-        assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
+        assert importlib.util.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
                                      ) == sep.join(('a/b', 'c.py'))
-        raises(ValueError, imp.source_from_cache, 'a/b/c.py')
-
-    @pytest.mark.skip("sys.version_info > (3, 6)")
-    def test_invalid_pathname(self):
-        import imp
-        import pkg
-        import os
-        pathname = os.path.join(os.path.dirname(pkg.__file__), 'a.py')
-        with open(pathname) as fid:
-            module = imp.load_module('a', fid,
-                                 'invalid_path_name', ('.py', 'r', imp.PY_SOURCE))
-        assert module.__name__ == 'a'
-        assert module.__file__ == 'invalid_path_name'
-
-    def test_crash_load_module(self):
-        import imp
-        raises(ValueError, imp.load_module, "", "", "", [1, 2, 3, 4])
+        raises(ValueError, importlib.util.source_from_cache, 'a/b/c.py')
 
     def test_import_star_finds_submodules_with___all__(self):
         for case in ["not-imported-yet", "already-imported"]:
@@ -779,49 +764,13 @@ class AppTestImport(BaseFSEncodeTest):
             def flush(self):
                 return
 
-        import sys, imp
+        import sys, importlib
         sys.stderr = StdErr()
         try:
             import verbose0pkg.verbosemod
         finally:
-            imp.reload(sys)
+            importlib.reload(sys)
         assert not output
-
-    def test_source_encoding(self):
-        import imp
-        import encoded
-        fd = imp.find_module('line2', encoded.__path__)[0]
-        assert fd.encoding == 'iso-8859-1'
-        assert fd.tell() == 0
-
-    def test_bad_source_encoding(self):
-        import imp
-        import encoded
-        raises(SyntaxError, imp.find_module, 'bad', encoded.__path__)
-
-    def test_find_module_fsdecode(self):
-        name = self.special_char
-        if not name:
-            import sys
-            skip("can't run this test with %s as filesystem encoding"
-                 % sys.getfilesystemencoding())
-        import imp
-        import encoded
-        f, filename, _ = imp.find_module(name, encoded.__path__)
-        assert f is not None
-        assert filename[:-3].endswith(name)
-
-    def test_unencodable(self):
-        if not self.testfn_unencodable:
-            skip("need an unencodable filename")
-        import imp
-        import os
-        name = self.testfn_unencodable
-        os.mkdir(name)
-        try:
-            raises(ImportError, imp.NullImporter, name)
-        finally:
-            os.rmdir(name)
 
     @pytest.mark.skipif(not hasattr(py.path.local, "mksymlinkto"), reason="requires symlinks")
     def test_dev_null_init_file(self):
@@ -1068,7 +1017,7 @@ class AppTestImportHooks(object):
         cls.space.appexec([], """
             ():
                 # Obscure: manually bootstrap the utf-8/latin1 codecs
-                # for TextIOs opened by imp.find_module. It's not
+                # for TextIOs opened by the import machinery. It's not
                 # otherwise loaded by the test infrastructure but would
                 # have been by app_main
                 import encodings.utf_8
@@ -1084,7 +1033,7 @@ class AppTestImportHooks(object):
     def test_meta_path(self):
         tried_imports = []
         class Importer(object):
-            def find_module(self, fullname, path=None):
+            def find_spec(self, fullname, path=None, target=None):
                 tried_imports.append((fullname, path))
 
         import sys, math
@@ -1105,17 +1054,18 @@ class AppTestImportHooks(object):
             sys.meta_path.pop(0)
 
     def test_meta_path_block(self):
+        import importlib.util
         class ImportBlocker(object):
             "Specified modules can't be imported, even if they are built-in"
             def __init__(self, *namestoblock):
                 self.namestoblock = dict.fromkeys(namestoblock)
-            def find_module(self, fullname, path=None):
+            def find_spec(self, fullname, path=None, target=None):
                 if fullname in self.namestoblock:
-                    return self
+                    return importlib.util.spec_from_loader(fullname, self)
             def load_module(self, fullname):
                 raise ImportError("blocked")
 
-        import sys, imp
+        import sys
         modname = "errno" # an arbitrary harmless builtin module
         mod = None
         if modname in sys.modules:
@@ -1124,20 +1074,17 @@ class AppTestImportHooks(object):
         sys.meta_path.insert(0, ImportBlocker(modname))
         try:
             raises(ImportError, __import__, modname)
-            # the imp module doesn't use meta_path, and is not blocked
-            # (until imp.get_loader is implemented, see PEP302)
-            file, filename, stuff = imp.find_module(modname)
-            imp.load_module(modname, file, filename, stuff)
         finally:
             sys.meta_path.pop(0)
             if mod:
                 sys.modules[modname] = mod
 
     def test_path_hooks_leaking(self):
+        import importlib.util
         class Importer(object):
-            def find_module(self, fullname, path=None):
+            def find_spec(self, fullname, target=None):
                 if fullname == "a":
-                    return self
+                    return importlib.util.spec_from_loader(fullname, self)
 
             def load_module(self, name):
                 sys.modules[name] = sys
@@ -1147,7 +1094,7 @@ class AppTestImportHooks(object):
             if path == "xxx":
                 return Importer()
             raise ImportError()
-        import sys, imp
+        import sys
         try:
             sys.path_hooks.append(importer_for_path)
             sys.path.insert(0, "yyy")
@@ -1161,61 +1108,6 @@ class AppTestImportHooks(object):
         finally:
             sys.path.pop(0)
             sys.path.pop(0)
-            sys.path_hooks.pop()
-
-    def test_imp_wrapper(self):
-        import sys, os, imp
-        class ImpWrapper:
-
-            def __init__(self, path=None):
-                if path is not None and not os.path.isdir(path):
-                    raise ImportError
-                self.path = path
-
-            def find_module(self, fullname, path=None):
-                subname = fullname.split(".")[-1]
-                if subname != fullname and self.path is None:
-                    return None
-                if self.path is None:
-                    path = None
-                else:
-                    path = [self.path]
-                try:
-                    file, filename, stuff = imp.find_module(subname, path)
-                except ImportError:
-                    return None
-                return ImpLoader(file, filename, stuff)
-
-        class ImpLoader:
-
-            def __init__(self, file, filename, stuff):
-                self.file = file
-                self.filename = filename
-                self.stuff = stuff
-
-            def load_module(self, fullname):
-                mod = imp.load_module(fullname, self.file, self.filename, self.stuff)
-                if self.file:
-                    self.file.close()
-                mod.__loader__ = self  # for introspection
-                return mod
-
-        i = ImpWrapper()
-        sys.meta_path.append(i)
-        sys.path_hooks.append(ImpWrapper)
-        sys.path_importer_cache.clear()
-        try:
-            mnames = ("colorsys", "html.parser")
-            for mname in mnames:
-                parent = mname.split(".")[0]
-                for n in sys.modules.keys():
-                    if n.startswith(parent):
-                        del sys.modules[n]
-            for mname in mnames:
-                m = __import__(mname, globals(), locals(), ["__dummy__"])
-                m.__loader__  # to make sure we actually handled the import
-        finally:
-            sys.meta_path.pop()
             sys.path_hooks.pop()
 
     def test_path_hooks_module(self):
@@ -1240,11 +1132,12 @@ class AppTestImportHooks(object):
         # check that we get a KeyError somewhere inside
         # <frozen importlib._bootstrap>, like CPython 3.5
 
+        import importlib.util
         class ImportHook(object):
-            def find_module(self, fullname, path=None):
+            def find_spec(self, fullname, path=None, target=None):
                 assert not fullname.endswith('*')
                 if fullname == 'meta_path_pseudo_module':
-                    return self
+                    return importlib.util.spec_from_loader(fullname, self)
             def load_module(self, fullname):
                 assert fullname == 'meta_path_pseudo_module'
                 # we "forget" to update sys.modules
@@ -1258,10 +1151,11 @@ class AppTestImportHooks(object):
             sys.meta_path.pop()
 
     def test_meta_path_import_star_2(self):
+        import importlib.util
         class ImportHook(object):
-            def find_module(self, fullname, path=None):
+            def find_spec(self, fullname, path=None, target=None):
                 if fullname.startswith('meta_path_2_pseudo_module'):
-                    return self
+                    return importlib.util.spec_from_loader(fullname, self)
             def load_module(self, fullname):
                 assert fullname == 'meta_path_2_pseudo_module'
                 m = types.ModuleType('meta_path_2_pseudo_module')

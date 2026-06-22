@@ -52,9 +52,16 @@ class SpaceCompiler(SystemCompilationInfo):
         if use_imp:
             # this is VERY slow and should be used only by tests which
             # actually needs it
+            # replaces imp.load_dynamic(name, path), removed in 3.12
             return space.appexec([w_name, w_path], '''(name, path):
-                import imp
-                return imp.load_dynamic(name, path)''')
+                import importlib.machinery, importlib.util, sys
+                loader = importlib.machinery.ExtensionFileLoader(name, path)
+                spec = importlib.util.spec_from_file_location(
+                    name, path, loader=loader)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[name] = module
+                loader.exec_module(module)
+                return module''')
         else:
             w_spec = space.appexec([w_name, w_path], '''(modname, path):
                 class FakeSpec:
@@ -573,8 +580,14 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         foo = self.import_module(name='foo', body=body, use_imp=True)
         assert 'foo' in sys.modules
         del sys.modules['foo']
-        import imp
-        foo2 = imp.load_dynamic('foo', foo.__file__)
+        # replaces imp.load_dynamic('foo', foo.__file__), removed in 3.12
+        import importlib.machinery, importlib.util
+        loader = importlib.machinery.ExtensionFileLoader('foo', foo.__file__)
+        spec = importlib.util.spec_from_file_location(
+            'foo', foo.__file__, loader=loader)
+        foo2 = importlib.util.module_from_spec(spec)
+        sys.modules['foo'] = foo2
+        loader.exec_module(foo2)
         assert 'foo' in sys.modules
         assert foo.__dict__ == foo2.__dict__
 
