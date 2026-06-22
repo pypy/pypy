@@ -237,15 +237,6 @@ def create_package(basedir, options, _fake=False):
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
     if not options.no_cffi:
-        # hand the C toolchain down to the (distutils-free) cffi build; on
-        # Windows cplatform.c_environ carries the vcvars environment.  See
-        # lib_pypy/pypy_tools/_cffi_compile and targetpypystandalone.
-        from rpython.translator.platform import platform as cplatform
-        if cplatform.c_environ:
-            os.environ.update(cplatform.c_environ)
-        os.environ['PYPY_CC'] = cplatform.cc
-        os.environ['PYPY_CC_LINK'] = getattr(cplatform, 'link', cplatform.cc)
-        os.environ['PYPY_CC_KIND'] = 'msvc' if ARCH == 'win32' else 'unix'
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
