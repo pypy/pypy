@@ -6,8 +6,14 @@ from __future__ import absolute_import, division, print_function
 
 import os
 import sys
-from distutils.ccompiler import new_compiler
-from distutils.dist import Distribution
+try:
+    from distutils.ccompiler import new_compiler
+    from distutils.dist import Distribution
+except ImportError:
+    # distutils is gone on Python >= 3.12 (and only ships inside setuptools).
+    # compiler_type() falls back to a env/platform heuristic below.
+    new_compiler = None
+    Distribution = None
 
 from cffi import FFI
 
@@ -99,9 +105,15 @@ def compiler_type():
     Gets the compiler type from distutils. On Windows with MSVC it will be
     "msvc". On macOS and linux it is "unix".
     """
-    dist = Distribution()
-    dist.parse_config_files()
-    cmd = dist.get_command_obj('build')
-    cmd.ensure_finalized()
-    compiler = new_compiler(compiler=cmd.compiler)
-    return compiler.compiler_type
+    if Distribution is not None:
+        dist = Distribution()
+        dist.parse_config_files()
+        cmd = dist.get_command_obj('build')
+        cmd.ensure_finalized()
+        compiler = new_compiler(compiler=cmd.compiler)
+        return compiler.compiler_type
+    # distutils unavailable (py3.12 without setuptools): mirror its result.
+    # PyPy's build hands the kind down via PYPY_CC_KIND; see
+    # lib_pypy/pypy_tools/_cffi_compile.
+    return os.environ.get('PYPY_CC_KIND') or (
+        'msvc' if sys.platform == 'win32' else 'unix')
