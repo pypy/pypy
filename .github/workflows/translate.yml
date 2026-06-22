@@ -50,6 +50,7 @@ jobs:
 
     - name: package
       run: |
+        ./pypy/goal/pypy*-c -m ensurepip
         ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable --target=.
 
     - name: upload
