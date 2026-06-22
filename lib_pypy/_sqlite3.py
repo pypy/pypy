@@ -269,7 +269,7 @@ _error_names = {
 }
 
 # pysqlite version information
-version = "2.6.0"
+_deprecated_version = "2.6.0"
 
 # pysqlite constants
 PARSE_COLNAMES = 1
