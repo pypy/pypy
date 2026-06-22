@@ -5,15 +5,52 @@ from .error import VerificationError
 LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
                       'extra_objects', 'depends']
 
+def _pypy_compile_backend():
+    # PyPy ships a distutils-free compiler driver so that out-of-line modules
+    # (and PyPy's own build_cffi_imports) can be built without setuptools on
+    # Python >= 3.12.  Only use it as a *fallback*: both when distutils is
+    # genuinely unavailable AND when the C toolchain has been handed down via
+    # PYPY_CC (PyPy's translation driver / packaging set it from
+    # rpython.translator.platform).  Otherwise behave exactly as before and
+    # use the normal distutils path (raising the usual "requires setuptools"
+    # error if it is missing).
+    if not os.environ.get('PYPY_CC'):
+        return None
+    try:
+        import cffi._shimmed_dist_utils       # probe: does distutils work?
+    except Exception:
+        pass                                  # no -> use the workaround
+    else:
+        return None                           # yes -> prefer distutils
+    try:
+        from pypy_tools import _cffi_compile
+    except ImportError:
+        return None
+    return _cffi_compile
+
 def get_extension(srcfilename, modname, sources=(), **kwds):
-    from cffi._shimmed_dist_utils import Extension
     allsources = [srcfilename]
     for src in sources:
         allsources.append(os.path.normpath(src))
+    backend = _pypy_compile_backend()
+    if backend is not None:
+        return backend.Extension(name=modname, sources=allsources, **kwds)
+    from cffi._shimmed_dist_utils import Extension
     return Extension(name=modname, sources=allsources, **kwds)
 
 def compile(tmpdir, ext, compiler_verbose=0, debug=None):
-    """Compile a C extension module using distutils."""
+    """Compile a C extension module."""
+
+    backend = _pypy_compile_backend()
+    if backend is not None:
+        oldir = os.getcwd()
+        os.chdir(tmpdir)
+        try:
+            outputfilename = backend.build(ext, tmpdir, compiler_verbose, debug)
+            outputfilename = os.path.abspath(outputfilename)
+        finally:
+            os.chdir(oldir)
+        return outputfilename
 
     saved_environ = os.environ.copy()
     try:

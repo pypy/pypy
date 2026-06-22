@@ -387,11 +387,21 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
+            from rpython.translator.platform import platform as cplatform
             filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
             argv = [filename,]
             exe_name = py.path.local(driver.c_entryp)
-            status, out, err = run_subprocess(str(exe_name), argv)
+            # Hand the C toolchain that just built pypy-c down to the cffi
+            # build, which runs under the freshly-built (Python >= 3.12)
+            # interpreter where distutils/setuptools are not available.  On
+            # Windows cplatform.c_environ carries the vcvars environment so
+            # cl.exe/link.exe are usable; see lib_pypy/pypy_tools/_cffi_compile.
+            env = (cplatform.c_environ or os.environ).copy()
+            env['PYPY_CC'] = cplatform.cc
+            env['PYPY_CC_LINK'] = getattr(cplatform, 'link', cplatform.cc)
+            env['PYPY_CC_KIND'] = 'msvc' if sys.platform == 'win32' else 'unix'
+            status, out, err = run_subprocess(str(exe_name), argv, env=env)
             sys.stdout.write(out)
             sys.stderr.write(err)
         driver.task_build_cffi_imports = types.MethodType(task_build_cffi_imports, driver)
