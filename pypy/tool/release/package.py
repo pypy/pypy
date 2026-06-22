@@ -230,7 +230,7 @@ def create_package(basedir, options, _fake=False):
         # issue 5015: portable builds cannot use the static data
         # See that issue for a post-installation solution
         # generate_sysconfigdata(pypy_c, str(target))
-        subprocess.check_call([str(pypy_c), "pip", "install", "distutils"])
+        subprocess.check_call([str(pypy_c), "-m", "pip", "install", "distutils"])
         subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
@@ -238,7 +238,7 @@ def create_package(basedir, options, _fake=False):
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
     if not options.no_cffi:
-        subprocess.check_call([str(pypy_c), "pip", "install", "distutils"])
+        subprocess.check_call([str(pypy_c), "-m", "pip", "install", "distutils"])
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
