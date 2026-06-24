@@ -1437,6 +1437,15 @@ class ObjSpace(object):
         if ast_transform:
             addition = ast_transform.func_name
 
+        # Unlike rpython.tool.gcc_cache, the path below is used directly
+        # without going through cache_file_path(), so CACHE_DIR may not
+        # exist yet.  Create it here, otherwise try_atomic_write() fails
+        # with ENOENT when this is the first writer to touch the cache.
+        if not os.path.isdir(CACHE_DIR):
+            try:
+                os.makedirs(CACHE_DIR)
+            except OSError:
+                pass    # raced with another process; that is fine
         cachename = os.path.join(
             CACHE_DIR, "applevel_exec_%s_%s" % (addition, h.hexdigest()))
         try:
