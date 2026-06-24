@@ -1849,6 +1849,7 @@ class _SSLContext(object):
 
     def _set_alpn_protocols(self, protos):
         if HAS_ALPN:
+            print("yup, using HAS_ALPN", type(protos))
             self.alpn_protocols = protocols = ffi.from_buffer(protos)
             length = len(protocols)
 

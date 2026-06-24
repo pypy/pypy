@@ -1,6 +1,6 @@
 from pypy.module.cpyext.api import cts
 
-@cts.decl("PyObject * _PyNamespace_New(PyObject *kwds)")
+@cts.decl("PyObject * _PyNamespace_New(PyObject *kwds)", header="pycore_namespace.h")
 def _PyNamespace_new(space, w_kwds):
     return space.appexec([w_kwds], """(kwds):
         from _structseq import SimpleNamespace

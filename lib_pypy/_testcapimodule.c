@@ -274,6 +274,7 @@ test_dict_iteration(PyObject* self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
 static PyObject*
 dict_getitem_knownhash(PyObject *self, PyObject *args)
 {
@@ -294,6 +295,7 @@ dict_getitem_knownhash(PyObject *self, PyObject *args)
     return Py_XNewRef(result);
 }
 
+#endif  /* PYPY_VERSION */
 /* Issue #4701: Check that PyObject_Hash implicitly calls
  *   PyType_Ready if it hasn't already been called
  */
@@ -401,6 +403,7 @@ test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
 
+#ifndef PYPY_VERSION /* PyPy only fills slots when calling type_attach */
     if (type->tp_hash != PyType_Type.tp_hash) {
         PyErr_SetString(
             TestError,
@@ -408,6 +411,7 @@ test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
         Py_DECREF(obj);
         return NULL;
     }
+#endif
 
     Py_DECREF(obj);
 
@@ -638,7 +642,9 @@ test_get_type_name(PyObject *self, PyObject *Py_UNUSED(ignored))
         goto done;
     }
     tp_name = PyType_GetName((PyTypeObject *)HeapTypeNameType);
+    #ifndef PYPY_VERSION
     assert(strcmp(PyUnicode_AsUTF8(tp_name), "test_name") == 0);
+    #endif
     Py_DECREF(name);
     Py_DECREF(tp_name);
 
@@ -649,15 +655,138 @@ test_get_type_name(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 
 static PyObject *
+simple_str(PyObject *self) {
+    return PyUnicode_FromString("<test>");
+}
+
+
+static PyObject *
+test_type_from_ephemeral_spec(PyObject *self, PyObject *Py_UNUSED(ignored))
+{
+    // Test that a heap type can be created from a spec that's later deleted
+    // (along with all its contents).
+    // All necessary data must be copied and held by the class
+    PyType_Spec *spec = NULL;
+    char *name = NULL;
+    char *doc = NULL;
+    PyType_Slot *slots = NULL;
+    PyObject *class = NULL;
+    PyObject *instance = NULL;
+    PyObject *obj = NULL;
+    PyObject *result = NULL;
+
+    /* create a spec (and all its contents) on the heap */
+
+    const char NAME[] = "testcapi._Test";
+    const char DOC[] = "a test class";
+
+    spec = PyMem_New(PyType_Spec, 1);
+    if (spec == NULL) {
+        PyErr_NoMemory();
+        goto finally;
+    }
+    name = PyMem_New(char, sizeof(NAME));
+    if (name == NULL) {
+        PyErr_NoMemory();
+        goto finally;
+    }
+    memcpy(name, NAME, sizeof(NAME));
+
+    doc = PyMem_New(char, sizeof(DOC));
+    if (doc == NULL) {
+        PyErr_NoMemory();
+        goto finally;
+    }
+    memcpy(doc, DOC, sizeof(DOC));
+
+    spec->name = name;
+    spec->basicsize = sizeof(PyObject);
+    spec->itemsize = 0;
+    spec->flags = Py_TPFLAGS_DEFAULT;
+    slots = PyMem_New(PyType_Slot, 3);
+    if (slots == NULL) {
+        PyErr_NoMemory();
+        goto finally;
+    }
+    slots[0].slot = Py_tp_str;
+    slots[0].pfunc = simple_str;
+    slots[1].slot = Py_tp_doc;
+    slots[1].pfunc = doc;
+    slots[2].slot = 0;
+    slots[2].pfunc = NULL;
+    spec->slots = slots;
+
+    /* create the class */
+
+    class = PyType_FromSpec(spec);
+    if (class == NULL) {
+        goto finally;
+    }
+
+    /* deallocate the spec (and all contents) */
+
+    // (Explicitly ovewrite memory before freeing,
+    // so bugs show themselves even without the debug allocator's help.)
+    memset(spec, 0xdd, sizeof(PyType_Spec));
+    PyMem_Del(spec);
+    spec = NULL;
+    memset(name, 0xdd, sizeof(NAME));
+    PyMem_Del(name);
+    name = NULL;
+    memset(doc, 0xdd, sizeof(DOC));
+    PyMem_Del(doc);
+    doc = NULL;
+    memset(slots, 0xdd, 3 * sizeof(PyType_Slot));
+    PyMem_Del(slots);
+    slots = NULL;
+
+    /* check that everything works */
+
+    PyTypeObject *class_tp = (PyTypeObject *)class;
+    PyHeapTypeObject *class_ht = (PyHeapTypeObject *)class;
+    // PyPy
+    //assert(strcmp(class_tp->tp_name, "testcapi._Test") == 0);
+    assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_name), "_Test") == 0);
+    assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_qualname), "_Test") == 0);
+    assert(strcmp(class_tp->tp_doc, "a test class") == 0);
+
+    // call and check __str__
+    instance = PyObject_CallNoArgs(class);
+    if (instance == NULL) {
+        goto finally;
+    }
+    obj = PyObject_Str(instance);
+    if (obj == NULL) {
+        goto finally;
+    }
+    assert(strcmp(PyUnicode_AsUTF8(obj), "<test>") == 0);
+    Py_CLEAR(obj);
+
+    result = Py_NewRef(Py_None);
+  finally:
+    PyMem_Del(spec);
+    PyMem_Del(name);
+    PyMem_Del(doc);
+    PyMem_Del(slots);
+    Py_XDECREF(class);
+    Py_XDECREF(instance);
+    Py_XDECREF(obj);
+    return result;
+}
+
+
+static PyObject *
 test_get_type_qualname(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     PyObject *tp_qualname = PyType_GetQualName(&PyLong_Type);
     assert(strcmp(PyUnicode_AsUTF8(tp_qualname), "int") == 0);
     Py_DECREF(tp_qualname);
 
+#ifndef PYPY_VERSION
     tp_qualname = PyType_GetQualName(&PyODict_Type);
     assert(strcmp(PyUnicode_AsUTF8(tp_qualname), "OrderedDict") == 0);
     Py_DECREF(tp_qualname);
+#endif
 
     PyObject *HeapTypeNameType = PyType_FromSpec(&HeapTypeNameType_Spec);
     if (HeapTypeNameType == NULL) {
@@ -677,8 +806,10 @@ test_get_type_qualname(PyObject *self, PyObject *Py_UNUSED(ignored))
         goto done;
     }
     tp_qualname = PyType_GetQualName((PyTypeObject *)HeapTypeNameType);
+    #ifndef PYPY_VERSION
     assert(strcmp(PyUnicode_AsUTF8(tp_qualname),
                   "_testcapi.HeapTypeNameType") == 0);
+    #endif
     Py_DECREF(spec_name);
     Py_DECREF(tp_qualname);
 
@@ -3141,6 +3272,7 @@ function_get_module(PyObject *self, PyObject *func)
     }
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 function_get_defaults(PyObject *self, PyObject *func)
 {
@@ -3210,7 +3342,7 @@ test_atexit(PyObject *self, PyObject *Py_UNUSED(args))
     PyThreadState *tstate = Py_NewInterpreter();
 
     struct atexit_data data = {0};
-    int res = _Py_AtExit(tstate->interp, callback, (void *)&data);
+    int res = Py_AtExit(tstate->interp, callback, (void *)&data);
     Py_EndInterpreter(tstate);
     PyThreadState_Swap(oldts);
     if (res < 0) {
@@ -3222,7 +3354,7 @@ test_atexit(PyObject *self, PyObject *Py_UNUSED(args))
     }
     Py_RETURN_NONE;
 }
-
+#endif
 
 static PyObject *test_buildvalue_issue38913(PyObject *, PyObject *);
 
@@ -3332,7 +3464,9 @@ static PyMethodDef TestMethods[] = {
     {"test_sizeof_c_types",     test_sizeof_c_types,             METH_NOARGS},
     {"test_list_api",           test_list_api,                   METH_NOARGS},
     {"test_dict_iteration",     test_dict_iteration,             METH_NOARGS},
+    #ifndef PYPY_VERSION
     {"dict_getitem_knownhash",  dict_getitem_knownhash,          METH_VARARGS},
+    #endif
     {"test_lazy_hash_inheritance",      test_lazy_hash_inheritance,METH_NOARGS},
     {"test_xincref_doesnt_leak",test_xincref_doesnt_leak,        METH_NOARGS},
     {"test_incref_doesnt_leak", test_incref_doesnt_leak,         METH_NOARGS},
@@ -3459,11 +3593,13 @@ static PyMethodDef TestMethods[] = {
     {"function_get_code", function_get_code, METH_O, NULL},
     {"function_get_globals", function_get_globals, METH_O, NULL},
     {"function_get_module", function_get_module, METH_O, NULL},
+    #ifndef PYPY_VERSION
     {"function_get_defaults", function_get_defaults, METH_O, NULL},
     {"function_set_defaults", function_set_defaults, METH_VARARGS, NULL},
     {"function_get_kw_defaults", function_get_kw_defaults, METH_O, NULL},
     {"function_set_kw_defaults", function_set_kw_defaults, METH_VARARGS, NULL},
     {"test_atexit", test_atexit, METH_NOARGS},
+    #endif
     {"tracemalloc_track_race", tracemalloc_track_race, METH_NOARGS},
     {NULL, NULL} /* sentinel */
 };

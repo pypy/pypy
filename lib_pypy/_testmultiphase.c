@@ -62,7 +62,9 @@ Example_demo(ExampleObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-#include "clinic/_testmultiphase.c.h"
+// #include "clinic/_testmultiphase.c.h"
+// PYPY CHANGE
+#include "_testmultiphase.c.h"
 
 static PyMethodDef Example_methods[] = {
     {"demo",            (PyCFunction)Example_demo,  METH_VARARGS,
@@ -382,6 +384,7 @@ static int execfunc(PyObject *m)
     Str_Type_slots[0].pfunc = &PyUnicode_Type;
 
     /* Add a custom type */
+    fprintf(stdout, "%s %d\n", __FILE__, __LINE__);
     temp = PyType_FromSpec(&Example_Type_spec);
     if (temp == NULL) {
         goto fail;

@@ -97,7 +97,9 @@ def PyModule_Create2(space, module, api_version):
 createfunctype = lltype.Ptr(lltype.FuncType([PyObject, PyModuleDef], PyObject))
 execfunctype = lltype.Ptr(lltype.FuncType([PyObject], rffi.INT_real))
 
+Py_mod_create = 1
 Py_mod_exec = 2
+Py_mod_multiple_interpreters = 3
 
 def create_module_from_def_and_spec(space, moddef, w_spec, name):
     moddef = rffi.cast(PyModuleDef, moddef)
@@ -113,13 +115,16 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
             slot = rffi.cast(lltype.Signed, cur_slot[0].c_slot)
             if slot == 0:
                 break
-            elif slot == 1: # Py_mod_create
+            elif slot == Py_mod_create: # Py_mod_create
                 if createf:
                     raise oefmt(space.w_SystemError,
                                 "module %s has multiple create slots", name)
                 createf = cur_slot[0].c_value
             elif slot == Py_mod_exec:
                 has_execution_slots = True
+            elif slot == Py_mod_multiple_interpreters:
+                # Warn?
+                pass
             else:
                 raise oefmt(space.w_SystemError,
                             "module %s uses unknown slot ID %d", name, slot)
