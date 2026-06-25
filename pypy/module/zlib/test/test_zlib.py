@@ -441,3 +441,100 @@ class AppTestZlib(object):
                 Z_NO_COMPRESSION Z_RLE Z_PARTIAL_FLUSH Z_FIXED Z_BLOCK Z_TREES
                 '''.split():
            assert c in contents
+
+    def test_ZlibDecompressor_basic(self):
+        import zlib
+        text = b'some bytes which will be compressed' * 50
+        data = zlib.compress(text)
+        d = zlib._ZlibDecompressor()
+        assert d.eof is False
+        assert d.needs_input is True
+        assert d.unused_data == b''
+        assert d.decompress(data) == text
+        assert d.eof is True
+        assert d.needs_input is False
+
+    def test_ZlibDecompressor_chunks(self):
+        import zlib
+        text = b'some bytes which will be compressed' * 50
+        data = zlib.compress(text)
+        d = zlib._ZlibDecompressor()
+        out = b''
+        n = 0
+        while True:
+            chunk = data[n * 7:(n + 1) * 7]
+            if not chunk:
+                break
+            out += d.decompress(chunk)
+            n += 1
+        assert out == text
+        assert d.eof is True
+
+    def test_ZlibDecompressor_unused_data(self):
+        import zlib
+        text = b'some bytes which will be compressed' * 50
+        data = zlib.compress(text)
+        unused = b'this is unused data'
+        d = zlib._ZlibDecompressor()
+        assert d.decompress(data + unused) == text
+        assert d.unused_data == unused
+
+    def test_ZlibDecompressor_eof(self):
+        import zlib
+        text = b'some bytes which will be compressed' * 50
+        data = zlib.compress(text)
+        d = zlib._ZlibDecompressor()
+        d.decompress(data)
+        raises(EOFError, d.decompress, b'anything')
+        raises(EOFError, d.decompress, b'')
+
+    def test_ZlibDecompressor_max_length(self):
+        import zlib
+        text = b'some bytes which will be compressed' * 200
+        data = zlib.compress(text)
+        d = zlib._ZlibDecompressor()
+        out = []
+        # Feed all but the last chunk of input, limiting the output.
+        out.append(d.decompress(data[:-5], max_length=50))
+        assert d.needs_input is False
+        assert len(out[-1]) == 50
+        # Pull more output without giving more input.
+        out.append(d.decompress(b'', max_length=50))
+        assert len(out[-1]) <= 50
+        # Provide the rest of the input and drain everything.
+        out.append(d.decompress(data[-5:], max_length=50))
+        while not d.eof:
+            out.append(d.decompress(b'', max_length=50))
+        assert b''.join(out) == text
+        assert d.unused_data == b''
+
+    def test_ZlibDecompressor_inputbuf(self):
+        # Feeding data with max_length=0 should buffer all input and
+        # return it on later calls, matching CPython's _ZlibDecompressor.
+        import zlib
+        text = b'some bytes which will be compressed' * 50
+        data = zlib.compress(text)
+        d = zlib._ZlibDecompressor()
+        out = []
+        assert d.decompress(data[:100], max_length=0) == b''
+        out.append(d.decompress(b'', 2))
+        out.append(d.decompress(data[100:105], 15))
+        out.append(d.decompress(data[105:]))
+        assert b''.join(out) == text
+
+    def test_ZlibDecompressor_wrong_args(self):
+        import zlib
+        raises(TypeError, zlib._ZlibDecompressor, "not an int")
+        raises(TypeError, zlib._ZlibDecompressor, -15, "notbytes")
+        raises(TypeError, zlib._ZlibDecompressor, -15, b"bytes", 5)
+        d = zlib._ZlibDecompressor()
+        raises(TypeError, d.decompress)
+
+    def test_ZlibDecompressor_zdict(self):
+        import zlib
+        zdict = b'some common substrings used in the data'
+        text = b'some common substrings appear in the data here' * 20
+        co = zlib.compressobj(zdict=zdict)
+        data = co.compress(text) + co.flush()
+        d = zlib._ZlibDecompressor(zlib.MAX_WBITS, zdict)
+        assert d.decompress(data) == text

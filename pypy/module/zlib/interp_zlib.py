@@ -416,6 +416,140 @@ def Decompress___new__(space, w_subtype, wbits=rzlib.MAX_WBITS, w_zdict=None):
     Decompress.__init__(w_stream, space, stream, zdict, '', '')
     return w_stream
 
+class ZlibDecompressor(ZLibObject):
+    """
+    zlib._ZlibDecompressor: a streaming decompressor. object Unlike Decompress,
+    unconsumed input is buffered internally and prepended to the data of the
+    next decompress() call, so the caller does not have to track
+    unconsumed_tail by hand.
+    """
+    def __init__(self, space, stream, zdict):
+        ZLibObject.__init__(self, space)
+        self.stream = stream
+        self.zdict = zdict
+        self.unused_data = ''
+        # Unconsumed input held over to the next decompress() call.
+        self.input_buffer = ''
+        self.eof = False
+        self.needs_input = True
+        self.register_finalizer(space)
+
+    def _finalize_(self):
+        """Automatically free the resources used by the stream."""
+        if self.stream:
+            rzlib.inflateEnd(self.stream)
+            self.stream = rzlib.null_stream
+
+    def descr_getstate(self, space):
+        raise oefmt(space.w_TypeError, "cannot serialize '%T' object", self)
+
+    @unwrap_spec(data='bufferstr', max_length=int)
+    def decompress(self, space, data, max_length=-1):
+        """
+        decompress(data, max_length=-1) -- Return a bytes object containing
+        the decompressed version of the data.
+
+        If max_length is nonnegative, returns at most max_length bytes of
+        decompressed data.  If this limit is reached and further output can
+        be produced, self.needs_input will be set to False.  In this case,
+        the next call to decompress() may provide data as b'' to obtain more
+        of the output.
+
+        If all of the input data was decompressed and returned (either
+        because this was less than max_length bytes, or because max_length
+        was negative), self.needs_input will be set to True.
+
+        Attempting to decompress data after the end of stream is reached
+        raises an EOFError.  Any data found after the end of the stream is
+        ignored and saved in the unused_data attribute.
+        """
+        if max_length < 0:
+            ml = sys.maxint
+        else:
+            ml = max_length
+        try:
+            self.lock()
+            try:
+                if self.eof:
+                    raise oefmt(space.w_EOFError,
+                                "End of stream already reached")
+                # Prepend any input left over from a previous call.
+                if len(self.input_buffer) > 0:
+                    data = self.input_buffer + data
+                    self.input_buffer = ''
+                result = rzlib.decompress(self.stream, data,
+                                          max_length=ml, zdict=self.zdict)
+            finally:
+                self.unlock()
+        except rzlib.RZlibError as e:
+            raise zlib_error(space, e.msg)
+
+        string, finished, unused_len = result
+        self.eof = finished
+        if finished:
+            self.needs_input = False
+            if unused_len > 0:
+                unused_start = len(data) - unused_len
+                assert unused_start >= 0
+                self.unused_data = data[unused_start:]
+            # Unlike the Decompress object we free the stream here, as there
+            # are no backwards compatibility issues with a flush() method.
+            if self.stream:
+                rzlib.inflateEnd(self.stream)
+                self.stream = rzlib.null_stream
+                self.may_unregister_rpython_finalizer(space)
+        elif unused_len == 0:
+            self.needs_input = True
+        else:
+            self.needs_input = False
+            unused_start = len(data) - unused_len
+            assert unused_start >= 0
+            self.input_buffer = data[unused_start:]
+        return space.newbytes(string)
+
+
+@unwrap_spec(wbits=int)
+def ZlibDecompressor___new__(space, w_subtype, wbits=rzlib.MAX_WBITS,
+                             w_zdict=None):
+    """
+    Create a new _ZlibDecompressor and call its initializer.
+    """
+    if space.is_none(w_zdict):
+        zdict = None
+    else:
+        zdict = space.bufferstr_w(w_zdict)
+    w_stream = space.allocate_instance(ZlibDecompressor, w_subtype)
+    w_stream = space.interp_w(ZlibDecompressor, w_stream)
+    try:
+        stream = rzlib.inflateInit(wbits, zdict=zdict)
+    except rzlib.RZlibError as e:
+        raise zlib_error(space, e.msg)
+    except ValueError:
+        raise oefmt(space.w_ValueError, "Invalid initialization option")
+    ZlibDecompressor.__init__(w_stream, space, stream, zdict)
+    return w_stream
+
+
+ZlibDecompressor.typedef = TypeDef(
+    '_ZlibDecompressor',
+    __new__ = interp2app(ZlibDecompressor___new__),
+    __getstate__ = interp2app(ZlibDecompressor.descr_getstate),
+    decompress = interp2app(ZlibDecompressor.decompress),
+    eof = interp_attrproperty('eof', ZlibDecompressor, wrapfn="newbool"),
+    needs_input = interp_attrproperty('needs_input', ZlibDecompressor,
+                                      wrapfn="newbool"),
+    unused_data = interp_attrproperty('unused_data', ZlibDecompressor,
+                                      wrapfn="newbytes"),
+    __doc__ = """_ZlibDecompressor(wbits=15, zdict=b'') -- Create a decompressor
+object for decompressing data incrementally.
+
+wbits = 15
+zdict
+   The predefined compression dictionary. This must be the same dictionary
+   as used by the compressor that produced the input data.
+""")
+
+
 def default_buffer_size(space):
     return space.newint(rzlib.OUTPUT_BUFFER_SIZE)
 

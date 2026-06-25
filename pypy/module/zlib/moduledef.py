@@ -28,6 +28,7 @@ objects support decompress() and flush()."""
         'adler32': 'interp_zlib.adler32',
         'compressobj': 'interp_zlib.Compress',
         'decompressobj': 'interp_zlib.Decompress',
+        '_ZlibDecompressor': 'interp_zlib.ZlibDecompressor',
         'compress': 'interp_zlib.compress',
         'decompress': 'interp_zlib.decompress',
         'DEF_BUF_SIZE': 'interp_zlib.default_buffer_size(space)',
