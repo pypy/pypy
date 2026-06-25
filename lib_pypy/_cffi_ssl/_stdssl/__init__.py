@@ -1849,8 +1849,7 @@ class _SSLContext(object):
 
     def _set_alpn_protocols(self, protos):
         if HAS_ALPN:
-            print("yup, using HAS_ALPN", type(protos))
-            self.alpn_protocols = protocols = ffi.from_buffer(protos)
+            self.alpn_protocols = protocols = ffi.from_buffer(bytes(protos))
             length = len(protocols)
 
             if lib.SSL_CTX_set_alpn_protos(self.ctx,ffi.cast("unsigned char*", protocols), length):
@@ -1862,7 +1861,7 @@ class _SSLContext(object):
 
     def _set_npn_protocols(self, protos):
         if HAS_NPN:
-            self.npn_protocols = ffi.from_buffer(protos)
+            self.npn_protocols = ffi.from_buffer(bytes(protos))
             handle = ffi.new_handle(self)
             self._npn_protocols_handle = handle # track a reference to the handle
             lib.SSL_CTX_set_next_protos_advertised_cb(self.ctx, advertise_npn_callback, handle)
