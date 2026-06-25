@@ -506,6 +506,245 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_add_const_fold(self):
+        ops = """
+        []
+        i0 = int_add(2, 3)
+        jump(i0)
+        """
+        expected = """
+        []
+        jump(5)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_sub_add_cancel_right(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_add(i2, i1)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_neg_neg_sub(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_neg(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_sub(i1, i0)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_neg_to_sub(self):
+        ops = """
+        [i0, i1]
+        i2 = int_neg(i1)
+        i3 = int_add(i0, i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_neg(i1)
+        i3 = int_sub(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_lsh_const_const(self):
+        ops = """
+        []
+        i0 = int_lshift(3, 2)
+        jump(i0)
+        """
+        expected = """
+        []
+        jump(12)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_mul_nsw_flag_irrelevant(self):
+        ops = """
+        []
+        i0 = int_mul(6, 7)
+        jump(i0)
+        """
+        expected = """
+        []
+        jump(42)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_const_eqv_cmp_shift(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_eq(i1, 9)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_eq(i0, 5)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_or_const_const(self):
+        ops = """
+        []
+        i0 = int_or(5, 10)
+        jump(i0)
+        """
+        expected = """
+        []
+        jump(15)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_sub_compare_zero_eq_ne(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i2, 0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_bitxor_eq_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(i0, i1)
+        i3 = int_eq(i2, 0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_xor(i0, i1)
+        i3 = int_eq(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_sub_flags_irrelevant(self):
+        ops = """
+        []
+        i0 = int_sub(9, 4)
+        jump(i0)
+        """
+        expected = """
+        []
+        jump(5)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_add_sub_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_ne(i1, 9)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_ne(i0, 5)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_eq_sub_add_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_eq(i1, 7)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_eq(i0, 10)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_sub_add_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_ne(i1, 7)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_ne(i0, 10)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_add_cancel_left(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_ne(i2, i0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_is_true(i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_eq_self_iff_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i1, i0)
+        i3 = int_eq(i2, i0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i1, i0)
+        i3 = int_is_zero(i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_mul_reassociate_const(self):
+        ops = """
+        [i0]
+        i1 = int_mul(3, i0)
+        i2 = int_mul(i1, 5)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_mul(3, i0)
+        i2 = int_mul(15, i0)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]
@@ -3512,7 +3751,7 @@ finish()
         i4 = int_ge(i0, -100000)
         guard_true(i4) []
         i2 = int_neg(i0)
-        i3 = int_add(i2, 50)
+        i3 = int_sub(50, i0)
         jump(i3)
         """
         self.optimize_loop(ops, expected)
@@ -3532,7 +3771,7 @@ finish()
         i4 = int_ge(i0, -100000)
         guard_true(i4) []
         i2 = int_neg(i0)
-        i3 = int_add(i2, 50)
+        i3 = int_sub(50, i0)
         jump(i3)
         """
         self.optimize_loop(ops, expected)
@@ -4582,4 +4821,3 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
-
