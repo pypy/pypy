@@ -233,8 +233,8 @@ def create_package(basedir, options, _fake=False):
         subprocess.check_call([str(pypy_c), "-m", "pip", "install", "setuptools"])
         subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
-        # XXX make this check_call when done implementing C-API additions for py3.12
-        subprocess.run([str(pypy_c), "-c", "import _testcapi"])
+        # XXX uncomment this
+        #subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
