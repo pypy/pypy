@@ -3,6 +3,7 @@
  */
 
 #include "Python.h"
+#include "pycore_namespace.h"
 
 /* State for testing module state access from methods */
 
