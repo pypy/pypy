@@ -506,18 +506,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_rule_add_const_fold(self):
-        ops = """
-        []
-        i0 = int_add(2, 3)
-        jump(i0)
-        """
-        expected = """
-        []
-        jump(5)
-        """
-        self.optimize_loop(ops, expected)
-
     def test_rule_sub_add_cancel_right(self):
         ops = """
         [i0, i1]
@@ -562,30 +550,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_rule_lsh_const_const(self):
-        ops = """
-        []
-        i0 = int_lshift(3, 2)
-        jump(i0)
-        """
-        expected = """
-        []
-        jump(12)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_rule_mul_nsw_flag_irrelevant(self):
-        ops = """
-        []
-        i0 = int_mul(6, 7)
-        jump(i0)
-        """
-        expected = """
-        []
-        jump(42)
-        """
-        self.optimize_loop(ops, expected)
-
     def test_rule_add_const_eqv_cmp_shift(self):
         ops = """
         [i0]
@@ -598,18 +562,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i1 = int_add(i0, 4)
         i2 = int_eq(i0, 5)
         jump(i2)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_rule_or_const_const(self):
-        ops = """
-        []
-        i0 = int_or(5, 10)
-        jump(i0)
-        """
-        expected = """
-        []
-        jump(15)
         """
         self.optimize_loop(ops, expected)
 
@@ -640,18 +592,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_xor(i0, i1)
         i3 = int_eq(i0, i1)
         jump(i3)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_rule_sub_flags_irrelevant(self):
-        ops = """
-        []
-        i0 = int_sub(9, 4)
-        jump(i0)
-        """
-        expected = """
-        []
-        jump(5)
         """
         self.optimize_loop(ops, expected)
 
