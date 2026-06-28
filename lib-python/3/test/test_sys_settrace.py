@@ -2842,6 +2842,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(3, 7, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_load_global(output):
         a = 1
         print(
@@ -2861,6 +2862,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(4, 8, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_push_null(output):
         a = 1
         f = print
@@ -2881,6 +2883,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(3, 7, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_load_attr(output):
         a = 1
         list.append(
@@ -2985,6 +2988,7 @@ class TestEdgeCases(unittest.TestCase):
         self.addCleanup(sys.settrace, sys.gettrace())
         sys.settrace(None)
 
+    @support.cpython_only
     def test_reentrancy(self):
         def foo(*args):
             ...
