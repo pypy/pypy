@@ -5840,9 +5840,9 @@ class TypeVar(type_param):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', False)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _bound = expr.from_object(space, w_bound)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
@@ -5891,9 +5891,9 @@ class ParamSpec(type_param):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', False)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, False)
@@ -5941,9 +5941,9 @@ class TypeVarTuple(type_param):
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         w_end_lineno = get_field(space, w_node, 'end_lineno', False)
         w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _name = space.text_w(w_name)
-        if _name is None:
+        if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
+        _name = space.text_w(w_name)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         _end_lineno = obj_to_int(space, w_end_lineno, False)
