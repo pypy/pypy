@@ -322,6 +322,9 @@ class UnionType:
             curr |= newargs[i]
         return curr
 
+    __iter__ = None # we don't want __getitem__-based fallback iteration
+
+
 def _unionable(obj):
     return obj is None or isinstance(obj, (type, UnionType, GenericAlias))
 

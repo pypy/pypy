@@ -1,5 +1,4 @@
 from pypy.objspace.std.specialisedtupleobject import _specialisations
-from pypy.objspace.std.test import test_tupleobject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rbigint import rbigint
@@ -70,6 +69,16 @@ class TestW_SpecialisedTupleObject():
         @given(_int_float_text, _int_float_text)
         def test_hash_with_hypothesis(self, x, y):
             self.hash_test([x, y], must_be_specialized=False)
+
+    def test_hash_consistency(self):
+        # make sure that the two copies of the hash implementation are the same
+        w = self.space.wrap
+        w_tuple1 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple2 = W_TupleObject([w(5), w(3), w(99)])
+        w_tuple3 = W_TupleObject([w(5), w(3), w(99), w(-1)])
+        w_tuple4 = W_TupleObject([w(5), w(3), w(9), w(-1)])
+        for w_tup in w_tuple1, w_tuple2, w_tuple3, w_tuple4:
+            assert w_tup._descr_hash_unroll(self.space) == w_tup._descr_hash_jitdriver(self.space)
 
 
 class AppTestW_SpecialisedTupleObject:
@@ -273,7 +282,3 @@ class AppTestW_SpecialisedTupleObject:
         class BaseB: pass
         class Foo(BaseA, BaseB): pass
         assert not hasattr(Foo, '__orig_bases__')
-
-
-class AppTestAll(test_tupleobject.AppTestW_TupleObject):
-    spaceconfig = {"objspace.std.withspecialisedtuple": True}

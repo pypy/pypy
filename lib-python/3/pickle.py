@@ -38,14 +38,7 @@ import _compat_pickle
 
 try:
     from __pypy__.builders import BytesBuilder
-    from __pypy__ import identity_dict
 except ImportError:
-    class identity_dict(dict):
-        def __getitem__(self, key): return super().__getitem__(id(key))
-        def __setitem__(self, key, val): super().__setitem__(id(key), val)
-        def __contains__(self, key): return super().__contains__(id(key))
-        def get(self, key, default=None):
-            return super().get(id(key), default)
     class BytesBuilder():
         def __init__(self):
             self.builder = io.BytesIO()
@@ -472,8 +465,10 @@ class _Pickler:
         except AttributeError:
             raise TypeError("file must have a 'write' attribute")
         self.framer = _Framer(self._file_write)
-        self.write = self.framer.write
-        self._write_large_bytes = self.framer.write_large_bytes
+        # The memo is keyed by id(obj) (not the object itself) for two reasons:
+        # it lets unhashable objects be memoized, and it keeps the memo layout
+        # compatible with CPython, which third-party code such as dill relies on
+        # (dill reads self.memo[id(obj)]).
         self.memo = {}
         self.proto = int(protocol)
         self.bin = protocol >= 1

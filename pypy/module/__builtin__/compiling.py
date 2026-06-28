@@ -162,6 +162,9 @@ def build_class(space, w_func, w_name, __args__):
     from pypy.interpreter.nestedscope import Cell
     if not isinstance(w_func, Function):
         raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
+    code = w_func.getcode()
+    if not isinstance(code, PyCode):
+        raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
     orig_bases_w, kwds_w = __args__.unpack()
     w_orig_bases = space.newtuple(orig_bases_w)
     bases_w = _update_bases(space, w_orig_bases, orig_bases_w)
@@ -204,7 +207,6 @@ def build_class(space, w_func, w_name, __args__):
                 "<metaclass>.__prepare__() must return a mapping, not %T",
                 w_namespace)
 
-    code = w_func.getcode()
     frame = space.createframe(code, w_func.w_func_globals, w_func)
     frame.setdictscope(w_namespace)
     w_cell = frame.run()

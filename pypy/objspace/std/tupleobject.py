@@ -375,6 +375,7 @@ else:
 
 class W_TupleObject(W_AbstractTupleObject):
     _immutable_fields_ = ['wrappeditems[*]']
+    _hash_cache = -1
 
     def __init__(self, wrappeditems):
         make_sure_not_resized(wrappeditems)
@@ -390,6 +391,9 @@ class W_TupleObject(W_AbstractTupleObject):
         return len(self.wrappeditems)
 
     def descr_hash(self, space):
+        h = self._hash_cache
+        if h != -1:
+            return space.newint(h)
         if self._unroll_condition():
             acc = self._descr_hash_unroll(space)
         else:
@@ -398,7 +402,9 @@ class W_TupleObject(W_AbstractTupleObject):
         # Add input length, mangled to keep the historical value of hash(())
         acc += len(self.wrappeditems) ^ (XXPRIME_5 ^ uhash_type(3527539))
         acc += (acc == uhash_type(-1)) * uhash_type(1546275796 + 1)
-        return space.newint(intmask(acc))
+        h = intmask(acc)
+        self._hash_cache = h
+        return space.newint(h)
 
     @jit.unroll_safe
     def _descr_hash_unroll(self, space):

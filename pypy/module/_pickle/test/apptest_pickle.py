@@ -869,3 +869,33 @@ def test_memoize_and_binput_index_collision():
     unpickled2 = pickle.loads(pickled2)
     assert unpickled2 == ['spam', 'ham', 'ham']
     assert unpickled2[1] is unpickled2[2]
+
+
+def test_dill_pickler_memo_keyed_by_id():
+    # dill subclasses pickle._Pickler and reads pickler.memo[id(obj)][0]
+    # (see dill/_dill.py _save_with_postproc). CPython's _Pickler keys its memo
+    # by id(obj) with value (memo_index, obj); PyPy had changed it to key by the
+    # object itself (via __pypy__.identity_dict), so dill's id(obj) lookups
+    # raised KeyError.
+    shared = ['shared']
+    p = pickle._Pickler(io.BytesIO(), 2)
+    p.dump([shared, shared])
+    idx, obj = p.memo[id(shared)]
+    assert obj is shared
+    assert isinstance(idx, int)
+
+
+def test_dill_unpickler_subclass_extra_kwarg():
+    # dill's Unpickler subclass takes (*args, **kwds), pops its own 'ignore'
+    # keyword, and is created as Unpickler(file, ignore=...). The extra keyword
+    # also reaches Unpickler.__new__, which must accept and ignore it -- matching
+    # CPython where Unpickler.__new__ is object.__new__ and tolerates arguments
+    # destined for a subclass __init__.
+    class DillUnpickler(Unpickler):
+        def __init__(self, *args, **kwds):
+            self._ignore = kwds.pop('ignore', None)
+            super().__init__(*args, **kwds)
+
+    data = dumps([1, 2, 3])
+    result = DillUnpickler(io.BytesIO(data), ignore=True).load()
+    assert result == [1, 2, 3]

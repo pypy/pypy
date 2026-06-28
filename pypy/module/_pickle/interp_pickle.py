@@ -2859,9 +2859,40 @@ class W_Unpickler(W_Root):
             if idx >= self.memo_index:
                 self.memo_index = idx + 1
 
-@unwrap_spec(fix_imports=bool, encoding="text", errors="text", w_buffers=WrappedDefault(None), w_file=WrappedDefault(None))
-def descr__new__unpickler(space, w_subtype, w_file=None, __kwonly__=None, fix_imports=True, encoding="ASCII", errors="strict", w_buffers=None):
-    w_self = space.allocate_instance(W_Unpickler, w_subtype)
+def _unpickler_init(space, w_self, __args__):
+    # Only "file" is a genuine positional argument; fix_imports, encoding,
+    # errors and buffers are keyword-only. Any other arguments are accepted and
+    # ignored, matching CPython where Unpickler.__new__ is object.__new__ and
+    # the real work happens in __init__, so arguments meant for a subclass
+    # __init__ are tolerated (for example dill creates the unpickler as
+    # Unpickler(file, ignore=...) and forwards the call to Unpickler.__init__).
+    w_file = None
+    w_fix_imports = None
+    w_encoding = None
+    w_errors = None
+    w_buffers = None
+    keyword_names_w = __args__.keyword_names_w
+    if keyword_names_w is not None:
+        for i in range(len(keyword_names_w)):
+            name = space.text_w(keyword_names_w[i])
+            w_val = __args__.keywords_w[i]
+            if name == "file":
+                w_file = w_val
+            elif name == "fix_imports":
+                w_fix_imports = w_val
+            elif name == "encoding":
+                w_encoding = w_val
+            elif name == "errors":
+                w_errors = w_val
+            elif name == "buffers":
+                w_buffers = w_val
+            # any other keyword (e.g. dill's "ignore") is ignored
+    if len(__args__.arguments_w) >= 1:
+        w_file = __args__.arguments_w[0]
+    fix_imports = space.is_true(w_fix_imports) if w_fix_imports is not None else True
+    encoding = space.text_w(w_encoding) if w_encoding is not None else "ASCII"
+    errors = space.text_w(w_errors) if w_errors is not None else "strict"
+
     if w_file is None or space.is_none(w_file):
         # subclass without file (e.g. provides read/readline methods)
         w_self.w_file_read = space.w_None
@@ -2873,14 +2904,29 @@ def descr__new__unpickler(space, w_subtype, w_file=None, __kwonly__=None, fix_im
         w_self.memo = [None] * 32
         w_self.memo_index = 0
         w_self.space = space
-        return w_self
+        return
     if not space.is_none(w_buffers):
         w_buffers = space.iter(w_buffers)
     W_Unpickler.__init__(w_self, space, w_file, fix_imports, encoding, errors, w_buffers)
+
+def descr__new__unpickler(space, w_subtype, __args__):
+    w_self = space.allocate_instance(W_Unpickler, w_subtype)
+    _unpickler_init(space, w_self, __args__)
     return w_self
+
+def descr__init__unpickler(space, w_self, __args__):
+    # CPython does the real initialization in Unpickler.__init__ (tp_init), so a
+    # subclass that overrides __init__ and forwards via super().__init__(file)
+    # ends up here. The instance was already set up by __new__; re-running the
+    # initialization keeps it idempotent and matches CPython's contract.
+    if not isinstance(w_self, W_Unpickler):
+        raise oefmt(space.w_TypeError,
+                    "__init__() argument must be an Unpickler instance")
+    _unpickler_init(space, w_self, __args__)
 
 W_Unpickler.typedef = TypeDef("_pickle.Unpickler",
     __new__ = interp2app(descr__new__unpickler),
+    __init__ = interp2app(descr__init__unpickler),
     load = interp2app(W_Unpickler.load),
     memo = GetSetProperty(W_Unpickler.get_memo_w, W_Unpickler.set_memo_w),
 )

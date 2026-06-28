@@ -299,4 +299,8 @@ def test_collect_parameters_bug():
     with pytest.raises(TypeError):
         g[str]
 
-
+def test_union_not_iterable():
+    from typing import TypeVar
+    T = TypeVar('T')
+    with pytest.raises(TypeError):
+        list(set[T] | list[T])

@@ -1670,6 +1670,13 @@ class AppTestTypeObject:
         type('D2', (D1, ), {}, extraarg=True)
         """
 
+    def test_build_class_crash(self):
+        from weakref import proxy
+
+        with raises(TypeError):
+            __build_class__(proxy, 'abc') # used to crash
+
+
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

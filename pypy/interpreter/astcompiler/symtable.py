@@ -1009,6 +1009,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Visit a TypeVarTuple in a type parameter list."""
         self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)
 
+    def visit_MatchMapping(self, match_mapping):
+        self.visit_sequence(match_mapping.keys)
+        self.visit_sequence(match_mapping.patterns)
+        if match_mapping.rest:
+            self.note_symbol(match_mapping.rest, SYM_ASSIGNED, match_mapping)
+
 
 def has_kw_defaults(kw_defaults):
     """Check if there are any keyword-only defaults."""

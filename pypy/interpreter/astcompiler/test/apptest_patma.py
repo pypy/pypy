@@ -180,7 +180,7 @@ match x:
     assert info.value.msg == "mapping pattern keys may only match literals and attribute lookups"
     assert info.value.lineno == 3
 
-def test_error_key_wrong_kind():
+def test_error_multiple_starred_names():
     with pytest.raises(SyntaxError) as info:
         exec("""
 match x:
@@ -424,3 +424,26 @@ def test_match_class_no_swap_wildcard_b_c():
 
 def test_match_class_no_swap_a_b_c():
     _check_match_class_no_swap("C(a, b, c)")
+
+
+def test_match_mapping_rest_is_local():
+    # unlikely_rest used to be stored as a global
+    def f(x):
+        match x:
+            case {**unlikely_rest}:
+                return unlikely_rest
+    assert f({"a": "xxx", 1: 500}) == {"a": "xxx", 1: 500}
+    assert "unlikely_rest" not in globals()
+
+
+def test_match_class_kwd_attrs_not_bound_as_name():
+    # we don't need to visit MatchClass.kwd_attrs in the symtable
+    class C:
+        unlikely_kwd = 42
+    def f(x):
+        unlikely_kwd = "should not be overwritten"
+        match x:
+            case C(unlikely_kwd=val):
+                return val, unlikely_kwd
+    assert f(C()) == (42, "should not be overwritten")
+    assert "unlikely_kwd" not in globals()
