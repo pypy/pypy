@@ -375,6 +375,22 @@ class AbstractTestRstr(BaseRtypingTest):
                 res = self.interpret(fn, [i,j])
                 assert res == fn(i, j)
 
+    def test_find_count_two_way(self):
+        # Large inputs take the Crochemore-Perrin two-way search, reached as a
+        # low-level helper via ll_search -> rstring._search.  This must rtype
+        # (a regression test: a class allocated only on this path failed
+        # vtable setup) and give the same answers as the host.  One
+        # interpret() call, with matches near the start, keeps it fast.
+        # 'ab'*100 -> pure two-way branch, 'ab'*700 -> adaptive branch.
+        const = self.const
+        def fn():
+            h = const('ab' * 1300)              # len 2600 -> two-way dispatch
+            a = h.find(const('ab' * 100)) + 1   # pure two-way, match at 0
+            b = h.find(const('ac' * 100)) + 1   # not found
+            c = h.find(const('ab' * 700)) + 1   # adaptive, match at 0
+            return (((a * 2601 + b) * 2601 + c) * 4000 +
+                    h.count(const('ab' * 100)))
+        assert self.interpret(fn, []) == fn()
 
     def test_contains_str(self):
         const = self.const

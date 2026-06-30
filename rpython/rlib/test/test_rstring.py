@@ -3,6 +3,7 @@ import sys, py
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith, replace_count
 from rpython.rlib.rstring import find, rfind, count, _search, SEARCH_COUNT, SEARCH_FIND
+from rpython.rlib.rstring import _search_normal, SEARCH_RFIND
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -326,6 +327,96 @@ def test_hypothesis_search(u, prefix, suffix):
     count = _search(s, u, 0, len(s), SEARCH_COUNT)
     assert count == s.count(u)
     assert 1 <= count
+
+
+# --- tests for the Crochemore-Perrin two-way search (O(n + m) worst case) ---
+
+def _check_find_count(hay, ndl):
+    # Compare _search_normal's forward find/count against the host's str or
+    # unicode methods.  These exercise the two-way / adaptive code paths for
+    # long inputs.
+    assert _search_normal(hay, ndl, 0, len(hay), SEARCH_FIND) == hay.find(ndl)
+    assert _search_normal(hay, ndl, 0, len(hay), SEARCH_COUNT) == hay.count(ndl)
+
+def _check_all(hay, ndl):
+    # Compare find/rfind/count over the whole string and a few sub-windows.
+    L = len(hay)
+    windows = [(0, L)]
+    if L:
+        windows += [(0, L // 2), (L // 3, L), (1, L - 1), (L, L), (2, 1)]
+    for a, b in windows:
+        assert _search_normal(hay, ndl, a, b, SEARCH_FIND) == hay.find(ndl, a, b)
+        assert _search_normal(hay, ndl, a, b, SEARCH_RFIND) == hay.rfind(ndl, a, b)
+        assert _search_normal(hay, ndl, a, b, SEARCH_COUNT) == hay.count(ndl, a, b)
+
+def test_search_two_way_patterns():
+    # CPython's stringlib regression patterns (test_adaptive_find,
+    # test_find_with_memory), which are O(n*m) for the naive search but must
+    # be fast and correct with the two-way algorithm.  N stays small so the
+    # test is quick, but large enough (n >= 2500) to take the two-way paths.
+    for N in (10, 100, 600, 1500):
+        A, B = 'a' * N, 'b' * N
+        haystack = A + A + B + A + A
+        needle = A + B + B + A          # not present; forces the adaptive path
+        _check_find_count(haystack, needle)
+        _check_find_count(haystack + needle, needle)
+        # periodic needle -> the "skip with memory" periodic two-way branch
+        needle = 'ab' * N
+        haystack = ('ab' * (N - 1) + 'b') * 2
+        _check_find_count(haystack, needle)
+        _check_find_count(haystack + needle, needle)
+
+def test_search_two_way_pure_branch():
+    # Long haystack with a needle that is a small fraction of it -> the pure
+    # two-way branch ((m >> 2) * 3 < (n >> 2)).
+    haystack = 'abc' * 3000           # n = 9000
+    assert _search_normal(haystack, 'abc' * 50, 0, len(haystack),
+                          SEARCH_FIND) == 0
+    assert _search_normal(haystack, 'abc' * 50 + 'x', 0, len(haystack),
+                          SEARCH_FIND) == -1
+    assert _search_normal(haystack, 'abc' * 50, 0, len(haystack),
+                          SEARCH_COUNT) == haystack.count('abc' * 50)
+    # match only reachable inside a window with non-zero start
+    hay = 'z' * 4000 + 'abc' * 1000
+    ndl = 'abc' * 100
+    assert _search_normal(hay, ndl, 4000, len(hay), SEARCH_FIND) == 4000
+    assert _search_normal(hay, ndl, 4001, len(hay), SEARCH_FIND) == 4003
+
+def test_search_random_large():
+    # Randomised stress test over a small alphabet (so periodic/adversarial
+    # structure is common) at lengths that take the two-way and adaptive
+    # paths.  Compare find/count against the host.
+    import random
+    rnd = random.Random(20260628)
+    for _ in range(400):
+        alphabet = rnd.choice(['ab', 'abc', 'ba'])
+        n = rnd.randint(2600, 8000)
+        hay = ''.join(rnd.choice(alphabet) for _ in range(n))
+        m = rnd.randint(6, n // 2)
+        if rnd.random() < 0.5:
+            start = rnd.randint(0, n - m)
+            ndl = hay[start:start + m]     # guarantee a real match
+        else:
+            ndl = ''.join(rnd.choice(alphabet) for _ in range(m))
+        _check_find_count(hay, ndl)
+
+def test_search_two_way_utf8():
+    # PyPy stores text as UTF-8 bytes, so app-level str search runs on byte
+    # strings; multi-byte characters just look like more bytes (and these two
+    # share a lead byte, making the byte stream adversarially periodic).
+    for N in (10, 600, 1500):
+        A = b'\xc4\x81'   # 'a with macron'
+        B = b'\xc4\x82'   # 'A with breve'
+        haystack = A + A + B + A + A
+        needle = A + B + B + A
+        _check_find_count(haystack, needle)
+        _check_find_count(haystack + needle, needle)
+
+def test_search_small_windows_and_rfind():
+    # find/rfind/count with sub-windows on small inputs (default BMH paths).
+    for hay in ['', 'a', 'aaaa', 'one two three', 'abababab', 'mississippi']:
+        for ndl in ['a', 'ab', 'iss', 'xyz', 'three', 'ab', 'pp']:
+            _check_all(hay, ndl)
 
 
 @given(st.text(), st.lists(st.text(), min_size=2), st.text(), st.integers(min_value=0, max_value=1000000))

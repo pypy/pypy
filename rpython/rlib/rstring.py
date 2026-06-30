@@ -478,6 +478,333 @@ def bloom_add(mask, c):
 def bloom(mask, c):
     return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
 
+# ---- Crochemore-Perrin two-way string search (ported from CPython 3.12's
+# Objects/stringlib/fastsearch.h).  Gives O(n + m) worst case, instead of
+# the O(n * m) worst case of the Boyer-Moore-Horspool search below. ----
+
+TWOWAY_MAX_SHIFT = 255          # the bad-character table holds uint8 shifts
+TWOWAY_TABLE_SIZE = 64
+TWOWAY_TABLE_MASK = TWOWAY_TABLE_SIZE - 1
+
+@specialize.argtype(0)
+def _lex_search(needle, len_needle, invert_alphabet):
+    # Lexicographic search: essentially max(needle[i:] for i in range(...)),
+    # and the period of the right half.  Returns (max_suffix, period).
+    max_suffix = 0
+    candidate = 1
+    k = 0
+    period = 1
+    while candidate + k < len_needle:
+        a = ord(needle[candidate + k])
+        b = ord(needle[max_suffix + k])
+        if (b < a) if invert_alphabet else (a < b):
+            # Fell short of max_suffix.
+            candidate += k + 1
+            k = 0
+            period = candidate - max_suffix
+        elif a == b:
+            if k + 1 != period:
+                k += 1
+            else:
+                candidate += period
+                k = 0
+        else:
+            # Did better than max_suffix, so replace it.
+            max_suffix = candidate
+            candidate += 1
+            k = 0
+            period = 1
+    return max_suffix, period
+
+@specialize.argtype(0)
+def _factorize(needle, len_needle):
+    # Critical factorization: returns (cut, period) where the local period
+    # of the cut is maximal (= the global period of the string).
+    cut1, period1 = _lex_search(needle, len_needle, False)
+    cut2, period2 = _lex_search(needle, len_needle, True)
+    if cut1 > cut2:
+        return cut1, period1
+    return cut2, period2
+
+@specialize.argtype(0)
+def _twoway_preprocess(needle, len_needle):
+    # Returns (cut, period, gap, is_periodic, table).  A plain tuple rather
+    # than a class: this code is also reached as a low-level helper (from
+    # rstr.py's ll_search via hlstr), where a fresh RPython class instance
+    # would miss the class-id assignment pass and break vtable setup.
+    cut, period = _factorize(needle, len_needle)
+    # is_periodic == (needle[:cut] == needle[period:period + cut])
+    is_periodic = True
+    i = 0
+    while i < cut:
+        if needle[i] != needle[period + i]:
+            is_periodic = False
+            break
+        i += 1
+    if is_periodic:
+        gap = 0
+    else:
+        # a lower bound on the period
+        period = (cut if cut > len_needle - cut else len_needle - cut) + 1
+        # gap between the last char and the previous equivalent char
+        gap = len_needle
+        last = ord(needle[len_needle - 1]) & TWOWAY_TABLE_MASK
+        i = len_needle - 2
+        while i >= 0:
+            if (ord(needle[i]) & TWOWAY_TABLE_MASK) == last:
+                gap = len_needle - 1 - i
+                break
+            i -= 1
+    # compressed Boyer-Moore "bad character" table.  Build it with an
+    # explicit comprehension rather than [not_found_shift] * TWOWAY_TABLE_SIZE:
+    # this function is reached as a low-level helper (rstr.py ll_search via
+    # hlstr), and the post-annotation transform_allocate pass rewrites the
+    # list-multiply into an 'alloc_and_set' SpaceOperation that the low-level
+    # re-annotation cannot reflow (no .transform method) -- it crashes
+    # translation.  The comprehension lowers to a plain append loop instead.
+    not_found_shift = len_needle if len_needle < TWOWAY_MAX_SHIFT else TWOWAY_MAX_SHIFT
+    table = [not_found_shift for _i in range(TWOWAY_TABLE_SIZE)]
+    i = len_needle - not_found_shift
+    while i < len_needle:
+        table[ord(needle[i]) & TWOWAY_TABLE_MASK] = len_needle - 1 - i
+        i += 1
+    return cut, period, gap, is_periodic, table
+
+@specialize.argtype(0, 3)
+def _two_way(value, base, n, needle, m, cut, period, gap, is_periodic, table):
+    # Search for needle[:m] in value[base:base + n]; return the match
+    # position relative to base, or -1.
+    haystack_end = base + n
+    window_last = base + m - 1
+    if is_periodic:
+        memory = 0
+        skip_horspool = False
+        while window_last < haystack_end:
+            if not skip_horspool:
+                while True:
+                    shift = table[ord(value[window_last]) & TWOWAY_TABLE_MASK]
+                    window_last += shift
+                    if shift == 0:
+                        break
+                    if window_last >= haystack_end:
+                        return -1
+            skip_horspool = False
+            window = window_last - m + 1
+            # right half
+            i = cut if cut > memory else memory
+            mismatch = False
+            while i < m:
+                if needle[i] != value[window + i]:
+                    window_last += i - cut + 1
+                    memory = 0
+                    mismatch = True
+                    break
+                i += 1
+            if mismatch:
+                continue
+            # left half
+            i = memory
+            mismatch = False
+            while i < cut:
+                if needle[i] != value[window + i]:
+                    window_last += period
+                    memory = m - period
+                    if window_last >= haystack_end:
+                        return -1
+                    shift = table[ord(value[window_last]) & TWOWAY_TABLE_MASK]
+                    if shift:
+                        mj = cut if cut > memory else memory
+                        mem_jump = mj - cut + 1
+                        memory = 0
+                        window_last += shift if shift > mem_jump else mem_jump
+                    else:
+                        skip_horspool = True
+                    mismatch = True
+                    break
+                i += 1
+            if mismatch:
+                continue
+            return window - base
+        return -1
+    else:
+        if period < gap:
+            period = gap
+        gap_jump_end = cut + gap
+        if gap_jump_end > m:
+            gap_jump_end = m
+        while window_last < haystack_end:
+            while True:
+                shift = table[ord(value[window_last]) & TWOWAY_TABLE_MASK]
+                window_last += shift
+                if shift == 0:
+                    break
+                if window_last >= haystack_end:
+                    return -1
+            window = window_last - m + 1
+            mismatch = False
+            # right half, early part: a mismatch lets us jump by gap
+            i = cut
+            while i < gap_jump_end:
+                if needle[i] != value[window + i]:
+                    window_last += gap
+                    mismatch = True
+                    break
+                i += 1
+            if mismatch:
+                continue
+            # right half, late part
+            i = gap_jump_end
+            while i < m:
+                if needle[i] != value[window + i]:
+                    window_last += i - cut + 1
+                    mismatch = True
+                    break
+                i += 1
+            if mismatch:
+                continue
+            # left half
+            i = 0
+            while i < cut:
+                if needle[i] != value[window + i]:
+                    window_last += period
+                    mismatch = True
+                    break
+                i += 1
+            if mismatch:
+                continue
+            return window - base
+        return -1
+
+@specialize.argtype(0, 3)
+def _two_way_count(value, base, n, needle, m, cut, period, gap, is_periodic,
+                   table):
+    index = 0
+    count = 0
+    while True:
+        result = _two_way(value, base + index, n - index, needle, m,
+                          cut, period, gap, is_periodic, table)
+        if result == -1:
+            return count
+        count += 1
+        index += result + m
+    return count
+
+@specialize.argtype(0, 3)
+def _default_find(value, base, n, needle, m, mode):
+    # Boyer-Moore-Horspool with a bloom filter, operating on
+    # value[base:base + n].  Returns a match position relative to base
+    # (SEARCH_FIND) or an occurrence count (SEARCH_COUNT), or -1.
+    if isinstance(value, unicode):
+        NUL = u'\0'
+    else:
+        NUL = '\0'
+    w = n - m
+    mlast = m - 1
+    count = 0
+    gap = mlast
+    last = needle[mlast]
+    mask = 0
+    j = 0
+    while j < mlast:
+        mask = bloom_add(mask, needle[j])
+        if needle[j] == last:
+            gap = mlast - j - 1
+        j += 1
+    mask = bloom_add(mask, last)
+    i = 0
+    while i <= w:
+        if value[base + mlast + i] == last:
+            j = 0
+            while j < mlast:
+                if value[base + i + j] != needle[j]:
+                    break
+                j += 1
+            if j == mlast:
+                if mode != SEARCH_COUNT:
+                    return i
+                count += 1
+                i += mlast
+            else:
+                la = base + mlast + i + 1
+                c = value[la] if la < len(value) else NUL
+                if not bloom(mask, c):
+                    i += m
+                else:
+                    i += gap
+        else:
+            la = base + mlast + i + 1
+            c = value[la] if la < len(value) else NUL
+            if not bloom(mask, c):
+                i += m
+        i += 1
+    if mode != SEARCH_COUNT:
+        return -1
+    return count
+
+@specialize.argtype(0, 3)
+def _adaptive_find(value, base, n, needle, m, mode):
+    # Like _default_find, but if we match O(m) characters without finding
+    # the whole needle, switch to the two-way algorithm for the rest, to
+    # guarantee good worst-case behavior.
+    if isinstance(value, unicode):
+        NUL = u'\0'
+    else:
+        NUL = '\0'
+    w = n - m
+    mlast = m - 1
+    count = 0
+    gap = mlast
+    hits = 0
+    last = needle[mlast]
+    mask = 0
+    j = 0
+    while j < mlast:
+        mask = bloom_add(mask, needle[j])
+        if needle[j] == last:
+            gap = mlast - j - 1
+        j += 1
+    mask = bloom_add(mask, last)
+    i = 0
+    while i <= w:
+        if value[base + mlast + i] == last:
+            j = 0
+            while j < mlast:
+                if value[base + i + j] != needle[j]:
+                    break
+                j += 1
+            if j == mlast:
+                if mode != SEARCH_COUNT:
+                    return i
+                count += 1
+                i += mlast
+            else:
+                hits += j + 1
+                if hits > m / 4 and w - i > 2000:
+                    cut, period, gap, is_periodic, table = \
+                        _twoway_preprocess(needle, m)
+                    if mode != SEARCH_COUNT:
+                        res = _two_way(value, base + i, n - i, needle, m,
+                                       cut, period, gap, is_periodic, table)
+                        return -1 if res == -1 else res + i
+                    res = _two_way_count(value, base + i, n - i, needle, m,
+                                         cut, period, gap, is_periodic, table)
+                    return res + count
+                la = base + mlast + i + 1
+                c = value[la] if la < len(value) else NUL
+                if not bloom(mask, c):
+                    i += m
+                else:
+                    i += gap
+        else:
+            la = base + mlast + i + 1
+            c = value[la] if la < len(value) else NUL
+            if not bloom(mask, c):
+                i += m
+        i += 1
+    if mode != SEARCH_COUNT:
+        return -1
+    return count
+
 @specialize.argtype(0, 1)
 def _search(value, other, start, end, mode):
     if isinstance(value, str) and isinstance(other, str):
@@ -492,10 +819,6 @@ def _search_elidable(value, other, start, end, mode):
 @specialize.argtype(0, 1)
 def _search_normal(value, other, start, end, mode):
     assert value is not None
-    if isinstance(value, unicode):
-        NUL = u'\0'
-    else:
-        NUL = '\0'
     if start < 0:
         start = 0
     if end > len(value):
@@ -505,7 +828,6 @@ def _search_normal(value, other, start, end, mode):
             return 0
         return -1
 
-    count = 0
     n = end - start
     m = len(other)
 
@@ -524,73 +846,56 @@ def _search_normal(value, other, start, end, mode):
             return 0
         return -1
 
+    if mode != SEARCH_RFIND:
+        # Forward find/count.  Mirror CPython's stringlib FASTSEARCH
+        # dispatch: small problems use the Boyer-Moore-Horspool "default"
+        # search; larger ones use the Crochemore-Perrin two-way algorithm
+        # (directly when the needle is a small fraction of the haystack,
+        # adaptively otherwise) to guarantee O(n + m) worst case.
+        if n < 2500 or (m < 100 and n < 30000) or m < 6:
+            res = _default_find(value, start, n, other, m, mode)
+        elif (m >> 2) * 3 < (n >> 2):
+            # 33% threshold (computed without overflow)
+            cut, period, gap, is_periodic, table = _twoway_preprocess(other, m)
+            if mode == SEARCH_COUNT:
+                return _two_way_count(value, start, n, other, m,
+                                      cut, period, gap, is_periodic, table)
+            res = _two_way(value, start, n, other, m,
+                           cut, period, gap, is_periodic, table)
+        else:
+            res = _adaptive_find(value, start, n, other, m, mode)
+        if mode == SEARCH_COUNT:
+            return res
+        return -1 if res == -1 else start + res
+
+    # Reverse find (rfind): Boyer-Moore-Horspool, unchanged.
     mlast = m - 1
     skip = mlast
     mask = 0
+    mask = bloom_add(mask, other[0])
+    for i in range(mlast, 0, -1):
+        mask = bloom_add(mask, other[i])
+        if other[i] == other[0]:
+            skip = i - 1
 
-    if mode != SEARCH_RFIND:
-        for i in range(mlast):
-            mask = bloom_add(mask, other[i])
-            if other[i] == other[mlast]:
-                skip = mlast - i - 1
-        mask = bloom_add(mask, other[mlast])
-
-        i = start - 1
-        while i + 1 <= start + w:
-            i += 1
-            if value[i + mlast] == other[mlast]:
-                for j in range(mlast):
-                    if value[i + j] != other[j]:
-                        break
-                else:
-                    if mode != SEARCH_COUNT:
-                        return i
-                    count += 1
-                    i += mlast
-                    continue
-
-                if i + m < len(value):
-                    c = value[i + m]
-                else:
-                    c = NUL
-                if not bloom(mask, c):
-                    i += m
-                else:
-                    i += skip
+    i = start + w + 1
+    while i - 1 >= start:
+        i -= 1
+        if value[i] == other[0]:
+            for j in xrange(mlast, 0, -1):
+                if value[i + j] != other[j]:
+                    break
             else:
-                if i + m < len(value):
-                    c = value[i + m]
-                else:
-                    c = NUL
-                if not bloom(mask, c):
-                    i += m
-    else:
-        mask = bloom_add(mask, other[0])
-        for i in range(mlast, 0, -1):
-            mask = bloom_add(mask, other[i])
-            if other[i] == other[0]:
-                skip = i - 1
-
-        i = start + w + 1
-        while i - 1 >= start:
-            i -= 1
-            if value[i] == other[0]:
-                for j in xrange(mlast, 0, -1):
-                    if value[i + j] != other[j]:
-                        break
-                else:
-                    return i
-                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
-                    i -= m
-                else:
-                    i -= skip
+                return i
+            if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                i -= m
             else:
-                if i - 1 >= 0 and not bloom(mask, value[i - 1]):
-                    i -= m
+                i -= skip
+        else:
+            if i - 1 >= 0 and not bloom(mask, value[i - 1]):
+                i -= m
 
-    if mode != SEARCH_COUNT:
-        return -1
-    return count
+    return -1
 
 # -------------- numeric parsing support --------------------
 
