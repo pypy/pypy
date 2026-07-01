@@ -100,9 +100,11 @@ class SystemCompilationInfo(object):
 class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
     def load_module(space, mod, name, use_imp=False):
-        # use_imp is ignored, it is useful only for non-appdirect mode
-        import imp
-        return imp.load_dynamic(name, mod)
+        from importlib import machinery
+        from importlib._bootstrap import _load
+        loader = machinery.ExtensionFileLoader(name, mod)
+        spec = machinery.ModuleSpec(name=name, loader=loader, origin=mod)
+        return _load(spec)
 
 def convert_sources_to_files(sources, dirname):
     files = []
@@ -244,10 +246,10 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
         library_dirs=library_dirs)
 
 def get_so_suffix():
-    from imp import get_suffixes, C_EXTENSION
-    for suffix, mode, typ in get_suffixes():
-        if typ == C_EXTENSION:
-            return suffix
+    from importlib import machinery
+    extensions = getattr(machinery, "EXTENSION_SUFFIXES", [])
+    if extensions:
+        return extensions[0]
     else:
         raise RuntimeError("This interpreter does not define a filename "
             "suffix for C extensions!")
