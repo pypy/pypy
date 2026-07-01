@@ -26,6 +26,44 @@ def test_more_weird_prod():
     assert math.prod([], start=start) is start
 
 
+def test_sumprod():
+    from math import sumprod, inf, nan, isnan
+    # basics
+    assert sumprod([], []) == 0
+    assert sumprod([1, 2, 3], [4, 5, 6]) == 32
+    assert sumprod([1.0, 2.0], [3.0, 4.0]) == 11.0
+    # exact big ints
+    assert sumprod([10**20], [1]) == 10**20
+    assert sumprod([10**7] * 10**4, [10**7] * 10**4) == 10**18
+    # signature / non-iterable -> TypeError
+    pytest.raises(TypeError, sumprod)
+    pytest.raises(TypeError, sumprod, [])
+    pytest.raises(TypeError, sumprod, [], [], [])
+    pytest.raises(TypeError, sumprod, None, [10])
+    pytest.raises(TypeError, sumprod, [10], None)
+    # uneven lengths -> ValueError
+    pytest.raises(ValueError, sumprod, [10, 20], [30])
+    pytest.raises(ValueError, sumprod, [10], [20, 30])
+    # overflow converting a huge int to float during the product
+    pytest.raises(OverflowError, sumprod, [10**1000], [1.0])
+    # error propagation from the iterator
+    def raise_after(n):
+        for i in range(n):
+            yield i
+        raise RuntimeError
+    pytest.raises(RuntimeError, sumprod, range(10), raise_after(5))
+    # error propagation from multiplication and addition
+    class BadMultiply:
+        def __mul__(self, other): raise RuntimeError
+        __rmul__ = __mul__
+    pytest.raises(RuntimeError, sumprod, [1, BadMultiply(), 3], [1, 2, 3])
+    pytest.raises(TypeError, sumprod, ['abc', 3], [5, 10])
+    # special values match the naive recipe
+    assert sumprod([10.1, inf], [20.2, 30.3]) == inf
+    assert sumprod([10.1, -inf], [20.2, 30.3]) == -inf
+    assert isnan(sumprod([10.1, nan], [20.2, 30.3]))
+
+
 def test_comb():
     from math import comb, factorial
 

@@ -167,6 +167,40 @@ def prod(iterable, /, *, start=1):
         res = res * x
     return res
 
+def sumprod(p, q, /):
+    """
+    Return the sum of products of values from two iterables p and q.
+
+    Roughly equivalent to:
+
+        sum(itertools.starmap(operator.mul, zip(p, q, strict=True)))
+
+    Unlike CPython, this does not use extended precision for the
+    intermediate products and sums; it matches the naive recipe above.
+    """
+    p_it = iter(p)
+    q_it = iter(q)
+    total = 0
+    while True:
+        try:
+            p_i = next(p_it)
+        except StopIteration:
+            p_stopped = True
+        else:
+            p_stopped = False
+        try:
+            q_i = next(q_it)
+        except StopIteration:
+            q_stopped = True
+        else:
+            q_stopped = False
+        if p_stopped != q_stopped:
+            raise ValueError('Inputs are not the same length')
+        if p_stopped:
+            # both iterables are exhausted
+            return total
+        total += p_i * q_i
+
 def comb(n, k, /):
     """
     Number of ways to choose k items from n items without repetition and without order.

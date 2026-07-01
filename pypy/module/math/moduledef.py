@@ -8,6 +8,7 @@ class Module(MixedModule):
        'remainder' : 'app_math.remainder',
        'isqrt'     : 'app_math.isqrt',
        'prod'      : 'app_math.prod',
+       'sumprod'   : 'app_math.sumprod',
        'comb'      : 'app_math.comb',
        'perm'      : 'app_math.perm',
        'lcm'       : 'app_math.lcm',
