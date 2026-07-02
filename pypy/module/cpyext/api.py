@@ -1371,6 +1371,7 @@ def build_bridge(space):
     prologue = ("#include <Python.h>\n" +
                 "#include <structmember.h>\n" +
                 "#include <marshal.h>\n" +
+                "#include <pycore_namespace.h>\n" +
                 ("#include <pypy_numpy.h>\n" if use_micronumpy else "") +
                 "#include <src/thread.c>\n")
     code = (prologue +

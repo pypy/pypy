@@ -2,7 +2,6 @@
 
 import ast
 import errno
-import importlib.util
 import itertools
 import marshal
 import os
@@ -13,6 +12,17 @@ import types
 
 import py
 from _pytest.assertion import util
+
+try:
+    import importlib.util as _importlib_util
+    _MAGIC_NUMBER = _importlib_util.MAGIC_NUMBER
+    def _source_from_cache(fn):
+        return _importlib_util.source_from_cache(fn)
+except ImportError:
+    import imp as _imp
+    _MAGIC_NUMBER = _imp.get_magic()
+    def _source_from_cache(fn):
+        return fn[:-1]
 
 _PY_SOURCE = 1
 _PY_COMPILED = 2
@@ -96,7 +106,7 @@ class AssertionRewritingHook(object):
             tp = desc[2]
             if tp == _PY_COMPILED:
                 try:
-                    fn = importlib.util.source_from_cache(fn)
+                    fn = _source_from_cache(fn)
                 except (NotImplementedError, ValueError):
                     fn = fn[:-1]
             elif tp != _PY_SOURCE:
@@ -244,7 +254,7 @@ def _write_pyc(state, co, source_stat, pyc):
         # file etc.
         return False
     try:
-        fp.write(importlib.util.MAGIC_NUMBER)
+        fp.write(_MAGIC_NUMBER)
         mtime = int(source_stat.mtime)
         size = source_stat.size & 0xFFFFFFFF
         fp.write(struct.pack("<ll", mtime, size))
@@ -346,7 +356,7 @@ def _read_pyc(source, pyc, trace=lambda x: None):
             trace('_read_pyc(%s): EnvironmentError %s' % (source, e))
             return None
         # Check for invalid or out of date pyc file.
-        if (len(data) != 12 or data[:4] != importlib.util.MAGIC_NUMBER or
+        if (len(data) != 12 or data[:4] != _MAGIC_NUMBER or
                 struct.unpack("<ll", data[4:]) != (mtime, size)):
             trace('_read_pyc(%s): invalid or out of date pyc' % source)
             return None
