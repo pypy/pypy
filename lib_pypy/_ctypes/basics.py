@@ -114,6 +114,8 @@ class _CDataMeta(type):
             raise ValueError("offset cannot be negative")
         size = self._sizeofinstances()
         buf = memoryview(obj)
+        if not buf.c_contiguous:
+            raise TypeError("underlying buffer is not C contiguous")
         if buf.nbytes < offset + size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
@@ -134,6 +136,8 @@ class _CDataMeta(type):
             raise ValueError("offset cannot be negative")
         size = self._sizeofinstances()
         buf = memoryview(obj)
+        if not buf.c_contiguous:
+            raise TypeError("underlying buffer is not C contiguous")
         if buf.nbytes < offset + size:
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
