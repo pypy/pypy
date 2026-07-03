@@ -111,6 +111,9 @@ and_known_result: int_and(a, b)
 and_absorb: int_and(a, int_and(a, b))
     => int_and(a, b) # XXX reuse the inner op
 
+and_or_absorb: int_and(x, int_or(x, y))
+    => x
+
 
 or_x_x: int_or(a, a)
     => a
@@ -123,6 +126,9 @@ or_known_result: int_or(a, b)
 
 or_absorb: int_or(a, int_or(a, b))
     => int_or(a, b)
+
+or_and_absorb: int_or(x, int_and(x, y))
+    => x
 
 or_idempotent: int_or(x, y)
     # int_or(x, y) == x if the 0s in y cover all 0s and all ?s in x

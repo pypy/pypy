@@ -575,6 +575,34 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_or_and_absorb(self):
+        ops = """
+        [i0, i1]
+        i2 = int_and(i0, i1)
+        i3 = int_or(i0, i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_and(i0, i1) # dead
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_and_or_absorb(self):
+        ops = """
+        [i0, i1]
+        i2 = int_or(i0, i1)
+        i3 = int_and(i0, i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_or(i0, i1) # dead
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_rule_neg_neg_sub(self):
         ops = """
         [i0, i1]
