@@ -384,3 +384,45 @@ neg_neg: int_neg(int_neg(x))
 #    check C1 == C3 + C2
 #    check C4 == (1 << C2) - 1
 #    => uint_rshift(x, C3)
+
+sub_add_cancel_right: int_add(int_sub(x, y), y)
+    => x
+
+neg_neg_sub: int_neg(int_sub(x, y))
+    => int_sub(y, x)
+
+add_neg_to_sub: int_add(x, int_neg(y))
+    => int_sub(x, y)
+
+add_const_eqv_cmp_shift: int_eq(int_add(x, C1), C2)
+    C = C2 - C1
+    => int_eq(x, C)
+
+sub_compare_zero_eq_ne: int_eq(int_sub(x, y), 0)
+    => int_eq(x, y)
+
+bitxor_eq_zero: int_eq(int_xor(x, y), 0)
+    => int_eq(x, y)
+
+ne_add_sub_const_commute: int_ne(int_add(x, C1), C2)
+    C = C2 - C1
+    => int_ne(x, C)
+
+eq_sub_add_const_commute: int_eq(int_sub(x, C1), C2)
+    C = C2 + C1
+    => int_eq(x, C)
+
+ne_sub_add_const_commute: int_ne(int_sub(x, C1), C2)
+    C = C2 + C1
+    => int_ne(x, C)
+
+ne_add_cancel_left: int_ne(int_add(x, y), x)
+    => int_ne(y, 0)
+
+add_eq_self_iff_zero: int_eq(int_add(y, x), x)
+    => int_eq(y, 0)
+
+mul_reassociate_const: int_mul(int_mul(C1, z), C2)
+    C = C1 * C2
+    => int_mul(C, z)
+
