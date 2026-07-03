@@ -520,6 +520,22 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_sub_sub_right_c_c_x(self):
+        ops = """
+        [i0]
+        i1 = int_sub(10, i0)
+        i2 = int_sub(20, i1)
+        jump(i2)
+        """
+        # 20 - (10 - i0) == 10 + i0
+        expected = """
+        [i0]
+        i1 = int_sub(10, i0) # dead
+        i2 = int_add(i0, 10)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_rule_neg_neg_sub(self):
         ops = """
         [i0, i1]
