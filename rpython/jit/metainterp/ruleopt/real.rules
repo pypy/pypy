@@ -55,8 +55,8 @@ sub_invert_one: int_sub(int_invert(x), -1)
     # useful for int_abs(known-negative-value)
     => int_neg(x)
 
-#sub_neg: int_sub(x, int_neg(y))
-#    => int_add(x, y)
+sub_neg: int_sub(x, int_neg(y))
+    => int_add(x, y)
 
 
 mul_zero: int_mul(x, 0)
