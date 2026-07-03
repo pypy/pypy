@@ -216,7 +216,14 @@ if osname == 'posix':
             raise ValueError("negative argument not allowed")
         try:
             with open('/dev/urandom', 'rb', buffering=0) as fd:
-                return fd.read(n)
+                res = []
+                while 1:
+                    s = fd.read(n)
+                    n -= len(s)
+                    res.append(s)
+                    if n == 0:
+                        break
+                return b"".join(res)
         except OSError as e:
             if e.errno in (errno.ENOENT, errno.ENXIO, errno.ENODEV, errno.EACCES):
                 raise NotImplementedError("/dev/urandom (or equivalent) not found")

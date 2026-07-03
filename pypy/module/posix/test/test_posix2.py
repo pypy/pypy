@@ -1530,6 +1530,13 @@ class AppTestPosix:
             assert False, "urandom() always returns the same string"
             # Or very unlucky
 
+    def test_urandom_large(self):
+        os = self.posix
+        length = 2147479553
+        s = os.urandom(length)
+        assert len(s) == length
+
+
     if hasattr(os, 'startfile'):
         def test_startfile(self):
             if not self.runappdirect:
