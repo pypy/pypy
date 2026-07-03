@@ -94,3 +94,11 @@ def or_with_implicit_return():
          or
          h)""", function=True)
     assert got == [2, 3, 5, 2]
+
+
+def test_compile_ast_object_pep695_type_alias():
+    # PEP 695 TypeAlias test
+    from _ast import PyCF_ONLY_AST
+    for src in ("type X = int\n", "type Stack[T] = list[T]\n"):
+        tree = compile(src, "<test>", "exec", PyCF_ONLY_AST)
+        compile(tree, "<test>", "exec")

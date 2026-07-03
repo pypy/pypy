@@ -203,6 +203,7 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_FunctionDef(self, node):
         self._validate_body(node.body, "FunctionDef")
+        self.visit_sequence(node.type_params)
         node.args.walkabout(self)
         self._validate_exprs(node.decorator_list)
         if node.returns:
@@ -210,6 +211,7 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_AsyncFunctionDef(self, node):
         self._validate_body(node.body, "AsyncFunctionDef")
+        self.visit_sequence(node.type_params)
         node.args.walkabout(self)
         self._validate_exprs(node.decorator_list)
         if node.returns:
@@ -220,6 +222,7 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_ClassDef(self, node):
         self._validate_body(node.body, "ClassDef")
+        self.visit_sequence(node.type_params)
         self._validate_exprs(node.bases)
         self.visit_sequence(node.keywords)
         self._validate_exprs(node.decorator_list)
@@ -227,6 +230,24 @@ class AstValidator(ast.ASTVisitor):
         # XXX py3.5 missing   self._validate_expr(node.starargs)
         # XXX py3.5 missing if node.kwargs:
         # XXX py3.5 missing     self._validate_expr(node.kwargs)
+
+    def visit_TypeAlias(self, node):
+        if not isinstance(node.name, ast.Name):
+            raise ValidationTypeError("TypeAlias with non-Name name")
+        self._validate_expr(node.name, ast.Store)
+        self.visit_sequence(node.type_params)
+        self._validate_expr(node.value)
+
+    def visit_TypeVar(self, node):
+        self._validate_name(node.name)
+        if node.bound:
+            self._validate_expr(node.bound)
+
+    def visit_ParamSpec(self, node):
+        self._validate_name(node.name)
+
+    def visit_TypeVarTuple(self, node):
+        self._validate_name(node.name)
 
     def visit_Return(self, node):
         if node.value:
