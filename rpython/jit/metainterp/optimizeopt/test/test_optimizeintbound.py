@@ -28,7 +28,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i]
-        i0 = int_sub(i, 1)
+        i0 = int_add(i, -1)
         guard_value(i0, 0) [i0]
         jump(0)
         """
@@ -43,7 +43,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i]
-        i0 = int_sub(i, 1)
+        i0 = int_add(i, -1)
         guard_value(i0, 0) [i0]
         jump(1)
         """
@@ -619,7 +619,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_sub(i0, 3)
+        i1 = int_add(i0, -3)
         i2 = int_eq(i0, 10)
         jump(i2)
         """
@@ -634,7 +634,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_sub(i0, 3)
+        i1 = int_add(i0, -3)
         i2 = int_ne(i0, 10)
         jump(i2)
         """
@@ -875,7 +875,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i1) []
         i1p = int_gt(i0, -4)
         guard_true(i1p) []
-        i2 = int_sub(i0, 10)
+        i2 = int_add(i0, -10)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -892,7 +892,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i2 = int_sub(i0, 10)
+        i2 = int_add(i0, -10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
         jump(i0)
@@ -1142,7 +1142,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i10, i11, i12, i13, i14]
-        i2 = int_sub(i0, 1)
+        i2 = int_add(i0, -1)
         jump(i0, i2, i2, i2, i0, -1)
         """
         self.optimize_loop(ops, expected)
@@ -1156,9 +1156,8 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i0, i10, i11, i12]
         i2 = int_add(%s, i0)
-        i4 = int_sub(i0, %s)
-        jump(i0, i2, i0, i4)
-        """ % ((MININT, ) * 2)
+        jump(i0, i2, i0, i2)
+        """ % (MININT, )
         self.optimize_loop(ops, expected)
 
     def test_addsub_ovf(self):
@@ -2256,7 +2255,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i0]
         i1 = int_and(i0, -4)
-        i6 = int_sub(i1, 8)
+        i6 = int_add(i1, -8)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -2950,7 +2949,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_add_ovf(i0, 10)
         guard_no_overflow() []
-        i2 = int_sub(i1, 5)
+        i2 = int_add(i1, -5)
         jump(i2)
         """
         self.optimize_loop(ops, expected)
@@ -4002,8 +4001,8 @@ finish()
         """
         expected = """
         [i1]
-        i3 = int_sub(i1, 2) # dead
-        i4 = int_sub(i1, 3)
+        i3 = int_add(i1, -2) # dead
+        i4 = int_add(i1, -3)
         jump(i4)
         """
         self.optimize_loop(ops, expected)
@@ -4387,8 +4386,8 @@ finish()
         '''
         expected = '''
         [i1]
-        i2 = int_sub(i1, 1)
-        i3 = int_sub(i1, 2) # dead
+        i2 = int_add(i1, -1)
+        i3 = int_add(i1, -2) # dead
         jump(i2)
         '''
         self.optimize_loop(ops, expected)

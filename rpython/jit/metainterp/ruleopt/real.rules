@@ -8,10 +8,6 @@ add_zero: int_add(x, 0)
 #add_self: int_add(x, x)
 #    => int_mul(x, 2)
 
-add_sub_x_c_c: int_add(int_sub(x, C1), C2)
-    C = C2 - C1
-    => int_add(x, C)
-
 add_sub_c_x_c: int_add(int_sub(C1, x), C2)
     C = C1 + C2
     => int_sub(C, x)
@@ -26,15 +22,15 @@ add_sub_c_x_c: int_add(int_sub(C1, x), C2)
 sub_zero: int_sub(x, 0)
     => x
 
+sub_const_canonicalize: int_sub(x, C1)
+    C = 0-C1
+    => int_add(x, C)
+
 sub_from_zero: int_sub(0, x)
     => int_neg(x)
 
 sub_x_x: int_sub(x, x)
     => 0
-
-sub_add_consts: int_sub(int_add(x, C1), C2)
-    C = C2 - C1
-    => int_sub(x, C)
 
 sub_add: int_sub(int_add(x, y), y)
     => x
@@ -42,18 +38,6 @@ sub_add: int_sub(int_add(x, y), y)
 sub_add_neg: int_sub(y, int_add(x, y))
     => int_neg(x)
 
-sub_sub_left_x_c_c: int_sub(int_sub(x, C1), C2)
-    C = C1 + C2
-    => int_sub(x, C)
-
-sub_sub_left_c_x_c: int_sub(int_sub(C1, x), C2)
-    C = C1 - C2
-    => int_sub(C, x)
-
-#sub_sub_right_c_x_c: int_sub(C1, int_sub(x, C2))
-#    C = C1 + C2
-#    => int_sub(C, x)
-#
 #sub_sub_right_c_c_x: int_sub(C1, int_sub(C2, x))
 #    C = C1 - C2
 #    => int_add(C, x)
@@ -406,14 +390,6 @@ bitxor_eq_zero: int_eq(int_xor(x, y), 0)
 
 ne_add_sub_const_commute: int_ne(int_add(x, C1), C2)
     C = C2 - C1
-    => int_ne(x, C)
-
-eq_sub_add_const_commute: int_eq(int_sub(x, C1), C2)
-    C = C2 + C1
-    => int_eq(x, C)
-
-ne_sub_add_const_commute: int_ne(int_sub(x, C1), C2)
-    C = C2 + C1
     => int_ne(x, C)
 
 ne_add_cancel_left: int_ne(int_add(x, y), x)
