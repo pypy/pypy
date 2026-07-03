@@ -1,10 +1,16 @@
 # Some classes and types are not export to _ctypes module directly.
 
+import sys
 import ctypes
 from _ctypes import Structure, Union, _Pointer, Array, _SimpleCData, CFuncPtr
 
 
-_CData = Structure.__base__
+if sys.implementation.name == 'pypy':
+    # PyPy: Structure.__base__ is the intermediate StructOrUnion class, not
+    # _CData, so import _CData directly from _ctypes instead of via __base__.
+    from _ctypes import _CData
+else:
+    _CData = Structure.__base__
 assert _CData.__name__ == "_CData"
 
 class _X(Structure):

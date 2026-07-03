@@ -1,7 +1,12 @@
 # This tests the internal _objects attribute
 import unittest
 from ctypes import *
-from sys import getrefcount as grc
+try:
+    from sys import getrefcount as grc
+except ImportError:
+    # PyPy has no sys.getrefcount (no reference counting); this test asserts
+    # exact refcounts, so it does not apply.
+    raise unittest.SkipTest("no sys.getrefcount on PyPy")
 
 # XXX This test must be reviewed for correctness!!!
 

@@ -11,6 +11,13 @@ from test.support import import_helper
 
 import _ctypes_test
 
+try:
+    from ctypes import pythonapi
+except ImportError:
+    # PyPy has no ctypes.pythonapi (see PythonValuesTestCase below); the rest
+    # of this module does not need it.
+    pythonapi = None
+
 class ValuesTestCase(unittest.TestCase):
 
     def test_an_integer(self):
@@ -31,6 +38,7 @@ class ValuesTestCase(unittest.TestCase):
         ctdll = CDLL(_ctypes_test.__file__)
         self.assertRaises(ValueError, c_int.in_dll, ctdll, "Undefined_Symbol")
 
+@unittest.skipUnless(pythonapi is not None, "requires ctypes.pythonapi")
 class PythonValuesTestCase(unittest.TestCase):
     """This test only works when python itself is a dll/shared library"""
 

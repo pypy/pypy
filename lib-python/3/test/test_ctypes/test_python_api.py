@@ -1,5 +1,11 @@
 from ctypes import *
 import unittest
+try:
+    from ctypes import pythonapi
+except ImportError as msg:
+    # PyPy has no ctypes.pythonapi: it cannot expose the CPython C-API as a
+    # callable DLL, so the whole module does not apply.
+    raise unittest.SkipTest(str(msg))
 from test import support
 
 ################################################################
