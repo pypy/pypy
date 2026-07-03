@@ -12,9 +12,6 @@ add_sub_c_x_c: int_add(int_sub(C1, x), C2)
     C = C1 + C2
     => int_sub(C, x)
 
-#add_sub: int_add(int_sub(x, y), y)
-#    => x
-
 sub_zero: int_sub(x, 0)
     => x
 
@@ -262,10 +259,6 @@ eq_zero: int_eq(x, 0)
 eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
     => 0
 
-#eq_add_const: int_eq(int_add(x, C1), C2)
-#    C = C2 - C1
-#    => int_eq(x, C)
-
 ne_different_knownbits: int_ne(x, y)
     SORRY_Z3
     check x.known_ne(y)
@@ -299,13 +292,13 @@ is_zero_true: int_is_zero(x)
 
 #is_zero_is_zero: int_is_zero(int_is_zero(x))
 #    => int_is_true(x)
-#
+
 #uint_lt_zero: uint_lt(0, x)
 #    => int_is_true(x)
 
-#is_zero_add: int_is_zero(int_add(x, C))
-#    check x.lower > 0-C or x.upper < 0-C
-#    => 0
+is_zero_add: int_is_zero(int_add(x, C))
+    check x.lower > -C or x.upper < -C
+    => 0
 
 #is_zero_negate_eq: int_is_zero(int_eq(x, y))
 #    => int_ne(x, y)

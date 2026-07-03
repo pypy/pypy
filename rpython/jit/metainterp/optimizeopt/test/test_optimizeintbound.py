@@ -557,6 +557,24 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_is_zero_add(self):
+        ops = """
+        [i0]
+        i1 = int_gt(i0, 0)
+        guard_true(i1) []
+        i2 = int_add(i0, 5)
+        i3 = int_is_zero(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_gt(i0, 0)
+        guard_true(i1) []
+        i2 = int_add(i0, 5) # dead
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_rule_neg_neg_sub(self):
         ops = """
         [i0, i1]
