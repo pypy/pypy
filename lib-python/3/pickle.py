@@ -465,6 +465,8 @@ class _Pickler:
         except AttributeError:
             raise TypeError("file must have a 'write' attribute")
         self.framer = _Framer(self._file_write)
+        self.write = self.framer.write
+        self._write_large_bytes = self.framer.write_large_bytes
         # The memo is keyed by id(obj) (not the object itself) for two reasons:
         # it lets unhashable objects be memoized, and it keeps the memo layout
         # compatible with CPython, which third-party code such as dill relies on
