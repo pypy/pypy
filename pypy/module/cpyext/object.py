@@ -51,9 +51,13 @@ def _PyPy_Malloc(size):
     # typeobject.type_alloc specify zero=True, so this is why we use it also
     # here. However, CPython does a simple non-initialized malloc, so we
     # should investigate whether we can remove zero=True as well
-    return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw', zero=True,
-                         add_memory_pressure=True)
+    try:
+        return lltype.malloc(rffi.VOIDP.TO, size,
+                             flavor='raw', zero=True,
+                             add_memory_pressure=True)
+    except MemoryError:
+        # return NULL rather than raise, as our C callers expect
+        return lltype.nullptr(rffi.VOIDP.TO)
 
 
 def _dealloc(space, obj):
