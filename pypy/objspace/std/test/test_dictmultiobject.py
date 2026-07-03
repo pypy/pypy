@@ -820,6 +820,59 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         else:
             assert (x == 1 or x == 2) and len(d) == 1
 
+    def test_bug_dict_update_too_eager(self):
+        subtypes = {
+            'A' : [ 'B', 'C', 'D', 'E', 'F', ],
+            'B' : [ 'G', ],
+        }
+
+        supertypes = {'A': ['A']}
+        supertypes.update(
+            (child, [child] + supertypes[parent])
+            for parent, children in subtypes.items()
+            for child in children
+        )
+
+        assert supertypes == {
+            'A': ['A'],
+            'B': ['B', 'A'],
+            'C': ['C', 'A'],
+            'D': ['D', 'A'],
+            'E': ['E', 'A'],
+            'F': ['F', 'A'],
+            'G': ['G', 'B', 'A']
+        }
+
+
+    def test_bug_dict_update_keys_too_eager(self):
+        subtypes = {
+            'A': ['B', 'C'],
+            'B': ['D'],
+        }
+
+        supertypes = {'A': ['A']}
+
+        class LazyMapping:
+            def keys(self):
+                return (child
+                        for parent, children in subtypes.items()
+                        for child in children
+                        if parent in supertypes)
+            def __getitem__(self, child):
+                for parent, children in subtypes.items():
+                    if child in children:
+                        return [child] + supertypes[parent]
+                raise KeyError(child)
+
+        supertypes.update(LazyMapping())
+
+        assert supertypes == {
+            'A': ['A'],
+            'B': ['B', 'A'],
+            'C': ['C', 'A'],
+            'D': ['D', 'B', 'A'],
+        }
+
 
 class AppTestDictViews:
     def test_dictview(self):

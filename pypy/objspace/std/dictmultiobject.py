@@ -1416,14 +1416,10 @@ def update1(space, w_dict, w_data):
     w_method = space.findattr(w_data, space.newtext("keys"))
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
-        data_w = space.listview(w_data)
-        if data_w:
-            update1_pairs(space, w_dict, data_w)
+        update1_pairs(space, w_dict, w_data)
     else:
         # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
-        data_w = space.listview(space.call_function(w_method))
-        if data_w:
-            update1_keys(space, w_dict, w_data, data_w)
+        update1_keys(space, w_dict, w_data, space.call_function(w_method))
 
 
 def update1_dict_dict(space, w_dict, w_data):
@@ -1435,8 +1431,30 @@ def update1_dict_dict(space, w_dict, w_data):
         w_data.get_strategy().rev_update1_dict_dict(w_data, w_dict)
 
 
-def update1_pairs(space, w_dict, data_w):
-    for w_pair in data_w:
+def _get_printable_location(strategy_type, greenkey):
+    return 'dict_update_pairs [%s, %s]' % (
+        strategy_type,
+        greenkey.iterator_greenkey_printable())
+
+_dict_update_pair_jitdriver = jit.JitDriver(
+    name='dict_update_pairs',
+    greens=['strategy_type', 'greenkey'],
+    reds='auto',
+    get_printable_location=_get_printable_location)
+
+def update1_pairs(space, w_dict, w_iterable):
+    w_iterator = space.iter(w_iterable)
+    greenkey = space.iterator_greenkey(w_iterator)
+    while True:
+        _dict_update_pair_jitdriver.jit_merge_point(
+                greenkey=greenkey,
+                strategy_type=type(w_dict.get_strategy()))
+        try:
+            w_pair = space.next(w_iterator)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         pair = space.fixedview(w_pair)
         if len(pair) != 2:
             raise oefmt(space.w_ValueError, "sequence of pairs expected")
@@ -1444,8 +1462,30 @@ def update1_pairs(space, w_dict, data_w):
         w_dict.setitem(w_key, w_value)
 
 
-def update1_keys(space, w_dict, w_data, data_w):
-    for w_key in data_w:
+def _get_printable_location_keys(strategy_type, greenkey):
+    return 'dict_update_keys [%s, %s]' % (
+        strategy_type,
+        greenkey.iterator_greenkey_printable())
+
+_dict_update_keys_jitdriver = jit.JitDriver(
+    name='dict_update_keys',
+    greens=['strategy_type', 'greenkey'],
+    reds='auto',
+    get_printable_location=_get_printable_location_keys)
+
+def update1_keys(space, w_dict, w_data, w_keys):
+    w_iterator = space.iter(w_keys)
+    greenkey = space.iterator_greenkey(w_iterator)
+    while True:
+        _dict_update_keys_jitdriver.jit_merge_point(
+                greenkey=greenkey,
+                strategy_type=type(w_dict.get_strategy()))
+        try:
+            w_key = space.next(w_iterator)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         w_value = space.getitem(w_data, w_key)
         w_dict.setitem(w_key, w_value)
 
