@@ -95,6 +95,7 @@ class Handler(object):
         self.dump_traceback_later_w_file = w_file
 
     def cancel_dump_traceback_later(self):
+        self.setup()
         cintf.pypy_faulthandler_cancel_dump_traceback_later()
         self.dump_traceback_later_w_file = None
 
