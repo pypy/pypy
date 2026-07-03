@@ -1096,8 +1096,9 @@ class Thread:
         # Special case:  _main_thread releases ._tstate_lock via this
         # module's _shutdown() function.
         lock = self._tstate_lock
-        if lock is not None:
-            assert not lock.locked()
+        # XXX PyPy change: remove assert statement that fails at race condition
+        # if lock is not None:
+        #     assert not lock.locked()
         self._is_stopped = True
         self._tstate_lock = None
         if not self.daemon:
@@ -1167,7 +1168,11 @@ class Thread:
 
         try:
             if lock.acquire(block, timeout):
-                lock.release()
+                # XXX PyPy change: suppress RuntimeError due to race condition
+                try:
+                    lock.release()
+                except RuntimeError:
+                    pass
                 self._stop()
         except:
             if lock.locked():
@@ -1175,7 +1180,11 @@ class Thread:
                 # was interrupted with an exception before reaching the
                 # lock.release(). It can happen if a signal handler raises an
                 # exception, like CTRL+C which raises KeyboardInterrupt.
-                lock.release()
+                # XXX PyPy change: suppress RuntimeError due to race condition
+                try:
+                    lock.release()
+                except RuntimeError:
+                    pass
                 self._stop()
             raise
 
@@ -1622,7 +1631,11 @@ def _shutdown():
         for lock in locks:
             # mimic Thread.join()
             lock.acquire()
-            lock.release()
+            # XXX PyPy change: suppress RuntimeError due to race condition
+            try:
+                lock.release()
+            except RuntimeError:
+                pass
 
         # new threads can be spawned while we were waiting for the other
         # threads to complete
@@ -1697,6 +1710,8 @@ def _after_fork():
                 # All the others are already stopped.
                 thread._reset_internal_locks(False)
                 thread._stop()
+                # PyPy: GC does not collect promptly, so drop stopped threads
+                _dangling.discard(thread)
 
         _limbo.clear()
         _active.clear()

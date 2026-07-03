@@ -322,6 +322,8 @@ class RequestHandlerLoggingTestCase(BaseTestCase):
 
         def do_GET(self):
             self.send_response(HTTPStatus.OK)
+            # PyPy: close the connection so the client does not block
+            self.send_header('Connection', 'close')
             self.end_headers()
 
         def do_ERROR(self):

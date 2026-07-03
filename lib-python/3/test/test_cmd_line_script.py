@@ -180,9 +180,15 @@ class CmdLineTest(unittest.TestCase):
             stderr = p.stdout
         try:
             # Drain stderr until prompt
+            ps1 = b">>> "
+            if support.check_impl_detail(pypy=True):
+                # PyPy changed: prompt is ">>>> " and is written to stdout
+                ps1 = b">>>> "
+                if separate_stderr:
+                    self.skipTest("pypy writes the prompt to stdout")
             while True:
-                data = stderr.read(4)
-                if data == b">>> ":
+                data = stderr.read(len(ps1))
+                if data == ps1:
                     break
                 stderr.readline()
             yield p

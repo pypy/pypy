@@ -713,7 +713,10 @@ class StreamReader:
             await self._wait_for_data('read')
 
         # This will work right even if buffer is less than n bytes
-        data = bytes(memoryview(self._buffer)[:n])
+        # PyPy: release the memoryview before resizing the buffer
+        mv = memoryview(self._buffer)
+        data = bytes(mv[:n])
+        mv.release()
         del self._buffer[:n]
 
         self._maybe_resume_transport()
@@ -755,7 +758,10 @@ class StreamReader:
             data = bytes(self._buffer)
             self._buffer.clear()
         else:
-            data = bytes(memoryview(self._buffer)[:n])
+            # PyPy: release the memoryview before resizing the buffer
+            mv = memoryview(self._buffer)
+            data = bytes(mv[:n])
+            mv.release()
             del self._buffer[:n]
         self._maybe_resume_transport()
         return data
