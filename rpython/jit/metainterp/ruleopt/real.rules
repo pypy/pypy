@@ -23,7 +23,7 @@ sub_zero: int_sub(x, 0)
     => x
 
 sub_const_canonicalize: int_sub(x, C1)
-    C = 0-C1
+    C = -C1
     => int_add(x, C)
 
 sub_from_zero: int_sub(0, x)

@@ -450,6 +450,8 @@ class Codegen(parse.Visitor):
     def visit_UnaryOp(self, expr, prec=0):
         sub_prec = expr.precedence
         sub = self.visit(expr.left, sub_prec + 1)
+        if expr.need_ruint:
+            return "intmask(%sr_uint(%s))" % (expr.pysymbol, sub)
         res = "%s%s" % (expr.pysymbol, sub)
         if prec > expr.precedence:
             res = "(" + res + ")"
