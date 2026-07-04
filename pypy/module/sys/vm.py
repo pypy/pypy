@@ -96,39 +96,40 @@ _stack_check_noinline._dont_inline_ = True
 @jit.dont_look_inside
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
-    """setrecursionlimit() sets the maximum number of nested calls that
-can occur before a RecursionError is raised.  On PyPy the limit
-is approximative and checked at a lower level.  The default 1000
-reserves 768KB of stack space, which should suffice (on Linux,
-depending on the compiler settings) for ~1400 calls.  Setting the
-value to N reserves N/1000 times 768KB of stack space.
+    """setrecursionlimit() sets the maximum number of nested Python calls
+that can occur before a RecursionError is raised.
 
-Note that there are other factors that also limit the stack size.
-The operating system typically sets a maximum which can be changed
-manually (e.g. with "ulimit" on Linux) for the main thread.  For other
-threads you can configure the limit by calling "threading.stack_size()".
+On PyPy the limit counts Python frames, like CPython.  A separate lower-
+level check on the C stack still guards against segfaults; the C stack is
+grown to fit the limit but never shrunk below the default.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
-    from rpython.rlib.rstackovf import StackOverflow
     from rpython.rlib.rgc import increase_root_stack_depth
-    if new_limit <= 0:
-        raise oefmt(space.w_ValueError, "recursion limit must be positive")
-    # Some programs use very large values to mean "don't check, I want to
-    # use as much as possible and then segfault".  Add a silent upper bound
-    # of 10**6 here, because huge values cause huge shadowstacks to be
-    # allocated (or MemoryErrors).
-    if new_limit > 1000000:
-        new_limit = 1000000
-    try:
-        _stack_set_length_fraction(new_limit * 0.001)
-        _stack_check_noinline()
-    except StackOverflow:
-        old_limit = space.sys.recursionlimit
-        _stack_set_length_fraction(old_limit * 0.001)
+    if new_limit < 1:
+        raise oefmt(space.w_ValueError,
+                    "recursion limit must be greater or equal than 1")
+    ec = space.getexecutioncontext()
+    old_limit = space.sys.recursionlimit
+    depth = old_limit - ec.recursion_remaining
+    if depth >= new_limit:
         raise oefmt(space.w_RecursionError,
-                "cannot set the recursion limit to %s at the recursion depth: the limit is too low")
+                    "cannot set the recursion limit to %d at the recursion "
+                    "depth %d: the limit is too low", new_limit, depth)
+    # grow (never shrink) the C stack so new_limit frames fit
+    c_limit = new_limit
+    if c_limit > 1000000:
+        c_limit = 1000000
+    fraction = c_limit * 0.001
+    if fraction < 1.0:
+        fraction = 1.0
+    _stack_set_length_fraction(fraction)
+    increase_root_stack_depth(int(fraction * 163840))
+    # publish the shared limit and re-derive each thread's remaining count,
+    # preserving its current depth (cf. CPython's Py_SetRecursionLimit)
     space.sys.recursionlimit = new_limit
-    increase_root_stack_depth(int(new_limit * 0.001 * 163840))
+    for other in space.threadlocals.getallvalues().values():
+        d = old_limit - other.recursion_remaining
+        other.recursion_remaining = new_limit - d
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().

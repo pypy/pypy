@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
@@ -33,6 +33,8 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
+        # Python-level recursion counter, counts down like CPython's py_recursion_remaining
+        self.recursion_remaining = space.sys.recursionlimit
         # this is exposed to app-level as 'sys.exc_info()'.  At any point in
         # time it is the exception caught by the topmost 'except ... as e:'
         # app-level block.
@@ -85,10 +87,16 @@ class ExecutionContext(object):
     def enter(self, frame):
         if self.space.reverse_debugging:
             self._revdb_enter(frame)
+        remaining = self.recursion_remaining
+        if remaining <= 0:
+            raise oefmt(self.space.w_RecursionError,
+                        "maximum recursion depth exceeded")
+        self.recursion_remaining = remaining - 1
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
     def leave(self, frame, w_exitvalue, got_exception):
+        self.recursion_remaining += 1
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
