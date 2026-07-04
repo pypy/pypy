@@ -279,6 +279,7 @@ class ThreadTests(BaseTestCase):
 
     # PyThreadState_SetAsyncExc() is a CPython-only gimmick, not (currently)
     # exposed at the Python level.  This test relies on ctypes to get at it.
+    @cpython_only
     def test_PyThreadState_SetAsyncExc(self):
         ctypes = import_module("ctypes")
 
@@ -382,6 +383,7 @@ class ThreadTests(BaseTestCase):
         finally:
             threading._start_new_thread = _start_new_thread
 
+    @cpython_only
     def test_finalize_running_thread(self):
         # Issue 1402: the PyGILState_Ensure / _Release functions may be called
         # very late on python exit: on deallocation of a running thread for
@@ -486,6 +488,7 @@ class ThreadTests(BaseTestCase):
         finally:
             sys.setswitchinterval(old_interval)
 
+    @cpython_only
     def test_no_refcycle_through_target(self):
         class RunSelfFunction(object):
             def __init__(self, should_raise):
@@ -768,6 +771,7 @@ class ThreadTests(BaseTestCase):
     def test_main_thread_after_fork_from_dummy_thread(self, create_dummy=False):
         self.test_main_thread_after_fork_from_foreign_thread(create_dummy=True)
 
+    @cpython_only
     def test_main_thread_during_shutdown(self):
         # bpo-31516: current_thread() should still point to the main thread
         # at shutdown
@@ -1056,6 +1060,7 @@ class ThreadTests(BaseTestCase):
                 # Daemon threads must never add it to _shutdown_locks.
                 self.assertNotIn(tstate_lock, threading._shutdown_locks)
 
+    @cpython_only
     def test_locals_at_exit(self):
         # bpo-19466: thread locals must not be deleted before destructors
         # are called
@@ -1399,6 +1404,7 @@ class SubinterpThreadingTests(BaseTestCase):
             os.set_blocking(r, False)
         return (r, w)
 
+    @cpython_only
     def test_threads_join(self):
         # Non-daemon threads should be joined at subinterpreter shutdown
         # (issue #18808)
@@ -1427,6 +1433,7 @@ class SubinterpThreadingTests(BaseTestCase):
         # The thread was joined properly.
         self.assertEqual(os.read(r, 1), b"x")
 
+    @cpython_only
     def test_threads_join_2(self):
         # Same as above, but a delay gets introduced after the thread's
         # Python code returned but before the thread state is deleted.
