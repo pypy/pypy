@@ -73,6 +73,8 @@ class Module(MixedModule):
         'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
+        '_settraceallthreads'   : 'vm._settraceallthreads',
+        '_setprofileallthreads' : 'vm._setprofileallthreads',
         'call_tracing'          : 'vm.call_tracing',
         'getsizeof'             : 'vm.getsizeof',
         'intern'                : 'vm.intern',

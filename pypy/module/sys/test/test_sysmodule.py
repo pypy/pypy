@@ -58,6 +58,29 @@ class AppTestAppSysTests:
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
+    def test_settraceallthreads(self):
+        import sys, threading
+        trace_funcs = []
+        first = threading.Event()
+        second = threading.Event()
+        def tracer(*args):
+            return tracer
+        def checker():
+            first.set()
+            second.wait()
+            trace_funcs.append(sys.gettrace())
+        t = threading.Thread(target=checker)
+        t.start()
+        try:
+            first.wait()
+            sys._settraceallthreads(tracer)
+            second.set()
+            t.join()
+        finally:
+            sys.settrace(None)
+            sys._settraceallthreads(None)
+        assert trace_funcs == [tracer]
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules

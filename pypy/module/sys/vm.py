@@ -272,6 +272,16 @@ See the profiler chapter in the library manual."""
     else:
         return space.w_None
 
+def _settraceallthreads(space, w_func):
+    """Set the global debug tracing function in all running threads."""
+    for ec in space.threadlocals.getallvalues().values():
+        ec.settrace(w_func)
+
+def _setprofileallthreads(space, w_func):
+    """Set the profiling function in all running threads."""
+    for ec in space.threadlocals.getallvalues().values():
+        ec.setprofile(w_func)
+
 def call_tracing(space, w_func, w_args):
     """Call func(*args), while tracing is enabled.  The tracing state is
 saved, and restored afterwards.  This is intended to be called from
