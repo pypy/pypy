@@ -53,7 +53,7 @@ __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
 try:
-    from _pickle import PickleBuffer
+    from __pypy__ import PickleBuffer
     __all__.append("PickleBuffer")
     _HAVE_PICKLE_BUFFER = True
 except ImportError:
@@ -214,18 +214,18 @@ class _Framer:
         self.current_frame = None
 
     def start_framing(self):
-        self.current_frame = io.BytesIO()
+        self.current_frame = BytesBuilder()
 
     def end_framing(self):
-        if self.current_frame and self.current_frame.tell() > 0:
+        if self.current_frame and len(self.current_frame) > 0:
             self.commit_frame(force=True)
             self.current_frame = None
 
     def commit_frame(self, force=False):
-        if self.current_frame:
+        if self.current_frame is not None:
             f = self.current_frame
-            if f.tell() >= self._FRAME_SIZE_TARGET or force:
-                data = f.getbuffer()
+            if len(f) >= self._FRAME_SIZE_TARGET or force:
+                data = f.build()
                 write = self.file_write
                 if len(data) >= self._FRAME_SIZE_MIN:
                     # Issue a single call to the write method of the underlying
@@ -239,15 +239,16 @@ class _Framer:
                 # memory copy.
                 write(data)
 
-                # Start the new frame with a new io.BytesIO instance so that
+                # Start the new frame with a new BytesBuilder instance so that
                 # the file object can have delayed access to the previous frame
                 # contents via an unreleased memoryview of the previous
-                # io.BytesIO instance.
-                self.current_frame = io.BytesIO()
+                # BytesBuilder instance.
+                self.current_frame = BytesBuilder()
 
     def write(self, data):
-        if self.current_frame:
-            return self.current_frame.write(data)
+        if self.current_frame is not None:
+            self.current_frame.append(data)
+            return len(data)
         else:
             return self.file_write(data)
 
