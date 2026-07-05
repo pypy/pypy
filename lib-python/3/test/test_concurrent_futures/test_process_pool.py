@@ -7,7 +7,7 @@ from concurrent import futures
 from concurrent.futures.process import BrokenProcessPool
 
 from test import support
-from test.support import hashlib_helper
+from test.support import hashlib_helper, cpython_only
 
 from .executor import ExecutorTest, mul
 from .util import (
@@ -85,6 +85,7 @@ class ProcessPoolExecutorTest(ExecutorTest):
         self.assertIn('raise RuntimeError(123) # some comment',
                       f1.getvalue())
 
+    @cpython_only
     @hashlib_helper.requires_hashdigest('md5')
     def test_ressources_gced_in_workers(self):
         # Ensure that argument for a job are correctly gc-ed after the job
