@@ -93,15 +93,28 @@ def _stack_check_noinline():
     stack_check()
 _stack_check_noinline._dont_inline_ = True
 
+def _count_active_frames(ec):
+    # Current Python recursion depth, by walking the frame chain.  Needed when
+    # arming the counter, since recursion_remaining is not maintained until
+    # sys.setrecursionlimit() has been called at least once.
+    n = 0
+    frame = ec.gettopframe()
+    while frame is not None:
+        n += 1
+        frame = frame.f_backref()
+    return n
+
 @jit.dont_look_inside
 @unwrap_spec(new_limit="c_int")
 def setrecursionlimit(space, new_limit):
     """setrecursionlimit() sets the maximum number of nested Python calls
 that can occur before a RecursionError is raised.
 
-On PyPy the limit counts Python frames, like CPython.  A separate lower-
-level check on the C stack still guards against segfaults; the C stack is
-grown to fit the limit but never shrunk below the default.
+On PyPy the limit counts Python frames, like CPython, but the per-frame
+counting is only turned on once this function is called: until then the
+limit is enforced approximately by the low-level C-stack check (which also
+guards against segfaults).  The C stack is grown to fit the limit but never
+shrunk below the default.
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
     from rpython.rlib.rgc import increase_root_stack_depth
@@ -110,7 +123,13 @@ grown to fit the limit but never shrunk below the default.
                     "recursion limit must be greater or equal than 1")
     ec = space.getexecutioncontext()
     old_limit = space.sys.recursionlimit
-    depth = old_limit - ec.recursion_remaining
+    armed = space.actionflag.recursion_checking
+    if armed:
+        depth = old_limit - ec.recursion_remaining
+    else:
+        # first call: the counter has not been running, so measure the real
+        # depth of the calling thread directly.
+        depth = _count_active_frames(ec)
     if depth >= new_limit:
         raise oefmt(space.w_RecursionError,
                     "cannot set the recursion limit to %d at the recursion "
@@ -127,9 +146,22 @@ grown to fit the limit but never shrunk below the default.
     # publish the shared limit and re-derive each thread's remaining count,
     # preserving its current depth (cf. CPython's Py_SetRecursionLimit)
     space.sys.recursionlimit = new_limit
+    ec.recursion_remaining = new_limit - depth
     for other in space.threadlocals.getallvalues().values():
+        if other is ec:
+            continue
+        # Other threads: use the counter arithmetic.  On the first call,
+        # recursion_remaining is still the startup value (== old_limit), so
+        # this treats them as depth 0 - good enough, as other threads are
+        # typically shallow when setrecursionlimit is first called.
         d = old_limit - other.recursion_remaining
         other.recursion_remaining = new_limit - d
+    # arm the per-frame counter.  recursion_checking is quasi-immutable, so
+    # this flips the JIT-folded fast path in enter/leave to the counting path.
+    # Only write on the False->True transition, to invalidate the affected
+    # traces exactly once (setrecursionlimit may be called repeatedly).
+    if not armed:
+        space.actionflag.recursion_checking = True
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
