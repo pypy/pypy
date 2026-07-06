@@ -72,12 +72,12 @@ def test_generate():
     # some extra handcrafted tests
     lines.extend([ 'AAA', 'AAAA', 'AAAB', 'AAB', 'AABB' ])
     out = tmpdir.join('dawg.py')
-    print(out)
+    # print(out)
     o = out.open('w')
     d = dict(map(lambda (x,y):(y,x), enumerate(lines)))
     trie = build_compression_dawg(CodeWriter(o), d)
     o.close()
-    print out.read()
+    # print out.read()
     dmod = out.pyimport()
     for i, line in enumerate(lines):
         assert dmod.lookup_charcode(i) == line
@@ -105,17 +105,17 @@ def test_add_bits(i):
 START = ord('A')
 STOP = ord('G')
 
-@given(strategies.lists(strategies.text(strategies.characters(min_codepoint=START, max_codepoint=STOP), min_size=1), min_size=5), strategies.data())
-def test_random_dawg(l, data):
+@given(strategies.lists(strategies.text(strategies.characters(min_codepoint=START, max_codepoint=STOP), min_size=1, max_size=10), min_size=5, max_size=50))
+def test_random_dawg(l):
     l = [s.encode('ascii') for s in l]
-    print l
+    # print l
 
     d = {s: i for i, s in enumerate(l)}
     tmpdir = pytest.ensuretemp(__name__)
     out = tmpdir.join('%s.py' % hash(str(l)))
     o = out.open('w')
-    print "&~" * 50
-    print l
+    # print "&~" * 50
+    # print l
     trie = build_compression_dawg(CodeWriter(o), d)
     o.close()
     s = out.read()

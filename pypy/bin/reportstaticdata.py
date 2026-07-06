@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 Usage: reportstaticdata.py [-m1|-m2|-t] [OPTION]... FILENAME

@@ -5,11 +5,12 @@ log = AnsiLogger("backendopt")
 
 
 def is_chain_block(block, first=False):
-    if len(block.operations) == 0:
+    ops = block.operations
+    if len(ops) == 0:
         return False
-    if len(block.operations) > 1 and not first:
+    if len(ops) > 1 and not first:
         return False
-    op = block.operations[-1]
+    op = ops[-1]
     if (op.opname not in ('int_eq', 'uint_eq', 'char_eq', 'unichar_eq')
         # note: 'llong_eq', 'ullong_eq' have been removed, as it's not
         # strictly C-compliant to do a switch() on a long long.  It also

@@ -1,5 +1,6 @@
-import py
+import pytest
 import random
+import sys
 from collections import OrderedDict
 
 from hypothesis import settings, given, strategies
@@ -94,13 +95,13 @@ class TestRDictDirect(object):
     def test_dict_del_lastitem(self):
         DICT = self._get_str_dict()
         ll_d = rordereddict.ll_newdict(DICT)
-        py.test.raises(KeyError, rordereddict.ll_dict_delitem, ll_d, llstr("abc"))
+        pytest.raises(KeyError, rordereddict.ll_dict_delitem, ll_d, llstr("abc"))
         rordereddict.ll_dict_setitem(ll_d, llstr("abc"), 13)
-        py.test.raises(KeyError, rordereddict.ll_dict_delitem, ll_d, llstr("def"))
+        pytest.raises(KeyError, rordereddict.ll_dict_delitem, ll_d, llstr("def"))
         rordereddict.ll_dict_delitem(ll_d, llstr("abc"))
         assert count_items(ll_d, rordereddict.FREE) == rordereddict.DICT_INITSIZE - 1
         assert count_items(ll_d, rordereddict.DELETED) == 1
-        py.test.raises(KeyError, rordereddict.ll_dict_getitem, ll_d, llstr("abc"))
+        pytest.raises(KeyError, rordereddict.ll_dict_getitem, ll_d, llstr("abc"))
 
     def test_dict_del_not_lastitem(self):
         DICT = self._get_str_dict()
@@ -172,7 +173,7 @@ class TestRDictDirect(object):
         ll_elem = rordereddict.ll_dict_popitem(TUP, ll_d)
         assert hlstr(ll_elem.item0) == "k"
         assert ll_elem.item1 == 1
-        py.test.raises(KeyError, rordereddict.ll_dict_popitem, TUP, ll_d)
+        pytest.raises(KeyError, rordereddict.ll_dict_popitem, TUP, ll_d)
 
     def test_popitem_first(self):
         DICT = self._get_str_dict()
@@ -188,7 +189,7 @@ class TestRDictDirect(object):
             assert hlstr(ll_key) == expected
             rordereddict.ll_dict_delitem(ll_d, ll_key)
         ll_iter = rordereddict.ll_dictiter(ITER, ll_d)
-        py.test.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
+        pytest.raises(StopIteration, rordereddict._ll_dictnext, ll_iter)
 
     def test_popitem_first_bug(self):
         DICT = self._get_str_dict()
@@ -288,8 +289,8 @@ class TestRDictDirect(object):
         rordereddict.ll_dict_setitem(ll_d, llstr("j"), 6)
         assert rordereddict.ll_dict_pop(ll_d, llstr("k")) == 5
         assert rordereddict.ll_dict_pop(ll_d, llstr("j")) == 6
-        py.test.raises(KeyError, rordereddict.ll_dict_pop, ll_d, llstr("k"))
-        py.test.raises(KeyError, rordereddict.ll_dict_pop, ll_d, llstr("j"))
+        pytest.raises(KeyError, rordereddict.ll_dict_pop, ll_d, llstr("k"))
+        pytest.raises(KeyError, rordereddict.ll_dict_pop, ll_d, llstr("j"))
 
     def test_pop_default(self):
         DICT = self._get_str_dict()
@@ -358,7 +359,7 @@ class TestRDictDirect(object):
                 rordereddict.ll_dict_move_to_end(ll_d, 2, True)
                 assert content() == [(1, 11), (2, 22)]
             elif case == 3:
-                py.test.raises(KeyError, rordereddict.ll_dict_move_to_end,
+                pytest.raises(KeyError, rordereddict.ll_dict_move_to_end,
                                                  ll_d, 3, True)
             elif case == 4:
                 rordereddict.ll_dict_move_to_end(ll_d, 2, False)
@@ -538,6 +539,7 @@ class ODictSM(MappingSM):
 
     Space = ODictSpace
 
+@pytest.mark.skipif(sys.platform=='win32', reason='too slow')
 def test_hypothesis():
     run_state_machine_as_test(
         ODictSM, settings(max_examples=500, stateful_step_count=100))

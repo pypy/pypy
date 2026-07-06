@@ -296,8 +296,14 @@ def join_blocks(graph):
                         del op.args[-1]
                         op.opname = 'direct_call'
                 return op
+            target_sf = getattr(link.target, 'source_func', None)
+            target_sl = getattr(link.target, 'source_line', None)
             for op in link.target.operations:
-                link.prevblock.operations.append(rename_op(op))
+                renamed = rename_op(op)
+                if target_sf is not None and not hasattr(renamed, 'source_func'):
+                    renamed.source_func = target_sf
+                    renamed.source_line = target_sl
+                link.prevblock.operations.append(renamed)
             exits = []
             for exit in link.target.exits:
                 newexit = exit.replace(renaming)
@@ -1053,7 +1059,6 @@ class ListComprehensionDetector(object):
                     hint.result = vlist2
                     newblock.operations.append(hint)
         # done!
-
 
 # ____ all passes & simplify_graph
 

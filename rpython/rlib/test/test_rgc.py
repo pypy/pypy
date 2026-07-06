@@ -256,6 +256,31 @@ def test_ll_arrayclear():
     for i in range(10):
         assert a1[i] == 0
 
+def test_ll_arrayclear_gcptr():
+    # ll_arrayclear must work for GC pointer arrays too (writing null is safe)
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    TYPE = lltype.GcArray(lltype.Ptr(S))
+    a1 = lltype.malloc(TYPE, 5)
+    for i in range(5):
+        a1[i] = lltype.malloc(S)
+        a1[i].x = i
+    rgc.ll_arrayclear(a1)
+    assert len(a1) == 5
+    for i in range(5):
+        assert not a1[i]  # null pointer
+
+def test_ll_arrayfill():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    TYPE = lltype.GcArray(lltype.Ptr(S))
+    s = lltype.malloc(S)
+    s.x = 42
+    a = lltype.malloc(TYPE, 5)
+    rgc.ll_arrayfill(a, s)
+    assert len(a) == 5
+    for i in range(5):
+        assert a[i] == s
+        assert a[i].x == 42
+
 def test__contains_gcptr():
     assert not rgc._contains_gcptr(lltype.Signed)
     assert not rgc._contains_gcptr(

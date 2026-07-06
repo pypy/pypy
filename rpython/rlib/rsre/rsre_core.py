@@ -1027,6 +1027,8 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
+            if ptr < minptr:
+                return    # did not match minimum number of times
             # when we arrive here, ptr points to the tail of the target
             # string. match the rest of the pattern.
             ppos += pattern.pat(ppos)

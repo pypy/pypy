@@ -895,6 +895,42 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_residual_call_invalidate_some_arrays_varindex(self):
+        ops = """
+        [p1, p2, i1, i10]
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, i10, descr=arraydescr2)
+        i2 = getarrayitem_gc_i(p1, i10, descr=arraydescr)
+        i3 = call_i(i1, descr=writearraydescr)
+        p5 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, i10, descr=arraydescr2)
+        i4 = getarrayitem_gc_i(p1, i10, descr=arraydescr)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p5)
+        escape_n(p6)
+        escape_n(i2)
+        escape_n(i4)
+        jump(p1, p2, i1)
+        """
+        expected = """
+        [p1, p2, i1, i10]
+        p3 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, i10, descr=arraydescr2)
+        i2 = getarrayitem_gc_i(p1, i10, descr=arraydescr)
+        i3 = call_i(i1, descr=writearraydescr)
+        i4 = getarrayitem_gc_i(p1, i10, descr=arraydescr)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(p3)
+        escape_n(p4)
+        escape_n(i2)
+        escape_n(i4)
+        jump(p1, p2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_residual_call_invalidates_some_read_caches_1(self):
         ops = """
         [p1, i1, p2, i2]

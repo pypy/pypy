@@ -113,6 +113,32 @@ def getsource(object):
         return src % name.__sourceargs__
     return src
 
+def getsourcelines(func):
+    """Like inspect.getsourcelines, but also handles functions compiled from
+    dynamically generated RPython source (see NiceCompile and getsource()).
+
+    Returns (lines, startline) where lines is a list of source-code strings
+    and startline is the 1-based line number of the first line in the original
+    file, or None if the source cannot be retrieved.
+
+    Using this instead of inspect.getsourcelines means that functions whose
+    co_filename carries __sourceargs__ (produced by NiceCompile) have their
+    format arguments substituted before the source is returned.
+    """
+    try:
+        src = getsource(func)
+    except TypeError:
+        # inspect.getfile raises TypeError for built-ins and other objects
+        # that have no associated source file.
+        return None
+    if src is None:
+        return None
+    try:
+        startline = func.__code__.co_firstlineno
+    except AttributeError:
+        return None
+    return src.splitlines(True), startline
+
 ## the following is stolen from py.code.source.py for now.
 ## XXX discuss whether and how to put this functionality
 ## into py.code.source.

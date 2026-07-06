@@ -326,71 +326,70 @@ def test_simple_udp(do_recv):
 
 @py.test.mark.skipif("sys.platform == 'darwin'")
 def test_nonblocking(do_recv):
-    sock = RSocket()
-    sock.setblocking(False)
-    try_ports = [1023] + range(20000, 30000, 437)
-    for port in try_ports:
-        print 'binding to port %d:' % (port,),
-        try:
-            sock.bind(INETAddress('127.0.0.1', port))
-            print 'works'
-            break
-        except SocketError as e:   # should get a "Permission denied"
-            print e
-    else:
-        raise e
+    with RSocket() as sock:
+        sock.setsockopt_int(SOL_SOCKET, SO_REUSEADDR, 1)
+        sock.setblocking(False)
+        try_ports = [1023] + range(20000, 30000, 437)
+        for port in try_ports:
+            print 'binding to port %d:' % (port,),
+            try:
+                sock.bind(INETAddress('127.0.0.1', port))
+                print 'works'
+                break
+            except SocketError as e:   # should get a "Permission denied"
+                print e
+        else:
+            raise e
 
-    addr = INETAddress('127.0.0.1', port)
-    assert addr.eq(sock.getsockname())
-    print("listen")
-    sock.listen(1)
-    print("listen done")
-    with pytest.raises(CSocketError) as err:
-        print("before accept")
-        try:
-            sock.accept()
-        except Exception as e:
-            print(e)
-            raise
-    print("accept raised an err")
-    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+        addr = INETAddress('127.0.0.1', port)
+        assert addr.eq(sock.getsockname())
+        print("listen")
+        sock.listen(1)
+        print("listen done")
+        with pytest.raises(CSocketError) as err:
+            print("before accept")
+            try:
+                sock.accept()
+            except Exception as e:
+                print(e)
+                raise
+        print("accept raised an err")
+        assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
 
-    s2 = RSocket(AF_INET, SOCK_STREAM)
-    s2.setblocking(False)
-    with pytest.raises(CSocketError) as err:
-        s2.connect(addr)
-    assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
+        with RSocket(AF_INET, SOCK_STREAM) as s2:
+            s2.setblocking(False)
+            with pytest.raises(CSocketError) as err:
+                s2.connect(addr)
+            assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
-    fd1, addr2 = sock.accept()
-    s1 = RSocket(fd=fd1)
-    s1.setblocking(False)
-    assert addr.eq(s2.getpeername())
-    assert addr2.get_port() == s2.getsockname().get_port()
-    assert addr2.eq(s1.getpeername())
+            fd1, addr2 = sock.accept()
+            with RSocket(fd=fd1) as s1:
+                s1.setblocking(False)
+                assert addr.eq(s2.getpeername())
+                assert addr2.get_port() == s2.getsockname().get_port()
+                assert addr2.eq(s1.getpeername())
 
-    err = s2.connect_ex(addr)   # should now work
-    assert err in (0, errno.EISCONN)
+                err = s2.connect_ex(addr)   # should now work
+                assert err in (0, errno.EISCONN)
 
-    s1.send('?')
-    import time
-    time.sleep(0.01) # Windows needs some time to transfer data
-    buf = do_recv(s2, 100)
-    assert buf == '?'
-    with pytest.raises(CSocketError) as err:
-        do_recv(s1, 5000)
-    assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
-    count = s2.send('x'*50000)
-    assert 1 <= count <= 50000
-    while count: # Recv may return less than requested
-        buf = do_recv(s1, count + 100)
-        assert len(buf) <= count
-        assert buf.count('x') == len(buf)
-        count -= len(buf)
-    # Check that everything has been read
-    with pytest.raises(CSocketError):
-        do_recv(s1, 5000)
-    s1.close()
-    s2.close()
+                s1.send('?')
+                import time
+                time.sleep(0.01) # Windows needs some time to transfer data
+                buf = do_recv(s2, 100)
+                assert buf == '?'
+                with pytest.raises(CSocketError) as err:
+                    do_recv(s1, 5000)
+                assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
+                count = s2.send('x'*50000)
+                assert 1 <= count <= 50000
+                while count: # Recv may return less than requested
+                    buf = do_recv(s1, count + 100)
+                    assert len(buf) <= count
+                    assert buf.count('x') == len(buf)
+                    count -= len(buf)
+                # Check that everything has been read
+                with pytest.raises(CSocketError):
+                    do_recv(s1, 5000)
 
 def test_inheritable():
     for inh in [False, True]:

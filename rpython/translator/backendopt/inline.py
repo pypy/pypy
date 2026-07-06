@@ -257,6 +257,7 @@ class BaseInliner(object):
                 self.passon_vars(block))
         newblock = Block(args)
         self._copied_blocks[block] = newblock
+        newblock.copy_source_attribution(block)
         newblock.operations = [self.copy_operation(op) for op in block.operations]
         newblock.closeblock(*[self.copy_link(link, block) for link in block.exits])
         newblock.exitswitch = self.get_new_name(block.exitswitch)

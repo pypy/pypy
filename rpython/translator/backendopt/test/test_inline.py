@@ -636,6 +636,84 @@ class TestInline(BaseRtypingTest):
         result = interp.eval_graph(graphof(t, f), [10])
         assert result == f(10)
 
+    def test_inline_preserves_source_attribution(self):
+        # After inlining g into f, the operations copied from g must retain
+        # source_func == g and a valid source_line so that the C backend can
+        # emit RPython source comments for the inlined code (see funcgen.py
+        # gen_block, which emits per-operation source comments).
+        #
+        # When g's single block merges into f's block during simplification,
+        # source attribution moves from the block to its operations (see
+        # simplify.py join_blocks).
+        def g(x):
+            return x + 1
+        def f(x):
+            return g(x) * 2
+        t = self.translate(f, [int])
+        f_graph = graphof(t, f)
+        g_graph = graphof(t, g)
+
+        # Before inlining, g's blocks carry block-level source attribution.
+        g_blocks_before = [b for b in g_graph.iterblocks()
+                           if getattr(b, 'source_func', None) is g]
+        assert g_blocks_before, "g's blocks should have source_func == g before inlining"
+
+        simple_inline_function(t, g_graph, f_graph)
+        sanity_check(t)
+
+        # After inlining + block-joining, the ops from g carry source_func=g
+        # so the C backend can emit comments attributing them to g's source.
+        op_source_funcs = {getattr(op, 'source_func', None)
+                           for b in f_graph.iterblocks()
+                           for op in b.operations}
+        assert g in op_source_funcs, (
+            "operations inlined from g should retain source_func == g")
+
+    def test_copy_block_source_attribution(self):
+        # copy_block (called during inlining) uses Block.copy_source_attribution
+        # to carry source_func/source_line onto the newly created block so the
+        # C backend can emit RPython source comments for inlined code.
+        # This tests all three cases of copy_source_attribution:
+        #   1. source_func present  -> both source_func and source_line copied
+        #   2. only source_line     -> source_line copied, no source_func
+        #   3. neither attribute    -> new block left untagged
+        from rpython.flowspace.model import Block, Variable, SpaceOperation
+        from rpython.rtyper.lltypesystem import lltype
+
+        sentinel = lambda x: x   # used as a source_func tag
+
+        def make_block(sf, sl):
+            v = Variable('v')
+            v.concretetype = lltype.Signed
+            b = Block([v])
+            if sf is not None:
+                b.source_func = sf
+                b.source_line = sl
+            elif sl is not None:
+                b.source_line = sl
+            return b
+
+        # Case 1: source_func + source_line both present
+        src = make_block(sentinel, 42)
+        dst = Block([])
+        dst.copy_source_attribution(src)
+        assert dst.source_func is sentinel
+        assert dst.source_line == 42
+
+        # Case 2: only source_line (no source_func)
+        src2 = make_block(None, 99)
+        dst2 = Block([])
+        dst2.copy_source_attribution(src2)
+        assert dst2.source_line == 99
+        assert not hasattr(dst2, 'source_func')
+
+        # Case 3: neither attribute set
+        src3 = Block([])
+        dst3 = Block([])
+        dst3.copy_source_attribution(src3)
+        assert not hasattr(dst3, 'source_func')
+        assert not hasattr(dst3, 'source_line')
+
     def test_inline_all_exc(self):
         def g(x):
             if x < -100:

@@ -49,7 +49,7 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 How to use PyPy?
 =================
@@ -60,9 +60,9 @@ to proceed. This document also covers other `installation schemes`_.
 
 .. _donated: https://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
 .. _`py3k proposal`: https://pypy.org/py3donate.html
-.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`pypy documentation`: https://doc.pypy.org/getting-started.html#installing-using-virtualenv
 .. _`virtualenv`: https://www.virtualenv.org/en/latest/
-.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`installation schemes`: https://doc.pypy.org/getting-started.html#installing-pypy
 
 
 Cheers,

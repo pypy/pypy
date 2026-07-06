@@ -300,7 +300,7 @@ class ExternalCompilationInfo(object):
         return files, ExternalCompilationInfo(**d)
 
     def compile_shared_lib(self, outputfilename=None, ignore_a_files=False,
-                           debug_mode=True, defines=[]):
+                           debug_mode=True, defines=[], symbolic=False):
         self = self.convert_sources_to_files()
         if ignore_a_files:
             if not [fn for fn in self.link_files if fn.endswith('.a')]:
@@ -331,6 +331,14 @@ class ExternalCompilationInfo(object):
             '-DRPY_EXTERN=RPY_EXPORTED',)
         for define in defines:
             d['compile_extra'] += ('-D%s' % define,)
+        # On ELF platforms (Linux), prevent symbol interposition: when the host
+        # interpreter (e.g. pypy2.7) also exports symbols like pypysig_counter,
+        # the shared lib's own references would otherwise resolve to the host's
+        # copy via the GOT.  -Bsymbolic makes the shared lib bind its own global
+        # symbol references to its own definitions.  Only needed when running
+        # under a host interpreter (tests), not during translation.
+        if symbolic and sys.platform not in ('win32', 'darwin'):
+            d['link_extra'] = d['link_extra'] + ('-Wl,-Bsymbolic',)
         self = ExternalCompilationInfo(**d)
 
         lib = str(host.compile([], self, outputfilename=outputfilename,

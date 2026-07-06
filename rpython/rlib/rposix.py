@@ -1238,10 +1238,11 @@ def mkdir(path, mode=0o777):
 @jit.dont_look_inside
 def rmdir(path):
     if _WIN32:
-        traits = utf8_traits
         utf8 = _as_utf80(path)
         with rffi.scoped_utf82wcharp(utf8) as buf:
-            handle_posix_error('wrmdir', c_wrmdir(buf))
+            ret = rwin32.os_removedirectory_impl(buf)
+        if not ret:
+            raise rwin32.lastSavedWindowsError()
     else:
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
 
@@ -3288,7 +3289,8 @@ if sys.platform.startswith('linux'):
     if cConfig['HAVE_MEMFD_CREATE']:
         c_memfd_create = external('memfd_create',
             [rffi.CCHARP, rffi.UINT], rffi.INT,
-            compilation_info=CConfig._compilation_info_)
+            compilation_info=CConfig._compilation_info_,
+            save_err=rffi.RFFI_SAVE_ERRNO)
         def memfd_create(name, flags):
             return handle_posix_error(
                 'memfd_create', c_memfd_create(name, flags))

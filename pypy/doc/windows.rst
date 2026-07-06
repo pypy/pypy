@@ -1,3 +1,5 @@
+.. _translating-on-windows:
+
 Translating on Windows
 ======================
 

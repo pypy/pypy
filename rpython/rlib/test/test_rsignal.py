@@ -53,11 +53,12 @@ def test_compile_wakeup_fd():
         #
         rsignal.pypysig_set_wakeup_fd(rd, False)   # can't write there
         os.kill(os.getpid(), rsignal.SIGUSR1)
+        # The C handler stores the errno for deferred reporting in the interpreter.
+        e = rsignal.pypysig_get_wakeup_fd_write_errno()
+        assert e == errno.EBADF
 
-    fn = compile(fn, [], return_stderr=True)
-    stderr = fn()
-    assert stderr.endswith('Exception ignored when trying to write to the '
-                           'signal wakeup fd: Errno %d\n' % errno.EBADF)
+    fn = compile(fn, [])
+    fn()
 
 
 def test_raise():

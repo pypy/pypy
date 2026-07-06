@@ -226,7 +226,11 @@ class VectorAssemblerMixin(object):
     def genop_vec_int_is_true(self, op, arglocs, resloc):
         loc, sizeloc = arglocs
         temp = X86_64_XMM_SCRATCH_REG
-        self.mc.PXOR(temp, temp)
+        # Use PXOR_xx directly (register-register) rather than the generic
+        # PXOR dispatcher, which has a dead AddressLoc branch that confuses
+        # GCC's bounds checker when this function is inlined with a RegLoc
+        # constant as argument.
+        self.mc.PXOR_xx(temp.value, temp.value)
         # every entry that is non zero -> becomes zero
         # zero entries become ones
         self.mc.PCMPEQ(loc, temp, sizeloc.value)

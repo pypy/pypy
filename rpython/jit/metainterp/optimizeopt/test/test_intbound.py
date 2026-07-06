@@ -1400,7 +1400,7 @@ def test_intbound_str():
     if LONG_BIT == 64:
         assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 0x49580479)'
     else:
-        assert str(b) == '(0 <= 0b0?...? = 0x49580479)'
+        assert str(b) == '(0 <= 0b0?...? <= 0x49580479)'
     b = IntBound.from_constant(MININT)
     assert str(b) == '(MININT)'
     b = IntBound.from_constant(-56)
@@ -1663,6 +1663,7 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     assert r3c.is_constant()
     assert r3c.known_eq_const(0)
 
+@pytest.mark.skipif('sys.maxint <= 2**31 - 1')
 def test_urshift_bound_improvements():
     # (0x7ff02a56 <= 0b0...0???????????????????????????????0 <= 0x80102a54)
     b = IntBound(0x7ff02a56, 0x80102a54, r_uint(0b0), r_uint(0b11111111111111111111111111111110))

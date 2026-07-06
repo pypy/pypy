@@ -211,3 +211,15 @@ class TestStoreSink(object):
         checkgraph(graph)
         storesink_graph(graph)
         checkgraph(graph)
+
+    def test_cast_pointer_bug(self):
+        from rpython.rtyper.lltypesystem import lltype
+        S2 = lltype.GcStruct("s2", ('a', lltype.Signed))
+        S1 = lltype.GcStruct("s1", ('sub1', S2))
+        p2 = lltype.malloc(S2)
+        p2.a = 12
+        def f():
+            return lltype.cast_pointer(lltype.Ptr(S1), p2)
+        t = self.translate(f, [])
+        graph = graphof(t, f)
+        storesink_graph(graph) # used to crash with RuntimeError

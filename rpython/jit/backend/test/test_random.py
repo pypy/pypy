@@ -262,7 +262,7 @@ class OperationBuilder(object):
                 parentdescr = descr.get_parent_descr()
                 if parentdescr.is_object():
                     print_vtable(parentdescr.get_vtable().adr.ptr)
-            if hasattr(descr, 'get_vtable') and descr.is_object():
+            if hasattr(descr, 'is_object') and descr.is_object():
                 print_vtable(descr.get_vtable().adr.ptr)
 
         #

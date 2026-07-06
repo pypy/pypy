@@ -1,9 +1,8 @@
-
-this directory contains PyPy's builtin module implementation
-that require access to interpreter level.  See here
+This directory contains PyPy's builtin module implementation
+that requires access to the interpreter level.  See here
 for more information: 
 
-    http://doc.pypy.org/en/latest/coding-guide.html#modules-in-pypy
+    https://doc.pypy.org/coding-guide.html#modules-in-pypy
 
 ATTENTION: don't put any '.py' files directly into pypy/module 
 because you can easily get import mixups on e.g. "import sys" 

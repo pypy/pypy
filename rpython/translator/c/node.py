@@ -323,10 +323,12 @@ class BareBoneArrayDefNode(NodeWithDependencies):
                                                       deflength(varlength))
         if ARRAY._hints.get("render_as_void"):
             self.fullptrtypename = 'void *@'
+            if ARRAY._hints.get("render_as_const"):
+                self.fullptrtypename = 'const ' + self.fullptrtypename
+        elif ARRAY._hints.get("render_as_const"):
+            self.fullptrtypename = self.itemtypename.replace('@', 'const *@')
         else:
             self.fullptrtypename = self.itemtypename.replace('@', '*@')
-        if ARRAY._hints.get("render_as_const"):
-            self.fullptrtypename = 'const ' + self.fullptrtypename
 
     def setup(self):
         """Array loops are forbidden by ForwardReference.become() because
@@ -848,7 +850,8 @@ class FuncNode(FuncNodeBase):
         for line in bodyiter:
             # performs some formatting on the generated body:
             # indent normal lines with tabs; indent labels less than the rest
-            if line.endswith(':'):
+            if line.endswith(':') and not (line.startswith('case') or \
+                   line.startswith('default')):
                 if line.startswith('err'):
                     try:
                         nextline = bodyiter.next()

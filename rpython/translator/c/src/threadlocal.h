@@ -163,6 +163,7 @@ static INLINE void _RPyGilAcquire(void) {
 static INLINE void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     pypy_lock_release(&rpy_fastgil);
+    RPyGilReleaseSignal();
 }
 static INLINE Signed *_RPyFetchFastGil(void) {
     return &rpy_fastgil;

@@ -695,13 +695,13 @@ class rbigint(object):
     @jit.elidable
     def int_add(self, iother):
         selfsign = self.get_sign()
+        if selfsign == 0:
+            return rbigint.fromint(iother)
+        if iother == 0:
+            return self
         if not int_in_valid_range(iother):
             # Fallback to long.
             return self.add(rbigint.fromint(iother))
-        elif selfsign == 0:
-            return rbigint.fromint(iother)
-        elif iother == 0:
-            return self
 
         othersign = intsign(iother)
         if selfsign == othersign:
@@ -711,6 +711,45 @@ class rbigint(object):
             result._set_sign(-result.get_sign())
         result._set_sign(result.get_sign() * othersign)
         return result
+
+    @staticmethod
+    @jit.elidable
+    def add_int_int_bigint_result(iself, iother):
+        if not SUPPORT_INT128 or SHIFT != 63 or not int_in_valid_range(iself) or not int_in_valid_range(iother):
+            return rbigint.fromint(iself).int_add(iother)
+        return rbigint._add_int_int_helper(iself, iother)
+
+    @staticmethod
+    def _add_int_int_helper(iself, iother):
+        if iself == 0:
+            return rbigint.fromint(iother)
+        if iother == 0:
+            return rbigint.fromint(iself)
+
+        sign1 = intsign(iself)
+        sign2 = intsign(iother)
+        v1 = abs(iself)
+        v2 = abs(iother)
+
+        if sign1 == sign2:
+            sign = sign1
+            ures = UDIGIT_TYPE(v1) + UDIGIT_TYPE(v2)
+        else:
+            if v1 >= v2:
+                sign = sign1
+                ures = UDIGIT_TYPE(v1) - UDIGIT_TYPE(v2)
+            else:
+                sign = sign2
+                ures = UDIGIT_TYPE(v2) - UDIGIT_TYPE(v1)
+
+        if ures == 0:
+            return NULLRBIGINT
+
+        carry = ures >> SHIFT
+        if carry:
+            return rbigint([_store_digit(ures & MASK), _store_digit(carry)], sign, 2)
+        else:
+            return rbigint([_store_digit(ures & MASK)], sign, 1)
 
     @jit.elidable
     def sub(self, other):
@@ -743,6 +782,15 @@ class rbigint(object):
             result = _x_int_add(self, iother)
         result._set_sign(result.get_sign() * selfsign)
         return result
+
+    @staticmethod
+    @jit.elidable
+    def sub_int_int_bigint_result(iself, iother):
+        if not SUPPORT_INT128 or SHIFT != 63 or not int_in_valid_range(iself) or not int_in_valid_range(iother):
+            return rbigint.fromint(iself).int_sub(iother)
+        # -iother is safe here because int_in_valid_range(iother)
+        # checks that it's not minint
+        return rbigint._add_int_int_helper(iself, -iother)
 
     @jit.elidable
     def mul(self, other):
@@ -1278,6 +1326,7 @@ class rbigint(object):
         # wordshift, remshift = divmod(int_other, SHIFT)
         wordshift = int_other // SHIFT
         remshift = int_other - wordshift * SHIFT
+        hishift = SHIFT - remshift
 
         if not remshift:
             # So we can avoid problems with eq, AND avoid the need for normalize.
@@ -1286,18 +1335,19 @@ class rbigint(object):
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, selfsign, newsize)
-        accum = _unsigned_widen_digit(0)
         j = 0
+        prevdigit = NULLDIGIT
         while j < oldsize:
-            accum += self.uwidedigit(j) << remshift
-            z.setdigit(wordshift, accum)
-            accum >>= SHIFT
+            digit = self.udigit(j)
+            newdigit = (digit << remshift) | (prevdigit >> hishift)
+            z.setdigit(wordshift, newdigit)
+            prevdigit = digit
             wordshift += 1
             j += 1
 
         newsize -= 1
         assert newsize >= 0
-        z.setdigit(newsize, accum)
+        z.setdigit(newsize, prevdigit >> hishift)
 
         z._normalize()
         return z
@@ -1312,17 +1362,61 @@ class rbigint(object):
         selfsign = self.get_sign()
 
         z = rbigint([NULLDIGIT] * (oldsize + 1), selfsign, (oldsize + 1))
-        accum = _unsigned_widen_digit(0)
         i = 0
+        hishift = SHIFT - int_other
+        prevdigit = NULLDIGIT
         while i < oldsize:
-            accum += self.uwidedigit(i) << int_other
-            z.setdigit(i, accum)
-            accum >>= SHIFT
+            digit = self.udigit(i)
+            newdigit = (digit << int_other) | (prevdigit >> hishift)
+            z.setdigit(i, newdigit)
+            prevdigit = digit
             i += 1
-        z.setdigit(oldsize, accum)
+        z.setdigit(oldsize, prevdigit >> hishift)
         z._normalize()
         return z
     lqshift._always_inline_ = True # It's so fast that it's always beneficial.
+
+    @staticmethod
+    @jit.elidable
+    def lshift_int_int_bigint_result(iself, int_other):
+        if not SUPPORT_INT128 or SHIFT != 63 or not int_in_valid_range(iself):
+            return rbigint.fromint(iself).lshift(int_other)
+        if int_other < 0:
+            raise ValueError("negative shift count")
+
+        if iself == 0:
+            return NULLRBIGINT
+        if int_other == 0:
+            return rbigint.fromint(iself)
+
+        selfsign = intsign(iself)
+
+        wordshift = int_other // SHIFT
+        remshift = int_other - wordshift * SHIFT
+        hishift = SHIFT - remshift
+
+        if iself < 0:
+            ival = -r_uint(iself)
+            carry = ival >> SHIFT
+            assert not carry
+        else:
+            assert iself > 0
+            ival = r_uint(iself)
+
+        if remshift:
+            lowerdigit = ival << remshift
+            upperdigit = ival >> hishift
+            if upperdigit:
+                resdigits = [NULLDIGIT] * (wordshift + 2)
+                resdigits[wordshift] = _store_digit(lowerdigit & MASK)
+                resdigits[wordshift + 1] = _store_digit(upperdigit & MASK)
+                return rbigint(resdigits, selfsign, wordshift + 2)
+        else:
+            lowerdigit = ival
+        # don't need to normalize
+        resdigits = [NULLDIGIT] * (wordshift + 1)
+        resdigits[wordshift] = _store_digit(lowerdigit & MASK)
+        return rbigint(resdigits, selfsign, wordshift + 1)
 
     @jit.elidable
     def rshift(self, int_other, dont_invert=False):
@@ -2479,6 +2573,7 @@ def _divmod_fast_pos(a, b):
         index += 1
 
     a_digits_index = len(a_digits_base_two_pow_n) - 1
+    assert a_digits_index >= 0
     if a_digits_base_two_pow_n[a_digits_index].ge(b):
         r = NULLRBIGINT
     else:
@@ -3659,4 +3754,93 @@ def gcd_lehmer(a, b):
 # Also, if it has less digits than this, then it must be <=sys.maxint in
 # absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+
+
+# _________________________________________________________________
+# tobytes and frombytes for integers
+
+@jit.elidable
+def frombytes_int(s, byteorder, signed):
+    """ like rbigint.frombytes but returns an int. raises OverflowError if not
+    possible """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not s:
+        return 0
+
+    if byteorder == 'big':
+        msb = ord(s[0])
+        itr = range(len(s)-1, -1, -1)
+    else:
+        msb = ord(s[-1])
+        itr = range(0, len(s))
+
+    sign = -1 if msb >= 0x80 and signed else 1
+    result = r_uint(0)
+    bitpos = 0
+    pad_byte = 0xdead
+
+    for i in itr:
+        c = r_uint(ord(s[i]))
+        if bitpos == LONG_BIT - 8:
+            if signed and c & (1 << 7): # signed and negative
+                pad_byte = 0xff
+            else:
+                pad_byte = 0x00
+
+        if bitpos >= LONG_BIT:
+            # Extra bytes are only OK if they're padding (0x00 or 0xff)
+            if c != pad_byte:
+                raise OverflowError("value does not fit in int")
+        else:
+            result |= c << bitpos
+        bitpos += 8
+    if signed and bitpos <= LONG_BIT:
+        # sign extend
+        m = r_uint(1) << (bitpos - 1)
+        result = (result ^ m) - m
+
+    result = intmask(result)
+
+    if sign == -1:
+        assert result < 0
+    elif not signed and result < 0:
+        raise OverflowError("value does not fit in int")
+
+    return result
+
+
+@jit.elidable
+def tobytes_int(intval, nbytes, byteorder, signed):
+    """ like rbigint.tobytes, but starts from an int """
+    if byteorder not in ('big', 'little'):
+        raise InvalidEndiannessError()
+    if not signed and intval < 0:
+        raise InvalidSignednessError()
+
+    bswap = byteorder == 'big'
+    result = StringBuilder(nbytes)
+
+    currval = intval
+    byte = 0
+    for i in range(nbytes):
+        byte = currval & 0xff
+        result.append(chr(byte))
+        currval >>= 8
+    if currval != 0 and currval != -1:
+        raise OverflowError
+
+    digits = result.build()
+    if nbytes > 0 and signed:
+        # If not already set, we cannot contain the sign bit
+        if (intval < 0) != (byte >= 0x80):
+            raise OverflowError()
+
+    if bswap:
+        # Bah, this is very inefficient. At least it's not
+        # quadratic.
+        length = len(digits)
+        if length >= 0:
+            digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
+    return digits
 

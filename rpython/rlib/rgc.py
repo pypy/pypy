@@ -508,23 +508,52 @@ def ll_shrink_array(p, smallerlength):
 @jit.dont_look_inside
 @specialize.ll()
 def ll_arrayclear(p):
-    # Equivalent to memset(array, 0).  Only for GcArray(primitive-type) for now.
+    # Equivalent to memset(array, 0).  Works for both primitive and GC pointer
+    # arrays: writing NULL never creates an old->young reference, so no write
+    # barrier is needed when zeroing.
     from rpython.rlib.objectmodel import keepalive_until_here
 
     length = len(p)
     ARRAY = lltype.typeOf(p).TO
     if must_split_gc_address_space():
         # do the clearing element by element
-        from rpython.rtyper.lltypesystem import rffi
-        ZERO = rffi.cast(ARRAY.OF, 0)
         i = 0
-        while i < length:
-            p[i] = ZERO
-            i += 1
+        if isinstance(ARRAY.OF, lltype.Ptr):
+            while i < length:
+                p[i] = lltype.nullptr(ARRAY.OF.TO)
+                i += 1
+        else:
+            from rpython.rtyper.lltypesystem import rffi
+            ZERO = rffi.cast(ARRAY.OF, 0)
+            while i < length:
+                p[i] = ZERO
+                i += 1
     else:
         offset = llmemory.itemoffsetof(ARRAY, 0)
         dest_addr = llmemory.cast_ptr_to_adr(p) + offset
         llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
+    keepalive_until_here(p)
+
+
+@jit.dont_look_inside
+@specialize.ll()
+def ll_arrayfill(p, item):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rlib.objectmodel import keepalive_until_here
+    i = 0
+    length = len(p)
+    if we_are_translated():
+        # One write_barrier before the loop covers all slots: if p is old,
+        # it gets added to old_objects_pointing_to_young so the minor GC will
+        # trace its nursery slots; if p is young, the barrier is a no-op.
+        llop.gc_writebarrier(lltype.Void, p)
+        while i < length:
+            llop.bare_setarrayitem(lltype.Void, p, i, item)
+            i += 1
+    else:
+        while i < length:
+            p[i] = item
+            i += 1
     keepalive_until_here(p)
 
 

@@ -30,8 +30,8 @@ with making RPython's JIT even better.
 
 .. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/project-ideas.html
 
 What is PyPy?
 =============
@@ -181,7 +181,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Compile c snippets with -Werror, and fix warnings it exposed
 
-.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.3.0.html
+.. _resolved: https://doc.pypy.org/whatsnew-5.3.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
 .. _`the repo`: https://bitbucket.org/pypy/numpy
 

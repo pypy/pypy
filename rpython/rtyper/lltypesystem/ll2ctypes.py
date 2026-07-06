@@ -602,8 +602,10 @@ class _parentable_mixin(object):
         else:
             if not isinstance(other, lltype._parentable):
                 return False
-            if self._storage is None or other._storage is None:
+            if self._storage is None:
                 raise RuntimeError("pointer comparison with a freed structure")
+            if other._storage is None:
+                return False  # stale WeakKeyDictionary entry
             if other._storage is True:
                 return False    # the other container is not ctypes-based
             addressof_other = other._addressof_storage()
@@ -1230,7 +1232,8 @@ def get_ctypes_callable(funcptr, calling_conv, natural_arity):
         eci = _eci_cache[old_eci]
     except KeyError:
         eci = old_eci.compile_shared_lib(ignore_a_files=True,
-                                         defines=['RPYTHON_LL2CTYPES'])
+                                         defines=['RPYTHON_LL2CTYPES'],
+                                         symbolic=True)
         _eci_cache[old_eci] = eci
 
     libraries = eci.testonly_libraries + eci.libraries + eci.frameworks

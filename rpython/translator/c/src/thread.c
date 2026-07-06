@@ -19,11 +19,7 @@
 
 
 #ifdef _WIN32
-  #if 0
-    #include "src/thread_nt.c"
-  #else
-    #include "src/thread_win7.c"
-  #endif
+  #include "src/thread_win7.c"
 #else
   #include "src/thread_pthread.c"
 #endif

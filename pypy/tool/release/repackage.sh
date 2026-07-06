@@ -2,12 +2,14 @@
 
 set -e
 
-# Edit these appropriately before running this script
-pmaj=2  # python main version: 2 or 3
-pmin=7  # python minor version
+# Edit these appropriately and tag the repo
+# like this but replace the versions and branch
+# git tag -a release-pypy3.11-v7.3.22 release-pypy3.11-v7.x -m"tag release pypy3.11-v7.3.22"
+pmaj=3  # python main version: 2 or 3
+pmin=11  # python minor version
 maj=7
 min=3
-rev=20
+rev=23
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {

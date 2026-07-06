@@ -282,7 +282,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
         else:
             pmc.CBZ(r.x1.value, offset)
 
-        if not we_are_translated():                    # for testing: now we can accesss
+        if not we_are_translated():                    # for testing: now we can access
             self.mc.SUB_ri(r.fp.value, r.fp.value, 1)  # fp again
 
     def get_result_locs(self):

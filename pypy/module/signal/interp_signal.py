@@ -99,6 +99,10 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     @jit.dont_look_inside
     def _poll_for_signals(self):
+        # Report any wakeup-fd write error that occurred in the C signal handler
+        e = pypysig_get_wakeup_fd_write_errno()
+        if e != 0:
+            _report_wakeup_fd_error(self.space, e)
         # Poll for the next signal, if any
         n = self.pending_signal
         p = pypysig_getaddr_occurred_fullstruct()
@@ -149,6 +153,17 @@ class Handlers:
 def _get_handlers(space):
     return space.fromcache(Handlers).handlers_w
 
+def _report_wakeup_fd_error(space, errno_val):
+    from pypy.interpreter.error import OperationError
+    try:
+        w_exc = space.call_function(space.w_OSError, space.newint(errno_val))
+        operr = OperationError(space.w_OSError, w_exc)
+        operr.write_unraisable(
+            space,
+            "when trying to write to the signal wakeup fd",
+            with_traceback=True)
+    except Exception:
+        pass
 
 def report_signal(space, n):
     handlers_w = _get_handlers(space)

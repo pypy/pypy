@@ -12,13 +12,8 @@ typedef enum RPyLockStatus {
 } RPyLockStatus;
 
 #ifdef _WIN32
-#if 0
-#define RPYTHREAD_NAME "nt"
-#include "thread_nt.h"
-#else
 #define RPYTHREAD_NAME "win7"
 #include "thread_win7.h"
-#endif
 #else
 
 /* We should check if unistd.h defines _POSIX_THREADS, but sometimes
@@ -34,6 +29,7 @@ typedef enum RPyLockStatus {
 
 RPY_EXTERN void RPyGilAllocate(void);
 RPY_EXTERN Signed RPyGilYieldThread(void);
+RPY_EXTERN void RPyGilReleaseSignal(void);
 RPY_EXTERN void RPyGilAcquireSlowPath(void);
 RPY_EXTERN unsigned long RPyThread_get_thread_native_id(void);
 #define RPyGilAcquire _RPyGilAcquire

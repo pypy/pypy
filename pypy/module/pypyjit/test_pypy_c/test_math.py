@@ -106,3 +106,26 @@ class TestMath(BaseTestPyPyC):
             f38 = float_mul(f30, f30)
             f39 = float_sub(f30, f38)
         """)
+
+    def test_complex_power(self):
+        def main(n, x):
+            s = 0.123+0.1j
+            while n > 0:
+                s -= s ** x   # ID: pow
+                n -= 1
+            return s
+        log = self.run(main, [500, 2])
+        assert abs(log.result - main(500, 2)) < 1e-9
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match_by_id("pow", """
+            guard_not_invalidated?
+            p60 = call_r(ConstClass(pow_positive_int), f48, f50, i35, descr=...)
+            guard_no_exception(descr=...)
+            guard_nonnull_class(p60, ConstClass(W_ComplexObject), descr=...)
+            i63 = instance_ptr_eq(ConstPtr(ptr62), p60)
+            guard_false(i63, descr=...)
+            f64 = getfield_gc_f(p60, descr=...)
+            f65 = float_sub(f48, f64)
+            f66 = getfield_gc_f(p60, descr=...)
+            f67 = float_sub(f50, f66)
+        """)

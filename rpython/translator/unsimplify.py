@@ -113,6 +113,7 @@ def split_block(block, index, _forcelink=None):
     else:
         linkargs = varmap.keys()
     newblock = Block([get_new_name(v) for v in linkargs])
+    newblock.copy_source_attribution(block)
     newblock.operations = moved_operations
     newblock.recloseblock(*links)
     newblock.exitswitch = exitswitch

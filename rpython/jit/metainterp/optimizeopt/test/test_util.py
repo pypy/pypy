@@ -533,6 +533,17 @@ class FakeMetaInterpStaticData(object):
                 return "fake location str!"
     jitdrivers_sd = jitdrivers_sd()
 
+    def _try_find_typeid_for_vtable(self, known_class):
+        ptr = known_class.value.adr.ptr
+        if ptr == LLtypeMixin.node_vtable:
+            return LLtypeMixin.nodesize.get_type_id()
+        if ptr == LLtypeMixin.node_vtable2:
+            return LLtypeMixin.nodesize2.get_type_id()
+        if ptr == LLtypeMixin.node_vtable3:
+            return LLtypeMixin.nodesize3.get_type_id()
+        raise KeyError
+
+
 class Info(object):
     def __init__(self, preamble, short_preamble=None, virtual_state=None):
         self.preamble = preamble

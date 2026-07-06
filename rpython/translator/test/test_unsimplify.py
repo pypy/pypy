@@ -71,6 +71,55 @@ def test_split_block_exceptions():
         result = interp.eval_graph(graph, [2])
         assert result == 2
 
+def test_split_block_preserves_source_attribution():
+    # split_block creates a new block from the tail of an existing block.
+    # The new block should inherit the original block's source attribution so
+    # the C backend can still emit RPython source comments after the split.
+    def f(x, y):
+        z = x + y
+        return z * 2
+    graph, t = translate(f, [int, int])
+    block = graph.startblock
+
+    # Manually tag the block as if _annotate_blocks_with_source had run.
+    block.source_func = f
+    block.source_line = 42
+
+    link = split_block(block, 1)
+    newblock = link.target
+
+    # The new block (tail) must carry the same attribution.
+    assert getattr(newblock, 'source_func', None) is f
+    assert getattr(newblock, 'source_line', None) == 42
+
+    # The original block retains its attribution too.
+    assert block.source_func is f
+    assert block.source_line == 42
+
+    checkgraph(graph)
+
+
+def test_split_block_no_source_attribution():
+    # split_block on a block without source attribution must leave the new
+    # block untagged (no spurious source_func/source_line attributes).
+    def f(x, y):
+        return x + y
+    graph, t = translate(f, [int, int])
+    block = graph.startblock
+    # Strip any source attribution that _annotate_blocks_with_source added
+    # so we can exercise the "no attribution" path.
+    if hasattr(block, 'source_func'):
+        del block.source_func
+    if hasattr(block, 'source_line'):
+        del block.source_line
+
+    link = split_block(block, 0)
+    newblock = link.target
+
+    assert not hasattr(newblock, 'source_func')
+    assert not hasattr(newblock, 'source_line')
+
+
 def test_call_initial_function():
     tmpfile = str(udir.join('test_call_initial_function'))
     def f(x):

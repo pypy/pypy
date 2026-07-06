@@ -170,7 +170,8 @@ class Link(object):
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
-                exits blockcolor generation""".split()
+                exits blockcolor generation
+                source_func source_line""".split()
 
     def __init__(self, inputargs):
         self.inputargs = list(inputargs)  # mixed list of variable/const XXX
@@ -178,6 +179,19 @@ class Block(object):
         self.exitswitch = None            # a variable or
                                           #  Constant(last_exception), see below
         self.exits = []                   # list of Link(s)
+
+    def copy_source_attribution(self, other):
+        """Copy source_func/source_line from other to self.
+
+        Used when creating a new block from an existing one (e.g. during
+        inlining or block splitting) so the C backend can still emit RPython
+        source comments for the new block's code.
+        """
+        if hasattr(other, 'source_func'):
+            self.source_func = other.source_func
+            self.source_line = other.source_line
+        elif hasattr(other, 'source_line'):
+            self.source_line = other.source_line
 
     def is_final_block(self):
         return self.operations == ()      # return or except block
@@ -274,7 +288,6 @@ class Block(object):
         return pending
 
     view = show
-
 
 class Variable(object):
     __slots__ = ["_name", "_nr", "annotation", "concretetype"]

@@ -1,3 +1,4 @@
+import sys
 import pytest
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
@@ -501,6 +502,185 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_add(i0, 1)
         i2 = int_add(i0, 3)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_sub_add_cancel_right(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_add(i2, i1)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_neg_neg_sub(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_neg(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_sub(i1, i0)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_neg_to_sub(self):
+        ops = """
+        [i0, i1]
+        i2 = int_neg(i1)
+        i3 = int_add(i0, i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_neg(i1)
+        i3 = int_sub(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_const_eqv_cmp_shift(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_eq(i1, 9)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_eq(i0, 5)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_sub_compare_zero_eq_ne(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i2, 0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_bitxor_eq_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(i0, i1)
+        i3 = int_eq(i2, 0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_xor(i0, i1)
+        i3 = int_eq(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_add_sub_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_ne(i1, 9)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 4)
+        i2 = int_ne(i0, 5)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_eq_sub_add_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_eq(i1, 7)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_eq(i0, 10)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_sub_add_const_commute(self):
+        ops = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_ne(i1, 7)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub(i0, 3)
+        i2 = int_ne(i0, 10)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_add_cancel_left(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_ne(i2, i0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_is_true(i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_add_eq_self_iff_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i1, i0)
+        i3 = int_eq(i2, i0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add(i1, i0)
+        i3 = int_is_zero(i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_mul_reassociate_const(self):
+        ops = """
+        [i0]
+        i1 = int_mul(3, i0)
+        i2 = int_mul(i1, 5)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_mul(3, i0)
+        i2 = int_mul(15, i0)
         jump(i2)
         """
         self.optimize_loop(ops, expected)
@@ -1059,6 +1239,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_ushift_lshift(self):
         ops = """
         [i0]
@@ -1105,16 +1286,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         ops = """
         [i1]
-        i2 = int_lshift(i1, 30)
-        i3 = uint_rshift(i2, 30)
+        i2 = int_lshift(i1, 15)
+        i3 = uint_rshift(i2, 15)
         jump(i3) # equal
         """
+        mask = (2 ** LONG_BIT - 1)
         expected = """
         [i1]
-        i2 = int_lshift(i1, 30) # dead, removed by backend
-        i3 = int_and(i1, 17179869183)
+        i2 = int_lshift(i1, 15) # dead, removed by backend
+        i3 = int_and(i1, %s)
         jump(i3) # equal
-        """
+        """ % (((mask << 15) & mask) >> 15)
         self.optimize_loop(ops, expected)
 
 
@@ -3509,7 +3691,7 @@ finish()
         i4 = int_ge(i0, -100000)
         guard_true(i4) []
         i2 = int_neg(i0)
-        i3 = int_add(i2, 50)
+        i3 = int_sub(50, i0)
         jump(i3)
         """
         self.optimize_loop(ops, expected)
@@ -3529,7 +3711,7 @@ finish()
         i4 = int_ge(i0, -100000)
         guard_true(i4) []
         i2 = int_neg(i0)
-        i3 = int_add(i2, 50)
+        i3 = int_sub(50, i0)
         jump(i3)
         """
         self.optimize_loop(ops, expected)
@@ -4292,6 +4474,123 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_two_ors_with_constants(self):
+        # tests or_reassoc_consts
+        ops = """
+        [i1]
+        i2 = int_or(i1, 57)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(i1, 57) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_or(57, i1)
+        i3 = int_or(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_or(57, i1) # dead
+        i3 = int_or(i1, 505)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_or_and(self):
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 16)
+        i3 = int_and(i2, 4095)
+        i4 = int_or(2293760, i3)
+        i5 = int_and(i4, 4095)
+        jump(i5, i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = uint_rshift(i1, 16)
+        i3 = int_and(i2, 4095)
+        i4 = int_or(2293760, i3) # dead
+        jump(i3, i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.skipif("LONG_BIT != 64")
+    def test_and_or_and2(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16)
+        i6 = int_or(i5, i4)
+        i7 = int_and(i6, 65535)
+        jump(i7, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 4294967295)
+        i3 = int_and(i1, 65535)
+        i4 = uint_rshift(i2, 16)
+        i5 = int_lshift(i3, 16) # dead
+        i6 = int_or(i5, i4) # dead
+        jump(i4, i4) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_and_add(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 255)
+        i3 = int_add(255, i2)
+        i4 = int_and(i3, 255)
+        i5 = int_add(1, i4)
+        i6 = int_and(i5, 255)
+        jump(i6, i2) # equal
+        """
+        # tricky: this is (x - 1) + 1, but for 8 bit ints. we don't optimize it
+        # so far
+        expected = ops
+        self.optimize_loop(ops, expected)
+
+    def test_xor_reassoc_consts(self):
+        ops = """
+        [i0]
+        i1 = int_xor(i0, 1)
+        i2 = int_xor(i1, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_xor(i0, 1) # dead
+        i2 = int_xor(i0, 3)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_xor_is_bool_not(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_xor(i1, 1) # negate the bool
+        i3 = int_is_true(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1) # a bool
+        i2 = int_is_zero(i1) # negate the bool
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
@@ -4462,4 +4761,3 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
-

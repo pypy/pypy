@@ -108,11 +108,11 @@ def get_stat_ns_as_bigint(st, name):
         return rbigint.fromfloat(as_float * 1e9)
 
     if name == "atime":
-        i, j = 7, -3
+        i, j = 7, _NSEC_ATIME_IDX
     elif name == "mtime":
-        i, j = 8, -2
+        i, j = 8, _NSEC_MTIME_IDX
     elif name == "ctime":
-        i, j = 9, -1
+        i, j = 9, _NSEC_CTIME_IDX
     else:
         raise AssertionError(name)
 
@@ -204,7 +204,8 @@ class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
     def getitem((s_sta, s_int)):
         assert s_int.is_constant(), "os.stat()[index]: index must be constant"
         index = s_int.const
-        assert -3 <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
+        n_extra = len(STAT_FIELDS) - N_INDEXABLE_FIELDS
+        assert -n_extra <= index < N_INDEXABLE_FIELDS, "os.stat()[index] out of range"
         name, TYPE = STAT_FIELDS[index]
         return lltype_to_annotation(TYPE)
 
@@ -493,6 +494,13 @@ else:
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
 del _name, _TYPE
+
+# Negative indices locating the nsec_Xtime fields in the stat tuple.
+# On non-Windows len(STAT_FIELDS)==13 so these are -3,-2,-1.
+# On Windows len(STAT_FIELDS)==15 (2 extra fields appended after nsec_*) so -5,-4,-3.
+_NSEC_ATIME_IDX = STAT_FIELD_NAMES.index('nsec_atime') - len(STAT_FIELDS)
+_NSEC_MTIME_IDX = STAT_FIELD_NAMES.index('nsec_mtime') - len(STAT_FIELDS)
+_NSEC_CTIME_IDX = STAT_FIELD_NAMES.index('nsec_ctime') - len(STAT_FIELDS)
 
 STATVFS_FIELD_TYPES = dict(STATVFS_FIELDS)
 STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]

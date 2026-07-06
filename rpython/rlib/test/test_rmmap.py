@@ -496,6 +496,25 @@ class TestMMap:
         pytest.raises(RValueError, m.getitem, 0)
         m.close()
 
+    def test_resize_fails_if_mapping_held_elsewhere(self):
+        if sys.platform != "win32":
+            pytest.skip("Windows-only test")
+        start_size = mmap.PAGESIZE * 2
+        reduced_size = mmap.PAGESIZE
+        f = open(self.tmpname + "u", "wb+")
+        f.write(b"x" * start_size)
+        f.flush()
+        m1 = mmap.mmap(f.fileno(), start_size)
+        m2 = mmap.mmap(f.fileno(), start_size)
+        try:
+            # on Windows only, SetEndOfFile fails with ERROR_USER_MAPPED_FILE
+            # while m2 still holds a mapped view of the same file
+            pytest.raises(OSError, m1.resize, reduced_size)
+        finally:
+            m2.close()
+            m1.close()
+            f.close()
+
     @pytest.mark.skipif("not mmap.has_madvise")
     def test_madvise(self):
         m = mmap.mmap(-1, 8096)

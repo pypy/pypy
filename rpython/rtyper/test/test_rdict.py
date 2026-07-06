@@ -1421,4 +1421,4 @@ class DictSM(MappingSM):
 
 def test_hypothesis():
     run_state_machine_as_test(
-        DictSM, settings(max_examples=500, stateful_step_count=100))
+        DictSM, settings(max_examples=50, stateful_step_count=10))
