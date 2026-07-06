@@ -1478,6 +1478,8 @@ class ExceptionTests(unittest.TestCase):
         self.assertIn(b'Done.', out)
 
 
+    @support.impl_detail('PyPy recursion limit is approximate, not exact '
+                         'Python frames; this test hangs', pypy=False)
     def test_recursion_in_except_handler(self):
 
         def set_relative_recursion_limit(n):
