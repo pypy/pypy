@@ -5073,3 +5073,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
         self.check_operations_history(guard_class=1, record_exact_class=0)
+
+    def test_rlist_void(self):
+        def f(i):
+            l = [None]
+            if i:
+                l.append(None)
+            return l[0] is None # always True
+        res = self.interp_operations(f, [6])
+        assert res
+        res = self.interp_operations(f, [0])
+        assert res

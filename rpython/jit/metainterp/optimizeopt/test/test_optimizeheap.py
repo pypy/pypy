@@ -1198,6 +1198,21 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_arraylen_of_void_array_is_nonnegative(self):
+        ops = """
+        [p0]
+        i2 = arraylen_gc(p0, descr=voidarraydescr)
+        i3 = int_ge(i2, 0)
+        guard_true(i3) []
+        jump(i2)
+        """
+        expected = """
+        [p0]
+        i2 = arraylen_gc(p0, descr=voidarraydescr)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_getarrayitem_index_must_be_smaller_than_length(self):
         ops = """
         [p0]

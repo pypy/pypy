@@ -279,6 +279,13 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
 # ____________________________________________________________
 # ArrayDescrs
 
+# maximum reasonable physical size in bytes for a single array.
+# we make some conservative assumptions. let's assume we have a at
+# most 57 bits of physical addresses (which some Intel architectures
+# support). if we have a single array that fills all of that (128
+# petabyte), how large is it?
+MAX_REASONABLE_ARRAY_BYTES = 2**57
+
 class ArrayDescr(ArrayOrFieldDescr):
     tid = 0
     basesize = 0       # workaround for the annotator
@@ -326,15 +333,9 @@ class ArrayDescr(ArrayOrFieldDescr):
     def get_max_length(self):
         from rpython.rlib.rarithmetic import LONG_BIT, maxint
         # compute the maximum length of arrays of this itemsize
-        if LONG_BIT == 32:
+        if LONG_BIT == 32 or self.itemsize == 0:
             return maxint
-        # we make some conservative assumptions here. let's assume we have a at
-        # most 57 bits of physical addresses (which some Intel architectures
-        # support). if we have a single array that fills all of that (128
-        # petabyte), what's the itemsize? this is still very useful, because it
-        # means we can remove the overflow checks a lot of the time when we
-        # operate on array lengths.
-        return 2 ** 57 // self.itemsize
+        return MAX_REASONABLE_ARRAY_BYTES // self.itemsize
 
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
