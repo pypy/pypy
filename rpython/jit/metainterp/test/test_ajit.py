@@ -1620,7 +1620,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=0, guard_value=6)
+        self.check_resops(guard_class=0, guard_value=7)
 
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
@@ -1647,8 +1647,8 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=0, guard_nonnull=4,
-                          guard_nonnull_class=4, guard_isnull=2)
+        self.check_resops(guard_class=0, guard_nonnull=0,
+                          guard_nonnull_class=5, guard_isnull=2)
 
 
     def test_merge_guardnonnull_guardvalue(self):
@@ -1675,8 +1675,8 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
-                          guard_nonnull_class=0, guard_isnull=2)
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=0,
+                          guard_nonnull_class=0, guard_isnull=3)
 
 
     def test_merge_guardnonnull_guardvalue_2(self):
@@ -1703,7 +1703,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+        self.check_resops(guard_value=5, guard_class=0, guard_nonnull=0,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
@@ -1734,7 +1734,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
-        self.check_resops(guard_class=0, guard_nonnull=6, guard_value=6,
+        self.check_resops(guard_class=0, guard_nonnull=0, guard_value=7,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
