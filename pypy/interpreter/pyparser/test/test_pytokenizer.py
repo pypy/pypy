@@ -496,7 +496,6 @@ def"""
             (tokens.LBRACE, "{", 1, 10, 1, 11),
             (tokens.NAME, "value", 1, 11, 1, 16),
             (tokens.COLON, ":", 1, 16, 1, 17),
-            (tokens.FSTRING_MIDDLE, "", 1, 17, 1, 17),
             (tokens.LBRACE, "{", 1, 17, 1, 18),
             (tokens.NAME, "width", 1, 18, 1, 23),
             (tokens.RBRACE, "}", 1, 23, 1, 24),
@@ -504,6 +503,7 @@ def"""
             (tokens.LBRACE, "{", 1, 25, 1, 26),
             (tokens.NAME, "precision", 1, 26, 1, 35),
             (tokens.RBRACE, "}", 1, 35, 1, 36),
+            (tokens.FSTRING_MIDDLE, "", 1, 36, 1, 36),
             (tokens.RBRACE, "}", 1, 36, 1, 37),
             (tokens.FSTRING_END, '"', 1, 37, 1, 38),
         ],
@@ -710,7 +710,6 @@ def"""
 1,10-1,11:          LBRACE         '{'
 1,11-1,16:          NAME           'value'
 1,16-1,17:          COLON          ':'
-1,17-1,17:          FSTRING_MIDDLE ''
 1,17-1,18:          LBRACE         '{'
 1,18-1,23:          NAME           'width'
 1,23-1,24:          COLON          ':'
@@ -722,7 +721,7 @@ def"""
 1,37-1,38:          COLON          ':'
 1,38-1,39:          FSTRING_MIDDLE '1'
 1,39-1,40:          RBRACE         '}'
-#1,40-1,40:          FSTRING_MIDDLE ''
+1,40-1,40:          FSTRING_MIDDLE ''
 1,40-1,41:          RBRACE         '}'
 1,41-1,42:          FSTRING_END    "'"
 """),

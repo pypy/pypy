@@ -1129,9 +1129,13 @@ class Parser:
             line = "".join(
                 self.get_lines(range(logical_start, end_lineno + 1))
             )
-            # Strip the trailing newline that was added when compiling the source
-            # (e.g. eval() adds one), matching CPython's SyntaxError.text behaviour.
-            if line.endswith("\n"):
+            # The tokenizer pads a source that does not end with '\n' with an
+            # extra '\n' (see pyparse._parse). CPython keeps that padding in
+            # 'exec' mode but not in 'eval'/'single' mode, so strip it only for
+            # the latter to match CPython's SyntaxError.text.
+            if (line.endswith("\n")
+                    and not self.compile_info.source_ends_with_newline
+                    and self.compile_info.mode != "exec"):
                 line = line[:-1]
         raise cls(
             message,

@@ -687,7 +687,8 @@ class Tokenizer(object):
                     mode.named_unicode_escape = False
                     match -= last_c == "{"
                     assert match >= 0  # help the annotator
-                    self._flush_fstring_middle(mode, match)
+                    self._flush_fstring_middle(mode, match,
+                            emit_empty=self.token_list[-1].token_type == tokens.COLON)
                     mode.middle_offset = self.pos = match
                     mode.middle_linenumber = self.lnum
                 elif (
@@ -704,11 +705,15 @@ class Tokenizer(object):
                     # Could just be:
                     # state.contstrs.append(line[start:match])
                     # but for CPython compatibility we do:
-                    self._flush_fstring_middle(mode, match)
+                    self._flush_fstring_middle(mode, match,
+                            emit_empty=self.token_list[-1].token_type == tokens.COLON)
                     mode.middle_offset = self.pos = match + 1  # Skip the second brace
                     mode.middle_linenumber = self.lnum
                 elif last_c == "{":
-                    self._flush_fstring_middle(mode, match - 1)
+                    # A doubled '{{' in a format spec is an escaped brace, so a
+                    # (possibly empty) literal run precedes it; a lone '{' starts
+                    # a nested field with no preceding run.
+                    self._flush_fstring_middle(mode, match - 1, emit_empty=next_c == "{")
 
                     t = self._add_token(
                         tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
@@ -717,8 +722,9 @@ class Tokenizer(object):
                     self.pos = match
                     self._push_state(NormalMode)
                 elif mode.format_specifier: # last_c == "}"
-                    # end of f-string interpolation
-                    self._flush_fstring_middle(mode, match - 1)
+                    # end of f-string interpolation: always emit the trailing
+                    # literal run of the format spec, even when it is empty.
+                    self._flush_fstring_middle(mode, match - 1, emit_empty=True)
 
                     self._add_token(
                         tokens.RBRACE, "}", self.lnum, match - 1, line, self.lnum, match, level_adjustment=-1
@@ -735,7 +741,8 @@ class Tokenizer(object):
             else:
                 # end of f-string
                 eos = match - (3 if state.strstart_is_triple_quoted else 1)
-                self._flush_fstring_middle(mode, eos)
+                self._flush_fstring_middle(mode, eos,
+                        emit_empty=self.token_list[-1].token_type == tokens.COLON)
 
                 assert eos >= start  # help the annotator
                 self._add_token(tokens.FSTRING_END, line[eos:match],
@@ -755,7 +762,8 @@ class Tokenizer(object):
                 # https://docs.python.org/release/3.13.4/whatsnew/changelog.html#core-and-builtins
                 nl_pos = len(line) - 1
                 assert line[nl_pos] == "\n"
-                self._flush_fstring_middle(mode, nl_pos)
+                self._flush_fstring_middle(mode, nl_pos,
+                        emit_empty=self.token_list[-1].token_type == tokens.COLON)
                 # self._add_token(tokens.NL, "\n", self.lnum, nl_pos, line)
 
                 # Return to the normal tokenization mode
@@ -771,22 +779,15 @@ class Tokenizer(object):
 
         return False
 
-    def _flush_fstring_middle(self, mode, end_offset):
+    def _flush_fstring_middle(self, mode, end_offset, emit_empty=False):
         assert end_offset >= self.pos  # help the annotator
         contstrs = self.state.contstrs
         contstrs.append(self.line[self.pos:end_offset])
         content = "".join(contstrs)
-        next_char = self.line[end_offset] if end_offset < len(self.line) else ''
-        prev_is_colon = self.token_list[-1].token_type == tokens.COLON
-        if (content
-                or (prev_is_colon and next_char != '{')
-                or (mode.format_specifier and next_char == '}')):
-            # Emit FSTRING_MIDDLE:
-            # - always when there is content
-            # - after ':' when the format spec does not start with '{' (a nested
-            #   expression), so the lambda-without-parens grammar rule can fire
-            # - before '}' in format spec mode (after a nested expression closes),
-            #   matching CPython's token stream
+        # An empty FSTRING_MIDDLE is only emitted at specific boundaries, to
+        # match CPython's token stream (see the call sites): before an escaped
+        # '{{' in a format spec, and before the '}' that closes a format spec.
+        if content or emit_empty:
             self._add_token(tokens.FSTRING_MIDDLE, content,
                             mode.middle_linenumber, mode.middle_offset,
                             self.line, self.lnum, end_offset)
