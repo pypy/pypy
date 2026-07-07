@@ -512,7 +512,7 @@ def Py_Is(space, w_obj1, w_obj2):
     res = space.is_w(w_obj1, w_obj2)
     return int(res)
 
-@cpython_api([], rffi.INT_real, error = -1)
+@cts.decl("Py_ssize_t PyGC_Collect(void)", error=-1)
 def PyGC_Collect(space):
     from rpython.rlib.objectmodel import we_are_translated
     from rpython.rlib import rawrefcount

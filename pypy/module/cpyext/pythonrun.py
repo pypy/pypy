@@ -49,6 +49,6 @@ def Py_AtExit(space, func_ptr):
         return -1
     return 0
 
-@cpython_api([], PyObject, error=CANNOT_FAIL)
+@cpython_api([], lltype.Void, error=CANNOT_FAIL)
 def PyThread_exit_thread(space):
     PyErr_SetNone(space, space.w_SystemExit)

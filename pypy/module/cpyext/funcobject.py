@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t,
     cpython_api, bootstrap_function, cpython_struct, build_type_checkers,
-    slot_function)
+    slot_function, cts)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, decref, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
@@ -126,13 +126,15 @@ def PyMethod_Self(space, w_method):
 def unwrap_list_of_texts(space, w_list):
     return [space.text_w(w_item) for w_item in space.fixedview(w_list)]
 
-@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
-              rffi.INT_real,
-              PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
-              PyObject, PyObject, PyObject, rffi.INT_real, PyObject], PyObject)
+@cts.decl("""PyObject *PyCode_New(int argcount, int kwonlyargcount, int nlocals,
+    int stacksize, int flags, PyObject *code, PyObject *consts, PyObject *names,
+    PyObject *varnames, PyObject *freevars, PyObject *cellvars,
+    PyObject *filename, PyObject *name, PyObject *qualname, int firstlineno,
+    PyObject *linetable, PyObject *exceptiontable)""")
 def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
-               w_filename, w_funcname, w_qualname, firstlineno, w_linetable):
+               w_filename, w_funcname, w_qualname, firstlineno, w_linetable,
+               w_exceptiontable):
     """Return a new code object.  If you need a dummy code object to
     create a frame, use PyCode_NewEmpty() instead.  Calling
     PyCode_New() directly can bind you to a precise Python

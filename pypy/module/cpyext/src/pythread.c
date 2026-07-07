@@ -6,13 +6,13 @@
  * pythread_nt.c and pythread_posix.c
  */
 
-long
+unsigned long
 PyThread_get_thread_ident(void)
 {
 #ifdef _WIN32
-    return (long)GetCurrentThreadId();
+    return (unsigned long)GetCurrentThreadId();
 #else
-    return (long)pthread_self();
+    return (unsigned long)pthread_self();
 #endif
 }
 
@@ -73,11 +73,11 @@ PyThread_release_lock(PyThread_type_lock lock)
     RPyThreadReleaseLock((struct RPyOpaque_ThreadLock*)lock);
 }
 
-long
+unsigned long
 PyThread_start_new_thread(void (*func)(void *), void *arg)
 {
     PyThread_init_thread();
-    return RPyThreadStartEx(func, arg);
+    return (unsigned long)RPyThreadStartEx(func, arg);
 }
 
 /* Cross-platform components of TSS API implementation.  */

@@ -15,7 +15,7 @@ typedef enum PyLockStatus {
     PY_LOCK_INTR
 } PyLockStatus;
 
-PyAPI_FUNC(long) PyThread_get_thread_ident(void);
+PyAPI_FUNC(unsigned long) PyThread_get_thread_ident(void);
 
 PyAPI_FUNC(PyThread_type_lock) PyThread_allocate_lock(void);
 PyAPI_FUNC(void) PyThread_free_lock(PyThread_type_lock);
@@ -31,7 +31,7 @@ PyAPI_FUNC(PyLockStatus) PyThread_acquire_lock_timed(PyThread_type_lock lock,
 PyAPI_FUNC(void) PyThread_release_lock(PyThread_type_lock);
 
 PyAPI_FUNC(void) PyThread_init_thread(void);
-PyAPI_FUNC(long) PyThread_start_new_thread(void (*func)(void *), void *arg);
+PyAPI_FUNC(unsigned long) PyThread_start_new_thread(void (*func)(void *), void *arg);
 
 /* Thread Local Storage (TLS) API */
 PyAPI_FUNC(int) PyThread_create_key(void);

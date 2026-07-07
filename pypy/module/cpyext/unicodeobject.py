@@ -1326,8 +1326,8 @@ def PyUnicode_Replace(space, w_str, w_substr, w_replstr, maxcount):
     return space.call_method(w_str, "replace", w_substr, w_replstr,
                              space.newint(maxcount))
 
-@cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real],
-             rffi.INT_real, error=-1)
+@cts.decl("""Py_ssize_t PyUnicode_Tailmatch(PyObject *str, PyObject *substr,
+    Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
 def PyUnicode_Tailmatch(space, w_str, w_substr, start, end, direction):
     """Return 1 if substr matches str[start:end] at the given tail end
     (direction == -1 means to do a prefix match, direction == 1 a

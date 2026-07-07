@@ -4,7 +4,8 @@ import signal as cpy_signal
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
-from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
+from pypy.module.cpyext.api import (
+    cpython_api, CANNOT_FAIL, CONST_STRING, Py_ssize_t)
 from pypy.module.cpyext.api import PyObjectFields, cpython_struct
 from pypy.module.cpyext.api import bootstrap_function, slot_function
 from pypy.module.cpyext.pyobject import make_typedescr
@@ -362,7 +363,7 @@ def PyErr_ExceptionMatches(space, w_exc):
     return PyErr_GivenExceptionMatches(space, w_type, w_exc)
 
 
-@cpython_api([PyObject, CONST_STRING, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, Py_ssize_t], rffi.INT_real, error=-1)
 def PyErr_WarnEx(space, w_category, message_ptr, stacklevel):
     """Issue a warning message.  The category argument is a warning category (see
     below) or NULL; the message argument is a message string.  stacklevel is a
