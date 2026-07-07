@@ -636,7 +636,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
-            self.lenbound.make_guards(lenop, short, optimizer)
+            self.lenbound.make_guards(lenop, short, optimizer,
+                                      known_upper=self.descr.get_max_length())
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual=False):

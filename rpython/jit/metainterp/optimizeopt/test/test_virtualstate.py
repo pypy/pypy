@@ -490,6 +490,18 @@ class BaseTestGenerateGuards(BaseTest):
         """
         self.compare(guards, expected, [box])
 
+    def test_make_guards_intbounds(self):
+        value1 = IntBound(1, 10)
+        box = InputArgInt()
+        guards = []
+        value1.make_guards(box, guards, FakeOptimizer(self.cpu), known_upper=10)
+        expected = """
+        [i0]
+        i1 = int_ge(i0, 1)
+        guard_true(i1) []
+        """
+        self.compare(guards, expected, [box])
+
     def test_equal_inputargs(self):
         classbox = self.cpu.cls_of_box(InputArgRef(self.nodeaddr))
         value = info.InstancePtrInfo(None, classbox)
