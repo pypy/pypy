@@ -185,6 +185,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         res = executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             t.join()
