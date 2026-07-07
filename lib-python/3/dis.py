@@ -36,17 +36,17 @@ MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
 LOAD_CONST = opmap['LOAD_CONST']
-# PYPY: Add back these new opcodes
-# RETURN_CONST = opmap['RETURN_CONST']
+# PYPY: opcodes not (yet) implemented by PyPy; -1 never matches a real opcode
+# RETURN_CONST = -1 ## opmap['RETURN_CONST']
 LOAD_GLOBAL = opmap['LOAD_GLOBAL']
-# BINARY_OP = opmap['BINARY_OP']
-# JUMP_BACKWARD = opmap['JUMP_BACKWARD']
+BINARY_OP = -1 ## opmap['BINARY_OP']
+# JUMP_BACKWARD = -1 ## opmap['JUMP_BACKWARD']
 FOR_ITER = opmap['FOR_ITER']
-# SEND = opmap['SEND']
+# SEND = -1 ## opmap['SEND']
 LOAD_ATTR = opmap['LOAD_ATTR']
-# LOAD_SUPER_ATTR = opmap['LOAD_SUPER_ATTR']
-# CALL_INTRINSIC_1 = opmap['CALL_INTRINSIC_1']
-# CALL_INTRINSIC_2 = opmap['CALL_INTRINSIC_2']
+LOAD_SUPER_ATTR = -1 ## opmap['LOAD_SUPER_ATTR']
+CALL_INTRINSIC_1 = -1 ## opmap['CALL_INTRINSIC_1']
+CALL_INTRINSIC_2 = -1 ## opmap['CALL_INTRINSIC_2']
 
 # CACHE = opmap["CACHE"]
 
