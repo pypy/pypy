@@ -24,7 +24,7 @@ class DelTests:
         self.meta_interp(f, [20])
         self.check_resops({'call_r': 4,      # calls to a helper function
                            'guard_no_exception': 4,    # follows the calls
-                           'int_sub': 2,
+                           'int_add': 2,
                            'int_gt': 2,
                            'guard_true': 2,
                            'jump': 1})

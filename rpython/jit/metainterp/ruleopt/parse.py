@@ -359,6 +359,8 @@ class ShortcutOr(BinOp):
 
 
 class UnaryOp(Expression):
+    need_ruint = False
+
     def __init__(self, left):
         self.left = left
 
@@ -370,6 +372,12 @@ class IntUnaryOp(UnaryOp):
 class Invert(IntUnaryOp):
     opname = "int_invert"
     pysymbol = "~"
+
+
+class Neg(IntUnaryOp):
+    opname = "int_neg"
+    pysymbol = "-"
+    need_ruint = True
 
 
 
@@ -404,7 +412,7 @@ precedence_classes = [
     (LShift, ARShift, URShift),
     (Add, Sub),
     (Mul, Div),
-    Invert,
+    (Invert, Neg),
     (MethodCall, Attribute),
     (Name, Number),
 ]
@@ -418,7 +426,7 @@ for i, tup in enumerate(precedence_classes):
 # ____________________________________________________________
 # parser
 
-def production(s):
+def production(s, prec=None):
     def wrapper(func):
         def newfunc(p):
             res = func(p)
@@ -428,7 +436,7 @@ def production(s):
                     res.sourcepos = sourcepositions[0]
                     res.endsourcepos = sourcepositions[-1]
             return res
-        return pg.production(s)(newfunc)
+        return pg.production(s, precedence=prec)(newfunc)
     return wrapper
 
 
@@ -445,7 +453,7 @@ pg = ParserGenerator(
         ("left", ["LSHIFT", "ARSHIFT", "URSHIFT"]),
         ("left", ["PLUS", "MINUS"]),
         ("left", ["MUL", "DIV"]),
-        ("left", ["INVERT"]),
+        ("left", ["INVERT", "UMINUS"]),
         ("left", ["DOT"]),
     ],
 )
@@ -531,6 +539,11 @@ def expression_parens(p):
 @production("expression : INVERT expression")
 def expression_unary(p):
     return Invert(p[1])
+
+
+@production("expression : MINUS expression", prec="UMINUS")
+def expression_neg(p):
+    return Neg(p[1])
 
 
 @production("expression : expression PLUS expression")
