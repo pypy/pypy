@@ -134,7 +134,7 @@ class TestString(BaseTestPyPyC):
             i96 = strlen(p95)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
-            i98 = int_sub(i74, 1)
+            i98 = int_add(i74, -1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -310,7 +310,7 @@ class TestString(BaseTestPyPyC):
             guard_false(i53, descr=...)
             i56 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p47, 0, descr=...)
             i57 = int_sub(i52, i56)
-            i59 = int_sub(i38, 1)
+            i59 = int_add(i38, -1)
         ''')
 
     def test_decode_encode(self):

@@ -8,23 +8,16 @@ add_zero: int_add(x, 0)
 #add_self: int_add(x, x)
 #    => int_mul(x, 2)
 
-add_sub_x_c_c: int_add(int_sub(x, C1), C2)
-    C = C2 - C1
-    => int_add(x, C)
-
 add_sub_c_x_c: int_add(int_sub(C1, x), C2)
     C = C1 + C2
     => int_sub(C, x)
 
-#add_sub: int_add(int_sub(x, y), y)
-#    => x
-#
-#add_neg: int_add(int_neg(x), y)
-#    => int_sub(y, x)
-#
-
 sub_zero: int_sub(x, 0)
     => x
+
+sub_const_canonicalize: int_sub(x, C1)
+    C = -C1
+    => int_add(x, C)
 
 sub_from_zero: int_sub(0, x)
     => int_neg(x)
@@ -32,31 +25,15 @@ sub_from_zero: int_sub(0, x)
 sub_x_x: int_sub(x, x)
     => 0
 
-sub_add_consts: int_sub(int_add(x, C1), C2)
-    C = C2 - C1
-    => int_sub(x, C)
-
 sub_add: int_sub(int_add(x, y), y)
     => x
 
 sub_add_neg: int_sub(y, int_add(x, y))
     => int_neg(x)
 
-sub_sub_left_x_c_c: int_sub(int_sub(x, C1), C2)
-    C = C1 + C2
-    => int_sub(x, C)
-
-sub_sub_left_c_x_c: int_sub(int_sub(C1, x), C2)
+sub_sub_right_c_c_x: int_sub(C1, int_sub(C2, x))
     C = C1 - C2
-    => int_sub(C, x)
-
-#sub_sub_right_c_x_c: int_sub(C1, int_sub(x, C2))
-#    C = C1 + C2
-#    => int_sub(C, x)
-#
-#sub_sub_right_c_c_x: int_sub(C1, int_sub(C2, x))
-#    C = C1 - C2
-#    => int_add(C, x)
+    => int_add(x, C)
 
 sub_xor_x_y_y: int_sub(int_xor(x, y), y)
     # (x ^ y) - y == x if x & y == 0
@@ -75,8 +52,8 @@ sub_invert_one: int_sub(int_invert(x), -1)
     # useful for int_abs(known-negative-value)
     => int_neg(x)
 
-#sub_neg: int_sub(x, int_neg(y))
-#    => int_add(x, y)
+sub_neg: int_sub(x, int_neg(y))
+    => int_add(x, y)
 
 
 mul_zero: int_mul(x, 0)
@@ -134,6 +111,9 @@ and_known_result: int_and(a, b)
 and_absorb: int_and(a, int_and(a, b))
     => int_and(a, b) # XXX reuse the inner op
 
+and_or_absorb: int_and(x, int_or(x, y))
+    => x
+
 
 or_x_x: int_or(a, a)
     => a
@@ -146,6 +126,9 @@ or_known_result: int_or(a, b)
 
 or_absorb: int_or(a, int_or(a, b))
     => int_or(a, b)
+
+or_and_absorb: int_or(x, int_and(x, y))
+    => x
 
 or_idempotent: int_or(x, y)
     # int_or(x, y) == x if the 0s in y cover all 0s and all ?s in x
@@ -282,10 +265,6 @@ eq_zero: int_eq(x, 0)
 eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
     => 0
 
-#eq_add_const: int_eq(int_add(x, C1), C2)
-#    C = C2 - C1
-#    => int_eq(x, C)
-
 ne_different_knownbits: int_ne(x, y)
     SORRY_Z3
     check x.known_ne(y)
@@ -319,13 +298,13 @@ is_zero_true: int_is_zero(x)
 
 #is_zero_is_zero: int_is_zero(int_is_zero(x))
 #    => int_is_true(x)
-#
+
 #uint_lt_zero: uint_lt(0, x)
 #    => int_is_true(x)
 
-#is_zero_add: int_is_zero(int_add(x, C))
-#    check x.lower > 0-C or x.upper < 0-C
-#    => 0
+is_zero_add: int_is_zero(int_add(x, C))
+    check x.lower > -C or x.upper < -C
+    => 0
 
 #is_zero_negate_eq: int_is_zero(int_eq(x, y))
 #    => int_ne(x, y)
@@ -406,14 +385,6 @@ bitxor_eq_zero: int_eq(int_xor(x, y), 0)
 
 ne_add_sub_const_commute: int_ne(int_add(x, C1), C2)
     C = C2 - C1
-    => int_ne(x, C)
-
-eq_sub_add_const_commute: int_eq(int_sub(x, C1), C2)
-    C = C2 + C1
-    => int_eq(x, C)
-
-ne_sub_add_const_commute: int_ne(int_sub(x, C1), C2)
-    C = C2 + C1
     => int_ne(x, C)
 
 ne_add_cancel_left: int_ne(int_add(x, y), x)

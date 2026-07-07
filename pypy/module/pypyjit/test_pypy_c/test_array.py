@@ -77,7 +77,7 @@ class TestArray(BaseTestPyPyC):
                 i14 = getarrayitem_raw_i(i10, i8, descr=<ArrayS .>)
                 i15 = int_add_ovf(i9, i14)
                 guard_no_overflow(descr=...)
-                i17 = int_sub(i8, 640)
+                i17 = int_add(i8, -640)
             # the bound check guard on intimg has been killed (thanks to the asserts)
                 i18 = getarrayitem_raw_i(i11, i17, descr=<ArrayS .>)
                 i19 = int_add_ovf(i18, i15)
@@ -105,7 +105,7 @@ class TestArray(BaseTestPyPyC):
             # the new i15 thus fits inside "33.5" bits, which is enough to
             # guarantee that the next int_add(i18, i15) cannot overflow either...
                 i15 = int_add(i9, i14)
-                i17 = int_sub(i8, 640)
+                i17 = int_add(i8, -640)
             # the bound check guard on intimg has been killed (thanks to the asserts)
                 i18 = getarrayitem_raw_i(i11, i17, descr=<ArrayS .>)
                 i19 = int_add(i18, i15)
@@ -226,7 +226,7 @@ class TestArray(BaseTestPyPyC):
             i20 = int_ge(i18, i8)
             guard_false(i20, descr=...)
             f21 = getarrayitem_raw_f(i13, i18, descr=...)
-            i14 = int_sub(i6, 1)
+            i14 = int_add(i6, -1)
             i15 = int_ge(i14, i8)
             guard_false(i15, descr=...)
             f23 = getarrayitem_raw_f(i13, i14, descr=...)

@@ -95,3 +95,17 @@ def test_generate_code_many():
     res = codegen.generate_code(parse(ALLRULES))
     print(res)
 
+
+def test_generate_unary_minus_safe_for_minint():
+    s = """\
+sub_const_canonicalize: int_sub(x, C1)
+    C = -C1
+    => int_add(x, C)
+"""
+    codegen = Codegen()
+    res = codegen.generate_code(parse(s))
+    # must not contain a naive "-C_arg_1" negation, which overflows for
+    # MININT; must use the wraparound-safe r_uint-based form instead
+    assert "intmask(-r_uint(" in res
+    assert "-C_arg_1" not in res
+
