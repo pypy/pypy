@@ -316,5 +316,5 @@ class TestArray(BaseTestPyPyC):
             p30 = getfield_gc_r(p12, descr=...)
             i31 = getfield_gc_i(p30, descr=...) # list length
             # there is no comparison for the length here at all
-            i33 = int_sub(i31, 1)
+            i33 = int_add(i31, -1)
         """)
