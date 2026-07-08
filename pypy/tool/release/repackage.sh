@@ -62,24 +62,24 @@ function repackage_builds {
     for plat in linux linux64 macos_x86_64 macos_arm64 aarch64
       do
         echo downloading package for $plat
-        if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
+        if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.gz
         then
-            echo $plat downloaded 
+            echo $plat downloaded
         else
             echo $plat no download available
             continue
         fi
-        gitcheck=`tar -tf pypy-c-jit-latest-$plat.tar.bz2 |head -n1 | cut -d- -f5`
+        gitcheck=`tar -tf pypy-c-jit-latest-$plat.tar.gz |head -n1 | cut -d- -f5`
         if [ "$gitcheck" != "$githash" ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
             echo $plat git short hash mismatch, expected $githash, got $gitcheck
             echo xxxxxxxxxxxxxxxxxxxxxx
-            rm pypy-c-jit-latest-$plat.tar.bz2
+            rm pypy-c-jit-latest-$plat.tar.gz
             continue
         fi
-        tar -xf pypy-c-jit-latest-$plat.tar.bz2
-        rm pypy-c-jit-latest-$plat.tar.bz2
+        tar -xf pypy-c-jit-latest-$plat.tar.gz
+        rm pypy-c-jit-latest-$plat.tar.gz
 
         # Check that this is the correct version
         if [ "$pmin" == "7" ] # python2.7, 3.7
@@ -105,11 +105,13 @@ function repackage_builds {
         fi
         mv pypy-c-jit-*-$plat $rel-$plat_final
         echo packaging $plat_final
+        # Pipe through 'gzip -9 -n': tar's --use-compress-program cannot pass
+        # arguments to the compressor before GNU tar 1.30.
         if [[ "$OSTYPE" == darwin* ]]; then
             # install gtar with brew install gnu-tar
-            gtar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+            gtar --owner=root --group=root --numeric-owner -cf - $rel-$plat_final | gzip -9 -n > $rel-$plat_final.tar.gz
         else
-            tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+            tar --owner=root --group=root --numeric-owner -cf - $rel-$plat_final | gzip -9 -n > $rel-$plat_final.tar.gz
         fi
         rm -rf $rel-$plat_final
       done
@@ -152,13 +154,13 @@ function repackage_source {
     echo "node: $githash" > ../.hg_archival.txt
     echo "branch: $branchname" >> ../.hg_archival.txt
     echo "tag: $tagname" >> ../.hg_archival.txt
-    git config tar.tar.bz2.command "bzip2 -c"
-    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.bz2 $tagname)
+    git config tar.tar.gz.command "gzip -9 -cn"
+    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.gz $tagname)
     $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.zip $tagname)
 }
 
 function print_sha256 {
-    sha256sum *.bz2 *.zip
+    sha256sum *.gz *.zip
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -168,5 +170,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     repackage_source
     print_sha256
 fi
-# Now upload all the bz2 and zip
+# Now upload all the gz and zip
 echo don\'t forget to push the tags "git push --tags"
