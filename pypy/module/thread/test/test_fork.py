@@ -93,7 +93,7 @@ class AppTestFork(GenericTestThread):
     def test_nested_import_lock_fork(self):
         """Check fork() in main thread works while the main thread is doing an import"""
         # Issue 9573: this used to trigger RuntimeError in the child process
-        import imp
+        import _imp
         import os
         import time
 
@@ -106,13 +106,13 @@ class AppTestFork(GenericTestThread):
             try:
                 try:
                     for i in range(level):
-                        imp.acquire_lock()
+                        _imp.acquire_lock()
                         release += 1
                     pid = os.fork()
                     in_child = not pid
                 finally:
                     for i in range(release):
-                        imp.release_lock()
+                        _imp.release_lock()
             except RuntimeError:
                 if in_child:
                     if verbose > 1:

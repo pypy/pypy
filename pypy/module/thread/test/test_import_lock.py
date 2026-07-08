@@ -12,8 +12,8 @@ class AppTestThread(GenericTestThread):
     def test_import_lock(self):
         # XXX XXX XXX this test fails if run together with all other tests
         # of this directory, but not when run alone
-        import _thread, imp
-        assert not imp.lock_held()
+        import _thread, _imp
+        assert not _imp.lock_held()
         done = []
         def f(i):
             print('[ENTER %d]' % i)
@@ -31,7 +31,7 @@ class AppTestThread(GenericTestThread):
         import re      # -> causes nested imports
 
     def test_manual_locking(self):
-        import _thread, os, imp, time, sys
+        import _thread, os, _imp, time, sys
         f = open(os.path.join(self.tmpdir, 'foobaz2.py'), 'w')
         f.close()   # empty
         done = []
@@ -41,38 +41,38 @@ class AppTestThread(GenericTestThread):
             p = sys.path.pop(0)
             assert p == self.tmpdir
             done.append(1)
-        assert not imp.lock_held()
-        imp.acquire_lock()
-        assert imp.lock_held()
+        assert not _imp.lock_held()
+        _imp.acquire_lock()
+        assert _imp.lock_held()
         _thread.start_new_thread(f, ())
         time.sleep(0.9)
         assert not done
-        assert imp.lock_held()
+        assert _imp.lock_held()
         # check that it's a recursive lock
-        imp.acquire_lock()
-        assert imp.lock_held()
-        imp.acquire_lock()
-        assert imp.lock_held()
-        imp.release_lock()
-        assert imp.lock_held()
-        imp.release_lock()
-        assert imp.lock_held()
-        imp.release_lock()
-        assert not imp.lock_held()
+        _imp.acquire_lock()
+        assert _imp.lock_held()
+        _imp.acquire_lock()
+        assert _imp.lock_held()
+        _imp.release_lock()
+        assert _imp.lock_held()
+        _imp.release_lock()
+        assert _imp.lock_held()
+        _imp.release_lock()
+        assert not _imp.lock_held()
         self.waitfor(lambda: done)
         assert done
 
     def test_lock_held_by_another_thread(self):
-        import _thread as thread, imp
+        import _thread as thread, _imp
         lock_held = thread.allocate_lock()
         test_complete = thread.allocate_lock()
         lock_released = thread.allocate_lock()
         def other_thread():
-            imp.acquire_lock()        # 3
-            assert imp.lock_held()
+            _imp.acquire_lock()        # 3
+            assert _imp.lock_held()
             lock_held.release()       # 4
             test_complete.acquire()   # 7
-            imp.release_lock()        # 8
+            _imp.release_lock()        # 8
             lock_released.release()   # 9
         lock_held.acquire()
         test_complete.acquire()
@@ -80,7 +80,7 @@ class AppTestThread(GenericTestThread):
         #
         thread.start_new_thread(other_thread, ())  # 1
         lock_held.acquire()                        # 2
-        assert imp.lock_held()                     # 5
+        assert _imp.lock_held()                     # 5
         test_complete.release()                    # 6
         lock_released.acquire()                    # 10
 
