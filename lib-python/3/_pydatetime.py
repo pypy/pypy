@@ -13,6 +13,12 @@ import math as _math
 import sys
 from operator import index as _index
 
+# for cpyext, use these as base classes
+try:
+    from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
+except ImportError:
+    dateinterop = deltainterop = timeinterop = object
+
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1
 
@@ -579,7 +585,7 @@ def _divide_and_round(a, b):
     return q
 
 
-class timedelta:
+class timedelta(deltainterop):
     """Represent the difference between two datetime objects.
 
     Supported operators:
@@ -695,7 +701,7 @@ class timedelta:
         if abs(d) > 999999999:
             raise OverflowError("timedelta # of days is too large: %d" % d)
 
-        self = object.__new__(cls)
+        self = deltainterop.__new__(cls)
         self._days = d
         self._seconds = s
         self._microseconds = us
@@ -782,7 +788,11 @@ class timedelta:
                          -self._microseconds)
 
     def __pos__(self):
-        return self
+        # for CPython compatibility, we cannot use
+        # our __class__ here, but need a real timedelta
+        return timedelta(self._days,
+                         self._seconds,
+                         self._microseconds)
 
     def __abs__(self):
         if self._days < 0:
@@ -902,7 +912,7 @@ timedelta.max = timedelta(days=999999999, hours=23, minutes=59, seconds=59,
                           microseconds=999999)
 timedelta.resolution = timedelta(microseconds=1)
 
-class date:
+class date(dateinterop):
     """Concrete date type.
 
     Constructors:
@@ -952,12 +962,12 @@ class date:
                         "Failed to encode latin1 string when unpickling "
                         "a date object. "
                         "pickle.load(data, encoding='latin1') is assumed.")
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year)
             self._hashcode = -1
             return self
         year, month, day = _check_date_fields(year, month, day)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -999,9 +1009,14 @@ class date:
         if len(date_string) not in (7, 8, 10):
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
             return cls(*_parse_isoformat_date(date_string))
         except Exception:
+            _failed = True
+            # raise ValueError(f'Invalid isoformat string: {date_string!r}')
+        if _failed:
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
     @classmethod
@@ -1289,6 +1304,10 @@ class tzinfo:
         else:
             args = ()
         return (self.__class__, args, self.__getstate__())
+    # PyPy: added for compatibility with the _datetime module
+    # issue #2489
+    def __new__(cls, *args, **kwds):
+        return super(tzinfo, cls).__new__(cls)
 
 
 class IsoCalendarDate(tuple):
@@ -1322,7 +1341,7 @@ _IsoCalendarDate = IsoCalendarDate
 del IsoCalendarDate
 _tzinfo_class = tzinfo
 
-class time:
+class time(timeinterop):
     """Time with time zone.
 
     Constructors:
@@ -1369,14 +1388,14 @@ class time:
                         "Failed to encode latin1 string when unpickling "
                         "a time object. "
                         "pickle.load(data, encoding='latin1') is assumed.")
-            self = object.__new__(cls)
+            self = timeinterop.__new__(cls)
             self.__setstate(hour, minute or None)
             self._hashcode = -1
             return self
         hour, minute, second, microsecond, fold = _check_time_fields(
             hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = timeinterop.__new__(cls)
         self._hour = hour
         self._minute = minute
         self._second = second
@@ -1555,10 +1574,16 @@ class time:
         # is no ambiguity with date strings.
         time_string = time_string.removeprefix('T')
 
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
             return cls(*_parse_isoformat_time(time_string))
         except Exception:
-            raise ValueError(f'Invalid isoformat string: {time_string!r}')
+            _failed = True
+            # raise ValueError(f'Invalid issssoformat string: {time_string!r}') from None
+        if _failed:
+            raise ValueError(f'Invalid issssoformat string: {time_string!r}') from None
+
 
     def strftime(self, format):
         """Format using strftime().  The date part of the timestamp passed
@@ -1697,7 +1722,7 @@ class datetime(date):
                         "Failed to encode latin1 string when unpickling "
                         "a datetime object. "
                         "pickle.load(data, encoding='latin1') is assumed.")
-            self = object.__new__(cls)
+            self = dateinterop.__new__(cls)
             self.__setstate(year, month)
             self._hashcode = -1
             return self
@@ -1705,7 +1730,7 @@ class datetime(date):
         hour, minute, second, microsecond, fold = _check_time_fields(
             hour, minute, second, microsecond, fold)
         _check_tzinfo_arg(tzinfo)
-        self = object.__new__(cls)
+        self = dateinterop.__new__(cls)
         self._year = year
         self._month = month
         self._day = day
@@ -1855,16 +1880,20 @@ class datetime(date):
         if len(date_string) < 7:
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
-        # Split this at the separator
+        # PYPY change: _datetime.c raises without setting a context
+        _failed = False
         try:
+            # Split this at the separator
             separator_location = _find_isoformat_datetime_separator(date_string)
             dstr = date_string[0:separator_location]
             tstr = date_string[(separator_location+1):]
 
             date_components = _parse_isoformat_date(dstr)
         except ValueError:
-            raise ValueError(
-                f'Invalid isoformat string: {date_string!r}') from None
+            _failed = True
+            # raise ValueError(f'Invalid isoformat string: {date_string!r}')
+        if _failed:
+            raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
         if tstr:
             try:
