@@ -174,7 +174,7 @@ class TestString(BaseTestPyPyC):
             guard_false(i969, descr=...)
             i97 = int_add_ovf(i71, i96)
             guard_no_overflow(descr=...)
-            i98 = int_sub(i74, 1)
+            i98 = int_add(i74, -1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -355,8 +355,8 @@ class TestString(BaseTestPyPyC):
         assert loop.match_by_id('index', '''
             i51 = int_ge(1, i30)
             guard_false(i51, descr=...)
-            i53 = int_sub(i30, 1)
-            i55 = int_sub(i30, 2)
+            i53 = int_add(i30, -1)
+            i55 = int_add(i30, -2)
             i56 = strlen(p48)
             i57 = int_eq(i30, i56)
             guard_false(i57, descr=...)

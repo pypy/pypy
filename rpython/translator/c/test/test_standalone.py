@@ -1037,12 +1037,12 @@ class TestStandalone(StandaloneTestsVerified):
     def test_set_length_fraction_clamped_to_os_stack(self):
         # A huge recursion limit (large fraction) must NOT be able to push the
         # stack-overflow threshold past the real OS stack: stack_check() has to
-        # still raise StackOverflow rather than letting the C stack overflow and
-        # segfault.  Regression test for LL_stack_set_length_fraction clamping
-        # the length to getrlimit(RLIMIT_STACK).  Without the clamp, a fraction
-        # of 50 means ~38 MB, far beyond a typical 8-12 MB stack, so the binary
-        # would SIGSEGV here instead of catching StackOverflow.  (This assumes a
-        # finite ulimit -s, as on any normal machine/CI.)
+        # raise StackOverflow rather than allow segfaulting. This test assumes a
+        # finite ulimit -s
+        try:
+            import resource
+        except ImportError:
+            py.test.skip("requires the resource module to bound RLIMIT_STACK")
         from rpython.rlib.rstack import _stack_set_length_fraction
         from rpython.rlib.rstackovf import StackOverflow
         class A:
@@ -1063,7 +1063,18 @@ class TestStandalone(StandaloneTestsVerified):
             print 'no overflow!'
             return 1
         t, cbuilder = self.compile(entry_point, stackcheck=True)
-        out = cbuilder.cmdexec('')   # raises if the binary segfaulted/crashed
+        soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+        target = 8 * 1024 * 1024
+        if hard != resource.RLIM_INFINITY and hard < target:
+            target = hard
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (target, hard))
+        except (ValueError, OSError):
+            py.test.skip("cannot impose a finite RLIMIT_STACK on this platform")
+        try:
+            out = cbuilder.cmdexec('')   # raises if the binary segfaulted/crashed
+        finally:
+            resource.setrlimit(resource.RLIMIT_STACK, (soft, hard))
         n = int(out.strip())         # StackOverflow was caught -> finite depth
         assert n > 0
 

@@ -76,7 +76,7 @@ class TestThread(BaseTestPyPyC):
         guard_no_exception(descr=...)
         i99 = int_eq(i58, 1)
         guard_true(i99, descr=...)
-        i58 = int_sub(i44, 1)
+        i58 = int_add(i44, -1)
         guard_not_invalidated?
         i59 = call_i(ConstClass(RPyThreadReleaseLock), i37, descr=<Calli . i EF=2>)
         i60 = int_is_true(i59)

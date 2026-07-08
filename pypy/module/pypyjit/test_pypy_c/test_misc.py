@@ -54,7 +54,7 @@ class TestMisc(BaseTestPyPyC):
             guard_true(i7, descr=...)
             i8 = int_mul_ovf(i5, i4)
             guard_no_overflow(descr=...)
-            i10 = int_sub(i4, 1)
+            i10 = int_add(i4, -1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -67,7 +67,7 @@ class TestMisc(BaseTestPyPyC):
             guard_true(i7, descr=...)
             p11 = call_r(ConstClass(rbigint.int_mul), p5, i4, descr=...)
             guard_no_exception(descr=...)
-            i13 = int_sub(i4, 1)
+            i13 = int_add(i4, -1)
             --TICK--
             jump(..., descr=...)
         """)
@@ -156,14 +156,13 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             i89 = int_lt(0, i9)
             guard_true(i89, descr=...)
-            i88 = int_sub(i9, 1)
+            i88 = int_add(i9, -1)
 
             # Compared with pypy2, we get these two operations extra.
             # I think the reason is that W_IntRangeStepOneIterator is used
             # for any 'start' value, which might be negative.
             i89 = int_lt(i11, 0)
             guard_false(i89, descr=...)
-
             i25 = int_ge(i11, i9)
             guard_false(i25, descr=...)
             i27 = int_add_ovf(i7, i11)

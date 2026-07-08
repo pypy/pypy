@@ -1,4 +1,3 @@
-import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
@@ -11,7 +10,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.metainterp.optimizeopt import autogenintrules
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.debug import debug_print
 from rpython.rlib import objectmodel
 
@@ -28,6 +27,13 @@ def get_integer_max(is_unsigned, byte_size):
     else:
         return (1 << ((byte_size << 3) - 1)) - 1
 
+
+def safe_signed_subtraction(a, b):
+    return intmask(r_uint(a) - r_uint(b))
+
+
+def safe_signed_negation(a):
+    return safe_signed_subtraction(0, a)
 
 
 class OptIntBounds(Optimization):
@@ -90,29 +96,20 @@ class OptIntBounds(Optimization):
         self.getintbound(op).intersect(b)
 
     def postprocess_INT_SUB(self, op):
-        import sys
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
+        # int_sub(x, C) is always canonicalized to int_add(x, -C) by
+        # sub_const_normalize, so arg1 can never be a constant here
+        assert not isinstance(arg1, ConstInt)
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         b = b0.sub_bound(b1)
         self.getintbound(op).intersect(b)
         self.optimizer.pure_from_args2(rop.INT_ADD, op, arg1, arg0)
         self.optimizer.pure_from_args2(rop.INT_SUB, arg0, op, arg1)
-        if isinstance(arg1, ConstInt):
-            # invert the constant
-            i1 = arg1.getint()
-            if i1 == -sys.maxint - 1:
-                return
-            inv_arg1 = ConstInt(-i1)
-            self.optimizer.pure_from_args2(rop.INT_ADD, arg0, inv_arg1, op)
-            self.optimizer.pure_from_args2(rop.INT_ADD, inv_arg1, arg0, op)
-            self.optimizer.pure_from_args2(rop.INT_SUB, op, inv_arg1, arg0)
-            self.optimizer.pure_from_args2(rop.INT_SUB, op, arg0, inv_arg1)
 
 
     def postprocess_INT_ADD(self, op):
-        import sys
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
@@ -127,16 +124,10 @@ class OptIntBounds(Optimization):
         self.optimizer.pure_from_args2(rop.INT_SUB, op, arg0, arg1)
         if isinstance(arg0, ConstInt):
             # invert the constant
-            i0 = arg0.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
+            inv_arg0 = ConstInt(safe_signed_negation(arg0.getint()))
         elif isinstance(arg1, ConstInt):
             # commutative
-            i0 = arg1.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
+            inv_arg0 = ConstInt(safe_signed_negation(arg1.getint()))
             arg1 = arg0
         else:
             return
@@ -221,12 +212,25 @@ class OptIntBounds(Optimization):
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
             elif opnum == rop.INT_ADD_OVF:
-                self.pure_from_args2(rop.INT_SUB, result, args[1], args[0])
-                self.pure_from_args2(rop.INT_SUB, result, args[0], args[1])
+                # int_sub(result, C) gets canonicalized to int_add(result, -C)
+                # by the rule engine, so avoid synthesizing the dead int_sub
+                # form and instead synthesize the int_add form directly
+                if isinstance(args[1], ConstInt):
+                    self._pure_add_negated_const(result, args[1], args[0])
+                else:
+                    self.pure_from_args2(rop.INT_SUB, result, args[1], args[0])
+                if isinstance(args[0], ConstInt):
+                    self._pure_add_negated_const(result, args[0], args[1])
+                else:
+                    self.pure_from_args2(rop.INT_SUB, result, args[0], args[1])
             elif opnum == rop.INT_SUB_OVF:
                 self.pure_from_args2(rop.INT_ADD, result, args[1], args[0])
                 self.pure_from_args2(rop.INT_SUB, args[0], result, args[1])
             return self.emit(op)
+
+    def _pure_add_negated_const(self, result, constarg, other):
+        negi = safe_signed_negation(constarg.getint())
+        self.pure_from_args2(rop.INT_ADD, result, ConstInt(negi), other)
 
     def optimize_GUARD_OVERFLOW(self, op):
         # If INT_xxx_OVF was replaced by INT_xxx, *but* we still see
