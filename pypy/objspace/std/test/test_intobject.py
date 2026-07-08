@@ -4,7 +4,7 @@ import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import intobject as iobj
 from rpython.rlib.rarithmetic import r_uint, is_valid_int, intmask
-from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rbigint import rbigint, LONG_BIT
 
 
 class TestW_IntObject:
@@ -352,7 +352,7 @@ class TestW_IntObject:
         assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
 
     def test_lshift_without_fromint(self, monkeypatch):
-        if rbigint.LONG_BIT != 64:
+        if LONG_BIT != 64:
             pytest.skip("64-bit only speedup")
         space = self.space
         monkeypatch.setattr(rbigint, 'fromint', None)
