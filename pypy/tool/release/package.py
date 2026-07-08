@@ -309,20 +309,25 @@ def create_package(basedir, options, _fake=False):
                     zf.write(filename)
             zf.close()
         else:
-            archive = str(builddir.join(name + '.tar.bz2'))
+            archive = str(builddir.join(name + '.tar.gz'))
+            # Pipe through 'gzip -9 -n' rather than tar's --use-compress-program:
+            # the latter cannot pass arguments to the compressor before GNU tar
+            # 1.30, and the build images ship 1.26, so we cannot request -9 that
+            # way. Piping is version-independent and works with bsdtar too.
+            gzip_pipe = ' -cf - ' + name + ' | gzip -9 -n > ' + archive
             if ARCH == 'darwin':
                 print("Warning: tar on current platform does not suport "
                       "overriding the uid and gid for its contents. The tarball "
                       "will contain your uid and gid. If you are building the "
                       "actual release for the PyPy website, you may want to be "
                       "using another platform...", file=sys.stderr)
-                e = os.system('tar --numeric-owner -cjf ' + archive + " " + name)
+                e = os.system('tar --numeric-owner' + gzip_pipe)
             elif sys.platform.startswith('freebsd'):
-                e = os.system('tar --uname=root --gname=wheel -cjf ' + archive + " " + name)
+                e = os.system('tar --uname=root --gname=wheel' + gzip_pipe)
             elif sys.platform == 'cygwin':
-                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cjf ' + archive + " " + name)
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner' + gzip_pipe)
             else:
-                e = os.system('tar --owner=root --group=root --numeric-owner -cjf ' + archive + " " + name)
+                e = os.system('tar --owner=root --group=root --numeric-owner' + gzip_pipe)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:

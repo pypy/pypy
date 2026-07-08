@@ -12,7 +12,10 @@ Can be run as check_versions.py <filename>, in which case it will check the file
 https://buildbot.pypy.org/mirror/
 """
 
+import argparse
+import hashlib
 import json
+import re
 from urllib import request, error
 import sys
 import time
@@ -31,6 +34,59 @@ def assert_different(a, b):
 def assert_in(a, b):
     if a not in b:
         raise ValueError(f"'{a}' not in '{b}'")
+
+
+# A checksums entry is a '<sha256>  <filename>' pair. Match those directly so
+# the same parser works on both the reStructuredText source and the rendered
+# HTML at https://pypy.org/checksums, where each block's first line is glued to
+# the surrounding <pre> markup and would not survive a naive line.split().
+_CHECKSUM_RE = re.compile(r'([0-9a-fA-F]{64})[ \t]+(pypy[^\s<]+)')
+
+
+def parse_checksums(text):
+    """Parse a checksums document into {filename: sha256}.
+
+    Works on both the checksums.rst source and the rendered HTML page, since we
+    extract every '<sha256>  <filename>' pair and ignore any surrounding markup.
+    """
+    checksums = {}
+    for digest, filename in _CHECKSUM_RE.findall(text):
+        checksums[filename] = digest.lower()
+    return checksums
+
+
+# sha256-verify only downloads from releases made within this many days, so a
+# routine run does not re-download the entire back-catalogue of releases.
+CHECKSUM_MAX_AGE_DAYS = 31
+
+
+def released_recently(d, now=None):
+    """True if release entry d has a 'date' within CHECKSUM_MAX_AGE_DAYS of now."""
+    date = d.get('date')
+    if not date:
+        return False
+    try:
+        released = time.mktime(time.strptime(date, "%Y-%m-%d"))
+    except ValueError:
+        return False
+    if now is None:
+        now = time.time()
+    return 0 <= (now - released) <= CHECKSUM_MAX_AGE_DAYS * 24 * 60 * 60
+
+
+def load_checksums(source):
+    """Load checksums from a local path or an http(s) URL, or None if not given."""
+    if source is None:
+        return None
+    if source.startswith('http://') or source.startswith('https://'):
+        text = request.urlopen(source).read().decode('utf-8')
+    else:
+        with open(source) as fid:
+            text = fid.read()
+    checksums = parse_checksums(text)
+    if not checksums:
+        raise ValueError(f"no sha256 checksums found in '{source}'")
+    return checksums
 
 
 pypy_versions = {
@@ -195,7 +251,8 @@ def check_tags(data):
             raise ValueError(f"could not find {tag}' on github. Does the tag exist (forgotten git push --tags)?") from None
         assert_equal(r.getcode(), 200)
 
-def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
+def check_versions(data, url, verbose=0, check_times=True, nightly_only=False,
+                   checksums=None):
     for d in data:
         if verbose > 0:
             print(f"checking {d['python_version']} {d['pypy_version']}")
@@ -275,24 +332,62 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
                     raise ValueError(f"expected {modified_time_str} to be within 2 weeks of {target}")
                 else:
                     print(f" {delta_days} days", end='')
+            if checksums is not None and released_recently(d):
+                # Real verification of the hosted bytes against the trusted
+                # checksums (e.g. from https://pypy.org/checksums). We only do
+                # this for recently-released files to avoid re-downloading the
+                # whole back-catalogue on every run.
+                expected = checksums.get(f['filename'])
+                if expected is None:
+                    raise ValueError(
+                        f"no sha256 for '{f['filename']}' in the checksums file")
+                actual = hashlib.sha256(r.read()).hexdigest()
+                if actual != expected:
+                    raise ValueError(
+                        f"sha256 mismatch for '{f['filename']}': "
+                        f"hosted {actual} != checksums {expected}")
+                if verbose > 0:
+                    print(' sha256-ok', end='')
             if verbose > 0:
                 print(f' ok')
         if verbose > 0:
             print(f"{d['python_version']} {d['pypy_version']} ok")
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        print(f'checking local file "{sys.argv[1]}"')
-        with open(sys.argv[1]) as fid:
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument(
+        'filename', nargs='?',
+        help="local versions.json to check against https://buildbot.pypy.org/mirror/; "
+             "if omitted, download versions.json from buildbot and check "
+             "https://downloads.python.org/pypy/")
+    parser.add_argument(
+        '--nightly-only', action='store_true',
+        help="only check the nightly builds")
+    parser.add_argument(
+        '--checksums', metavar='PATH_OR_URL',
+        default='https://pypy.org/checksums',
+        help="checksums file (local path or http(s) URL) holding the trusted "
+             "sha256 values; defaults to %(default)s. Files from releases made in "
+             f"the last {CHECKSUM_MAX_AGE_DAYS} days are downloaded and their "
+             "sha256 is verified against it. Pass an empty string to skip "
+             "checksum verification")
+    args = parser.parse_args()
+
+    checksums = load_checksums(args.checksums or None)
+
+    if args.filename:
+        print(f'checking local file "{args.filename}"')
+        with open(args.filename) as fid:
             data = json.loads(fid.read())
-        nightly_only = '--nightly-only' in sys.argv
         check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1,
-                       nightly_only=nightly_only)
+                       nightly_only=args.nightly_only, checksums=checksums)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None, verbose=1)
+        check_versions(data, None, verbose=1, checksums=checksums)
     check_tags(data)
     print('ok')
