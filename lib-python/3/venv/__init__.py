@@ -17,6 +17,8 @@ import shlex
 CORE_VENV_DEPS = ('pip',)
 logger = logging.getLogger(__name__)
 
+IS_PYPY = sys.implementation.name == 'pypy'
+
 
 class EnvBuilder:
     """
@@ -261,7 +263,16 @@ class EnvBuilder:
                     logger.warning('Unable to symlink %r to %r', src, dst)
                     force_copy = True
             if force_copy:
-                shutil.copyfile(src, dst)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                elif os.path.islink(src):
+                    # On PyPy, creating a copy of a symlinked-venv must still
+                    # point back to the original file since the exe needs
+                    # libpypy* and perhaps other 'portable' shared objects
+                    final = os.path.realpath(src)
+                    os.symlink(final, dst)
+                else:
+                    shutil.copyfile(src, dst)
     else:
         def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):
             """
@@ -292,9 +303,9 @@ class EnvBuilder:
                 if basename.endswith('_d'):
                     ext = '_d' + ext
                     basename = basename[:-2]
-                if basename == 'python':
+                if not IS_PYPY and basename == 'python':
                     basename = 'venvlauncher'
-                elif basename == 'pythonw':
+                elif not IS_PYPY and basename == 'pythonw':
                     basename = 'venvwlauncher'
                 src = os.path.join(os.path.dirname(src), basename + ext)
             else:
@@ -321,7 +332,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}'):
+            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}', 'pypy3', 'pypy'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -329,6 +340,37 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
+            if not self.symlinks:
+                #
+                # PyPy extension: also copy the main library, not just the
+                # small executable
+                for libname in ['libpypy3.12-c.so', 'libpypy3.12-c.dylib']:
+                    dest_library = os.path.join(binpath, libname)
+                    src_library = os.path.join(os.path.dirname(context.executable),
+                                               libname)
+                    if (not os.path.exists(dest_library) and
+                            os.path.exists(src_library)):
+                        copier(src_library, dest_library)
+                        if not os.path.islink(dest_library):
+                            os.chmod(dest_library, 0o755)
+                libsrc = os.path.join(context.python_dir, '..', 'lib')
+                deps_file = os.path.join(libsrc, "PYPY_PORTABLE_DEPS.txt")
+                if os.path.exists(libsrc) and os.path.exists(deps_file):
+                    # PyPy: also copy lib/*.so*, lib/tk, lib/tcl for portable
+                    # builds
+                    libdst = os.path.join(context.env_dir, 'lib')
+                    if not os.path.exists(libdst):
+                        os.mkdir(libdst)
+                    with open(deps_file, encoding="utf-8") as fid:
+                        for f in fid:
+                            src = os.path.join(libsrc, f.strip())
+                            dst = os.path.join(libdst, f.strip())
+                            if os.path.exists(src):
+                                if os.path.exists(dst):
+                                    # skip directories when upgrading
+                                    continue
+                                copier(src, dst)
+            #
         else:
             if self.symlinks:
                 # For symlinking, we need a complete copy of the root directory
@@ -345,14 +387,48 @@ class EnvBuilder:
                         os.path.normcase(f).startswith(('python', 'vcruntime'))
                     ]
             else:
-                suffixes = {'python.exe', 'python_d.exe', 'pythonw.exe', 'pythonw_d.exe'}
+                # PyPy change: since PyPy does not use a PEP 397 launcher,
+                # copy all the exes and dlls.
+                suffixes = [
+                    f for f in os.listdir(dirname) if
+                    os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                ]
                 base_exe = os.path.basename(context.env_exe)
-                suffixes.add(base_exe)
+                suffixes.append(base_exe)
 
             for suffix in suffixes:
                 src = os.path.join(dirname, suffix)
                 if os.path.lexists(src):
                     copier(src, os.path.join(binpath, suffix))
+
+            exe = os.path.split(sys.executable)[1].lower()
+            if exe not in suffixes:
+                if "pypy3.12-c.exe" in suffixes:
+                    # dirname is a source build, with only the
+                    # pypy*-c.exe? Make sure to create
+                    # sys.executable as well
+                    src = os.path.join(dirname, "pypy3.12-c.exe")
+                    dst = os.path.join(binpath, exe)
+                    copier(src, dst)
+                elif not suffixes:
+                    # dirname is a source build from dirname\pypy\goal
+                    # so add that to dirname and try again
+                    dirname = os.path.join(dirname, "pypy", "goal")
+                    suffixes = [
+                        f for f in os.listdir(dirname) if
+                        os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                    ]
+                    for suffix in suffixes:
+                        src = os.path.join(dirname, suffix)
+                        if os.path.lexists(src):
+                            copier(src, os.path.join(binpath, suffix))
+                    src = os.path.join(dirname, "pypy3.12-c.exe")
+                    if src != context.env_exec_cmd:
+                        copier(src, context.env_exec_cmd)
+                    copier(src, os.path.join(binpath, "python.exe"))
+                    copier(src, os.path.join(binpath, "python3.exe"))
+                else:
+                    raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
             if sysconfig.is_python_build():
                 # copy init.tcl

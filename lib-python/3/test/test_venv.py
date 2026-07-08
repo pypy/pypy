@@ -22,7 +22,8 @@ from test.support import (captured_stdout, captured_stderr,
                           skip_if_broken_multiprocessing_synchronize, verbose,
                           requires_subprocess, is_emscripten, is_wasi,
                           requires_venv_with_pip, TEST_HOME_DIR,
-                          requires_resource, copy_python_src_ignore)
+                          requires_resource, copy_python_src_ignore,
+                          cpython_only)
 from test.support.os_helper import (can_symlink, EnvironmentVarGuard, rmtree,
                                     TESTFN, FakePath)
 from test.support.testcase import ExtraAssertions
@@ -71,7 +72,7 @@ class BaseTest(unittest.TestCase, ExtraAssertions):
             self.include = 'Include'
         else:
             self.bindir = 'bin'
-            self.lib = ('lib', 'python%d.%d' % sys.version_info[:2])
+            self.lib = ('lib', 'pypy%d.%d' % sys.version_info[:2])
             self.include = 'include'
         executable = sys._base_executable
         self.exe = os.path.split(executable)[-1]
@@ -315,8 +316,8 @@ class BasicTest(BaseTest):
             ('bin',),
             ('include',),
             ('lib',),
-            ('lib', 'python%d.%d' % sys.version_info[:2]),
-            ('lib', 'python%d.%d' % sys.version_info[:2], 'site-packages'),
+            ('lib', 'pypy%d.%d' % sys.version_info[:2]),
+            ('lib', 'pypy%d.%d' % sys.version_info[:2], 'site-packages'),
         )
 
     def create_contents(self, paths, filename):
@@ -619,6 +620,9 @@ class BasicTest(BaseTest):
 
     @unittest.skipIf(os.name == 'nt', 'not relevant on Windows')
     @requireVenvCreate
+    # PyPy does not add a stdlib zip to sys.path unconditionally the way
+    # CPython adds pythonXY.zip, so this CPython-only behaviour does not apply.
+    @cpython_only
     def test_zippath_from_non_installed_posix(self):
         """
         Test that when create venv from non-installed python, the zip path
@@ -633,10 +637,16 @@ class BasicTest(BaseTest):
         bindir = os.path.join(non_installed_dir, self.bindir)
         os.mkdir(bindir)
         shutil.copy2(sys.executable, bindir)
+        # PYPY: also copy the shared library
+        old_bindir = os.path.split(sys.executable)[0]
+        for f in os.listdir(old_bindir):
+            if f.startswith('libpypy'):
+                shutil.copy2(os.path.join(old_bindir, f), bindir)
+        # end of PYPY
         libdir = os.path.join(non_installed_dir, platlibdir, self.lib[1])
         os.makedirs(libdir)
         landmark = os.path.join(libdir, "os.py")
-        stdlib_zip = "python%d%d.zip" % sys.version_info[:2]
+        stdlib_zip = "pypy%d%d.zip" % sys.version_info[:2]
         zip_landmark = os.path.join(non_installed_dir,
                                     platlibdir,
                                     stdlib_zip)
@@ -650,7 +660,9 @@ class BasicTest(BaseTest):
                     shutil.copyfile(
                         eachpath,
                         os.path.join(non_installed_dir, platlibdir))
-            elif os.path.isfile(os.path.join(eachpath, "os.py")):
+            elif (os.path.isfile(os.path.join(eachpath, "os.py")) or
+                  # PYPY: also copy lib_pypy when testing a source build
+                  os.path.isfile(os.path.join(eachpath, "_pypy_generic_alias.py"))):
                 names = os.listdir(eachpath)
                 ignored_names = copy_python_src_ignore(eachpath, names)
                 for name in names:
