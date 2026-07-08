@@ -63,6 +63,33 @@ int_lshift_int_rshift_consts: int_lshift(int_rshift(x, C1), C1)
     ast = parse(s)
 
 
+def test_parse_unary_minus_const():
+    s = """\
+sub_const_canonicalize: int_sub(x, C1)
+    C = -C1
+    => int_add(x, C)
+"""
+    ast = parse(s)
+    compute = ast.rules[0].elements[0]
+    assert isinstance(compute.expr, Neg)
+    assert isinstance(compute.expr.left, Name)
+    assert compute.expr.left.name == "C1"
+
+
+def test_parse_unary_minus_precedence():
+    s = """\
+n: op(C1, C2)
+    C = -C1 + C2
+    => C
+"""
+    ast = parse(s)
+    compute = ast.rules[0].elements[0]
+    # -C1 + C2 should parse as (-C1) + C2, not -(C1 + C2)
+    assert isinstance(compute.expr, Add)
+    assert isinstance(compute.expr.left, Neg)
+    assert isinstance(compute.expr.right, Name)
+
+
 def test_parse_all():
     ast = parse(ALLRULES)  # also typechecks
 

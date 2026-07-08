@@ -21,7 +21,7 @@ class SendTests(object):
         res = self.meta_interp(f, [1])
         assert res == 2
         self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
-                           'int_sub': 2}) # all folded away
+                           'int_add': 2}) # all folded away
 
     def test_red_builtin_send(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'counter'])
@@ -67,9 +67,9 @@ class SendTests(object):
                                backendopt=True)
         assert res == 43
         self.check_resops({'int_gt': 2, 'getfield_gc_i': 2,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
+                           'guard_true': 2, 'jump': 1,
                            'call_r': 2, 'guard_no_exception': 2,
-                           'int_add': 2})
+                           'int_add': 4})
 
     def test_red_send_to_green_receiver(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['counter', 'j'])
@@ -92,7 +92,7 @@ class SendTests(object):
             return res
         res = self.meta_interp(f, [4, -1])
         assert res == 145
-        self.check_resops(int_add=1)
+        self.check_resops(int_add=3)
 
     def test_oosend_base(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
@@ -201,7 +201,7 @@ class SendTests(object):
         # of the body in a single bigger loop with no failing guard except
         # the final one.
         self.check_trace_count(1)
-        self.check_resops(guard_class=1, int_add=4, int_sub=4)
+        self.check_resops(guard_class=1, int_add=8)
         #self.check_jumps(14)
 
     def test_oosend_guard_failure_2(self):
@@ -243,7 +243,7 @@ class SendTests(object):
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
         self.check_trace_count(1)
-        self.check_resops(guard_class=1, int_add=4, int_sub=4)
+        self.check_resops(guard_class=1, int_add=8)
         #self.check_jumps(14)
 
     def test_oosend_different_initial_class(self):
@@ -281,7 +281,7 @@ class SendTests(object):
         # XXX This not completely easy to check...
         self.check_trace_count(1)
         self.check_resops(guard_class=1, new_with_vtable=0, int_lshift=2,
-                          int_add=0, new=0)
+                          int_add=2, new=0)
 
     def test_indirect_call_unknown_object_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])

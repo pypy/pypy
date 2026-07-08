@@ -22,7 +22,7 @@ class ListTests:
             return n
         res = self.meta_interp(f, [10], listops=True)
         assert res == 0
-        self.check_resops(int_sub=2)
+        self.check_resops(int_add=2)
         self.check_all_virtualized()
 
     def test_list_pass_around(self):
@@ -228,8 +228,8 @@ class ListTests:
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
-        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
-                           'guard_true': 2, 'int_sub': 2})
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 4,
+                           'guard_true': 2})
 
     def test_newlist_hint(self):
         def f(i):
@@ -293,7 +293,7 @@ class ListTests:
             return 42
 
         self.meta_interp(f, [5])
-        self.check_resops({'int_sub': 2,
+        self.check_resops({'int_add': 2,
                            'int_gt': 2,
                            'guard_true': 2,
                            'jump': 1})
@@ -319,7 +319,7 @@ class ListTests:
             return 42
 
         self.meta_interp(f, [5])
-        self.check_resops({'int_sub': 2,
+        self.check_resops({'int_add': 2,
                            'int_gt': 2,
                            'guard_true': 2,
                            'jump': 1})
@@ -341,7 +341,7 @@ class ListTests:
             return 42
 
         self.meta_interp(f, [5])
-        self.check_resops({'int_sub': 2,
+        self.check_resops({'int_add': 2,
                            'int_gt': 2,
                            'guard_true': 2,
                            'jump': 1})
@@ -459,4 +459,3 @@ class TestLLtype(ListTests, LLJitMixin):
             l.reverse()
             return l[-1]
         res = self.interp_operations(f, [0], listops=True, inline=True)
-

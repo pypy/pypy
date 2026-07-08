@@ -382,14 +382,17 @@ class AbstractTestRstr(BaseRtypingTest):
         # vtable setup) and give the same answers as the host.  One
         # interpret() call, with matches near the start, keeps it fast.
         # 'ab'*100 -> pure two-way branch, 'ab'*700 -> adaptive branch.
+        # Small additive weights (not a positional pack) keep the result well
+        # within a 32-bit int: three positions up to ~2600 cannot be packed
+        # multiplicatively without overflowing on 32-bit.
         const = self.const
         def fn():
             h = const('ab' * 1300)              # len 2600 -> two-way dispatch
             a = h.find(const('ab' * 100)) + 1   # pure two-way, match at 0
-            b = h.find(const('ac' * 100)) + 1   # not found
+            b = h.find(const('ac' * 100)) + 1   # not found -> 0
             c = h.find(const('ab' * 700)) + 1   # adaptive, match at 0
-            return (((a * 2601 + b) * 2601 + c) * 4000 +
-                    h.count(const('ab' * 100)))
+            d = h.count(const('ab' * 100))      # non-overlapping count -> 13
+            return a * 1000 + b * 100 + c * 10 + d
         assert self.interpret(fn, []) == fn()
 
     def test_contains_str(self):

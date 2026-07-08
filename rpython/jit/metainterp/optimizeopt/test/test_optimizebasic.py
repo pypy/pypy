@@ -330,7 +330,7 @@ class TestOptimizeBasic(BaseTestBasic):
         [p1, i0, i1, i2, p2]
         guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
-        i4 = int_sub(i3, 1)
+        i4 = int_add(i3, -1)
         jump(p2, i0, i1, i4, p2)
         """
         self.optimize_loop(ops, expected)

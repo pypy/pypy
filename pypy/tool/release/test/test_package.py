@@ -45,7 +45,7 @@ class TestPackaging:
             zh = zipfile.ZipFile(str(builddir.join('%s.zip' % test)))
             assert zh.open('%s/%s/syslog.py' % (test, stdpath))
         else:
-            th = tarfile.open(str(builddir.join('%s.tar.bz2' % test)))
+            th = tarfile.open(str(builddir.join('%s.tar.gz' % test)))
             syslog = th.getmember('%s/%s/syslog.py' % (test, stdpath))
             exe = th.getmember('%s/%s' % (test, self.exe_name_in_archive))
             assert syslog.mode == 0644

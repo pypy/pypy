@@ -1,4 +1,5 @@
 # encoding: utf-8
+import pytest
 import sys
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import intobject as iobj
@@ -376,6 +377,8 @@ class TestW_IntObject:
         assert space.bigint_w(v).eq(rbigint.fromlong(x << y))
 
     def test_lshift_without_fromint(self, monkeypatch):
+        if rbigint.LONG_BIT != 64:
+            pytest.skip("64-bit only speedup")
         space = self.space
         monkeypatch.setattr(rbigint, 'fromint', None)
         x = sys.maxint // 4
