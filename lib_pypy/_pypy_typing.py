@@ -426,6 +426,18 @@ class Generic:
 
     def __class_getitem__(cls, params):
         import typing
+        # PEP 695: the compiler builds the implicit Generic[...] base from a
+        # tuple of the class's bare type params. CPython's _Py_subscript_generic
+        # intrinsic unpacks any TypeVarTuple (Ts -> *Ts) before the subscript,
+        # which _generic_class_getitem then requires (a bare TypeVarTuple is not
+        # "type-var-like"). PyPy routes that intrinsic through __class_getitem__,
+        # so mirror the unpacking here.
+        if isinstance(params, typing.TypeVarTuple):
+            params = typing.Unpack[params]
+        elif isinstance(params, tuple):
+            params = tuple(
+                typing.Unpack[p] if isinstance(p, typing.TypeVarTuple) else p
+                for p in params)
         return typing._generic_class_getitem(cls, params)
 
     def __init_subclass__(cls, *args, **kwargs):

@@ -161,6 +161,17 @@ from keyword import iskeyword
 from operator import attrgetter
 from collections import namedtuple, OrderedDict
 from weakref import ref as make_weakref
+try:
+    from cpyext import is_cpyext_builtin_function as _is_cpyext_function
+except ImportError:
+    _is_cpyext_function = lambda obj: False
+
+# PYPY: In PyPy, methods wrapping builtin code have type 'method' not
+# 'builtin_function_or_method'. Use the code object type to detect them.
+if "__pypy__" in sys.modules:
+    _builtin_code_type = type(dict.update.__code__)
+else:
+    _builtin_code_type = None
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
@@ -305,7 +316,15 @@ def isclass(object):
 
 def ismethod(object):
     """Return true if the object is an instance method."""
-    return isinstance(object, types.MethodType)
+    if not isinstance(object, types.MethodType):
+        return False
+    # PYPY: MethodType in PyPy includes bound methods wrapping builtin code
+    # (e.g. [].append). Exclude those — they should be reported by isbuiltin().
+    if _builtin_code_type is not None:
+        code = getattr(getattr(object, '__func__', None), '__code__', None)
+        if isinstance(code, _builtin_code_type):
+            return False
+    return True
 
 def ismethoddescriptor(object):
     """Return true if the object is a method descriptor.
@@ -321,7 +340,7 @@ def ismethoddescriptor(object):
     tests return false from the ismethoddescriptor() test, simply because
     the other tests promise more -- you can, e.g., count on having the
     __func__ attribute (etc) when an object passes ismethod()."""
-    if isclass(object) or ismethod(object) or isfunction(object):
+    if isclass(object) or ismethod(object) or isfunction(object) or isbuiltin(object):
         # mutual exclusion
         return False
     tp = type(object)
@@ -528,10 +547,23 @@ def isbuiltin(object):
         __doc__         documentation string
         __name__        original name of this function or method
         __self__        instance to which a method is bound, or None"""
-    return isinstance(object, types.BuiltinFunctionType)
+    if isinstance(object, types.BuiltinFunctionType) or _is_cpyext_function(object):
+        return True
+    # PYPY: methods with builtin code (e.g. [].append) have type 'method',
+    # not 'builtin_function_or_method'.
+    if _builtin_code_type is not None and isinstance(object, types.MethodType):
+        code = getattr(getattr(object, '__func__', None), '__code__', None)
+        if isinstance(code, _builtin_code_type):
+            return True
+    return False
 
 def ismethodwrapper(object):
     """Return true if the object is a method wrapper."""
+    # PYPY: PyPy has no distinct MethodWrapperType — slot wrappers like
+    # object().__str__ and builtin methods like [].append are both 'method'.
+    # Cannot implement correctly; always returns False on PyPy.
+    if _builtin_code_type is not None:
+        return False
     return isinstance(object, types.MethodWrapperType)
 
 def isroutine(object):
@@ -822,6 +854,10 @@ def _finddoc(obj):
     elif isfunction(obj):
         name = obj.__name__
         cls = _findclass(obj)
+        if cls is None:
+            # PYPY: builtin methods appear as functions with __objclass__
+            # but module=None, so _findclass fails. Fall back to __objclass__.
+            cls = getattr(obj, '__objclass__', None)
         if cls is None or getattr(cls, name) is not obj:
             return None
     elif isbuiltin(obj):
@@ -1333,7 +1369,13 @@ def getargs(co):
     appended. 'varargs' and 'varkw' are the names of the * and **
     arguments or None."""
     if not iscode(co):
-        raise TypeError('{!r} is not a code object'.format(co))
+        if hasattr(len, '__code__') and type(co) is type(len.__code__):
+            # PyPy extension: built-in function objects have a __code__
+            # too.  There is no co_code on it, but co_argcount and
+            # co_varnames and co_flags are present.
+            pass
+        else:
+            raise TypeError('{!r} is not a code object'.format(co))
 
     names = co.co_varnames
     nargs = co.co_argcount
@@ -1725,6 +1767,8 @@ def getframeinfo(frame, context=1):
     else:
         lines = index = None
 
+    if not dis:
+        raise RuntimeError("could not import dis to get positions")
     return Traceback(filename, lineno, frame.f_code.co_name, lines,
                      index, positions=dis.Positions(*positions))
 
@@ -2021,11 +2065,10 @@ def getasyncgenlocals(agen):
 ###############################################################################
 
 
-_NonUserDefinedCallables = (types.WrapperDescriptorType,
+_NonUserDefinedCallables = (# types.WrapperDescriptorType,
                             types.MethodWrapperType,
                             types.ClassMethodDescriptorType,
                             types.BuiltinFunctionType)
-
 
 def _signature_get_user_defined_method(cls, method_name):
     """Private helper. Checks if ``cls`` has an attribute
@@ -2036,10 +2079,38 @@ def _signature_get_user_defined_method(cls, method_name):
         meth = getattr(cls, method_name, None)
     else:
         meth = getattr_static(cls, method_name, None)
-    if meth is None or isinstance(meth, _NonUserDefinedCallables):
-        # Once '__signature__' will be added to 'C'-level
-        # callables, this check won't be necessary
+    # PYPY: logic changed here.
+    # In PyPy, types.MethodWrapperType is 'method' and
+    # types.ClassMethodDescriptorType is 'classmethod', so
+    # _NonUserDefinedCallables is too broad to use as a gate.
+    # Instead, unwrap wrappers and use _builtin_code_type to
+    # distinguish user-defined from PyPy builtins.
+    if meth is None:
         return None
+    if meth in (type.__call__, type.__init__, type.__new__,
+                object.__new__, object.__init__):
+        return None
+    if isinstance(meth, (classmethod, staticmethod)):
+        inner = meth.__func__
+    elif isinstance(meth, types.MethodType):
+        inner = meth.__func__
+    else:
+        inner = meth
+    if isinstance(inner, types.BuiltinFunctionType):
+        return None
+    code = getattr(inner, '__code__', None)
+    if _builtin_code_type and isinstance(code, _builtin_code_type):
+        # PyPy: FunctionWithFixedCode has builtin code but may have a
+        # __text_signature__ -- let it through so signature() can use it,
+        # EXCEPT when __new__ is the class's own native constructor:
+        # __objclass__ matches cls, so the class's own __text_signature__
+        # is preferred over the double-strip the MRO loop would produce.
+        # If __new__ was assigned from another type (e.g. MethodDescriptorType
+        # test), __objclass__ != cls so we let it through normally.
+        own_new = (method_name == '__new__' and
+                   getattr(inner, '__objclass__', None) is cls)
+        if not getattr(inner, '__text_signature__', None) or own_new:
+            return None
     if method_name != '__new__':
         meth = _descriptor_get(meth, cls)
     return meth
@@ -2154,6 +2225,11 @@ def _signature_is_builtin(obj):
     return (isbuiltin(obj) or
             ismethoddescriptor(obj) or
             isinstance(obj, _NonUserDefinedCallables) or
+            # PyPy extension: these builtin slots may be reported as ordinary
+            # callables. Compare with 'is', not the 'in' operator, so a custom
+            # __eq__ that raises is not invoked (see the note just below).
+            obj is type.__call__ or obj is type.__init__ or obj is type.__new__ or
+            obj is object.__call__ or obj is object.__init__ or obj is object.__new__ or
             # Can't test 'isinstance(type)' here, as it would
             # also be True for regular python classes.
             # Can't use the `in` operator here, as it would
@@ -2179,7 +2255,7 @@ def _signature_is_functionlike(obj):
     kwdefaults = getattr(obj, '__kwdefaults__', _void) # ... and not None here
     annotations = getattr(obj, '__annotations__', None)
 
-    return (isinstance(code, types.CodeType) and
+    return (isinstance(code, (types.CodeType, _builtin_code_type)) and
             isinstance(name, str) and
             (defaults is None or isinstance(defaults, tuple)) and
             (kwdefaults is None or isinstance(kwdefaults, dict)) and
@@ -2367,7 +2443,11 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
         assert parameters
         _self = getattr(obj, '__self__', None)
         self_isbound = _self is not None
-        self_ismodule = ismodule(_self)
+        # PyPy: builtin __new__ methods are bound to their type but don't
+        # expose __self__; strip the implicit $type arg like CPython does.
+        if not self_isbound and getattr(obj, '__name__', None) == '__new__':
+            self_isbound = True
+        self_ismodule = ismodule(_self) if _self is not None else False
         if self_isbound and (self_ismodule or skip_bound_arg):
             parameters.pop(0)
         else:
@@ -2392,6 +2472,16 @@ def _signature_from_builtin(cls, func, skip_bound_arg=True):
         raise ValueError("no signature found for builtin {!r}".format(func))
 
     return _signature_fromstr(cls, func, s, skip_bound_arg)
+
+
+class _NoValue:
+    """Class of a marker object for PyPy only, used as the defaults for
+    built-in functions when there is really no Python object that could
+    be used."""
+    __slots__ = ()
+    def __repr__(self):
+        return '<no value>'
+_no_value = _NoValue()
 
 
 def _signature_from_function(cls, func, skip_bound_arg=True,
@@ -2428,7 +2518,10 @@ def _signature_from_function(cls, func, skip_bound_arg=True,
     if defaults:
         pos_default_count = len(defaults)
     else:
-        pos_default_count = 0
+        # PyPy extension, for built-in functions that take optional
+        # arguments but without any Python object to use as default.
+        pos_default_count = getattr(func, '__defaults_count__', 0)
+        defaults = [_no_value] * pos_default_count
 
     parameters = []
 
@@ -2623,6 +2716,8 @@ def _signature_from_callable(obj, *,
         for base in obj.__mro__:
             # Now we check if the 'obj' class has an own '__new__' method
             if new is not None and '__new__' in base.__dict__:
+                if new is object.__new__:
+                    return Signature()
                 sig = _get_signature_of(new)
                 if skip_bound_arg:
                     sig = _signature_bound_method(sig)
@@ -2662,8 +2757,17 @@ def _signature_from_callable(obj, *,
                 obj.__new__ is object.__new__):
                 # Return a signature of 'object' builtin.
                 return sigcls.from_callable(object)
-            else:
-                raise ValueError(
+            # PyPy: __new__ may be a builtin not returned by
+            # _signature_get_user_defined_method; try it directly.
+            # The heuristic in _signature_fromstr already strips the implicit
+            # $type arg, so do NOT call _signature_bound_method again.
+            if obj.__init__ is object.__init__ and obj.__new__ is not object.__new__:
+                try:
+                    sig = _get_signature_of(obj.__new__)
+                    return sig
+                except (ValueError, TypeError):
+                    pass
+            raise ValueError(
                     'no signature found for builtin type {!r}'.format(obj))
 
     else:
