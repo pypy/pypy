@@ -7,34 +7,34 @@
     "date": "2026-05-26",
     "files": [
       {
-        "filename": "pypy3.11-v7.3.23-aarch64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-aarch64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-linux32.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux32.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-linux64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-macos_x86_64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-macos_arm64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy3.11-v7.3.23-win64.zip",
@@ -52,34 +52,34 @@
     "date": "2026-05-26",
     "files": [
       {
-        "filename": "pypy2.7-v7.3.23-aarch64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-aarch64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-linux32.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux32.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-linux64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-macos_x86_64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-macos_arm64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy2.7-v7.3.23-win64.zip",
