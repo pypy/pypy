@@ -12,10 +12,12 @@ if sys.platform.startswith('win'):
     TARGET_NAME = 'pypy-c.exe'
     VENV_TARGET = 'pypy.exe'
     TARGET_DIR = 'Scripts'
+    EXTENSION = '.zip'
 else:
     TARGET_NAME = 'pypy-c'
     VENV_TARGET = 'pypy'
     TARGET_DIR = 'bin'
+    EXTENSION = '.gz'
 VENV_DIR = 'pypy-venv'
 
 def make_info_dict():
