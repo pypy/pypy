@@ -543,6 +543,10 @@ PyUnicode_FromFormatV(const char *format, va_list vargs)
     if (abuffer)
         PyObject_Free(abuffer);
     PyUnicode_Resize(&string, s - PyUnicode_AS_UNICODE(string));
+    if (string != NULL && PyUnicode_READY(string) == -1) {
+        Py_DECREF(string);
+        return NULL;
+    }
     return string;
   fail:
     if (callresults) {
