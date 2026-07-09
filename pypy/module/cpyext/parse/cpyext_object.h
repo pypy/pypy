@@ -3,9 +3,13 @@
 #define PyObject_HEAD     PyObject    ob_base;
 #define PyObject_VAR_HEAD PyVarObject ob_base;
 
+/* ob_pypy_link (the word mapping a C PyObject back to its RPython object) is kept
+   in a hidden prefix immediately before ob_refcnt, so the visible header matches
+   CPython's for abi3 (Py_TYPE/Py_SIZE inline the field offsets even under the
+   limited API).  This is similar to PyGC_HEAD in CPython.  The link is reached only
+   by PyPy-internal code (the GC/rawrefcount and src/object.c), never by extensions. */
 typedef struct _object {
     Py_ssize_t ob_refcnt;
-    Py_ssize_t ob_pypy_link;
     struct _typeobject *ob_type;
 } PyObject;
 

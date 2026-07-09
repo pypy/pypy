@@ -6,13 +6,53 @@ Rawrefcount and the GC
 GC Interface
 ------------
 
-"PyObject" is a raw structure with at least two fields, ob_refcnt and
+"PyObject" is a raw structure with at least two words, ob_refcnt and
 ob_pypy_link.  The ob_refcnt is the reference counter as used on
 CPython.  If the PyObject structure is linked to a live PyPy object,
 its current address is stored in ob_pypy_link and ob_refcnt is bumped
 by either the constant REFCNT_FROM_PYPY, or the constant
 REFCNT_FROM_PYPY_LIGHT (== REFCNT_FROM_PYPY + SOME_HUGE_VALUE)
 (to mean "light finalizer").
+
+Object layout: the ob_pypy_link prefix (abi3)
+---------------------------------------------
+
+ob_pypy_link is *not* part of the object's visible header.  The visible
+PyObject header is exactly CPython's -- {ob_refcnt, ob_type} -- so that a
+CPython abi3 (limited-API) wheel, which inlines Py_TYPE/Py_SIZE and reads
+those fields at fixed offsets, sees the layout it expects.  ob_pypy_link
+instead lives in a hidden prefix word immediately *before* ob_refcnt, at
+offset -sizeof(Py_ssize_t).  This is the same trick CPython uses for
+PyGC_Head: extensions never see the prefix; tp_basicsize starts at
+ob_refcnt.
+
+Every heap PyObject allocation reserves the prefix and hands out a pointer
+past it; the free path (PyObject_GC_Del / the default tp_free) releases it.
+The prefix is reached only by PyPy-internal code, never by extensions.  The
+same offset logic is (currently) duplicated in a few places -- to be unified
+later:
+
+- pypy/module/cpyext/pyobject.py     -- pyobj_raw_alloc/free, pyobj_get/set_link
+- pypy/module/cpyext/src/object.c    -- _PyPy_LINK / _PyPy_LINK_PREFIX
+- rpython/memory/gc/incminimark.py   -- PYOBJ_HDR / _pyobj (translated GC)
+- rpython/rlib/rawrefcount.py        -- _ob_link_get/set/_ob_free (untranslated)
+
+Immortal static objects are exempt (no prefix)
+----------------------------------------------
+
+The prebuilt, immortal, *exported* static objects -- the whole
+pypy_static_pyobjs[] set: the singletons (None/True/False/NotImplemented/
+Ellipsis), the built-in type objects (PyList_Type, ...), and the exception
+classes (PyExc_*) -- are emitted as *bare* PyObject/PyTypeObject storage with
+NO prefix.  Two reasons: (1) abi3 wheels reference these as plain exported
+data symbols (e.g. Py_None == &_Py_NoneStruct) and expect CPython's bare
+layout with no prefix; and (2) they are immutable identity anchors that never
+feed data back to their PyPy object and never die, so they do not need the
+mutable rawrefcount link at all.  They are mapped w_obj <-> pyobj through a
+constant identity table built once at startup (keyed on pypy_static_pyobjs[]),
+consulted by from_ref; the GC/rawrefcount never touch them, so their missing
+prefix is never read.  Only dynamically allocated instances (a live list, a
+live exception whose message can change, ...) carry the prefix and the link.
 
 Most PyPy objects exist outside cpyext, and conversely in cpyext it is
 possible that a lot of PyObjects exist without being seen by the rest

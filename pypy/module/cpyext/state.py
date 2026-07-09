@@ -22,6 +22,14 @@ class State:
         self.builder = None
         self.C = CNamespace()
         self.static_memory_error = OperationError(space.w_MemoryError, space.w_None)
+        # Immortal static objects (pypy_static_pyobjs[]) are exempt from the
+        # ob_pypy_link prefix (see pypy/doc/discussion/rawrefcount.rst).  They are
+        # bare PyObjects, never managed by the GC/rawrefcount, and are mapped through
+        # these constant tables, built once by StaticObjectBuilder.attach_all.  Each
+        # is marked with the rawrefcount.REFCNT_STATIC sentinel so from_ref/decref
+        # recognize them without reading a prefix they do not have.
+        self.static_w2py = {}   # w_obj -> py_obj              (forward, as_pyobj)
+        self.static_py2w = {}   # int(address(py_obj)) -> w_obj (reverse, from_ref)
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef
@@ -92,7 +100,10 @@ class State:
                     ob = rawrefcount.next_dead(PyObject)
                     if not ob:
                         break
-                    print 'deallocating PyObject', ob
+                    pto = ob.c_ob_type
+                    tp_name = (rffi.charp2str(rffi.cast(rffi.CCHARP, pto.c_tp_name))
+                               if pto and pto.c_tp_name else '<notype>')
+                    print 'deallocating', tp_name
                     decref(space, ob)
                 print 'dealloc_trigger DONE'
                 return "RETRY"

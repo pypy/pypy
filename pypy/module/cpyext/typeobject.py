@@ -33,7 +33,8 @@ from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     make_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, decref, as_pyobj, incref, CPyExtDictTerminator)
+    track_reference, decref, as_pyobj, incref, pyobj_raw_alloc,
+    CPyExtDictTerminator)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
@@ -748,14 +749,11 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
     # instead of tp_basicsize
     basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
     extra_size = metatype.c_tp_itemsize
-    heaptype = lltype.malloc(rffi.VOIDP.TO,
-                             basicsize + extra_size,
-                             flavor='raw', zero=True,
-                             add_memory_pressure=True)
+    # reserves the hidden ob_pypy_link prefix; the prefix is zeroed by the alloc
+    heaptype = pyobj_raw_alloc(basicsize + extra_size)
     heaptype = rffi.cast(PyHeapTypeObject, heaptype)
     pto = heaptype.c_ht_type
     rffi.cast(PyObject, pto).c_ob_refcnt = 1
-    rffi.cast(PyObject, pto).c_ob_pypy_link = 0
     rffi.cast(PyObject, pto).c_ob_type = metatype
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_HEAPTYPE)
     pto.c_tp_as_async = heaptype.c_as_async

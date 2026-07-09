@@ -42,6 +42,14 @@ _PyObject_InitVar(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
+/* ob_pypy_link is stored in a hidden prefix word immediately before the visible
+   PyObject header (see include/cpyext_object.h), so the header matches CPython for
+   abi3.  Every PyObject allocation reserves this prefix and hands out a pointer past
+   it; PyObject_GC_Del (and the default tp_free) release it.  Internal only -- never
+   exposed to extensions.  Similar to PyGC_HEAD in CPython. */
+#define _PyPy_LINK_PREFIX  (sizeof(Py_ssize_t))
+#define _PyPy_LINK(op)     (((Py_ssize_t *)(op))[-1])
+
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -74,7 +82,7 @@ _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     /* this is the same as rawrefcount.mark_deallocating() */
-    obj->ob_pypy_link = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
+    _PyPy_LINK(obj) = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
 }
 
@@ -156,7 +164,7 @@ _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
         ((PyVarObject*)pyobj)->ob_size = nitems;
 
     pyobj->ob_refcnt = 1;
-    /* pyobj->ob_pypy_link should get assigned very quickly */
+    /* ob_pypy_link lives in the zeroed prefix; it gets assigned very quickly */
     pyobj->ob_type = type;
     return pyobj;
 }
@@ -318,7 +326,7 @@ _Py_NewReference(PyObject *op)
     _Py_RefTotal++;
 #endif
     Py_SET_REFCNT(op, 1);
-    ((PyObject *)(op))->ob_pypy_link = 0;
+    _PyPy_LINK(op) = 0;
 #ifdef Py_TRACE_REFS
     _Py_AddToAllObjects(op, 1);
 #endif
