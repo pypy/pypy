@@ -76,8 +76,8 @@ def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, l
 @cpython_api([PyObject], PyObject)
 def PyImport_ReloadModule(space, w_mod):
     w_import = space.builtin.get('__import__')
-    w_imp = space.call_function(w_import, space.newtext('imp'))
-    return space.call_method(w_imp, 'reload', w_mod)
+    w_importlib = space.call_function(w_import, space.newtext('importlib'))
+    return space.call_method(w_importlib, 'reload', w_mod)
 
 @cpython_api([CONST_STRING], PyObject, result_borrowed=True)
 def PyImport_AddModule(space, name):
