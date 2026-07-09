@@ -14,10 +14,12 @@ if sys.platform.startswith('win'):
     TARGET_NAME = r'pypy%d.%d-c.exe' % CPYTHON_VERSION[:2]
     VENV_TARGET = 'pypy3.exe'
     TARGET_DIR = 'Scripts'
+    EXTENSION = '.zip'
 else:
     TARGET_NAME = 'pypy%d.%d-c' % CPYTHON_VERSION[:2]
     VENV_TARGET = 'pypy3'  # virtualenv does not create pypy3.9
     TARGET_DIR = 'bin'
+    EXTENSION = '.gz'
 VENV_DIR = 'pypy-venv'
 
 def make_info_dict():
