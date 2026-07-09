@@ -302,6 +302,9 @@ typedef struct _typeobject {
 
     destructor tp_finalize;
     vectorcallfunc tp_vectorcall;
+
+    /* bitset of which type-watchers care about this type */
+    unsigned char tp_watched;
 } PyTypeObject;
 
 typedef struct{
