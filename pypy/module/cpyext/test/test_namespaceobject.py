@@ -7,5 +7,5 @@ class AppTestNamespace(AppTestCpythonExtensionBase):
             ("new", "METH_O",
              """
                 return _PyNamespace_New(args);
-             """)], prologue="#include pycore_namespace.h")
+             """)], prologue='#include "pycore_namespace.h"')
         assert module.new({'a': 1, 'b': 2}) == SimpleNamespace(a=1, b=2)
