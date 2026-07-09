@@ -17,7 +17,7 @@ else:
     TARGET_NAME = 'pypy-c'
     VENV_TARGET = 'pypy'
     TARGET_DIR = 'bin'
-    EXTENSION = '.gz'
+    EXTENSION = '.tar.gz'
 VENV_DIR = 'pypy-venv'
 
 def make_info_dict():
