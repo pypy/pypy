@@ -7,7 +7,8 @@ from pypy.module.cpyext.api import (
     Py_GE, CONST_STRING, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
-    get_typedescr, hack_for_result_often_existing_obj)
+    get_typedescr, hack_for_result_often_existing_obj,
+    pyobj_raw_alloc, pyobj_raw_free, PYOBJ_LINK_PREFIX)
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
@@ -15,46 +16,42 @@ from pypy.interpreter.executioncontext import ExecutionContext
 import pypy.module.__builtin__.operation as operation
 
 
+# The PyObject_* allocator is the object domain: it reserves the hidden ob_pypy_link
+# prefix and hands out the pointer past it (PyMem_* is the separate raw domain, no
+# prefix).  So every object alloc/free -- PyObject_New/Del, GC_New/Del, tp_alloc/
+# tp_free, and the _PyPy_Malloc/_PyPy_Free backing them -- is prefix-consistent.
 @cpython_api([size_t], rffi.VOIDP)
 def PyObject_Malloc(space, size):
-    # returns non-zero-initialized memory, like CPython
-    return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw',
-                         add_memory_pressure=True)
+    return pyobj_raw_alloc(size)
 
 @cpython_api([size_t, size_t], rffi.VOIDP)
 def PyObject_Calloc(space, nelem, elsize):
     if elsize != 0 and nelem > PY_SSIZE_T_MAX / elsize:
         return lltype.nullptr(rffi.VOIDP.TO)
-    return lltype.malloc(rffi.VOIDP.TO, nelem * elsize,
-                         flavor='raw', zero=True,
-                         add_memory_pressure=True)
+    return pyobj_raw_alloc(nelem * elsize)   # pyobj_raw_alloc zeroes
 
 realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
 
 @cpython_api([rffi.VOIDP, size_t], rffi.VOIDP)
 def PyObject_Realloc(space, ptr, size):
     if not lltype.cast_ptr_to_int(ptr):
-        return lltype.malloc(rffi.VOIDP.TO, size,
-                         flavor='raw',
-                         add_memory_pressure=True)
-    # XXX FIXME
-    return realloc(ptr, size)
+        return pyobj_raw_alloc(size)
+    # ptr is past the prefix; realloc from the base and re-offset.  XXX FIXME
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ptr), -PYOBJ_LINK_PREFIX)
+    newbase = realloc(rffi.cast(rffi.VOIDP, base), size + PYOBJ_LINK_PREFIX)
+    if not newbase:
+        return lltype.nullptr(rffi.VOIDP.TO)
+    return rffi.cast(rffi.VOIDP,
+                     rffi.ptradd(rffi.cast(rffi.CCHARP, newbase), PYOBJ_LINK_PREFIX))
 
 @c_only([rffi.VOIDP], lltype.Void)
 def _PyPy_Free(ptr):
-    lltype.free(ptr, flavor='raw')
+    pyobj_raw_free(ptr)
 
 @c_only([Py_ssize_t], rffi.VOIDP)
 def _PyPy_Malloc(size):
-    # XXX: the malloc inside BaseCpyTypedescr.allocate and
-    # typeobject.type_alloc specify zero=True, so this is why we use it also
-    # here. However, CPython does a simple non-initialized malloc, so we
-    # should investigate whether we can remove zero=True as well
     try:
-        return lltype.malloc(rffi.VOIDP.TO, size,
-                             flavor='raw', zero=True,
-                             add_memory_pressure=True)
+        return pyobj_raw_alloc(size)
     except MemoryError:
         # return NULL rather than raise, as our C callers expect
         return lltype.nullptr(rffi.VOIDP.TO)

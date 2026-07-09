@@ -3160,14 +3160,21 @@ class IncrementalMiniMarkGC(MovingGCBase):
     rrc_enabled = False
 
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
+    # The C PyObject pointer points at ob_refcnt.  ob_pypy_link lives in a hidden
+    # prefix word immediately *before* ob_refcnt (kept out of the visible object
+    # header so the layout matches CPython for abi3; similar to PyGC_HEAD).  So the
+    # header is laid out link-then-refcnt and _pyobj() shifts the incoming pointer
+    # back to the prefix; every .ob_refcnt/.ob_pypy_link access then lands correctly.
     PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
-                              ('ob_refcnt', lltype.Signed),
-                              ('ob_pypy_link', lltype.Signed))
+                              ('ob_pypy_link', lltype.Signed),
+                              ('ob_refcnt', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
+    PYOBJ_REFCNT_OFS = llmemory.offsetof(PYOBJ_HDR, 'ob_refcnt')
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
     def _pyobj(self, pyobjaddr):
-        return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
+        return llmemory.cast_adr_to_ptr(pyobjaddr - self.PYOBJ_REFCNT_OFS,
+                                        self.PYOBJ_HDR_PTR)
 
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst

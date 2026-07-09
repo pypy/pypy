@@ -228,6 +228,10 @@ class W_Root(object):
         from pypy.module.cpyext.pyobject import w_root_attach_pyobj
         return w_root_attach_pyobj(self, space, py_obj)
 
+    def _cpyext_attach_pyobj_static(self, space, py_obj):
+        from pypy.module.cpyext.pyobject import w_root_attach_pyobj_static
+        return w_root_attach_pyobj_static(self, space, py_obj)
+
     # -------------------------------------------------------------------
 
     # hpy support

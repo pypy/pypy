@@ -19,7 +19,45 @@ if sys.maxint > 2**32:
 else:
     _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX >> 2)
 
+# Immortal static objects (the pypy_static_pyobjs[] set: singletons, built-in type
+# objects, exception classes) carry this refcnt instead of being rawrefcount-linked.
+# It sits ABOVE REFCNT_FROM_PYPY_LIGHT (with room to spare below sys.maxint) so it
+# never collides with a linked object's refcount and still passes the usual
+# ">= REFCNT_FROM_PYPY" assertions.  cpyext initializes statics to REFCNT_STATIC, but
+# C-side Py_INCREF/DECREF on immortal objects will drift the exact value, so a static
+# is *recognized* by its refcnt landing in the top region (>= REFCNT_STATIC_MIN), not
+# by equality.  This lets from_ref/decref detect a static (which has no ob_pypy_link
+# prefix to read).  See pypy/doc/discussion/rawrefcount.rst.
+REFCNT_STATIC          = REFCNT_FROM_PYPY_LIGHT + (sys.maxint // 8)
+REFCNT_STATIC_MIN      = REFCNT_FROM_PYPY_LIGHT + (sys.maxint // 16)
+# TODO: REFCNT_STATIC_MIN sits inside the light-finalizer region [LIGHT, maxint]; it is
+# only practically (not disjointly) safe.  The robust fix is to make Py_INCREF/Py_DECREF
+# no-op on immortals (CPython-style), so a static's refcnt never drifts and an exact
+# check suffices -- then this range/threshold is unnecessary.
+
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+
+# ob_pypy_link lives in a hidden prefix word immediately before the C PyObject (see
+# pypy/module/cpyext -- keeps the visible header CPython-compatible for abi3, like
+# PyGC_HEAD).  The translated GC reaches it in incminimark (PYOBJ_HDR / _pyobj); these
+# are the untranslated (test-only) equivalents, reaching the prefix by fixed offset.
+# ob_refcnt is still field 0 of the object, so ob.c_ob_refcnt is used directly.
+_LINK_PREFIX = rffi.sizeof(lltype.Signed)
+
+def _ob_link_get(ob):
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+    return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
+
+def _ob_link_set(ob, value):
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+    rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
+
+def _ob_free(ob, track_allocation=True):
+    # free the whole allocation, which starts at the hidden prefix
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+    lltype.free(rffi.cast(rffi.VOIDP, base), flavor='raw',
+                track_allocation=track_allocation)
 
 
 def _build_pypy_link(p):
@@ -50,8 +88,8 @@ def create_link_pypy(p, ob):
     #print 'create_link_pypy\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(p)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(p))
     _pypy2ob[p] = ob
     _pypy2ob_rev[ob._obj] = p
     _p_list.append(ob)
@@ -63,8 +101,8 @@ def create_link_pyobj(p, ob):
     #print 'create_link_pyobj\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(p)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(p))
     _o_list.append(ob)
 
 @not_rpython
@@ -72,8 +110,8 @@ def mark_deallocating(marker, ob):
     """mark the PyObject as deallocating, by storing 'marker'
     inside its ob_pypy_link field"""
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(marker)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(marker))
 
 @not_rpython
 def from_obj(OB_PTR_TYPE, p):
@@ -86,7 +124,7 @@ def from_obj(OB_PTR_TYPE, p):
 
 @not_rpython
 def to_obj(Class, ob):
-    link = ob.c_ob_pypy_link
+    link = _ob_link_get(ob)
     if link == 0:
         return None
     p = _adr2pypy[link]
@@ -120,10 +158,10 @@ def _collect(track_allocation=True):
     """
     def detach(ob, wr_list):
         assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
-        assert ob.c_ob_pypy_link
-        p = _adr2pypy[ob.c_ob_pypy_link]
+        assert _ob_link_get(ob)
+        p = _adr2pypy[_ob_link_get(ob)]
         assert p is not None
-        _adr2pypy[ob.c_ob_pypy_link] = None
+        _adr2pypy[_ob_link_get(ob)] = None
         wr_list.append((ob, weakref.ref(p)))
         return p
 
@@ -163,23 +201,22 @@ def _collect(track_allocation=True):
         assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
         p = wr()
         if p is not None:
-            assert ob.c_ob_pypy_link
-            _adr2pypy[ob.c_ob_pypy_link] = p
+            assert _ob_link_get(ob)
+            _adr2pypy[_ob_link_get(ob)] = p
             final_list.append(ob)
             return p
         else:
-            ob.c_ob_pypy_link = 0
+            _ob_link_set(ob, 0)
             if ob.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
-                ob.c_ob_pypy_link = 0
+                _ob_link_set(ob, 0)
                 if ob.c_ob_refcnt == 0:
-                    lltype.free(ob, flavor='raw',
-                                track_allocation=track_allocation)
+                    _ob_free(ob, track_allocation=track_allocation)
             else:
                 assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY
-                ob.c_ob_pypy_link = 0
+                _ob_link_set(ob, 0)
                 if ob.c_ob_refcnt == 0:
                     ob.c_ob_refcnt = 1
                     _d_list.append(ob)
