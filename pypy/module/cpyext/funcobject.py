@@ -126,18 +126,18 @@ def PyMethod_Self(space, w_method):
 def unwrap_list_of_texts(space, w_list):
     return [space.text_w(w_item) for w_item in space.fixedview(w_list)]
 
-@cts.decl("""PyObject *PyCode_New(int argcount, int kwonlyargcount, int nlocals,
+@cts.decl("""PyObject *PyUnstable_Code_New(int argcount, int kwonlyargcount, int nlocals,
     int stacksize, int flags, PyObject *code, PyObject *consts, PyObject *names,
     PyObject *varnames, PyObject *freevars, PyObject *cellvars,
     PyObject *filename, PyObject *name, PyObject *qualname, int firstlineno,
     PyObject *linetable, PyObject *exceptiontable)""")
-def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
+def PyUnstable_Code_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
                w_filename, w_funcname, w_qualname, firstlineno, w_linetable,
                w_exceptiontable):
     """Return a new code object.  If you need a dummy code object to
     create a frame, use PyCode_NewEmpty() instead.  Calling
-    PyCode_New() directly can bind you to a precise Python
+    PyUnstable_Code_New() directly can bind you to a precise Python
     version since the definition of the bytecode changes often."""
     return PyCode(space,
                   argcount=rffi.cast(lltype.Signed, argcount),
@@ -162,13 +162,13 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
               rffi.INT_real, rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
               PyObject, PyObject, PyObject, rffi.INT_real, PyObject, PyObject], PyCodeObject)
-def PyCode_NewWithPosOnlyArgs(space, argcount, posonlyargcount, kwonlyargcount,
+def PyUnstable_Code_NewWithPosOnlyArgs(space, argcount, posonlyargcount, kwonlyargcount,
                 nlocals, stacksize, flags,
                 w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
                 w_filename, w_funcname, w_qualname, firstlineno, w_linetable, w_exceptiontable):
     """Return a new code object.  If you need a dummy code object to
     create a frame, use PyCode_NewEmpty() instead.  Calling
-    PyCode_New() directly can bind you to a precise Python
+    PyUnstableCode_New() directly can bind you to a precise Python
     version since the definition of the bytecode changes often."""
     return PyCode(space,
                   argcount=rffi.cast(lltype.Signed, argcount),

@@ -32,6 +32,14 @@ typedef struct {
 #define CO_FUTURE_PRINT_FUNCTION   0x100000
 #define CO_FUTURE_UNICODE_LITERALS 0x200000
 
+// Old names -- remove when this API changes.
+// Macros (not static inline wrappers) so the target functions need not be
+// declared when this header is compiled on its own, e.g. during the cpyext
+// platform check before api.py has generated pypy_decl.h.
+#define PyCode_New PyUnstable_Code_New
+#define PyCode_NewWithPosOnlyArgs PyUnstable_Code_NewWithPosOnlyArgs
+
+
 #ifdef __cplusplus
 }
 #endif
