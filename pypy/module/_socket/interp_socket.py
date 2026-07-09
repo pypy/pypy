@@ -650,58 +650,63 @@ class W_Socket(W_Root):
             raise oefmt(space.w_ValueError, "invalid ancillary data buffer length")
         buffers_w = space.unpackiterable(w_buffers)
         views = []
-        buffers = []
         try:
-            for w_buffer in buffers_w:
-                bview, buf = space.acquire_writebuf(w_buffer)
-                views.append(bview)
-                buffers.append(buf)
-            rawbufs = [None] * len(buffers)
-            for i in range(len(buffers)):
-                try:
-                    buffers[i].get_raw_address()
-                except ValueError:
-                    rawbufs[i] = RawByteBuffer(buffers[i].getlength())
-                else:
-                    rawbufs[i] = buffers[i]
-
-            while True:
-                try:
-                    recvtup = self.sock.recvmsg_into(rawbufs, ancbufsize, flags)
-                    nbytes, ancdata, retflag, address = recvtup
-                    w_nbytes = space.newint(nbytes)
-                    anclist = []
-                    for level, type, anc in ancdata:
-                        w_tup = space.newtuple([
-                            space.newint(level), space.newint(type),
-                            space.newbytes(anc)])
-                        anclist.append(w_tup)
-
-                    w_anc = space.newlist(anclist)
-
-                    w_flag = space.newint(retflag)
-                    if (address is not None):
-                        w_address = addr_as_object(recvtup[3], self.sock.fd, space)
-                    else:
-                        w_address = space.w_None
-                    rettup = space.newtuple([w_nbytes, w_anc, w_flag, w_address])
-                    break
-                except SocketError as e:
-                    converted_error(space, e, eintr_retry=True)
-
-            n_remaining = nbytes
-            for i in range(len(buffers)):
-                lgt = rawbufs[i].getlength()
-                n_read = min(lgt, n_remaining)
-                n_remaining -= n_read
-                if rawbufs[i] is not buffers[i]:
-                    buffers[i].setslice(0, rawbufs[i].getslice(0, 1, n_read))
-                if n_remaining == 0:
-                    break
-            return rettup
+            return self._recvmsg_into_w_inner(
+                space, buffers_w, ancbufsize, flags, views)
         finally:
             for bview in views:
                 bview.releasebuffer()
+
+    def _recvmsg_into_w_inner(self, space, buffers_w, ancbufsize, flags,
+                              views):
+        buffers = []
+        for w_buffer in buffers_w:
+            bview, buf = space.acquire_writebuf(w_buffer)
+            views.append(bview)
+            buffers.append(buf)
+        rawbufs = [None] * len(buffers)
+        for i in range(len(buffers)):
+            try:
+                buffers[i].get_raw_address()
+            except ValueError:
+                rawbufs[i] = RawByteBuffer(buffers[i].getlength())
+            else:
+                rawbufs[i] = buffers[i]
+
+        while True:
+            try:
+                recvtup = self.sock.recvmsg_into(rawbufs, ancbufsize, flags)
+                nbytes, ancdata, retflag, address = recvtup
+                w_nbytes = space.newint(nbytes)
+                anclist = []
+                for level, type, anc in ancdata:
+                    w_tup = space.newtuple([
+                        space.newint(level), space.newint(type),
+                        space.newbytes(anc)])
+                    anclist.append(w_tup)
+
+                w_anc = space.newlist(anclist)
+
+                w_flag = space.newint(retflag)
+                if (address is not None):
+                    w_address = addr_as_object(recvtup[3], self.sock.fd, space)
+                else:
+                    w_address = space.w_None
+                rettup = space.newtuple([w_nbytes, w_anc, w_flag, w_address])
+                break
+            except SocketError as e:
+                converted_error(space, e, eintr_retry=True)
+
+        n_remaining = nbytes
+        for i in range(len(buffers)):
+            lgt = rawbufs[i].getlength()
+            n_read = min(lgt, n_remaining)
+            n_remaining -= n_read
+            if rawbufs[i] is not buffers[i]:
+                buffers[i].setslice(0, rawbufs[i].getslice(0, 1, n_read))
+            if n_remaining == 0:
+                break
+        return rettup
 
     @unwrap_spec(data='bufferstr', flags=int)
     def send_w(self, space, data, flags=0):

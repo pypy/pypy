@@ -309,6 +309,25 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         s = module.format_ll_str("id:%lli %s", 12, "abc")
         assert s == "id:12 abc"
 
+    def test_fromformat_is_ready(self):
+        # issue 5524: PyUnicode_FromFormat must return a canonical (ready)
+        # string, so the buffer macros agree with the function API
+        module = self.import_extension('foo', [
+            ("probe", "METH_O",
+             """
+                PyObject *formatted = PyUnicode_FromFormat("<%U>", args);
+                int ready = PyUnicode_IS_READY(formatted);
+                Py_ssize_t macro = PyUnicode_GET_LENGTH(formatted);
+                Py_ssize_t function = PyUnicode_GetLength(formatted);
+                Py_DECREF(formatted);
+                return Py_BuildValue("(inn)", ready, macro, function);
+             """),
+            ])
+        ready, macro, function = module.probe("abcdef")
+        assert function == 8
+        assert macro == 8
+        assert ready == 1
+
     def test_fromkind(self):
         module = self.import_extension('foo', [
             ('from_ucs1', 'METH_O',

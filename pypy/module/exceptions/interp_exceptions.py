@@ -1124,8 +1124,8 @@ W_RecursionError = _new_exception('RecursionError', W_RuntimeError,
 
 class W_AttributeError(W_Exception):
     """Attribute not found."""
-    name = None
-    obj = None
+    w_name = None
+    w_obj = None
 
     def __init__(self, space):
         pass
@@ -1137,12 +1137,24 @@ class W_AttributeError(W_Exception):
         self.w_obj = w_obj
 
 
+def _attributeerror_getset(attrname):
+    # None if a subclass skipped AttributeError.__init__ (issue 5514)
+    def fget(space, obj):
+        w_value = getattr(obj, attrname)
+        if w_value is None:
+            return space.w_None
+        return w_value
+    def fset(space, obj, w_val):
+        setattr(obj, attrname, w_val)
+    return GetSetProperty(fget, fset, cls=W_AttributeError)
+
+
 W_AttributeError.typedef = TypeDef('AttributeError', W_Exception.typedef,
     __doc__ = W_AttributeError.__doc__,
     __new__ = _new(W_AttributeError),
     __init__ = interp2app(W_AttributeError.descr_init),
-    name = readwrite_attrproperty_w('w_name', W_AttributeError),
-    obj = readwrite_attrproperty_w('w_obj', W_AttributeError),
+    name = _attributeerror_getset('w_name'),
+    obj = _attributeerror_getset('w_obj'),
 )
 
 W_OverflowError = _new_exception('OverflowError', W_ArithmeticError,

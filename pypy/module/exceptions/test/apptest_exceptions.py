@@ -680,3 +680,36 @@ if sys.implementation.name == 'pypy':
             "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
 
 
+def test_attributeerror_uninitialized_name():
+    # issue 5514: an AttributeError subclass whose __init__ skips
+    # AttributeError.__init__ leaves name/obj unset; reading them must
+    # return None, not crash
+    class MyError(AttributeError):
+        def __init__(self):
+            pass
+    e = MyError()
+    assert e.name is None
+    assert e.obj is None
+
+def test_attributeerror_uninitialized_name_getattr():
+    class MyError(AttributeError):
+        def __init__(self):
+            pass
+    class Obj:
+        def __getattr__(self, item):
+            raise MyError()
+    obj = Obj()
+    with pytest.raises(MyError) as info:
+        obj.anything
+    # the getattr machinery fills in the missing name/obj (matching CPython)
+    assert info.value.name == 'anything'
+    assert info.value.obj is obj
+
+def test_attributeerror_name_default_and_enrich():
+    assert AttributeError().name is None
+    assert AttributeError().obj is None
+    obj = object()
+    with pytest.raises(AttributeError) as info:
+        obj.missing
+    assert info.value.name == 'missing'
+    assert info.value.obj is obj
