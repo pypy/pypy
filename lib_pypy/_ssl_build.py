@@ -54,6 +54,7 @@ ffi = build_ffi_for_binding(
         "callbacks",
     ] + pypy_win32_extra,
     libraries=libraries,
+    extra_compile_args=['-I/usr/local/include'],
     extra_link_args=extra_link_args(compiler_type()),
 )
 
