@@ -63,14 +63,25 @@ def acquire_timed(space, lock, microseconds):
 class Lock(W_Root):
     "A wrappable box around an interp-level lock object."
 
-    _immutable_fields_ = ["lock"]
+    # allocated lazily by _get_lock(): a Lock that is only constructed but
+    # never acquired holds no interp-level lock, so it can be created safely
+    # at translation time (e.g. during the frozen importlib bootstrap) without
+    # freezing a prebuilt rthread.Lock.
+    _immutable_fields_ = ["lock?"]
 
     def __init__(self, space):
         self.space = space
-        try:
-            self.lock = rthread.allocate_lock()
-        except rthread.error:
-            raise wrap_thread_error(space, "out of resources")
+        self.lock = None
+
+    def _get_lock(self, space):
+        lock = self.lock
+        if lock is None:
+            try:
+                lock = rthread.allocate_lock()
+            except rthread.error:
+                raise wrap_thread_error(space, "out of resources")
+            self.lock = lock
+        return lock
 
     @unwrap_spec(blocking=int, timeout=float)
     def descr_lock_acquire(self, space, blocking=1, timeout=-1.0):
@@ -81,22 +92,28 @@ With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
 The blocking operation is interruptible."""
         microseconds = parse_acquire_args(space, blocking, timeout)
-        result = acquire_timed(space, self.lock, microseconds)
+        result = acquire_timed(space, self._get_lock(space), microseconds)
         return space.newbool(result == RPY_LOCK_ACQUIRED)
 
     def descr_lock_release(self, space):
         """Release the lock, allowing another thread that is blocked waiting for
 the lock to acquire the lock.  The lock must be in the locked state,
 but it needn't be locked by the same thread that unlocks it."""
-        try:
-            self.lock.release()
-        except rthread.error:
-            raise oefmt(space.w_RuntimeError,
-                        "cannot release un-acquired lock")
+        lock = self.lock
+        if lock is not None:
+            try:
+                lock.release()
+                return
+            except rthread.error:
+                pass
+        raise oefmt(space.w_RuntimeError, "cannot release un-acquired lock")
 
     def _is_locked(self):
-        if self.lock.acquire(False):
-            self.lock.release()
+        lock = self.lock
+        if lock is None:
+            return False
+        if lock.acquire(False):
+            lock.release()
             return False
         else:
             return True
@@ -181,13 +198,25 @@ def _set_sentinel(space):
     return lock
 
 class W_RLock(W_Root):
+    # see the comment on Lock: allocate the interp-level lock lazily so an
+    # RLock constructed but never acquired (e.g. a module lock created during
+    # the frozen importlib bootstrap) does not freeze a prebuilt rthread.Lock.
+    _immutable_fields_ = ["lock?"]
+
     def __init__(self, space):
         self.rlock_count = 0
         self.rlock_owner = 0
-        try:
-            self.lock = rthread.allocate_lock()
-        except rthread.error:
-            raise wrap_thread_error(space, "cannot allocate lock")
+        self.lock = None
+
+    def _get_lock(self, space):
+        lock = self.lock
+        if lock is None:
+            try:
+                lock = rthread.allocate_lock()
+            except rthread.error:
+                raise wrap_thread_error(space, "cannot allocate lock")
+            self.lock = lock
+        return lock
 
     def descr__new__(space, w_subtype):
         self = space.allocate_instance(W_RLock, w_subtype)
@@ -227,11 +256,12 @@ class W_RLock(W_Root):
                             "internal lock count overflowed")
             return space.w_True
 
+        lock = self._get_lock(space)
         r = True
-        if self.rlock_count > 0 or not self.lock.acquire(False):
+        if self.rlock_count > 0 or not lock.acquire(False):
             if not blocking:
                 return space.w_False
-            r = acquire_timed(space, self.lock, microseconds)
+            r = acquire_timed(space, lock, microseconds)
             r = (r == RPY_LOCK_ACQUIRED)
         if r:
             assert self.rlock_count == 0
@@ -256,7 +286,9 @@ class W_RLock(W_Root):
         self.rlock_count -= 1
         if self.rlock_count == 0:
             self.rlock_owner = 0
-            self.lock.release()
+            lock = self.lock
+            assert lock is not None   # held, so allocated
+            lock.release()
 
     def recursion_count(self, space):
         """_recursion_count() -> int
@@ -282,9 +314,10 @@ class W_RLock(W_Root):
         w_count, w_owner = space.unpackiterable(w_saved_state, 2)
         count = space.int_w(w_count)
         owner = space.int_w(w_owner)
+        lock = self._get_lock(space)
         r = True
-        if not self.lock.acquire(False):
-            r = self.lock.acquire(True)
+        if not lock.acquire(False):
+            r = lock.acquire(True)
         if not r:
             raise wrap_thread_error(space, "could not acquire lock")
         assert self.rlock_count == 0
@@ -298,7 +331,9 @@ class W_RLock(W_Root):
                         "cannot release un-acquired lock")
         count, self.rlock_count = self.rlock_count, 0
         owner, self.rlock_owner = self.rlock_owner, 0
-        self.lock.release()
+        lock = self.lock
+        assert lock is not None   # held, so allocated
+        lock.release()
         return space.newtuple2(space.newint(count), space.newint(owner))
 
     def descr__enter__(self, space):
