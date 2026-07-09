@@ -25,6 +25,7 @@ def make_info_dict():
     return {'target_path': target_path,
             'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, VENV_TARGET),
             'venv_dir': VENV_DIR,
+            'extension': EXTENSION,
             'project': 'PyPy', # for benchmarks
            }
 
