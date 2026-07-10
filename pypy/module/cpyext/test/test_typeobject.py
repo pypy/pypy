@@ -696,6 +696,70 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         cls.w__check_type_object = cls.space.wrap(
             gateway.interp2app(_check_type_object))
 
+    def test_sq_item_negative_index(self):
+        # issue 5526: __getitem__/__setitem__/__delitem__ must adjust a
+        # negative index with sq_length before handing it to the slot,
+        # matching the C-level PySequence_GetItem path
+        module = self.import_extension('foo', [
+            ("make", "METH_NOARGS",
+             '''
+                return PyObject_New(PyObject, &Probe_Type);
+             '''),
+            ("seq_getitem", "METH_VARARGS",
+             '''
+                PyObject *obj;
+                Py_ssize_t i;
+                if (!PyArg_ParseTuple(args, "On", &obj, &i))
+                    return NULL;
+                return PySequence_GetItem(obj, i);
+             '''),
+            ("last_ass_index", "METH_NOARGS",
+             '''
+                return PyLong_FromSsize_t(last_ass_index);
+             '''),
+            ], prologue='''
+            static Py_ssize_t last_ass_index = -999;
+            static PyObject *
+            sq_item(PyObject *self, Py_ssize_t i)
+            {
+                return PyLong_FromSsize_t(i);
+            }
+            static int
+            sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *v)
+            {
+                last_ass_index = i;
+                return 0;
+            }
+            static Py_ssize_t
+            sq_length(PyObject *self)
+            {
+                return 3;
+            }
+            PySequenceMethods probe_as_sequence;
+            static PyTypeObject Probe_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.Probe",
+            };
+            ''', more_init='''
+                Probe_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Probe_Type.tp_as_sequence = &probe_as_sequence;
+                probe_as_sequence.sq_length = sq_length;
+                probe_as_sequence.sq_item = sq_item;
+                probe_as_sequence.sq_ass_item = sq_ass_item;
+                if (PyType_Ready(&Probe_Type) < 0) INITERROR;
+            ''')
+        obj = module.make()
+        assert obj[0] == 0
+        assert obj[2] == 2
+        # negative indices are normalized the same way through both paths
+        assert obj[-1] == module.seq_getitem(obj, -1) == 2
+        assert obj[-2] == module.seq_getitem(obj, -2) == 1
+        # __setitem__ and __delitem__ normalize too
+        obj[-1] = 0
+        assert module.last_ass_index() == 2
+        del obj[-2]
+        assert module.last_ass_index() == 1
+
     def test_some_slots(self):
         module = self.import_extension('foo', [
             ("test_type", "METH_O",
