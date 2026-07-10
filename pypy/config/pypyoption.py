@@ -33,11 +33,11 @@ working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
     "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
     "zlib", "bz2", "struct", "_md5", "_sha", "_minimal_curses",
-    "cStringIO", "thread", "itertools", "pyexpat", "cpyext", "array",
+    "cStringIO", "thread", "itertools", "pyexpat", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
-    "_multibytecodec", "micronumpy", "_continuation", "_cffi_backend",
-    "_csv", "_cppyy", "_pypyjson", "_jitlog",
-    # "_hashlib", "crypt"
+    "_multibytecodec", "_continuation", "_cffi_backend",
+    "_csv", "_pypyjson", "_jitlog",
+    # "_hashlib", "crypt", "_cppyy", "micronumpy", "cpyext"
 ])
 
 import rpython.rlib.rvmprof.cintf

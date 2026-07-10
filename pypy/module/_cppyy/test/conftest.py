@@ -37,7 +37,8 @@ def pytest_ignore_collect(path, config):
         if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
             return True
 
-disabled = None
+# disabled = None
+disabled = True
 if sys.maxsize > 2**32 and sys.platform == 'win32':
     # cppyy not yet supported on windows 64 bit
     disabled = True

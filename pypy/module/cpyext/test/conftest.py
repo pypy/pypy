@@ -2,7 +2,8 @@ import os
 import pytest
 import sys
 
-disabled = None
+# disabled = None
+disabled = True
 THIS_DIR = os.path.dirname(__file__)
 
 if sys.maxsize > 2**32 and sys.platform == 'win32':
