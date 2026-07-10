@@ -55,13 +55,8 @@ def parse_checksums(text):
     return checksums
 
 
-# sha256-verify only downloads from releases made within this many days, so a
-# routine run does not re-download the entire back-catalogue of releases.
-CHECKSUM_MAX_AGE_DAYS = 31
-
-
-def released_recently(d, now=None):
-    """True if release entry d has a 'date' within CHECKSUM_MAX_AGE_DAYS of now."""
+def released_recently(d, now=None, maxage_days=31):
+    """True if release entry d has a 'date' within maxage_days of now."""
     date = d.get('date')
     if not date:
         return False
@@ -71,7 +66,10 @@ def released_recently(d, now=None):
         return False
     if now is None:
         now = time.time()
-    return 0 <= (now - released) <= CHECKSUM_MAX_AGE_DAYS * 24 * 60 * 60
+    ret = 0 <= (now - released) <= maxage_days * 24 * 60 * 60
+    if not ret:
+        print(f"\nnot checking checksum, {date} is over {maxage_days} days ago")
+    return ret
 
 
 def load_checksums(source):
@@ -252,7 +250,8 @@ def check_tags(data):
         assert_equal(r.getcode(), 200)
 
 def check_versions(data, url, verbose=0, check_times=True, nightly_only=False,
-                   checksums=None):
+                   checksums=None, maxage_days=31):
+    
     for d in data:
         if verbose > 0:
             print(f"checking {d['python_version']} {d['pypy_version']}")
@@ -332,7 +331,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False,
                     raise ValueError(f"expected {modified_time_str} to be within 2 weeks of {target}")
                 else:
                     print(f" {delta_days} days", end='')
-            if checksums is not None and released_recently(d):
+            if checksums is not None and released_recently(d, maxage_days=maxage_days):
                 # Real verification of the hosted bytes against the trusted
                 # checksums (e.g. from https://pypy.org/checksums). We only do
                 # this for recently-released files to avoid re-downloading the
@@ -353,6 +352,12 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False,
         if verbose > 0:
             print(f"{d['python_version']} {d['pypy_version']} ok")
 
+
+# sha256-verify only downloads from releases made within this many days, so a
+# routine run does not re-download the entire back-catalogue of releases.
+CHECKSUM_MAX_AGE_DAYS = 31
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -370,9 +375,14 @@ if __name__ == '__main__':
         default='https://pypy.org/checksums',
         help="checksums file (local path or http(s) URL) holding the trusted "
              "sha256 values; defaults to %(default)s. Files from releases made in "
-             f"the last {CHECKSUM_MAX_AGE_DAYS} days are downloaded and their "
+             "the last MAXAGE days are downloaded and their "
              "sha256 is verified against it. Pass an empty string to skip "
              "checksum verification")
+    parser.add_argument(
+        '--maxage', metavar='CHECKSUM_MAX_AGE_DAYS',
+        default=CHECKSUM_MAX_AGE_DAYS, type=int,
+        help="maxage in days to check the checksums, should not be too large to "
+            "prevent downloading the archives")
     args = parser.parse_args()
 
     checksums = load_checksums(args.checksums or None)
@@ -382,12 +392,12 @@ if __name__ == '__main__':
         with open(args.filename) as fid:
             data = json.loads(fid.read())
         check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1,
-                       nightly_only=args.nightly_only, checksums=checksums)
+                       nightly_only=args.nightly_only, checksums=checksums, maxage_days=args.maxage)
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None, verbose=1, checksums=checksums)
+        check_versions(data, None, verbose=1, checksums=checksums, maxage_days=args.maxage)
     check_tags(data)
     print('ok')
