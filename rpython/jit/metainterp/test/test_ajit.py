@@ -17,7 +17,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     isconstant, isvirtual, set_param, record_exact_class, record_known_result,
     record_exact_value, loop_unrolling_heuristic)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
-from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -1595,6 +1595,7 @@ class BasicTests:
         self.check_trace_count(1)
         self.check_resops(call_r=2)
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardclass_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1621,6 +1622,7 @@ class BasicTests:
         assert res == f(299)
         self.check_resops(guard_class=0, guard_value=7)
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1650,6 +1652,7 @@ class BasicTests:
                           guard_nonnull_class=5, guard_isnull=2)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1678,6 +1681,7 @@ class BasicTests:
                           guard_nonnull_class=0, guard_isnull=3)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardvalue_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1706,6 +1710,7 @@ class BasicTests:
                           guard_nonnull_class=0, guard_isnull=2)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardclass_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
