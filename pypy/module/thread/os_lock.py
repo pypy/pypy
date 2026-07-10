@@ -73,6 +73,12 @@ class Lock(W_Root):
         self.space = space
         self.lock = None
 
+    def _cleanup_(self):
+        # drop a lock that got allocated during a frozen bootstrap so the
+        # annotator never sees a prebuilt rthread.Lock; _get_lock() re-creates
+        # it lazily at runtime.
+        self.lock = None
+
     def _get_lock(self, space):
         lock = self.lock
         if lock is None:
@@ -206,6 +212,10 @@ class W_RLock(W_Root):
     def __init__(self, space):
         self.rlock_count = 0
         self.rlock_owner = 0
+        self.lock = None
+
+    def _cleanup_(self):
+        # see the comment on Lock._cleanup_
         self.lock = None
 
     def _get_lock(self, space):
