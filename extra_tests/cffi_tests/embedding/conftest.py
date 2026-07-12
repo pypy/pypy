@@ -8,7 +8,7 @@ disabled = False
 if sys.implementation.name == 'pypy':
     try:
         import cpyext
-    except Exception
+    except Exception:
         disabled = True
 
 def pytest_ignore_collect(path, config):
