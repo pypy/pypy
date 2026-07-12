@@ -54,10 +54,31 @@ def _ob_link_set(ob, value):
     rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
 
 def _ob_free(ob, track_allocation=True):
-    # free the whole allocation, which starts at the hidden prefix
-    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
-    lltype.free(rffi.cast(rffi.VOIDP, base), flavor='raw',
-                track_allocation=track_allocation)
+    # free the whole allocation, which starts at the hidden prefix.  Address
+    # arithmetic (not ptradd) so ll2ctypes maps the base back to the malloc.
+    base = rffi.cast(rffi.VOIDP, rffi.cast(lltype.Signed, ob) - _LINK_PREFIX)
+    lltype.free(base, flavor='raw', track_allocation=track_allocation)
+
+
+# Canonical test PyObject: the visible CPython header.  ob_pypy_link is NOT a field
+# here -- it lives in the hidden prefix reserved by _pyobject_alloc, reached at ob-8.
+PyObjectS = lltype.Struct('PyObjectS',
+                          ('c_ob_refcnt', lltype.Signed),
+                          ('c_ob_type', lltype.Signed))
+PyObject = lltype.Ptr(PyObjectS)
+
+# Allocation layout: the hidden link word then the visible PyObjectS.  Handing back a
+# pointer to .body reserves the prefix at body-_LINK_PREFIX, matching pyobj_raw_alloc.
+_PyObjectPrefixedS = lltype.Struct('_PyObjectPrefixedS',
+                                   ('ob_pypy_link', lltype.Signed),
+                                   ('body', PyObjectS))
+
+def _pyobject_alloc(track_allocation=True, immortal=False):
+    "Allocate a PyObjectS with the hidden link prefix reserved (see pyobj_raw_alloc)."
+    full = lltype.malloc(_PyObjectPrefixedS, flavor='raw', zero=True,
+                         immortal=immortal,
+                         track_allocation=track_allocation and not immortal)
+    return rffi.cast(PyObject, rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
 
 
 def _build_pypy_link(p):
@@ -137,7 +158,8 @@ def next_dead(OB_PTR_TYPE):
     but cannot immediately dispose of them (it doesn't know how to call
     e.g. tp_dealloc(), and anyway calling it immediately would cause all
     sorts of bugs).  So instead, it stores them in an internal list,
-    initially with refcnt == 1.  This pops the next item off this list.
+    initially with refcnt == REFCNT_FROM_PYPY + 1.  This pops the next item off
+    this list.
     """
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
@@ -209,16 +231,13 @@ def _collect(track_allocation=True):
             _ob_link_set(ob, 0)
             if ob.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
-                _ob_link_set(ob, 0)
                 if ob.c_ob_refcnt == 0:
                     _ob_free(ob, track_allocation=track_allocation)
             else:
                 assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
-                ob.c_ob_refcnt -= REFCNT_FROM_PYPY
-                _ob_link_set(ob, 0)
-                if ob.c_ob_refcnt == 0:
-                    ob.c_ob_refcnt = 1
+                if ob.c_ob_refcnt == REFCNT_FROM_PYPY:
+                    ob.c_ob_refcnt += 1
                     _d_list.append(ob)
             return None
 

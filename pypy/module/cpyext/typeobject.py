@@ -33,8 +33,8 @@ from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     make_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, decref, as_pyobj, incref, pyobj_raw_alloc,
-    CPyExtDictTerminator)
+    track_reference, track_static_reference, decref, as_pyobj, incref,
+    pyobj_raw_alloc, CPyExtDictTerminator)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
@@ -753,7 +753,8 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
     heaptype = pyobj_raw_alloc(basicsize + extra_size)
     heaptype = rffi.cast(PyHeapTypeObject, heaptype)
     pto = heaptype.c_ht_type
-    rffi.cast(PyObject, pto).c_ob_refcnt = 1
+    # Mark the existence of the prefix field
+    rffi.cast(PyObject, pto).c_ob_refcnt = rawrefcount.REFCNT_FROM_PYPY + 1
     rffi.cast(PyObject, pto).c_ob_type = metatype
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_HEAPTYPE)
     pto.c_tp_as_async = heaptype.c_as_async
@@ -1043,10 +1044,22 @@ def _type_realize(space, py_obj):
         # While this is a hack, cpython does it as well.
         w_metatype = space.w_type
 
-    w_obj = rawrefcount.to_obj(W_PyCTypeObject, py_obj)
+    # Static types are bare structs with no prefix and are never freed; map them
+    # out-of-band as immortal statics.  Heap types are prefixed and owned.
+    is_heaptype = bool(widen(py_type.c_tp_flags) & Py_TPFLAGS_HEAPTYPE)
+    if is_heaptype:
+        w_obj = rawrefcount.to_obj(W_PyCTypeObject, py_obj)
+    else:
+        w_obj = space.fromcache(State).static_py2w.get(
+            rffi.cast(lltype.Signed, py_obj), None)
     if w_obj is None:
         w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
-        track_reference(space, py_obj, w_obj)
+        if is_heaptype:
+            track_reference(space, py_obj, w_obj)
+        else:
+            track_static_reference(space, py_obj, w_obj)
+    else:
+        assert isinstance(w_obj, W_PyCTypeObject)
     # __init__ wraps all slotdefs functions from py_type via _add_operators
     w_obj.__init__(space, py_type)
     w_obj.ready()

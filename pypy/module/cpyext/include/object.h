@@ -544,38 +544,24 @@ PyAPI_FUNC(void) _Py_DecRef(PyObject *);
 
 static inline Py_ALWAYS_INLINE void Py_INCREF(PyObject *op)
 {
-#if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000)
-    // Stable ABI implements Py_INCREF() as a function call on limited C API
-    // version 3.12 and newer, and on Python built in debug mode. _Py_IncRef()
-    // was added to Python 3.10.0a7, use Py_IncRef() on older Python versions.
-    // Py_IncRef() accepts NULL whereas _Py_IncRef() doesn't.
-    Py_IncRef(op);
-#else
     // Explicitly check immortality against the immortal value
     if (_Py_IsImmortal(op)) {
         return;
     }
-    op->ob_refcnt++;
-#endif
+    // PyPy: route to _Py_IncRef for the internal implementation, keeping the
+    // refcnt policy out of the (abi3-stable) header
+    _Py_IncRef(op);
 }
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
 #  define Py_INCREF(op) Py_INCREF(_PyObject_CAST(op))
 #endif
 
-
 static inline void Py_DECREF(PyObject *op)
 {
-#if defined(Py_LIMITED_API) && (Py_LIMITED_API+0 >= 0x030c0000)
-    Py_DecRef(op);
-#else
     if (_Py_IsImmortal(op)) {
         return;
     }
-    /* PyPy: ob_refcnt >= REFCNT_FROM_PYPY, hits 0 only when GC and C both release */
-    if (--op->ob_refcnt == 0) {
-        _Py_Dealloc(op);
-    }
-#endif
+    _Py_DecRef(op);
 }
 #define Py_DECREF(op) Py_DECREF(_PyObject_CAST(op))
 

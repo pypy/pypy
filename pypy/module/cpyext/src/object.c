@@ -50,6 +50,15 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
 #define _PyPy_LINK_PREFIX  (sizeof(Py_ssize_t))
 #define _PyPy_LINK(op)     (((Py_ssize_t *)(op))[-1])
 
+/* Refcount tag constants -- MUST match rpython/rlib/rawrefcount.py exactly
+   (both derive from the max ssize_t the same way).  REFCNT_FROM_PYPY is the
+   permanent "this PyObject has a prefix" tag applied at allocation; an object
+   is owned iff ob_refcnt >= REFCNT_FROM_PYPY (and below REFCNT_STATIC_MIN, the
+   immortal-static region).  See pypy/doc/discussion/rawrefcount.rst. */
+#define _PyPy_REFCNT_FROM_PYPY        ((Py_ssize_t)(PY_SSIZE_T_MAX / 4 + 1))
+#define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)(_PyPy_REFCNT_FROM_PYPY + (PY_SSIZE_T_MAX / 2 + 1)))
+#define _PyPy_REFCNT_STATIC_MIN       ((Py_ssize_t)(_PyPy_REFCNT_FROM_PYPY_LIGHT + (PY_SSIZE_T_MAX / 16)))
+
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -81,9 +90,36 @@ void
 _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
-    /* this is the same as rawrefcount.mark_deallocating() */
-    _PyPy_LINK(obj) = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
+    /* Only owned objects (refcnt >= REFCNT_FROM_PYPY here) have a prefix link word
+       to mark.  Foreign objects -- bare-allocated by an extension, refcnt below the
+       tag -- have no prefix; writing it would corrupt the heap word before them. */
+    if (obj->ob_refcnt >= _PyPy_REFCNT_FROM_PYPY)
+        _PyPy_LINK(obj) = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
+}
+
+/* Py_INCREF/Py_DECREF route here (see include/object.h) so the REFCNT_FROM_PYPY tag
+   and the prefix stay out of extension-visible code.  Deallocation fires on either
+   condition: refcnt hits 0 (foreign/untagged) or refcnt falls to the bare tag with no
+   w_obj left (owned, no C refs, ob_pypy_link == 0).  The prefix is only read once
+   refcnt == REFCNT_FROM_PYPY, which a foreign object never reaches. */
+void
+_Py_IncRef(PyObject *op)
+{
+    if (op->ob_refcnt >= _PyPy_REFCNT_STATIC_MIN)
+        return;   /* immortal static: refcnt frozen */
+    op->ob_refcnt++;
+}
+
+void
+_Py_DecRef(PyObject *op)
+{
+    if (op->ob_refcnt >= _PyPy_REFCNT_STATIC_MIN)
+        return;   /* immortal static: refcnt frozen, never freed */
+    if (--op->ob_refcnt == 0)
+        _Py_Dealloc(op);
+    else if (op->ob_refcnt == _PyPy_REFCNT_FROM_PYPY && _PyPy_LINK(op) == 0)
+        _Py_Dealloc(op);
 }
 
 #ifdef CPYEXT_TESTS
@@ -100,7 +136,7 @@ void
 _Py_object_dealloc(PyObject *obj)
 {
     PyTypeObject *pto;
-    assert(obj->ob_refcnt == 0);
+    assert(obj->ob_refcnt == 0 || obj->ob_refcnt == _PyPy_REFCNT_FROM_PYPY);
     pto = obj->ob_type;
     pto->tp_free(obj);
     if (pto->tp_flags & Py_TPFLAGS_HEAPTYPE)
@@ -163,8 +199,7 @@ _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
     if (type->tp_itemsize)
         ((PyVarObject*)pyobj)->ob_size = nitems;
 
-    pyobj->ob_refcnt = 1;
-    /* ob_pypy_link lives in the zeroed prefix; it gets assigned very quickly */
+    pyobj->ob_refcnt = _PyPy_REFCNT_FROM_PYPY;
     pyobj->ob_type = type;
     return pyobj;
 }
@@ -180,7 +215,7 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
     PyObject *py_obj = _generic_alloc(type, nitems);
     if (!py_obj)
         return (PyVarObject*)PyErr_NoMemory();
-    
+
     if (type->tp_itemsize == 0)
         return (PyVarObject*)PyObject_INIT(py_obj, type);
     else
@@ -325,8 +360,7 @@ _Py_NewReference(PyObject *op)
 #ifdef Py_REF_DEBUG
     _Py_RefTotal++;
 #endif
-    Py_SET_REFCNT(op, 1);
-    _PyPy_LINK(op) = 0;
+    op->ob_refcnt++;
 #ifdef Py_TRACE_REFS
     _Py_AddToAllObjects(op, 1);
 #endif

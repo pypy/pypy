@@ -773,7 +773,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
             fprintf(stderr, "REFCNT %ld %ld\\n", refcnt, refcnt_after);
-            return PyBool_FromLong(refcnt_after == refcnt + 2);
+            /* immortal on python3.12+ */
+            return PyBool_FromLong(refcnt_after == refcnt);
         }
         static PyObject* foo_bar(PyObject* self, PyObject *args)
         {
@@ -790,7 +791,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_DECREF(tup);
             fprintf(stderr, "REFCNT2 %ld %ld %ld\\n", refcnt, refcnt_after,
                     true_obj->ob_refcnt);
-            return PyBool_FromLong(refcnt_after == refcnt + 1 &&
+            /* immortal on python3.12+ */
+            return PyBool_FromLong(refcnt_after == refcnt &&
                                    refcnt == true_obj->ob_refcnt);
         }
 

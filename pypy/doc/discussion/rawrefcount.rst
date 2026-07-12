@@ -54,6 +54,88 @@ consulted by from_ref; the GC/rawrefcount never touch them, so their missing
 prefix is never read.  Only dynamically allocated instances (a live list, a
 live exception whose message can change, ...) carry the prefix and the link.
 
+Design refinement (WIP): the refcnt tag as the "has prefix" discriminator
+-------------------------------------------------------------------------
+
+WORK IN PROGRESS.  This section describes the scheme we are moving to so that
+foreign (C-allocated) PyObjects work correctly under the prefix layout.  It
+supersedes parts of the older text below; the two will be reconciled once the
+implementation lands.
+
+The problem.  A C extension may allocate a bare PyObject itself -- e.g.
+``calloc(1, sizeof(PyObject))`` followed by ``_Py_NewReference`` -- which is
+legal CPython usage (CPython has no back-link, so nothing is written outside the
+object).  Such a *foreign* object has NO prefix.  If PyPy writes ob_pypy_link at
+offset -sizeof(Py_ssize_t) on it (in _Py_NewReference, _Py_Dealloc, or when
+realizing/linking it), it corrupts the heap word before the allocation.
+
+So at every point that would touch the prefix, PyPy must know whether a given
+PyObject has one.  This cannot be told from the pointer, and at the first
+crossing an owned-but-unlinked object (tp_alloc'd, has prefix, its w_obj created
+lazily on the first from_ref) and a foreign object (calloc'd, no prefix) both
+sit at a small refcnt.  The discriminator is the reference-count range::
+
+    REFCNT_FROM_PYPY <= ob_refcnt   <=>   "this PyObject has a prefix"
+
+To make that hold from birth (not only once linked), REFCNT_FROM_PYPY becomes a
+permanent "has prefix" tag applied by the prefix-reserving allocators:
+
+- every prefix allocation (_generic_alloc, the RPython allocate path) sets
+  ob_refcnt = REFCNT_FROM_PYPY + <initial C refs> at allocation time;
+- create_link / track_reference then only writes the prefix link; it no longer
+  bumps ob_refcnt (the tag is already there);
+- the w_obj presence lives entirely in the prefix value: ob_pypy_link == 0 means
+  "no w_obj" (either pre-link setup or post-clear teardown), non-zero means
+  linked;
+- the tag is never subtracted while the object lives -- it just vanishes with
+  the freed block at deallocation.
+
+Foreign objects never get the tag, so ob_refcnt < REFCNT_FROM_PYPY for them, and
+PyPy never reads or writes their (non-existent) prefix.  No side table / foreign
+map is needed for the discrimination.
+
+Two-condition deallocation.  Because the tag is permanent, "no references left"
+is no longer "ob_refcnt == 0".  An object is dead, and its deallocator must run,
+when::
+
+    ob_refcnt == 0                                            # foreign (untagged)
+    OR (ob_refcnt == REFCNT_FROM_PYPY and ob_pypy_link == 0)  # owned, no C refs, no w_obj
+
+The prefix (ob_pypy_link) is only read when ob_refcnt == REFCNT_FROM_PYPY, which
+a foreign object (starting small, needing ~2**60 increfs to reach it) never
+hits -- so the check never touches a missing prefix.  The condition is reached
+from two directions, both triggering the same deallocation:
+
+- Py_DECREF drops the last C reference: an owned object falls to
+  REFCNT_FROM_PYPY (with ob_pypy_link already 0 if it was never linked, e.g. a
+  tp_alloc'd object discarded on a C error path); a foreign object falls to 0.
+- the w_obj dies: rawrefcount clears the prefix (ob_pypy_link = 0) and, if
+  ob_refcnt == REFCNT_FROM_PYPY (no C refs), deallocates.
+
+Once deallocation has started ob_refcnt is irrelevant: _Py_Dealloc marks the
+object deallocating (writing the prefix -- safe, it is owned) and calls
+tp_dealloc, then the block is freed.  _Py_Dealloc, from_ref and the
+realize/link path all use the same ``ob_refcnt >= REFCNT_FROM_PYPY`` test to
+decide whether the object has a prefix.
+
+All Py_DECREF goes through our function.  The two-condition logic (and the
+REFCNT_FROM_PYPY constant) must NOT leak into the public headers.  CPython 3.12
+makes this possible: under Py_LIMITED_API >= 0x030c0000, Include/object.h
+implements Py_INCREF/Py_DECREF as *function calls* to _Py_IncRef/_Py_DecRef
+(Include/object.h ~lines 624-676) rather than an inline ``--ob_refcnt == 0``
+macro, so a prebuilt 3.12 abi3 wheel routes every refcount op through a function
+PyPy provides.  We extend this to *all* builds: PyPy's Py_INCREF/Py_DECREF always
+call _Py_IncRef/_Py_DecRef, even in the non-limited (full API) case, instead of
+inlining ob_refcnt.  This keeps REFCNT_FROM_PYPY and the prefix entirely inside
+cpyext and out of every extension's compiled code, at the cost of a function
+call per refcount op; _Py_IncRef/_Py_DecRef implement the two-condition
+deallocation above.
+
+LIGHT finalizers (REFCNT_FROM_PYPY_LIGHT) are, in current pypy3, never created
+(only rawrefcount's own unit tests add them), so this refinement ignores them; a
+single tag region suffices.  Immortal statics (no prefix) stay exempt and mapped
+out of band as described above, in a refcnt region above the tag.
+
 Most PyPy objects exist outside cpyext, and conversely in cpyext it is
 possible that a lot of PyObjects exist without being seen by the rest
 of PyPy.  At the interface, however, we can "link" a PyPy object and a

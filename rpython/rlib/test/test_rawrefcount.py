@@ -14,10 +14,7 @@ class W_Root(object):
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
 
-PyObjectS = lltype.Struct('PyObjectS',
-                          ('c_ob_refcnt', lltype.Signed),
-                          ('c_ob_pypy_link', lltype.Signed))
-PyObject = lltype.Ptr(PyObjectS)
+from rpython.rlib.rawrefcount import PyObjectS, PyObject
 
 
 class TestRawRefCount:
@@ -27,7 +24,7 @@ class TestRawRefCount:
 
     def test_create_link_pypy(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == None
         rawrefcount.create_link_pypy(p, ob)
@@ -35,11 +32,11 @@ class TestRawRefCount:
         ob.c_ob_refcnt += REFCNT_FROM_PYPY_LIGHT
         assert rawrefcount.from_obj(PyObject, p) == ob
         assert rawrefcount.to_obj(W_Root, ob) == p
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_create_link_pyobj(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == None
         rawrefcount.create_link_pyobj(p, ob)
@@ -47,11 +44,11 @@ class TestRawRefCount:
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
         assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == p
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_p_dies(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY_LIGHT
         assert rawrefcount._p_list == [ob]
@@ -66,7 +63,7 @@ class TestRawRefCount:
 
     def test_collect_p_keepalive_pyobject(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY_LIGHT
         assert rawrefcount._p_list == [ob]
@@ -82,11 +79,11 @@ class TestRawRefCount:
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
         assert rawrefcount.from_obj(PyObject, p) == ob
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_p_keepalive_w_root(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY_LIGHT
         assert rawrefcount._p_list == [ob]
@@ -98,12 +95,12 @@ class TestRawRefCount:
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
         assert rawrefcount.from_obj(PyObject, p) == ob
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_o_dies(self):
         trigger = []; rawrefcount.init(lambda: trigger.append(1))
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         rawrefcount.create_link_pyobj(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
         assert rawrefcount._o_list == [ob]
@@ -119,13 +116,13 @@ class TestRawRefCount:
         assert rawrefcount.next_dead(PyObject) == lltype.nullptr(PyObjectS)
         assert rawrefcount._o_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 1       # from the pending list
-        assert ob.c_ob_pypy_link == 0
-        lltype.free(ob, flavor='raw')
+        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # tag kept + pending ref
+        assert rawrefcount._ob_link_get(ob) == 0
+        rawrefcount._ob_free(ob)
 
     def test_collect_o_keepalive_pyobject(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         p.pyobj = ob
         rawrefcount.create_link_pyobj(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
@@ -137,14 +134,14 @@ class TestRawRefCount:
         rawrefcount._collect()
         p = wr_p()
         assert p is None            # was unlinked
-        assert ob.c_ob_refcnt == 1    # != REFCNT_FROM_PYPY_OBJECT + 1
+        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # the C reference remains
         assert rawrefcount._o_list == []
         assert rawrefcount.to_obj(W_Root, ob) == None
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_o_keepalive_w_root(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         p.pyobj = ob
         rawrefcount.create_link_pyobj(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
@@ -157,12 +154,12 @@ class TestRawRefCount:
         assert rawrefcount._o_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
         assert p.pyobj == ob
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_s_dies(self):
         trigger = []; rawrefcount.init(lambda: trigger.append(1))
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
         assert rawrefcount._p_list == [ob]
@@ -176,13 +173,13 @@ class TestRawRefCount:
         assert rawrefcount._d_list == [ob]
         assert rawrefcount._p_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == 1       # from _d_list
-        assert ob.c_ob_pypy_link == 0
-        lltype.free(ob, flavor='raw')
+        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # tag kept + pending ref
+        assert rawrefcount._ob_link_get(ob) == 0
+        rawrefcount._ob_free(ob)
 
     def test_collect_s_keepalive_pyobject(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         p.pyobj = ob
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
@@ -197,11 +194,11 @@ class TestRawRefCount:
         assert ob is not None and p is not None
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_collect_s_keepalive_w_root(self):
         p = W_Root(42)
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         p.pyobj = ob
         rawrefcount.create_link_pypy(p, ob)
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
@@ -213,16 +210,16 @@ class TestRawRefCount:
         assert ob is not None
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
     def test_mark_deallocating(self):
-        ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+        ob = rawrefcount._pyobject_alloc()
         w_marker = W_Root(42)
         rawrefcount.mark_deallocating(w_marker, ob)
         assert rawrefcount.to_obj(W_Root, ob) is w_marker
         rawrefcount._collect()
         assert rawrefcount.to_obj(W_Root, ob) is w_marker
-        lltype.free(ob, flavor='raw')
+        rawrefcount._ob_free(ob)
 
 
 class TestTranslated(StandaloneTests):
@@ -238,7 +235,7 @@ class TestTranslated(StandaloneTests):
 
         def make_p():
             p = W_Root(42)
-            ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+            ob = rawrefcount._pyobject_alloc()
             rawrefcount.create_link_pypy(p, ob)
             ob.c_ob_refcnt += REFCNT_FROM_PYPY
             assert rawrefcount.from_obj(PyObject, p) == ob
@@ -267,8 +264,8 @@ class TestTranslated(StandaloneTests):
             if rawrefcount.next_dead(PyObject) != ob:
                 print "NEXT_DEAD != OB"
                 return 1
-            if ob.c_ob_refcnt != 1:
-                print "next_dead().ob_refcnt != 1"
+            if ob.c_ob_refcnt != REFCNT_FROM_PYPY + 1:
+                print "next_dead().ob_refcnt != REFCNT_FROM_PYPY + 1"
                 return 1
             if rawrefcount.next_dead(PyObject) != lltype.nullptr(PyObjectS):
                 print "NEXT_DEAD second time != NULL"
@@ -281,7 +278,7 @@ class TestTranslated(StandaloneTests):
                 print "to_obj(marked-dead) is not w_marker"
                 return 1
             print "OK!"
-            lltype.free(ob, flavor='raw')
+            rawrefcount._ob_free(ob)
             return 0
 
         self.config = get_combined_translation_config(translating=True)
