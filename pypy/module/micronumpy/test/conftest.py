@@ -1,9 +1,10 @@
 import os
 import pytest
 import sys
+from pypy.config import pypyoption
 
-# disabled = None
-disabled = True
+disabled = 'micronumpy' not in pypyoption.working_modules
+
 THIS_DIR = os.path.dirname(__file__)
 
 if sys.maxsize > 2**32 and sys.platform == 'win32':

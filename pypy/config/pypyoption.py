@@ -36,8 +36,8 @@ working_modules.update([
     "cStringIO", "thread", "itertools", "pyexpat", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
-    "_csv", "_pypyjson", "_jitlog",
-    # "_hashlib", "crypt", "_cppyy", "micronumpy", "cpyext"
+    "_csv", "_pypyjson", "_jitlog", "cpyext"
+    # "_hashlib", "crypt", "_cppyy", "micronumpy"
 ])
 
 import rpython.rlib.rvmprof.cintf
@@ -105,6 +105,7 @@ module_dependencies = {
                          ('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     '_cppyy': [('objspace.usemodules.cpyext', True)],
+    'vmprof': [('objspace.usemodules.cpyext', True)], # for PyFrame_GetCode
     'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
