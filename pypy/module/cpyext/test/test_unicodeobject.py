@@ -372,6 +372,28 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             h = [hex(ord(x)) for x in s]
             assert h == ret, '%s, %s' %(h, ret)
 
+    def test_fromkind_ucs2_verbatim(self):
+        # issue 5525: 2BYTE_KIND must copy the UCS-2 code units verbatim,
+        # not UTF-16 decode them (no BOM handling, no byte swapping, no
+        # surrogate pairing)
+        import struct
+        module = self.import_extension('foo', [
+            ('from_ucs2', 'METH_O',
+             """
+             char* p;
+             Py_ssize_t size;
+             if (PyBytes_AsStringAndSize(args, &p, &size) < 0)
+                return NULL;
+             return PyUnicode_FromKindAndData(PyUnicode_2BYTE_KIND, p, size/2);
+             """)])
+        def ucs2(units):
+            data = b''.join(struct.pack('=H', u) for u in units)
+            s = module.from_ucs2(data)
+            return [hex(ord(c)) for c in s]
+        assert ucs2([0xFEFF, 0x0061]) == ['0xfeff', '0x61']
+        assert ucs2([0xFFFE, 0x0061]) == ['0xfffe', '0x61']
+        assert ucs2([0xD83D, 0xDE00]) == ['0xd83d', '0xde00']
+
     def test_substring(self):
         module = self.import_extension('foo', [
             ("slice_start", "METH_VARARGS",
