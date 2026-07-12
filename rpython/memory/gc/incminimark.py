@@ -63,7 +63,7 @@ Environment variables can be used to fine-tune the following parameters:
 import sys
 import os
 import time
-from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
 from rpython.memory.gc.base import GCBase, MovingGCBase
@@ -3169,12 +3169,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
                               ('ob_pypy_link', lltype.Signed),
                               ('ob_refcnt', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
-    PYOBJ_REFCNT_OFS = llmemory.offsetof(PYOBJ_HDR, 'ob_refcnt')
+    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # bytes reserved before ob_refcnt
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
     def _pyobj(self, pyobjaddr):
-        return llmemory.cast_adr_to_ptr(pyobjaddr - self.PYOBJ_REFCNT_OFS,
-                                        self.PYOBJ_HDR_PTR)
+        # reach the prefix by byte arithmetic, matching cpyext and
+        # rpython.rlib.rawrefcount; llmemory offset arithmetic can't cross the
+        # typed field boundary in the untranslated fakeaddress simulation.
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobjaddr),
+                           -self.PYOBJ_LINK_PREFIX)
+        return rffi.cast(self.PYOBJ_HDR_PTR, base)
 
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
@@ -3344,20 +3348,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(rc >= REFCNT_FROM_PYPY, "refcount underflow?")
             ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
-            rc -= REFCNT_FROM_PYPY
             self._pyobj(pyobject).ob_pypy_link = 0
-            if rc == 0:
+            # The tag is permanent (never subtracted); the object is dead only
+            # once nothing but the bare tag is left.  lxml and others expect
+            # tp_dealloc to fire at once, else a bogus raw pointer stays usable
+            # (a later Py_INCREF/Py_DECREF would call tp_dealloc a second time).
+            if rc == REFCNT_FROM_PYPY:
                 self.rrc_dealloc_pending.append(pyobject)
-                # an object with refcnt == 0 cannot stay around waiting
-                # for its deallocator to be called.  Some code (lxml)
-                # expects that tp_dealloc is called immediately when
-                # the refcnt drops to 0.  If it isn't, we get some
-                # uncleared raw pointer that can still be used to access
-                # the object; but (PyObject *)raw_pointer is then bogus
-                # because after a Py_INCREF()/Py_DECREF() on it, its
-                # tp_dealloc is also called!
-                rc = 1
-            self._pyobj(pyobject).ob_refcnt = rc
+                self._pyobj(pyobject).ob_refcnt = rc + 1
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):

@@ -54,6 +54,7 @@ def pyobj_get_link(pyobj):
 def pyobj_set_link(pyobj, value):
     _pyobj_link_hdr(pyobj).ob_pypy_link = value
 
+@specialize.argtype(0)
 def pyobj_raw_alloc(size, immortal=False):
     """Raw-allocate a PyObject of 'size' bytes plus the hidden link prefix.
     Returns the visible PyObject pointer (just past the zeroed prefix).  Uses address
@@ -176,8 +177,8 @@ class BaseCpyTypedescr(object):
         if itemsize or space.issubtype_w(w_type, space.w_list):
             pyvarobj = rffi.cast(PyVarObject, pyobj)
             pyvarobj.c_ob_size = itemcount
-        pyobj.c_ob_refcnt = 1
-        #pyobj.c_ob_pypy_link should get assigned very quickly
+        # Mark the existence of the prefix field
+        pyobj.c_ob_refcnt = rawrefcount.REFCNT_FROM_PYPY + 1
         pyobj.c_ob_type = pytype
         return pyobj
 
@@ -325,13 +326,8 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
         itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)
     track_reference(space, py_obj, w_obj)
-    #
-    # py_obj.c_ob_refcnt should be exactly REFCNT_FROM_PYPY + 1 here,
-    # and we want only REFCNT_FROM_PYPY, i.e. only count as attached
-    # to the W_Root but not with any reference from the py_obj side.
     assert py_obj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY
     py_obj.c_ob_refcnt -= 1
-    #
     typedescr.attach(space, py_obj, w_obj, w_userdata)
     # This is probably not the best place for this stanza, but we need the
     # w_obj so it cannot be done in allocate()
@@ -353,15 +349,12 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
 
 def track_reference(space, py_obj, w_obj):
     """
-    Ties together a PyObject and an interpreter object.
-    The PyObject's refcnt is increased by REFCNT_FROM_PYPY.
-    The reference in 'py_obj' is not stolen!  Remember to decref()
-    it if you need to.
+    Ties py_obj's prefix (marked by refcnt >= REFCNT_FROM_PYPY) to w_obj.
+    A foreign py_obj (below the tag, no prefix) is left unlinked.
     """
     # XXX looks like a PyObject_GC_TRACK
-    assert py_obj.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY
-    py_obj.c_ob_refcnt += rawrefcount.REFCNT_FROM_PYPY
-    w_obj._cpyext_attach_pyobj(space, py_obj)
+    if py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY:
+        w_obj._cpyext_attach_pyobj(space, py_obj)
 
 
 w_marker_deallocating = W_Root()
@@ -380,29 +373,30 @@ def from_ref(space, ref):
         # immortal static object: no ob_pypy_link prefix, mapped out-of-band
         return space.fromcache(State).static_py2w.get(
             rffi.cast(lltype.Signed, ref), None)
-    w_obj = rawrefcount.to_obj(W_Root, ref)
-    if w_obj is not None:
-        if w_obj is not w_marker_deallocating:
-            return w_obj
-        type_name = rffi.charp2str(cts.cast('char*', ref.c_ob_type.c_tp_name))
-        fatalerror(
-            "*** Invalid usage of a dying CPython object ***\n"
-            "\n"
-            "cpyext, the emulation layer, detected that while it is calling\n"
-            "an object's tp_dealloc, the C code calls back a function that\n"
-            "tries to recreate the PyPy version of the object.  Usually it\n"
-            "means that tp_dealloc calls some general PyXxx() API.  It is\n"
-            "a dangerous and potentially buggy thing to do: even in CPython\n"
-            "the PyXxx() function could, in theory, cause a reference to the\n"
-            "object to be taken and stored somewhere, for an amount of time\n"
-            "exceeding tp_dealloc itself.  Afterwards, the object will be\n"
-            "freed, making that reference point to garbage.\n"
-            ">>> PyPy could contain some workaround to still work if\n"
-            "you are lucky, but it is not done so far; better fix the bug in\n"
-            "the CPython extension.\n"
-            ">>> This object is of type '%s'" % (type_name,))
+    if ref.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY:
+        w_obj = rawrefcount.to_obj(W_Root, ref)
+        if w_obj is not None:
+            if w_obj is not w_marker_deallocating:
+                return w_obj
+            type_name = rffi.charp2str(cts.cast('char*', ref.c_ob_type.c_tp_name))
+            fatalerror(
+                "*** Invalid usage of a dying CPython object ***\n"
+                "\n"
+                "cpyext, the emulation layer, detected that while it is calling\n"
+                "an object's tp_dealloc, the C code calls back a function that\n"
+                "tries to recreate the PyPy version of the object.  Usually it\n"
+                "means that tp_dealloc calls some general PyXxx() API.  It is\n"
+                "a dangerous and potentially buggy thing to do: even in CPython\n"
+                "the PyXxx() function could, in theory, cause a reference to the\n"
+                "object to be taken and stored somewhere, for an amount of time\n"
+                "exceeding tp_dealloc itself.  Afterwards, the object will be\n"
+                "freed, making that reference point to garbage.\n"
+                ">>> PyPy could contain some workaround to still work if\n"
+                "you are lucky, but it is not done so far; better fix the bug in\n"
+                "the CPython extension.\n"
+                ">>> This object is of type '%s'" % (type_name,))
 
-    # This reference is not yet a real interpreter object.
+    # A foreign object (refcnt below the tag, no prefix) or a not-yet-realized one.
     # Realize it.
     ref_type = rffi.cast(PyObject, ref.c_ob_type)
     if ref_type == ref: # recursion!
@@ -501,7 +495,11 @@ def get_w_obj_and_decref(space, pyobj):
         if pyobj.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
             return w_obj   # immortal static: refcnt frozen
         pyobj.c_ob_refcnt -= 1
-        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+        if pyobj.c_ob_refcnt == 0:
+            from pypy.module.cpyext.api import generic_cpy_call
+            generic_cpy_call(space, space.fromcache(State).C._Py_Dealloc, pyobj)
+        else:
+            assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
         keepalive_until_here(w_obj)
     return w_obj
 
@@ -528,16 +526,11 @@ def decref(space, pyobj):
         if pyobj.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
             return   # immortal static: refcnt frozen, never freed, no prefix
         assert pyobj.c_ob_refcnt > 0
-        assert (pyobj_get_link(pyobj) == 0 or
-                pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)
         pyobj.c_ob_refcnt -= 1
-        if pyobj.c_ob_refcnt == 0:
+        rc = pyobj.c_ob_refcnt
+        if rc == 0 or (rc == rawrefcount.REFCNT_FROM_PYPY and pyobj_get_link(pyobj) == 0):
             state = space.fromcache(State)
             generic_cpy_call(space, state.C._Py_Dealloc, pyobj)
-        #else:
-        #    w_obj = rawrefcount.to_obj(W_Root, ref)
-        #    if w_obj is not None:
-        #        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
 
 
 @init_function

@@ -28,7 +28,7 @@ def PyObject_Malloc(space, size):
 def PyObject_Calloc(space, nelem, elsize):
     if elsize != 0 and nelem > PY_SSIZE_T_MAX / elsize:
         return lltype.nullptr(rffi.VOIDP.TO)
-    return pyobj_raw_alloc(nelem * elsize)   # pyobj_raw_alloc zeroes
+    return pyobj_raw_alloc(nelem * elsize)
 
 realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
 
@@ -58,9 +58,9 @@ def _PyPy_Malloc(size):
 
 
 def _dealloc(space, obj):
-    # This frees an object after its refcount dropped to zero, so we
-    # assert that it is really zero here.
-    assert obj.c_ob_refcnt == 0
+    from rpython.rlib import rawrefcount
+    assert (obj.c_ob_refcnt == 0 or
+            obj.c_ob_refcnt == rawrefcount.REFCNT_FROM_PYPY)
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     try:

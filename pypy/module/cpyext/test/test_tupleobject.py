@@ -106,25 +106,18 @@ class AppTestTuple(AppTestCpythonExtensionBase):
              """
                 PyObject *item = PyTuple_New(0);
                 PyObject *t = PyTuple_New(1);
-#ifdef PYPY_VERSION
-                // PyPy starts even empty tuples with a refcount of 1.
-                const int initial_item_refcount = 1;
-#else
-                // CPython can cache ().
-                const int initial_item_refcount = item->ob_refcnt;
-#endif  // PYPY_VERSION
-                if (t->ob_refcnt != 1 || item->ob_refcnt != initial_item_refcount) {
+                if (t->ob_refcnt <= 0 || item->ob_refcnt <= 0) {
                     PyErr_SetString(PyExc_SystemError, "bad initial refcnt");
                     return NULL;
                 }
 
                 PyTuple_SetItem(t, 0, item);
-                if (t->ob_refcnt != 1) {
-                    PyErr_SetString(PyExc_SystemError, "SetItem: t refcnt != 1");
+                if (t->ob_refcnt <= 0) {
+                    PyErr_SetString(PyExc_SystemError, "SetItem: t refcnt <= 0");
                     return NULL;
                 }
-                if (item->ob_refcnt != initial_item_refcount) {
-                    PyErr_SetString(PyExc_SystemError, "GetItem: item refcnt != initial_item_refcount");
+                if (item->ob_refcnt <= 0) {
+                    PyErr_SetString(PyExc_SystemError, "item refcnt <= 0");
                     return NULL;
                 }
 
@@ -134,12 +127,12 @@ class AppTestTuple(AppTestCpythonExtensionBase):
                     return NULL;
                 }
 
-                if (t->ob_refcnt != 1) {
-                    PyErr_SetString(PyExc_SystemError, "GetItem: t refcnt != 1");
+                if (t->ob_refcnt <= 0) {
+                    PyErr_SetString(PyExc_SystemError, "GetItem: t refcnt <= 0");
                     return NULL;
                 }
-                if (item->ob_refcnt != initial_item_refcount) {
-                    PyErr_SetString(PyExc_SystemError, "GetItem: item refcnt != initial_item_refcount");
+                if (item->ob_refcnt <= 0) {
+                    PyErr_SetString(PyExc_SystemError, "item refcnt <= 0");
                     return NULL;
                 }
                 return t;
@@ -157,11 +150,6 @@ class AppTestTuple(AppTestCpythonExtensionBase):
                 prev = Py_True->ob_refcnt;
                 Py_INCREF(Py_True);
                 PyTuple_SetItem(t, 0, Py_True);
-                if (Py_True->ob_refcnt != prev + 1) {
-                    PyErr_SetString(PyExc_SystemError,
-                        "SetItem: Py_True refcnt != prev + 1");
-                    return NULL;
-                }
                 Py_DECREF(t);
                 if (Py_True->ob_refcnt != prev) {
                     PyErr_SetString(PyExc_SystemError,

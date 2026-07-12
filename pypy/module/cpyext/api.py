@@ -1247,9 +1247,6 @@ def attach_c_functions(space, eci, prefix):
         [PyTypeObjectPtr, Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
-    state.C._PyPy_int_dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
-        compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
         [Py_ssize_t], PyObject,

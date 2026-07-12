@@ -21,7 +21,8 @@ from pypy.module.cpyext.pyerrors import PyErr_BadArgument, PyErr_BadInternalCall
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr,
-    incref, decref)
+    incref, decref, pyobj_raw_alloc)
+from rpython.rlib import rawrefcount
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module.cpyext.pyfile import pyos_fspath
 from pypy.module._codecs.interp_codecs import CodecState
@@ -1484,11 +1485,10 @@ def PyUnicode_New(space, size, maxchar):
     # its data buffer.
     pytype = as_pyobj(space, space.w_unicode)
     pytype = rffi.cast(PyTypeObjectPtr, pytype)
-    buf = lltype.malloc(rffi.VOIDP.TO, struct_size + (size + 1) * char_size,
-                        flavor='raw', zero=True,
-                        add_memory_pressure=True)
+    buf = pyobj_raw_alloc(struct_size + (size + 1) * char_size)
     pyobj = rffi.cast(PyObject, buf)
-    pyobj.c_ob_refcnt = 1
+    # Mark the existence of the prefix field
+    pyobj.c_ob_refcnt = rawrefcount.REFCNT_FROM_PYPY + 1
     pyvarobj = rffi.cast(PyVarObject, pyobj)
     pyvarobj.c_ob_size = size
     #pyobj.c_ob_pypy_link remains null for now
