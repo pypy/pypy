@@ -954,6 +954,12 @@ PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject *) PyType_FromMetaclass(PyTypeObject*, PyObject*, PyType_Spec*, PyObject*);
+PyAPI_FUNC(Py_ssize_t) PyType_GetTypeDataSize(PyTypeObject *cls);
+PyAPI_FUNC(void *) PyObject_GetTypeData(PyObject *obj, PyTypeObject *cls);
+
 #ifdef __cplusplus
 }
 #endif

@@ -58,6 +58,10 @@ PyAPI_DATA(int) (*PyOS_InputHook)(void);
 typedef int (*_pypy_pyos_inputhook)(void);
 PyAPI_FUNC(_pypy_pyos_inputhook) _PyPy_get_PyOS_InputHook(void);
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(void) PyErr_DisplayException(PyObject *);
+
 #ifdef __cplusplus
 }
 #endif

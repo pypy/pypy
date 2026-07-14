@@ -62,6 +62,11 @@ typedef struct {
 PyAPI_FUNC(PyObject *) PyBytes_FromFormatV(const char*, va_list);
 PyAPI_FUNC(PyObject *) PyBytes_FromFormat(const char*, ...);
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject *) PyBytes_Repr(PyObject *, int);
+PyAPI_FUNC(PyObject *) PyBytes_DecodeEscape(const char *, Py_ssize_t, const char *, Py_ssize_t, const char *);
+
 #ifdef __cplusplus
 }
 #endif

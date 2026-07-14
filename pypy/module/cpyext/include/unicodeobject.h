@@ -461,6 +461,27 @@ PyAPI_FUNC(void) PyUnicode_AppendAndDel(
     PyObject *right             /* Right string */
     );
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject*) PyUnicode_Partition(PyObject *s,  PyObject *sep);
+PyAPI_FUNC(PyObject*) PyUnicode_RPartition(PyObject *s,  PyObject *sep);
+PyAPI_FUNC(PyObject*) PyUnicode_RSplit(PyObject *s,  PyObject *sep,  Py_ssize_t maxsplit);
+PyAPI_FUNC(PyObject *) PyUnicode_Translate(PyObject *str,  PyObject *table,  const char *errors);
+PyAPI_FUNC(PyObject *) PyUnicode_RichCompare(PyObject *left,  PyObject *right,  int op);
+PyAPI_FUNC(int) PyUnicode_IsIdentifier(PyObject *s);
+PyAPI_FUNC(PyObject*) PyUnicode_AsCharmapString(PyObject *unicode,  PyObject *mapping);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeCharmap(const char *string,  Py_ssize_t length,  PyObject *mapping,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_BuildEncodingMap(PyObject* string);
+PyAPI_FUNC(PyObject*) PyUnicode_AsDecodedObject(PyObject *unicode,  const char *encoding,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_AsDecodedUnicode(PyObject *unicode,  const char *encoding,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_AsEncodedUnicode(PyObject *unicode,  const char *encoding,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUnicodeEscape(const char *string,  Py_ssize_t length,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7(const char *string,  Py_ssize_t length,  const char *errors);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7Stateful(const char *string,  Py_ssize_t length,  const char *errors,  Py_ssize_t *consumed);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF8Stateful(const char *string,  Py_ssize_t length,  const char *errors,  Py_ssize_t *consumed);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF16Stateful(const char *string,  Py_ssize_t length,  const char *errors,  int *byteorder,  Py_ssize_t *consumed);
+PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF32Stateful(const char *string,  Py_ssize_t length,  const char *errors,  int *byteorder,  Py_ssize_t *consumed);
+
 #ifdef __cplusplus
 }
 #endif

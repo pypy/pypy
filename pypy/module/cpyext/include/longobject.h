@@ -23,6 +23,12 @@ PyAPI_FUNC(long) PyOS_strtol(const char *, char **, int);
 #define _PyLong_AsByteArray(v, bytes, n, little_endian, is_signed)   \
     _PyLong_AsByteArrayO((PyObject *)(v), bytes, n, little_endian, is_signed)
 
+
+/* abi3/limited-API shims */
+#define PyLong_AsPid PyLong_AsLong
+#define PyLong_FromPid PyLong_FromLong
+PyAPI_FUNC(PyObject *) PyLong_GetInfo(void);
+
 #ifdef __cplusplus
 }
 #endif

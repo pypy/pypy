@@ -40,6 +40,43 @@ PyAPI_FUNC(void) _Py_NO_RETURN _Py_FatalErrorFunc(const char * func, const char 
 
 #define Py_FatalError(message) _Py_FatalErrorFunc(__func__, message)
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject *) PyErr_GetRaisedException(void);
+PyAPI_FUNC(void) PyErr_SetRaisedException(PyObject *);
+PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_Create(const char *encoding,  const char *object, Py_ssize_t length, Py_ssize_t start, Py_ssize_t end, const char *reason);
+PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_GetEncoding(PyObject *);
+PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_GetObject(PyObject *);
+PyAPI_FUNC(int) PyUnicodeDecodeError_GetStart(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(int) PyUnicodeDecodeError_GetEnd(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_GetReason(PyObject *);
+PyAPI_FUNC(int) PyUnicodeDecodeError_SetStart(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeDecodeError_SetEnd(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeDecodeError_SetReason(PyObject *exc, const char *reason);
+PyAPI_FUNC(PyObject *) PyUnicodeEncodeError_GetEncoding(PyObject *);
+PyAPI_FUNC(PyObject *) PyUnicodeEncodeError_GetObject(PyObject *);
+PyAPI_FUNC(int) PyUnicodeEncodeError_GetStart(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(int) PyUnicodeEncodeError_GetEnd(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(PyObject *) PyUnicodeEncodeError_GetReason(PyObject *);
+PyAPI_FUNC(int) PyUnicodeEncodeError_SetStart(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeEncodeError_SetEnd(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeEncodeError_SetReason(PyObject *exc, const char *reason);
+PyAPI_FUNC(PyObject *) PyUnicodeTranslateError_GetObject(PyObject *);
+PyAPI_FUNC(int) PyUnicodeTranslateError_GetStart(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(int) PyUnicodeTranslateError_GetEnd(PyObject *, Py_ssize_t *);
+PyAPI_FUNC(PyObject *) PyUnicodeTranslateError_GetReason(PyObject *);
+PyAPI_FUNC(int) PyUnicodeTranslateError_SetStart(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeTranslateError_SetEnd(PyObject *, Py_ssize_t);
+PyAPI_FUNC(int) PyUnicodeTranslateError_SetReason(PyObject *exc, const char *reason);
+PyAPI_FUNC(PyObject *) PyException_GetArgs(PyObject *);
+PyAPI_FUNC(void) PyException_SetArgs(PyObject *, PyObject *);
+PyAPI_FUNC(const char *) PyExceptionClass_Name(PyObject *);
+PyAPI_FUNC(PyObject *) PyErr_ProgramText(const char *filename,  int lineno);
+PyAPI_FUNC(PyObject *) PyErr_SetImportError(PyObject *, PyObject *, PyObject *);
+PyAPI_FUNC(PyObject *) PyErr_SetImportErrorSubclass(PyObject *, PyObject *, PyObject *, PyObject *);
+PyAPI_FUNC(void) PyErr_SyntaxLocation(const char *filename,  int lineno);
+PyAPI_FUNC(void) PyErr_SyntaxLocationEx(const char *filename,  int lineno, int col_offset);
+
 #ifdef __cplusplus
 }
 #endif

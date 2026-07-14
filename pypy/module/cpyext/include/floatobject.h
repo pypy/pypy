@@ -40,6 +40,12 @@ PyAPI_FUNC(double) PyFloat_Unpack4(const char *p, int le);
 PyAPI_FUNC(double) PyFloat_Unpack8(const char *p, int le);
 PyAPI_FUNC(void) _PyFloat_InitState(void);
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject*) PyFloat_GetInfo(void);
+PyAPI_FUNC(double) PyFloat_GetMin(void);
+PyAPI_FUNC(double) PyFloat_GetMax(void);
+
 #ifdef __cplusplus
 }
 #endif

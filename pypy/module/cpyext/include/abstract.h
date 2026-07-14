@@ -374,6 +374,13 @@ PyAPI_FUNC(void) PyBuffer_Release(Py_buffer *view);
        */
 #define PyMapping_DelItem(O,K) PyObject_DelItem((O),(K))
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(int) PyAIter_Check(PyObject *);
+PyAPI_FUNC(PyObject *) PyObject_GetAIter(PyObject *);
+PyAPI_FUNC(Py_ssize_t) PySequence_Count(PyObject *o, PyObject *value);
+PyAPI_FUNC(int) PySequence_In(PyObject *o, PyObject *value);
+
 #ifdef __cplusplus
 }
 #endif

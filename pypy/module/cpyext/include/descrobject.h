@@ -42,4 +42,10 @@
 #define _Py_WRITE_RESTRICTED   4 // Deprecated, no-op. Do not reuse the value.
 #define Py_RELATIVE_OFFSET     8
 
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject *) PyMember_GetOne(const char *, PyMemberDef *);
+PyAPI_FUNC(int) PyMember_SetOne(char *, PyMemberDef *, PyObject *);
+PyAPI_FUNC(PyObject *) PyDescr_NewMember(PyTypeObject *, PyMemberDef *);
+PyAPI_FUNC(PyObject *) PyWrapper_New(PyObject *, PyObject *);
+
 #endif

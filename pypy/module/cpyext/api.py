@@ -31,7 +31,9 @@ from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyparser import pygram
 from pypy.interpreter.typedef import Function, Method, PyTraceback
-from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
+from pypy.objspace.std.dictmultiobject import (
+    W_DictViewKeysObject, W_DictViewValuesObject, W_DictViewItemsObject)
+from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
@@ -752,6 +754,9 @@ def build_exported_objects():
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
         "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
         "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
+        "PyDictItems_Type": "space.gettypeobject(W_DictViewItemsObject.typedef)",
+        "PySeqIter_Type": "space.gettypeobject(W_AbstractSeqIterObject.typedef)",
+        "PyCallIter_Type": 'space.appexec([], """(): return type(iter(int, 1))""")',
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
@@ -1680,6 +1685,14 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "call.c",
                          source_dir / "ceval.c",
                          source_dir / "floatobject.c",
+                         # abi3/limited-API shims for functions PyPy does not implement
+                         source_dir / "abi3_type312.c",
+                         source_dir / "abi3_codecs.c",
+                         source_dir / "abi3_unicodeerr.c",
+                         source_dir / "abi3_unicodeops.c",
+                         source_dir / "abi3_misc.c",
+                         source_dir / "abi3_lifecycle.c",
+                         source_dir / "abi3_sysimport.c",
                          # for PyErr pypysig_pushback
                          translator_c_dir / "src" / "signals.c",
                          ]

@@ -34,6 +34,14 @@ typedef int PyGILState_STATE;
 PyAPI_FUNC(PyObject*) PyState_FindModule(struct PyModuleDef*);
 PyAPI_FUNC(PyInterpreterState*) PyThreadState_GetInterpreter(PyThreadState *tstate);
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_New(void);
+PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_Get(void);
+PyAPI_FUNC(PyObject *) PyInterpreterState_GetDict(PyInterpreterState *);
+PyAPI_FUNC(void) PyInterpreterState_Clear(PyInterpreterState *);
+PyAPI_FUNC(void) PyInterpreterState_Delete(PyInterpreterState *);
+
 #ifdef __cplusplus
 }
 #endif
