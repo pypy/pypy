@@ -221,6 +221,22 @@ class TestObject(BaseApiTest):
         fmt = space.text_w(api.PyObject_Format(w_int, space.wrap('#b')))
         assert fmt == '0b101010'
 
+    def test_format_empty_spec_calls_dunder_format(self, space, api):
+        # An empty format spec must still dispatch to __format__ for types
+        # that override it (only exact str/int may skip it, as in CPython).
+        w_obj = space.appexec([], """():
+            class Listish(list):
+                def __format__(self, spec):
+                    self.append('format called')
+                    return repr(self)
+            l = Listish()
+            l.append(123)
+            return l
+        """)
+        api.PyObject_Format(w_obj, space.wrap(''))
+        assert space.len_w(w_obj) == 2
+        assert space.text_w(space.getitem(w_obj, space.wrap(1))) == 'format called'
+
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
         from rpython.rlib import rgc
