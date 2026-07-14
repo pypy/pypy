@@ -115,6 +115,7 @@ module_dependencies = {
     '_cffi_backend': [('objspace.usemodules.thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     '_cppyy': [('objspace.usemodules.cpyext', True)],
+    'vmprof': [('objspace.usemodules.cpyext', True)], # for PyFrame_GetCode
     'faulthandler': [('objspace.usemodules._vmprof', True)],
     }
 module_suggests = {
