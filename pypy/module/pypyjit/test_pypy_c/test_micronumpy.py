@@ -39,6 +39,13 @@ def align_check(input):
 @py.test.mark.skipif(True, reason='no _numpypy on pypy3')
 class TestMicroNumPy(BaseTestPyPyC):
 
+    def setup_class(cls):
+        BaseTestPyPyC.setup_class.im_func(cls)
+        try:
+            import _numpypy.multiarray
+        except ImportError:
+            py.test.skip("micronumpy not available in this pypy-c")
+
     arith_comb = [('+','float','float', 4*3427,   3427, 1.0,3.0),
                   ('+','float','int',   9*7843,   7843, 4.0,5.0),
                   ('+','int','float',   8*2571,   2571, 9.0,-1.0),
