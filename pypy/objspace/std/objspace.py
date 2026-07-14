@@ -463,14 +463,19 @@ class StdObjSpace(ObjSpace):
         assert isinstance(w_starttype, W_TypeObject)
         return w_type.lookup_starting_at(w_starttype, name)
 
+    @specialize.memo()
+    def _cls_needs_hpy_alloc_workaround(self, cls):
+        # only W_HPyTypeObject sets this; other classes (which are not
+        # W_TypeObject subclasses) do not define it, hence the default
+        return getattr(cls, '_hpy_needs_alloc_workaround', False)
+
     @specialize.arg(1)
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
         w_type = self.gettypeobject(cls.typedef)
-        # XXX can we do better than this?
-        from pypy.module._hpy_universal.interp_type import W_HPyTypeObject
-        if self.is_w(w_type, w_subtype) and not cls == W_HPyTypeObject:
+        if (self.is_w(w_type, w_subtype) and
+                not self._cls_needs_hpy_alloc_workaround(cls)):
             instance = instantiate(cls)
         elif cls.typedef.acceptable_as_base_class:
             # the purpose of the above check is to avoid the code below

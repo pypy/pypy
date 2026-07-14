@@ -210,6 +210,7 @@ class W_HPyObject(W_ObjectObject):
 
 
 class W_HPyTypeObject(W_TypeObject):
+    _hpy_needs_alloc_workaround = True
     hpy_storage = lltype.nullptr(HPY_STORAGE)
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)

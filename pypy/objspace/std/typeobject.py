@@ -175,6 +175,7 @@ class W_TypeObject(W_Root):
                           'layout?',
                           'terminator',
                           '_version_tag?',
+                          '_hpy_needs_alloc_workaround',
                           'name?',
                           'mro_w?[*]',
                           'hasmro?',
@@ -195,6 +196,8 @@ class W_TypeObject(W_Root):
     flag_cpytype = False
 
     flag_method_descriptor = False
+    # set to True by _hpy_backend
+    _hpy_needs_alloc_workaround = False
 
     @dont_look_inside
     def __init__(self, space, name, bases_w, dict_w,
