@@ -1,14 +1,24 @@
 import pytest, sys
 from os.path import abspath, commonprefix, dirname
-from pypy.config import pypyoption
 
-disabled = '_cppyy' not in pypyoption.working_modules
+translated = sys.version_info[0] > 2
+if translated:
+    try:
+        import _cppyy
+        disabled = False
+    except Exception:
+        disabled= True
+else:
+    from pypy.config import pypyoption
+    disabled= '_cppyy' not in pypyoption.working_modules
 
 THIS_DIR = dirname(__file__)
 
 @pytest.mark.tryfirst
 def pytest_runtest_setup(item):
-    if not disabled:
+    if disabled:
+        ptest.skip("disabled")
+    else:
         try:
             import genreflex
             return
