@@ -145,3 +145,10 @@ PyType_GetModuleByDef(PyTypeObject *type, struct PyModuleDef *def)
         type->tp_name);
     return NULL;
 }
+
+PyObject *
+PyType_GetDict(PyTypeObject *self) {
+    PyObject * ret = self->tp_dict;
+    Py_XINCREF(ret);
+    return ret;
+}

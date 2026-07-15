@@ -13,7 +13,6 @@ from pypy.module.cpyext.longobject import (
     PyLong_AsLongLong, PyLong_AsUnsignedLongLong, PyLong_AsSsize_t)
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.objectmodel import specialize
 
 def convert_bool(space, w_obj):

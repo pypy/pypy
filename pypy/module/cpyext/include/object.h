@@ -791,8 +791,8 @@ times.
 
 PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
-struct PyModuleDef;
-PyAPI_FUNC(PyObject *) PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef *);
+PyAPI_FUNC(PyObject *) PyType_GetModuleByDef(PyTypeObject *, PyModuleDef *);
+PyAPI_FUNC(PyObject *) PyType_GetDict(PyTypeObject *);
 
 /* Safely decref `op` and set `op` to `op2`.
  *

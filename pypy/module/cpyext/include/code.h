@@ -4,13 +4,13 @@
 extern "C" {
 #endif
 
-typedef struct {
+struct PyCodeObject {
     PyObject_HEAD
     PyObject *co_name;
     PyObject *co_filename;
     int co_argcount;
     int co_flags;
-} PyCodeObject;
+};
 
 /* Masks for co_flags above */
 /* These values are also in funcobject.py */
