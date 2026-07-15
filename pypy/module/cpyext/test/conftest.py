@@ -1,10 +1,9 @@
 import os
 import pytest
 import sys
-from pypy.config import pypyoption
 
 # disabled = None
-disabled = 'cpyext' not in pypyoption.working_modules
+disabled = False
 THIS_DIR = os.path.dirname(__file__)
 
 def pytest_ignore_collect(path, config):

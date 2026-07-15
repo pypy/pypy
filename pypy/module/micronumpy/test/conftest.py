@@ -1,9 +1,17 @@
 import os
 import pytest
 import sys
-from pypy.config import pypyoption
 
-disabled = 'micronumpy' not in pypyoption.working_modules
+translated = sys.version_info[0] > 2
+if translated:
+    try:
+        import _numpypy
+        disabled = False
+    except Exception as e:
+        disabled= True
+else:
+    from pypy.config import pypyoption
+    disabled= 'micronumpy' not in pypyoption.working_modules
 
 THIS_DIR = os.path.dirname(__file__)
 
