@@ -114,9 +114,10 @@ def test_clock_gettime():
         clock = getattr(time, clock_id, None)
         if clock is None:
             continue
+        factor = 2 if 'COARSE' in clock_id else 1
         t1 = time.clock_gettime(clock)
         assert isinstance(t1, float)
-        time.sleep(time.clock_getres(clock))
+        time.sleep(time.clock_getres(clock) * factor)
         t2 = time.clock_gettime(clock)
         assert t1 < t2
 
