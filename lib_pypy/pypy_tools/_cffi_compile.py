@@ -214,3 +214,31 @@ def build(ext, tmpdir='.', compiler_verbose=0, debug=None):
     if _kind() == 'msvc':
         return _build_msvc(ext, compiler_verbose)
     return _build_unix(ext, compiler_verbose)
+
+
+def compile_shared(csource, modulename, output_dir, include_dirs=None,
+                   define_macros=None, libraries=None, library_dirs=None,
+                   extra_compile_args=None, extra_link_args=None,
+                   compiler_verbose=0):
+    """Compile a single C source into an extension module, distutils-free.
+
+    A sibling of :func:`cffi.ffiplatform.compile`: both sit on
+    :class:`Extension`/:func:`build`, but this one packages the single-source
+    build the on-demand C test modules (``_testcapi``, ``_ctypes_test``, ...)
+    used to do through ``distutils.ccompiler``.  ``csource`` is compiled and
+    linked into ``modulename`` inside ``output_dir`` and the absolute path of
+    the produced shared object is returned.  The PyPy header dir (INCLUDEPY)
+    and, on MSVC, the ``PyInit_`` export are added by :func:`build` itself.
+    """
+    ext = Extension(modulename, [csource], include_dirs=include_dirs,
+                    define_macros=define_macros, libraries=libraries,
+                    library_dirs=library_dirs,
+                    extra_compile_args=extra_compile_args,
+                    extra_link_args=extra_link_args)
+    oldcwd = os.getcwd()
+    os.chdir(output_dir)
+    try:
+        out = build(ext, output_dir, compiler_verbose)
+    finally:
+        os.chdir(oldcwd)
+    return os.path.join(output_dir, out)

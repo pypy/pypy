@@ -55,13 +55,8 @@ def _get_c_extension_suffix():
     return suffixes[0] if suffixes else None
 
 
-def compile_shared(csource, modulename, output_dir):
-    """Compile csource into an extension module,
-    and import it.
-    """
+def _compile_shared_distutils(source_path, modulename, output_dir):
     thisdir = os.path.dirname(__file__)
-    assert output_dir is not None
-
     from distutils.ccompiler import new_compiler
     from distutils import log, sysconfig
     log.set_verbosity(3)
@@ -75,7 +70,7 @@ def compile_shared(csource, modulename, output_dir):
     else:
         ccflags = ['-fPIC', '-Wimplicit-function-declaration', '-O0', '-g3']
     sysconfig.customize_compiler(compiler)
-    res = compiler.compile([os.path.join(thisdir, csource)],
+    res = compiler.compile([source_path],
                            include_dirs=[include_dir],
                            extra_preargs=ccflags,
                           )
@@ -103,18 +98,60 @@ def compile_shared(csource, modulename, output_dir):
         output_filename,
         libraries=libraries,
         extra_preargs=extra_ldargs)
+    return os.path.join(output_dir, output_filename)
+
+
+def _compile_shared_ccdriver(source_path, modulename, output_dir):
+    # distutils-free fallback for Python >= 3.12 (no distutils/setuptools).
+    # Uses PyPy's own compiler driver; INCLUDEPY and the PyInit_ export are
+    # added by the driver.
+    from pypy_tools._cffi_compile import compile_shared as _cc_compile_shared
+    thisdir = os.path.dirname(__file__)
+    if sys.platform == 'win32':
+        extra_compile_args = ['-D_CRT_SECURE_NO_WARNINGS']
+        libname = 'python{0[0]}{0[1]}'.format(sys.version_info)
+        library = os.path.join(thisdir, '..', 'libs', libname)
+        if not os.path.exists(library + '.lib'):
+            # For a local translation or nightly build
+            library = os.path.join(thisdir, '..', 'pypy', 'goal', libname)
+        assert os.path.exists(library + '.lib'), 'Could not find import library "%s"' % library
+        libraries = [library, 'oleaut32']
+        extra_link_args = ['/MANIFEST']  # needed for VC10
+    else:
+        extra_compile_args = ['-Wimplicit-function-declaration', '-O0', '-g3']
+        libraries = None
+        extra_link_args = None
+    return _cc_compile_shared(source_path, modulename, output_dir,
+                              libraries=libraries,
+                              extra_compile_args=extra_compile_args,
+                              extra_link_args=extra_link_args)
+
+
+def compile_shared(csource, modulename, output_dir):
+    """Compile csource into an extension module,
+    and import it.
+    """
+    thisdir = os.path.dirname(__file__)
+    assert output_dir is not None
+
+    source_path = os.path.join(thisdir, csource)
+    try:
+        output_filename = _compile_shared_distutils(
+            source_path, modulename, output_dir)
+    except ImportError:
+        output_filename = _compile_shared_ccdriver(
+            source_path, modulename, output_dir)
 
     # Now import the newly created library, it will replace the original
     # module in sys.modules
-    spec = spec_from_file_location(modulename,
-                                   os.path.join(output_dir, output_filename))
+    spec = spec_from_file_location(modulename, output_filename)
     mod = module_from_spec(spec)
 
     # If everything went fine up to now, write the name of this new
     # directory to 'hashed_fn', for future processes (and to avoid a
     # growing number of temporary directories that are not completely
     # obvious to clean up on Windows)
-    hashed_fn = _get_hashed_filename(os.path.join(thisdir, csource))
+    hashed_fn = _get_hashed_filename(source_path)
     try:
         with open(hashed_fn, 'w') as f:
             f.write(os.path.basename(output_dir))
