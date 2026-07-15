@@ -172,6 +172,36 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
         assert module.check_error()
 
+    def test_get_raised_exception(self):
+        module = self.import_extension('foo', [
+            ("get_raised", "METH_NOARGS",
+             '''
+             PyObject *exc;
+             PyErr_SetString(PyExc_TypeError, "message");
+             exc = PyErr_GetRaisedException();
+             if (PyErr_Occurred()) {
+                 Py_XDECREF(exc);
+                 PyErr_SetString(PyExc_AssertionError, "indicator not cleared");
+                 return NULL;
+             }
+             return exc;
+             '''
+             ),
+            ("get_none", "METH_NOARGS",
+             '''
+             PyObject *exc = PyErr_GetRaisedException();
+             if (exc != NULL) {
+                 Py_DECREF(exc);
+                 Py_RETURN_FALSE;
+             }
+             Py_RETURN_TRUE;
+             '''
+             ),
+            ])
+        exc = module.get_raised()
+        assert type(exc) is TypeError
+        assert exc.args == ("message",)
+        assert module.get_none() is True
 
     def test_normalize(self):
         module = self.import_extension('foo', [

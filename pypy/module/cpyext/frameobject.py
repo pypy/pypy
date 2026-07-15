@@ -8,6 +8,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pystate import PyThreadState
 from pypy.module.cpyext.funcobject import PyCodeObject
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.pytraceback import PyTraceback
@@ -110,6 +111,20 @@ def PyFrame_GetGlobals(space, w_frame):
 def PyFrame_GetLocals(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
     return frame.get_w_locals()
+
+@cpython_api([PyFrameObject, PyObject], PyObject)
+def PyFrame_GetVar(space, w_frame, w_name):
+    frame = space.interp_w(PyFrame, w_frame)
+    if not space.isinstance_w(w_name, space.w_unicode):
+        raise oefmt(space.w_TypeError, "name must be str, not %T", w_name)
+    w_value = space.finditem(frame.getdictscope(), w_name)
+    if w_value is None:
+        raise oefmt(space.w_NameError, "variable %R does not exist", w_name)
+    return w_value
+
+@cpython_api([PyFrameObject, rffi.CONST_CCHARP], PyObject)
+def PyFrame_GetVarString(space, w_frame, name):
+    return PyFrame_GetVar(space, w_frame, space.newtext(rffi.constcharp2str(name)))
 
 @cpython_api([PyFrameObject], PyObject)
 def PyFrame_GetGenerator(space, w_frame):

@@ -198,6 +198,77 @@ class TestEval(BaseApiTest):
         assert lst == [42]
 
 class AppTestCall(AppTestCpythonExtensionBase):
+    def test_eval_code_ex(self):
+        module = self.import_extension('foo', [
+            ("eval_code_ex", "METH_VARARGS",
+             """
+                PyObject *result = NULL;
+                PyObject *code, *globals, *locals = NULL, *argtuple = NULL,
+                         *kwargs = NULL, *defaults = NULL, *kw_defaults = NULL,
+                         *closure = NULL;
+                PyObject **c_kwargs = NULL;
+                if (!PyArg_ParseTuple(args, "OO|OO!O!O!OO:eval_code_ex",
+                        &code, &globals, &locals,
+                        &PyTuple_Type, &argtuple,
+                        &PyDict_Type, &kwargs,
+                        &PyTuple_Type, &defaults,
+                        &kw_defaults, &closure))
+                    return NULL;
+
+                PyObject **c_args = NULL;
+                Py_ssize_t c_args_len = 0;
+                if (argtuple) {
+                    c_args = &PyTuple_GET_ITEM(argtuple, 0);
+                    c_args_len = PyTuple_Size(argtuple);
+                }
+                Py_ssize_t c_kwargs_len = 0;
+                if (kwargs) {
+                    c_kwargs_len = PyDict_Size(kwargs);
+                    if (c_kwargs_len > 0) {
+                        Py_ssize_t i = 0, pos = 0;
+                        c_kwargs = PyMem_NEW(PyObject*, 2 * c_kwargs_len);
+                        if (!c_kwargs) { PyErr_NoMemory(); return NULL; }
+                        while (PyDict_Next(kwargs, &pos, &c_kwargs[i],
+                                           &c_kwargs[i + 1]))
+                            i += 2;
+                        c_kwargs_len = i / 2;
+                    }
+                }
+                PyObject **c_defaults = NULL;
+                Py_ssize_t c_defaults_len = 0;
+                if (defaults) {
+                    c_defaults = &PyTuple_GET_ITEM(defaults, 0);
+                    c_defaults_len = PyTuple_Size(defaults);
+                }
+                result = PyEval_EvalCodeEx(code, globals, locals,
+                    c_args, (int)c_args_len, c_kwargs, (int)c_kwargs_len,
+                    c_defaults, (int)c_defaults_len, kw_defaults, closure);
+                if (c_kwargs)
+                    PyMem_DEL(c_kwargs);
+                return result;
+             """),
+            ])
+        def f():
+            return a       # noqa: F821 -- looked up in the passed globals
+        assert module.eval_code_ex(f.__code__, {'a': 1}) == 1
+        raises(NameError, module.eval_code_ex, f.__code__, {})
+
+        def g(a, b, c):
+            return a
+        assert module.eval_code_ex(g.__code__, {}, {}, (1, 2, 3)) == 1
+        raises(TypeError, module.eval_code_ex, g.__code__, {}, {}, (1, 2))
+
+        def h(a, b, c):
+            return c
+        # defaults fill the trailing parameters
+        assert module.eval_code_ex(h.__code__, {}, {}, (1, 2), {}, (99,)) == 99
+
+        # non-optimized (exec) code runs against the given locals mapping
+        code = compile("x = a + 1", "<test>", "exec")
+        loc = {}
+        module.eval_code_ex(code, {'a': 10}, loc)
+        assert loc['x'] == 11
+
     def test_CallFunction(self):
         module = self.import_extension('foo', [
             ("call_func", "METH_VARARGS",

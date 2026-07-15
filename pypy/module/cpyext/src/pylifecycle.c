@@ -1,5 +1,19 @@
 #include "Python.h"
 
+PyThreadState *
+Py_NewInterpreter(void)
+{
+    PyErr_SetString(PyExc_NotImplementedError,
+                    "subinterpreters are not supported by PyPy");
+    return NULL;
+}
+
+void
+Py_EndInterpreter(PyThreadState *tstate)
+{
+    /* no-op: PyPy has no subinterpreters */
+}
+
 void
 _Py_RestoreSignals(void)
 {

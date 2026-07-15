@@ -604,6 +604,22 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module.set_test_null(a)
         assert not hasattr(a, "test")
 
+    def test_py_is(self):
+        module = self.import_extension('foo', [
+            ("is_same", "METH_VARARGS",
+             """
+                PyObject *a, *b;
+                if (!PyArg_ParseTuple(args, "OO", &a, &b))
+                    return NULL;
+                return PyLong_FromLong(Py_Is(a, b));
+             """),
+            ])
+        x = object()
+        assert module.is_same(x, x) == 1
+        assert module.is_same(x, object()) == 0
+        assert module.is_same(None, None) == 1
+        assert module.is_same(None, x) == 0
+
 class AppTestPyBufferObject(AppTestCpythonExtensionBase):
     """
     PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.

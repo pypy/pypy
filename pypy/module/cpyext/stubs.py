@@ -7,12 +7,6 @@
 #from rpython.rtyper.lltypesystem import rffi, lltype
 
 
-@cpython_api([rffi.CCHARP], Py_ssize_t, error=-1)
-def PyBuffer_SizeFromFormat(space, format):
-    """Return the implied itemsize from the struct-stype
-    format."""
-    raise NotImplementedError
-
 @cpython_api([rffi.INT_real, Py_ssize_t, Py_ssize_t, Py_ssize_t, lltype.Char], lltype.Void)
 def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortran):
     """Fill the strides array with byte-strides of a contiguous (C-style if
@@ -862,50 +856,6 @@ def PyEval_ReleaseLock(space):
     instead."""
     raise NotImplementedError
 
-@cpython_api([], PyThreadState)
-def Py_NewInterpreter(space):
-    """Create a new sub-interpreter.  This is an (almost) totally separate
-    environment for the execution of Python code.  In particular, the new
-    interpreter has separate, independent versions of all imported modules,
-    including the fundamental modules builtins, __main__ and sys.  The table of
-    loaded modules (sys.modules) and the module search path (sys.path) are also
-    separate.  The new environment has no sys.argv variable.  It has new standard
-    I/O stream file objects sys.stdin, sys.stdout and sys.stderr (however these
-    refer to the same underlying file descriptors).
-
-    The return value points to the first thread state created in the new
-    sub-interpreter.  This thread state is made in the current thread state.
-    Note that no actual thread is created; see the discussion of thread states
-    below.  If creation of the new interpreter is unsuccessful, NULL is
-    returned; no exception is set since the exception state is stored in the
-    current thread state and there may not be a current thread state.  (Like all
-    other Python/C API functions, the global interpreter lock must be held before
-    calling this function and is still held when it returns; however, unlike most
-    other Python/C API functions, there needn't be a current thread state on
-    entry.)
-
-    Extension modules are shared between (sub-)interpreters as follows: the first
-    time a particular extension is imported, it is initialized normally, and a
-    (shallow) copy of its module's dictionary is squirreled away.  When the same
-    extension is imported by another (sub-)interpreter, a new module is initialized
-    and filled with the contents of this copy; the extension's init function is
-    not called.  Note that this is different from what happens when an extension is
-    imported after the interpreter has been completely re-initialized by calling
-    Py_Finalize() and Py_Initialize(); in that case, the extension's
-    initmodule function is called again."""
-    raise NotImplementedError
-
-@cpython_api([PyThreadState], lltype.Void)
-def Py_EndInterpreter(space, tstate):
-    """Destroy the (sub-)interpreter represented by the given thread state. The
-    given thread state must be the current thread state.  See the discussion of
-    thread states below.  When the call returns, the current thread state is
-    NULL.  All thread states associated with this interpreter are destroyed.
-    (The global interpreter lock must be held before calling this function and is
-    still held when it returns.)  Py_Finalize() will destroy all sub-interpreters
-    that haven't been explicitly destroyed at that point."""
-    raise NotImplementedError
-
 @cpython_api([Py_tracefunc, PyObject], lltype.Void)
 def PyEval_SetProfile(space, func, obj):
     """Set the profiler function to func.  The obj parameter is passed to the
@@ -1624,14 +1574,6 @@ def Py_CompileStringExFlags(space, str, filename, start, flags, optimize):
     """
     raise NotImplementedError
 
-
-@cpython_api([PyObject, PyObject, PyObject, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real, PyObject], PyObject)
-def PyEval_EvalCodeEx(space, co, globals, locals, args, argcount, kws, kwcount, defs, defcount, closure):
-    """Evaluate a precompiled code object, given a particular environment for its
-    evaluation.  This environment consists of dictionaries of global and local
-    variables, arrays of arguments, keywords and defaults, and a closure tuple of
-    cells."""
-    raise NotImplementedError
 
 @cpython_api([PyFrameObject], PyObject)
 def PyEval_EvalFrame(space, f):

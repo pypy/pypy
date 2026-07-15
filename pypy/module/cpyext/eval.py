@@ -6,10 +6,13 @@ from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
     cpython_struct, ferror)
-from pypy.module.cpyext.pyobject import PyObject
+from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
+from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.function import Function
+from pypy.interpreter.argument import Arguments
 
 PyCompilerFlags = cpython_struct(
     "PyCompilerFlags", (("cf_flags", rffi.INT),
@@ -74,6 +77,46 @@ def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     if w_locals is None:
         w_locals = space.w_None
     return compiling.eval(space, w_code, w_globals, w_locals)
+
+@cpython_api([PyObject, PyObject, PyObject,
+              PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real,
+              PyObjectP, rffi.INT_real, PyObject, PyObject], PyObject)
+def PyEval_EvalCodeEx(space, w_co, w_globals, w_locals, args, argcount,
+                      kws, kwcount, defs, defcount, w_kwdefs, w_closure):
+    """Evaluate a precompiled code object, given the globals and locals, plus
+    positional arguments, keyword name/value pairs, default values, keyword-only
+    defaults and a closure."""
+    code = space.interp_w(PyCode, w_co)
+    argcount = widen(argcount)
+    kwcount = widen(kwcount)
+    defcount = widen(defcount)
+
+    if not (code.co_flags & consts.CO_OPTIMIZED):
+        # class or module body: run against the given locals mapping.  A
+        # closure cannot be threaded through exec_code, so reject one.
+        if not space.is_none(w_closure):
+            raise oefmt(space.w_SystemError,
+                        "PyEval_EvalCodeEx: a closure requires an optimized "
+                        "(function) code object")
+        if w_locals is None:
+            w_locals = w_globals
+        return code.exec_code(space, w_globals, w_locals)
+
+    defs_w = [from_ref(space, defs[i]) for i in range(defcount)]
+    closure = None
+    if w_closure is not None:
+        closure = space.fixedview(w_closure)
+    func = Function(space, code, w_globals, defs_w, None, closure)
+    if w_kwdefs is not None:
+        func.w_kw_defs = w_kwdefs
+
+    args_w = [from_ref(space, args[i]) for i in range(argcount)]
+    keyword_names_w = None
+    keywords_w = None
+    if kwcount:
+        keyword_names_w = [from_ref(space, kws[2 * i]) for i in range(kwcount)]
+        keywords_w = [from_ref(space, kws[2 * i + 1]) for i in range(kwcount)]
+    return func.call_args(Arguments(space, args_w, keyword_names_w, keywords_w))
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyObject_CallObject(space, w_obj, w_arg):

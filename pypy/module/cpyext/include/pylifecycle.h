@@ -5,6 +5,9 @@ extern "C" {
 #endif
 
 
+PyAPI_FUNC(PyThreadState *) Py_NewInterpreter(void);
+PyAPI_FUNC(void) Py_EndInterpreter(PyThreadState *tstate);
+
 /* Restore signals that the interpreter has called SIG_IGN on to SIG_DFL. */
 #ifndef Py_LIMITED_API
 PyAPI_FUNC(void) _Py_RestoreSignals(void);

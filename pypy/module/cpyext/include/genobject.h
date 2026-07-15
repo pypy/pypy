@@ -6,6 +6,8 @@ extern "C" {
 
 #include "cpyext_genobject.h"
 
+PyAPI_FUNC(PyCodeObject *) PyGen_GetCode(PyGenObject *gen);
+
 #ifdef __cplusplus
 }
 #endif

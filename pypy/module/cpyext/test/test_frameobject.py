@@ -220,6 +220,43 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         gen = getgenframe()
         frame = next(gen)
         assert gen == module.frame_getgenerator(frame)
+
+    def test_frame_getvar(self):
+        module = self.import_extension('foo', [
+            ("frame_getvar", "METH_VARARGS",
+             """
+                PyObject *frame, *name;
+                if (!PyArg_ParseTuple(args, "OO", &frame, &name))
+                    return NULL;
+                if (!PyFrame_Check(frame)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetVar((PyFrameObject *)frame, name);
+             """),
+            ("frame_getvarstring", "METH_VARARGS",
+             """
+                PyObject *frame;
+                const char *name;
+                if (!PyArg_ParseTuple(args, "Oy", &frame, &name))
+                    return NULL;
+                if (!PyFrame_Check(frame)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetVarString((PyFrameObject *)frame, name);
+             """),
+            ], prologue='#include "frameobject.h"')
+        import sys
+        frame = sys._getframe()
+        x = 1
+        assert module.frame_getvar(frame, "x") == 1
+        assert module.frame_getvarstring(frame, b"x") == 1
+        raises(NameError, module.frame_getvar, frame, "y")
+        raises(NameError, module.frame_getvarstring, frame, b"y")
+        # name must be a str
+        raises(TypeError, module.frame_getvar, frame, b"x")
+        raises(TypeError, module.frame_getvar, frame, 123)
         
         
         

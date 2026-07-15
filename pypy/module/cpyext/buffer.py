@@ -5,8 +5,8 @@ from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.buffer import BufferView
 from pypy.module.cpyext.api import (
-    cpython_api, Py_buffer, Py_ssize_t, Py_ssize_tP, CONST_STRINGP, cts,
-    generic_cpy_call,
+    cpython_api, Py_buffer, Py_ssize_t, Py_ssize_tP, CONST_STRING, CONST_STRINGP,
+    cts, generic_cpy_call,
     PyBUF_WRITABLE, PyBUF_FORMAT, PyBUF_ND, PyBUF_STRIDES, PyBUF_SIMPLE)
 from pypy.module.cpyext.typeobjectdefs import releasebufferproc
 from pypy.module.cpyext.pyobject import PyObject, incref, decref, as_pyobj
@@ -161,6 +161,14 @@ class FQ(rgc.FinalizerQueue):
                 buf.releasebuffer()
 
 fq = FQ()
+
+
+@cpython_api([CONST_STRING], Py_ssize_t, error=-1)
+def PyBuffer_SizeFromFormat(space, format):
+    w_struct = space.getbuiltinmodule('_struct')
+    w_calcsize = space.getattr(w_struct, space.newtext('calcsize'))
+    w_res = space.call_function(w_calcsize, space.newtext(rffi.charp2str(format)))
+    return space.int_w(w_res)
 
 
 @cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)

@@ -613,3 +613,13 @@ def PyErr_GetHandledException(space):
     if not operror:
         return space.w_None
     return operror.normalize_exception(space)
+
+
+@cpython_api([], PyObject)
+def PyErr_GetRaisedException(space):
+    # fetch-and-clear: transfers ownership of the error indicator to the caller
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror is None:
+        return
+    return operror.normalize_exception(space)

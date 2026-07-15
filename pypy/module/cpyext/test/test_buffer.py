@@ -1,6 +1,23 @@
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 class AppTestBuffer(AppTestCpythonExtensionBase):
+    def test_size_from_format(self):
+        import struct
+        module = self.import_extension('buffer', [
+            ('size_from_format', 'METH_VARARGS',
+             """
+             const char *fmt;
+             Py_ssize_t n;
+             if (!PyArg_ParseTuple(args, "s", &fmt))
+                 return NULL;
+             n = PyBuffer_SizeFromFormat(fmt);
+             if (n < 0)
+                 return NULL;
+             return PyLong_FromSsize_t(n);
+             """)])
+        assert module.size_from_format("i") == struct.calcsize("i")
+        assert module.size_from_format("2i3d") == struct.calcsize("2i3d")
+
     def test_AsWriteBuffer(self):
         import array
         module = self.import_extension('buffer', [
