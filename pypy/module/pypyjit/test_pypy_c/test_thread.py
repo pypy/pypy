@@ -69,6 +69,7 @@ class TestThread(BaseTestPyPyC):
         assert loop.match("""
         i56 = int_gt(i44, 0)
         guard_true(i56, descr=...)
+        guard_not_invalidated?
         p57 = force_token()
         setfield_gc(p0, p57, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token 8>)
         i58 = call_may_force_i(ConstClass(acquire_timed), p31, -1, descr=<Calli . ri EF=7>)
