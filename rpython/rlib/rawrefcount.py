@@ -10,10 +10,14 @@ from rpython.rlib.objectmodel import we_are_translated, specialize, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rgc
-
+from rpython.rlib.rarithmetic import UINT_MAX
 
 REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
 REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+if sys.maxint > 2**32:
+    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX)
+else:
+    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX >> 2)
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 

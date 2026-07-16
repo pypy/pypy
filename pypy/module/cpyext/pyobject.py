@@ -17,8 +17,13 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
+from rpython.rlib.rarithmetic import UINT_MAX, widen
 from rpython.rlib.debug import ll_assert, fatalerror, check_annotation
 
+if sys.maxint > 2**32:
+    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX)
+else:
+    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed,UINT_MAX >> 2)
 
 #________________________________________________________
 # type description
@@ -429,13 +434,16 @@ def incref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     assert pyobj.c_ob_refcnt >= 1
-    pyobj.c_ob_refcnt += 1
+    if pyobj.c_ob_refcnt != _Py_IMMORTAL_REFCNT:
+        pyobj.c_ob_refcnt += 1
 
 @specialize.ll()
 def decref(space, pyobj):
     from pypy.module.cpyext.api import generic_cpy_call
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
+    if pyobj.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
+        return
     if pyobj:
         assert pyobj.c_ob_refcnt > 0
         assert (pyobj.c_ob_pypy_link == 0 or
@@ -463,11 +471,9 @@ def _Py_HashPointer(space, ptr):
 
 @cpython_api([PyObject], lltype.Void)
 def Py_IncRef(space, obj):
-    # used only ifdef PYPY_DEBUG_REFCOUNT
     if obj:
         incref(space, obj)
 
 @cpython_api([PyObject], lltype.Void)
 def Py_DecRef(space, obj):
-    # used only ifdef PYPY_DEBUG_REFCOUNT
     decref(space, obj)

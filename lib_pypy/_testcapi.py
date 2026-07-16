@@ -8,7 +8,13 @@ except ImportError:
 else:
     import _pypy_testcapi
     cfile = '_testcapimodule.c'
-    csources = [cfile, '_testcapi/heaptype_relative.c']
+    csources = [cfile, '_testcapi/heaptype_relative.c',
+                '_testcapi/vectorcall_limited.c',
+                '_testcapi/immortal.c',
+                '_testcapi/structmember.c',
+                '_testcapi/bytearray.c',
+                '_testcapi/run.c',
+               ]
     thisdir = os.path.dirname(__file__)
     output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
     modfile = '_testcapi' + _pypy_testcapi._get_c_extension_suffix()
