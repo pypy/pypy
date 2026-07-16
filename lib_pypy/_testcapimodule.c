@@ -1619,6 +1619,7 @@ run_in_subinterp(PyObject *self, PyObject *args)
     return PyLong_FromLong(r);
 }
 
+#ifndef PYPY_VERSION  /* PyPy has no subinterpreters / PyInterpreterConfig / cross-interpreter data */
 /* To run some code in a sub-interpreter. */
 static PyObject *
 run_in_subinterp_with_config(PyObject *self, PyObject *args, PyObject *kwargs)
@@ -1768,6 +1769,7 @@ restore_crossinterp_data(PyObject *self, PyObject *args)
     }
     return _PyCrossInterpreterData_NewObject(data);
 }
+#endif  /* PYPY_VERSION */
 
 static PyMethodDef ml;
 
@@ -1995,6 +1997,7 @@ join_temporary_c_thread(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 /* marshal */
 
+#ifndef PYPY_VERSION  /* PyPy exposes no PyMarshal_*File / _Py_fopen_obj */
 static PyObject*
 pymarshal_write_long_to_file(PyObject* self, PyObject *args)
 {
@@ -2141,6 +2144,7 @@ pymarshal_read_object_from_file(PyObject* self, PyObject *args)
     }
     return Py_BuildValue("Nl", obj, pos);
 }
+#endif  /* PYPY_VERSION */
 
 static PyObject*
 return_null_without_error(PyObject *self, PyObject *args)
@@ -2172,6 +2176,7 @@ getitem_with_error(PyObject *self, PyObject *args)
     return PyObject_GetItem(map, key);
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 dict_get_version(PyObject *self, PyObject *args)
 {
@@ -2190,6 +2195,7 @@ dict_get_version(PyObject *self, PyObject *args)
                   "version is larger than unsigned long long");
     return PyLong_FromUnsignedLongLong((unsigned long long)version);
 }
+#endif
 
 
 static PyObject *
@@ -2292,11 +2298,13 @@ test_pythread_tss_key_state(PyObject *self, PyObject *args)
 }
 
 
+#ifndef PYPY_VERSION  /* _PyContext_NewHamtForTests not exposed by PyPy */
 static PyObject*
 new_hamt(PyObject *self, PyObject *args)
 {
     return _PyContext_NewHamtForTests();
 }
+#endif  /* PYPY_VERSION */
 
 
 /* def bad_get(self, obj, cls):
@@ -2642,7 +2650,10 @@ test_py_is_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
     TEST_PY_IS();
 }
 
+#ifndef PYPY_VERSION
+// PyPy does not support the stable ABI
 #undef Py_Is
+#endif
 
 // Test Py_Is() function, after undefining its macro.
 static PyObject*
@@ -2696,6 +2707,7 @@ type_assign_specific_version_unsafe(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION  /* PyUnstable_Type_AssignVersionTag not exposed by PyPy */
 static PyObject *
 type_assign_version(PyObject *self, PyObject *type)
 {
@@ -2706,6 +2718,7 @@ type_assign_version(PyObject *self, PyObject *type)
     int res = PyUnstable_Type_AssignVersionTag((PyTypeObject *)type);
     return PyLong_FromLong(res);
 }
+#endif  /* PYPY_VERSION */
 
 
 static PyObject *
@@ -3123,6 +3136,7 @@ fail:
     return NULL;
 }
 
+#ifndef PYPY_VERSION  /* PyEval_SetTrace / _PyObject_ClearManagedDict not exposed by PyPy */
 static int
 record_func(PyObject *obj, PyFrameObject *f, int what, PyObject *arg)
 {
@@ -3201,6 +3215,7 @@ clear_managed_dict(PyObject *self, PyObject *obj)
     _PyObject_ClearManagedDict(obj);
     Py_RETURN_NONE;
 }
+#endif  /* PYPY_VERSION */
 
 
 static PyObject *
@@ -3514,15 +3529,18 @@ static PyMethodDef TestMethods[] = {
     {"crash_no_current_thread", crash_no_current_thread,         METH_NOARGS},
     {"test_current_tstate_matches", test_current_tstate_matches, METH_NOARGS},
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#ifndef PYPY_VERSION  /* PyInterpreterConfig / cross-interpreter data not exposed by PyPy */
     {"run_in_subinterp_with_config",
      _PyCFunction_CAST(run_in_subinterp_with_config),
      METH_VARARGS | METH_KEYWORDS},
     {"get_crossinterp_data",    get_crossinterp_data,            METH_VARARGS},
     {"restore_crossinterp_data", restore_crossinterp_data,       METH_VARARGS},
+#endif  /* PYPY_VERSION */
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
     {"call_in_temporary_c_thread", call_in_temporary_c_thread, METH_VARARGS,
      PyDoc_STR("set_error_class(error_class) -> None")},
     {"join_temporary_c_thread", join_temporary_c_thread, METH_NOARGS},
+#ifndef PYPY_VERSION  /* PyMarshal_*File / _Py_fopen_obj not exposed by PyPy */
     {"pymarshal_write_long_to_file",
         pymarshal_write_long_to_file, METH_VARARGS},
     {"pymarshal_write_object_to_file",
@@ -3535,18 +3553,23 @@ static PyMethodDef TestMethods[] = {
         pymarshal_read_last_object_from_file, METH_VARARGS},
     {"pymarshal_read_object_from_file",
         pymarshal_read_object_from_file, METH_VARARGS},
+#endif  /* PYPY_VERSION */
     {"return_null_without_error", return_null_without_error, METH_NOARGS},
     {"return_result_with_error", return_result_with_error, METH_NOARGS},
     {"getitem_with_error", getitem_with_error, METH_VARARGS},
     {"Py_CompileString",     pycompilestring, METH_O},
+#ifndef PYPY_VERSION
     {"dict_get_version", dict_get_version, METH_VARARGS},
+#endif  /* PYPY_VERSION */
     {"raise_SIGINT_then_send_None", raise_SIGINT_then_send_None, METH_VARARGS},
     {"stack_pointer", stack_pointer, METH_NOARGS},
 #ifdef W_STOPCODE
     {"W_STOPCODE", py_w_stopcode, METH_VARARGS},
 #endif
     {"test_pythread_tss_key_state", test_pythread_tss_key_state, METH_VARARGS},
+#ifndef PYPY_VERSION  /* _PyContext_NewHamtForTests not exposed by PyPy */
     {"hamt", new_hamt, METH_NOARGS},
+#endif  /* PYPY_VERSION */
     {"bad_get", _PyCFunction_CAST(bad_get), METH_FASTCALL},
 #ifdef Py_REF_DEBUG
     {"negative_refcount", negative_refcount, METH_NOARGS},
@@ -3570,7 +3593,9 @@ static PyMethodDef TestMethods[] = {
     {"type_modified", type_modified, METH_O, PyDoc_STR("PyType_Modified")},
     {"type_assign_specific_version_unsafe", type_assign_specific_version_unsafe, METH_VARARGS,
      PyDoc_STR("forcefully assign type->tp_version_tag")},
+#ifndef PYPY_VERSION  /* PyUnstable_Type_AssignVersionTag not exposed by PyPy */
     {"type_assign_version", type_assign_version, METH_O, PyDoc_STR("PyUnstable_Type_AssignVersionTag")},
+#endif  /* PYPY_VERSION */
     {"type_get_tp_bases", type_get_tp_bases, METH_O},
     {"type_get_tp_mro", type_get_tp_mro, METH_O},
     {"get_basic_static_type", get_basic_static_type, METH_VARARGS, NULL},
@@ -3586,10 +3611,14 @@ static PyMethodDef TestMethods[] = {
     {"gen_get_code", gen_get_code, METH_O, NULL},
     {"get_feature_macros", get_feature_macros, METH_NOARGS, NULL},
     {"test_code_api", test_code_api, METH_NOARGS, NULL},
+#ifndef PYPY_VERSION  /* PyEval_SetTrace not exposed by PyPy */
     {"settrace_to_error", settrace_to_error, METH_O, NULL},
     {"settrace_to_record", settrace_to_record, METH_O, NULL},
+#endif  /* PYPY_VERSION */
     {"test_macros", test_macros, METH_NOARGS, NULL},
+#ifndef PYPY_VERSION  /* _PyObject_ClearManagedDict not exposed by PyPy */
     {"clear_managed_dict", clear_managed_dict, METH_O, NULL},
+#endif  /* PYPY_VERSION */
     {"function_get_code", function_get_code, METH_O, NULL},
     {"function_get_globals", function_get_globals, METH_O, NULL},
     {"function_get_module", function_get_module, METH_O, NULL},
