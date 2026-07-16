@@ -1,6 +1,6 @@
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit, rawrefcount
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, keepalive_until_here
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 
@@ -14,14 +14,14 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, Py_ssize_t,
     slot_function, generic_cpy_call, METH_VARARGS, METH_KEYWORDS, CANNOT_FAIL,
     build_type_checkers_flags, cts, parse_dir, PyTypeObject,
-    PyTypeObjectPtr, Py_buffer,
+    PyTypeObjectPtr, Py_buffer, generic_cpy_call_dont_convert_result,
     Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_READY, Py_TPFLAGS_READYING,
     Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
-    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR,
+    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR, Py_TPFLAGS_IMMUTABLETYPE,
     PyObject, PyVarObject,
     )
 
@@ -41,8 +41,9 @@ from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyGetSetDef, PyMemberDef, PyMappingMethods,
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
+from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
 from pypy.objspace.std.typeobject import (W_TypeObject, find_best_base,
-    extract_doc, extract_txtsig)
+    extract_doc, extract_txtsig, _calculate_metaclass)
 
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
@@ -789,7 +790,6 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         w_qualname = space.getattr(w_type, space.newtext('__qualname__'))
         heaptype.c_ht_name = make_ref(space, w_typename)
         heaptype.c_ht_qualname = make_ref(space, w_qualname)
-        from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
         utf8 = PyUnicode_AsUTF8(space, heaptype.c_ht_name)
         pto.c_tp_name = cts.cast('const char *', utf8)
     else:
@@ -1148,13 +1148,24 @@ def get_slot_by_num(typ, slotnum):
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromSpecWithBases(space, spec, bases):
-    return PyType_FromModuleAndSpec(space, None, spec, bases)
+    return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
+                                      lltype.nullptr(PyObject.TO), spec, bases)
+
+@cts.decl("""PyObject *
+    PyType_FromMetaclass(PyTypeObject * metaclass, PyObject * module, PyType_Spec *spec, PyObject *bases)""",
+    result_is_ll=True)
+def PyType_FromMetaclass(space, metaclass, module, spec, bases):
+    return _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases)
+
 
 @cts.decl("""PyObject *
     PyType_FromModuleAndSpec(PyObject *module, PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromModuleAndSpec(space, module, spec, bases):
-    from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
+    return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
+                                      module, spec, bases)
+
+def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
@@ -1222,17 +1233,6 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
         raise oefmt(space.w_SystemError,
                         "Type spec does not define the name field.");
 
-    res = state.ccall("PyType_GenericAlloc", p_type, nmembers)
-    res = cts.cast('PyHeapTypeObject *', res)
-    typ = res.c_ht_type
-    typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
-    res.c_ht_name = make_ref(space, space.newtext(name))
-    res.c_ht_qualname = make_ref(space, space.newtext(name))
-    incref(space, res.c_ht_qualname)
-    typ.c_tp_name = spec.c_name
-    if module:
-        incref(space, module)
-        res.c_ht_module = module
     if not bases:
         w_base = space.w_object
         bases_w = []
@@ -1256,6 +1256,26 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             bases_w = [w_bases]
         else:
             bases_w = space.fixedview(w_bases)
+    if widen(spec.c_flags) & Py_TPFLAGS_IMMUTABLETYPE:
+        # XXX check that all bases are immutable
+        pass
+    # Calculate the metaclass
+    if metaclass:
+        w_metaclass = from_ref(space, cts.cast('PyObject*', metaclass))
+    else:
+        w_metaclass = space.w_type
+    w_metaclass = _calculate_metaclass(space, w_metaclass, bases_w)
+    if not space.isinstance_w(w_metaclass, space.w_type):
+        raise oefmt(space.w_TypeError,
+            "Metaclass '%R' is not an a subclass of 'type'.",
+            w_metaclass)
+    metaclass_p = as_pyobj(space, w_metaclass)
+    metaclass_pto = cts.cast('PyTypeObject*', metaclass_p)
+    typetype_pto = cts.cast('PyTypeObject*', as_pyobj(space, space.w_type))
+    if (metaclass_pto.c_tp_new and (metaclass_pto.c_tp_new != typetype_pto.c_tp_new)):
+        raise oefmt(space.w_TypeError,
+            "Metaclasses with custom tp_new are not supported.")
+    keepalive_until_here(w_metaclass)
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
     if False: # not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
@@ -1264,7 +1284,21 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
         raise oefmt(space.w_TypeError,
             "type '%s' is not an acceptable base type",
             rffi.constcharp2str(base.c_tp_name))
-
+    metaclass_pto = cts.cast('PyTypeObject*', metaclass_p)
+    res = generic_cpy_call_dont_convert_result(space, metaclass_pto.c_tp_alloc, metaclass_pto, nmembers)
+    if not res:
+        # Error is already set
+        return lltype.nullptr(PyObject.TO)
+    res = cts.cast('PyHeapTypeObject *', res)
+    typ = res.c_ht_type
+    typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
+    res.c_ht_name = make_ref(space, space.newtext(name))
+    res.c_ht_qualname = make_ref(space, space.newtext(name))
+    incref(space, res.c_ht_qualname)
+    typ.c_tp_name = spec.c_name
+    if module:
+        incref(space, module)
+        res.c_ht_module = module
     # Initialize essential fields
     typ.c_tp_as_async = res.c_as_async
     typ.c_tp_as_number = res.c_as_number

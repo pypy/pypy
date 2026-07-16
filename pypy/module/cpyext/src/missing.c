@@ -44,3 +44,18 @@ int (*PyOS_InputHook)(void) = 0;  /* only ever filled in by C extensions */
 PyAPI_FUNC(_pypy_pyos_inputhook) _Py_get_PyOS_InputHook(void) {
     return PyOS_InputHook;
 }
+
+/* TODO: not yet implemented, stubbed to fail cleanly */
+void *
+PyObject_GetTypeData(PyObject *obj, PyTypeObject *cls)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "PyObject_GetTypeData");
+    return NULL;
+}
+
+Py_ssize_t
+PyType_GetTypeDataSize(PyTypeObject *cls)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "PyType_GetTypeDataSize");
+    return -1;
+}

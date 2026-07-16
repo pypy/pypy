@@ -30,6 +30,20 @@ struct wrapperbase {
 
 /* Various kinds of descriptor objects */
 
+/* An array of PyMemberDef structures defines the name, type and offset
+   of selected members of a C structure.  These can be read by
+   PyMember_GetOne() and set by PyMember_SetOne() (except if their READONLY
+   flag is set).  The array must be terminated with an entry whose name
+   pointer is NULL. */
+typedef struct PyMemberDef {
+    const char *name;
+    int type;
+    Py_ssize_t offset;
+    int flags;
+    const char *doc;
+} PyMemberDef;
+
+
 typedef struct {
     PyObject_HEAD
     PyTypeObject *d_type;

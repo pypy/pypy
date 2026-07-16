@@ -210,17 +210,6 @@ typedef struct {
     PyObject    *m_weakreflist; /* List of weak references */
 } PyCFunctionObject;
 
-/* from structmember.h */
-typedef struct PyMemberDef {
-    /* Current version, use this */
-    const char *name;
-    int type;
-    Py_ssize_t offset;
-    int flags;
-    const char *doc;
-} PyMemberDef;
-
-
 typedef struct _typeobject {
     PyObject_VAR_HEAD
     const char *tp_name; /* For printing, in format "<module>.<name>" */

@@ -39,10 +39,7 @@ integer_converters = unrolling_iterable([ # range checking, unsigned
     (T_PYSSIZET, rffi.SSIZE_T),
     ])
 
-_HEADER = 'pypy_structmember_decl.h'
-
-
-@cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
+@cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject)
 def PyMember_GetOne(space, obj, w_member):
     addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
@@ -94,7 +91,7 @@ def PyMember_GetOne(space, obj, w_member):
 
 
 @cpython_api([rffi.CCHARP, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
-             error=-1, header=_HEADER)
+             error=-1)
 def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = widen(w_member.c_type)
