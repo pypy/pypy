@@ -6,6 +6,30 @@
 #include "windows.h"
 #endif
 
+int
+PyRun_SimpleStringFlags(const char *command, PyCompilerFlags *flags)
+{
+    PyObject *m, *d, *v;
+    m = PyImport_AddModule("__main__");
+    if (m == NULL)
+        return -1;
+    d = PyModule_GetDict(m);            /* borrowed */
+    v = PyRun_StringFlags(command, Py_file_input, d, d, flags);
+    if (v == NULL) {
+        PyErr_Print();
+        return -1;
+    }
+    Py_DECREF(v);
+    return 0;
+}
+
+#undef PyRun_SimpleString
+int
+PyRun_SimpleString(const char *command)
+{
+    return PyRun_SimpleStringFlags(command, NULL);
+}
+
 void
 _Py_FatalErrorFunc(const char * func, const char *msg)
 {

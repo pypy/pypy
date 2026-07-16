@@ -1425,19 +1425,6 @@ def PyRun_AnyFileExFlags(space, fp, filename, closeit, flags):
     function uses "???" as the filename."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, PyCompilerFlags], rffi.INT_real, error=-1)
-def PyRun_SimpleStringFlags(space, command, flags):
-    """Executes the Python source code from command in the __main__ module
-    according to the flags argument. If __main__ does not already exist, it
-    is created.  Returns 0 on success or -1 if an exception was raised.  If
-    there was an error, there is no way to get the exception information. For the
-    meaning of flags, see below.
-
-    Note that if an otherwise unhandled SystemExit is raised, this
-    function will not return -1, but exit the process, as long as
-    Py_InspectFlag is not set."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyRun_SimpleFile(space, fp, filename):
     """This is a simplified interface to PyRun_SimpleFileExFlags() below,

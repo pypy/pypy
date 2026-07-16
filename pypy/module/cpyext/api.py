@@ -26,6 +26,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
+from pypy.interpreter.generator import GeneratorIterator
 from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyparser import pygram
@@ -784,6 +785,7 @@ def build_exported_objects():
         'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
         'PyCapsule_Type': 'space.gettypeobject(W_Capsule.typedef)',
         'PyFrame_Type': 'space.gettypeobject(PyFrame.typedef)',
+        'PyGen_Type': 'space.gettypeobject(GeneratorIterator.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 

@@ -18,6 +18,9 @@ PyAPI_FUNC(PyObject *) PyImport_ImportModuleLevel(
 #define PyImport_ImportModuleEx(n, g, l, f) \
     PyImport_ImportModuleLevel(n, g, l, f, 0)
 
+PyAPI_FUNC(PyObject *) _PyImport_GetModuleAttrString(const char *modname,
+                                                     const char *attrname);
+
 #ifdef __cplusplus
 }
 #endif
