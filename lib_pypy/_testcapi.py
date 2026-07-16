@@ -8,6 +8,7 @@ except ImportError:
 else:
     import _pypy_testcapi
     cfile = '_testcapimodule.c'
+    csources = [cfile, '_testcapi/heaptype_relative.c']
     thisdir = os.path.dirname(__file__)
     output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
     modfile = '_testcapi' + _pypy_testcapi._get_c_extension_suffix()
@@ -22,7 +23,7 @@ else:
                 import setuptools
             except ImportError:
                 pass
-        mod = _pypy_testcapi.compile_shared(cfile, '_testcapi', thisdir)
+        mod = _pypy_testcapi.compile_shared(csources, '_testcapi', thisdir)
 
 class awaitType:
     def __init__(self, iterator):

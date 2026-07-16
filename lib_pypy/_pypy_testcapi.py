@@ -55,7 +55,7 @@ def _get_c_extension_suffix():
     return suffixes[0] if suffixes else None
 
 
-def _compile_shared_distutils(source_path, modulename, output_dir):
+def _compile_shared_distutils(source_paths, modulename, output_dir):
     thisdir = os.path.dirname(__file__)
     from distutils.ccompiler import new_compiler
     from distutils import log, sysconfig
@@ -63,18 +63,17 @@ def _compile_shared_distutils(source_path, modulename, output_dir):
 
     compiler = new_compiler()
     compiler.output_dir = output_dir
-    # Compile .c file
+    # Compile .c files
     include_dir = sysconfig.get_config_var('INCLUDEPY')
     if sys.platform == 'win32':
         ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
         ccflags = ['-fPIC', '-Wimplicit-function-declaration', '-O0', '-g3']
     sysconfig.customize_compiler(compiler)
-    res = compiler.compile([source_path],
+    object_filenames = compiler.compile(source_paths,
                            include_dirs=[include_dir],
                            extra_preargs=ccflags,
                           )
-    object_filename = res[0]
 
     # set link options
     output_filename = modulename + _get_c_extension_suffix()
@@ -94,14 +93,14 @@ def _compile_shared_distutils(source_path, modulename, output_dir):
 
     # link the dynamic library
     compiler.link_shared_object(
-        [object_filename],
+        object_filenames,
         output_filename,
         libraries=libraries,
         extra_preargs=extra_ldargs)
     return os.path.join(output_dir, output_filename)
 
 
-def _compile_shared_ccdriver(source_path, modulename, output_dir):
+def _compile_shared_ccdriver(source_paths, modulename, output_dir):
     # distutils-free fallback for Python >= 3.12 (no distutils/setuptools).
     # Uses PyPy's own compiler driver; INCLUDEPY and the PyInit_ export are
     # added by the driver.
@@ -121,26 +120,30 @@ def _compile_shared_ccdriver(source_path, modulename, output_dir):
         extra_compile_args = ['-Wimplicit-function-declaration', '-O0', '-g3']
         libraries = None
         extra_link_args = None
-    return _cc_compile_shared(source_path, modulename, output_dir,
+    return _cc_compile_shared(source_paths, modulename, output_dir,
                               libraries=libraries,
                               extra_compile_args=extra_compile_args,
                               extra_link_args=extra_link_args)
 
 
 def compile_shared(csource, modulename, output_dir):
-    """Compile csource into an extension module,
-    and import it.
+    """Compile csource (a single filename or a list of them) into an
+    extension module, and import it.
     """
     thisdir = os.path.dirname(__file__)
     assert output_dir is not None
 
-    source_path = os.path.join(thisdir, csource)
+    if isinstance(csource, str):
+        csources = [csource]
+    else:
+        csources = list(csource)
+    source_paths = [os.path.join(thisdir, c) for c in csources]
     try:
         output_filename = _compile_shared_distutils(
-            source_path, modulename, output_dir)
+            source_paths, modulename, output_dir)
     except ImportError:
         output_filename = _compile_shared_ccdriver(
-            source_path, modulename, output_dir)
+            source_paths, modulename, output_dir)
 
     # Now import the newly created library, it will replace the original
     # module in sys.modules
@@ -151,7 +154,7 @@ def compile_shared(csource, modulename, output_dir):
     # directory to 'hashed_fn', for future processes (and to avoid a
     # growing number of temporary directories that are not completely
     # obvious to clean up on Windows)
-    hashed_fn = _get_hashed_filename(source_path)
+    hashed_fn = _get_hashed_filename(source_paths[0])
     try:
         with open(hashed_fn, 'w') as f:
             f.write(os.path.basename(output_dir))

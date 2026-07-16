@@ -220,17 +220,22 @@ def compile_shared(csource, modulename, output_dir, include_dirs=None,
                    define_macros=None, libraries=None, library_dirs=None,
                    extra_compile_args=None, extra_link_args=None,
                    compiler_verbose=0):
-    """Compile a single C source into an extension module, distutils-free.
+    """Compile one or more C sources into an extension module, distutils-free.
 
     A sibling of :func:`cffi.ffiplatform.compile`: both sit on
-    :class:`Extension`/:func:`build`, but this one packages the single-source
-    build the on-demand C test modules (``_testcapi``, ``_ctypes_test``, ...)
-    used to do through ``distutils.ccompiler``.  ``csource`` is compiled and
-    linked into ``modulename`` inside ``output_dir`` and the absolute path of
-    the produced shared object is returned.  The PyPy header dir (INCLUDEPY)
-    and, on MSVC, the ``PyInit_`` export are added by :func:`build` itself.
+    :class:`Extension`/:func:`build`, but this one packages the build the
+    on-demand C test modules (``_testcapi``, ``_ctypes_test``, ...) used to do
+    through ``distutils.ccompiler``.  ``csource`` is a single source path or a
+    list of them; they are compiled and linked into ``modulename`` inside
+    ``output_dir`` and the absolute path of the produced shared object is
+    returned.  The PyPy header dir (INCLUDEPY) and, on MSVC, the ``PyInit_``
+    export are added by :func:`build` itself.
     """
-    ext = Extension(modulename, [csource], include_dirs=include_dirs,
+    if isinstance(csource, str):
+        sources = [csource]
+    else:
+        sources = list(csource)
+    ext = Extension(modulename, sources, include_dirs=include_dirs,
                     define_macros=define_macros, libraries=libraries,
                     library_dirs=library_dirs,
                     extra_compile_args=extra_compile_args,
