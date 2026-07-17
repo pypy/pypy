@@ -1044,13 +1044,6 @@ def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
-def PySequence_Count(space, o, value):
-    """Return the number of occurrences of value in o, that is, return the number
-    of keys for which o[key] == value.  On failure, return -1.  This is
-    equivalent to the Python expression o.count(value)."""
-    raise NotImplementedError
-
 @cpython_api([FILE, rffi.CCHARP], rffi.INT_real, error=-1)
 def Py_FdIsInteractive(space, fp, filename):
     """Return true (nonzero) if the standard I/O file fp with name filename is
@@ -1531,15 +1524,6 @@ def PyRun_FileEx(space, fp, filename, start, globals, locals, closeit):
 def PyRun_FileFlags(space, fp, filename, start, globals, locals, flags):
     """This is a simplified interface to PyRun_FileExFlags() below, leaving
     closeit set to 0."""
-    raise NotImplementedError
-
-@cpython_api([FILE, rffi.CCHARP, rffi.INT_real, PyObject, PyObject, rffi.INT_real, PyCompilerFlags], PyObject)
-def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flags):
-    """Similar to PyRun_StringFlags(), but the Python source code is read from
-    fp instead of an in-memory string. filename should be the name of the file,
-    it is decoded from the filesystem encoding (sys.getfilesystemencoding()).
-    If closeit is true, the file is closed before PyRun_FileExFlags()
-    returns."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlags, rffi.INT_real], PyObject)

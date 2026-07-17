@@ -23,7 +23,7 @@ null_error(void)
 /* Operations on any object */
 
 int
-PyObject_DelItemString(PyObject *o, char *key)
+PyObject_DelItemString(PyObject *o, const char *key)
 {
     PyObject *okey;
     int ret;

@@ -291,7 +291,7 @@ PyAPI_FUNC(Py_ssize_t) PyObject_Length(PyObject *o);
 #define PyObject_Length PyObject_Size
 
 
-PyAPI_FUNC(int) PyObject_DelItemString(PyObject *o, char *key);
+PyAPI_FUNC(int) PyObject_DelItemString(PyObject *o, const char *key);
 
 /* === Number Protocol ================================================== */
 

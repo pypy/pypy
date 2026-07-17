@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct, ferror)
+    cpython_struct, ferror, fclose)
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.frameobject import PyFrameObject
@@ -185,8 +185,9 @@ def compile_string(space, source, filename, start, flags=0, feature_version=-1):
     return compiling.compile(space, w_source, filename, mode, flags,
                              _feature_version=feature_version)
 
-def run_string(space, source, filename, start, w_globals, w_locals):
-    w_code = compile_string(space, source, filename, start)
+def run_string(space, source, filename, start, w_globals, w_locals, flags=0, feature_version=-1):
+    w_code = compile_string(space, source, filename, start, flags,
+                            feature_version=feature_version)
     return compiling.eval(space, w_code, w_globals, w_locals)
 
 @cpython_api([CONST_STRING, rffi.INT_real,PyObject, PyObject], PyObject)
@@ -242,6 +243,43 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)
     return run_string(space, source, filename, start, w_globals, w_locals)
+
+@cpython_api([FILEP, CONST_STRING, rffi.INT_real, PyObject, PyObject, rffi.INT_real, PyCompilerFlagsPtr], PyObject)
+def PyRun_FileExFlags(space, fp, filename, start, w_globals, w_locals, closeit, flagsptr):
+    """Similar to PyRun_StringFlags(), but the Python source code is read from
+    fp instead of an in-memory string. filename should be the name of the file,
+    it is decoded from the filesystem encoding (sys.getfilesystemencoding()).
+    If closeit is true, the file is closed before PyRun_FileExFlags()
+    returns."""
+    BUF_SIZE = 8192
+    source = ""
+    filename = rffi.charp2str(filename)
+    with rffi.scoped_alloc_buffer(BUF_SIZE) as buf:
+        while True:
+            try:
+                count = fread(buf.raw, 1, BUF_SIZE, fp)
+            except OSError:
+                PyErr_SetFromErrno(space, space.w_IOError)
+                return
+            count = rffi.cast(lltype.Signed, count)
+            source += rffi.charpsize2str(buf.raw, count)
+            if count < BUF_SIZE:
+                if ferror(fp):
+                    PyErr_SetFromErrno(space, space.w_IOError)
+                    return
+                if feof(fp):
+                    break
+                PyErr_SetFromErrno(space, space.w_IOError)
+    if widen(closeit):
+        fclose(fp)
+    if flagsptr:
+        flags = rffi.cast(lltype.Signed, flagsptr.c_cf_flags)
+        feature_version = rffi.cast(lltype.Signed, flagsptr.c_cf_feature_version)
+    else:
+        flags = 0
+        feature_version = -1
+    return run_string(space, source, filename, start, w_globals, w_locals,
+                      flags, feature_version)
 
 # Undocumented function!
 @cpython_api([PyObject, Py_ssize_tP], rffi.INT_real, error=0)

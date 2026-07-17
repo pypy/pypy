@@ -442,9 +442,9 @@ def decref(space, pyobj):
     from pypy.module.cpyext.api import generic_cpy_call
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
-    if pyobj.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-        return
     if pyobj:
+        if pyobj.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
+            return
         assert pyobj.c_ob_refcnt > 0
         assert (pyobj.c_ob_pypy_link == 0 or
                 pyobj.c_ob_refcnt > rawrefcount.REFCNT_FROM_PYPY)

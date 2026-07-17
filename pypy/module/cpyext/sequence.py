@@ -280,6 +280,27 @@ def PySequence_Index(space, w_seq, w_obj):
 
     raise oefmt(space.w_ValueError, "sequence.index(x): x not in sequence")
 
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+def PySequence_Count(space, w_seq, w_obj):
+    """Return the number of occurrences of value in o, that is, return the number
+    of keys for which o[key] == value.  On failure, return -1.  This is
+    equivalent to the Python expression o.count(value)."""
+    w_iter = space.iter(w_seq)
+    cnt = 0
+    while True:
+        try:
+            w_next = space.next(w_iter)
+        except OperationError as e:
+            if e.match(space, space.w_StopIteration):
+                break
+            raise
+        if space.eq_w(w_next, w_obj):
+            cnt += 1
+
+    return cnt
+
+
+
 class CPyListStrategy(ListStrategy):
     erase, unerase = rerased.new_erasing_pair("cpylist")
     erase = staticmethod(erase)

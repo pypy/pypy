@@ -3,7 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
-    PySequence_Fast, PySequence_Contains, PySequence_Index,
+    PySequence_Fast, PySequence_Contains, 
     PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref, from_ref
 from pypy.module.cpyext.state import State
@@ -157,12 +157,18 @@ class TestSequence(BaseApiTest):
 
         w_tofind = space.wrap(9001)
         with raises_w(space, ValueError):
-            PySequence_Index(space, w_l, w_tofind)
+            api.PySequence_Index(w_l, w_tofind)
 
         w_gen = space.appexec([], """():
            return (x ** 2 for x in range(40))""")
         w_tofind = space.wrap(16)
         result = api.PySequence_Index(w_gen, w_tofind)
+        assert result == 4
+
+        w_gen = space.appexec([], """():
+           return (x // 4 for x in range(40))""")
+        w_tofind = space.wrap(3)
+        result = api.PySequence_Count(w_gen, w_tofind)
         assert result == 4
 
     def test_sequence_getitem(self, space, api):
