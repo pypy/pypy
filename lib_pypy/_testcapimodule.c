@@ -2592,6 +2592,7 @@ test_py_setref(PyObject *self, PyObject *Py_UNUSED(ignored))
     } while (0) \
 
 
+#ifndef PYPY_VERSION
 // Test Py_NewRef() and Py_XNewRef() macros
 static PyObject*
 test_refcount_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
@@ -2601,6 +2602,7 @@ test_refcount_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 #undef Py_NewRef
 #undef Py_XNewRef
+#endif
 
 // Test Py_NewRef() and Py_XNewRef() functions, after undefining macros.
 static PyObject*
@@ -3585,7 +3587,9 @@ static PyMethodDef TestMethods[] = {
     {"test_set_type_size", test_set_type_size, METH_NOARGS},
     {"test_py_clear", test_py_clear, METH_NOARGS},
     {"test_py_setref", test_py_setref, METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_refcount_macros", test_refcount_macros, METH_NOARGS},
+#endif
     {"test_refcount_funcs", test_refcount_funcs, METH_NOARGS},
     {"test_py_is_macros", test_py_is_macros, METH_NOARGS},
     {"test_py_is_funcs", test_py_is_funcs, METH_NOARGS},
@@ -4229,6 +4233,7 @@ PyInit__testcapi(void)
                            (PyObject *) &ContainerNoGC_type) < 0)
         return NULL;
 
+#ifndef PYPY_VERSION
     /* Include tests from the _testcapi/ directory */
     if (_PyTestCapi_Init_Vectorcall(m) < 0) {
         return NULL;
@@ -4236,21 +4241,28 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Heaptype(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Abstract(m) < 0) {
         return NULL;
     }
     if (_PyTestCapi_Init_ByteArray(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Bytes(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Unicode(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_GetArgs(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_PyTime(m) < 0) {
         return NULL;
     }
@@ -4260,27 +4272,37 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Docstring(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Mem(m) < 0) {
         return NULL;
     }
     if (_PyTestCapi_Init_Watchers(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Long(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Float(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Complex(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Numbers(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Dict(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Set(m) < 0) {
         return NULL;
     }
@@ -4293,18 +4315,24 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Structmember(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Exceptions(m) < 0) {
         return NULL;
     }
+#endif
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Code(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Buffer(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_PyOS(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Run(m) < 0) {
         return NULL;
     }
@@ -4314,18 +4342,22 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Codec(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Sys(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Immortal(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_GC(m) < 0) {
         return NULL;
     }
     if (_PyTestCapi_Init_Import(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Eval(m) < 0) {
         return NULL;
     }
@@ -4348,8 +4380,10 @@ PyInit__testcapi(void)
 
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
+#ifndef PYPY_VERSION
 #undef Py_BuildValue
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);
+#endif
 
 static PyObject *
 test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))

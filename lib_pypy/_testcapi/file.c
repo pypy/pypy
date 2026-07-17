@@ -115,13 +115,14 @@ _testcapi.pyfile_newstdprinter
 
 [clinic start generated code]*/
 
+#ifndef PYPY_VERSION
 static PyObject *
 _testcapi_pyfile_newstdprinter_impl(PyObject *module, int fd)
 /*[clinic end generated code: output=8a2d1c57b6892db3 input=442f1824142262ea]*/
 {
     return PyFile_NewStdPrinter(fd);
 }
-
+#endif
 
 static PyMethodDef test_methods[] = {
     {"pyfile_fromfd", pyfile_fromfd, METH_VARARGS},
@@ -129,7 +130,9 @@ static PyMethodDef test_methods[] = {
     _TESTCAPI_PYFILE_WRITEOBJECT_METHODDEF
     {"pyfile_writestring", pyfile_writestring, METH_VARARGS},
     _TESTCAPI_PYOBJECT_ASFILEDESCRIPTOR_METHODDEF
+#ifndef PYPY_VERSION
     _TESTCAPI_PYFILE_NEWSTDPRINTER_METHODDEF
+#endif
     {NULL},
 };
 
