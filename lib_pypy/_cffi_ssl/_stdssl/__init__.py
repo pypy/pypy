@@ -40,7 +40,6 @@ from _cffi_ssl._stdssl import error
 from _pypy_util_cffi import StackNew
 from select import select
 import socket
-from enum import IntEnum as _IntEnum
 
 if sys.platform == 'win32':
     from _cffi_ssl._stdssl.win32_extra import enum_certificates, enum_crls
@@ -190,9 +189,6 @@ else:
 
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
-
-_IntEnum._convert_('_SSLMethod', __name__,
-        lambda name: name.startswith('PROTOCOL_'))
 
 if HAS_TLS_UNIQUE:
     CHANNEL_BINDING_TYPES = ['tls-unique']
@@ -1270,6 +1266,10 @@ class _SSLContext(object):
                 raise ValueError("failed to set num tickets")
 
     @property
+    def security_level(self):
+        return lib.SSL_CTX_get_security_level(self.ctx)
+
+    @property
     def options(self):
         return lib.SSL_CTX_get_options(self.ctx)
 
@@ -1592,8 +1592,12 @@ class _SSLContext(object):
         try:
             store = lib.SSL_CTX_get_cert_store(self.ctx)
             loaded = 0
+            was_bio_eof = False
             while True:
                 if ca_file_type == lib.SSL_FILETYPE_ASN1:
+                    if lib.BIO_eof(biobuf):
+                        was_bio_eof = True
+                        break
                     cert = lib.d2i_X509_bio(biobuf, ffi.NULL)
                 else:
                     cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL,
@@ -1624,10 +1628,7 @@ class _SSLContext(object):
                 else:
                     msg = "not enough data: cadata does not contain a certificate";
                 raise ssl_error(msg)
-            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
-                loaded > 0 and
-                lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
-                lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
+            elif ca_file_type == lib.SSL_FILETYPE_ASN1 and was_bio_eof:
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and

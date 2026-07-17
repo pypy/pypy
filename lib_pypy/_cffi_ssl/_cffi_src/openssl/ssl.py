@@ -246,6 +246,7 @@ void SSL_CTX_set_verify_depth(SSL_CTX *, int);
 int (*SSL_CTX_get_verify_callback(const SSL_CTX *))(int, X509_STORE_CTX *);
 int SSL_CTX_get_verify_mode(const SSL_CTX *);
 int SSL_CTX_get_verify_depth(const SSL_CTX *);
+int SSL_CTX_get_security_level(const SSL_CTX *);
 int SSL_CTX_set_cipher_list(SSL_CTX *, const char *);
 int SSL_CTX_load_verify_locations(SSL_CTX *, const char *, const char *);
 void SSL_CTX_set_default_passwd_cb(SSL_CTX *, pem_password_cb *);

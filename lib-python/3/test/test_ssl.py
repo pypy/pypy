@@ -353,6 +353,7 @@ class BasicSocketTests(unittest.TestCase):
                 value = getattr(ssl, name)
                 self.assertGreaterEqual(value, 0, f"ssl.{name}")
 
+    @support.cpython_only
     def test_ssl_types(self):
         ssl_types = [
             _ssl._SSLContext,

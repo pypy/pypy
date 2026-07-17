@@ -44,6 +44,7 @@ int BIO_should_read(BIO *);
 int BIO_should_write(BIO *);
 int BIO_should_io_special(BIO *);
 int BIO_should_retry(BIO *);
+int BIO_eof(BIO *);
 int BIO_reset(BIO *);
 long BIO_set_nbio(BIO *, long);
 void BIO_set_retry_read(BIO *);
