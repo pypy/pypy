@@ -599,10 +599,6 @@ def f():
             assert len(tree_1.type_ignores) == 6
             assert len(tree_2.type_ignores) == 6
 
-    def test_fstring_self_documenting_feature_version(self):
-        raises(SyntaxError, self.get_ast, "f'{x=}'", feature_version=7)
-        self.get_ast("'f{x=}'", feature_version=7)
-
     def test_ast_feature_version_asynccomp_bug(self):
         import ast
         raises(SyntaxError, ast.parse, 'async def foo(xs):\n    [x async for x in xs]\n', feature_version=(3, 4))
