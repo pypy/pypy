@@ -13,8 +13,9 @@ def make_replace_error_handler(space):
     return replace_error_handler
 
 def _adjust_offset(space, offset, text, unilength):
-    if offset > len(text):
-        offset = unilength
+    if offset > len(text) + 1:
+        # out of range (e.g. continuation lines)
+        offset = unilength + 1
     elif offset >= 1:
         offset = offset - 1 # 1-based to 0-based
         assert offset >= 0
