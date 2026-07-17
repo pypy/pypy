@@ -46,10 +46,10 @@ class TestAstToObject:
         assert node.value is value
 
     def test_from_object_error(self, space):
-        w_node = space.call_function(ast.get(space).w_Module)
-        excinfo = space.raises_w(space.w_TypeError, ast.Module.from_object, space, w_node)
+        w_node = space.call_function(ast.get(space).w_Expression)
+        excinfo = space.raises_w(space.w_TypeError, ast.Expression.from_object, space, w_node)
         error = space.text_w(excinfo.value.get_w_value(space))
-        assert error == "required field 'body' missing from Module"
+        assert error == "required field 'body' missing from Expression"
         w_node = space.call_function(ast.get(space).w_Expression, space.w_None)
         excinfo = space.raises_w(space.w_ValueError, ast.Expression.from_object, space, w_node)
         error = space.text_w(excinfo.value.get_w_value(space))

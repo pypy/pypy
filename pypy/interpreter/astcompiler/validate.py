@@ -130,6 +130,7 @@ class AstValidator(ast.ASTVisitor):
         for stmt in stmts:
             if not stmt:
                 raise ValidationError("None disallowed in statement list")
+            self._validate_positions(stmt)
             stmt.walkabout(self)
 
     def _len(self, node):
@@ -137,7 +138,32 @@ class AstValidator(ast.ASTVisitor):
             return 0
         return len(node)
 
+    def _validate_positions(self, node):
+        lineno = node.lineno
+        end_lineno = node.end_lineno
+        col_offset = node.col_offset
+        end_col_offset = node.end_col_offset
+        if lineno > end_lineno:
+            raise ValidationError(
+                "AST node line range (%d, %d) is not valid" %
+                (lineno, end_lineno))
+        if ((lineno < 0 and end_lineno != lineno) or
+                (col_offset < 0 and col_offset != end_col_offset)):
+            raise ValidationError(
+                "AST node column range (%d, %d) for line range (%d, %d) "
+                "is not valid" %
+                (col_offset, end_col_offset, lineno, end_lineno))
+        if lineno == end_lineno and col_offset > end_col_offset:
+            raise ValidationError(
+                "line %d, column %d-%d is not a valid range" %
+                (lineno, col_offset, end_col_offset))
+
+    def _validate_pattern(self, pattern):
+        self._validate_positions(pattern)
+        pattern.walkabout(self)
+
     def _validate_expr(self, expr, ctx=ast.Load):
+        self._validate_positions(expr)
         expr.check_context(self, ctx)
         expr.walkabout_with_ctx(self, ctx)
 
@@ -178,6 +204,7 @@ class AstValidator(ast.ASTVisitor):
     # Statements
 
     def visit_arg(self, node):
+        self._validate_positions(node)
         if node.annotation:
             self._validate_expr(node.annotation)
 
@@ -239,14 +266,17 @@ class AstValidator(ast.ASTVisitor):
         self._validate_expr(node.value)
 
     def visit_TypeVar(self, node):
+        self._validate_positions(node)
         self._validate_name(node.name)
         if node.bound:
             self._validate_expr(node.bound)
 
     def visit_ParamSpec(self, node):
+        self._validate_positions(node)
         self._validate_name(node.name)
 
     def visit_TypeVarTuple(self, node):
+        self._validate_positions(node)
         self._validate_name(node.name)
 
     def visit_Return(self, node):
@@ -347,6 +377,7 @@ class AstValidator(ast.ASTVisitor):
         self._validate_stmts(node.finalbody)
 
     def visit_ExceptHandler(self, node):
+        self._validate_positions(node)
         if node.type:
             self._validate_expr(node.type)
         self._validate_body(node.body, "ExceptHandler")
@@ -394,7 +425,7 @@ class AstValidator(ast.ASTVisitor):
                     self._validate_capture(pattern.name)
                     seen_star = True
                     continue
-                pattern.walkabout(self)
+                self._validate_pattern(pattern)
 
     def _validate_capture(self, name):
         if name == "_":
@@ -411,7 +442,7 @@ class AstValidator(ast.ASTVisitor):
         if node.guard:
             self._validate_expr(node.guard)
         self._validate_stmts(node.body)
-        node.pattern.walkabout(self)
+        self._validate_pattern(node.pattern)
 
     def visit_MatchValue(self, node):
         space = self.space
@@ -477,7 +508,7 @@ class AstValidator(ast.ASTVisitor):
         if node.pattern:
             if not node.name:
                 raise ValidationError("MatchAs must specify a target name if a pattern is given")
-            node.pattern.walkabout(self)
+            self._validate_pattern(node.pattern)
 
     def visit_MatchOr(self, node):
         if len(node.patterns) < 2:

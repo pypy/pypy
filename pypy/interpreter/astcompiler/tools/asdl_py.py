@@ -240,12 +240,23 @@ class ASTNodeVisitor(ASDLVisitor):
                          (field.name, value, field.name))
         else:
             if not field.opt and field.type == "identifier":
-                # Check for w_None before space.text_w so we raise ValueError
-                # ("field X is required") instead of TypeError ("expected str").
+                # Check for w_None before check_identifier so we raise ValueError
+                # ("field X is required") instead of TypeError.
                 lines = [
                     "if space.is_w(w_%s, space.w_None):" % field.name,
                     "    raise_required_value(space, w_node, '%s')" % field.name,
-                    "_%s = space.text_w(w_%s)" % (field.name, field.name),
+                    "_%s = check_identifier(space, w_%s)" % (field.name, field.name),
+                ]
+            elif field.name in ("end_lineno", "end_col_offset"):
+                # like CPython, a missing end position defaults to the
+                # matching start position (lineno / col_offset).
+                default = "_lineno" if field.name == "end_lineno" else "_col_offset"
+                lines = [
+                    "if space.is_w(w_%s, space.w_None):" % field.name,
+                    "    _%s = %s" % (field.name, default),
+                    "else:",
+                    "    _%s = obj_to_int(space, w_%s, True)" % (
+                        field.name, field.name),
                 ]
             else:
                 value = self.get_value_extractor(field, "w_%s" % (field.name,))
@@ -279,9 +290,12 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("@staticmethod", 1)
         self.emit("def from_object(space, w_node):", 1)
         for field in all_fields:
-            self.emit("w_%s = get_field(space, w_node, '%s', %s)" % (
-                    field.name, field.name, field.opt), 2)
-        for field in all_fields:
+            self.emit("w_%s = get_field(space, w_node, '%s', %s, %s)" % (
+                    field.name, field.name, field.opt, field.seq), 2)
+        # CPython's obj2ast reads the shared attributes (lineno, col_offset,
+        # ...) before recursing into child fields, so extract them first.
+        extract_order = (extras + fields) if extras else fields
+        for field in extract_order:
             unwrapping_code = self.get_field_extractor(field)
             for line in unwrapping_code:
                 self.emit(line, 2)
@@ -515,14 +529,23 @@ def check_string(space, w_obj, allow_none=False):
                     "AST string must be of type str or unicode")
     return w_obj
 
-def get_field(space, w_node, name, optional):
+def get_field(space, w_node, name, optional, seq=False):
     w_obj = w_node.getdictvalue(space, name)
     if w_obj is None:
+        if seq:
+            # missing list fields default to the empty list (like CPython)
+            return space.newlist([])
         if not optional:
             raise oefmt(space.w_TypeError,
                 "required field '%s' missing from %T", name, w_node)
         w_obj = space.w_None
     return w_obj
+
+def check_identifier(space, w_obj):
+    if not space.isinstance_w(w_obj, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "AST identifier must be of type str")
+    return space.text_w(w_obj)
 
 def obj_to_int(space, w_value, optional):
     if optional and space.is_w(w_value, space.w_None):

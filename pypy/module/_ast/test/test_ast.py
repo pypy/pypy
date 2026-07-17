@@ -65,8 +65,7 @@ class AppTestAST:
             return compile(node, "<test>", "exec")
         mod = ast.Module()
         raises(AttributeError, getattr, mod, "body")
-        exc = raises(TypeError, com, mod).value
-        assert str(exc) == "required field 'body' missing from Module"
+        com(mod)
         expr = ast.Name()
         expr.id = "hi"
         expr.ctx = ast.Load()
@@ -98,6 +97,16 @@ class AppTestAST:
         mod = ast.Module(body, [])
         exc = raises(ValueError, compile, mod, 'test', 'exec')
         assert str(exc.value) == "invalid integer value: 'A'"
+
+    def test_bad_integer_none(self):
+        # A None position on the node is reported before recursing into
+        # child nodes (matches CPython's obj2ast attribute ordering).
+        ast = self.ast
+        body = [ast.ImportFrom(module='time', names=[ast.alias(name='sleep')],
+                               level=None, lineno=None, col_offset=None)]
+        mod = ast.Module(body, [])
+        exc = raises(ValueError, compile, mod, 'test', 'exec')
+        assert "invalid integer value: None" in str(exc.value)
 
     def test_identifier(self):
         ast = self.ast
@@ -355,7 +364,7 @@ from __future__ import generators""")
                 args=[], vararg=None, kwarg=None, defaults=[],
                 kwonlyargs=[], kw_defaults=[], posonlyargs=[]),
             body=[ast.Expr(ast.Constant('docstring', None))],
-            decorator_list=[], lineno=5, col_offset=0)
+            decorator_list=[], lineno=1, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
         ast_utils.fix_missing_locations(exprAst)
         compiled = compile(exprAst, "<foo>", "single")
@@ -412,12 +421,40 @@ def f():
         m = ast.Module([ast.Expr(ast.expr(**pos), **pos)], [])
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
+    def test_invalid_position_information(self):
+        import ast
+        for lineno, end_lineno in [(10, 1), (-10, -11), (10, -11),
+                                   (-5, -2), (-5, 1)]:
+            tree = ast.parse("a = 1")
+            tree.body[0].lineno = lineno
+            tree.body[0].end_lineno = end_lineno
+            raises(ValueError, compile, tree, "<string>", "exec")
+        for col, end_col in [(10, 1), (-10, -11), (10, -11), (-5, -2), (-5, 1)]:
+            tree = ast.parse("a = 1")
+            tree.body[0].col_offset = col
+            tree.body[0].end_col_offset = end_col
+            raises(ValueError, compile, tree, "<string>", "exec")
+
+    def test_missing_list_field_defaults_empty(self):
+        # PEP-era CPython (3.12) defaults missing list fields to []
+        import ast
+        f = ast.FunctionDef("x", ast.arguments(), [ast.Pass()])
+        m = ast.Module([f], [])
+        m.lineno = m.col_offset = 0
+        ast.fix_missing_locations(m)
+        compile(m, "<test>", "exec")
+
     def test_invalid_identitifer(self):
         import ast as ast_utils
         import _ast as ast
         m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))], [])
         ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
+        assert "identifier must be of type str" in str(exc.value)
+        m = ast.Module([ast.Expr(ast.Name(42, ast.Load()))], [])
+        ast_utils.fix_missing_locations(m)
+        exc = raises(TypeError, compile, m, "<test>", "exec")
+        assert "identifier must be of type str" in str(exc.value)
 
     def test_invalid_constant(self):
         import ast as ast_utils
@@ -437,10 +474,9 @@ def f():
                 bar
             '''
         mod = compile(stmt, "<test>", "exec", _ast.PyCF_ONLY_AST)
-        # These lineno are invalid, but should not crash the interpreter.
         mod.body[0].body[0].handlers[0].lineno = 7
         mod.body[0].body[0].handlers[1].lineno = 6
-        code = compile(mod, "<test>", "exec")
+        raises(ValueError, compile, mod, "<test>", "exec")
 
     def test_dict_astNode(self):
         import _ast as ast

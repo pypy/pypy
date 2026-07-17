@@ -23,14 +23,23 @@ def check_string(space, w_obj, allow_none=False):
                     "AST string must be of type str or unicode")
     return w_obj
 
-def get_field(space, w_node, name, optional):
+def get_field(space, w_node, name, optional, seq=False):
     w_obj = w_node.getdictvalue(space, name)
     if w_obj is None:
+        if seq:
+            # missing list fields default to the empty list (like CPython)
+            return space.newlist([])
         if not optional:
             raise oefmt(space.w_TypeError,
                 "required field '%s' missing from %T", name, w_node)
         w_obj = space.w_None
     return w_obj
+
+def check_identifier(space, w_obj):
+    if not space.isinstance_w(w_obj, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "AST identifier must be of type str")
+    return space.text_w(w_obj)
 
 def obj_to_int(space, w_value, optional):
     if optional and space.is_w(w_value, space.w_None):
@@ -227,8 +236,8 @@ class Module(mod):
 
     @staticmethod
     def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
-        w_type_ignores = get_field(space, w_node, 'type_ignores', False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_type_ignores = get_field(space, w_node, 'type_ignores', False, True)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         type_ignores_w = space.unpackiterable(w_type_ignores)
@@ -266,7 +275,7 @@ class Interactive(mod):
 
     @staticmethod
     def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
+        w_body = get_field(space, w_node, 'body', False, True)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         return Interactive(_body)
@@ -295,7 +304,7 @@ class Expression(mod):
 
     @staticmethod
     def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
+        w_body = get_field(space, w_node, 'body', False, False)
         _body = expr.from_object(space, w_body)
         if _body is None:
             raise_required_value(space, w_node, 'body')
@@ -337,8 +346,8 @@ class FunctionType(mod):
 
     @staticmethod
     def from_object(space, w_node):
-        w_argtypes = get_field(space, w_node, 'argtypes', False)
-        w_returns = get_field(space, w_node, 'returns', False)
+        w_argtypes = get_field(space, w_node, 'argtypes', False, True)
+        w_returns = get_field(space, w_node, 'returns', False, False)
         argtypes_w = space.unpackiterable(w_argtypes)
         _argtypes = [expr.from_object(space, w_item) for w_item in argtypes_w]
         _returns = expr.from_object(space, w_returns)
@@ -506,20 +515,30 @@ class FunctionDef(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_args = get_field(space, w_node, 'args', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_decorator_list = get_field(space, w_node, 'decorator_list', False)
-        w_returns = get_field(space, w_node, 'returns', True)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_type_params = get_field(space, w_node, 'type_params', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_args = get_field(space, w_node, 'args', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_decorator_list = get_field(space, w_node, 'decorator_list', False, True)
+        w_returns = get_field(space, w_node, 'returns', True, False)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_type_params = get_field(space, w_node, 'type_params', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        _name = check_identifier(space, w_name)
         _args = arguments.from_object(space, w_args)
         if _args is None:
             raise_required_value(space, w_node, 'args')
@@ -531,10 +550,6 @@ class FunctionDef(stmt):
         _type_comment = check_string(space, w_type_comment, 1)
         type_params_w = space.unpackiterable(w_type_params)
         _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('FunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment', 'type_params'], default_none_fields=['returns', 'type_comment'], doc='FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)')
@@ -625,20 +640,30 @@ class AsyncFunctionDef(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_args = get_field(space, w_node, 'args', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_decorator_list = get_field(space, w_node, 'decorator_list', False)
-        w_returns = get_field(space, w_node, 'returns', True)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_type_params = get_field(space, w_node, 'type_params', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_args = get_field(space, w_node, 'args', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_decorator_list = get_field(space, w_node, 'decorator_list', False, True)
+        w_returns = get_field(space, w_node, 'returns', True, False)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_type_params = get_field(space, w_node, 'type_params', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        _name = check_identifier(space, w_name)
         _args = arguments.from_object(space, w_args)
         if _args is None:
             raise_required_value(space, w_node, 'args')
@@ -650,10 +675,6 @@ class AsyncFunctionDef(stmt):
         _type_comment = check_string(space, w_type_comment, 1)
         type_params_w = space.unpackiterable(w_type_params)
         _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('AsyncFunctionDef', 'stmt', ['name', 'args', 'body', 'decorator_list', 'returns', 'type_comment', 'type_params'], default_none_fields=['returns', 'type_comment'], doc='AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment, type_param* type_params)')
@@ -752,19 +773,29 @@ class ClassDef(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_bases = get_field(space, w_node, 'bases', False)
-        w_keywords = get_field(space, w_node, 'keywords', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_decorator_list = get_field(space, w_node, 'decorator_list', False)
-        w_type_params = get_field(space, w_node, 'type_params', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_bases = get_field(space, w_node, 'bases', False, True)
+        w_keywords = get_field(space, w_node, 'keywords', False, True)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_decorator_list = get_field(space, w_node, 'decorator_list', False, True)
+        w_type_params = get_field(space, w_node, 'type_params', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        _name = check_identifier(space, w_name)
         bases_w = space.unpackiterable(w_bases)
         _bases = [expr.from_object(space, w_item) for w_item in bases_w]
         keywords_w = space.unpackiterable(w_keywords)
@@ -775,10 +806,6 @@ class ClassDef(stmt):
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         type_params_w = space.unpackiterable(w_type_params)
         _type_params = [type_param.from_object(space, w_item) for w_item in type_params_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return ClassDef(_name, _bases, _keywords, _body, _decorator_list, _type_params, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('ClassDef', 'stmt', ['name', 'bases', 'keywords', 'body', 'decorator_list', 'type_params'], default_none_fields=[], doc='ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list, type_param* type_params)')
@@ -819,16 +846,22 @@ class Return(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _value = expr.from_object(space, w_value)
+        w_value = get_field(space, w_node, 'value', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _value = expr.from_object(space, w_value)
         return Return(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Return', 'stmt', ['value'], default_none_fields=['value'], doc='Return(expr? value)')
@@ -875,17 +908,23 @@ class Delete(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_targets = get_field(space, w_node, 'targets', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        targets_w = space.unpackiterable(w_targets)
-        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
+        w_targets = get_field(space, w_node, 'targets', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        targets_w = space.unpackiterable(w_targets)
+        _targets = [expr.from_object(space, w_item) for w_item in targets_w]
         return Delete(_targets, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Delete', 'stmt', ['targets'], default_none_fields=[], doc='Delete(expr* targets)')
@@ -942,23 +981,29 @@ class Assign(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_targets = get_field(space, w_node, 'targets', False)
-        w_value = get_field(space, w_node, 'value', False)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_targets = get_field(space, w_node, 'targets', False, True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         targets_w = space.unpackiterable(w_targets)
         _targets = [expr.from_object(space, w_item) for w_item in targets_w]
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
         _type_comment = check_string(space, w_type_comment, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Assign(_targets, _value, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Assign', 'stmt', ['targets', 'value', 'type_comment'], default_none_fields=['type_comment'], doc='Assign(expr* targets, expr value, string? type_comment)')
@@ -1015,13 +1060,23 @@ class TypeAlias(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_type_params = get_field(space, w_node, 'type_params', False)
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_type_params = get_field(space, w_node, 'type_params', False, True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _name = expr.from_object(space, w_name)
         if _name is None:
             raise_required_value(space, w_node, 'name')
@@ -1030,10 +1085,6 @@ class TypeAlias(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return TypeAlias(_name, _type_params, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('TypeAlias', 'stmt', ['name', 'type_params', 'value'], default_none_fields=[], doc='TypeAlias(expr name, type_param* type_params, expr value)')
@@ -1082,13 +1133,23 @@ class AugAssign(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_op = get_field(space, w_node, 'op', False)
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_op = get_field(space, w_node, 'op', False, False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -1098,10 +1159,6 @@ class AugAssign(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return AugAssign(_target, _op, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('AugAssign', 'stmt', ['target', 'op', 'value'], default_none_fields=[], doc='AugAssign(expr target, operator op, expr value)')
@@ -1156,14 +1213,24 @@ class AnnAssign(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_annotation = get_field(space, w_node, 'annotation', False)
-        w_value = get_field(space, w_node, 'value', True)
-        w_simple = get_field(space, w_node, 'simple', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_annotation = get_field(space, w_node, 'annotation', False, False)
+        w_value = get_field(space, w_node, 'value', True, False)
+        w_simple = get_field(space, w_node, 'simple', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -1172,10 +1239,6 @@ class AnnAssign(stmt):
             raise_required_value(space, w_node, 'annotation')
         _value = expr.from_object(space, w_value)
         _simple = obj_to_int(space, w_simple, False)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return AnnAssign(_target, _annotation, _value, _simple, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('AnnAssign', 'stmt', ['target', 'annotation', 'value', 'simple'], default_none_fields=['value'], doc='AnnAssign(expr target, expr annotation, expr? value, int simple)')
@@ -1249,15 +1312,25 @@ class For(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_iter = get_field(space, w_node, 'iter', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_iter = get_field(space, w_node, 'iter', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -1269,10 +1342,6 @@ class For(stmt):
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         _type_comment = check_string(space, w_type_comment, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return For(_target, _iter, _body, _orelse, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('For', 'stmt', ['target', 'iter', 'body', 'orelse', 'type_comment'], default_none_fields=['type_comment'], doc='For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)')
@@ -1346,15 +1415,25 @@ class AsyncFor(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_iter = get_field(space, w_node, 'iter', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_iter = get_field(space, w_node, 'iter', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -1366,10 +1445,6 @@ class AsyncFor(stmt):
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         _type_comment = check_string(space, w_type_comment, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return AsyncFor(_target, _iter, _body, _orelse, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('AsyncFor', 'stmt', ['target', 'iter', 'body', 'orelse', 'type_comment'], default_none_fields=['type_comment'], doc='AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)')
@@ -1433,13 +1508,23 @@ class While(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_test = get_field(space, w_node, 'test', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_test = get_field(space, w_node, 'test', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _test = expr.from_object(space, w_test)
         if _test is None:
             raise_required_value(space, w_node, 'test')
@@ -1447,10 +1532,6 @@ class While(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return While(_test, _body, _orelse, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('While', 'stmt', ['test', 'body', 'orelse'], default_none_fields=[], doc='While(expr test, stmt* body, stmt* orelse)')
@@ -1514,13 +1595,23 @@ class If(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_test = get_field(space, w_node, 'test', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_test = get_field(space, w_node, 'test', False, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _test = expr.from_object(space, w_test)
         if _test is None:
             raise_required_value(space, w_node, 'test')
@@ -1528,10 +1619,6 @@ class If(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return If(_test, _body, _orelse, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('If', 'stmt', ['test', 'body', 'orelse'], default_none_fields=[], doc='If(expr test, stmt* body, stmt* orelse)')
@@ -1595,22 +1682,28 @@ class With(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_items = get_field(space, w_node, 'items', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_items = get_field(space, w_node, 'items', False, True)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         items_w = space.unpackiterable(w_items)
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         _type_comment = check_string(space, w_type_comment, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return With(_items, _body, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('With', 'stmt', ['items', 'body', 'type_comment'], default_none_fields=['type_comment'], doc='With(withitem* items, stmt* body, string? type_comment)')
@@ -1674,22 +1767,28 @@ class AsyncWith(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_items = get_field(space, w_node, 'items', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_items = get_field(space, w_node, 'items', False, True)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         items_w = space.unpackiterable(w_items)
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         _type_comment = check_string(space, w_type_comment, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return AsyncWith(_items, _body, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('AsyncWith', 'stmt', ['items', 'body', 'type_comment'], default_none_fields=['type_comment'], doc='AsyncWith(withitem* items, stmt* body, string? type_comment)')
@@ -1741,21 +1840,27 @@ class Match(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_subject = get_field(space, w_node, 'subject', False)
-        w_cases = get_field(space, w_node, 'cases', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_subject = get_field(space, w_node, 'subject', False, False)
+        w_cases = get_field(space, w_node, 'cases', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _subject = expr.from_object(space, w_subject)
         if _subject is None:
             raise_required_value(space, w_node, 'subject')
         cases_w = space.unpackiterable(w_cases)
         _cases = [match_case.from_object(space, w_item) for w_item in cases_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Match(_subject, _cases, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Match', 'stmt', ['subject', 'cases'], default_none_fields=[], doc='Match(expr subject, match_case* cases)')
@@ -1802,18 +1907,24 @@ class Raise(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_exc = get_field(space, w_node, 'exc', True)
-        w_cause = get_field(space, w_node, 'cause', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _exc = expr.from_object(space, w_exc)
-        _cause = expr.from_object(space, w_cause)
+        w_exc = get_field(space, w_node, 'exc', True, False)
+        w_cause = get_field(space, w_node, 'cause', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _exc = expr.from_object(space, w_exc)
+        _cause = expr.from_object(space, w_cause)
         return Raise(_exc, _cause, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Raise', 'stmt', ['exc', 'cause'], default_none_fields=['exc', 'cause'], doc='Raise(expr? exc, expr? cause)')
@@ -1896,14 +2007,24 @@ class Try(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
-        w_handlers = get_field(space, w_node, 'handlers', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_finalbody = get_field(space, w_node, 'finalbody', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_handlers = get_field(space, w_node, 'handlers', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_finalbody = get_field(space, w_node, 'finalbody', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         handlers_w = space.unpackiterable(w_handlers)
@@ -1912,10 +2033,6 @@ class Try(stmt):
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         finalbody_w = space.unpackiterable(w_finalbody)
         _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Try(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Try', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'], default_none_fields=[], doc='Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)')
@@ -1998,14 +2115,24 @@ class TryStar(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_body = get_field(space, w_node, 'body', False)
-        w_handlers = get_field(space, w_node, 'handlers', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_finalbody = get_field(space, w_node, 'finalbody', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_handlers = get_field(space, w_node, 'handlers', False, True)
+        w_orelse = get_field(space, w_node, 'orelse', False, True)
+        w_finalbody = get_field(space, w_node, 'finalbody', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         handlers_w = space.unpackiterable(w_handlers)
@@ -2014,10 +2141,6 @@ class TryStar(stmt):
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
         finalbody_w = space.unpackiterable(w_finalbody)
         _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return TryStar(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('TryStar', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'], default_none_fields=[], doc='TryStar(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)')
@@ -2063,20 +2186,26 @@ class Assert(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_test = get_field(space, w_node, 'test', False)
-        w_msg = get_field(space, w_node, 'msg', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_test = get_field(space, w_node, 'test', False, False)
+        w_msg = get_field(space, w_node, 'msg', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _test = expr.from_object(space, w_test)
         if _test is None:
             raise_required_value(space, w_node, 'test')
         _msg = expr.from_object(space, w_msg)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Assert(_test, _msg, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Assert', 'stmt', ['test', 'msg'], default_none_fields=['msg'], doc='Assert(expr test, expr? msg)')
@@ -2123,17 +2252,23 @@ class Import(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_names = get_field(space, w_node, 'names', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        names_w = space.unpackiterable(w_names)
-        _names = [alias.from_object(space, w_item) for w_item in names_w]
+        w_names = get_field(space, w_node, 'names', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        names_w = space.unpackiterable(w_names)
+        _names = [alias.from_object(space, w_item) for w_item in names_w]
         return Import(_names, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Import', 'stmt', ['names'], default_none_fields=[], doc='Import(alias* names)')
@@ -2188,21 +2323,27 @@ class ImportFrom(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_module = get_field(space, w_node, 'module', True)
-        w_names = get_field(space, w_node, 'names', False)
-        w_level = get_field(space, w_node, 'level', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_module = get_field(space, w_node, 'module', True, False)
+        w_names = get_field(space, w_node, 'names', False, True)
+        w_level = get_field(space, w_node, 'level', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _module = space.text_or_none_w(w_module)
         names_w = space.unpackiterable(w_names)
         _names = [alias.from_object(space, w_item) for w_item in names_w]
         _level = obj_to_int(space, w_level, True)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return ImportFrom(_module, _names, _level, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('ImportFrom', 'stmt', ['module', 'names', 'level'], default_none_fields=['module', 'level'], doc='ImportFrom(identifier? module, alias* names, int? level)')
@@ -2245,17 +2386,23 @@ class Global(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_names = get_field(space, w_node, 'names', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        names_w = space.unpackiterable(w_names)
-        _names = [space.text_w(w_item) for w_item in names_w]
+        w_names = get_field(space, w_node, 'names', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        names_w = space.unpackiterable(w_names)
+        _names = [space.text_w(w_item) for w_item in names_w]
         return Global(_names, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Global', 'stmt', ['names'], default_none_fields=[], doc='Global(identifier* names)')
@@ -2298,17 +2445,23 @@ class Nonlocal(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_names = get_field(space, w_node, 'names', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        names_w = space.unpackiterable(w_names)
-        _names = [space.text_w(w_item) for w_item in names_w]
+        w_names = get_field(space, w_node, 'names', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        names_w = space.unpackiterable(w_names)
+        _names = [space.text_w(w_item) for w_item in names_w]
         return Nonlocal(_names, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Nonlocal', 'stmt', ['names'], default_none_fields=[], doc='Nonlocal(identifier* names)')
@@ -2348,18 +2501,24 @@ class Expr(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Expr(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Expr', 'stmt', ['value'], default_none_fields=[], doc='Expr(expr value)')
@@ -2394,14 +2553,20 @@ class Pass(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Pass(_lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Pass', 'stmt', [], default_none_fields=[], doc='Pass')
@@ -2436,14 +2601,20 @@ class Break(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Break(_lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Break', 'stmt', [], default_none_fields=[], doc='Break')
@@ -2478,14 +2649,20 @@ class Continue(stmt):
 
     @staticmethod
     def from_object(space, w_node):
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Continue(_lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Continue', 'stmt', [], default_none_fields=[], doc='Continue')
@@ -2608,21 +2785,27 @@ class BoolOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_op = get_field(space, w_node, 'op', False)
-        w_values = get_field(space, w_node, 'values', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_op = get_field(space, w_node, 'op', False, False)
+        w_values = get_field(space, w_node, 'values', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _op = boolop.from_object(space, w_op)
         if _op is None:
             raise_required_value(space, w_node, 'op')
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return BoolOp(_op, _values, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('BoolOp', 'expr', ['op', 'values'], default_none_fields=[], doc='BoolOp(boolop op, expr* values)')
@@ -2667,22 +2850,28 @@ class NamedExpr(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return NamedExpr(_target, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('NamedExpr', 'expr', ['target', 'value'], default_none_fields=[], doc='NamedExpr(expr target, expr value)')
@@ -2731,13 +2920,23 @@ class BinOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_left = get_field(space, w_node, 'left', False)
-        w_op = get_field(space, w_node, 'op', False)
-        w_right = get_field(space, w_node, 'right', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_left = get_field(space, w_node, 'left', False, False)
+        w_op = get_field(space, w_node, 'op', False, False)
+        w_right = get_field(space, w_node, 'right', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _left = expr.from_object(space, w_left)
         if _left is None:
             raise_required_value(space, w_node, 'left')
@@ -2747,10 +2946,6 @@ class BinOp(expr):
         _right = expr.from_object(space, w_right)
         if _right is None:
             raise_required_value(space, w_node, 'right')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return BinOp(_left, _op, _right, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('BinOp', 'expr', ['left', 'op', 'right'], default_none_fields=[], doc='BinOp(expr left, operator op, expr right)')
@@ -2794,22 +2989,28 @@ class UnaryOp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_op = get_field(space, w_node, 'op', False)
-        w_operand = get_field(space, w_node, 'operand', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_op = get_field(space, w_node, 'op', False, False)
+        w_operand = get_field(space, w_node, 'operand', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _op = unaryop.from_object(space, w_op)
         if _op is None:
             raise_required_value(space, w_node, 'op')
         _operand = expr.from_object(space, w_operand)
         if _operand is None:
             raise_required_value(space, w_node, 'operand')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return UnaryOp(_op, _operand, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('UnaryOp', 'expr', ['op', 'operand'], default_none_fields=[], doc='UnaryOp(unaryop op, expr operand)')
@@ -2854,22 +3055,28 @@ class Lambda(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_args = get_field(space, w_node, 'args', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_args = get_field(space, w_node, 'args', False, False)
+        w_body = get_field(space, w_node, 'body', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _args = arguments.from_object(space, w_args)
         if _args is None:
             raise_required_value(space, w_node, 'args')
         _body = expr.from_object(space, w_body)
         if _body is None:
             raise_required_value(space, w_node, 'body')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Lambda(_args, _body, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Lambda', 'expr', ['args', 'body'], default_none_fields=[], doc='Lambda(arguments args, expr body)')
@@ -2919,13 +3126,23 @@ class IfExp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_test = get_field(space, w_node, 'test', False)
-        w_body = get_field(space, w_node, 'body', False)
-        w_orelse = get_field(space, w_node, 'orelse', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_test = get_field(space, w_node, 'test', False, False)
+        w_body = get_field(space, w_node, 'body', False, False)
+        w_orelse = get_field(space, w_node, 'orelse', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _test = expr.from_object(space, w_test)
         if _test is None:
             raise_required_value(space, w_node, 'test')
@@ -2935,10 +3152,6 @@ class IfExp(expr):
         _orelse = expr.from_object(space, w_orelse)
         if _orelse is None:
             raise_required_value(space, w_node, 'orelse')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return IfExp(_test, _body, _orelse, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('IfExp', 'expr', ['test', 'body', 'orelse'], default_none_fields=[], doc='IfExp(expr test, expr body, expr orelse)')
@@ -2997,20 +3210,26 @@ class Dict(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_keys = get_field(space, w_node, 'keys', False)
-        w_values = get_field(space, w_node, 'values', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_keys = get_field(space, w_node, 'keys', False, True)
+        w_values = get_field(space, w_node, 'values', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         keys_w = space.unpackiterable(w_keys)
         _keys = [expr.from_object(space, w_item) for w_item in keys_w]
         values_w = space.unpackiterable(w_values)
         _values = [expr.from_object(space, w_item) for w_item in values_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Dict(_keys, _values, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Dict', 'expr', ['keys', 'values'], default_none_fields=[], doc='Dict(expr* keys, expr* values)')
@@ -3057,17 +3276,23 @@ class Set(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elts = get_field(space, w_node, 'elts', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        elts_w = space.unpackiterable(w_elts)
-        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
+        w_elts = get_field(space, w_node, 'elts', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        elts_w = space.unpackiterable(w_elts)
+        _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         return Set(_elts, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Set', 'expr', ['elts'], default_none_fields=[], doc='Set(expr* elts)')
@@ -3119,21 +3344,27 @@ class ListComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elt = get_field(space, w_node, 'elt', False)
-        w_generators = get_field(space, w_node, 'generators', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_elt = get_field(space, w_node, 'elt', False, False)
+        w_generators = get_field(space, w_node, 'generators', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _elt = expr.from_object(space, w_elt)
         if _elt is None:
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return ListComp(_elt, _generators, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('ListComp', 'expr', ['elt', 'generators'], default_none_fields=[], doc='ListComp(expr elt, comprehension* generators)')
@@ -3185,21 +3416,27 @@ class SetComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elt = get_field(space, w_node, 'elt', False)
-        w_generators = get_field(space, w_node, 'generators', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_elt = get_field(space, w_node, 'elt', False, False)
+        w_generators = get_field(space, w_node, 'generators', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _elt = expr.from_object(space, w_elt)
         if _elt is None:
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return SetComp(_elt, _generators, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('SetComp', 'expr', ['elt', 'generators'], default_none_fields=[], doc='SetComp(expr elt, comprehension* generators)')
@@ -3256,13 +3493,23 @@ class DictComp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_key = get_field(space, w_node, 'key', False)
-        w_value = get_field(space, w_node, 'value', False)
-        w_generators = get_field(space, w_node, 'generators', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_key = get_field(space, w_node, 'key', False, False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_generators = get_field(space, w_node, 'generators', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _key = expr.from_object(space, w_key)
         if _key is None:
             raise_required_value(space, w_node, 'key')
@@ -3271,10 +3518,6 @@ class DictComp(expr):
             raise_required_value(space, w_node, 'value')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return DictComp(_key, _value, _generators, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('DictComp', 'expr', ['key', 'value', 'generators'], default_none_fields=[], doc='DictComp(expr key, expr value, comprehension* generators)')
@@ -3326,21 +3569,27 @@ class GeneratorExp(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elt = get_field(space, w_node, 'elt', False)
-        w_generators = get_field(space, w_node, 'generators', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_elt = get_field(space, w_node, 'elt', False, False)
+        w_generators = get_field(space, w_node, 'generators', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _elt = expr.from_object(space, w_elt)
         if _elt is None:
             raise_required_value(space, w_node, 'elt')
         generators_w = space.unpackiterable(w_generators)
         _generators = [comprehension.from_object(space, w_item) for w_item in generators_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return GeneratorExp(_elt, _generators, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('GeneratorExp', 'expr', ['elt', 'generators'], default_none_fields=[], doc='GeneratorExp(expr elt, comprehension* generators)')
@@ -3380,18 +3629,24 @@ class Await(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Await(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Await', 'expr', ['value'], default_none_fields=[], doc='Await(expr value)')
@@ -3432,16 +3687,22 @@ class Yield(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _value = expr.from_object(space, w_value)
+        w_value = get_field(space, w_node, 'value', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _value = expr.from_object(space, w_value)
         return Yield(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Yield', 'expr', ['value'], default_none_fields=['value'], doc='Yield(expr? value)')
@@ -3481,18 +3742,24 @@ class YieldFrom(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return YieldFrom(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('YieldFrom', 'expr', ['value'], default_none_fields=[], doc='YieldFrom(expr value)')
@@ -3552,13 +3819,23 @@ class Compare(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_left = get_field(space, w_node, 'left', False)
-        w_ops = get_field(space, w_node, 'ops', False)
-        w_comparators = get_field(space, w_node, 'comparators', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_left = get_field(space, w_node, 'left', False, False)
+        w_ops = get_field(space, w_node, 'ops', False, True)
+        w_comparators = get_field(space, w_node, 'comparators', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _left = expr.from_object(space, w_left)
         if _left is None:
             raise_required_value(space, w_node, 'left')
@@ -3566,10 +3843,6 @@ class Compare(expr):
         _ops = [cmpop.from_object(space, w_item) for w_item in ops_w]
         comparators_w = space.unpackiterable(w_comparators)
         _comparators = [expr.from_object(space, w_item) for w_item in comparators_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Compare(_left, _ops, _comparators, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Compare', 'expr', ['left', 'ops', 'comparators'], default_none_fields=[], doc='Compare(expr left, cmpop* ops, expr* comparators)')
@@ -3633,13 +3906,23 @@ class Call(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_func = get_field(space, w_node, 'func', False)
-        w_args = get_field(space, w_node, 'args', False)
-        w_keywords = get_field(space, w_node, 'keywords', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_func = get_field(space, w_node, 'func', False, False)
+        w_args = get_field(space, w_node, 'args', False, True)
+        w_keywords = get_field(space, w_node, 'keywords', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _func = expr.from_object(space, w_func)
         if _func is None:
             raise_required_value(space, w_node, 'func')
@@ -3647,10 +3930,6 @@ class Call(expr):
         _args = [expr.from_object(space, w_item) for w_item in args_w]
         keywords_w = space.unpackiterable(w_keywords)
         _keywords = [keyword.from_object(space, w_item) for w_item in keywords_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Call(_func, _args, _keywords, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Call', 'expr', ['func', 'args', 'keywords'], default_none_fields=[], doc='Call(expr func, expr* args, keyword* keywords)')
@@ -3689,16 +3968,22 @@ class RevDBMetaVar(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_metavar = get_field(space, w_node, 'metavar', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        _metavar = obj_to_int(space, w_metavar, False)
+        w_metavar = get_field(space, w_node, 'metavar', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _metavar = obj_to_int(space, w_metavar, False)
         return RevDBMetaVar(_metavar, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('RevDBMetaVar', 'expr', ['metavar'], default_none_fields=[], doc='RevDBMetaVar(int metavar)')
@@ -3748,22 +4033,28 @@ class FormattedValue(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_conversion = get_field(space, w_node, 'conversion', False)
-        w_format_spec = get_field(space, w_node, 'format_spec', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_conversion = get_field(space, w_node, 'conversion', False, False)
+        w_format_spec = get_field(space, w_node, 'format_spec', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
         _conversion = obj_to_int(space, w_conversion, False)
         _format_spec = expr.from_object(space, w_format_spec)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return FormattedValue(_value, _conversion, _format_spec, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('FormattedValue', 'expr', ['value', 'conversion', 'format_spec'], default_none_fields=['format_spec'], doc='FormattedValue(expr value, int conversion, expr? format_spec)')
@@ -3810,17 +4101,23 @@ class JoinedStr(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_values = get_field(space, w_node, 'values', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
-        values_w = space.unpackiterable(w_values)
-        _values = [expr.from_object(space, w_item) for w_item in values_w]
+        w_values = get_field(space, w_node, 'values', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        values_w = space.unpackiterable(w_values)
+        _values = [expr.from_object(space, w_item) for w_item in values_w]
         return JoinedStr(_values, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('JoinedStr', 'expr', ['values'], default_none_fields=[], doc='JoinedStr(expr* values)')
@@ -3864,20 +4161,26 @@ class Constant(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_kind = get_field(space, w_node, 'kind', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_kind = get_field(space, w_node, 'kind', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = w_value
         if _value is None:
             raise_required_value(space, w_node, 'value')
         _kind = check_string(space, w_kind, 1)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Constant(_value, _kind, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Constant', 'expr', ['value', 'kind'], default_none_fields=['kind'], doc='Constant(constant value, string? kind)')
@@ -3925,26 +4228,32 @@ class Attribute(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_attr = get_field(space, w_node, 'attr', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_attr = get_field(space, w_node, 'attr', False, False)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
         if space.is_w(w_attr, space.w_None):
             raise_required_value(space, w_node, 'attr')
-        _attr = space.text_w(w_attr)
+        _attr = check_identifier(space, w_attr)
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Attribute(_value, _attr, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Attribute', 'expr', ['value', 'attr', 'ctx'], default_none_fields=[], doc='Attribute(expr value, identifier attr, expr_context ctx)')
@@ -3993,13 +4302,23 @@ class Subscript(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_slice = get_field(space, w_node, 'slice', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_slice = get_field(space, w_node, 'slice', False, False)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
@@ -4009,10 +4328,6 @@ class Subscript(expr):
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Subscript(_value, _slice, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Subscript', 'expr', ['value', 'slice', 'ctx'], default_none_fields=[], doc='Subscript(expr value, expr slice, expr_context ctx)')
@@ -4056,22 +4371,28 @@ class Starred(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Starred(_value, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Starred', 'expr', ['value', 'ctx'], default_none_fields=[], doc='Starred(expr value, expr_context ctx)')
@@ -4114,22 +4435,28 @@ class Name(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_id = get_field(space, w_node, 'id', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_id = get_field(space, w_node, 'id', False, False)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         if space.is_w(w_id, space.w_None):
             raise_required_value(space, w_node, 'id')
-        _id = space.text_w(w_id)
+        _id = check_identifier(space, w_id)
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Name(_id, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Name', 'expr', ['id', 'ctx'], default_none_fields=[], doc='Name(identifier id, expr_context ctx)')
@@ -4180,21 +4507,27 @@ class List(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elts = get_field(space, w_node, 'elts', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_elts = get_field(space, w_node, 'elts', False, True)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return List(_elts, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('List', 'expr', ['elts', 'ctx'], default_none_fields=[], doc='List(expr* elts, expr_context ctx)')
@@ -4245,21 +4578,27 @@ class Tuple(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_elts = get_field(space, w_node, 'elts', False)
-        w_ctx = get_field(space, w_node, 'ctx', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_elts = get_field(space, w_node, 'elts', False, True)
+        w_ctx = get_field(space, w_node, 'ctx', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         elts_w = space.unpackiterable(w_elts)
         _elts = [expr.from_object(space, w_item) for w_item in elts_w]
         _ctx = expr_context.from_object(space, w_ctx)
         if _ctx is None:
             raise_required_value(space, w_node, 'ctx')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Tuple(_elts, _ctx, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Tuple', 'expr', ['elts', 'ctx'], default_none_fields=[], doc='Tuple(expr* elts, expr_context ctx)')
@@ -4312,20 +4651,26 @@ class Slice(expr):
 
     @staticmethod
     def from_object(space, w_node):
-        w_lower = get_field(space, w_node, 'lower', True)
-        w_upper = get_field(space, w_node, 'upper', True)
-        w_step = get_field(space, w_node, 'step', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_lower = get_field(space, w_node, 'lower', True, False)
+        w_upper = get_field(space, w_node, 'upper', True, False)
+        w_step = get_field(space, w_node, 'step', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _lower = expr.from_object(space, w_lower)
         _upper = expr.from_object(space, w_upper)
         _step = expr.from_object(space, w_step)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return Slice(_lower, _upper, _step, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('Slice', 'expr', ['lower', 'upper', 'step'], default_none_fields=['lower', 'upper', 'step'], doc='Slice(expr? lower, expr? upper, expr? step)')
@@ -4716,10 +5061,10 @@ class comprehension(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_target = get_field(space, w_node, 'target', False)
-        w_iter = get_field(space, w_node, 'iter', False)
-        w_ifs = get_field(space, w_node, 'ifs', False)
-        w_is_async = get_field(space, w_node, 'is_async', False)
+        w_target = get_field(space, w_node, 'target', False, False)
+        w_iter = get_field(space, w_node, 'iter', False, False)
+        w_ifs = get_field(space, w_node, 'ifs', False, True)
+        w_is_async = get_field(space, w_node, 'is_async', False, False)
         _target = expr.from_object(space, w_target)
         if _target is None:
             raise_required_value(space, w_node, 'target')
@@ -4802,21 +5147,27 @@ class ExceptHandler(excepthandler):
 
     @staticmethod
     def from_object(space, w_node):
-        w_type = get_field(space, w_node, 'type', True)
-        w_name = get_field(space, w_node, 'name', True)
-        w_body = get_field(space, w_node, 'body', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_type = get_field(space, w_node, 'type', True, False)
+        w_name = get_field(space, w_node, 'name', True, False)
+        w_body = get_field(space, w_node, 'body', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _type = expr.from_object(space, w_type)
         _name = space.text_or_none_w(w_name)
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return ExceptHandler(_type, _name, _body, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'], default_none_fields=['type', 'name'], doc='ExceptHandler(expr? type, identifier? name, stmt* body)')
@@ -4910,13 +5261,13 @@ class arguments(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_posonlyargs = get_field(space, w_node, 'posonlyargs', False)
-        w_args = get_field(space, w_node, 'args', False)
-        w_vararg = get_field(space, w_node, 'vararg', True)
-        w_kwonlyargs = get_field(space, w_node, 'kwonlyargs', False)
-        w_kw_defaults = get_field(space, w_node, 'kw_defaults', False)
-        w_kwarg = get_field(space, w_node, 'kwarg', True)
-        w_defaults = get_field(space, w_node, 'defaults', False)
+        w_posonlyargs = get_field(space, w_node, 'posonlyargs', False, True)
+        w_args = get_field(space, w_node, 'args', False, True)
+        w_vararg = get_field(space, w_node, 'vararg', True, False)
+        w_kwonlyargs = get_field(space, w_node, 'kwonlyargs', False, True)
+        w_kw_defaults = get_field(space, w_node, 'kw_defaults', False, True)
+        w_kwarg = get_field(space, w_node, 'kwarg', True, False)
+        w_defaults = get_field(space, w_node, 'defaults', False, True)
         posonlyargs_w = space.unpackiterable(w_posonlyargs)
         _posonlyargs = [arg.from_object(space, w_item) for w_item in posonlyargs_w]
         args_w = space.unpackiterable(w_args)
@@ -4980,22 +5331,28 @@ class arg(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_arg = get_field(space, w_node, 'arg', False)
-        w_annotation = get_field(space, w_node, 'annotation', True)
-        w_type_comment = get_field(space, w_node, 'type_comment', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_arg = get_field(space, w_node, 'arg', False, False)
+        w_annotation = get_field(space, w_node, 'annotation', True, False)
+        w_type_comment = get_field(space, w_node, 'type_comment', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         if space.is_w(w_arg, space.w_None):
             raise_required_value(space, w_node, 'arg')
-        _arg = space.text_w(w_arg)
+        _arg = check_identifier(space, w_arg)
         _annotation = expr.from_object(space, w_annotation)
         _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return arg(_arg, _annotation, _type_comment, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('arg', 'AST', ['arg', 'annotation', 'type_comment'], ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['annotation', 'type_comment', 'end_lineno', 'end_col_offset'], doc='arg(identifier arg, expr? annotation, string? type_comment)')
@@ -5041,20 +5398,26 @@ class keyword(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_arg = get_field(space, w_node, 'arg', True)
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_arg = get_field(space, w_node, 'arg', True, False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         _arg = space.text_or_none_w(w_arg)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return keyword(_arg, _value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('keyword', 'AST', ['arg', 'value'], ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['arg', 'end_lineno', 'end_col_offset'], doc='keyword(identifier? arg, expr value)')
@@ -5099,20 +5462,26 @@ class alias(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_asname = get_field(space, w_node, 'asname', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_asname = get_field(space, w_node, 'asname', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True, False)
         if space.is_w(w_name, space.w_None):
             raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        _name = check_identifier(space, w_name)
         _asname = space.text_or_none_w(w_asname)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, True)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return alias(_name, _asname, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('alias', 'AST', ['name', 'asname'], ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['asname', 'end_lineno', 'end_col_offset'], doc='alias(identifier name, identifier? asname)')
@@ -5144,8 +5513,8 @@ class withitem(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_context_expr = get_field(space, w_node, 'context_expr', False)
-        w_optional_vars = get_field(space, w_node, 'optional_vars', True)
+        w_context_expr = get_field(space, w_node, 'context_expr', False, False)
+        w_optional_vars = get_field(space, w_node, 'optional_vars', True, False)
         _context_expr = expr.from_object(space, w_context_expr)
         if _context_expr is None:
             raise_required_value(space, w_node, 'context_expr')
@@ -5193,9 +5562,9 @@ class match_case(AST):
 
     @staticmethod
     def from_object(space, w_node):
-        w_pattern = get_field(space, w_node, 'pattern', False)
-        w_guard = get_field(space, w_node, 'guard', True)
-        w_body = get_field(space, w_node, 'body', False)
+        w_pattern = get_field(space, w_node, 'pattern', False, False)
+        w_guard = get_field(space, w_node, 'guard', True, False)
+        w_body = get_field(space, w_node, 'body', False, True)
         _pattern = pattern.from_object(space, w_pattern)
         if _pattern is None:
             raise_required_value(space, w_node, 'pattern')
@@ -5272,18 +5641,24 @@ class MatchValue(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
         return MatchValue(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchValue', 'pattern', ['value'], default_none_fields=[], doc='MatchValue(expr value)')
@@ -5322,18 +5697,24 @@ class MatchSingleton(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        w_value = get_field(space, w_node, 'value', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _value = w_value
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
         return MatchSingleton(_value, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchSingleton', 'pattern', ['value'], default_none_fields=[], doc='MatchSingleton(constant value)')
@@ -5380,17 +5761,23 @@ class MatchSequence(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_patterns = get_field(space, w_node, 'patterns', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        patterns_w = space.unpackiterable(w_patterns)
-        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        w_patterns = get_field(space, w_node, 'patterns', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
         return MatchSequence(_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchSequence', 'pattern', ['patterns'], default_none_fields=[], doc='MatchSequence(pattern* patterns)')
@@ -5453,22 +5840,28 @@ class MatchMapping(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_keys = get_field(space, w_node, 'keys', False)
-        w_patterns = get_field(space, w_node, 'patterns', False)
-        w_rest = get_field(space, w_node, 'rest', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        w_keys = get_field(space, w_node, 'keys', False, True)
+        w_patterns = get_field(space, w_node, 'patterns', False, True)
+        w_rest = get_field(space, w_node, 'rest', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         keys_w = space.unpackiterable(w_keys)
         _keys = [expr.from_object(space, w_item) for w_item in keys_w]
         patterns_w = space.unpackiterable(w_patterns)
         _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
         _rest = space.text_or_none_w(w_rest)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
         return MatchMapping(_keys, _patterns, _rest, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchMapping', 'pattern', ['keys', 'patterns', 'rest'], default_none_fields=['rest'], doc='MatchMapping(expr* keys, pattern* patterns, identifier? rest)')
@@ -5540,14 +5933,24 @@ class MatchClass(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_cls = get_field(space, w_node, 'cls', False)
-        w_patterns = get_field(space, w_node, 'patterns', False)
-        w_kwd_attrs = get_field(space, w_node, 'kwd_attrs', False)
-        w_kwd_patterns = get_field(space, w_node, 'kwd_patterns', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
+        w_cls = get_field(space, w_node, 'cls', False, False)
+        w_patterns = get_field(space, w_node, 'patterns', False, True)
+        w_kwd_attrs = get_field(space, w_node, 'kwd_attrs', False, True)
+        w_kwd_patterns = get_field(space, w_node, 'kwd_patterns', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         _cls = expr.from_object(space, w_cls)
         if _cls is None:
             raise_required_value(space, w_node, 'cls')
@@ -5557,10 +5960,6 @@ class MatchClass(pattern):
         _kwd_attrs = [space.text_w(w_item) for w_item in kwd_attrs_w]
         kwd_patterns_w = space.unpackiterable(w_kwd_patterns)
         _kwd_patterns = [pattern.from_object(space, w_item) for w_item in kwd_patterns_w]
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
         return MatchClass(_cls, _patterns, _kwd_attrs, _kwd_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchClass', 'pattern', ['cls', 'patterns', 'kwd_attrs', 'kwd_patterns'], default_none_fields=[], doc='MatchClass(expr cls, pattern* patterns, identifier* kwd_attrs, pattern* kwd_patterns)')
@@ -5599,16 +5998,22 @@ class MatchStar(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _name = space.text_or_none_w(w_name)
+        w_name = get_field(space, w_node, 'name', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _name = space.text_or_none_w(w_name)
         return MatchStar(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchStar', 'pattern', ['name'], default_none_fields=['name'], doc='MatchStar(identifier? name)')
@@ -5653,18 +6058,24 @@ class MatchAs(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_pattern = get_field(space, w_node, 'pattern', True)
-        w_name = get_field(space, w_node, 'name', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        _pattern = pattern.from_object(space, w_pattern)
-        _name = space.text_or_none_w(w_name)
+        w_pattern = get_field(space, w_node, 'pattern', True, False)
+        w_name = get_field(space, w_node, 'name', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        _pattern = pattern.from_object(space, w_pattern)
+        _name = space.text_or_none_w(w_name)
         return MatchAs(_pattern, _name, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchAs', 'pattern', ['pattern', 'name'], default_none_fields=['pattern', 'name'], doc='MatchAs(pattern? pattern, identifier? name)')
@@ -5711,17 +6122,23 @@ class MatchOr(pattern):
 
     @staticmethod
     def from_object(space, w_node):
-        w_patterns = get_field(space, w_node, 'patterns', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        patterns_w = space.unpackiterable(w_patterns)
-        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
+        w_patterns = get_field(space, w_node, 'patterns', False, True)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        patterns_w = space.unpackiterable(w_patterns)
+        _patterns = [pattern.from_object(space, w_item) for w_item in patterns_w]
         return MatchOr(_patterns, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('MatchOr', 'pattern', ['patterns'], default_none_fields=[], doc='MatchOr(pattern* patterns)')
@@ -5762,8 +6179,8 @@ class TypeIgnore(type_ignore):
 
     @staticmethod
     def from_object(space, w_node):
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_tag = get_field(space, w_node, 'tag', False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_tag = get_field(space, w_node, 'tag', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _tag = check_string(space, w_tag, 0)
         if _tag is None:
@@ -5834,20 +6251,26 @@ class TypeVar(type_param):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_bound = get_field(space, w_node, 'bound', True)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        if space.is_w(w_name, space.w_None):
-            raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
-        _bound = expr.from_object(space, w_bound)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_bound = get_field(space, w_node, 'bound', True, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_name, space.w_None):
+            raise_required_value(space, w_node, 'name')
+        _name = check_identifier(space, w_name)
+        _bound = expr.from_object(space, w_bound)
         return TypeVar(_name, _bound, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('TypeVar', 'type_param', ['name', 'bound'], default_none_fields=['bound'], doc='TypeVar(identifier name, expr? bound)')
@@ -5886,18 +6309,24 @@ class ParamSpec(type_param):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        if space.is_w(w_name, space.w_None):
-            raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_name, space.w_None):
+            raise_required_value(space, w_node, 'name')
+        _name = check_identifier(space, w_name)
         return ParamSpec(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('ParamSpec', 'type_param', ['name'], default_none_fields=[], doc='ParamSpec(identifier name)')
@@ -5936,18 +6365,24 @@ class TypeVarTuple(type_param):
 
     @staticmethod
     def from_object(space, w_node):
-        w_name = get_field(space, w_node, 'name', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        w_end_lineno = get_field(space, w_node, 'end_lineno', False)
-        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False)
-        if space.is_w(w_name, space.w_None):
-            raise_required_value(space, w_node, 'name')
-        _name = space.text_w(w_name)
+        w_name = get_field(space, w_node, 'name', False, False)
+        w_lineno = get_field(space, w_node, 'lineno', False, False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False, False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', False, False)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', False, False)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        _end_lineno = obj_to_int(space, w_end_lineno, False)
-        _end_col_offset = obj_to_int(space, w_end_col_offset, False)
+        if space.is_w(w_end_lineno, space.w_None):
+            _end_lineno = _lineno
+        else:
+            _end_lineno = obj_to_int(space, w_end_lineno, True)
+        if space.is_w(w_end_col_offset, space.w_None):
+            _end_col_offset = _col_offset
+        else:
+            _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        if space.is_w(w_name, space.w_None):
+            raise_required_value(space, w_node, 'name')
+        _name = check_identifier(space, w_name)
         return TypeVarTuple(_name, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
 State.ast_type('TypeVarTuple', 'type_param', ['name'], default_none_fields=[], doc='TypeVarTuple(identifier name)')

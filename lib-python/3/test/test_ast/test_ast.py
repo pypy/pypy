@@ -66,6 +66,7 @@ class AST_Tests(unittest.TestCase):
             # "ast.AST constructor takes 0 positional arguments"
             ast.AST(2)
 
+    @support.cpython_only  # PyPy: ast.AST is immutable, _fields can't be deleted
     def test_AST_fields_NULL_check(self):
         # See: https://github.com/python/cpython/issues/126105
         old_value = ast.AST._fields
@@ -1352,7 +1353,12 @@ Module(
             ast.literal_eval(node)
 
     def test_literal_eval_syntax_errors(self):
-        with self.assertRaisesRegex(SyntaxError, "unexpected indent"):
+        # PyPy's tokenizer reports the line-continuation error before the indent
+        if sys.implementation.name == 'pypy':
+            errmsg = "unexpected character"
+        else:
+            errmsg = "unexpected indent"
+        with self.assertRaisesRegex(SyntaxError, errmsg):
             ast.literal_eval(r"""
                 \
                 (\
