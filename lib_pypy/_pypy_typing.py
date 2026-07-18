@@ -16,10 +16,25 @@ A lot of this code must be rewritten in RPython later to establish proper
 parity with CPython's implementation around introspection, immutability, etc.
 """
 
+import sys
+
 __all__ = [
     'TypeVar', 'ParamSpec', 'TypeVarTuple', 'TypeAliasType',
     'ParamSpecArgs', 'ParamSpecKwargs', 'Generic',
 ]
+
+
+def _caller_module():
+    # Return the __name__ of the module that called the __init__ invoking this
+    # helper (frame 0 is _caller_module, frame 1 is the __init__, frame 2 is
+    # its caller). Mirrors CPython's caller() in Objects/typevarobject.c, which
+    # sets __module__ on explicitly constructed type variables to the defining
+    # module (needed so they can be pickled by qualified name).
+    try:
+        f = sys._getframe(2)
+    except ValueError:
+        return None
+    return f.f_globals.get('__name__')
 
 
 class _Immutable:
@@ -126,7 +141,7 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
         else:
             self.__constraints__ = ()
 
-        # TODO: Fix __module__
+        self.__module__ = _caller_module()
 
     __bound__ = _LazyEvaluator()
     __constraints__ = _LazyEvaluator()
@@ -190,7 +205,7 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
         self.__name__ = name
         super().__init__(bound, covariant, contravariant, infer_variance)
 
-        # TODO: __module__ is automatically set by Python to the defining module
+        self.__module__ = _caller_module()
 
         # Create args and kwargs attributes
         self.args = ParamSpecArgs(self)
@@ -272,7 +287,7 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
 
     def __init__(self, name):
         self.__name__ = name
-        # __module__ is automatically set by Python to the defining module
+        self.__module__ = _caller_module()
 
     def __repr__(self):
         return self.__name__
@@ -316,7 +331,7 @@ class TypeAliasType(_PickleUsingNameMixin):
         self._name = name
         self._type_params = tuple(type_params) if type_params else ()
         self.__value__ = value
-        # __module__ is automatically set by Python to the defining module
+        self.__module__ = _caller_module()
 
     @property
     def __name__(self):
@@ -369,13 +384,16 @@ class TypeAliasType(_PickleUsingNameMixin):
 # with lazy evaluation support.
 
 def _make_typevar(name):
-    return TypeVar(name, infer_variance=True)
+    t = TypeVar(name, infer_variance=True)
+    t.__module__ = 'typing'
+    return t
 
 
 def _make_typevar_with_bound(name, evaluate_bound):
     t = TypeVar(name, infer_variance=True)
     del t.__bound__
     t.__evaluate_bound__ = evaluate_bound
+    t.__module__ = 'typing'
     return t
 
 
@@ -383,21 +401,27 @@ def _make_typevar_with_constraints(name, evaluate_constraints):
     t = TypeVar(name, infer_variance=True)
     del t.__constraints__
     t.__evaluate_constraints__ = evaluate_constraints
+    t.__module__ = 'typing'
     return t
 
 
 def _make_paramspec(name):
-    return ParamSpec(name, infer_variance=True)
+    t = ParamSpec(name, infer_variance=True)
+    t.__module__ = 'typing'
+    return t
 
 
 def _make_typevartuple(name):
-    return TypeVarTuple(name)
+    t = TypeVarTuple(name)
+    t.__module__ = 'typing'
+    return t
 
 
 def _make_typealiastype(name, evaluate_value, type_params):
     t = TypeAliasType(name, None, type_params=type_params)
     del t.__value__
     t.__evaluate_value__ = evaluate_value
+    t.__module__ = getattr(evaluate_value, '__module__', None)
     return t
 
 
@@ -443,3 +467,10 @@ class Generic:
     def __init_subclass__(cls, *args, **kwargs):
         import typing
         return typing._generic_init_subclass(cls, *args, **kwargs)
+
+
+# make the __module__ match pickling by their public name.
+for _cls in (TypeVar, ParamSpec, TypeVarTuple, TypeAliasType, Generic,
+             ParamSpecArgs, ParamSpecKwargs):
+    _cls.__module__ = 'typing'
+del _cls
