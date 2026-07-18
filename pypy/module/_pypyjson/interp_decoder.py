@@ -169,7 +169,7 @@ class JSONDecoder(W_Root):
         elif ch.isdigit():
             return self.decode_numeric(i)
         else:
-            raise DecoderError("Unexpected '%s'" % ch, i)
+            raise DecoderError("Expecting value", i)
 
 
     def _raise(self, msg, pos):
@@ -295,10 +295,7 @@ class JSONDecoder(W_Root):
             self._raise("Invalid control character at", currindex-1)
 
     def _raise_object_error(self, ch, start, i):
-        if ch == '\0':
-            self._raise("Unterminated object starting at", start)
-        else:
-            self._raise("Unexpected '%s' when decoding object" % ch, i)
+        self._raise("Expecting ',' delimiter", i)
 
     def decode_array(self, i):
         """ Decode a list. i must be after the opening '[' """
@@ -321,11 +318,8 @@ class JSONDecoder(W_Root):
                 return w_list
             elif ch == ',':
                 pass
-            elif ch == '\0':
-                raise DecoderError("Unterminated array starting at", start)
             else:
-                raise DecoderError("Unexpected '%s' when decoding array" % ch,
-                                   i-1)
+                raise DecoderError("Expecting ',' delimiter", i-1)
 
     def decode_object(self, i):
         start = i
@@ -354,7 +348,7 @@ class JSONDecoder(W_Root):
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
-                raise DecoderError("No ':' found at", i)
+                raise DecoderError("Expecting ':' delimiter", i)
             i += 1
 
             w_value = self.decode_any(i, currmap)
@@ -411,7 +405,7 @@ class JSONDecoder(W_Root):
             i = self.skip_whitespace(self.pos)
             ch = self.ll_chars[i]
             if ch != ':':
-                self._raise("No ':' found at", i)
+                self._raise("Expecting ':' delimiter", i)
             i += 1
 
             w_value = self.decode_any(i)
@@ -636,7 +630,7 @@ class JSONDecoder(W_Root):
         start = i
         ch = ll_chars[i]
         if ch != '"':
-            raise DecoderError("Key name must be string at char", i)
+            raise DecoderError("Expecting property name enclosed in double quotes", i)
         i += 1
         w_key = self._decode_key_string(i)
         return currmap.get_next(w_key, self.s, start, self.pos, self.startmap)
@@ -679,7 +673,7 @@ class JSONDecoder(W_Root):
         ll_chars = self.ll_chars
         ch = ll_chars[i]
         if ch != '"':
-            self._raise("Key name must be string at char %d", i)
+            self._raise("Expecting property name enclosed in double quotes", i)
         i += 1
         return self._decode_key_string(i)
 

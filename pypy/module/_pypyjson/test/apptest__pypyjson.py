@@ -93,3 +93,16 @@ def test_encode_non_ascii_unicode():
     enc = _make_encoder(ensure_ascii=False)
     u = u'\u03b1\u03a9'
     assert ''.join(enc([u], 0)) == u'["' + u + u'"]'
+
+
+def test_allow_nan_false_message():
+    # allow_nan=False must reject the specials, reporting the float's repr
+    # (inf/-inf/nan) like CPython, not the JSON text (Infinity/NaN).
+    from pytest import raises
+    enc = _make_encoder(allow_nan=False)
+    for val, r in [(float('inf'), 'inf'),
+                   (float('-inf'), '-inf'),
+                   (float('nan'), 'nan')]:
+        exc = raises(ValueError, lambda: ''.join(enc([val], 0)))
+        assert str(exc.value) == (
+            'Out of range float values are not JSON compliant: ' + r)

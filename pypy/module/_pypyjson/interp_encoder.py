@@ -128,13 +128,16 @@ class W_Encoder(W_Root):
         if not isfinite(f):
             if f > 0.0:
                 text = 'Infinity'
+                reprstr = 'inf'
             elif f < 0.0:
                 text = '-Infinity'
+                reprstr = '-inf'
             else:
                 text = 'NaN'
+                reprstr = 'nan'
             if not self.allow_nan:
                 raise oefmt(self.space.w_ValueError,
-                    "Out of range float values are not JSON compliant: %s", text)
+                    "Out of range float values are not JSON compliant: %s", reprstr)
             sb.append(text)
         else:
             sb.append(formatd(f, 'r', 0, DTSF_ADD_DOT_0))
