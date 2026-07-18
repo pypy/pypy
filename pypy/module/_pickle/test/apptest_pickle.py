@@ -433,28 +433,39 @@ def test_bad_newobj_ex():
     assert val == 0
 
 def test_recursive_set():
-    # Set containing an immutable object containing the original set.
-    y = set()
-    y.add(K(y))
-    for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
-        s = dumps(y, proto)
-        s2 = dumps_py(y, proto)
-        assert s == s2
-        x = loads(s)
-        assert isinstance(x, set)
-        assert len(x) == 1
-        assert isinstance(list(x)[0], K)
-        assert list(x)[0].value is x
+    # apptest files are not importable, so K must be made resolvable by
+    # save_global through a fake module registered in sys.modules.
+    mod = type(sys)('fakemod')
+    mod.K = K
+    orig_module = K.__module__
+    K.__module__ = 'fakemod'
+    sys.modules['fakemod'] = mod
+    try:
+        # Set containing an immutable object containing the original set.
+        y = set()
+        y.add(K(y))
+        for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+            s = dumps(y, proto)
+            s2 = dumps_py(y, proto)
+            assert s == s2
+            x = loads(s)
+            assert isinstance(x, set)
+            assert len(x) == 1
+            assert isinstance(list(x)[0], K)
+            assert list(x)[0].value is x
 
-    # Immutable object containing a set containing the original object.
-    y, = y
-    for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
-        s = dumps(y, proto)
-        x = loads(s)
-        assert isinstance(x, K)
-        assert isinstance(x.value, set)
-        assert len(x.value) == 1
-        assert list(x.value)[0] is x
+        # Immutable object containing a set containing the original object.
+        y, = y
+        for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+            s = dumps(y, proto)
+            x = loads(s)
+            assert isinstance(x, K)
+            assert isinstance(x.value, set)
+            assert len(x.value) == 1
+            assert list(x.value)[0] is x
+    finally:
+        del sys.modules['fakemod']
+        K.__module__ = orig_module
 
 def test_picklebuffer():
     pb = PickleBuffer(b'foobar')

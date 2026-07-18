@@ -1089,13 +1089,37 @@ class W_Pickler(W_Root):
             self.save(w_module_name)
             self.save(w_name)
             write(op.STACK_GLOBAL)
-        elif not space.is_w(w_parent, w_module):
-            self.save_reduce(space.getattr(space.builtin, space.newtext('getattr')),
-                             space.newtuple2(w_parent, space.newtext(lastname)))
-        elif self.proto >= 3:
+        elif '.' in name:
+            # In protocol < 4, objects with multi-part __qualname__
+            # are represented as
+            # getattr(getattr(..., attrname1), attrname2).
+            dotted_path = name.split('.')
+            w_getattr = space.getattr(space.builtin, space.newtext('getattr'))
+            for i in range(len(dotted_path) - 1):
+                self.save(w_getattr)
+                if self.proto < 2:
+                    write(op.MARK)
+            self._save_toplevel_by_name(w_module_name,
+                                        space.newtext(dotted_path[0]))
+            for i in range(1, len(dotted_path)):
+                self.save(space.newtext(dotted_path[i]))
+                if self.proto < 2:
+                    write(op.TUPLE)
+                else:
+                    write(op.TUPLE2)
+                write(op.REDUCE)
+        else:
+            self._save_toplevel_by_name(w_module_name, w_name)
+        self.memoize(w_obj)
+
+    def _save_toplevel_by_name(self, w_module_name, w_name):
+        space = self.space
+        write = self.write
+        if self.proto >= 3:
+            # Non-ASCII identifiers are supported only with protocols >= 3.
             module_name = space.utf8_w(w_module_name)
-            write(op.GLOBAL + module_name + b'\n' +
-                  name + b'\n')
+            name = space.utf8_w(w_name)
+            write(op.GLOBAL + module_name + b'\n' + name + b'\n')
         else:
             if self.fix_imports:
                 w_modname_and_name = space.newtuple([w_module_name, w_name])
@@ -1110,13 +1134,11 @@ class W_Pickler(W_Root):
             try:
                 module_name = space.utf8_w(w_module_name)
                 name = space.utf8_w(w_name)
-                write(op.GLOBAL + module_name + b'\n' +
-                      name + b'\n')
+                write(op.GLOBAL + module_name + b'\n' + name + b'\n')
             except UnicodeEncodeError:
                 raise oefmt(pickling_error(space),
                     "can't pickle global identifier '%S.%S' using "
-                    "pickle protocol %d", w_module, w_name, self.proto)
-        self.memoize(w_obj)
+                    "pickle protocol %d", w_module_name, w_name, self.proto)
 
     def memoize(self, w_obj):
         """Store an object in the memo."""
