@@ -893,10 +893,12 @@ def tee(space, w_iterable, n=2):
         # In this case, we don't instantiate any W_TeeIterable.
         # We just rely on doing repeated __copy__().  This case
         # includes the situation where w_iterable is already
-        # a W_TeeIterable itself.
-        iterators_w = [w_iterator] * n
-        for i in range(1, n):
-            iterators_w[i] = space.call_method(w_iterator, "__copy__")
+        # a W_TeeIterable itself.  Every result (including the first) must be
+        # a fresh copy sharing the buffer, rather than w_iterator itself, so
+        # that consuming one does not advance w_iterator.  See CPython
+        # gh-123884 (tee of tee was not producing independent iterators).
+        iterators_w = [space.call_method(w_iterator, "__copy__")
+                       for i in range(n)]
     else:
         w_chained_list = W_TeeChainedListNode(space)
         iterators_w = [W_TeeIterable(space, w_iterator, w_chained_list)
@@ -1816,4 +1818,58 @@ W_Pairwise.typedef = TypeDef("itertools.pairwise",
 Return an iterator of overlapping pairs taken from the input iterator.
 
     s -> (s0, s1), (s1, s2), (s2, s3), ...
+""")
+
+
+class W_Batched(W_Root):
+    def __init__(self, space, w_iterable, batch):
+        self.space = space
+        self.w_iterator = space.iter(w_iterable)
+        self.batch = batch
+
+    def iter_w(self):
+        return self
+
+    def next_w(self):
+        space = self.space
+        w_iterator = self.w_iterator
+        if w_iterator is None:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        items_w = []
+        for i in range(self.batch):
+            try:
+                w_item = space.next(w_iterator)
+            except OperationError as e:
+                # The input is exhausted (or raised): stop consuming it. A
+                # non-StopIteration error is propagated after marking done.
+                self.w_iterator = None
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            items_w.append(w_item)
+        if not items_w:
+            raise OperationError(space.w_StopIteration, space.w_None)
+        return space.newtuple(items_w)
+
+@unwrap_spec(n=int)
+def W_Batched__new__(space, w_subtype, w_iterable, n):
+    if n < 1:
+        raise oefmt(space.w_ValueError, "n must be at least one")
+    r = space.allocate_instance(W_Batched, w_subtype)
+    r.__init__(space, w_iterable, n)
+    return r
+
+W_Batched.typedef = TypeDef("itertools.batched",
+    __new__  = interp2app(W_Batched__new__),
+    __iter__ = interp2app(W_Batched.iter_w),
+    __next__ = interp2app(W_Batched.next_w),
+    __doc__  = """\
+Batch data into tuples of length n. The last batch may be shorter than n.
+
+    >>> for batch in batched('ABCDEFG', 3):
+    ...     print(batch)
+    ...
+    ('A', 'B', 'C')
+    ('D', 'E', 'F')
+    ('G',)
 """)

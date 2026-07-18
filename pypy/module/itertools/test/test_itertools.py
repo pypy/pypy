@@ -637,10 +637,9 @@ class AppTestItertools(object):
 
         a, b = itertools.tee(iter('foobar'))
         c, d = itertools.tee(b)
-        assert c is b
-        assert a is not c
-        assert a is not d
-        assert c is not d
+        # tee objects are independent copies, not the input itself
+        # (gh-123884 / pypy #5284).
+        assert len({a, b, c, d}) == 4
         res = list(a)
         assert res == list('foobar')
         res = list(c)
@@ -907,11 +906,15 @@ class AppTestItertools(object):
             def __copy__(self):
                 return iter('def')
         my = MyIterator()
+        # tee copies via __copy__ for every result, including the first
+        # (gh-123884 / pypy #5284), so none of them is the input itself.
         a, = itertools.tee(my, 1)
-        assert a is my
+        assert a is not my
+        assert list(a) == ['d', 'e', 'f']
         a, b = itertools.tee(my)
-        assert a is my
+        assert a is not my
         assert b is not my
+        assert list(a) == ['d', 'e', 'f']
         assert list(b) == ['d', 'e', 'f']
 
     def test_tee_function_empty(self):
