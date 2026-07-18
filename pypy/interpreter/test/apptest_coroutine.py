@@ -438,6 +438,108 @@ def test_async_yield_athrow_throw():
         ag().athrow(ValueError).throw(LookupError)
     # CPython's message makes little sense; PyPy's message is different
 
+def test_async_gen_asend_throw_concurrent_with_send():
+    import types
+    @types.coroutine
+    def _async_yield(v):
+        return (yield v)
+    class MyExc(Exception):
+        pass
+    async def agenfn():
+        while True:
+            try:
+                await _async_yield(None)
+            except MyExc:
+                pass
+        return
+        yield
+    agen = agenfn()
+    agen.asend(None).send(None)
+    gen2 = agen.asend(None)
+    with raises(RuntimeError) as e:
+        gen2.throw(MyExc)
+    assert 'anext(): asynchronous generator is already running' in str(e.value)
+    with raises(RuntimeError) as e:
+        gen2.send(None)
+    assert 'cannot reuse already awaited __anext__()/asend()' in str(e.value)
+
+def test_async_gen_athrow_throw_concurrent_with_send():
+    import types
+    @types.coroutine
+    def _async_yield(v):
+        return (yield v)
+    class MyExc(Exception):
+        pass
+    async def agenfn():
+        while True:
+            try:
+                await _async_yield(None)
+            except MyExc:
+                pass
+        return
+        yield
+    agen = agenfn()
+    agen.asend(None).send(None)
+    gen2 = agen.athrow(MyExc)
+    with raises(RuntimeError) as e:
+        gen2.throw(MyExc)
+    assert 'athrow(): asynchronous generator is already running' in str(e.value)
+    with raises(RuntimeError) as e:
+        gen2.send(None)
+    assert 'cannot reuse already awaited aclose()/athrow()' in str(e.value)
+
+def test_async_gen_asend_throw_concurrent_with_throw():
+    import types
+    @types.coroutine
+    def _async_yield(v):
+        return (yield v)
+    class MyExc(Exception):
+        pass
+    async def agenfn():
+        try:
+            yield
+        except MyExc:
+            pass
+        while True:
+            try:
+                await _async_yield(None)
+            except MyExc:
+                pass
+    agen = agenfn()
+    with raises(StopIteration):
+        agen.asend(None).send(None)
+    agen.athrow(MyExc).throw(MyExc)
+    gen2 = agen.asend(MyExc)
+    with raises(RuntimeError) as e:
+        gen2.throw(MyExc)
+    assert 'anext(): asynchronous generator is already running' in str(e.value)
+
+def test_async_gen_athrow_throw_concurrent_with_throw():
+    import types
+    @types.coroutine
+    def _async_yield(v):
+        return (yield v)
+    class MyExc(Exception):
+        pass
+    async def agenfn():
+        try:
+            yield
+        except MyExc:
+            pass
+        while True:
+            try:
+                await _async_yield(None)
+            except MyExc:
+                pass
+    agen = agenfn()
+    with raises(StopIteration):
+        agen.asend(None).send(None)
+    agen.athrow(MyExc).throw(MyExc)
+    gen2 = agen.athrow(MyExc)
+    with raises(RuntimeError) as e:
+        gen2.throw(MyExc)
+    assert 'athrow(): asynchronous generator is already running' in str(e.value)
+
 def test_async_yield_athrow_while_running():
     values = []
     async def ag():
@@ -779,17 +881,14 @@ def test_asyncgen_hooks_shutdown():
             await suspend('closing waiter')
             finalized += 1
 
-    async def wait():
-        async for _ in waiter(1):
-            pass
-
-    task1 = wait()
-    task2 = wait()
     old_hooks = sys.get_asyncgen_hooks()
     try:
         sys.set_asyncgen_hooks(firstiter=register_agen)
-        assert task1.send(None) == 'running waiter'
-        assert task2.send(None) == 'running waiter'
+        # Drive each agen to its 'yield' (not the 'await'): since 3.12,
+        # aclose() refuses to finalize an agen suspended at an await
+        # ("asynchronous generator is already running").
+        assert run_async(waiter(1).asend(None)) == (['running waiter'], 1)
+        assert run_async(waiter(1).asend(None)) == (['running waiter'], 1)
         assert len(asyncgens) == 2
 
         assert run_async(asyncgens[0].aclose()) == (['closing waiter'], None)

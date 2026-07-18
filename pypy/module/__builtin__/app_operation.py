@@ -67,6 +67,10 @@ def anext(iterator, default=_NOT_PROVIDED):
     if default is _NOT_PROVIDED:
         return __anext__(iterator)
 
+    # Call __anext__ eagerly so that an exception raised synchronously (before
+    # returning an awaitable) propagates from anext() itself, matching CPython.
+    awaitable = __anext__(iterator)
+
     async def anext_impl():
         try:
             # The C code is way more low-level than this, as it implements
@@ -74,7 +78,7 @@ def anext(iterator, default=_NOT_PROVIDED):
             # we're relying on higher-level coroutine concepts, but that's
             # exactly what we want -- crosstest pure-Python high-level
             # implementation and low-level C anext() iterators.
-            return await __anext__(iterator)
+            return await awaitable
         except StopAsyncIteration:
             return default
 

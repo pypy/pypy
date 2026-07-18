@@ -798,10 +798,11 @@ class AsyncGenASend(AsyncGenABase):
         if self.state == self.ST_INIT:
             if space.is_w(w_arg_or_err, space.w_None):
                 w_arg_or_err = self.w_value_to_send
-            self.state = self.ST_ITER
             if self.async_gen.ag_running:
+                self.state = self.ST_CLOSED
                 raise oefmt(space.w_RuntimeError,
-                    "asynchronous generator is already running")
+                    "anext(): asynchronous generator is already running")
+            self.state = self.ST_ITER
             self.async_gen.ag_running = True
 
         try:
@@ -819,6 +820,13 @@ class AsyncGenASend(AsyncGenABase):
                 self.space.w_RuntimeError,
                 self.space.newtext("cannot reuse already awaited __anext__()/asend()")
             )
+        if self.state == self.ST_INIT:
+            if self.async_gen.ag_running:
+                self.state = self.ST_CLOSED
+                raise oefmt(space.w_RuntimeError,
+                    "anext(): asynchronous generator is already running")
+            self.state = self.ST_ITER
+            self.async_gen.ag_running = True
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
@@ -855,10 +863,14 @@ class AsyncGenAThrow(AsyncGenABase):
             )
 
         if self.state == self.ST_INIT:
+            if self.async_gen.ag_running:
+                self.state = self.ST_CLOSED
+                self._raise_already_running()
             if not space.is_w(w_arg_or_err, space.w_None):
                 raise OperationError(space.w_RuntimeError, space.newtext(
                     "can't send non-None value to a just-started coroutine"))
             self.state = self.ST_ITER
+            self.async_gen.ag_running = True
             throwing = True
         else:
             throwing = False
@@ -891,14 +903,29 @@ class AsyncGenAThrow(AsyncGenABase):
                 self.space.w_RuntimeError,
                 self.space.newtext("cannot reuse already awaited aclose()/athrow()")
             )
+        if self.state == self.ST_INIT:
+            if self.async_gen.ag_running:
+                self.state = self.ST_CLOSED
+                self._raise_already_running()
+            self.state = self.ST_ITER
+            self.async_gen.ag_running = True
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
         except OperationError as e:
             self.handle_error(e)
 
+    def _raise_already_running(self):
+        space = self.space
+        if self.w_exc_type is None:
+            raise oefmt(space.w_RuntimeError,
+                "aclose(): asynchronous generator is already running")
+        raise oefmt(space.w_RuntimeError,
+            "athrow(): asynchronous generator is already running")
+
     def handle_error(self, e):
         space = self.space
+        self.async_gen.ag_running = False
         self.state = self.ST_CLOSED
         if (e.match(space, space.w_StopAsyncIteration) or
                     e.match(space, space.w_StopIteration)):

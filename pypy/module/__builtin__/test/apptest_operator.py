@@ -43,6 +43,29 @@ def test_aiter_anext():
 
     run_async(run())
 
+def test_sync_anext_raises_exception():
+    # A synchronous exception from __anext__ must propagate from anext()
+    # itself, with or without a default (CPython gh-131670).
+    for exc_type in [StopAsyncIteration, StopIteration, ValueError, Exception]:
+        class A:
+            def __anext__(self):
+                raise exc_type('custom')
+        with pytest.raises(exc_type):
+            anext(A())
+        with pytest.raises(exc_type):
+            anext(A(), 1)
+
+def test_anext_default_on_exhaustion():
+    async def foo():
+        yield 1
+
+    async def run():
+        it = aiter(foo())
+        assert await anext(it, 'default') == 1
+        assert await anext(it, 'default') == 'default'
+
+    run_async(run())
+
 def test_getattr_etc_error():
     with raises(TypeError) as info:
         getattr(test_getattr_etc_error, b'__code__')
