@@ -52,7 +52,7 @@ T=pypy/tool/pyhdrdump          # adjust to your checkout
 $T/pyhdrdump /usr/include/python3.12/Python.h -I/usr/include/python3.12 > cpython312.dump
 
 # PyPy: needs the *generated* cpyext headers (pypy_macros.h, pypy_decl.h,
-# pypy_structmember_decl.h) that a translation produces. On the py3.12 branch
+# that a translation produces. On the py3.12 branch
 # those live in include/pypy3.12 alongside the static headers. Make sure these
 # match the branch you are comparing -- a stale 3.11 build dir will silently
 # compare the wrong versions.

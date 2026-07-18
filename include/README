@@ -8,4 +8,3 @@ translation. Currently they are:
 * pypy_decl.h
 * pypy_macros.h
 * pypy_numpy.h
-* pypy_structmember_decl.h

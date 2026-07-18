@@ -50,14 +50,6 @@ extern "C" {
 #define RESTRICTED          (READ_RESTRICTED | PY_WRITE_RESTRICTED)
 
 
-/* API functions. */
-/* Don't include them while building PyPy, RPython also generated signatures
- * which are similar but not identical. */
-#ifndef PYPY_STANDALONE
-#include "pypy_structmember_decl.h"
-#endif
-
-
 #ifdef __cplusplus
 }
 #endif

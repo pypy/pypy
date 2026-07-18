@@ -135,7 +135,6 @@ def ferror(fp):
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
-udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_marshal_decl.h').write("/* Will be filled later */\n")
 udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 udir.join('genericaliasobject.h').write("/* Will be filled later */\n")
