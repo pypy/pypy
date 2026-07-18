@@ -6,6 +6,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import GetSetProperty, TypeDef
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import jit
 
 
@@ -142,6 +143,21 @@ class W_SliceObject(W_Root):
         else:
             return space.w_False
 
+    def descr_hash(self, space):
+        # Hash the (start, stop, step) triple with the same xxHash-based
+        # accumulation as tuples, but without tuple's final length mixing.
+        from pypy.objspace.std.tupleobject import (
+            XXPRIME_1, XXPRIME_2, XXPRIME_5, xxrotate, uhash_type)
+        acc = XXPRIME_5
+        for w_comp in [self.w_start, self.w_stop, self.w_step]:
+            lane = uhash_type(space.hash_w(w_comp))
+            acc += lane * XXPRIME_2
+            acc = xxrotate(acc)
+            acc *= XXPRIME_1
+        if acc == uhash_type(-1):
+            return space.newint(1546275796)
+        return space.newint(intmask(acc))
+
     def descr_ne(self, space, w_other):
         if space.is_w(self, w_other):
             return space.w_False
@@ -202,7 +218,7 @@ W_SliceObject.typedef = TypeDef("slice",
 Create a slice object.  This is used for extended slicing (e.g. a[0:10:2]).''',
     __new__ = gateway.interp2app(W_SliceObject.descr__new__),
     __repr__ = gateway.interp2app(W_SliceObject.descr_repr),
-    __hash__ = None,
+    __hash__ = gateway.interp2app(W_SliceObject.descr_hash),
     __reduce__ = gateway.interp2app(W_SliceObject.descr__reduce__),
 
     __eq__ = gateway.interp2app(W_SliceObject.descr_eq),
