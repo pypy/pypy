@@ -623,3 +623,19 @@ def PyErr_GetRaisedException(space):
     if operror is None:
         return
     return operror.normalize_exception(space)
+
+
+@cpython_api([PyObject], lltype.Void)
+def PyErr_SetRaisedException(space, exc):
+    # set-and-steal: takes ownership of the reference to exc, the (normalized)
+    # exception instance whose __traceback__ carries the traceback (as in
+    # CPython 3.12). Preserve that traceback on the OperationError, else a later
+    # normalize would overwrite __traceback__ with None.
+    state = space.fromcache(State)
+    w_exc = get_w_obj_and_decref(space, exc)
+    if w_exc is None:
+        state.clear_exception()
+        return
+    w_tb = space.getattr(w_exc, space.newtext('__traceback__'))
+    tb = None if space.is_none(w_tb) else w_tb
+    state.set_exception(OperationError(space.type(w_exc), w_exc, tb))

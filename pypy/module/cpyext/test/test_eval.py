@@ -9,7 +9,7 @@ from pypy.module.cpyext.pythonrun import Py_AtExit
 from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags,
     PyEval_CallObjectWithKeywords, PyObject_CallObject, PyEval_EvalCode,
-    PyRun_SimpleString, PyRun_String, PyRun_StringFlags, PyRun_File,
+    PyRun_String, PyRun_StringFlags, PyRun_File,
     PyEval_GetLocals, PyEval_GetGlobals,
     _PyEval_SliceIndex)
 from pypy.module.cpyext.api import (
@@ -91,17 +91,6 @@ class TestEval(BaseApiTest):
 
         assert space.int_w(w_res) == 10
 
-    def test_run_simple_string(self, space):
-        def run(code):
-            buf = rffi.str2charp(code)
-            try:
-                return PyRun_SimpleString(space, buf)
-            finally:
-                rffi.free_charp(buf)
-
-        assert run("42 * 43") == 0  # no error
-        with pytest.raises(OperationError):
-            run("4..3 * 43")
 
     def test_run_string(self, space):
         def run(code, start, w_globals, w_locals):
@@ -198,6 +187,24 @@ class TestEval(BaseApiTest):
         assert lst == [42]
 
 class AppTestCall(AppTestCpythonExtensionBase):
+    def test_run_simple_string(self):
+        module = self.import_extension('foo', [
+            ("run_ok", "METH_NOARGS",
+             '''
+             return PyLong_FromLong(PyRun_SimpleString("42 * 43"));
+             '''
+             ),
+            ("run_err", "METH_NOARGS",
+             '''
+             /* On error PyRun_SimpleString calls PyErr_Print (clearing the
+                indicator) and returns -1, rather than propagating. */
+             return PyLong_FromLong(PyRun_SimpleString("4..3 * 43"));
+             '''
+             ),
+            ])
+        assert module.run_ok() == 0
+        assert module.run_err() == -1
+
     def test_eval_code_ex(self):
         module = self.import_extension('foo', [
             ("eval_code_ex", "METH_VARARGS",

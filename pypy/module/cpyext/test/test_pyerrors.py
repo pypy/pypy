@@ -203,6 +203,32 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert exc.args == ("message",)
         assert module.get_none() is True
 
+    def test_set_raised_exception(self):
+        module = self.import_extension('foo', [
+            ("roundtrip", "METH_NOARGS",
+             '''
+             PyObject *exc;
+             PyErr_SetString(PyExc_TypeError, "message");
+             exc = PyErr_GetRaisedException();
+             if (PyErr_Occurred()) {
+                 Py_XDECREF(exc);
+                 PyErr_SetString(PyExc_AssertionError, "indicator not cleared");
+                 return NULL;
+             }
+             /* set-and-steal: gives ownership of exc back to the indicator */
+             PyErr_SetRaisedException(exc);
+             if (!PyErr_Occurred()) {
+                 PyErr_SetString(PyExc_AssertionError, "indicator not set");
+                 return NULL;
+             }
+             return NULL;
+             '''
+             ),
+            ])
+        with raises(TypeError) as excinfo:
+            module.roundtrip()
+        assert excinfo.value.args == ("message",)
+
     def test_normalize(self):
         module = self.import_extension('foo', [
             ("check_error", "METH_NOARGS",
