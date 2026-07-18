@@ -26,7 +26,7 @@ from contextlib import nullcontext
 from functools import partial
 from itertools import product, islice
 from test import support
-from test.support import os_helper
+from test.support import os_helper, impl_detail
 from test.support import warnings_helper
 from test.support import findfile, gc_collect, swap_attr, swap_item
 from test.support.import_helper import import_fresh_module
@@ -2131,6 +2131,7 @@ class BugsTest(unittest.TestCase):
         self.assertEqual(t.find('.//paragraph').text,
             'A new cultivar of Begonia plant named \u2018BCT9801BEG\u2019.')
 
+    @impl_detail
     @unittest.skipIf(sys.gettrace(), "Skips under coverage.")
     def test_bug_xmltoolkit63(self):
         # Check reference leak.

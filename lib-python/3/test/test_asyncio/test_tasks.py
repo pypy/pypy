@@ -2490,6 +2490,7 @@ class BaseTaskTests:
         finally:
             loop.close()
 
+    @support.refcount_test
     def test_proper_refcounts(self):
         # see: https://github.com/python/cpython/issues/126083
         class Break:
