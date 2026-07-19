@@ -27,7 +27,7 @@ Name       = r'\w+'
 Hexnumber  = r'0[xX](?:_?[0-9a-fA-F])+'
 Binnumber  = r'0[bB](?:_?[01])+'
 Octnumber  = r'0[oO](?:_?[0-7])+'
-Decnumber  = r'(?:0(?:_?0)*|[1-9](?:_?[0-9])*)'
+Decnumber  = r'(?:0(?:_?[0-9])*|[1-9](?:_?[0-9])*)'
 Intnumber  = _group(Hexnumber, Binnumber, Octnumber, Decnumber)
 Exponent   = r'[eE][-+]?[0-9](?:_?[0-9])*'
 Pointfloat = _group(r'[0-9](?:_?[0-9])*\.(?:[0-9](?:_?[0-9])*)?',
@@ -177,10 +177,17 @@ def _scan_body(fs):
 
         if ch == '{':
             if fs.peek(1) == '{':
-                # {{ → single literal { in FSTRING_MIDDLE
+                # {{ collapses to a single { that ENDS this segment; the end
+                # column is the first brace + 1 and the second brace column is
+                # absorbed (a new segment starts after both).  Matches CPython.
                 seg.append('{')
+                yield (FSTRING_MIDDLE, ''.join(seg),
+                       (seg_row, seg_col), (fs.row, fs.col + 1),
+                       fs.src_line(seg_row))
                 fs.advance()
                 fs.advance()
+                seg = []
+                seg_row, seg_col = fs.row, fs.col
             else:
                 # Start of expression
                 if seg:
@@ -196,10 +203,15 @@ def _scan_body(fs):
                 seg_row, seg_col = fs.row, fs.col
         elif ch == '}':
             if fs.peek(1) == '}':
-                # }} → single literal } in FSTRING_MIDDLE
+                # }} collapses to a single } that ENDS this segment (see above)
                 seg.append('}')
+                yield (FSTRING_MIDDLE, ''.join(seg),
+                       (seg_row, seg_col), (fs.row, fs.col + 1),
+                       fs.src_line(seg_row))
                 fs.advance()
                 fs.advance()
+                seg = []
+                seg_row, seg_col = fs.row, fs.col
             else:
                 # Stray } (shouldn't happen in valid body)
                 seg.append(ch)
@@ -227,7 +239,7 @@ def _scan_expr(fs):
         if fs.peek() == '\n':
             nl_r, nl_c = fs.row, fs.col
             fs.advance()
-            yield (NL, '\n', (nl_r, nl_c), (fs.row, nl_c + 1),
+            yield (NL, '\n', (nl_r, nl_c), (nl_r, nl_c + 1),
                    fs.src_line(nl_r))
             continue
 
@@ -487,15 +499,15 @@ def _generate(readline, encoding, extra_tokens):
             raw = b'' if encoding else ''
 
         if encoding is not None:
-            if isinstance(raw, (bytes, bytearray)):
-                line = raw.decode(encoding)
-            else:
-                line = raw
+            # bytes mode (tokenize): readline must yield bytes
+            if not isinstance(raw, (bytes, bytearray)):
+                raise TypeError("readline() returned a non-bytes object")
+            line = raw.decode(encoding)
         else:
-            if isinstance(raw, (bytes, bytearray)):
-                line = raw.decode('utf-8')
-            else:
-                line = raw
+            # str mode (generate_tokens): readline must yield str
+            if not isinstance(raw, str):
+                raise TypeError("readline() returned a non-string object")
+            line = raw
 
         source_lines.append(line)
         lnum += 1
@@ -545,6 +557,10 @@ def _generate(readline, encoding, extra_tokens):
                     break
                 pos += 1
             if pos == maxpos:
+                # whitespace-only final line without a trailing newline: the C
+                # tokenizer still emits a width-1 virtual NL before ENDMARKER
+                if extra_tokens and line:
+                    yield (NL, '', (lnum, pos), (lnum, pos + 1), line)
                 break
 
             if line[pos] in '#\r\n':
@@ -555,8 +571,10 @@ def _generate(readline, encoding, extra_tokens):
                                (lnum, pos), (lnum, pos + len(comment_token)), line)
                     pos += len(comment_token)
                 if extra_tokens:
+                    # a missing trailing newline still counts as a width-1 NL
+                    nl_end = len(line) + (0 if line.endswith(('\n', '\r')) else 1)
                     yield (NL, line[pos:],
-                           (lnum, pos), (lnum, len(line)), line)
+                           (lnum, pos), (lnum, nl_end), line)
                 continue
 
             if column > indents[-1]:
@@ -564,9 +582,10 @@ def _generate(readline, encoding, extra_tokens):
                 yield (INDENT, line[:pos], (lnum, 0), (lnum, pos), line)
             while column < indents[-1]:
                 if column not in indents:
+                    stripped = line.rstrip('\r\n')
                     raise IndentationError(
                         "unindent does not match any outer indentation level",
-                        ("<tokenize>", lnum, pos, line))
+                        ("<string>", lnum, len(stripped) + 1, stripped))
                 indents = indents[:-1]
                 yield (DEDENT, '', (lnum, pos), (lnum, pos), line)
 
@@ -593,12 +612,7 @@ def _generate(readline, encoding, extra_tokens):
                         if extra_tokens:
                             yield (NL, token, spos, epos, line)
                     else:
-                        if extra_tokens:
-                            nl_str = '\r\n' if token.startswith('\r') else '\n'
-                            yield (NEWLINE, nl_str, spos,
-                                   (lnum, end + 1), line)
-                        else:
-                            yield (NEWLINE, token, spos, epos, line)
+                        yield (NEWLINE, token, spos, epos, line)
 
                 elif initial == '#':
                     if extra_tokens:
@@ -653,7 +667,10 @@ def _generate(readline, encoding, extra_tokens):
                     if initial in '([{':
                         parenlev += 1
                     elif initial in ')]}':
-                        parenlev -= 1
+                        # don't go negative on an unmatched close bracket, or
+                        # EOF gets misread as an unterminated continued statement
+                        if parenlev > 0:
+                            parenlev -= 1
                     yield (OP, token, spos, epos, line)
             else:
                 yield (ERRORTOKEN, line[pos], (lnum, pos), (lnum, pos + 1), line)
@@ -665,13 +682,17 @@ def _generate(readline, encoding, extra_tokens):
             last_lnum = lnum - 1
             yield (NEWLINE, '',
                    (last_lnum, len(last_line)),
-                   (last_lnum, len(last_line) + 1), '')
+                   (last_lnum, len(last_line) + 1), last_line)
 
     for _ in indents[1:]:
         yield (DEDENT, '', (lnum, 0), (lnum, 0), '')
 
-    # ENDMARKER: extra_tokens mode bumps lineno by 1 (matches CPython C behaviour)
-    endmarker_lnum = lnum + 1 if extra_tokens else lnum
+    # ENDMARKER sits on the line after the last content line.  When we broke on
+    # an empty readline (EOF), lnum already counts that empty line; when we broke
+    # on a content line (e.g. whitespace-only, no trailing newline), it doesn't.
+    endmarker_lnum = lnum
+    if extra_tokens and line != '':
+        endmarker_lnum += 1
     yield (ENDMARKER, '', (endmarker_lnum, 0), (endmarker_lnum, 0), '')
 
 
@@ -689,7 +710,10 @@ class TokenizerIter:
         (type, string, (start_row, start_col), (end_row, end_col), line)
     """
 
-    def __init__(self, readline, *, extra_tokens=False, encoding='utf-8'):
+    def __init__(self, readline, *, extra_tokens=False, encoding=None):
+        # encoding=None means str mode (readline yields str, no decoding);
+        # an explicit encoding means bytes mode.  This mirrors CPython, where
+        # tokenize() passes encoding and generate_tokens() does not.
         self._iter = _generate(readline, encoding, extra_tokens)
 
     def __iter__(self):
