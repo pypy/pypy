@@ -1820,8 +1820,10 @@ class AbstractPicklingErrorTests:
                 with self.assertRaises((TypeError, pickle.PicklingError)):
                     self.dumps(obj, proto)
 
-        if self.pickler is not pickle._Pickler:
-            # Python implementation is less strict and also accepts iterables.
+        if (self.pickler is not pickle._Pickler
+                and sys.implementation.name != 'pypy'):
+            # Python implementation is less strict and also accepts iterables;
+            # PyPy's _pickle matches the Python implementation here.
             obj = REX((list, (), None, []))
             for proto in protocols:
                 with self.subTest(proto=proto):
@@ -1850,8 +1852,10 @@ class AbstractPicklingErrorTests:
                 with self.assertRaises((ValueError, TypeError)):
                     self.dumps(obj, proto)
 
-        if self.pickler is not pickle._Pickler:
-            # Python implementation is less strict and also accepts iterables.
+        if (self.pickler is not pickle._Pickler
+                and sys.implementation.name != 'pypy'):
+            # Python implementation is less strict and also accepts iterables;
+            # PyPy's _pickle matches the Python implementation here.
             obj = REX((dict, (), None, None, []))
             for proto in protocols:
                 with self.subTest(proto=proto):

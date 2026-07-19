@@ -910,3 +910,78 @@ def test_dill_unpickler_subclass_extra_kwarg():
     data = dumps([1, 2, 3])
     result = DillUnpickler(io.BytesIO(data), ignore=True).load()
     assert result == [1, 2, 3]
+
+
+class _REX:
+    "Object whose __reduce__ returns a caller-supplied tuple."
+    def __init__(self, reduce_value):
+        self._reduce_value = reduce_value
+    def __reduce__(self):
+        return self._reduce_value
+
+
+def test_reduce_bad_state_setter():
+    # 6th element of the __reduce__ tuple (state setter) must be callable
+    obj = _REX((print, (), 'state', None, None, 42))
+    for proto in protocols:
+        with pytest.raises(PicklingError):
+            dumps(obj, proto)
+
+
+def test_reduce_bad_list_items():
+    # 4th element must be an iterator (a non-iterable like 42 is rejected)
+    obj = _REX((list, (), None, 42))
+    for proto in protocols:
+        with pytest.raises((TypeError, PicklingError)):
+            dumps(obj, proto)
+
+
+def test_reduce_bad_dict_items():
+    # 5th element must be an iterator (a non-iterable like 42 is rejected)
+    obj = _REX((dict, (), None, None, 42))
+    for proto in protocols:
+        with pytest.raises((TypeError, PicklingError)):
+            dumps(obj, proto)
+
+
+def test_reduce_bad_newobj_ex_args():
+    import copyreg
+    # second item of the NEWOBJ_EX argument tuple must be a tuple
+    obj = _REX((copyreg.__newobj_ex__, (_REX, 42, {})))
+    for proto in [p for p in protocols if p >= 2]:
+        with pytest.raises((TypeError, PicklingError)):
+            dumps(obj, proto)
+
+
+def test_load_global_invalid_utf8():
+    import types, sys
+    # invalid UTF-8 in the module/name must raise UnicodeDecodeError, not crash
+    with pytest.raises(UnicodeDecodeError):
+        loads(b'c\xff\nlog\n.')
+    with pytest.raises(UnicodeDecodeError):
+        loads(b'cmath\n\xff\n.')
+    # valid non-ASCII (UTF-8) module/global names still work
+    mod = types.SimpleNamespace()
+    setattr(mod, 'gl\xf6bal', 42)
+    sys.modules['m\xf6dule'] = mod
+    try:
+        assert loads(b'\x80\x04cm\xc3\xb6dule\ngl\xc3\xb6bal\n.') == 42
+    finally:
+        del sys.modules['m\xf6dule']
+
+
+def test_load_stack_global_invalid_utf8():
+    import types, sys
+    # invalid UTF-8 in a SHORT_BINUNICODE module/name -> UnicodeDecodeError
+    with pytest.raises(UnicodeDecodeError):
+        loads(b'\x8c\x01\xff\x8c\x03log\x93.')
+    with pytest.raises(UnicodeDecodeError):
+        loads(b'\x8c\x04math\x8c\x01\xff\x93.')
+    # valid non-ASCII names still work
+    mod = types.SimpleNamespace()
+    setattr(mod, 'gl\xf6bal', 42)
+    sys.modules['m\xf6dule'] = mod
+    try:
+        assert loads(b'\x80\x04\x8c\x07m\xc3\xb6dule\x8c\x07gl\xc3\xb6bal\x93.') == 42
+    finally:
+        del sys.modules['m\xf6dule']

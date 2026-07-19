@@ -8,7 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
 from pypy.interpreter.error import oefmt, oefmt_attribute_error, OperationError
-from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.interpreter.unicodehelper import check_utf8_or_raise
 
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
 from pypy.module._pickle.state import State
@@ -919,12 +919,37 @@ class W_Pickler(W_Root):
         if not space.callable_w(w_func):
             raise oefmt(pickling_error(space), "func from save_reduce() must be callable")
 
+        # CPython 3.12 validates the optional reduce-tuple elements.
+        if not space.is_none(w_listitems) and not space.is_iterable(w_listitems):
+            raise oefmt(pickling_error(space),
+                "fourth element of the tuple returned by __reduce__ must be "
+                "an iterator, not %T", w_listitems)
+        if not space.is_none(w_dictitems) and not space.is_iterable(w_dictitems):
+            raise oefmt(pickling_error(space),
+                "fifth element of the tuple returned by __reduce__ must be "
+                "an iterator, not %T", w_dictitems)
+        if space.is_none(w_state_setter):
+            w_state_setter = None
+        elif not space.callable_w(w_state_setter):
+            raise oefmt(pickling_error(space),
+                "sixth element of the tuple returned by __reduce__ must be "
+                "a function, not %T", w_state_setter)
+
         save = self.save
         write = self.write
 
         w_func_name = space.findattr(w_func, space.newtext("__name__"))
         if self.proto >= 2 and w_func_name and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
             w_cls, w_args, w_kwargs = space.unpackiterable(w_args, 3)
+            if not space.isinstance_w(w_cls, space.w_type):
+                raise oefmt(pickling_error(space),
+                    "first item from NEWOBJ_EX argument tuple must be a class, not %T", w_cls)
+            if not space.isinstance_w(w_args, space.w_tuple):
+                raise oefmt(pickling_error(space),
+                    "second item from NEWOBJ_EX argument tuple must be a tuple, not %T", w_args)
+            if not space.isinstance_w(w_kwargs, space.w_dict):
+                raise oefmt(pickling_error(space),
+                    "third item from NEWOBJ_EX argument tuple must be a dict, not %T", w_kwargs)
             w_new = space.findattr(w_cls, space.newtext("__new__"))
             if not w_new:
                 raise oefmt(pickling_error(space), "args[0] from %S args has no __new__", w_func_name)
@@ -2319,7 +2344,8 @@ class W_Unpickler(W_Root):
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
                 "truncated data in BINUNICODE")
-        self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
+        lgt = check_utf8_or_raise(self.space, data)
+        self.append(self.space.newtext(data, lgt))
     dispatch[ord(op.BINUNICODE[0])] = load_binunicode
 
     def load_binunicode8(self):
@@ -2339,7 +2365,8 @@ class W_Unpickler(W_Root):
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
                 "truncated data in BINUNICODE8")
-        self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
+        lgt = check_utf8_or_raise(self.space, data)
+        self.append(self.space.newtext(data, lgt))
     dispatch[ord(op.BINUNICODE8[0])] = load_binunicode8
 
     def load_binbytes8(self):
@@ -2427,7 +2454,8 @@ class W_Unpickler(W_Root):
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
                 "truncated data in SHORT_BINUNICODE")
-        self.append(self.space.newtext(data))
+        lgt = check_utf8_or_raise(self.space, data)
+        self.append(self.space.newtext(data, lgt))
     dispatch[ord(op.SHORT_BINUNICODE[0])] = load_short_binunicode
 
     def load_tuple(self):
@@ -2566,8 +2594,13 @@ class W_Unpickler(W_Root):
                 if name == '_bytes_list_unpickle':
                     self.append(_bytes_list_unpickler_sentinel)
                     return
-            w_klass = self.find_class(self.space.newtext(module),
-                                      self.space.newtext(name))
+            # decode strictly as UTF-8, like CPython, so invalid bytes raise a
+            # clean UnicodeDecodeError instead of crashing newtext()
+            space = self.space
+            mod_lgt = check_utf8_or_raise(space, module)
+            name_lgt = check_utf8_or_raise(space, name)
+            w_klass = self.find_class(space.newtext(module, mod_lgt),
+                                      space.newtext(name, name_lgt))
             self.append(w_klass)
     dispatch[ord(op.GLOBAL[0])] = load_global
 
