@@ -254,7 +254,7 @@ def test_parseerror_lineno():
         eval('f"\\\n\\\n{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == 'f"\\\n\\\n{,}"'
+    assert excinfo.value.text == '{,}"'
     assert excinfo.value.msg == emsg
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
@@ -298,7 +298,7 @@ def test_tokenerror_lineno():
         eval('f"\\\n\\\n{$}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == 'f"\\\n\\\n{$}"'
+    assert excinfo.value.text == '{$}"'
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 $}"""''')
@@ -395,9 +395,10 @@ def test_fstring_nesting_limits():
         compile('f"{1+2:{1+2:{1+1:{1}}}}"', "<t>", "eval")
     assert info.value.msg == "f-string: expressions nested too deeply"
 
-    # valid nesting (depth <= 2) and many sequential fields must still compile
+    # valid nesting (depth <= 3) and many sequential fields must still compile
     w, p, x = 6, 2, 3.14159
     assert eval('f"{x:{w}.{p}}"') == format(x, "6.2")
+    assert eval('f"{x:{w:{0}}.{p:1}}"') == format(x, "6.2")
     assert eval('f"{x}{x}{x}{x}{x}"') == "3.141593.141593.141593.141593.14159"
 
 def test_fstring_triple_bug():

@@ -11,6 +11,7 @@ import ast
 import datetime
 import os
 import re
+import sys
 import types
 import decimal
 import unittest
@@ -551,6 +552,17 @@ x = (
             [
                 r"""f'{"x'""",
                 r"""f'{"x}'""",
+            ],
+        )
+        # PyPy reports the unclosed '(' rather than the unterminated string
+        if sys.implementation.name == 'pypy':
+            msg = "f-string: expecting a valid expression after '{'"
+        else:
+            msg = "unterminated string"
+        self.assertAllRaise(
+            SyntaxError,
+            msg,
+            [
                 r"""f'{("x'""",
                 r"""f'{("x}'""",
             ],
@@ -615,8 +627,13 @@ x = (
 
     def test_syntax_error_in_nested_fstring(self):
         # See gh-104016 for more information on this crash
+        # PyPy tokenizes eagerly and hits its f-string nesting limit first
+        if sys.implementation.name == 'pypy':
+            msg = "too many nested f-strings"
+        else:
+            msg = "invalid syntax"
         self.assertAllRaise(
-            SyntaxError, "invalid syntax", ['f"{1 1:' + ('{f"1:' * 199)]
+            SyntaxError, msg, ['f"{1 1:' + ('{f"1:' * 199)]
         )
 
     def test_double_braces(self):
@@ -921,9 +938,14 @@ x = (
                 "f'{:2}'",
                 "f'''{\t\f\r\n:a}'''",
                 "f'{:'",
-                "F'{[F'{:'}[F'{:'}]]]",
             ],
         )
+        # PyPy's eager tokenizer reports the trailing unmatched ']' instead
+        if sys.implementation.name == 'pypy':
+            msg = "f-string: unmatched ']'"
+        else:
+            msg = "f-string: valid expression required before ':'"
+        self.assertAllRaise(SyntaxError, msg, ["F'{[F'{:'}[F'{:'}]]]"])
 
         self.assertAllRaise(
             SyntaxError,

@@ -748,7 +748,7 @@ class Tokenizer(object):
                         raise StructuralTokenError("too many nested parentheses",
                                          line, self.lnum, match, self.token_list)
                     mode.expr_nesting += 1
-                    if mode.expr_nesting >= MAX_EXPR_NESTING:
+                    if mode.expr_nesting > MAX_EXPR_NESTING:
                         raise StructuralTokenError("f-string: expressions nested too deeply",
                                          line, self.lnum, match, self.token_list)
                     t = self._add_token(

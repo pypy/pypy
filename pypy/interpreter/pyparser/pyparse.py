@@ -290,8 +290,9 @@ class PegParser(object):
                 if pp.diagnose().token_type == pygram.tokens.ERRORTOKEN:
                     # If the parser diagnosed a more fundamental error at an
                     # earlier position than the tokenizer's fallback, prefer it.
-                    if ((syntax_exc.lineno, syntax_exc.offset) >=
-                            (token_exc.lineno, token_exc.offset)):
+                    if (syntax_exc.lineno > token_exc.lineno or
+                            (syntax_exc.lineno == token_exc.lineno and
+                             syntax_exc.offset >= token_exc.offset)):
                         raise token_exc
 
                 # tokenizer error happens later than parser error:

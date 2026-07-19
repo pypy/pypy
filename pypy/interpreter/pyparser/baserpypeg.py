@@ -1119,17 +1119,10 @@ class Parser:
             tok = self.diagnose()
             line = tok.line
         else:
-            # Walk backwards from start_lineno to find the start of the
-            # logical line, following \ line-continuation characters.
-            logical_start = start_lineno
-            while logical_start > 1:
-                prev = self._lines.get(logical_start - 1, "")
-                if prev.endswith("\\\n") or prev.endswith("\\\r\n"):
-                    logical_start -= 1
-                else:
-                    break
+            # CPython reports the physical line the error is on, even for
+            # \-continued logical lines.
             line = "".join(
-                self.get_lines(range(logical_start, end_lineno + 1))
+                self.get_lines(range(start_lineno, end_lineno + 1))
             )
             # The tokenizer pads a source that does not end with '\n' with an
             # extra '\n' (see pyparse._parse). CPython keeps that padding in
