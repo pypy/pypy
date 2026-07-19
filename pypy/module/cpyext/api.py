@@ -1916,10 +1916,13 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
                 "initialization of %s failed without raising an exception",
                 name)
         else:
-            if state.clear_exception():
-                raise oefmt(space.w_SystemError,
+            operr = state.clear_exception()
+            if operr:
+                w_err = oefmt(space.w_SystemError,
                     "initialization of %s raised unreported exception",
                     name)
+                w_err.chain_exceptions_from_cause(space, operr)
+                raise w_err
         if not initret.c_ob_type:
             raise oefmt(space.w_SystemError,
                         "init function of %s returned uninitialized object",
@@ -2053,9 +2056,12 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             has_result = ret is not None
             if not expect_null and has_new_error and has_result:
                 state = space.fromcache(State)
-                state.clear_exception()
-                raise oefmt(space.w_SystemError,
+                operr = state.clear_exception()
+                w_err = oefmt(space.w_SystemError,
                             "c function call returned a result with an exception set")
+                if operr:
+                    w_err.chain_exceptions_from_cause(space, operr)
+                raise w_err
             elif not expect_null and not has_new_error and not has_result:
                 state = space.fromcache(State)
                 state.clear_exception()

@@ -109,6 +109,7 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
                     "initialization", name)
     createf = lltype.nullptr(rffi.VOIDP.TO)
     has_execution_slots = False
+    seen_multiple_interpreters = False
     cur_slot = rffi.cast(rffi.CArrayPtr(PyModuleDef_Slot), moddef.c_m_slots)
     if cur_slot:
         while True:
@@ -123,8 +124,11 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
             elif slot == Py_mod_exec:
                 has_execution_slots = True
             elif slot == Py_mod_multiple_interpreters:
-                # Warn?
-                pass
+                if seen_multiple_interpreters:
+                    raise oefmt(space.w_SystemError,
+                                "module %s has more than one 'multiple "
+                                "interpreters' slots", name)
+                seen_multiple_interpreters = True
             else:
                 raise oefmt(space.w_SystemError,
                             "module %s uses unknown slot ID %d", name, slot)
@@ -178,10 +182,13 @@ def exec_def(space, mod, moddef):
                             "execution of module %s failed without setting an "
                             "exception", rffi.constcharp2str(moddef.c_m_name))
             else:
-                if state.clear_exception():
-                    raise oefmt(space.w_SystemError,
+                operr = state.clear_exception()
+                if operr:
+                    w_err = oefmt(space.w_SystemError,
                                 "execution of module %s raised unreported "
                                 "exception", rffi.constcharp2str(moddef.c_m_name))
+                    w_err.chain_exceptions_from_cause(space, operr)
+                    raise w_err
         cur_slot = rffi.ptradd(cur_slot, 1)
 
 def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None, type_name=None):
