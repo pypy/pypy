@@ -20,7 +20,6 @@ expected_modules += [
     'asyncio',
     'bz2',
     'code',
-    'ctypes.test',
     'gzip',
     '_hashlib',
     'lzma',
