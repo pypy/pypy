@@ -1122,7 +1122,7 @@ class date(dateinterop):
             month = self._month
         if day is None:
             day = self._day
-        return type(self)(year, month, day)
+        return date.__new__(type(self), year, month, day)
 
     # Comparisons of date objects with other.
 
@@ -1657,7 +1657,8 @@ class time(timeinterop):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self._fold
-        return type(self)(hour, minute, second, microsecond, tzinfo, fold=fold)
+        return time.__new__(type(self), hour, minute, second, microsecond,
+                            tzinfo, fold=fold)
 
     # Pickle support.
 
@@ -2006,8 +2007,8 @@ class datetime(date):
             tzinfo = self.tzinfo
         if fold is None:
             fold = self.fold
-        return type(self)(year, month, day, hour, minute, second,
-                          microsecond, tzinfo, fold=fold)
+        return datetime.__new__(type(self), year, month, day, hour, minute,
+                                second, microsecond, tzinfo, fold=fold)
 
     def _local_timezone(self):
         if self.tzinfo is None:
@@ -2277,7 +2278,8 @@ class datetime(date):
         if myoff == otoff:
             return base
         if myoff is None or otoff is None:
-            raise TypeError("cannot mix naive and timezone-aware time")
+            raise TypeError("can't subtract offset-naive and "
+                            "offset-aware datetimes")
         return base + otoff - myoff
 
     def __hash__(self):
