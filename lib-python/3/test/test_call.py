@@ -795,6 +795,7 @@ class TestPEP590(unittest.TestCase):
                 self.assertEqual(expected, meth(*args1, **kwargs))
                 self.assertEqual(expected, wrapped(*args, **kwargs))
 
+    @cpython_only
     def test_setvectorcall(self):
         from _testcapi import function_setvectorcall
         def f(num): return num + 1
@@ -806,6 +807,7 @@ class TestPEP590(unittest.TestCase):
         for _ in range(10 * ADAPTIVE_WARMUP_DELAY):
             assert_equal("overridden", f(num))
 
+    @cpython_only
     def test_setvectorcall_load_attr_specialization_skip(self):
         from _testcapi import function_setvectorcall
 
@@ -822,6 +824,7 @@ class TestPEP590(unittest.TestCase):
         for _ in range(ADAPTIVE_WARMUP_DELAY):
             assert_equal("overridden", x.a)
 
+    @cpython_only
     def test_setvectorcall_load_attr_specialization_deopt(self):
         from _testcapi import function_setvectorcall
 
@@ -894,7 +897,6 @@ class A:
     def positional_only(arg, /):
         pass
 
-@cpython_only
 class TestErrorMessagesUseQualifiedName(unittest.TestCase):
 
     @contextlib.contextmanager

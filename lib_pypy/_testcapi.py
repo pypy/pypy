@@ -40,7 +40,7 @@ else:
                 #'_testcapi/sys.c',
                 '_testcapi/tuple.c',
                 #'_testcapi/unicode.c',
-                #'_testcapi/vectorcall.c',
+                '_testcapi/vectorcall.c',
                 '_testcapi/vectorcall_limited.c',
                 #'_testcapi/watchers.c',
                ]

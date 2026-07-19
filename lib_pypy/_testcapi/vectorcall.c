@@ -102,6 +102,7 @@ test_pyobject_vectorcall(PyObject *self, PyObject *args)
     return PyObject_Vectorcall(func, stack, nargs, kwnames);
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 override_vectorcall(PyObject *callable, PyObject *const *args, size_t nargsf,
                     PyObject *kwnames)
@@ -119,6 +120,7 @@ function_setvectorcall(PyObject *self, PyObject *func)
     PyFunction_SetVectorcall((PyFunctionObject *)func, (vectorcallfunc)override_vectorcall);
     Py_RETURN_NONE;
 }
+#endif
 
 static PyObject *
 test_pyvectorcall_call(PyObject *self, PyObject *args)
@@ -262,7 +264,9 @@ static PyMethodDef TestMethods[] = {
     {"pyobject_fastcall", test_pyobject_fastcall, METH_VARARGS},
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
     {"pyobject_vectorcall", test_pyobject_vectorcall, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"function_setvectorcall", function_setvectorcall, METH_O},
+#endif
     {"pyvectorcall_call", test_pyvectorcall_call, METH_VARARGS},
     _TESTCAPI_MAKE_VECTORCALL_CLASS_METHODDEF
     _TESTCAPI_HAS_VECTORCALL_FLAG_METHODDEF

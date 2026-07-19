@@ -4233,11 +4233,11 @@ PyInit__testcapi(void)
                            (PyObject *) &ContainerNoGC_type) < 0)
         return NULL;
 
-#ifndef PYPY_VERSION
     /* Include tests from the _testcapi/ directory */
     if (_PyTestCapi_Init_Vectorcall(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Heaptype(m) < 0) {
         return NULL;
     }
