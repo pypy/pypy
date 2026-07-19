@@ -2,7 +2,7 @@ from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
@@ -20,6 +20,10 @@ UNTERMINATED_STRING_ERROR = "unterminated %s%sstring literal (detected at line %
 TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
 SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
+
+MAXLEVEL = 200
+MAXFSTRINGLEVEL = 150
+MAX_EXPR_NESTING = 3
 
 def match_encoding_declaration(comment):
     """returns the declared encoding or None
@@ -163,6 +167,10 @@ def raise_unterminated_string(
         "f-" if f_string else "",
         end_lineno,
     )
+    if line.endswith("\n"):
+        line = line[:-1]
+    if line.endswith("\r"):
+        line = line[:-1]
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -201,6 +209,8 @@ class FStringMode(TokenizerMode):
         self.format_specifier = False
         # True if we are tokenizing a named unicode escape sequence: \N{NAME}
         self.named_unicode_escape = False
+        # number of currently-open replacement fields (CPython MAX_EXPR_NESTING)
+        self.expr_nesting = 0
 
 
 class TokenizerState(object):
@@ -234,6 +244,7 @@ class Tokenizer(object):
 
         # contains the tokens of the opening parens
         self.parenstack = []
+        self.fstring_nesting = 0
         self.async_hacks = flags & consts.PyCF_ASYNC_HACKS
         self.async_def = False
         self.async_def_nl = False
@@ -452,8 +463,8 @@ class Tokenizer(object):
                 self._raise_token_error("'%s' was never closed" % (parenkind, ), line1,
                                  lnum1, start1 + 1, self.lnum)
             prevline = self.lines[self.lines_index - 1]
-            self._raise_token_error(EOF_MULTI_LINE_STATEMENT_ERROR , prevline,
-                             self.lnum - 1, len(prevline) - 1) # XXX why is the offset 0 here?
+            raise LineContinuationError(EOF_MULTI_LINE_STATEMENT_ERROR, prevline,
+                             self.lnum - 1, len(prevline) - 1, self.token_list)
         self.continued = False
 
     def _tokenize_regular(self, line):
@@ -548,8 +559,12 @@ class Tokenizer(object):
             else:
                 self.last_comment = token
         elif token in fstring_starts:
+            if self.fstring_nesting + 1 >= MAXFSTRINGLEVEL:
+                raise StructuralTokenError("too many nested f-strings",
+                                 line, self.lnum, start + 1, self.token_list)
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
             raw = "r" in token or "R" in token
+            self.fstring_nesting += 1
             self._push_state(FStringMode(self.lnum, end, raw))
             self._contstr_start(endDFAs[token], start, line, len(token) >= 4, "")
         elif token in triple_quoted:
@@ -629,11 +644,19 @@ class Tokenizer(object):
 
             tok = self._add_token(punct, token, self.lnum, start, line, self.lnum, end, level_adjustment=level_adjustment)
             if level_adjustment == 1:
+                if len(self.parenstack) >= MAXLEVEL:
+                    raise StructuralTokenError("too many nested parentheses",
+                                     line, self.lnum, start + 1, self.token_list)
                 self.parenstack.append(tok)
             if level_adjustment == -1:
                 if not self.parenstack:
-                    self._raise_token_error("unmatched '%s'" % initial, line,
-                                     self.lnum, start + 1)
+                    raise StructuralTokenError("unmatched '%s'" % initial, line,
+                                     self.lnum, start + 1, self.token_list)
+                # A ')' or ']' at the f-string field boundary is reported as unmatched, not mismatched '{'
+                if (self._in_fstring_interpolation() and initial in ')]'
+                        and len(self.parenstack) == self.state.level):
+                    raise StructuralTokenError("f-string: unmatched '%s'" % initial,
+                                     line, self.lnum, start + 1, self.token_list)
                 openparen = self.parenstack.pop()
                 opening = openparen.value[0]
                 lnum1 = openparen.lineno
@@ -648,8 +671,8 @@ class Tokenizer(object):
 
                     if lnum1 != self.lnum:
                         msg += " on line " + str(lnum1)
-                    self._raise_token_error(
-                            msg, line, self.lnum, start + 1)
+                    raise StructuralTokenError(
+                            msg, line, self.lnum, start + 1, self.token_list)
 
             if self._in_fstring_interpolation() and (
                 (initial == "}" and len(self.parenstack) + 1 == self.state.level)
@@ -663,6 +686,8 @@ class Tokenizer(object):
                 nmode.middle_offset = start + 1
                 if initial == ":":
                     nmode.format_specifier = True
+                else:
+                    nmode.expr_nesting -= 1
 
             self.last_comment = ''
         return False
@@ -678,8 +703,12 @@ class Tokenizer(object):
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
                 match_m2 = match - 2  # help the annotator
-                if not mode.raw and match_m2 >= 0 and _odd_backslash_prefix(line, match_m2):
-                    msg = "invalid escape sequence '%s'" % last_c
+                # Only a brace that starts/ends a field (not an escaped '{{' or
+                # '}}', whose literal run the decoder already warns about) needs
+                # a warning here, and it uses the backslash-inclusive message.
+                if (not mode.raw and match_m2 >= 0 and last_c != next_c
+                        and _odd_backslash_prefix(line, match_m2)):
+                    msg = "invalid escape sequence '\\%s'" % last_c
                     self._add_token(tokens.WARNING, msg, self.lnum, match_m2, line, self.lnum, match)
 
                 if mode.named_unicode_escape:
@@ -715,6 +744,13 @@ class Tokenizer(object):
                     # a nested field with no preceding run.
                     self._flush_fstring_middle(mode, match - 1, emit_empty=next_c == "{")
 
+                    if len(self.parenstack) >= MAXLEVEL:
+                        raise StructuralTokenError("too many nested parentheses",
+                                         line, self.lnum, match, self.token_list)
+                    mode.expr_nesting += 1
+                    if mode.expr_nesting >= MAX_EXPR_NESTING:
+                        raise StructuralTokenError("f-string: expressions nested too deeply",
+                                         line, self.lnum, match, self.token_list)
                     t = self._add_token(
                         tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
                     )
@@ -731,6 +767,7 @@ class Tokenizer(object):
                     )
                     opening = self.parenstack.pop()
                     assert opening.value == "{"
+                    mode.expr_nesting -= 1
                     mode.middle_linenumber = self.lnum
                     mode.middle_offset = self.pos = match
                     if len(self.parenstack) == state.level:
@@ -749,6 +786,7 @@ class Tokenizer(object):
                                 self.lnum, eos, line, self.lnum, match)
 
                 self.state_stack.pop()
+                self.fstring_nesting -= 1
                 self.pos = match
 
             # no end match, check for unterminated string

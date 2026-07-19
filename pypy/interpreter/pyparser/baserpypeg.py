@@ -783,8 +783,10 @@ class Parser:
         if conv_token.lineno != conv.lineno or \
            conv_token.end_column != conv.col_offset:
             self.raise_syntax_error_known_range(
+                # NB: "exclamanation" reproduces CPython's own typo, which its
+                # test suite checks for.
                 "f-string: conversion type must come "
-                "right after the exclamation mark",
+                "right after the exclamanation mark",
                 conv_token, conv)
 
         return conv

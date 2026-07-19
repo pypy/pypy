@@ -323,6 +323,83 @@ def test_fstring_no_closing_brace():
         eval(r"f'{<'")
     assert excinfo.value.msg == "f-string: expecting a valid expression after '{'"
 
+def test_fstring_backslash_before_brace_warns_once():
+    for s, msg in [(r"f'\{{'", "invalid escape sequence '\\{'"),
+                   (r"f'\}}'", "invalid escape sequence '\\}'"),
+                   (r"f'\{x}'", "invalid escape sequence '\\{'")]:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            x = 1
+            eval(s)
+        assert len(w) == 1
+        assert w[0].category is SyntaxWarning
+        assert str(w[0].message) == msg
+
+def test_unterminated_string_text_has_no_newline():
+    data = 'x = 1\nz = f"""\nabc\n'
+    with raises(SyntaxError) as excinfo:
+        compile(data, "?", "exec")
+    assert excinfo.value.text == 'z = f"""'
+    assert excinfo.value.lineno == 2
+
+def test_backslash_at_eof_in_eval():
+    # bare '\' (padded EOF) in eval mode is a line-continuation error
+    for expr in [r"\'a\'", r"\t3", "\\"]:
+        for fmt in ["{expr}", "f'{{{expr}}}'"]:
+            with raises(SyntaxError) as info:
+                eval(fmt.format(expr=expr))
+            assert info.value.msg == (
+                "unexpected character after line continuation character")
+
+def test_fstring_empty_expression_unterminated():
+    cases = [
+        ("f'{!'", "f-string: valid expression required before '!'"),
+        ("f'{='", "f-string: valid expression required before '='"),
+        # a complete but unterminated field still reports the closer
+        ("f'{x'", "f-string: expecting '}'"),
+    ]
+    for s, msg in cases:
+        with raises(SyntaxError) as info:
+            compile(s, "<t>", "eval")
+        assert info.value.msg == msg
+
+def test_fstring_mismatched_parens():
+    cases = [
+        ("f'{((}'", "closing parenthesis '}' does not match opening parenthesis '('"),
+        ("f'{a[4)}'", "closing parenthesis ')' does not match opening parenthesis '['"),
+        ("f'{a(4]}'", "closing parenthesis ']' does not match opening parenthesis '('"),
+        ("f'{a[4}'", "closing parenthesis '}' does not match opening parenthesis '['"),
+        ("f'{a(4}'", "closing parenthesis '}' does not match opening parenthesis '('"),
+        ("f'{3)+(4}'", "f-string: unmatched ')'"),
+        ("f'{)#}'", "f-string: unmatched ')'"),
+    ]
+    for s, msg in cases:
+        with raises(SyntaxError) as info:
+            compile(s, "<t>", "eval")
+        assert info.value.msg == msg
+
+def test_fstring_nesting_limits():
+    with raises(SyntaxError) as info:
+        compile("f'{" + "(" * 500 + "}'", "<t>", "eval")
+    assert info.value.msg == "too many nested parentheses"
+
+    def nested(n):
+        if n == 0:
+            return "1+1"
+        return 'f"{' + nested(n - 1) + '}"'
+    with raises(SyntaxError) as info:
+        compile(nested(160), "<t>", "eval")
+    assert info.value.msg == "too many nested f-strings"
+
+    with raises(SyntaxError) as info:
+        compile('f"{1+2:{1+2:{1+1:{1}}}}"', "<t>", "eval")
+    assert info.value.msg == "f-string: expressions nested too deeply"
+
+    # valid nesting (depth <= 2) and many sequential fields must still compile
+    w, p, x = 6, 2, 3.14159
+    assert eval('f"{x:{w}.{p}}"') == format(x, "6.2")
+    assert eval('f"{x}{x}{x}{x}{x}"') == "3.141593.141593.141593.141593.14159"
+
 def test_fstring_triple_bug():
     assert eval('''
 f\'\'\'{"""

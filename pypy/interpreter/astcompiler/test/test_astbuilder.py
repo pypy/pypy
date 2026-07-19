@@ -2088,7 +2088,6 @@ class TestAstBuilding:
         assert tree.right.get_source_segment(s) == "b \n + c"
         assert tree.right.get_source_segment(s, padded=True) == "     b \n + c"
 
-    @pytest.mark.xfail(reason="TODO")
     def test_fstring_mismatch(self):
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast("f'{((}')")

@@ -130,6 +130,14 @@ class TokenError(SyntaxError):
                              end_lineno=end_lineno, end_offset=end_offset)
         self.tokens = tokens
 
+class StructuralTokenError(TokenError):
+    """A bracket/nesting error the tokenizer diagnoses definitively; the
+    parser must not retry or override it."""
+
+class LineContinuationError(TokenError):
+    """A line-continuation backslash that runs into EOF; the eval/exec layer
+    formats the message depending on the mode."""
+
 class TokenIndentationError(IndentationError):
 
     def __init__(self, msg, line, lineno, column, tokens):

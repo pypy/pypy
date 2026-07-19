@@ -220,8 +220,18 @@ class PegParser(object):
             # which is expected to work independently of them.  It's
             # certainly the case for all futures in Python <= 2.7.
             tokens = pytokenizer.generate_tokens(source_lines, flags)
+        except error.StructuralTokenError as e:
+            # bracket/nesting error the tokenizer diagnoses definitively: raise
+            # as-is rather than retrying the parser on a broken token stream.
+            e.filename = compile_info.filename
+            raise
         except (error.TokenError, error.TokenIndentationError) as e:
             e.filename = compile_info.filename
+            if (isinstance(e, error.LineContinuationError)
+                    and mode == "eval"
+                    and not compile_info.source_ends_with_newline):
+                e.msg = "unexpected character after line continuation character"
+                raise
             if (isinstance(e, error.TokenError) and
                     compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT):
                 single_quote_finalized = (
@@ -278,7 +288,11 @@ class PegParser(object):
         except error.SyntaxError as syntax_exc:
             if token_exc is not None:
                 if pp.diagnose().token_type == pygram.tokens.ERRORTOKEN:
-                    raise token_exc
+                    # If the parser diagnosed a more fundamental error at an
+                    # earlier position than the tokenizer's fallback, prefer it.
+                    if ((syntax_exc.lineno, syntax_exc.offset) >=
+                            (token_exc.lineno, token_exc.offset)):
+                        raise token_exc
 
                 # tokenizer error happens later than parser error:
                 # prefer token_exc unless it's inside an f-string or it's
