@@ -3320,9 +3320,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_free(self, pyobject):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
+        from rpython.rlib.rawrefcount import _Py_IMMORTAL_REFCNT
         #
         rc = self._pyobj(pyobject).ob_refcnt
-        if rc >= REFCNT_FROM_PYPY_LIGHT:
+        if rc == _Py_IMMORTAL_REFCNT:
+            ll_assert(False, "rrc: immortal pyobj freed; immortal support incomplete")
+        elif rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
             if rc == 0:
                 lltype.free(self._pyobj(pyobject), flavor='raw')

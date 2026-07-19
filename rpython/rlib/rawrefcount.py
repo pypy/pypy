@@ -107,6 +107,11 @@ def next_dead(OB_PTR_TYPE):
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
 
+def _immortal_not_supported():
+    raise AssertionError(
+        "rawrefcount: immortal pyobj (ob_refcnt == _Py_IMMORTAL_REFCNT) "
+        "encountered but immortal support is incomplete")
+
 @not_rpython
 def _collect(track_allocation=True):
     """for tests only.  Emulates a GC collection.
@@ -126,7 +131,10 @@ def _collect(track_allocation=True):
     wr_p_list = []
     new_p_list = []
     for ob in reversed(_p_list):
-        if ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
+        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
+            _immortal_not_supported()
+            new_p_list.append(ob)
+        elif ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
             new_p_list.append(ob)
         else:
             p = detach(ob, wr_p_list)
@@ -138,8 +146,13 @@ def _collect(track_allocation=True):
     _p_list = Ellipsis
 
     wr_o_list = []
+    new_o_list = []
     for ob in reversed(_o_list):
-        detach(ob, wr_o_list)
+        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
+            _immortal_not_supported()
+            new_o_list.append(ob)
+        else:
+            detach(ob, wr_o_list)
     _o_list = Ellipsis
 
     rgc.collect()  # forces the cycles to be resolved and the weakrefs to die
