@@ -17,9 +17,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
 
                  py_code = (PyCodeObject *)PyCode_New(
                      0,            /*int argcount,*/
-                     #if PY_MAJOR_VERSION >= 3
                      0,            /*int kwonlyargcount,*/
-                     #endif
                      0,            /*int nlocals,*/
                      0,            /*int stacksize,*/
                      0,            /*int flags,*/
@@ -33,7 +31,8 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                      py_funcname,   /*PyObject *qualname,*/
                      py_funcname,  /*PyObject *name,*/
                      42,           /*int firstlineno,*/
-                     empty_bytes   /*PyObject *lnotab*/
+                     empty_bytes,  /*PyObject *linetable,*/
+                     empty_bytes   /*PyObject *exceptiontable*/
                  );
 
                  if (!py_code) goto bad;
