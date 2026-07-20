@@ -51,14 +51,16 @@ class SyntaxError(Exception):
                            end_lineno=node.end_lineno,
                            end_offset=node.end_col_offset + 1)
 
-    def find_sourceline_and_wrap_info(self, space, source=None, filename=None):
+    def find_sourceline_and_wrap_info(self, space, source=None, filename=None,
+                                      fill_text=True):
         """ search for the line of input that caused the error and then return
         a wrapped tuple that can be used to construct a wrapped SyntaxError.
         Optionally pass source, to get better error messages for the case where
         this instance was constructed without a source line (.text
-        attribute)"""
+        attribute).  Pass fill_text=False for compile-stage errors, which
+        (like CPython) leave .text as None."""
         text = self.text
-        if text is None and source is not None and self.lineno:
+        if fill_text and text is None and source is not None and self.lineno:
             lines = source.splitlines(True)
             text = lines[self.lineno - 1]
         w_text = w_filename = space.w_None
@@ -67,7 +69,7 @@ class SyntaxError(Exception):
             filename = self.filename
         if filename is not None:
             w_filename = space.newfilename(filename)
-            if text is None:
+            if fill_text and text is None:
                 w_text = space.appexec([w_filename, w_lineno],
                     """(filename, lineno):
                     try:

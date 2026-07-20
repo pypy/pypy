@@ -139,7 +139,8 @@ class PythonAstCompiler(PyCodeCompiler):
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)
         except parseerror.SyntaxError as e:
-            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source, info.filename))
+            # compile-stage errors leave .text as None, like CPython
+            raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source, info.filename, fill_text=False))
         return code
 
     def validate_ast(self, node):

@@ -731,3 +731,27 @@ def test_setstate_applies_args_and_validates_dict():
     assert e.blah == 35
     with raises(TypeError):       # non-dict state -> TypeError
         e.__setstate__(42)
+
+def test_attributeerror_name_survives_pickle():
+    e = AttributeError('foo', name='name', obj='obj')
+    cls, args, state = e.__reduce__()
+    assert state['name'] == 'name'
+    assert 'obj' not in state  # GH-103352: obj is not pickled
+    e2 = AttributeError('foo')
+    e2.__setstate__(state)
+    assert e2.name == 'name'
+    assert e2.obj is None
+
+def test_compile_stage_error_has_no_text():
+    # compile-stage errors ("'return' outside function") leave .text None and
+    # keep raw offsets, matching CPython (no source-line fill, no BOM).
+    from codecs import BOM_UTF8
+    for src in ['return "\xe4"', 'return "\xe4"'.encode(), BOM_UTF8 + 'return "\xe4"'.encode()]:
+        try:
+            compile(src, '<string>', 'exec')
+        except SyntaxError as e:
+            assert e.text is None
+            assert e.offset == 1
+            assert e.end_offset == 12
+        else:
+            assert False, "expected SyntaxError"

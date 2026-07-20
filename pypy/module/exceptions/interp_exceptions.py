@@ -1144,6 +1144,19 @@ class W_AttributeError(W_Exception):
         self.w_name = w_name
         self.w_obj = w_obj
 
+    def descr_reduce(self, space):
+        # pickle name (a slot, not __dict__), but not obj (GH-103352)
+        lst = [self.getclass(space), space.newtuple(self.args_w)]
+        if self.w_dict is not None and space.is_true(self.w_dict):
+            w_dict = space.call_method(self.w_dict, "copy")
+        else:
+            w_dict = space.newdict()
+        if self.w_name is not None and not space.is_w(self.w_name, space.w_None):
+            space.setitem(w_dict, space.newtext("name"), self.w_name)
+        if space.is_true(w_dict):
+            lst = [lst[0], lst[1], w_dict]
+        return space.newtuple(lst)
+
 
 def _attributeerror_getset(attrname):
     # None if a subclass skipped AttributeError.__init__ (issue 5514)
@@ -1161,6 +1174,7 @@ W_AttributeError.typedef = TypeDef('AttributeError', W_Exception.typedef,
     __doc__ = W_AttributeError.__doc__,
     __new__ = _new(W_AttributeError),
     __init__ = interp2app(W_AttributeError.descr_init),
+    __reduce__ = interp2app(W_AttributeError.descr_reduce),
     name = _attributeerror_getset('w_name'),
     obj = _attributeerror_getset('w_obj'),
 )
