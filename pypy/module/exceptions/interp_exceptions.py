@@ -237,8 +237,16 @@ class W_BaseException(W_Root):
         return space.newtuple(lst)
 
     def descr_setstate(self, space, w_dict):
-        w_olddict = self.getdict(space)
-        space.call_method(w_olddict, 'update', w_dict)
+        # Match CPython: reject non-dict state, and apply each item via
+        # setattr so property-backed attrs (e.g. 'args') go through their
+        # setter rather than landing inertly in __dict__.
+        space.appexec([self, w_dict], """(self, state):
+            if state is not None:
+                if not isinstance(state, dict):
+                    raise TypeError("state is not a dictionary")
+                for k, v in state.items():
+                    setattr(self, k, v)
+        """)
 
     def descr_with_traceback(self, space, w_traceback):
         self.descr_settraceback(space, w_traceback)

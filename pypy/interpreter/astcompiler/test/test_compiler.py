@@ -107,7 +107,7 @@ class TestCompiler(BaseTestCompiler):
 
     def test_return(self):
         for input in ("class x: return", "return"):
-            yield self.error_test, input, SyntaxError, "return outside function"
+            yield self.error_test, input, SyntaxError, "'return' outside function"
 
     def test_long_jump(self):
         func = """def f(x):

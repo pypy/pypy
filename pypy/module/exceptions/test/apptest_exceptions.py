@@ -723,3 +723,11 @@ def test_unicode_error_str_does_not_crash():
         assert isinstance(str(UnicodeTranslateError(obj, start, end, '')), str)
         enc = obj.encode()
         assert isinstance(str(UnicodeDecodeError('utf-8', enc, start, end, '')), str)
+
+def test_setstate_applies_args_and_validates_dict():
+    e = Exception(1, 2)
+    e.__setstate__({'args': (1, 2, 3), 'blah': 35})
+    assert e.args == (1, 2, 3)   # via the args setter, not just __dict__
+    assert e.blah == 35
+    with raises(TypeError):       # non-dict state -> TypeError
+        e.__setstate__(42)

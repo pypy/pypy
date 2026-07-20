@@ -1818,6 +1818,7 @@ class ExceptionTests(unittest.TestCase):
 
             gc_collect()
 
+    @cpython_only  # PyPy has no subinterpreters
     def test_memory_error_in_subinterp(self):
         # gh-109894: subinterpreters shouldn't count on last resort memory error
         # when MemoryError is raised through PyErr_NoMemory() call,
