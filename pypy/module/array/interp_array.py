@@ -174,13 +174,20 @@ UNICODE_ARRAY = lltype.Ptr(lltype.Array(lltype.UniChar,
                                         hints={'nolength': True}))
 
 class W_ArrayBase(W_BufferExporter):
-    _attrs_ = ('space', 'len', 'allocated', '_lifeline_', '_buffer')
+    _attrs_ = ('space', 'len', 'allocated', '_lifeline_', '_buffer',
+               '_exports')
 
     def __init__(self, space):
         self.space = space
         self.len = 0
         self.allocated = 0
         self._buffer = lltype.nullptr(rffi.CCHARP.TO)
+        self._exports = 0   # count of active buffer exports
+
+    def _check_exports(self, space):
+        if self._exports > 0:
+            raise oefmt(space.w_BufferError,
+                "cannot resize an array that is exporting buffers")
 
     @rgc.must_be_light_finalizer
     def __del__(self):
@@ -189,6 +196,8 @@ class W_ArrayBase(W_BufferExporter):
             self._buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def setlen(self, size, zero=False, overallocate=True):
+        if size != self.len:
+            self._check_exports(self.space)
         if self._buffer:
             delta_memory_pressure = -self.allocated * self.itemsize
         else:
@@ -275,6 +284,7 @@ class W_ArrayBase(W_BufferExporter):
             j = self.len
         if i >= j:
             return None
+        self._check_exports(space)
         newbuffer = lltype.malloc(rffi.CCHARP.TO,
             (self.len - (j - i)) * self.itemsize, flavor='raw')
         # Issue #2913: don't pass add_memory_pressure here, otherwise
@@ -305,16 +315,18 @@ class W_ArrayBase(W_BufferExporter):
         self._buffer = newbuffer
 
     def buffer_w(self, space, flags):
+        self._exports += 1
         return ArrayView(ArrayBuffer(self), self.typecode, self.itemsize, False, w_obj=self)
 
     def bf_getbuffer(self, space, view, flags):
-        # CPython-style protocol: fill a passive Py_buffer.  array.array
-        # does not track exports (unlike bytearray), so releasebuffer is
-        # a no-op inherited from W_Root.
         from pypy.interpreter.py_buffer import fill_py_buffer_1d
+        self._exports += 1
         fill_py_buffer_1d(view, self, ArrayBuffer(self),
                           readonly=False,
                           itemsize=self.itemsize, format=self.typecode)
+
+    def bf_releasebuffer(self, space, view):
+        self._exports -= 1
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -997,6 +1009,14 @@ class ArrayView(BufferView):
         assert not self.readonly
         return self.data
 
+    def needs_release(self):
+        return True
+
+    def releasebuffer(self):
+        w_obj = self.w_obj
+        if isinstance(w_obj, W_ArrayBase):
+            w_obj._exports -= 1
+
     def new_slice(self, start, step, slicelength):
         if step == 1:
             n = self.itemsize
@@ -1209,6 +1229,7 @@ def make_array(mytype):
                 i += self.len
             if i < 0 or i >= self.len:
                 raise oefmt(space.w_IndexError, "pop index out of range")
+            self._check_exports(space)
             w_val = self.w_getitem(space, i)
             b = self.get_buffer()
             while i < self.len - 1:

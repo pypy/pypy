@@ -483,16 +483,13 @@ class AppTestArray(object):
         assert a.tobytes() == b'helLo'
 
     def test_buffer_keepalive(self):
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("CPython: cannot resize an array that is exporting buffers")
         buf = memoryview(self.array('b', b'text'))
         assert buf[2] == ord('x')
         #
         a = self.array('b', b'foobarbaz')
         buf = memoryview(a)
-        a.frombytes(b'some extra text')
-        assert buf[:] == b'foobarbazsome extra text'
+        raises(BufferError, a.frombytes, b'some extra text')
+        assert buf[:] == b'foobarbaz'
 
     def test_memview_multi_tobytes(self):
         a = self.array('i', list(b"abcdef"))
