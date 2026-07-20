@@ -448,7 +448,7 @@ class W_UnicodeTranslateError(W_UnicodeError):
         return space.appexec([self], r"""(self):
             if self.object is None:
                 return ""
-            if self.end == self.start + 1:
+            if self.end == self.start + 1 and 0 <= self.start < len(self.object):
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
                     return "can't translate character '\\x%02x' in position %d: %s" % (badchar, self.start, self.reason)
@@ -1062,7 +1062,7 @@ class W_UnicodeDecodeError(W_UnicodeError):
         return space.appexec([self], """(self):
             if self.object is None:
                 return ""
-            if self.end == self.start + 1:
+            if self.end == self.start + 1 and 0 <= self.start < len(self.object):
                 return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
                     self.object[self.start], self.start, self.reason)
@@ -1188,7 +1188,7 @@ class W_UnicodeEncodeError(W_UnicodeError):
         return space.appexec([self], r"""(self):
             if self.object is None:
                 return ""
-            if self.end == self.start + 1:
+            if self.end == self.start + 1 and 0 <= self.start < len(self.object):
                 badchar = ord(self.object[self.start])
                 if badchar <= 0xff:
                     return "'%s' codec can't encode character '\\x%02x' in position %d: %s"%(

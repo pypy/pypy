@@ -713,3 +713,13 @@ def test_attributeerror_name_default_and_enrich():
         obj.missing
     assert info.value.name == 'missing'
     assert info.value.obj is obj
+
+def test_unicode_error_str_does_not_crash():
+    # str() must not crash on out-of-range start/end (CPython gh-123378)
+    from itertools import product
+    for start, end, objlen in product(range(-5, 5), range(-5, 5), range(7)):
+        obj = 'a' * objlen
+        assert isinstance(str(UnicodeEncodeError('utf-8', obj, start, end, '')), str)
+        assert isinstance(str(UnicodeTranslateError(obj, start, end, '')), str)
+        enc = obj.encode()
+        assert isinstance(str(UnicodeDecodeError('utf-8', enc, start, end, '')), str)
