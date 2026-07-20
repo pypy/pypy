@@ -297,14 +297,17 @@ class PegParser(object):
 
                 # tokenizer error happens later than parser error:
                 # prefer token_exc unless it's inside an f-string or it's
-                # a parenthesis error on the same line as the syntax error
+                # a parenthesis error on the same line as the syntax error.
+                # A HardTokenError (e.g. an invalid numeric literal) is a
+                # definitive diagnosis and wins even inside an f-string.
                 fstring_level = 0
                 for tok in tokens:
                     if tok.token_type == pygram.tokens.FSTRING_START:
                         fstring_level += 1
                     elif tok.token_type == pygram.tokens.FSTRING_END:
                         fstring_level -= 1
-                if fstring_level == 0 and not (
+                if (fstring_level == 0
+                        or isinstance(token_exc, error.HardTokenError)) and not (
                     token_exc.lineno == syntax_exc.lineno
                     and "was never closed" in token_exc.msg
                 ):

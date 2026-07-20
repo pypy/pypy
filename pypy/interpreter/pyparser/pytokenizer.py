@@ -2,7 +2,7 @@ from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
@@ -1254,7 +1254,7 @@ def _maybe_raise_invalid_float_exponent(line, lnum, pos, max, token_list):
     if i < max and line[i] in NUMCHARS:
         return  # valid exponent
     err_pos = sign_pos if sign_pos >= 0 else i - 1
-    raise TokenError("invalid decimal literal", line, lnum, err_pos + 1, token_list)
+    raise HardTokenError("invalid decimal literal", line, lnum, err_pos + 1, token_list)
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
     ch = _get_next_or_nul(line, end)
@@ -1264,52 +1264,52 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
             end += 1
             ch = _get_next_or_nul(line, end)
             if not ch.isdigit():
-                raise TokenError("invalid binary literal",
+                raise HardTokenError("invalid binary literal",
                         line, lnum, end, token_list)
         elif ch == "o":
             token = "0o"
             end += 1
             ch = _get_next_or_nul(line, end)
             if not ch.isdigit():
-                raise TokenError("invalid octal literal",
+                raise HardTokenError("invalid octal literal",
                         line, lnum, end, token_list)
         elif ch == "x":
             token = "0x"
             end += 1
             ch = _get_next_or_nul(line, end)
             if not ch.isdigit():
-                raise TokenError("invalid hexadecimal literal",
+                raise HardTokenError("invalid hexadecimal literal",
                         line, lnum, end, token_list)
     if token.startswith("0b"):
         kind = "binary"
         nextch = _skip_underscore(ch, line, end)
         if nextch.isdigit():
-            raise TokenError("invalid digit '%s' in binary literal" % (nextch, ),
+            raise HardTokenError("invalid digit '%s' in binary literal" % (nextch, ),
                     line, lnum, end + 1, token_list)
         elif ch == "_":
-            raise TokenError("invalid binary literal",
+            raise HardTokenError("invalid binary literal",
                     line, lnum, end, token_list)
 
     elif token.startswith("0o"):
         kind = "octal"
         nextch = _skip_underscore(ch, line, end)
         if nextch.isdigit():
-            raise TokenError("invalid digit '%s' in octal literal" % (nextch, ),
+            raise HardTokenError("invalid digit '%s' in octal literal" % (nextch, ),
                     line, lnum, end + 1, token_list)
         elif ch == "_":
-            raise TokenError("invalid octal literal",
+            raise HardTokenError("invalid octal literal",
                     line, lnum, end, token_list)
 
     elif token.startswith("0x"):
         kind = "hexadecimal"
         if ch == "_":
-            raise TokenError("invalid hexadecimal literal",
+            raise HardTokenError("invalid hexadecimal literal",
                     line, lnum, end + 1, token_list)
 
     else:
         kind = "decimal"
         if ch == "_":
-            raise TokenError("invalid decimal literal",
+            raise HardTokenError("invalid decimal literal",
                     line, lnum, end + 1, token_list)
 
     # now that we've covered the actual error cases, let's see whether we need
@@ -1344,7 +1344,7 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
             code = rutf8.codepoint_at_pos(line, end)
             if not unicodedb.isxidcontinue(code):
                 raise_invalid_unicode_char(code, line, lnum, end, token_list)
-        raise TokenError("invalid %s literal" % kind,
+        raise HardTokenError("invalid %s literal" % kind,
                          line, lnum, start + 1, token_list, lnum, end + 2)
 
 

@@ -134,6 +134,11 @@ class StructuralTokenError(TokenError):
     """A bracket/nesting error the tokenizer diagnoses definitively; the
     parser must not retry or override it."""
 
+class HardTokenError(TokenError):
+    """A definitive tokenizer error (e.g. an invalid numeric literal): the
+    parser still runs on the ERRORTOKEN, but this diagnosis must win over a
+    generic parser error even inside an f-string expression."""
+
 class LineContinuationError(TokenError):
     """A line-continuation backslash that runs into EOF; the eval/exec layer
     formats the message depending on the mode."""

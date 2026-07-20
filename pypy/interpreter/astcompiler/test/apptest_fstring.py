@@ -510,3 +510,18 @@ def test_empty_expression_closing_brace():
             eval(s)
         assert str(info.value).startswith("f-string: valid expression required before '}'")
 
+
+def test_invalid_literal_in_parenthesized_expression():
+    # A definitive tokenizer error (invalid numeric literal) inside a
+    # parenthesized f-string expression must surface as-is, not be masked by
+    # the generic "expecting a valid expression" f-string error.
+    with raises(SyntaxError) as info:
+        compile("f'{(123_a)}'", "<test>", "exec")
+    assert info.value.msg == "invalid decimal literal"
+    assert info.value.offset == 8
+
+    with raises(SyntaxError) as info:
+        compile("f'''\n            {\n            (123_a)\n            }'''",
+                "<test>", "exec")
+    assert info.value.msg == "invalid decimal literal"
+    assert (info.value.lineno, info.value.offset) == (3, 17)
