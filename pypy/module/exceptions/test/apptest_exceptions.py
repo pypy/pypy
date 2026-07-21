@@ -755,3 +755,15 @@ def test_compile_stage_error_has_no_text():
             assert e.end_offset == 12
         else:
             assert False, "expected SyntaxError"
+
+def test_assert_raise_points_at_condition():
+    # the AssertionError-raising instruction carries the position of the assert
+    # condition, so the traceback caret highlights it (PEP 657)
+    import dis
+    for src, span in [('assert None', (7, 11)),
+                      ('assert 1 > 2', (7, 12)),
+                      ('assert 1 > 2, "m"', (7, 12))]:  # points at test, not msg
+        code = compile(src, '<t>', 'exec')
+        r = [i for i in dis.get_instructions(code) if i.opname == 'RAISE_VARARGS']
+        p = r[0].positions
+        assert (p.col_offset, p.end_col_offset) == span, (src, p)

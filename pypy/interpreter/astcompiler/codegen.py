@@ -802,6 +802,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if asrt.msg:
             asrt.msg.walkabout(self)
             self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        # the traceback caret should point at the assert condition
+        self.update_position(asrt.test)
         self.emit_op_arg(ops.RAISE_VARARGS, 1)
         if end is not None:
             self.use_next_block(end)

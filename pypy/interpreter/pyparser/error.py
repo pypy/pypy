@@ -57,8 +57,7 @@ class SyntaxError(Exception):
         a wrapped tuple that can be used to construct a wrapped SyntaxError.
         Optionally pass source, to get better error messages for the case where
         this instance was constructed without a source line (.text
-        attribute).  Pass fill_text=False for compile-stage errors, which
-        (like CPython) leave .text as None."""
+        attribute).  Pass fill_text=False for compile-stage errors."""
         text = self.text
         if fill_text and text is None and source is not None and self.lineno:
             lines = source.splitlines(True)
@@ -69,11 +68,13 @@ class SyntaxError(Exception):
             filename = self.filename
         if filename is not None:
             w_filename = space.newfilename(filename)
-            if fill_text and text is None:
+            if text is None:
                 w_text = space.appexec([w_filename, w_lineno],
                     """(filename, lineno):
                     try:
-                        with open(filename) as f:
+                        # tokenize.open honours the coding cookie and strips a BOM
+                        import tokenize
+                        with tokenize.open(filename) as f:
                             for _ in range(lineno - 1):
                                 f.readline()
                             return f.readline()
