@@ -51,6 +51,8 @@ import io  # C implementation of io
 import _pyio as pyio # Python implementation of io
 
 try:
+    if '__pypy__' in sys.builtin_module_names:
+        raise ImportError    # don't use ctypes, missing ctypes.resize()
     import ctypes
 except ImportError:
     def byteslike(*pos, **kw):
