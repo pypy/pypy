@@ -600,9 +600,12 @@ class MMap(object):
                                MREMAP_MAYMOVE or 0)
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
-            # disconnect the mapping
+            # disconnect the mapping; clear data/handle immediately so that
+            # close() won't double-unmap or double-close on any error below
             self.unmap()
+            self.setdata(NODATA, 0)
             rwin32.CloseHandle_no_err(self.map_handle)
+            self.map_handle = INVALID_HANDLE
 
             # move to the desired EOF position
             if _64BIT:
@@ -624,8 +627,10 @@ class MMap(object):
                                FILE_BEGIN)
             finally:
                 lltype.free(high_ref, flavor='raw')
-            # resize the file
-            SetEndOfFile(self.file_handle)
+            # resize the file; fails with ERROR_USER_MAPPED_FILE if another
+            # mapping is still open on the same file (Windows only)
+            if not SetEndOfFile(self.file_handle):
+                raise rwin32.lastSavedWindowsError()
             # create another mapping object and remap the file view
             res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
                                     newsize_high, newsize_low, self.tagname)

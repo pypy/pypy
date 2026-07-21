@@ -299,6 +299,7 @@ class RunParam(object):
     parallel_runs = 1
     timeout = None
     cherrypick = None
+    ignoretest = None
 
     def __init__(self, root):
         self.root = root
@@ -330,6 +331,9 @@ class RunParam(object):
             p = self.root
 
         reldir = self.reltoroot(p)
+        if p.check(file=1):
+            self.collect_one_testdir(testdirs, reldir, [reldir])
+            return
         if p.check():
             entries = [p1 for p1 in p.listdir(fil=lambda x: 'test_pypy_c' not in str(x)) if p1.check(dotfile=0)]
         else:
@@ -407,6 +411,10 @@ def main(args):
             run_param.collect_testdirs(testdirs, root.join(p))
     else:
         run_param.collect_testdirs(testdirs)
+
+    if run_param.ignoretest:
+        testdirs = [d for d in testdirs
+                    if not any(d.startswith(ign) for ign in run_param.ignoretest)]
 
     if opts.parallel_runs:
         run_param.parallel_runs = opts.parallel_runs

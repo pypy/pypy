@@ -203,14 +203,15 @@ class PyPyConsole(code.InteractiveConsole):
     def settrace(self):
         if self.tracelevel:
             ec = self.space.getexecutioncontext()
-            if not hasattr(self, '_orig_bytecode_only_trace'):
-                self._orig_bytecode_only_trace = ec.bytecode_only_trace
             ec.bytecode_only_trace = self._do_bytecode_only_trace
 
     def unsettrace(self):
         if self.tracelevel:
             ec = self.space.getexecutioncontext()
-            ec.bytecode_only_trace = self._orig_bytecode_only_trace
+            try:
+                del ec.bytecode_only_trace
+            except AttributeError:
+                pass
 
     def _do_bytecode_only_trace(self, frame):
         from pypy.tool.pydis import Bytecode, HAVE_ARGUMENT

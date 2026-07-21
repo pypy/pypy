@@ -104,11 +104,15 @@ def _get_msvc_env(vsver, x64flag):
             vcdict[key] = value
     env = {}
     for key, value in vcdict.items():
-        if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
+        ukey = key.upper()
+        if ukey in ('PATH', 'INCLUDE', 'LIB'):
+            existing = os.environ.get(ukey, '')
+            if existing:
+                value = value.rstrip(';') + ';' + existing
             if sys.version_info[0] < 3:
-                env[key.upper()] = value.encode('utf-8')
+                env[ukey] = value.encode('utf-8')
             else:
-                env[key.upper()] = value
+                env[ukey] = value
     if 'PATH' not in env:
         log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
     if not _find_executable('mt.exe', env['PATH']):
@@ -175,9 +179,9 @@ class MsvcPlatform(Platform):
     if _find_executable('jom.exe'):
         make = 'jom.exe'
 
-    cflags = ('/MD', '/O2', '/FS', '/Zi')
+    cflags = ('/MD', '/O2')
     # allow >2GB address space, set stack to 3MB (1MB is too small)
-    link_flags = ('/nologo', '/debug','/LARGEADDRESSAWARE',
+    link_flags = ('/nologo', '/LARGEADDRESSAWARE',
                   '/STACK:3145728', '/MANIFEST:EMBED')
     standalone_only = ()
     shared_only = ()

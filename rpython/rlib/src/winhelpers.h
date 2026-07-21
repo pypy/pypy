@@ -63,6 +63,9 @@ os_unlink_impl(wchar_t *src);
 RPY_EXPORTED int
 os_createdirectory_impl(wchar_t *path, int mode);
 
+RPY_EXPORTED int
+os_removedirectory_impl(wchar_t *path);
+
 #ifdef __cplusplus
 }
 #endif

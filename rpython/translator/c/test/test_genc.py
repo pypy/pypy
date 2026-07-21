@@ -621,13 +621,56 @@ def test_inhibit_tail_call():
     assert 'PYPY_INHIBIT_TAIL_CALL();' in lines[i+1]
 
 def get_generated_c_source(fn, types):
-    """Return the generated C source for fn."""
+    """Return the generated C source for fn (all split files concatenated)."""
     t = Translation(fn, types, backend="c")
     t.annotate()
     merge_if_blocks(t.driver.translator.graphs[0])
-    c_filename_path = t.source_c()
-    return t.driver.cbuilder.c_source_filename.join('..',
-                              'rpython_translator_c_test.c').read()
+    t.source_c()
+    targetdir = t.driver.cbuilder.c_source_filename.dirpath()
+    return '\n'.join(f.read() for f in sorted(targetdir.listdir('*.c')))
+
+def extract_c_function(c_src, fname):
+    # Extract the source for a given C function out of a the given src string
+    # Makes assumptions about the layout of the source
+    pattern = '^(.+) \**%s\(.*\) {$' % fname
+    within_fn = False
+    result = ''
+    for line in c_src.splitlines():
+        if within_fn:
+            result += line + '\n'
+            if line.startswith('}'):
+                return result
+        else:
+            m = re.match(pattern, line)
+            if m:
+                within_fn = True
+                result += line + '\n'
+    return result
+
+def test_generated_c_source():
+    # Verify that the generated C source "looks good"
+    # We'll use is_perfect_number, as it contains a loop and a conditional
+
+    from rpython.translator.test.snippet import is_perfect_number
+
+    # Check that the C source contains embedded comments with source lines:
+    c_src = get_generated_c_source(is_perfect_number, [int])
+    c_fn_src = extract_c_function(c_src, 'pypy_g_is_perfect_number')
+    expected_comment_lines = [
+        '/* is_perfect_number:31: while div < n: */',
+        # line 32 (if n % div == 0:) is eliminated by merge_if_blocks
+        '/* is_perfect_number:33: sum += div */',
+        '/* is_perfect_number:34: div += 1 */',
+        '/* is_perfect_number:35: return n == sum */']
+    for exp_line in expected_comment_lines:
+        assert c_fn_src.count(exp_line) == 1
+
+    # Ensure that the compiled function does the right thing:
+    c_fn = compile(is_perfect_number, [int])
+    assert c_fn(5) == False
+    assert c_fn(6) == True
+    assert c_fn(7) == False
+
 
 def test_generated_c_source_no_gotos():
     # We want simple functions to have no indirection/goto.
@@ -637,5 +680,194 @@ def test_generated_c_source_no_gotos():
         return x + 1
 
     c_src = get_generated_c_source(main, [int])
-    assert 'goto' not in c_src
-    assert not re.search(r'block\w*:(?! \(inlined\))', c_src)
+    c_fn_src = extract_c_function(c_src, 'pypy_g_main')
+    assert 'goto' not in c_fn_src
+    assert not re.search(r'block\w*:(?! \(inlined\))', c_fn_src)
+
+def test_computed_goto_large_switch():
+    # A switch with >= COMPUTED_GOTO_THRESHOLD arg-free cases must use
+    # a computed goto table rather than a C switch statement.
+    def dispatch(opcode):
+        if opcode == 0: return 100
+        elif opcode == 1: return 101
+        elif opcode == 2: return 102
+        elif opcode == 3: return 103
+        elif opcode == 4: return 104
+        elif opcode == 5: return 105
+        elif opcode == 6: return 106
+        elif opcode == 7: return 107
+        else: return -1
+
+    c_src = get_generated_c_source(dispatch, [int])
+    assert '_cgoto_' in c_src, "expected computed goto table in C source"
+    assert '#ifdef __GNUC__' in c_src, "expected GCC guard in C source"
+    assert 'goto *' in c_src, "expected indirect goto in C source"
+    # Spot-check: the table must be a static const array of void pointers.
+    assert 'static const void * const _cgoto_' in c_src
+    # GCC 10 rejects a declaration directly after a label; verify the null
+    # statement that separates the block label from the table declaration.
+    import re
+    assert re.search(r';\s*\n\s*static const void \* const _cgoto_', c_src)
+
+def test_computed_goto_correctness():
+    # Verify that computed goto dispatch produces correct results.
+    def dispatch(opcode):
+        if opcode == 0: return 100
+        elif opcode == 1: return 101
+        elif opcode == 2: return 102
+        elif opcode == 3: return 103
+        elif opcode == 4: return 104
+        elif opcode == 5: return 105
+        elif opcode == 6: return 106
+        elif opcode == 7: return 107
+        else: return -1
+
+    f = compile(dispatch, [int])
+    for i in range(8):
+        assert f(i) == 100 + i
+    assert f(99) == -1
+
+def test_computed_goto_negative_cases():
+    # Switches with negative case values must produce valid C label names.
+    # A label like _cgoto_N_-1 is invalid C; it must be encoded (e.g. _cgoto_N_n1).
+    def dispatch(opcode):
+        if opcode == -4: return 10
+        elif opcode == -3: return 20
+        elif opcode == -2: return 30
+        elif opcode == -1: return 40
+        elif opcode == 0: return 50
+        else: return -1
+
+    c_src = get_generated_c_source(dispatch, [int])
+    assert '_cgoto_' in c_src, "expected computed goto table in C source"
+    # A label name containing '-' would be a C syntax error.
+    import re
+    assert not re.search(r'_cgoto_\d+_-', c_src), \
+        "negative case values must not produce '-' in C label names"
+
+def test_computed_goto_negative_cases_correctness():
+    # Verify computed goto with negative cases produces correct results.
+    def dispatch(opcode):
+        if opcode == -4: return 10
+        elif opcode == -3: return 20
+        elif opcode == -2: return 30
+        elif opcode == -1: return 40
+        elif opcode == 0: return 50
+        else: return -1
+
+    f = compile(dispatch, [int])
+    assert f(-4) == 10
+    assert f(-3) == 20
+    assert f(-2) == 30
+    assert f(-1) == 40
+    assert f(0) == 50
+    assert f(99) == -1
+
+def test_generated_switch():
+    # Verify that "switch" statements look sane in the generated C source:
+    def f(op, a, b):
+        if op == 0:
+            res = a + b
+        elif op == 1:
+            res = a - b
+        elif op == 2:
+            res = a * b
+        elif op == 3:
+            res = a / b
+        else:
+            raise ValueError('unknown operation')
+        return res
+            
+    c_src = get_generated_c_source(f, [int, int, int])
+    c_fn_src = extract_c_function(c_src, 'pypy_g_f')
+
+    # The generated code should use a switch statement:
+    assert 'switch' in c_fn_src
+    assert 'case' in c_fn_src
+    assert 'default' in c_fn_src
+    
+    # The generated code for "a / b" inlines ll_int_py_div from rint.py,
+    # so its source comments should appear:
+    assert 'if y < 0: u = p - x' in c_fn_src
+
+def test_inlining_c_source():
+    def f(a, b):
+        return g(a * 2, b - 2)
+    def g(c, d):
+        return h(c + 1, d - 1)
+    def h(p, q):
+        return p * q
+    c_src = get_generated_c_source(f, [int, int])
+    c_fn_src = extract_c_function(c_src, 'pypy_g_f')
+
+    # The generated code should have references to the source code of
+    # f and both inlined functions:
+    assert 'return g(a * 2, b - 2)' in c_fn_src # body of f
+    assert 'return h(c + 1, d - 1)' in c_fn_src # inlined body of g
+    assert 'return p * q' in c_fn_src # inlined body of h
+    
+def test_escape_c_comments_unit():
+    from rpython.translator.c.funcgen import escape_c_comments
+
+    # Basic cases: delimiters are split with a space, not deleted.
+    assert escape_c_comments('/* hello */') == '/ * hello * /'
+    assert escape_c_comments('*/') == '* /'
+    assert escape_c_comments('/*') == '/ *'
+
+    # The original bug: "**//".replace('/*','') is "**//", then
+    # "**//".replace('*/','') yields "*/" -- a C comment terminator.
+    # With the fixed implementation the result must contain no "*/".
+    result = escape_c_comments('**// floor-division after power')
+    assert '*/' not in result
+    assert '/*' not in result
+
+    # Pathological overlap: removing "/*" then "*/", in the old code,
+    # could turn "*/**" into "**" and leave "*/"-free output by luck, but
+    # "**//"-style inputs reliably exposed the bug.
+    for src in ['**//x', 'a**//b', '**// comment']:
+        r = escape_c_comments(src)
+        assert '*/' not in r, 'escape_c_comments(%r) -> %r still contains */' % (src, r)
+        assert '/*' not in r, 'escape_c_comments(%r) -> %r still contains /*' % (src, r)
+
+    # Content that contains neither delimiter is left unchanged.
+    assert escape_c_comments('plain text') == 'plain text'
+    assert escape_c_comments('x // y') == 'x // y'
+
+
+def test_escaping_c_comments():
+    # Ensure that c comments within RPython code get escaped when we generate
+    # our .c code (to avoid generating bogus C)
+    # See e.g. pypy.module.cpyext.dictobject's PyDict_Next, which has a
+    # docstring embedding a C comment
+    def c_style_comment(a, b):
+        '''Here is a C-style comment within an RPython docstring:
+                /* hello world */
+        '''
+        # and here's one in a string literal:
+        return '/* hello world a:%s b:%s */' % (a, b)
+
+    def cplusplus_style_comment(a, b):
+        '''Here is a C++-style comment within an RPython docstring:
+                // hello world
+        '''
+        # and here are some in string literals, and one as the floor division
+        # operator:
+        return '// hello world: a // b = %s' % (a // b)
+
+    for fn_name, exp_output in [('c_style_comment',
+                                 '/* hello world a:6 b:3 */'),
+                                ('cplusplus_style_comment',
+                                 '// hello world: a // b = 2')]:
+        fn = locals()[fn_name]
+
+        # Verify that source with C-style comments compiles without error:
+        c_src = get_generated_c_source(fn, [int, int])
+
+        # Ensure that at least part of the docstrings made it into the C code:
+        c_fn_src = extract_c_function(c_src, 'pypy_g_' + fn_name)
+        assert 'Here is a ' in c_fn_src
+        assert 'style comment within an RPython docstring' in c_fn_src
+
+        # Verify that the compiled function produces correct output:
+        c_fn = compile(fn, [int, int])
+        assert c_fn(6, 3) == exp_output

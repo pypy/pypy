@@ -856,7 +856,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         preamble = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        i2 = int_sub(i1, 1)
+        i2 = int_add(i1, -1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
         setfield_gc(p2, i2, descr=valuedescr)
@@ -864,7 +864,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [p2, i1]
-        i2 = int_sub(i1, 1)
+        i2 = int_add(i1, -1)
         i2b = int_is_true(i2)
         guard_true(i2b) []
         p3 = new_with_vtable(descr=nodesize)
@@ -1099,13 +1099,13 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0, p0]
         guard_class(p0, ConstClass(node_vtable)) []
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = int_sub(i1, 1)
+        i2 = int_add(i1, -1)
         i3 = int_add(i0, i1)
         jump(i3, i2)
         """
         expected = """
         [i0, i1]
-        i2 = int_sub(i1, 1)
+        i2 = int_add(i1, -1)
         i3 = int_add(i0, i1)
         jump(i3, i2)
         """
@@ -1129,13 +1129,13 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0, p0]
         guard_class(p0, ConstClass(node_vtable)) []
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = int_sub(i1, 1)
+        i2 = int_add(i1, -1)
         i3 = int_add(i0, i1)
         jump(i3, i2, i1)
         """
         expected = """
         [i0, i1bis, i1]
-        i2 = int_sub(i1bis, 1)
+        i2 = int_add(i1bis, -1)
         i3 = int_add(i0, i1bis)
         jump(i3, i2, i1bis)
         """
@@ -3010,14 +3010,14 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [p1, i0, i1, i2, p2]
         guard_value(p1, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
-        i4 = int_sub(i3, 1)
+        i4 = int_add(i3, -1)
         jump(p2, i0, i1, i4)
         """
         expected = """
         [p2, i0, i1, i2]
         guard_value(p2, ConstPtr(myptr)) [i0]
         i3 = int_add(i1, i2)
-        i4 = int_sub(i3, 1)
+        i4 = int_add(i3, -1)
         jump(ConstPtr(myptr), i0, i1, i4)
         """
         self.optimize_loop(ops, expected, preamble)
@@ -4485,7 +4485,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i2 = int_sub(i0, 10)
+        i2 = int_add(i0, -10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
         jump(i0)
@@ -4514,7 +4514,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         guard_true(i1) []
         i1p = int_gt(i0, -4)
         guard_true(i1p) []
-        i2 = int_sub(i0, 10)
+        i2 = int_add(i0, -10)
         jump(i0)
         """
         expected = """
@@ -4535,7 +4535,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i2 = int_sub(i0, 10)
+        i2 = int_add(i0, -10)
         i3 = int_lt(i2, -5)
         guard_true(i3) []
         jump(i0)
@@ -8260,7 +8260,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i11 = int_add(i5, 1)
         i12 = int_mul(i11, i11)
         i13 = int_add(i10, i12)
-        i14 = int_sub(i8, 1)
+        i14 = int_add(i8, -1)
         i15 = int_gt(i14, 0)
         guard_true(i15) []
         jump(i14, i13, i11, i12)
@@ -8569,7 +8569,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i2 = int_gt(i1, 0)
         guard_true(i2) []
         i4 = getarrayitem_gc_i(NULL, i1, descr=arraydescr)
-        i3 = int_sub(i1, 1)
+        i3 = int_add(i1, -1)
         jump(i3)
         """
         # may either raise InvalidLoop or compile; it's a rare case
@@ -8589,7 +8589,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i2 = int_gt(i1, 0)
         guard_true(i2) []
         setarrayitem_gc(NULL, i1, i1, descr=arraydescr)
-        i3 = int_sub(i1, 1)
+        i3 = int_add(i1, -1)
         jump(i3)
         """
         # may either raise InvalidLoop or compile; it's a rare case

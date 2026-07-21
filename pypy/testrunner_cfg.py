@@ -35,3 +35,7 @@ def get_test_driver(testdir):
 _cherrypick = os.getenv('PYPYCHERRYPICK', '')
 if _cherrypick:
     cherrypick = _cherrypick.split(':')
+
+_ignoretest = os.getenv('PYPYIGNORETEST', '')
+if _ignoretest:
+    ignoretest = _ignoretest.split(':')

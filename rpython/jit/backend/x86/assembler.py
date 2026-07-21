@@ -1471,6 +1471,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.CVTTSD2SI(resloc, arglocs[0])
 
     def genop_cast_int_to_float(self, op, arglocs, resloc):
+        # CVTSI2SD preserves the high 64 bits of the destination, so it carries
+        # a false dependency on the register's prior value.  In a loop reusing
+        # the same XMM this serialises the conversion against the previous
+        # iteration; break it with a zeroing idiom (eliminated at rename).
+        self.mc.PXOR_xx(resloc.value, resloc.value)
         self.mc.CVTSI2SD(resloc, arglocs[0])
 
     def genop_cast_float_to_singlefloat(self, op, arglocs, resloc):

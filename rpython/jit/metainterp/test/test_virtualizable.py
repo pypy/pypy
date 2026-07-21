@@ -1124,8 +1124,7 @@ class ImplicitVirtualizableTests(object):
 
         res = self.meta_interp(f, [70], listops=True)
         assert res == intmask(42 ** 70)
-        self.check_resops(int_add=0,
-                          int_sub=2)   # for 'n -= 1' only
+        self.check_resops(int_add=2)   # for 'n -= 1' only
 
     def test_simple_access_directly(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],

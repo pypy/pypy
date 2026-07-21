@@ -70,7 +70,7 @@ class TestThread(BaseTestPyPyC):
         guard_no_exception(descr=...)
         i55 = int_ne(i54, 1)              # sanity-check added in 90c5a06b0923
         guard_false(i55, descr=...)
-        i58 = int_sub(i44, 1)
+        i58 = int_add(i44, -1)
         i59 = call_i(ConstClass(RPyThreadReleaseLock), i37, descr=<Calli . i EF=2>)
         i60 = int_is_true(i59)
         guard_false(i60, descr=...)

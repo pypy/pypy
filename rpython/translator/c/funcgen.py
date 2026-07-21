@@ -2,6 +2,7 @@ import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
 from rpython.translator.c.support import c_string_constant, barebonearray
+from rpython.translator.c.support import log
 from rpython.flowspace.model import Variable, Constant, mkentrymap
 from rpython.rtyper.lltypesystem.lltype import (Ptr, Void, Bool, Signed, Unsigned,
     SignedLongLong, Float, UnsignedLongLong, Char, UniChar, ContainerType,
@@ -12,11 +13,41 @@ from rpython.translator.backendopt.ssa import SSI_to_SSA
 from rpython.translator.backendopt.innerloop import find_inner_loops
 from rpython.tool.identity_dict import identity_dict
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.tool.sourcetools import getsourcelines
 
 
 LOCALVAR = 'l_%s'
 
 KEEP_INLINED_GRAPHS = False
+
+# Switches with at least this many cases use computed goto dispatch instead
+# of a C switch statement.  Computed goto (a GCC extension) turns the switch
+# into a direct jump through a static label-address table, collapsing all
+# case blocks into a single C function and enabling GCC to do global register
+# allocation and inlining across opcode handlers.
+COMPUTED_GOTO_THRESHOLD = 5
+# Maximum ratio of table slots to actual cases.  Switches where the opcode
+# space is too sparse (e.g. Unicode codepoints, JIT resop codes) waste data
+# segment and cache without any dispatch benefit.
+COMPUTED_GOTO_MAX_SPARSE = 4
+
+def _split_exits(block):
+    """Return (non_default_links, default_link_or_None) for a switch block."""
+    non_default = []
+    defaultlink = None
+    for link in block.exits:
+        if link.exitcase == 'default':
+            defaultlink = link
+        else:
+            non_default.append(link)
+    return non_default, defaultlink
+
+def _use_computed_goto(non_default):
+    if len(non_default) < COMPUTED_GOTO_THRESHOLD:
+        return False
+    case_vals = [int(link.exitcase) for link in non_default]
+    table_size = max(case_vals) - min(case_vals) + 1
+    return table_size <= COMPUTED_GOTO_MAX_SPARSE * len(non_default)
 
 def make_funcgen(graph, db, exception_policy, functionname):
     graph._seen_by_the_backend = True
@@ -27,6 +58,16 @@ def make_funcgen(graph, db, exception_policy, functionname):
     if db.gctransformer:
         db.gctransformer.transform_graph(graph)
     return FunctionCodeGenerator(graph, db, exception_policy, functionname)
+
+# Cache (func -> (src_lines, startline)) so getsourcelines() is called at most
+# once per function rather than once per block/operation.
+_source_lines_cache = {}
+
+def escape_c_comments(py_src):
+    # Escape C comment delimiters within RPython source.
+    py_src = py_src.replace('/*', '/ *')
+    py_src = py_src.replace('*/', '* /')
+    return py_src
 
 class FunctionCodeGenerator(object):
     """
@@ -50,6 +91,26 @@ class FunctionCodeGenerator(object):
             db.gettype(T)  # force the type to be considered by the database
 
         self.illtypes = None
+        self._uses_computed_goto = self._check_for_computed_goto()
+
+    def _iter_computed_goto_blocks(self):
+        """Yield (block, non_default_links) for every block that uses computed goto."""
+        for block in self.graph.iterblocks():
+            if (block.exitswitch is not None and not block.canraise and
+                    self.lltypemap_early(block.exitswitch) in (
+                        Signed, Unsigned, SignedLongLong, UnsignedLongLong)):
+                non_default, _defaultlink = _split_exits(block)
+                if _use_computed_goto(non_default):
+                    yield block, non_default
+
+    def _check_for_computed_goto(self):
+        for _block, _non_default in self._iter_computed_goto_blocks():
+            return True
+        return False
+
+    def lltypemap_early(self, v):
+        T = v.concretetype
+        return T
 
     def collect_var_and_types(self):
         #
@@ -156,14 +217,25 @@ class FunctionCodeGenerator(object):
         for a in self.graph.getargs():
             seen.add(a.name)
 
+        # When computed goto is used, GCC cannot track control flow through
+        # the indirect jump and emits false -Wmaybe-uninitialized warnings.
+        # Zero-initializing all locals suppresses these; GCC optimizes away
+        # the initializer wherever it can prove assignment happens first.
+        init_suffix = ' = 0' if self._uses_computed_goto else ''
+
         result_by_name = []
         for v in self.allvariables():
             name = v.name
             if name not in seen:
                 seen.add(name)
-                result = cdecl(self.lltypename(v), LOCALVAR % name) + ';'
-                if self.lltypemap(v) is Void:
+                T = self.lltypemap(v)
+                if T is Void:
                     continue  #result = '/*%s*/' % result
+                if self._uses_computed_goto and isinstance(T, Ptr):
+                    suffix = ' = NULL'
+                else:
+                    suffix = init_suffix
+                result = cdecl(self.lltypename(v), LOCALVAR % name) + suffix + ';'
                 result_by_name.append((v._name, result))
         result_by_name.sort()
         return [result for name, result in result_by_name]
@@ -180,6 +252,28 @@ class FunctionCodeGenerator(object):
             if extra_enter_text:
                 yield extra_enter_text
         graph = self.graph
+        # Try to print python source code:
+        if hasattr(graph, 'func'):
+            func = graph.func
+            if func not in _source_lines_cache:
+                _source_lines_cache[func] = getsourcelines(func)
+            cached = _source_lines_cache[func]
+            if cached is not None:
+                src, startline = cached
+                filename = getattr(getattr(func, '__code__', None),
+                                   'co_filename', '<unknown>')
+                yield '/* RPython source %r' % filename
+                for i, line in enumerate(src):
+                    line = line.rstrip()
+                    line = escape_c_comments(line)
+                    # FuncNode.funcgen_implementation treats lines ending in ':'
+                    # as C blocks and special-cases them, which messes up the
+                    # formatting.
+                    # Work around this by adding a trailing space:
+                    if line.endswith(':'):
+                        line += ' '
+                    yield ' * %4d : %s' % (startline + i, line)
+                yield ' */'
 
         # ----- for gc_enter_roots_frame
         _seen = set()
@@ -200,6 +294,12 @@ class FunctionCodeGenerator(object):
         self.inlinable_blocks = {
             block for block in entrymap if len(entrymap[block]) == 1}
 
+        # Blocks that are targets of large switches must have labels so that
+        # computed goto dispatch tables can reference them via &&blockN.
+        for block, _non_default in self._iter_computed_goto_blocks():
+            for link in block.exits:
+                self.inlinable_blocks.discard(link.target)
+
         yield ''
         for line in self.gen_goto(graph.startblock):
             yield line
@@ -211,10 +311,27 @@ class FunctionCodeGenerator(object):
             for line in self.gen_block(block):
                 yield line
 
+    def _source_comment(self, func, linenum):
+        """Yield a C comment with the RPython source line, or nothing on error."""
+        if func not in _source_lines_cache:
+            _source_lines_cache[func] = getsourcelines(func)
+        cached = _source_lines_cache[func]
+        if cached is None:
+            return
+        src, startline = cached
+        i = linenum - startline
+        if 0 <= i < len(src):
+            yield '/* %s:%d: %s */' % (
+                func.__name__, linenum, escape_c_comments(src[i].strip()))
+
     def gen_block(self, block):
         if 1:      # (preserve indentation)
             self._current_block = block
             myblocknum = self.blocknum[block]
+            if hasattr(block, 'source_func') and hasattr(block, 'source_line'):
+                for line in self._source_comment(block.source_func,
+                                                  block.source_line):
+                    yield line
             if block in self.inlinable_blocks:
                 # debug comment
                 yield '/* block%d: (inlined) */' % myblocknum
@@ -224,7 +341,17 @@ class FunctionCodeGenerator(object):
                 for line in self.gen_while_loop_hack(block):
                     yield line
                 return
+            cur_sf = getattr(block, 'source_func', None)
+            cur_sl = getattr(block, 'source_line', None)
             for i, op in enumerate(block.operations):
+                op_sf = getattr(op, 'source_func', None)
+                if op_sf is not None:
+                    op_sl = getattr(op, 'source_line', None)
+                    if op_sf is not cur_sf or op_sl != cur_sl:
+                        for line in self._source_comment(op_sf, op_sl):
+                            yield line
+                        cur_sf = op_sf
+                        cur_sl = op_sl
                 for line in self.gen_op(op):
                     yield line
             if len(block.exits) == 0:
@@ -262,29 +389,122 @@ class FunctionCodeGenerator(object):
                         yield op
                 elif TYPE in (Signed, Unsigned, SignedLongLong,
                               UnsignedLongLong, Char, UniChar):
-                    defaultlink = None
                     expr = self.expr(block.exitswitch)
-                    yield 'switch (%s) {' % self.expr(block.exitswitch)
-                    for link in block.exits:
-                        if link.exitcase == 'default':
-                            defaultlink = link
-                            continue
-                        yield 'case %s:' % self.db.get(link.llexitcase)
-                        for op in self.gen_link(link):
-                            yield '\t' + op
-                        # 'break;' not needed, as gen_link ends in a 'goto'
-                    # Emit default case
-                    yield 'default:'
-                    if defaultlink is None:
-                        yield '\tassert(!"bad switch!!"); abort();'
+                    non_default, defaultlink = _split_exits(block)
+                    if (TYPE not in (Char, UniChar) and
+                            _use_computed_goto(non_default)):
+                        for line in self.gen_computed_goto(
+                                block, expr, non_default, defaultlink):
+                            yield line
                     else:
-                        for op in self.gen_link(defaultlink):
-                            yield '\t' + op
-
-                    yield '}'
+                        for line in self.gen_switch(
+                                expr, non_default, defaultlink):
+                            yield line
                 else:
                     raise TypeError("exitswitch type not supported"
                                     "  Got %r" % (TYPE,))
+
+    def gen_switch(self, expr, non_default, defaultlink):
+        """Emit a plain C switch statement for the given cases."""
+        yield 'switch (%s) {' % expr
+        for link in non_default:
+            yield 'case %s:' % self.db.get(link.llexitcase)
+            for op in self.gen_link(link):
+                yield '\t' + op
+            # 'break;' not needed, as gen_link ends in 'goto'
+        yield 'default:'
+        if defaultlink is None:
+            yield '\tassert(!"bad switch!!"); abort();'
+        else:
+            for op in self.gen_link(defaultlink):
+                yield '\t' + op
+        yield '}'
+
+    def gen_computed_goto(self, block, expr, non_default, defaultlink):
+        """Emit a computed goto dispatch table instead of a switch statement.
+
+        Uses GCC label-address extension (&&label, goto *expr).  Falls back to
+        a plain switch on non-GCC compilers (e.g. MSVC) via #ifdef __GNUC__.
+
+        Each case gets a per-case entry label (_cgoto_N_CASE) that performs
+        the link assignments for that edge, then falls through to the target
+        block's label.  This handles SSA link args correctly while still
+        using computed goto for the dispatch itself.
+        """
+        myblocknum = self.blocknum[block]
+        case_vals = [int(link.exitcase) for link in non_default]
+        log.computedgoto('%s: %d cases' % (self.functionname, len(case_vals)))
+        min_val = min(case_vals)
+        max_val = max(case_vals)
+        table_size = max_val - min_val + 1
+
+        # Per-case entry label: _cgoto_N_CASE (N=switch block, CASE=opcode).
+        # Negative values use 'n' prefix so the label is a valid C identifier.
+        def case_label(exitcase):
+            v = int(exitcase)
+            if v < 0:
+                return '_cgoto_%d_n%d' % (myblocknum, -v)
+            return '_cgoto_%d_%d' % (myblocknum, v)
+
+        if defaultlink is not None:
+            default_label = '_cgoto_%d_default' % myblocknum
+        else:
+            default_label = None
+
+        yield '#ifdef __GNUC__'
+        yield ';'  # null stmt: block label may immediately precede this declaration
+
+        # Emit the static dispatch table.
+        table_name = '_cgoto_%d' % myblocknum
+        yield 'static const void * const %s[%d] = {' % (table_name, table_size)
+        val_to_link = {int(lnk.exitcase): lnk for lnk in non_default}
+        for i in range(table_size):
+            v = min_val + i
+            if v in val_to_link:
+                label = case_label(v)
+            elif default_label is not None:
+                label = default_label
+            else:
+                label = '_cgoto_abort_%d' % myblocknum
+            yield '    /* %d */ &&%s,' % (v, label)
+        yield '};'
+
+        # Emit bounds check and indirect jump.
+        if min_val == 0:
+            bounds_expr = '(unsigned)(%s) < %d' % (expr, table_size)
+        else:
+            bounds_expr = ('(unsigned)(%s - %d) < %d'
+                           % (expr, min_val, table_size))
+        if default_label is not None:
+            yield 'if (!(%s)) goto %s;' % (bounds_expr, default_label)
+        else:
+            yield 'if (!(%s)) { assert(!"bad switch!!"); abort(); }' % bounds_expr
+        if min_val == 0:
+            yield 'goto *%s[%s];' % (table_name, expr)
+        else:
+            yield 'goto *%s[%s - %d];' % (table_name, expr, min_val)
+
+        # Emit per-case entry points (assignments + jump to target block).
+        for link in non_default:
+            yield '%s:' % case_label(link.exitcase)
+            for line in self.gen_link(link):
+                yield '\t' + line
+
+        # Emit default entry point.
+        if defaultlink is not None:
+            yield '%s:' % default_label
+            for line in self.gen_link(defaultlink):
+                yield '\t' + line
+
+        # Emit abort for gap entries when there is no default.
+        if default_label is None and table_size > len(non_default):
+            yield '_cgoto_abort_%d:' % myblocknum
+            yield '    assert(!"bad switch!!"); abort();'
+
+        yield '#else  /* no computed goto -- fallback for MSVC and other compilers */'
+        for line in self.gen_switch(expr, non_default, defaultlink):
+            yield line
+        yield '#endif  /* __GNUC__ */'
 
     def gen_link(self, link):
         "Generate the code to jump across the given Link."

@@ -700,3 +700,8 @@ if WIN32:
                                           [rffi.CWCHARP, rffi.INT_real],
                                           rffi.INT,
                                           save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    os_removedirectory_impl = winexternal("os_removedirectory_impl",
+                                          [rffi.CWCHARP],
+                                          rffi.INT,
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)

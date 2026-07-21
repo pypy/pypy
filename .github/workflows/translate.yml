@@ -22,14 +22,14 @@ jobs:
         revdb: [false, true]
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         fetch-depth: 1
 
     - name: Set up PyPy 2.7
       uses: actions/setup-python@v6
       with:
-        python-version: "pypy-2.7-v7.3.17"
+        python-version: "pypy-2.7-v7.3.23"
         cache: 'pip' # caching pip dependencies
 
     - name: install system dependencies

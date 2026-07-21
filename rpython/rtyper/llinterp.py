@@ -758,6 +758,10 @@ class LLFrame(object):
     def op_gc_get_stats(self, obj):
         raise NotImplementedError("gc_get_stats")
 
+    def op_gc_writebarrier(self, obj):
+        if hasattr(self.heap, 'gc'):
+            self.heap.gc.write_barrier(llmemory.cast_ptr_to_adr(obj))
+
     def op_gc_writebarrier_before_copy(self, source, dest,
                                        source_start, dest_start, length):
         if hasattr(self.heap, 'writebarrier_before_copy'):

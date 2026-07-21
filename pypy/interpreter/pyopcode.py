@@ -14,6 +14,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
+from pypy.interpreter.executioncontext import TICK_COUNTER_STEP
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
@@ -151,8 +152,21 @@ class __extend__(pyframe.PyFrame):
                     ec.bytecode_only_trace(self)
                     next_instr = r_uint(self.last_instr)
             else:
-                ec.bytecode_trace(self)
-                next_instr = r_uint(self.last_instr)
+                # Only reload next_instr from last_instr when something that
+                # can modify it actually ran (trace function or action
+                # dispatcher). In the common case (no trace, positive ticker)
+                # next_instr is unchanged and the round-trip is skipped.
+                _d = self.debugdata
+                if ec.space.reverse_debugging or (
+                        _d is not None and _d.w_f_trace is not None) or (
+                        not we_are_translated() and
+                        'bytecode_only_trace' in ec.__dict__):
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
+                actionflag = ec.space.actionflag
+                if actionflag.decrement_ticker(TICK_COUNTER_STEP) < 0:
+                    actionflag.action_dispatcher(ec, self)
+                    next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 

@@ -509,12 +509,22 @@ class AbstractAarch64Builder(object):
     def gen_load_int(self, r, value):
         """r is the register number, value is the value to be loaded to the
         register"""
-        # XXX optimize!
         if value < 0:
-            if value < -65536:
-                self.gen_load_int_full(r, value)
-            else:
+            if value >= -65536:
                 self.MOVN_r_u16(r, ~value)
+                return
+            # MOVN sets every bit to 1 except the low 16, which it loads;
+            # then patch the higher 16-bit words that are not already
+            # all-ones with MOVK.  Emits 1-4 instructions (was always 4).
+            self.MOVN_r_u16(r, ~value & 0xFFFF)
+            value = value >> 16
+            shift = 16
+            while shift < 64:
+                hw = value & 0xFFFF
+                if hw != 0xFFFF:
+                    self.MOVK_r_u16(r, hw, shift)
+                shift += 16
+                value >>= 16
             return
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)
         value = value >> 16

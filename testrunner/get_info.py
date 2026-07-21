@@ -12,10 +12,12 @@ if sys.platform.startswith('win'):
     TARGET_NAME = 'pypy-c.exe'
     VENV_TARGET = 'pypy.exe'
     TARGET_DIR = 'Scripts'
+    EXTENSION = '.zip'
 else:
     TARGET_NAME = 'pypy-c'
     VENV_TARGET = 'pypy'
     TARGET_DIR = 'bin'
+    EXTENSION = '.tar.gz'
 VENV_DIR = 'pypy-venv'
 
 def make_info_dict():
@@ -23,6 +25,7 @@ def make_info_dict():
     return {'target_path': target_path,
             'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, VENV_TARGET),
             'venv_dir': VENV_DIR,
+            'extension': EXTENSION,
             'project': 'PyPy', # for benchmarks
            }
 

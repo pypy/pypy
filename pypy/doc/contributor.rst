@@ -39,16 +39,16 @@ Contributors
   Leonardo Santagada
   Alexander Schremmer
   David Edelsohn
-  Raffael Tfirst
   Stefano Rivera
+  Raffael Tfirst
   Lawrence Oluyede
   Gregor Wegberg
   Jakub Gustak
   Romain Guillebert
   Batuhan Taskaya
   Guido Wesdorp
-  Ronny Pfannschmidt
   Nico Rittinghaus
+  Ronny Pfannschmidt
   Alexander Hesse
   Justin Peel
   Niko Matsakis
@@ -99,16 +99,16 @@ Contributors
   Greg Price
   Jeremy Thurgood
   Mark Pearse
+  Stan Ulbrych
+  Julian Berman
   Ivan Sichmann Freitas
   Adrian Kuhn
-  Julian Berman
   olliemath
   Wenzhu Man
   Guido van Rossum
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
-  Stan Ulbrych
   Tyler Wade
   Paul deGrandis
   Tadeu Zagallo
@@ -239,6 +239,7 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Dennis Sweeney
   Samuel Ytterbrink
   Pierre Augier
   Ilya Egorov
@@ -266,6 +267,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Victorien
   Jeongseop Lim
   Julian Waters
   Sam James
@@ -274,7 +276,6 @@ Contributors
   Renaud Blanch
   h-vertini
   Alex Orange
-  Dennis Sweeney
   alexprengere
   Georges Racinet
   Lin Cheng
@@ -320,8 +321,7 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Jeongseop Lim
-  Victorien
+  Jeong, YunWon
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
@@ -462,7 +462,6 @@ made an effort to contribute and we thank them.
   dakarpov@gmail.com
   cjmcdonald@google.com
   Brad Kish
-  Maxwell Bernstein
   Vladimir Kryachko
   Lucio Torre
   Henrik Vendelbo
@@ -479,13 +478,10 @@ made an effort to contribute and we thank them.
   Stefano Parmesan
   reubano@gmail.com
   remarkablerocket
-  bernd.schoeller@inf.ethz.ch
   Jim Baker
   Zooko Wilcox-O Hearn
   Jim Hunziker
-  mkuffa
   timo
-  rafalgalczynski@gmail.com
   Andrew Dalke
   Igor Trindade Oliveira
   Nicholas Riley

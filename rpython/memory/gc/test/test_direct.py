@@ -1277,6 +1277,17 @@ def random_action_sequences(draw):
             array2[dest_start + i] = array1[source_start + i]
         add_action('copy_array', array1index, array2index, source_start, dest_start, length)
 
+    @gen_action("fill_array", list)
+    def fill_array():
+        arrayindex = random_array_index()
+        objindex = random_object_index()
+        identity = get_obj_identity(arrayindex)
+        l = model[identity]
+        length = len(l)
+        for i in range(length):
+            l[i] = get_obj_identity(objindex)
+        add_action('fill_array', arrayindex, objindex)
+
     @gen_action("malloc_array")
     def malloc_array():
         identity, indexes = create_array()
@@ -1532,6 +1543,18 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                         array2[dest_start] = array1[source_start]
                     dest_start += 1
                     source_start += 1
+            elif kind == "fill_array":
+                arrayindex, objindex = actiondata
+                array = self.get_array(arrayindex)
+                node = self.get_obj(objindex)
+                # mirror the logic in rgc.ll_arrayfill
+                addr_struct = llmemory.cast_ptr_to_adr(array)
+                self.gc.write_barrier(addr_struct)
+                length = len(array)
+                for i in range(length):
+                    # intentionally bypass the write barrier here, it's what
+                    # ll_arrayfill does
+                    array[i] = self.erase(node)
             elif kind == "malloc_array":
                 content, = actiondata
                 array = self.create_array(content)

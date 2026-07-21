@@ -193,7 +193,7 @@ class DictTests:
         self.check_resops({'new_array_clear': 2, 'getfield_gc_r': 2,
                            'guard_true': 4, 'jump': 1,
                            'new_with_vtable': 2, 'getinteriorfield_gc_i': 2,
-                           'setfield_gc': 14, 'int_gt': 2, 'int_sub': 2,
+                           'setfield_gc': 14, 'int_gt': 2, 'int_add': 2,
                            'call_i': 4, 'call_n': 2, 'call_r': 2, 'int_ge': 2,
                            'cond_call_value_i': 2, 'strhash': 4,
                            'guard_no_exception': 8, 'new': 2,
@@ -213,7 +213,7 @@ class DictTests:
 
         res = self.meta_interp(f, [10], listops=True)
         assert res == 0
-        self.check_simple_loop({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
+        self.check_simple_loop({'int_add': 1, 'int_gt': 1, 'guard_true': 1,
                                 'jump': 1})
 
     def test_dict_two_lookups(self):
@@ -472,4 +472,3 @@ class TestLLOrderedDict(DictTests, LLJitMixin):
             return len(d2)
         res = self.interp_operations(fn, []) # used to crash
         assert res == 0
-

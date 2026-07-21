@@ -1034,6 +1034,50 @@ class TestStandalone(StandaloneTestsVerified):
         assert counts[0.1] > counts[0.4] / 7
         assert counts[0.4] > counts[1.0] / 4
 
+    def test_set_length_fraction_clamped_to_os_stack(self):
+        # A huge recursion limit (large fraction) must NOT be able to push the
+        # stack-overflow threshold past the real OS stack: stack_check() has to
+        # raise StackOverflow rather than allow segfaulting. This test assumes a
+        # finite ulimit -s
+        try:
+            import resource
+        except ImportError:
+            py.test.skip("requires the resource module to bound RLIMIT_STACK")
+        from rpython.rlib.rstack import _stack_set_length_fraction
+        from rpython.rlib.rstackovf import StackOverflow
+        class A:
+            n = 0
+        glob = A()
+        def f(n):
+            glob.n += 1
+            if n <= 0:
+                return 42
+            return f(n+1)
+        def entry_point(argv):
+            _stack_set_length_fraction(50.0)
+            try:
+                f(1)
+            except StackOverflow:
+                print glob.n
+                return 0
+            print 'no overflow!'
+            return 1
+        t, cbuilder = self.compile(entry_point, stackcheck=True)
+        soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
+        target = 8 * 1024 * 1024
+        if hard != resource.RLIM_INFINITY and hard < target:
+            target = hard
+        try:
+            resource.setrlimit(resource.RLIMIT_STACK, (target, hard))
+        except (ValueError, OSError):
+            py.test.skip("cannot impose a finite RLIMIT_STACK on this platform")
+        try:
+            out = cbuilder.cmdexec('')   # raises if the binary segfaulted/crashed
+        finally:
+            resource.setrlimit(resource.RLIMIT_STACK, (soft, hard))
+        n = int(out.strip())         # StackOverflow was caught -> finite depth
+        assert n > 0
+
     def test_stack_criticalcode(self):
         # check for rpython.rlib.rstack._stack_criticalcode_start/stop()
         from rpython.rlib.rstack import _stack_criticalcode_start
