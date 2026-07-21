@@ -4,11 +4,13 @@ from rpython.rlib.objectmodel import specialize
 try:
     import pypy.module.sys.version
     V37 = pypy.module.sys.version.CPYTHON_VERSION >= (3, 7)
+    V311 = pypy.module.sys.version.CPYTHON_VERSION >= (3, 11)
 except ImportError:
     raise ImportError("Cannot import pypy.module.sys.version. You can safely "
                       "remove this 'raise' line if you are not interested in "
                       "PyPy but only RPython.")
     V37 = False
+    V311 = False
 
 OPCODE_FAILURE            = 0
 OPCODE_SUCCESS            = 1
@@ -18,45 +20,45 @@ OPCODE_ASSERT             = 4
 OPCODE_ASSERT_NOT         = 5
 OPCODE_AT                 = 6
 OPCODE_BRANCH             = 7
-OPCODE_CALL               = 8                    # not used
-OPCODE_CATEGORY           = 9
-OPCODE_CHARSET            = 10
-OPCODE_BIGCHARSET         = 11
-OPCODE_GROUPREF           = 12
-OPCODE_GROUPREF_EXISTS    = 13
-OPCODE_GROUPREF_IGNORE    = 28 if V37 else 14
-OPCODE_IN                 = 14 if V37 else 15
-OPCODE_IN_IGNORE          = 29 if V37 else 16
-OPCODE_INFO               = 15 if V37 else 17
-OPCODE_JUMP               = 16 if V37 else 18
-OPCODE_LITERAL            = 17 if V37 else 19
-OPCODE_LITERAL_IGNORE     = 30 if V37 else 20
-OPCODE_MARK               = 18 if V37 else 21
-OPCODE_MAX_UNTIL          = 19 if V37 else 22
-OPCODE_MIN_UNTIL          = 20 if V37 else 23
-OPCODE_NOT_LITERAL        = 21 if V37 else 24
-OPCODE_NOT_LITERAL_IGNORE = 31 if V37 else 25
-OPCODE_NEGATE             = 22 if V37 else 26
-OPCODE_RANGE              = 23 if V37 else 27
-OPCODE_REPEAT             = 24 if V37 else 28
-OPCODE_REPEAT_ONE         = 25 if V37 else 29
-OPCODE_SUBPATTERN         = 26 if V37 else 30    # not used
-OPCODE_MIN_REPEAT_ONE     = 27 if V37 else 31
-OPCODE27_RANGE_IGNORE     = None if V37 else 32
+OPCODE_CALL               = None if V311 else 8              # removed in 3.11
+OPCODE_CATEGORY           = 8 if V311 else 9
+OPCODE_CHARSET            = 9 if V311 else 10
+OPCODE_BIGCHARSET         = 10 if V311 else 11
+OPCODE_GROUPREF           = 11 if V311 else 12
+OPCODE_GROUPREF_EXISTS    = 12 if V311 else 13
+OPCODE_GROUPREF_IGNORE    = 30 if V311 else (28 if V37 else 14)
+OPCODE_IN                 = 13 if V311 else (14 if V37 else 15)
+OPCODE_IN_IGNORE          = 31 if V311 else (29 if V37 else 16)
+OPCODE_INFO               = 14 if V311 else (15 if V37 else 17)
+OPCODE_JUMP               = 15 if V311 else (16 if V37 else 18)
+OPCODE_LITERAL            = 16 if V311 else (17 if V37 else 19)
+OPCODE_LITERAL_IGNORE     = 32 if V311 else (30 if V37 else 20)
+OPCODE_MARK               = 17 if V311 else (18 if V37 else 21)
+OPCODE_MAX_UNTIL          = 18 if V311 else (19 if V37 else 22)
+OPCODE_MIN_UNTIL          = 19 if V311 else (20 if V37 else 23)
+OPCODE_NOT_LITERAL        = 20 if V311 else (21 if V37 else 24)
+OPCODE_NOT_LITERAL_IGNORE = 33 if V311 else (31 if V37 else 25)
+OPCODE_NEGATE             = 21 if V311 else (22 if V37 else 26)
+OPCODE_RANGE              = 22 if V311 else (23 if V37 else 27)
+OPCODE_REPEAT             = 23 if V311 else (24 if V37 else 28)
+OPCODE_REPEAT_ONE         = 24 if V311 else (25 if V37 else 29)
+OPCODE_SUBPATTERN         = 25 if V311 else (26 if V37 else 30)  # not used
+OPCODE_MIN_REPEAT_ONE     = 26 if V311 else (27 if V37 else 31)
+OPCODE27_RANGE_IGNORE     = None if V311 else (None if V37 else 32)
 
-OPCODE37_GROUPREF_LOC_IGNORE      = 32 if V37 else None
-OPCODE37_IN_LOC_IGNORE            = 33 if V37 else None
-OPCODE37_LITERAL_LOC_IGNORE       = 34 if V37 else None
-OPCODE37_NOT_LITERAL_LOC_IGNORE   = 35 if V37 else None
-OPCODE37_GROUPREF_UNI_IGNORE      = 36 if V37 else None
-OPCODE37_IN_UNI_IGNORE            = 37 if V37 else None
-OPCODE37_LITERAL_UNI_IGNORE       = 38 if V37 else None
-OPCODE37_NOT_LITERAL_UNI_IGNORE   = 39 if V37 else None
-OPCODE37_RANGE_UNI_IGNORE         = 40 if V37 else None
+OPCODE37_GROUPREF_LOC_IGNORE      = 34 if V311 else (32 if V37 else None)
+OPCODE37_IN_LOC_IGNORE            = 35 if V311 else (33 if V37 else None)
+OPCODE37_LITERAL_LOC_IGNORE       = 36 if V311 else (34 if V37 else None)
+OPCODE37_NOT_LITERAL_LOC_IGNORE   = 37 if V311 else (35 if V37 else None)
+OPCODE37_GROUPREF_UNI_IGNORE      = 38 if V311 else (36 if V37 else None)
+OPCODE37_IN_UNI_IGNORE            = 39 if V311 else (37 if V37 else None)
+OPCODE37_LITERAL_UNI_IGNORE       = 40 if V311 else (38 if V37 else None)
+OPCODE37_NOT_LITERAL_UNI_IGNORE   = 41 if V311 else (39 if V37 else None)
+OPCODE37_RANGE_UNI_IGNORE         = 42 if V311 else (40 if V37 else None)
 
-OPCODE_ATOMIC_GROUP               = 41
-OPCODE_POSSESSIVE_REPEAT          = 42
-OPCODE_POSSESSIVE_REPEAT_ONE      = 43
+OPCODE_ATOMIC_GROUP               = 27 if V311 else None
+OPCODE_POSSESSIVE_REPEAT          = 28 if V311 else None
+OPCODE_POSSESSIVE_REPEAT_ONE      = 29 if V311 else None
 
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70
