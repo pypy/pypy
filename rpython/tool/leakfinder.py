@@ -9,14 +9,19 @@ import traceback
 
 # Track allocations to detect memory leaks.
 # So far, this is used for lltype.malloc(flavor='raw').
+#
+# Keyed by id(obj): lltype container objects can change
+# their hash after allocation (e.g. when turned into a <C object> by
+# ll2ctypes), so obj-keyed lookups in remember_free() are unreliable
+# See remember_free() for the equality fallback that keeps cpyext working.
 TRACK_ALLOCATIONS = False
-ALLOCATED = {}
+ALLOCATED = {}    # id(obj) -> (obj, traceback)
 
 class MallocMismatch(Exception):
     def __str__(self):
         dict = self.args[0]
         dict2 = {}
-        for obj, traceback in dict.items():
+        for obj, traceback in dict.values():
             traceback = traceback.splitlines()
             if len(traceback) > 8:
                 traceback = ['    ...'] + traceback[-6:]
@@ -65,14 +70,26 @@ def remember_malloc(obj, framedepth=1):
         sio = cStringIO.StringIO()
         traceback.print_stack(frame, limit=10, file=sio)
         tb = sio.getvalue()
-        ALLOCATED[obj] = tb
+        ALLOCATED[id(obj)] = (obj, tb)
 
 def remember_free(obj):
     if TRACK_ALLOCATIONS:
-        if obj not in ALLOCATED:
-            # rehashing is needed because some objects' hash may change
-            # e.g. when lltype objects are turned into <C object>
-            items = ALLOCATED.items()
-            ALLOCATED.clear()
-            ALLOCATED.update(items)
-        del ALLOCATED[obj]
+        # Fast path: id(obj) is stable even when the object's hash later
+        # changes (e.g. when it is turned into a <C object> by ll2ctypes),
+        if id(obj) in ALLOCATED:
+            del ALLOCATED[id(obj)]
+            return
+        # Slow path: the object may be freed through a different wrapper of
+        # the same allocation than the one that was remembered (e.g. a
+        # render_as_const cast in cpyext).  Fall back to an equality scan.
+        for key, (o, tb) in ALLOCATED.items():
+            try:
+                match = o is obj or o == obj
+            except Exception:
+                # comparing against an already-freed container raises at the
+                # Python level (never a C dereference); treat as no match.
+                match = False
+            if match:
+                del ALLOCATED[key]
+                return
+        raise KeyError(obj)

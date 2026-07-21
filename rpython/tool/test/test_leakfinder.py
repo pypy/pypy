@@ -52,18 +52,21 @@ def test_traceback():
     x = 1234
     leakfinder.remember_malloc(x)
     res = leakfinder.stop_tracking_allocations(check=False)
-    assert res.keys() == [x]
-    print res[x]
-    assert isinstance(res[x], str)
-    assert 'test_traceback' in res[x]
-    assert 'leakfinder.remember_malloc(x)' in res[x]
+    assert res.keys() == [id(x)]
+    obj, tb = res[id(x)]
+    print tb
+    assert obj is x
+    assert isinstance(tb, str)
+    assert 'test_traceback' in tb
+    assert 'leakfinder.remember_malloc(x)' in tb
 
 def test_malloc_mismatch():
     import sys, traceback, cStringIO
     sio = cStringIO.StringIO()
     traceback.print_stack(sys._getframe(), limit=10, file=sio)
     tb = sio.getvalue()
-    e = leakfinder.MallocMismatch({1234: tb, 2345: tb})
+    e = leakfinder.MallocMismatch({id(1234): (1234, tb),
+                                   id(2345): (2345, tb)})
     print str(e)
     # grouped entries for 1234 and 2345
     assert '1234:\n2345:\n' in str(e) or '2345:\n1234:\n' in str(e)

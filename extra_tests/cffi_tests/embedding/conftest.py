@@ -5,7 +5,7 @@ import sys
 
 disabled = False
 
-if sys.implementation.name == 'pypy':
+if '__pypy__' in sys.builtin_module_names:
     try:
         import cpyext
     except Exception:
