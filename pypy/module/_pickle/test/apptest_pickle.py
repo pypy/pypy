@@ -985,3 +985,62 @@ def test_load_stack_global_invalid_utf8():
         assert loads(b'\x80\x04\x8c\x07m\xc3\xb6dule\x8c\x07gl\xc3\xb6bal\x93.') == 42
     finally:
         del sys.modules['m\xf6dule']
+
+
+def test_nonencodable_module_name_error():
+    import types, sys
+    # A module name that is not encodable in the target protocol
+    # (non-ASCII for proto < 3, a lone surrogate for proto 3) must raise.
+    for proto in range(4):
+        name = 'nonascii\xff' if proto < 3 else 'nonencodable\udbff'
+        obj = _REX('test')
+        obj.__module__ = name
+        mod = types.SimpleNamespace(test=obj)
+        sys.modules[name] = mod
+        try:
+            with pytest.raises((UnicodeEncodeError, PicklingError)):
+                dumps(obj, proto)
+        finally:
+            del sys.modules[name]
+
+
+def test_load_build_bad_state():
+    import sys, types
+    # BUILD (load_build) must reject a state (or slot state) that is not a
+    # dictionary, raising UnpicklingError rather than a low-level error.
+    class _BuildC:
+        pass
+    mod = types.SimpleNamespace(_BuildC=_BuildC)
+    sys.modules['_buildmod'] = mod
+    base = b'c_buildmod\n_BuildC\n)\x81'
+    try:
+        error = (UnpicklingError, AttributeError)
+        # state = list
+        with pytest.raises(error):
+            loads(base + b'](}}eb.')
+        # state = 1-tuple
+        with pytest.raises(error):
+            loads(base + b'}\x85b.')
+        # state = 3-tuple
+        with pytest.raises(error):
+            loads(base + b'}}}\x87b.')
+        # 2-tuple whose state part is not a dict (True)
+        with pytest.raises(error):
+            loads(base + b'\x88}\x86b.')
+    finally:
+        del sys.modules['_buildmod']
+
+
+def test_nonencodable_global_name_error():
+    # A global name that is not encodable in the target protocol must raise.
+    for proto in range(4):
+        name = 'nonascii\xff' if proto < 3 else 'nonencodable\udbff'
+        obj = _REX(name)
+        obj.__module__ = __name__
+        g = globals()
+        g[name] = obj
+        try:
+            with pytest.raises((UnicodeEncodeError, PicklingError)):
+                dumps(obj, proto)
+        finally:
+            del g[name]

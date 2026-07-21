@@ -1137,33 +1137,44 @@ class W_Pickler(W_Root):
             self._save_toplevel_by_name(w_module_name, w_name)
         self.memoize(w_obj)
 
+    def _encode_global_name(self, w_name, is_module):
+        # Non-ASCII identifiers are supported only with protocols >= 3;
+        # protocol 3 encodes as UTF-8, older protocols as ASCII.
+        space = self.space
+        if self.proto >= 3:
+            w_codec = space.newtext('utf-8')
+        else:
+            w_codec = space.newtext('ascii')
+        try:
+            w_encoded = space.call_method(w_name, 'encode', w_codec)
+        except OperationError as e:
+            if not e.match(space, space.w_UnicodeEncodeError):
+                raise
+            if is_module:
+                raise oefmt(pickling_error(space),
+                    "can't pickle module identifier '%S' using "
+                    "pickle protocol %d", w_name, self.proto)
+            raise oefmt(pickling_error(space),
+                "can't pickle global identifier '%S' using "
+                "pickle protocol %d", w_name, self.proto)
+        return space.bytes_w(w_encoded)
+
     def _save_toplevel_by_name(self, w_module_name, w_name):
         space = self.space
         write = self.write
-        if self.proto >= 3:
-            # Non-ASCII identifiers are supported only with protocols >= 3.
-            module_name = space.utf8_w(w_module_name)
-            name = space.utf8_w(w_name)
-            write(op.GLOBAL + module_name + b'\n' + name + b'\n')
-        else:
-            if self.fix_imports:
-                w_modname_and_name = space.newtuple([w_module_name, w_name])
-                w_r_NAME_MAPPING = space.fromcache(State).w_REVERSE_NAME_MAPPING
-                w_r_IMPORT_MAPPING = space.fromcache(State).w_REVERSE_IMPORT_MAPPING
-                w_1 = space.finditem(w_r_NAME_MAPPING, w_modname_and_name)
-                w_2 = space.finditem(w_r_IMPORT_MAPPING, w_module_name)
-                if w_1:
-                    w_module_name, w_name = space.listview(w_1)
-                elif w_2:
-                    w_module_name = w_2
-            try:
-                module_name = space.utf8_w(w_module_name)
-                name = space.utf8_w(w_name)
-                write(op.GLOBAL + module_name + b'\n' + name + b'\n')
-            except UnicodeEncodeError:
-                raise oefmt(pickling_error(space),
-                    "can't pickle global identifier '%S.%S' using "
-                    "pickle protocol %d", w_module_name, w_name, self.proto)
+        if self.proto < 3 and self.fix_imports:
+            w_modname_and_name = space.newtuple([w_module_name, w_name])
+            w_r_NAME_MAPPING = space.fromcache(State).w_REVERSE_NAME_MAPPING
+            w_r_IMPORT_MAPPING = space.fromcache(State).w_REVERSE_IMPORT_MAPPING
+            w_1 = space.finditem(w_r_NAME_MAPPING, w_modname_and_name)
+            w_2 = space.finditem(w_r_IMPORT_MAPPING, w_module_name)
+            if w_1:
+                w_module_name, w_name = space.listview(w_1)
+            elif w_2:
+                w_module_name = w_2
+        module_name = self._encode_global_name(w_module_name, True)
+        name = self._encode_global_name(w_name, False)
+        write(op.GLOBAL + module_name + b'\n' + name + b'\n')
 
     def memoize(self, w_obj):
         """Store an object in the memo."""
@@ -1747,7 +1758,7 @@ def save_picklebuffer(self, w_obj):
     space = self.space
     if self.proto < 5:
         raise oefmt(pickling_error(space),
-            "PickleBuffer can only pickled with protocol >= 5")
+            "PickleBuffer can only be pickled with protocol >= 5")
     buf = w_obj.buf
     if not iscontiguous(buf):
         raise oefmt(pickling_error(space),
@@ -2862,9 +2873,14 @@ class W_Unpickler(W_Root):
         if space.isinstance_w(w_state, space.w_tuple) and space.len_w(w_state) == 2:
             w_state, w_slotstate = space.listview(w_state)
         if not space.is_none(w_state):
+            if not space.isinstance_w(w_state, space.w_dict):
+                raise oefmt(unpickling_error(space), "state is not a dictionary")
             w_inst_dict = w_inst.getdict(space)
             space.call_method(w_inst_dict, "update", w_state)
         if not space.is_none(w_slotstate):
+            if not space.isinstance_w(w_slotstate, space.w_dict):
+                raise oefmt(unpickling_error(space),
+                            "slot state is not a dictionary")
             w_iter = space.iter(space.call_method(w_slotstate, "items"))
             while True:
                 try:

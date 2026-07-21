@@ -210,7 +210,7 @@ class W_IOBase(W_Root):
         return space.w_False
 
     def getstate_w(self, space):
-        raise oefmt(space.w_TypeError, "cannot serialize '%T' object", self)
+        raise oefmt(space.w_TypeError, "cannot pickle '%T' object", self)
 
     # ______________________________________________________________
 
