@@ -16,7 +16,7 @@ def setup_module(mod):
     fname = udir.join('expect_test.py')
     fname.write('''
 import termios
-print str(termios.tcgetattr(2)[:-1])
+print(str(termios.tcgetattr(2)[:-1]))
 ''')
     child = pexpect.spawn('python', [str(fname)], logfile=sys.stderr)
     child.expect(pexpect.EOF)
@@ -30,7 +30,9 @@ class TestLLTermios(object):
         import pexpect
         child = pexpect.spawn(str(arg.builder.executable_name))
         child.expect(re.escape(expected))
-        assert child.status is None
+        child.expect(pexpect.EOF)
+        child.close()
+        assert child.exitstatus == 0
 
     def test_tcgetattr(self):
         from rpython.translator.c.test.test_genc import compile

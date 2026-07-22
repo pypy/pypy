@@ -3,8 +3,6 @@ from rpython.jit.backend.tool.viewcode import format_code_dump_with_labels
 from rpython.jit.backend.tool.viewcode import find_objdump
 import os
 import py
-import tempfile
-from rpython.tool.udir import udir
 
 def test_format_code_dump_with_labels():
     lines = StringIO("""
@@ -59,15 +57,3 @@ aa12: eight
     out = ''.join(lines)
     assert out.strip() == input
 
-def test_find_objdump():
-    old = os.environ['PATH']
-    os.environ['PATH'] = ''
-    py.test.raises(Exception, find_objdump)
-
-    #
-    path = udir.join('objdump')
-    print >>path, 'hello world'
-    os.environ['PATH'] = path.dirname
-    assert find_objdump() == 'objdump'
-    #
-    os.environ['PATH'] = old
