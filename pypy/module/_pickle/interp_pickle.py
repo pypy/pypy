@@ -2184,7 +2184,7 @@ class W_Unpickler(W_Root):
         for c in pid:
             if ord(c) > 127:
                 raise oefmt(unpickling_error(space),
-                    "persistent id must be ASCII")
+                    "persistent IDs in protocol 0 must be ASCII strings")
         w_pers_load = space.findattr(self, space.newtext('persistent_load'))
         if w_pers_load is None:
             raise oefmt(unpickling_error(space),
@@ -2555,7 +2555,7 @@ class W_Unpickler(W_Root):
         space = self.space
         w_module = space.newtext(self.readline())
         w_name = space.newtext(self.readline())
-        w_klass = self.find_class(w_module, w_name)
+        w_klass = self.call_find_class(w_module, w_name)
         w_args = space.newlist(self.pop_mark())
         self._instantiate(w_klass, w_args)
     dispatch[ord(op.INST[0])] = load_inst
@@ -2605,13 +2605,17 @@ class W_Unpickler(W_Root):
                 if name == '_bytes_list_unpickle':
                     self.append(_bytes_list_unpickler_sentinel)
                     return
+            # an empty module or name line means the data was cut short
+            space = self.space
+            if len(module) == 0 or len(name) == 0:
+                raise oefmt(unpickling_error(space),
+                            "pickle data was truncated")
             # decode strictly as UTF-8, like CPython, so invalid bytes raise a
             # clean UnicodeDecodeError instead of crashing newtext()
-            space = self.space
             mod_lgt = check_utf8_or_raise(space, module)
             name_lgt = check_utf8_or_raise(space, name)
-            w_klass = self.find_class(space.newtext(module, mod_lgt),
-                                      space.newtext(name, name_lgt))
+            w_klass = self.call_find_class(space.newtext(module, mod_lgt),
+                                           space.newtext(name, name_lgt))
             self.append(w_klass)
     dispatch[ord(op.GLOBAL[0])] = load_global
 
@@ -2620,7 +2624,7 @@ class W_Unpickler(W_Root):
         w_name = data_pop(self.space, self.stack)
         w_module = data_pop(self.space, self.stack)
         if space.isinstance_w(w_name, space.w_text) and space.isinstance_w(w_module, space.w_text):
-            self.append(self.find_class(w_module, w_name))
+            self.append(self.call_find_class(w_module, w_name))
         else:
             raise oefmt(unpickling_error(self.space),
                 "STACK_GLOBAL requires str")
@@ -2661,9 +2665,27 @@ class W_Unpickler(W_Root):
                 raise oefmt(unpickling_error(self.space), "EXT specifies code <= 0")
             raise oefmt(self.space.w_ValueError, "unregistered extension code %d", code)
         w_module_name, w_name = space.listview(w_key)
-        w_obj = self.find_class(w_module_name, w_name)
+        w_obj = self.call_find_class(w_module_name, w_name)
         space.setitem(state.w_extension_cache, w_code, w_obj)
         self.append(w_obj)
+
+    def call_find_class(self, w_module_name, w_name):
+        # Dispatch through the app-level 'find_class' so that a subclass
+        # override is honoured, matching CPython.  The common case (an
+        # unsubclassed Unpickler) takes the fast path.
+        space = self.space
+        if space.type(self) is space.gettypeobject(W_Unpickler.typedef):
+            return self.find_class(w_module_name, w_name)
+        return space.call_method(self, "find_class", w_module_name, w_name)
+
+    def descr_find_class(self, space, w_module_name, w_name):
+        if not space.isinstance_w(w_module_name, space.w_text):
+            raise oefmt(space.w_TypeError,
+                        "the module name must be a str, not %T", w_module_name)
+        if not space.isinstance_w(w_name, space.w_text):
+            raise oefmt(space.w_TypeError,
+                        "the global name must be a str, not %T", w_name)
+        return self.find_class(w_module_name, w_name)
 
     def find_class(self, w_module_name, w_name):
         # Subclasses may override this.
@@ -2866,7 +2888,7 @@ class W_Unpickler(W_Root):
         w_state = data_pop(self.space, self.stack)
         w_inst = self._stack_top("BUILD")
         w_setstate = space.findattr(w_inst, space.newtext("__setstate__"))
-        if not space.is_none(w_setstate):
+        if w_setstate is not None:
             space.call_function(w_setstate , w_state)
             return
         w_slotstate = space.w_None
@@ -2999,6 +3021,7 @@ W_Unpickler.typedef = TypeDef("_pickle.Unpickler",
     __new__ = interp2app(descr__new__unpickler),
     __init__ = interp2app(descr__init__unpickler),
     load = interp2app(W_Unpickler.load),
+    find_class = interp2app(W_Unpickler.descr_find_class),
     memo = GetSetProperty(W_Unpickler.get_memo_w, W_Unpickler.set_memo_w),
 )
 

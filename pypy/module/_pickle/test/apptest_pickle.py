@@ -1044,3 +1044,45 @@ def test_nonencodable_global_name_error():
                 dumps(obj, proto)
         finally:
             del g[name]
+
+
+def test_find_class():
+    import math
+    unpickler = Unpickler(io.BytesIO())
+    assert unpickler.find_class('builtins', 'str') is str
+    assert unpickler.find_class('math', 'log') is math.log
+    pytest.raises(AttributeError, unpickler.find_class, 'math', 'spam')
+    pytest.raises(TypeError, unpickler.find_class, None, 'log')
+    pytest.raises(TypeError, unpickler.find_class, 'math', None)
+
+
+def test_custom_find_class():
+    # A subclass overriding find_class is honoured by GLOBAL and STACK_GLOBAL.
+    class MyUnpickler(Unpickler):
+        def find_class(self, module_name, global_name):
+            return (module_name, global_name)
+    assert MyUnpickler(io.BytesIO(b'cmath\nlog\n.')).load() == ('math', 'log')
+    assert MyUnpickler(
+        io.BytesIO(b'\x8c\x04math\x8c\x03log\x93.')).load() == ('math', 'log')
+
+
+def test_global_empty_module_or_name_is_truncated():
+    # An empty module or name line after a GLOBAL opcode means the data was
+    # cut short: the C unpickler reports it as an UnpicklingError.
+    for data in [b'c\nlog\n.', b'cmath\n\n.', b'\x80\x04cmath\n\n.']:
+        pytest.raises(UnpicklingError, Unpickler(io.BytesIO(data)).load)
+
+
+def test_setstate_None_is_called_and_fails():
+    import sys, types
+    # __setstate__ set to None counts as present: BUILD calls None(state) and
+    # raises, rather than falling back to the default dict-update path.
+    class _NoneSetstate:
+        __setstate__ = None
+    mod = types.SimpleNamespace(_NoneSetstate=_NoneSetstate)
+    sys.modules['_setstatemod'] = mod
+    try:
+        pickled = b'c_setstatemod\n_NoneSetstate\n)\x81K\x01b.'
+        pytest.raises((AttributeError, TypeError), loads, pickled)
+    finally:
+        del sys.modules['_setstatemod']
