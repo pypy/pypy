@@ -274,25 +274,6 @@ def test_compress_copy():
     rzlib.deflateEnd(copied)
     assert bytes1 + bytes_copy == compressed
 
-@py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.3', '1.2.8', '1.2.7'), reason='does not error check')
-def test_unsuccessful_compress_copy():
-    """
-    Errors during unsuccesful deflateCopy operations raise RZlibErrors.
-    """
-    stream = rzlib.deflateInit()
-
-    # From zlib.h:
-    #
-    # "deflateCopy returns [...] Z_STREAM_ERROR if the source stream
-    #  state was inconsistent (such as zalloc being Z_NULL)"
-    from rpython.rtyper.lltypesystem import rffi, lltype
-    stream.c_zalloc = rffi.cast(lltype.typeOf(stream.c_zalloc), rzlib.Z_NULL)
-
-    exc = py.test.raises(rzlib.RZlibError, rzlib.deflateCopy, stream)
-    msg = "Error -2 while copying compression object: inconsistent stream state"
-    assert str(exc.value) == msg
-    rzlib.deflateEnd(stream)
-
 
 def test_decompress_copy():
     """

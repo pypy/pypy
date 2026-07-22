@@ -68,10 +68,12 @@
 #  define RPY_EXPORTED extern __attribute__((visibility("default")))
 #  define _RPY_HIDDEN  __attribute__((visibility("hidden")))
 #  define RPY_UNUSED __attribute__ ((__unused__))
+#  define RPY_NORETURN __attribute__((noreturn))
 #else
 #  define RPY_EXPORTED extern __declspec(dllexport)
 #  define _RPY_HIDDEN  /* nothing */
 #  define RPY_UNUSED   /*nothing */
+#  define RPY_NORETURN __declspec(noreturn)
 #endif
 #ifndef RPY_EXTERN
 #  define RPY_EXTERN   extern _RPY_HIDDEN

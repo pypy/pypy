@@ -56,9 +56,9 @@ OPCODE37_LITERAL_UNI_IGNORE       = 40 if V311 else (38 if V37 else None)
 OPCODE37_NOT_LITERAL_UNI_IGNORE   = 41 if V311 else (39 if V37 else None)
 OPCODE37_RANGE_UNI_IGNORE         = 42 if V311 else (40 if V37 else None)
 
-OPCODE_ATOMIC_GROUP               = 27 if V311 else None
-OPCODE_POSSESSIVE_REPEAT          = 28 if V311 else None
-OPCODE_POSSESSIVE_REPEAT_ONE      = 29 if V311 else None
+OPCODE_ATOMIC_GROUP               = 27 if V311 else 41
+OPCODE_POSSESSIVE_REPEAT          = 28 if V311 else 42
+OPCODE_POSSESSIVE_REPEAT_ONE      = 29 if V311 else 43
 
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70

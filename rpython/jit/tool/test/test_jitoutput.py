@@ -1,4 +1,5 @@
 
+import os
 import py
 from rpython.jit.metainterp.warmspot import ll_meta_interp
 from rpython.rlib.jit import JitDriver
@@ -19,12 +20,18 @@ def test_really_run():
             mydriver.jit_merge_point(i=i, n=n)
             i += 1
 
+    old_pypylog = os.environ.get('PYPYLOG', None)
+    os.environ['PYPYLOG'] = 'jit-summary:-'
     cap = py.io.StdCaptureFD()
     try:
         ll_meta_interp(f, [10], CPUClass=runner.LLGraphCPU,
                        ProfilerClass=Profiler)
     finally:
         out, err = cap.reset()
+        if old_pypylog is None:
+            del os.environ['PYPYLOG']
+        else:
+            os.environ['PYPYLOG'] = old_pypylog
 
     log = parse_log(err.splitlines(True))
     err_sections = list(extract_category(log, 'jit-summary'))

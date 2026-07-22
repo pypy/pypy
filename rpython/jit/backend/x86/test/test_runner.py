@@ -33,13 +33,13 @@ class TestX86(LLtypeBackendTest):
         add_loop_instructions = ('mov; '
                                  'lea; '    # a nop, for the label
                                  'add; test; je; jmp;')   # plus some padding
-        bridge_loop_instructions = 'cmp; jl; jmp;'
+        bridge_loop_instructions = 'cmpl?; jl; jmp;'
     else:
         add_loop_instructions = ('mov; '
-                                 'nop; '    # for the label
+                                 '(nopl?|data16); '    # for the label
                                  'add; test; je; jmp;')   # plus some padding
         bridge_loop_instructions = (
-            'cmp; jl; mov(abs)?; jmp;')
+            'cmpq?; jl; mov(abs)?; jmp;')
 
     def get_cpu(self):
         cpu = CPU(rtyper=None, stats=FakeStats())

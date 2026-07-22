@@ -59,9 +59,9 @@ class ReleaseGILTests(BaseFrameworkTests):
         def callback(p1, p2):
             for i in range(100):
                 glob.lst.append(X())
-            return rffi.cast(rffi.INT, 1)
-        CALLBACK = lltype.Ptr(lltype.FuncType([lltype.Signed,
-                                               lltype.Signed], rffi.INT))
+            return rffi.cast(rffi.INT_real, 1)
+        CALLBACK = lltype.Ptr(lltype.FuncType([rffi.CONST_VOIDP,
+                                               rffi.CONST_VOIDP], rffi.INT_real))
         #
         @dont_look_inside
         def alloc1():
