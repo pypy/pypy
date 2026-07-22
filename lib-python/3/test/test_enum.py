@@ -3037,11 +3037,16 @@ class TestSpecial(unittest.TestCase):
         class ThirdFailedStrEnum(CustomStrEnum):
             one = '1'
             two = 2  # this will become '2'
-        with self.assertRaisesRegex(TypeError, '.encoding. must be str, not '):
+        if sys.implementation.name == 'pypy':
+            encoding_msg = errors_msg = 'expected str, got '
+        else:
+            encoding_msg = '.encoding. must be str, not '
+            errors_msg = '.errors. must be str, not '
+        with self.assertRaisesRegex(TypeError, encoding_msg):
             class ThirdFailedStrEnum(CustomStrEnum):
                 one = '1'
                 two = b'2', sys.getdefaultencoding
-        with self.assertRaisesRegex(TypeError, '.errors. must be str, not '):
+        with self.assertRaisesRegex(TypeError, errors_msg):
             class ThirdFailedStrEnum(CustomStrEnum):
                 one = '1'
                 two = b'2', 'ascii', 9
