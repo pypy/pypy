@@ -30,6 +30,19 @@ int pypysig_get_wakeup_fd_write_errno(void);
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
+#ifdef _WIN32
+# if defined(_MSC_VER)
+#  define DEBUG_SECTION(name, declaration) \
+     __pragma(section(#name, read, write)) \
+     __declspec(allocate(#name)) declaration
+# elif defined(__GNUC__) || defined(__clang__)
+#  define DEBUG_SECTION(name, declaration) \
+     declaration __attribute__((section(#name), used))
+# else
+#  error "Unsupported compiler for debug section"
+# endif
+#endif
+
 /* When a signal is received, pypysig_counter is set to -1. */
 struct pypysig_long_struct_inner {
     Signed value;
