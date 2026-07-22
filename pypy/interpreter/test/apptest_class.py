@@ -140,7 +140,7 @@ def test_nonsensical_base_error_message():
         class Foo(object, object):
             pass
     assert str(exc.value).startswith(
-        "duplicate base class 'object'")
+        "duplicate base class object")
 
 def test_setclass_recursive():
     class Self:

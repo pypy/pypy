@@ -1744,7 +1744,7 @@ def mro_error(space, orderlists):
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
-        raise oefmt(space.w_TypeError, "duplicate base class '%N'", candidate)
+        raise oefmt(space.w_TypeError, "duplicate base class %N", candidate)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
