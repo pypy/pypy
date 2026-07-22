@@ -703,24 +703,18 @@ def main():
         if args.dont_wait:
             parser.error("can't pass -c and --dont-wait together")
         import tempfile
-        if sys.platform == 'win32':
-            fd, filename = tempfile.mkstemp(suffix='.py')
-            try:
-                with os.fdopen(fd, 'wb') as f:
-                    f.write(args.c.encode('utf-8'))
-                start_debugger(args.pid, filename, wait=True)
-            finally:
-                try:
-                    os.unlink(filename)
-                except OSError:
-                    pass
-        else:
-            with tempfile.NamedTemporaryFile(mode='wb') as f:
+        fd, filename = tempfile.mkstemp(suffix='.py')
+        try:
+            with os.fdopen(fd, 'wb') as f:
                 f.write(args.c.encode('utf-8'))
-                f.flush()
-                # make it world-readable, in case we have to use sudo
-                os.chmod(f.name, 0o644)
-                start_debugger(args.pid, f.name, wait=True)
+            # make it world-readable, in case we have to use sudo
+            os.chmod(filename, 0o644)
+            start_debugger(args.pid, filename, wait=True)
+        finally:
+            try:
+                os.unlink(filename)
+            except OSError:
+                pass
     else:
         parser.error('need to pass either a script or -c')
 
