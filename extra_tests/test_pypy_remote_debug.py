@@ -9,16 +9,19 @@ try:
 except ImportError:
     pytestmark = pytest.mark.skip('can only run these tests on pypy')
 
-if not sys.platform.startswith('linux'):
-    pytestmark = pytest.mark.skip('only works on linux so far')
-
 import _pypy_remote_debug
-import _vmprof
 
+try:
+    import _vmprof
+except ImportError:
+    _vmprof = None
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_parse_maps():
     maps = _pypy_remote_debug._read_and_parse_maps('self', sys.executable)
     assert os.path.realpath(sys.executable) == maps[0]['file']
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_elf_find_symbol():
     pid = os.getpid()
     file, base_addr = _pypy_remote_debug._find_file_and_base_addr(pid)
@@ -37,6 +40,7 @@ def test_elf_find_symbol():
         assert False
     assert value
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_elf_read_first_load_section():
     pid = os.getpid()
     file, base_addr = _pypy_remote_debug._find_file_and_base_addr(pid)
@@ -76,6 +80,7 @@ def skip_on_oserror(func):
                 check_error(e)
     return wrapper
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 @skip_on_oserror
 def test_read_memory():
     # test using local memory
@@ -88,6 +93,7 @@ def test_read_memory():
     result = _pypy_remote_debug.read_memory(pid, int(ffi.cast('intptr_t', sourcebuffer)), len(data))
     assert result == data
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 @skip_on_oserror
 def test_write_memory():
     # test using local memory
@@ -98,6 +104,7 @@ def test_write_memory():
     result = _pypy_remote_debug.write_memory(pid, int(ffi.cast('intptr_t', targetbuffer)), data)
     assert ffi.buffer(targetbuffer)[:] == data
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 @skip_on_oserror
 def test_cookie():
     pid = os.getpid()
@@ -105,6 +112,7 @@ def test_cookie():
     cookie = _pypy_remote_debug.read_memory(pid, addr + _pypy_remote_debug.COOKIE_OFFSET, 8)
     assert cookie == b'pypysigs'
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_remote_find_file_and_base_addr():
     code = """
 import sys
@@ -252,6 +260,7 @@ def test_symbolify_all():
         assert res[addr][0] == name.encode('ascii')
         assert 'libexpat.so' in res[addr][1]
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_symbolify_pypy_function():
     addr = _pypy_remote_debug.compute_remote_addr()
     name, filename = _pypy_remote_debug._symbolify(addr)
@@ -260,6 +269,7 @@ def test_symbolify_pypy_function():
     name, filename = _pypy_remote_debug._symbolify(addr)
     assert name == b'pypy_g_DiskFile_read'
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
 def test_symbolify_all_pypy_function():
     names = [b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write']
     all = []
