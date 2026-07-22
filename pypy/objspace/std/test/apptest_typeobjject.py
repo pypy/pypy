@@ -63,3 +63,36 @@ def test_text_signature_on_function_type():
 def test_text_signature_on_builtin_function_type():
     result = getattr(type(len), '__text_signature__')
     assert result is None or isinstance(result, str)
+
+def test_set_name():
+    class Descriptor:
+        def __set_name__(self, owner, name):
+            self.owner = owner
+            self.name = name
+
+    class X:
+        a = Descriptor()
+    assert X.a.owner is X
+    assert X.a.name == "a"
+
+def test_set_name_error():
+    class Descriptor:
+        __set_name__ = None
+    def make_class():
+        class A:
+            d = Descriptor()
+    excinfo = raises(TypeError, make_class)
+    assert excinfo.value.__notes__ == [
+        "Error calling __set_name__ on 'Descriptor' instance 'd' in 'A'"]
+
+def test_set_name_self():
+    # issue 3326: modifying self.__dict__ in self.__set_name__
+    class Descriptor:
+        def __set_name__(self, owner, name):
+            setattr(owner, "attr", self)
+
+    class Foo:
+        desc = Descriptor()
+        desc2 = Descriptor()
+
+    pass # does not crash

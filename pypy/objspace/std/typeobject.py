@@ -1014,11 +1014,14 @@ def _set_names(space, w_type):
             try:
                 space.get_and_call_function(w_meth, w_value, w_type, space.newtext(key))
             except OperationError as e:
-                e2 = oefmt(space.w_RuntimeError,
-                           "Error calling __set_name__ on '%T' instance '%s' in '%N'",
-                           w_value, key, w_type)
-                e2.chain_exceptions_from_cause(space, e)
-                raise e2
+                e.normalize_exception(space)
+                w_note = space.newtext(
+                    "Error calling __set_name__ on '%s' instance %s in '%s'" % (
+                        space.type(w_value).name,
+                        space.text_w(space.repr(space.newtext(key))),
+                        w_type.getname(space)))
+                space.call_method(e.get_w_value(space), "add_note", w_note)
+                raise
 
 def _init_subclass(space, w_type, __args__):
     # bit of a mess, but I didn't feel like implementing the super logic
