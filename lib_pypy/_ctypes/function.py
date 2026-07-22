@@ -467,7 +467,7 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
             return self._ptr
         except AttributeError:
             if self._flags_ & _rawffi.FUNCFLAG_CDECL:
-                raise
+                raise AttributeError("function %r not found" % (self.name,))
 
             # Win64 has no stdcall calling conv, so it should also not have the
             # name mangling of it.

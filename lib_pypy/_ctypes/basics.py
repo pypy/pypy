@@ -105,7 +105,11 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        return self.from_address(dll._handle.getaddressindll(name))
+        try:
+            addr = dll._handle.getaddressindll(name)
+        except ValueError:
+            raise ValueError("symbol %r not found" % (name,))
+        return self.from_address(addr)
 
     def from_buffer(self, obj, offset=0):
         if self._is_abstract():
@@ -114,6 +118,8 @@ class _CDataMeta(type):
             raise ValueError("offset cannot be negative")
         size = self._sizeofinstances()
         buf = memoryview(obj)
+        if buf.readonly:
+            raise TypeError("underlying buffer is not writable")
         if not buf.c_contiguous:
             raise TypeError("underlying buffer is not C contiguous")
         if buf.nbytes < offset + size:
@@ -145,12 +151,17 @@ class _CDataMeta(type):
         result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
-            raw_addr = buf._pypy_raw_address() + offset
-        except ValueError:
-            _rawffi.rawstring2charp(dest, buf, offset, size)
-        else:
-            from ctypes import memmove
-            memmove(dest, raw_addr, size)
+            try:
+                raw_addr = buf._pypy_raw_address() + offset
+            except ValueError:
+                _rawffi.rawstring2charp(dest, buf, offset, size)
+            else:
+                from ctypes import memmove
+                memmove(dest, raw_addr, size)
+        finally:
+            # from_buffer_copy makes a copy, so the source buffer must not
+            # stay exported (else it blocks e.g. array.append until gc)
+            buf.release()
         return result
 
     def _newowninstance_(self):
