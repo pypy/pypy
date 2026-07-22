@@ -280,6 +280,18 @@ class AppTestFfi(object):
         else:
             raise AssertionError("did not fail??")
 
+    def test_libload_fail_nonutf8_name(self):
+        import _rawffi, re
+        # a non-UTF8 filename must still produce a usable (matchable) message,
+        # not a mangled/invalid-utf8 string
+        try:
+            _rawffi.CDLL(b'missing\xff.so')
+        except OSError as e:
+            print(e)
+            assert re.search(r'missing.*?\.so', str(e))
+        else:
+            raise AssertionError("did not fail??")
+
     def test_libload_None(self):
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)

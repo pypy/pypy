@@ -159,7 +159,7 @@ def wrap_dlopenerror(space, e, filename):
         msg = e.msg if we_are_translated() else repr(e.msg)
     else:
         msg = 'unspecified error'
-    return oefmt(space.w_OSError, 'Cannot load library %s: %8', filename, msg)
+    return oefmt(space.w_OSError, 'Cannot load library %8: %8', filename, msg)
 
 
 class W_CDLL(W_Root):
