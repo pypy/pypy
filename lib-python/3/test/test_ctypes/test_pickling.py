@@ -1,5 +1,6 @@
 import unittest
 import pickle
+from test import support
 from ctypes import *
 import _ctypes_test
 dll = CDLL(_ctypes_test.__file__)
@@ -27,7 +28,9 @@ class PickleTest:
             c_double(3.14),
             ]:
             dst = self.loads(self.dumps(src))
-            self.assertEqual(src.__dict__, dst.__dict__)
+            # PyPy: the __dict__ contains the _buffer, which isn't equal
+            if support.check_impl_detail():
+                self.assertEqual(src.__dict__, dst.__dict__)
             self.assertEqual(memoryview(src).tobytes(),
                                  memoryview(dst).tobytes())
 
@@ -45,7 +48,12 @@ class PickleTest:
 
         # ctypes instances are identical when the instance __dict__
         # and the memory buffer are identical
-        self.assertEqual(y.__dict__, x.__dict__)
+        if support.check_impl_detail():
+            self.assertEqual(y.__dict__, x.__dict__)
+        else:
+            # PyPy: the __dict__ contains the _buffer, which isn't equal
+            self.assertEqual(y.__dict__.keys(), x.__dict__.keys())
+            self.assertEqual(y.a, x.a)
         self.assertEqual(memoryview(y).tobytes(),
                              memoryview(x).tobytes())
 

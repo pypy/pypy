@@ -1,5 +1,6 @@
 import sys, unittest, struct, math, ctypes
 from binascii import hexlify
+from test.support import impl_detail
 
 from ctypes import *
 
@@ -14,6 +15,7 @@ def bin(s):
 # For Structures and Unions, these types are created on demand.
 
 class Test(unittest.TestCase):
+    @impl_detail("slots are irrelevant on PyPy", pypy=False)
     def test_slots(self):
         class BigPoint(BigEndianStructure):
             __slots__ = ()

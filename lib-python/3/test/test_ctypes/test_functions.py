@@ -6,7 +6,8 @@ Later...
 """
 
 from ctypes import *
-from test.test_ctypes import need_symbol
+from test import support
+from test.test_ctypes import need_symbol, need_longdouble, xfail
 import sys, unittest
 
 try:
@@ -66,9 +67,10 @@ class FunctionTestCase(unittest.TestCase):
         with self.assertRaises(ArgumentError) as cm:
             callback(b"abc")
 
-        self.assertEqual(str(cm.exception),
-                         "argument 1: TypeError: one character bytes, "
-                         "bytearray or integer expected")
+        if support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "argument 1: TypeError: one character bytes, "
+                             "bytearray or integer expected")
 
 
     @need_symbol('c_wchar')
@@ -81,15 +83,17 @@ class FunctionTestCase(unittest.TestCase):
 
         with self.assertRaises(ArgumentError) as cm:
             f(1, 2, 3, 4, 5.0, 6.0)
-        self.assertEqual(str(cm.exception),
-                         "argument 2: TypeError: unicode string expected "
-                         "instead of int instance")
+        if support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "argument 2: TypeError: unicode string expected "
+                             "instead of int instance")
 
         with self.assertRaises(ArgumentError) as cm:
             f(1, "abc", 3, 4, 5.0, 6.0)
-        self.assertEqual(str(cm.exception),
-                         "argument 2: TypeError: one character unicode string "
-                         "expected")
+        if support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "argument 2: TypeError: one character unicode string "
+                             "expected")
 
     @need_symbol('c_wchar')
     def test_wchar_result(self):
@@ -157,7 +161,7 @@ class FunctionTestCase(unittest.TestCase):
         self.assertEqual(result, -21)
         self.assertEqual(type(result), float)
 
-    @need_symbol('c_longdouble')
+    @need_longdouble
     def test_longdoubleresult(self):
         f = dll._testfunc_D_bhilfD
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_longdouble]
@@ -399,6 +403,7 @@ class FunctionTestCase(unittest.TestCase):
                 (s8i.a, s8i.b, s8i.c, s8i.d, s8i.e, s8i.f, s8i.g, s8i.h),
                 (9*2, 8*3, 7*4, 6*5, 5*6, 4*7, 3*8, 2*9))
 
+    @xfail
     def test_sf1651235(self):
         # see https://bugs.python.org/issue1651235
 

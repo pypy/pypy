@@ -95,7 +95,10 @@ class Callbacks(unittest.TestCase):
 
     def test_pyobject(self):
         o = ()
-        from sys import getrefcount as grc
+        try:
+            from sys import getrefcount as grc
+        except ImportError:
+            self.skipTest("no sys.getrefcount()")
         for o in (), [], object():
             initial = grc(o)
             # This call leaks a reference to 'o'...

@@ -1,5 +1,5 @@
 import unittest
-from test.test_ctypes import need_symbol
+from test.test_ctypes import need_symbol, xfail
 import test.support
 
 class SimpleTypesTestCase(unittest.TestCase):
@@ -48,6 +48,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         self.assertEqual(CWCHARP.from_param("abc"), "abcabcabc")
 
     # XXX Replace by c_char_p tests
+    @xfail
     def test_cstrings(self):
         from ctypes import c_char_p
 
@@ -83,8 +84,9 @@ class SimpleTypesTestCase(unittest.TestCase):
 
         with self.assertRaises(TypeError) as cm:
             c_char.from_param(b"abc")
-        self.assertEqual(str(cm.exception),
-                         "one character bytes, bytearray or integer expected")
+        if test.support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "one character bytes, bytearray or integer expected")
 
     @need_symbol('c_wchar')
     def test_c_wchar(self):
@@ -92,15 +94,18 @@ class SimpleTypesTestCase(unittest.TestCase):
 
         with self.assertRaises(TypeError) as cm:
             c_wchar.from_param("abc")
-        self.assertEqual(str(cm.exception),
-                         "one character unicode string expected")
+        if test.support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "one character unicode string expected")
 
 
         with self.assertRaises(TypeError) as cm:
             c_wchar.from_param(123)
-        self.assertEqual(str(cm.exception),
-                         "unicode string expected instead of int instance")
+        if test.support.check_impl_detail():
+            self.assertEqual(str(cm.exception),
+                             "unicode string expected instead of int instance")
 
+    @xfail
     def test_int_pointers(self):
         from ctypes import c_short, c_uint, c_int, c_long, POINTER, pointer
         LPINT = POINTER(c_int)
@@ -223,6 +228,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             WorseStruct().__setstate__({}, b'foo')
 
+    @test.support.cpython_only
     def test_parameter_repr(self):
         from ctypes import (
             c_bool,

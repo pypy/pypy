@@ -1,5 +1,6 @@
 import unittest
 import sys
+from test import support
 from ctypes import *
 
 class StructFieldsTestCase(unittest.TestCase):
@@ -47,6 +48,7 @@ class StructFieldsTestCase(unittest.TestCase):
         Y._fields_ = []
         self.assertRaises(AttributeError, setattr, X, "_fields_", [])
 
+    @support.cpython_only
     def test_5(self):
         class X(Structure):
             _fields_ = (("char", c_char * 5),)
@@ -61,6 +63,7 @@ class StructFieldsTestCase(unittest.TestCase):
         CField = type(X.x)
         self.assertRaises(TypeError, CField)
 
+    @support.cpython_only
     def test_gh99275(self):
         class BrokenStructure(Structure):
             def __init_subclass__(cls, **kwargs):

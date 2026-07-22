@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from test import support
 import re, sys
 
 if sys.byteorder == "little":
@@ -27,8 +28,10 @@ class Test(unittest.TestCase):
                 self.assertEqual(normalize(v.format), normalize(fmt))
                 if shape:
                     self.assertEqual(len(v), shape[0])
-                else:
+                elif support.check_impl_detail():
                     self.assertRaises(TypeError, len, v)
+                else:
+                    self.assertEqual(len(v) * sizeof(itemtp), sizeof(ob))
                 self.assertEqual(v.itemsize, sizeof(itemtp))
                 self.assertEqual(v.shape, shape)
                 # XXX Issue #12851: PyCData_NewGetBuffer() must provide strides
@@ -56,8 +59,10 @@ class Test(unittest.TestCase):
                 self.assertEqual(v.format, fmt)
                 if shape:
                     self.assertEqual(len(v), shape[0])
-                else:
+                elif support.check_impl_detail():
                     self.assertRaises(TypeError, len, v)
+                else:
+                    self.assertEqual(len(v) * sizeof(itemtp), sizeof(ob))
                 self.assertEqual(v.itemsize, sizeof(itemtp))
                 self.assertEqual(v.shape, shape)
                 # XXX Issue #12851
