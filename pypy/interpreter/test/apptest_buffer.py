@@ -96,3 +96,18 @@ def test_original_release_then_slice_gc():
     gc.collect()        # GC of s must not crash
     b.append(ord('?'))
     assert b == bytearray(b'hello!?')
+
+
+def test_strided_double_slice_tobytes():
+    # issue 5231: slicing an already-strided memoryview must offset by the
+    # parent's step, so tobytes() matches element-by-element indexing.
+    mv = memoryview(bytes(range(256)))
+    size = 8
+    bs = [mv[boffset::size] for boffset in range(size)]
+    for L in range(0, 32):
+        for R in range(L, 32):
+            for boffset in range(size):
+                mybs = bs[boffset]
+                way1 = bytes(mybs[i] for i in range(L, R))
+                way2 = mybs[L:R].tobytes()
+                assert way1 == way2, (boffset, L, R, way1, way2)

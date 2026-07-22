@@ -135,6 +135,10 @@ class FormatBufferViewND(BufferViewND):
 class W_PickleBuffer(W_BufferExporter):
     """ Wrapper for potentially out-of-band buffers """
     def __init__(self, space, w_obj):
+        # Remember the object we were constructed from: re-acquiring from it
+        # (rather than from self.buf.w_obj, which points at the root exporter)
+        # preserves a sliced/strided source's shape and strides.
+        self.w_source = w_obj
         self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
         if self.buf is not None and self.buf.needs_release():
             self.register_finalizer(space)
@@ -158,7 +162,7 @@ class W_PickleBuffer(W_BufferExporter):
         Will raise BufferError is the buffer isn't contiguous.
         """
         self.check(space)
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             view = space.buffer_w(w_obj, space.BUF_FULL_RO)
         else:
@@ -174,7 +178,7 @@ class W_PickleBuffer(W_BufferExporter):
     def buffer_w(self, space, flags):
         self.check(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             return space.buffer_w(w_obj, flags)
         return self.buf
@@ -182,7 +186,7 @@ class W_PickleBuffer(W_BufferExporter):
     def bf_getbuffer(self, space, view, flags):
         self.check(space)
         # Forward to the underlying exporter (see buffer_w comment).
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             w_obj.bf_getbuffer(space, view, flags)
             return

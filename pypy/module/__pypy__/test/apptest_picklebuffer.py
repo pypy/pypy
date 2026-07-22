@@ -71,3 +71,14 @@ def test_picklebuffer_gc_releases_bytearray_export():
     gc.collect()
     gc.collect()   # FinalizerQueue may need a second cycle
     b += b'!'   # must NOT raise: GC must have released the export
+
+
+def test_raw_preserves_source_strides():
+    # issue 5231: raw() must re-acquire from the object the PickleBuffer was
+    # built from, so a strided/non-contiguous source keeps its geometry
+    # instead of collapsing to the root exporter's contiguous buffer.
+    pb = PickleBuffer(memoryview(b'foobar')[::2])
+    raw = pb.raw()
+    assert raw.strides == (2,)
+    assert not raw.contiguous
+    assert raw.tobytes() == b'foa'
