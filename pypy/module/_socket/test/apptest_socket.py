@@ -426,17 +426,34 @@ def test_subclass_noinit():
 def test_dealloc_warn():
     import _socket
     import gc
+    import os
     import warnings
 
-    s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-    r = repr(s)
-    gc.collect()
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter('always')
-        s = None
+    # Without a controlling terminal the standard fds may be closed, so a
+    # fresh socket could land on fd 0/1/2.  Finalizing it (below) would then
+    # close a standard stream and corrupt later output, so occupy those slots
+    # first and make sure the socket gets a high fd.
+    fillers = []
+    while True:
+        fd = os.open(os.devnull, os.O_RDWR)
+        if fd > 2:
+            os.close(fd)
+            break
+        fillers.append(fd)
+    try:
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        assert s.fileno() > 2
+        r = repr(s)
         gc.collect()
-    assert len(w) == 1, [str(warning) for warning in w]
-    assert r in str(w[0])
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter('always')
+            s = None
+            gc.collect()
+        assert len(w) == 1, [str(warning) for warning in w]
+        assert r in str(w[0])
+    finally:
+        for fd in fillers:
+            os.close(fd)
 
 def test_invalid_fd():
     import _socket
