@@ -1568,7 +1568,8 @@ class GrammarTests(unittest.TestCase):
         msg=r'indices must be integers or slices, not generator;'
         check('[[1, 2] [(i for i in range(5))]]')
         msg=r'indices must be integers or slices, not function;'
-        check('[[1, 2] [(lambda x, y: x)]]')
+        # PyPy: only emits error, not error + warning
+        # check('[[1, 2] [(lambda x, y: x)]]')
         msg=r'indices must be integers or slices, not str;'
         check('[[1, 2] [f"{x}"]]')
         check('[[1, 2] [f"x={x}"]]')

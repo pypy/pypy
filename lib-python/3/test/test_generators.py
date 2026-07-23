@@ -82,7 +82,8 @@ class FinalizationTest(unittest.TestCase):
         g = gen()
         next(g)
         g.send(g)
-        self.assertGreater(sys.getrefcount(g), 2)
+        if hasattr(sys, 'getrefcount'):  # PyPy change: no sys.getrefcount
+            self.assertGreater(sys.getrefcount(g), 2)
         self.assertFalse(finalized)
         del g
         support.gc_collect()
@@ -134,8 +135,9 @@ class GeneratorTest(unittest.TestCase):
         # generator names must be a string and cannot be deleted
         self.assertRaises(TypeError, setattr, gen, '__name__', 123)
         self.assertRaises(TypeError, setattr, gen, '__qualname__', 123)
-        self.assertRaises(TypeError, delattr, gen, '__name__')
-        self.assertRaises(TypeError, delattr, gen, '__qualname__')
+        # PyPy: raises AttributeError
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__name__')
+        self.assertRaises((TypeError, AttributeError), delattr, gen, '__qualname__')
 
         # modify names of the function creating the generator
         func.__qualname__ = "func_qualname"
@@ -174,6 +176,7 @@ class GeneratorTest(unittest.TestCase):
             g.send(0)
         self.assertEqual(next(g), 1)
 
+    @support.impl_detail('no gc.threshold', pypy=False)
     def test_handle_frame_object_in_creation(self):
 
         #Attempt to expose partially constructed frames
@@ -1017,7 +1020,10 @@ And more, added later.
 0
 >>> type(i.gi_frame)
 <class 'frame'>
->>> i.gi_running = 42
+
+PyPy prints "readonly attribute 'gi_running'" so ignore the exception detail
+
+>>> i.gi_running = 42 # doctest: +IGNORE_EXCEPTION_DETAIL
 Traceback (most recent call last):
   ...
 AttributeError: attribute 'gi_running' of 'generator' objects is not writable
@@ -2148,12 +2154,12 @@ SyntaxError: 'yield' outside function
 >>> f=lambda: (yield from (1,2)), (yield from (3,4))
 Traceback (most recent call last):
   ...
-SyntaxError: 'yield from' outside function
+SyntaxError: 'yield' outside function
 
 >>> yield from [1,2]
 Traceback (most recent call last):
   ...
-SyntaxError: 'yield from' outside function
+SyntaxError: 'yield' outside function
 
 >>> def f(): x = yield = y
 Traceback (most recent call last):
@@ -2365,6 +2371,7 @@ Our ill-behaved code should be invoked during GC:
 ...     g = f()
 ...     next(g)
 ...     del g
+...     import gc; gc.collect()  # PyPy change: force finalization
 ...
 ...     cm.unraisable.exc_type == RuntimeError
 ...     "generator ignored GeneratorExit" in str(cm.unraisable.exc_value)
@@ -2427,6 +2434,8 @@ Prior to adding cycle-GC support to itertools.tee, this code would leak
 references. We add it to the standard suite so the routine refleak-tests
 would trigger if it starts being uncleanable again.
 
+>>> from test.support import gc_collect  # PyPy change
+
 >>> import itertools
 >>> def leak():
 ...     class gen:
@@ -2478,6 +2487,7 @@ to test.
 >>> with support.catch_unraisable_exception() as cm:
 ...     l = Leaker()
 ...     del l
+...     import gc; gc.collect()  # PyPy change: force finalization
 ...
 ...     cm.unraisable.object == Leaker.__del__
 ...     cm.unraisable.exc_type == RuntimeError
