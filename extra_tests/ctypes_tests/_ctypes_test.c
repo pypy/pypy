@@ -94,13 +94,11 @@ EXPORT(long) variadic_sum(long n, ...)
 {
     va_list ptr;
     int sum = 0;
-    printf("n: %ld\n", n);
 
     va_start(ptr, n);
     for (int i = 0; i < n; i++) {
         int foo = va_arg(ptr, int);
         sum += foo;
-        printf("Arg %d: %d\n", i, foo);
     }
     va_end(ptr);
     return sum;

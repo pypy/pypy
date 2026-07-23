@@ -20,6 +20,10 @@ from collections import namedtuple
 from reprlib import recursive_repr
 from _thread import RLock
 from types import GenericAlias
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 
 
 ################################################################################
@@ -203,6 +207,7 @@ def total_ordering(cls):
 ### cmp_to_key() function converter
 ################################################################################
 
+@hidden_applevel
 def cmp_to_key(mycmp):
     """Convert a cmp= function into a key= function"""
     class K(object):
@@ -234,6 +239,7 @@ except ImportError:
 
 _initial_missing = object()
 
+@hidden_applevel
 def reduce(function, sequence, initial=_initial_missing):
     """
     reduce(function, iterable[, initial]) -> value
@@ -298,6 +304,7 @@ class partial:
         self.keywords = keywords
         return self
 
+    @hidden_applevel
     def __call__(self, /, *args, **keywords):
         keywords = {**self.keywords, **keywords}
         return self.func(*self.args, *args, **keywords)
@@ -639,7 +646,7 @@ def _lru_cache_wrapper(user_function, maxsize, typed, _CacheInfo):
 
     wrapper.cache_info = cache_info
     wrapper.cache_clear = cache_clear
-    return wrapper
+    return hidden_applevel(wrapper)
 
 try:
     from _functools import _lru_cache_wrapper
