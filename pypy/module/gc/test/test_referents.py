@@ -75,10 +75,7 @@ class AppTestReferents(object):
             if y not in lst4:
                 assert 0, "does not seem to reach 'y'"
 
-    @pytest.mark.skipif(
-        "__pypy__" in sys.builtin_module_names,
-        reason="rgc.get_rpy_memory_usage does not work on pypy",
-    )
+    @pytest.mark.skipif( "__pypy__" in sys.builtin_module_names, reason="rgc.get_rpy_memory_usage does not work on pypy",)
     def test_get_rpy_memory_usage(self):
         import gc
         n = gc.get_rpy_memory_usage(12345)
