@@ -70,11 +70,14 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     if w_extra_source is not None:
         sources.append(space.str_w(w_extra_source))
     kwargs = {}
-    # GCC 14 promotes -Wincompatible-pointer-types from a warning to an error
-    # by default, which breaks cffi's intentionally-mismatched field-check
-    # probes (e.g. test_misdeclared_field_1). Keep it a warning so the module
-    # compiles and cffi's runtime checks can run.
-    extra = ['-Wno-error=incompatible-pointer-types']
+    if sys.platform == 'win32':
+        extra = []
+    else:
+        # GCC 14 promotes -Wincompatible-pointer-types from a warning to an error
+        # by default, which breaks cffi's intentionally-mismatched field-check
+        # probes (e.g. test_misdeclared_field_1). Keep it a warning so the module
+        # compiles and cffi's runtime checks can run.
+        extra = ['-Wno-error=incompatible-pointer-types']
     if w_extra_compile_args is not None:
         extra = extra + space.unwrap(w_extra_compile_args)
     kwargs['extra_compile_args'] = extra
