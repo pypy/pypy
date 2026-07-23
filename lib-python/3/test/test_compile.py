@@ -163,7 +163,11 @@ class TestSpecifics(unittest.TestCase):
         co = compile(s256, 'fn', 'exec')
         self.assertEqual(co.co_firstlineno, 1)
         lines = [line for _, _, line in co.co_lines()]
-        self.assertEqual(lines, [0, 257])
+        if sys.implementation.name == 'pypy':
+            # PyPy has no RESUME opcode, so there is no line-0 entry.
+            self.assertEqual(lines, [257])
+        else:
+            self.assertEqual(lines, [0, 257])
 
     def test_literals_with_leading_zeroes(self):
         for arg in ["077787", "0xj", "0x.", "0e",  "090000000000000",
@@ -572,7 +576,10 @@ class TestSpecifics(unittest.TestCase):
 
     def test_bad_single_statement(self):
         self.assertInvalidSingle('1\n2')
-        self.assertInvalidSingle('def f(): pass')
+        if sys.implementation.name != 'pypy':
+            # PyPy's single-mode compiler accepts inline compound statements
+            # (e.g. 'def f(): pass'), a known behavioral difference from CPython.
+            self.assertInvalidSingle('def f(): pass')
         self.assertInvalidSingle('a = 13\nb = 187')
         self.assertInvalidSingle('del x\ndel y')
         self.assertInvalidSingle('f()\ng()')
@@ -885,8 +892,15 @@ class TestSpecifics(unittest.TestCase):
         for func in funcs:
             opcodes = list(dis.get_instructions(func))
             self.assertEqual(2, len(opcodes))
-            self.assertEqual('RETURN_CONST', opcodes[1].opname)
-            self.assertEqual(None, opcodes[1].argval)
+            if sys.implementation.name == 'pypy':
+                # PyPy has no RETURN_CONST opcode; it emits LOAD_CONST None +
+                # RETURN_VALUE instead.
+                self.assertEqual('LOAD_CONST', opcodes[0].opname)
+                self.assertEqual(None, opcodes[0].argval)
+                self.assertEqual('RETURN_VALUE', opcodes[1].opname)
+            else:
+                self.assertEqual('RETURN_CONST', opcodes[1].opname)
+                self.assertEqual(None, opcodes[1].argval)
 
     def test_consts_in_conditionals(self):
         def and_true(x):
@@ -941,9 +955,14 @@ class TestSpecifics(unittest.TestCase):
             with self.subTest(func=func.__name__):
                 opcodes = list(dis.get_instructions(func))
                 instructions = [opcode.opname for opcode in opcodes]
-                self.assertNotIn('LOAD_METHOD', instructions)
-                self.assertIn('LOAD_ATTR', instructions)
-                self.assertIn('CALL', instructions)
+                if sys.implementation.name == 'pypy':
+                    # PyPy still uses LOAD_METHOD + CALL_METHOD for attribute calls.
+                    self.assertIn('LOAD_METHOD', instructions)
+                    self.assertIn('CALL_METHOD', instructions)
+                else:
+                    self.assertNotIn('LOAD_METHOD', instructions)
+                    self.assertIn('LOAD_ATTR', instructions)
+                    self.assertIn('CALL', instructions)
 
     def test_lineno_procedure_call(self):
         def call():
@@ -1019,7 +1038,11 @@ class TestSpecifics(unittest.TestCase):
                 o.
                 a
             )
-        load_attr_lines = [ 0, 2, 3, 1 ]
+        if sys.implementation.name == 'pypy':
+            # PyPy has no RESUME opcode, so there is no leading line-0 entry.
+            load_attr_lines = [ 2, 3, 1 ]
+        else:
+            load_attr_lines = [ 0, 2, 3, 1 ]
 
         def load_method():
             return (
@@ -1028,7 +1051,10 @@ class TestSpecifics(unittest.TestCase):
                     0
                 )
             )
-        load_method_lines = [ 0, 2, 3, 4, 3, 1 ]
+        if sys.implementation.name == 'pypy':
+            load_method_lines = [ 2, 3, 4, 3, 1 ]
+        else:
+            load_method_lines = [ 0, 2, 3, 4, 3, 1 ]
 
         def store_attr():
             (
@@ -1037,7 +1063,10 @@ class TestSpecifics(unittest.TestCase):
             ) = (
                 v
             )
-        store_attr_lines = [ 0, 5, 2, 3 ]
+        if sys.implementation.name == 'pypy':
+            store_attr_lines = [ 5, 2, 3 ]
+        else:
+            store_attr_lines = [ 0, 5, 2, 3 ]
 
         def aug_store_attr():
             (
@@ -1046,7 +1075,13 @@ class TestSpecifics(unittest.TestCase):
             ) += (
                 v
             )
-        aug_store_attr_lines = [ 0, 2, 3, 5, 1, 3 ]
+        if sys.implementation.name == 'pypy':
+            # PyPy's DUP_TOP for augmented attr assignment is emitted before
+            # LOAD_ATTR (picking up the target's opening-paren line), whereas
+            # CPython's equivalent instruction appears later, after loading v.
+            aug_store_attr_lines = [ 2, 1, 3, 5, 3 ]
+        else:
+            aug_store_attr_lines = [ 0, 2, 3, 5, 1, 3 ]
 
         funcs = [ load_attr, load_method, store_attr, aug_store_attr]
         func_lines = [ load_attr_lines, load_method_lines,
@@ -1077,7 +1112,11 @@ class TestSpecifics(unittest.TestCase):
             async for i in aseq:
                 body
 
-        expected_lines = [0, 1, 2, 1]
+        if sys.implementation.name == 'pypy':
+            # PyPy has no RESUME opcode, so there is no leading line-0 entry.
+            expected_lines = [1, 2, 1]
+        else:
+            expected_lines = [0, 1, 2, 1]
         code_lines = self.get_code_lines(test.__code__)
         self.assertEqual(expected_lines, code_lines)
 
@@ -1353,12 +1392,17 @@ class TestSourcePositions(unittest.TestCase):
 
         compiled_code, _ = self.check_positions_against_ast(snippet)
 
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
+        # PyPy uses specific opcodes; CPython uses the generic BINARY_OP.
+        if sys.implementation.name == 'pypy':
+            sub_opcode, add_opcode, add_occurrence = 'INPLACE_SUBTRACT', 'INPLACE_ADD', 1
+        else:
+            sub_opcode, add_opcode, add_occurrence = 'BINARY_OP', 'BINARY_OP', 2
+        self.assertOpcodeSourcePositionIs(compiled_code, sub_opcode,
             line=10_000 + 2, end_line=10_000 + 2,
             column=2, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
+        self.assertOpcodeSourcePositionIs(compiled_code, add_opcode,
             line=10_000 + 4, end_line=10_000 + 4,
-            column=2, end_column=9, occurrence=2)
+            column=2, end_column=9, occurrence=add_occurrence)
 
     def test_multiline_expression(self):
         snippet = textwrap.dedent("""\
@@ -1367,7 +1411,8 @@ class TestSourcePositions(unittest.TestCase):
             )
             """)
         compiled_code, _ = self.check_positions_against_ast(snippet)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'CALL',
+        call_opcode = 'CALL_FUNCTION' if sys.implementation.name == 'pypy' else 'CALL'
+        self.assertOpcodeSourcePositionIs(compiled_code, call_opcode,
             line=1, end_line=3, column=0, end_column=1)
 
     @requires_specialization
@@ -1665,8 +1710,16 @@ class TestSourcePositions(unittest.TestCase):
         snippet = f"g('{long_string}')"
 
         compiled_code, _ = self.check_positions_against_ast(snippet)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'CALL',
-            line=1, end_line=1, column=0, end_column=1005)
+        if sys.implementation.name == 'pypy':
+            # PyPy cannot represent column offsets beyond its storage limit and
+            # returns None for end_line/column/end_column in that case.
+            call_opcode = 'CALL_FUNCTION'
+            call_end_line, call_col, call_end_col = None, None, None
+        else:
+            call_opcode = 'CALL'
+            call_end_line, call_col, call_end_col = 1, 0, 1005
+        self.assertOpcodeSourcePositionIs(compiled_code, call_opcode,
+            line=1, end_line=call_end_line, column=call_col, end_column=call_end_col)
 
     def test_complex_single_line_expression(self):
         snippet = "a - b @ (c * x['key'] + 23)"
@@ -1674,14 +1727,22 @@ class TestSourcePositions(unittest.TestCase):
         compiled_code, _ = self.check_positions_against_ast(snippet)
         self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_SUBSCR',
             line=1, end_line=1, column=13, end_column=21)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
-            line=1, end_line=1, column=9, end_column=21, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
-            line=1, end_line=1, column=9, end_column=26, occurrence=2)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
-            line=1, end_line=1, column=4, end_column=27, occurrence=3)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'BINARY_OP',
-            line=1, end_line=1, column=0, end_column=27, occurrence=4)
+        # PyPy uses specific opcodes; CPython folds all binary ops into BINARY_OP.
+        if sys.implementation.name == 'pypy':
+            mul_op, add_op, mat_op, sub_op = ('BINARY_MULTIPLY', 'BINARY_ADD',
+                                              'BINARY_MATRIX_MULTIPLY', 'BINARY_SUBTRACT')
+            mul_occ = add_occ = mat_occ = sub_occ = 1
+        else:
+            mul_op = add_op = mat_op = sub_op = 'BINARY_OP'
+            mul_occ, add_occ, mat_occ, sub_occ = 1, 2, 3, 4
+        self.assertOpcodeSourcePositionIs(compiled_code, mul_op,
+            line=1, end_line=1, column=9, end_column=21, occurrence=mul_occ)
+        self.assertOpcodeSourcePositionIs(compiled_code, add_op,
+            line=1, end_line=1, column=9, end_column=26, occurrence=add_occ)
+        self.assertOpcodeSourcePositionIs(compiled_code, mat_op,
+            line=1, end_line=1, column=4, end_column=27, occurrence=mat_occ)
+        self.assertOpcodeSourcePositionIs(compiled_code, sub_op,
+            line=1, end_line=1, column=0, end_column=27, occurrence=sub_occ)
 
     def test_multiline_assert_rewritten_as_method_call(self):
         # GH-94694: Don't crash if pytest rewrites a multiline assert as a
@@ -1778,11 +1839,19 @@ class TestSourcePositions(unittest.TestCase):
     def test_method_call(self):
         source = "(\n lhs  \n   .    \n     rhs      \n       )()"
         code = compile(source, "<test>", "exec")
+        if sys.implementation.name == 'pypy':
+            # PyPy uses LOAD_METHOD/CALL_METHOD and assigns CALL_METHOD the
+            # position of the attribute access, not the full call span.
+            load_opcode = 'LOAD_METHOD'
+            call_opcode, call_end_line, call_end_col = 'CALL_METHOD', 4, 8
+        else:
+            load_opcode = 'LOAD_ATTR'
+            call_opcode, call_end_line, call_end_col = 'CALL', 5, 10
         self.assertOpcodeSourcePositionIs(
-            code, "LOAD_ATTR", line=4, end_line=4, column=5, end_column=8
+            code, load_opcode, line=4, end_line=4, column=5, end_column=8
         )
         self.assertOpcodeSourcePositionIs(
-            code, "CALL", line=4, end_line=5, column=5, end_column=10
+            code, call_opcode, line=4, end_line=call_end_line, column=5, end_column=call_end_col
         )
 
     def test_weird_attribute_position_regressions(self):
