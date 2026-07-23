@@ -38,9 +38,11 @@ class ExceptionTest(unittest.TestCase):
         self.assertIn('UnhashableException: ex1', tb[10])
 
     data = (('1/0', ZeroDivisionError, "division by zero\n"),
+            # PyPy change: no trailing '?' after the import hint (CPython's C
+            # excepthook adds it, but traceback.py - which PyPy uses - does not)
             ('abc', NameError, "name 'abc' is not defined. "
                                "Did you mean: 'abs'? "
-                               "Or did you forget to import 'abc'?\n"),
+                               "Or did you forget to import 'abc'\n"),
             ('int.reel', AttributeError,
                  "type object 'int' has no attribute 'reel'. "
                  "Did you mean: 'real'?\n"),
@@ -87,7 +89,8 @@ class S(str):
     def __unicode__(self):
         return '%s:unicode' % type(self).__name__
     def __len__(self):
-        return 3
+        # PyPy change: encode/decode calls len(self) on error, make it correct
+        return len(repr(self)) - 2
     def __iter__(self):
         return iter('abc')
     def __getitem__(self, *args):

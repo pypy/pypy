@@ -166,7 +166,15 @@ def get_argspec(ob):
     except BaseException:  # Buggy user object could raise anything.
         return ''  # No popup for non-callables.
     # For Get_argspecTest.test_buggy_getattr_class, CallA() & CallB().
-    fob = ob_call if isinstance(ob_call, types.MethodType) else ob
+    # PyPy change: on pypy more stuff passes isinstance(ob_call,
+    # types.MethodType) than on cpython, so first filter some objects that
+    # should be used directly before considering ob_call.
+    if isinstance(ob, (type, types.FunctionType, types.MethodType)):
+        fob = ob
+    elif isinstance(ob_call, types.MethodType):
+        fob = ob_call
+    else:
+        fob = ob
 
     # Initialize argspec and wrap it to get lines.
     try:
