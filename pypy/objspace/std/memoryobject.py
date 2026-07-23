@@ -97,23 +97,7 @@ class W_MemoryView(W_BufferExporter):
         self._init_flags()
 
     def _finalize_(self):
-        if self.view is not None:
-            self._release_underlying(None)
-
-    def _release_underlying(self, space):
-        view = self.view
-        self.view = None
-        if view is None:
-            return
-        if not self.owns_export:
-            return
-        w_obj = view.w_obj
-        if space is not None and w_obj is not None:
-            release_fn = space.lookup(w_obj, '__release_buffer__')
-            if release_fn is not None:
-                space.call_function(release_fn, w_obj, self)
-                return
-        view.releasebuffer()
+        self.descr_release(None)
 
     def getndim(self):
         return self.view.getndim()
@@ -484,8 +468,16 @@ class W_MemoryView(W_BufferExporter):
 
     def descr_release(self, space):
         'Release the underlying buffer exposed by the memoryview object.'
-        if self.view is not None:
-            self._release_underlying(space)
+        # The single release channel.  Each view type knows how to undo its own
+        # acquire: NonOwningReleaseView / BufferSlice are no-op borrows,
+        # RawBufferView decrements the exporter's _exports.  owns_export says
+        # whether *this* memoryview is the one responsible (a copy/cast/slice
+        # shares an export it does not own).  space is unused, kept for the
+        # interp2app signature.
+        view = self.view
+        self.view = None
+        if view is not None and self.owns_export:
+            view.releasebuffer()
 
     def descr_release_buffer(self, space, w_view):
         # Called via bf_releasebuffer when C code releases a buffer it obtained
@@ -508,8 +500,7 @@ class W_MemoryView(W_BufferExporter):
         return self
 
     def descr_exit(self, space, __args__):
-        if self.view is not None:
-            self._release_underlying(space)
+        self.descr_release(space)
         return space.w_None
 
     def descr_pypy_raw_address(self, space):

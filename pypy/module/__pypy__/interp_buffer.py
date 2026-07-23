@@ -109,11 +109,9 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                       "shape %s and strides %s exceed object size %d",
                       shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
-    # Pass w_obj (the input, e.g. a memoryview) as the owning object, not
-    # view.w_obj (the underlying bytearray).  This keeps the input alive for
-    # as long as the returned memoryview lives, and ensures _release_underlying
-    # calls w_obj.__release_buffer__ (a no-op for memoryview) rather than
-    # bytearray.__release_buffer__ for an export that M2 never acquired.
+    # w_obj (the input memoryview) is a borrowed view: it owns and releases the
+    # underlying export itself.  Pass it as the owning object so it is kept
+    # alive as long as the returned memoryview lives.
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
                                                   shape, strides, w_obj=w_obj))
 
@@ -167,12 +165,10 @@ class W_PickleBuffer(W_BufferExporter):
             view = space.buffer_w(w_obj, space.BUF_FULL_RO)
         else:
             view = self.buf
-        # Only own (and later release) the export when buffer_w actually
-        # acquired a fresh one.  When w_obj already owns the export (e.g. a
-        # memoryview source, whose buffer_w returns a borrowed
-        # NonOwningReleaseView with needs_release() == False), releasing here
-        # would decrement the shared _exports counter a second time -> an
-        # underflow abort once the source's own finalizer also releases it.
+        # Own the export only when buffer_w acquired a fresh one; when w_obj
+        # already owns it (a memoryview source yields a borrowed
+        # NonOwningReleaseView, needs_release() == False) this memoryview just
+        # borrows.
         return view.wrap(space, owns_export=view.needs_release())
 
     def descr_release(self, space):
