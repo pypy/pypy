@@ -16,7 +16,10 @@ c = compile(content, path, 'exec')
 exec(c, d, d)
 orig_levenshtein_distance = d['_levenshtein_distance']
 def _levenshtein_distance(a, b):
-    return orig_levenshtein_distance(a, b, max(len(a), len(b)) * 2)
+    # A fixed max_cost, independent of the input lengths: a length-dependent
+    # bound caps long strings at different values on each side of the metric
+    # invariants below (matching CPython, which does the same).
+    return orig_levenshtein_distance(a, b, 2 ** 30)
 _compute_suggestion_error = d['_compute_suggestion_error']
 TracebackException = d['TracebackException']
 
@@ -88,14 +91,16 @@ def test_compute_suggestion_name_error():
     except NameError as e:
         assert fmt(e) == "NameError: name 'absc' is not defined. Did you mean: 'abc'?\n"
 
-def test_compute_suggestion_name_error_from_global():
+def test_suggestion_name_error_from_global():
+    # The name must stay under _MAX_STRING_SIZE (40) or no suggestion is made,
+    # matching CPython 3.12.
     def f():
-        test_compute_suggestion_name_error_from_globl
+        test_suggestion_name_error_from_globl
 
     try:
         f()
     except NameError as e:
-        assert fmt(e) == "NameError: name 'test_compute_suggestion_name_error_from_globl' is not defined. Did you mean: 'test_compute_suggestion_name_error_from_global'?\n"
+        assert fmt(e) == "NameError: name 'test_suggestion_name_error_from_globl' is not defined. Did you mean: 'test_suggestion_name_error_from_global'?\n"
 
 def test_compute_suggestion_name_error_from_builtin():
     try:
