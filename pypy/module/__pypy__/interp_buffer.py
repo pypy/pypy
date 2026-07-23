@@ -167,7 +167,13 @@ class W_PickleBuffer(W_BufferExporter):
             view = space.buffer_w(w_obj, space.BUF_FULL_RO)
         else:
             view = self.buf
-        return view.wrap(space)
+        # Only own (and later release) the export when buffer_w actually
+        # acquired a fresh one.  When w_obj already owns the export (e.g. a
+        # memoryview source, whose buffer_w returns a borrowed
+        # NonOwningReleaseView with needs_release() == False), releasing here
+        # would decrement the shared _exports counter a second time -> an
+        # underflow abort once the source's own finalizer also releases it.
+        return view.wrap(space, owns_export=view.needs_release())
 
     def descr_release(self, space):
         """

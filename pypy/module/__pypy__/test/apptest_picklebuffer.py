@@ -73,6 +73,30 @@ def test_picklebuffer_gc_releases_bytearray_export():
     b += b'!'   # must NOT raise: GC must have released the export
 
 
+def test_raw_release_does_not_over_release_source():
+    # raw() over a memoryview source borrows the source's single export
+    # (buffer_w on a memoryview returns a non-owning view).  Releasing the
+    # memoryview returned by raw() must NOT decrement the bytearray _exports
+    # that the *source* memoryview still owns, else the shared counter
+    # underflows once the source's own finalizer also releases it.  This is
+    # exactly what lib pickle's ``with obj.raw() as m:`` does.
+    b = bytearray(b'hello')
+    mv = memoryview(b)          # owns the single export
+    pb = PickleBuffer(mv)
+    raw = pb.raw()
+    raw.release()              # must be a no-op wrt b._exports
+    try:
+        b += b'!'              # mv still alive -> resize must still raise
+    except BufferError:
+        pass
+    else:
+        raise AssertionError(
+            "bytearray unlocked while its memoryview is still alive")
+    mv.release()
+    pb.release()
+    b += b'!'                  # now truly unlocked
+
+
 def test_raw_preserves_source_strides():
     # issue 5231: raw() must re-acquire from the object the PickleBuffer was
     # built from, so a strided/non-contiguous source keeps its geometry
