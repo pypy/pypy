@@ -12,7 +12,7 @@ def test_ordereddict_present():
 def test_recursive_repr():
     d = OrderedDict()
     d[1] = d
-    assert repr(d) == 'OrderedDict([(1, ...)])'
+    assert repr(d) == 'OrderedDict({1: ...})'
 
 def test_subclass():
     class MyODict(OrderedDict):

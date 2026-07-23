@@ -466,6 +466,7 @@ class OrderedDictTests:
         od.move_to_end('c')
         self.assertEqual(list(od), list('bac'))
 
+    @support.impl_detail(pypy=False)
     def test_sizeof(self):
         OrderedDict = self.OrderedDict
         # Wimpy test: Just verify the reported size is larger than a regular dict
@@ -515,7 +516,9 @@ class OrderedDictTests:
             obj = MyOD([(None, obj)])
             obj.i = i
         del obj
-        support.gc_collect()
+        # PyPy change: we only collect 1 MyOD instance per GC
+        for _ in range(100):
+            support.gc_collect()
         self.assertEqual(deleted, list(reversed(range(100))))
 
     def test_delitem_hash_collision(self):
@@ -569,15 +572,23 @@ class OrderedDictTests:
             key = Key()
             od[key] = i
 
-        # These should not crash.
-        with self.assertRaises(KeyError):
+        # These raise KeyError on CPython but not on PyPy
+        try:
             list(od.values())
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             list(od.items())
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             repr(od)
-        with self.assertRaises(KeyError):
+        except KeyError:
+            pass
+        try:
             od.copy()
+        except KeyError:
+            pass
 
     def test_issue24348(self):
         OrderedDict = self.OrderedDict
@@ -628,8 +639,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.__delitem__(od, 'spam')
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_clear(self):
         OrderedDict = self.OrderedDict
@@ -645,8 +658,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.pop(od, 'spam')
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_popitem(self):
         OrderedDict = self.OrderedDict
@@ -654,8 +669,10 @@ class OrderedDictTests:
         od['spam'] = 1
         od['ham'] = 2
         dict.popitem(od)
-        with self.assertRaises(KeyError):
+        try:
             repr(od)
+        except KeyError:      # on CPython, not on PyPy
+            pass
 
     def test_dict_setdefault(self):
         OrderedDict = self.OrderedDict
@@ -802,7 +819,10 @@ del method
 class CPythonOrderedDictSideEffects:
 
     def check_runtime_error_issue119004(self, dict1, dict2):
-        msg = re.escape("OrderedDict mutated during iteration")
+        if support.check_impl_detail(pypy=True):
+            msg = re.escape("dictionary changed size during iteration")
+        else:
+            msg = re.escape("OrderedDict mutated during iteration")
         self.assertRaisesRegex(RuntimeError, msg, operator.eq, dict1, dict2)
 
     def test_issue119004_change_size_by_clear(self):
@@ -843,6 +863,7 @@ class CPythonOrderedDictSideEffects:
         self.assertDictEqual(dict1, dict.fromkeys(('a', 'b'), 'c'))
         self.assertDictEqual(dict2, dict.fromkeys((0, Key(), 4.2)))
 
+    @support.impl_detail(pypy=False)
     def test_issue119004_change_linked_list_by_delete_key(self):
         class Key(_TriggerSideEffectOnEqual):
             def side_effect(self):
@@ -868,10 +889,14 @@ class CPythonOrderedDictSideEffects:
         dict2 = self.OrderedDict(dict.fromkeys((0, Key(), 4.2)))
         self.assertEqual(Key.count, 0)
         # the side effect is in dict.__eq__ and modifies the length
-        self.assertNotEqual(dict1, dict2)
-        self.assertEqual(Key.count, 2)
-        self.assertDictEqual(dict1, dict.fromkeys((0, 4.2)))
-        self.assertDictEqual(dict2, dict.fromkeys((0, Key(), 4.2)))
+        if support.check_impl_detail(pypy=True):
+            with self.assertRaises(RuntimeError):
+                dict1 != dict2
+        else:
+            self.assertNotEqual(dict1, dict2)
+            self.assertEqual(Key.count, 2)
+            self.assertDictEqual(dict1, dict.fromkeys((0, 4.2)))
+            self.assertDictEqual(dict2, dict.fromkeys((0, Key(), 4.2)))
 
 
 @unittest.skipUnless(c_coll, 'requires the C version of the collections module')
@@ -921,10 +946,14 @@ class CPythonOrderedDictTests(OrderedDictTests,
 
         od = OrderedDict.fromkeys('abcde')
         self.assertEqual(list(od), list('abcde'))
-        with self.assertRaises(RuntimeError):
+        try:
             for i, k in enumerate(od):
                 od.move_to_end(k)
                 self.assertLess(i, 5)
+        except RuntimeError:
+            pass     # XXX on PyPy the change is not detected, as
+                     # the total length of the dict doesn't change
+        od = OrderedDict.fromkeys('bcdea')
         with self.assertRaises(RuntimeError):
             for k in od:
                 od['f'] = None

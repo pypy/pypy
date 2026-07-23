@@ -94,7 +94,7 @@ class OrderedDict(dict):
             return '...'
         currently_in_repr[self] = 1
         try:
-            return '%s(%r)' % (self.__class__.__name__, list(self.items()))
+            return '%s(%r)' % (self.__class__.__name__, dict(self.items()))
         finally:
             try:
                 del currently_in_repr[self]
