@@ -1508,7 +1508,7 @@ class StaticObjectBuilder(object):
         static_pyobjs = self.get_static_pyobjs()
         static_objs_w = self.static_objs_w
         # Static objects are immortal and exempt from the ob_pypy_link prefix: they
-        # are mapped out-of-band (constant tables + REFCNT_STATIC sentinel) rather
+        # are mapped out-of-band (constant tables + _Py_IMMORTAL_REFCNT) rather
         # than rawrefcount-linked.  See rawrefcount.rst.
         for i in range(len(static_objs_w)):
             track_static_reference(space, static_pyobjs[i], static_objs_w[i])

@@ -12,28 +12,35 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import UINT_MAX
 
-REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
-REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+# Immortality lives in the LOW bits of ob_refcnt, orthogonal to the
+# REFCNT_FROM_PYPY "has prefix" tag in the high bits (see the table in
+# pypy/doc/discussion/rawrefcount.rst).  _Py_IMMORTAL_REFCNT is CPython 3.12's
+# value on both widths (UINT_MAX on 64-bit, UINT_MAX >> 2 on 32-bit); the tag
+# is placed above the immortal field so that an immortalized owned object,
+# ob_refcnt = REFCNT_FROM_PYPY + _Py_IMMORTAL_REFCNT, keeps both patterns
+# intact.  On 32-bit the immortal field is 30 bits wide, which forces
+# REFCNT_FROM_PYPY up to bit 30 and squeezes REFCNT_FROM_PYPY_LIGHT (a region
+# never actually created in pypy3, only exercised by rawrefcount's own tests).
+# Prefix-less immortals (bare statics) carry exactly _Py_IMMORTAL_REFCNT and
+# are mapped out-of-band (cpyext State.static_py2w/static_w2py).
+# Py_INCREF/Py_DECREF and the interp-level incref/decref no-op on immortals,
+# so the value never drifts.
 if sys.maxint > 2**32:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX)
+    REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
+    REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+    _Py_IMMORTAL_REFCNT    = rffi.cast(lltype.Signed, UINT_MAX)
+    def refcnt_is_immortal(rc):
+        # CPython's 64-bit check: bit 31 (the sign of the low 32 bits) is set
+        return (rc & (1 << 31)) != 0
 else:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX >> 2)
-
-# Immortal static objects (the pypy_static_pyobjs[] set: singletons, built-in type
-# objects, exception classes) carry this refcnt instead of being rawrefcount-linked.
-# It sits ABOVE REFCNT_FROM_PYPY_LIGHT (with room to spare below sys.maxint) so it
-# never collides with a linked object's refcount and still passes the usual
-# ">= REFCNT_FROM_PYPY" assertions.  cpyext initializes statics to REFCNT_STATIC, but
-# C-side Py_INCREF/DECREF on immortal objects will drift the exact value, so a static
-# is *recognized* by its refcnt landing in the top region (>= REFCNT_STATIC_MIN), not
-# by equality.  This lets from_ref/decref detect a static (which has no ob_pypy_link
-# prefix to read).  See pypy/doc/discussion/rawrefcount.rst.
-REFCNT_STATIC          = REFCNT_FROM_PYPY_LIGHT + (sys.maxint // 8)
-REFCNT_STATIC_MIN      = REFCNT_FROM_PYPY_LIGHT + (sys.maxint // 16)
-# TODO: REFCNT_STATIC_MIN sits inside the light-finalizer region [LIGHT, maxint]; it is
-# only practically (not disjointly) safe.  The robust fix is to make Py_INCREF/Py_DECREF
-# no-op on immortals (CPython-style), so a static's refcnt never drifts and an exact
-# check suffices -- then this range/threshold is unnecessary.
+    REFCNT_FROM_PYPY       = 0x40000000
+    REFCNT_FROM_PYPY_LIGHT = 0x70000000
+    _Py_IMMORTAL_REFCNT    = rffi.cast(lltype.Signed, UINT_MAX >> 2)
+    def refcnt_is_immortal(rc):
+        # mask-equality instead of CPython's plain equality, so the check also
+        # catches REFCNT_FROM_PYPY-tagged immortals; identical to CPython for
+        # untagged (foreign) objects
+        return (rc & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
@@ -167,11 +174,6 @@ def next_dead(OB_PTR_TYPE):
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
 
-def _immortal_not_supported():
-    raise AssertionError(
-        "rawrefcount: immortal pyobj (ob_refcnt == _Py_IMMORTAL_REFCNT) "
-        "encountered but immortal support is incomplete")
-
 @not_rpython
 def _collect(track_allocation=True):
     """for tests only.  Emulates a GC collection.
@@ -191,9 +193,8 @@ def _collect(track_allocation=True):
     wr_p_list = []
     new_p_list = []
     for ob in reversed(_p_list):
-        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-            _immortal_not_supported()
-            new_p_list.append(ob)
+        if refcnt_is_immortal(ob.c_ob_refcnt):
+            new_p_list.append(ob)   # immortal: never dies
         elif ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
             new_p_list.append(ob)
         else:
@@ -208,9 +209,8 @@ def _collect(track_allocation=True):
     wr_o_list = []
     new_o_list = []
     for ob in reversed(_o_list):
-        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-            _immortal_not_supported()
-            new_o_list.append(ob)
+        if refcnt_is_immortal(ob.c_ob_refcnt):
+            new_o_list.append(ob)   # immortal: never dies
         else:
             detach(ob, wr_o_list)
     _o_list = Ellipsis
@@ -250,7 +250,7 @@ def _collect(track_allocation=True):
     for p, ob in _pypy2ob.items():
         assert ob._obj not in _pypy2ob_rev
         _pypy2ob_rev[ob._obj] = p
-    _o_list = []
+    _o_list = new_o_list
     for ob, wr in wr_o_list:
         attach(ob, wr, _o_list)
 

@@ -190,7 +190,14 @@ static inline Py_ssize_t Py_SIZE(PyObject *ob) {
 
 static inline Py_ALWAYS_INLINE int _Py_IsImmortal(PyObject *op)
 {
-    return op->ob_refcnt == _Py_IMMORTAL_REFCNT;
+#if SIZEOF_VOID_P > 4
+    return _Py_CAST(PY_INT32_T, op->ob_refcnt) < 0;
+#else
+    /* PyPy: mask-equality instead of CPython's plain equality, so the check
+       also catches immortal objects carrying PyPy's internal high-bits tag;
+       identical to CPython for plain refcounts */
+    return (op->ob_refcnt & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT;
+#endif
 }
 #define _Py_IsImmortal(op) _Py_IsImmortal(_PyObject_CAST(op))
 
