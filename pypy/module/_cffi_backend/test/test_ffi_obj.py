@@ -259,6 +259,15 @@ class AppTestFFIObj:
         assert ffi.buffer(cdata=a, size=2)[:] == b'\x05\x06'
         assert type(ffi.buffer(a)) is ffi.buffer
 
+    def test_ffi_buffer_delitem_raises(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        arr = ffi.new("int[5]")
+        buf = ffi.buffer(arr)
+        for obj in (arr, buf):
+            raises(TypeError, obj.__delitem__, 0)         # del obj[0]
+            raises(TypeError, obj.__delitem__, slice(1, 3))  # del obj[1:3]
+
     def test_ffi_buffer_comparisons(self):
         import _cffi_backend as _cffi1_backend
         ffi = _cffi1_backend.FFI()
