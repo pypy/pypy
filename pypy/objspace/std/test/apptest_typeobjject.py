@@ -106,8 +106,8 @@ def test_abstract_methods():
     raises(TypeError, X)
     del X.__abstractmethods__
     X()
-    raises(AttributeError, getattr, type, "__abstractmethods__")
-    raises(TypeError, "int.__abstractmethods__ = ('abc', )")
+    with raises(AttributeError): type.__abstractmethods__
+    with raises(TypeError): int.__abstractmethods__ = ('abc', )
 
 def test_method_descriptor_flag():
     # Replicates test.test_call.TestPEP590.test_method_descriptor_flag
@@ -149,16 +149,16 @@ def test_attribute_error():
     class X(object):
         __module__ = 'test'
     x = X()
-    exc = raises(AttributeError, "x.a")
+    with raises(AttributeError) as exc: x.a
     assert str(exc.value) == "'X' object has no attribute 'a'"
     assert exc.value.name == "a"
-    exc = raises(AttributeError, "X.a")
+    with raises(AttributeError) as exc: X.a
     assert str(exc.value) == "type object 'X' has no attribute 'a'"
     assert exc.value.name == "a"
-    exc = raises(AttributeError, "del x.a")
+    with raises(AttributeError) as exc: del x.a
     assert str(exc.value) == "'X' object has no attribute 'a'"
     assert exc.value.name == "a"
-    exc = raises(AttributeError, "del X.a")
+    with raises(AttributeError) as exc: del X.a
     assert str(exc.value) == "type object 'X' has no attribute 'a'"
     assert exc.value.name == "a"
 
@@ -406,10 +406,10 @@ def test_mutable_bases_versus_nonheap_types():
         __slots__ = ['b']
     class C(int):
         pass
-    raises(TypeError, 'C.__bases__ = (A,)')
-    raises(TypeError, 'C.__bases__ = (B,)')
-    raises(TypeError, 'C.__bases__ = (C,)')
-    raises(TypeError, 'int.__bases__ = (object,)')
+    with raises(TypeError): C.__bases__ = (A,)
+    with raises(TypeError): C.__bases__ = (B,)
+    with raises(TypeError): C.__bases__ = (C,)
+    with raises(TypeError): int.__bases__ = (object,)
     C.__bases__ = (int,)
     #--- the following raises on CPython but works on PyPy.
     #--- I don't see an obvious reason why it should fail...
@@ -427,7 +427,7 @@ def test_mutable_bases_versus_slots():
         __slots__ = ['b1', 'b2']
     class C(B):
         pass
-    raises(TypeError, 'C.__bases__ = (A,)')
+    with raises(TypeError): C.__bases__ = (A,)
 
 def test_mutable_bases_versus_weakref():
     class A(object):
@@ -436,7 +436,7 @@ def test_mutable_bases_versus_weakref():
         __slots__ = ['__weakref__']
     class C(B):
         pass
-    raises(TypeError, 'C.__bases__ = (A,)')
+    with raises(TypeError): C.__bases__ = (A,)
 
 def test_mutable_bases_same_slots():
     class A(object):
@@ -459,7 +459,7 @@ def test_mutable_bases_versus_slots_2():
         __slots__ = ['b1', 'b2']
     class C(B):
         __slots__ = ['c']
-    raises(TypeError, 'C.__bases__ = (A,)')
+    with raises(TypeError): C.__bases__ = (A,)
 
 def test_mutable_bases_keeping_slots():
     class A(object):
@@ -483,13 +483,14 @@ def test_mutable_bases_keeping_slots():
     assert C.__mro__ == (C, B, D, A, object)
     assert c.a == 42
     assert c.c == 85
-    raises(TypeError, 'C.__bases__ = (B, D, B)')
+    with raises(TypeError):
+        C.__bases__ = (B, D, B)
 
     class E(A):
         __slots__ = ['e']
-    raises(TypeError, 'C.__bases__ = (B, E)')
-    raises(TypeError, 'C.__bases__ = (E, B)')
-    raises(TypeError, 'C.__bases__ = (E,)')
+    with raises(TypeError): C.__bases__ = (B, E)
+    with raises(TypeError): C.__bases__ = (E, B)
+    with raises(TypeError): C.__bases__ = (E,)
 
 def test_compatible_slot_layout():
     class A(object):
@@ -768,7 +769,8 @@ def test_slot_conflict():
         __slots__ = ['b']
     class E(A):
         __slots__ = ['e']
-    raises(TypeError, type, 'C', (B, E), {})
+    with raises(TypeError):
+        type('C', (B, E), {})
 
 def test_repr():
     globals()['__name__'] = 'a'
@@ -809,10 +811,12 @@ def test_errors_nonascii():
 def test_invalid_mro():
     class A(object):
         pass
-    raises(TypeError, "class B(A, A): pass")
+    with raises(TypeError):
+        class B(A, A): pass
     class C(A):
         pass
-    raises(TypeError, "class D(A, C): pass")
+    with raises(TypeError):
+        class D(A, C): pass
 
 def test_dir():
     class A(object):
@@ -873,8 +877,10 @@ def test_user_defined_mro_cls_access():
     assert C.x() == 1
 
 def test_set___class__():
-    raises(TypeError, "1 .__class__ = int")
-    raises(TypeError, "1 .__class__ = bool")
+    with raises(TypeError):
+        1 .__class__ = int
+    with raises(TypeError):
+        1 .__class__ = bool
     class A(object):
         pass
     class B(object):
@@ -895,7 +901,8 @@ def test_set___class__():
     assert d.__class__ == C
     d.__class__ = B
     assert d.__class__ == B
-    raises(TypeError, "d.__class__ = A")
+    with raises(TypeError):
+        d.__class__ = A
     d.__class__ = C
     assert d.__class__ == C
     d.__class__ = D
@@ -904,7 +911,8 @@ def test_set___class__():
         __slots__ = ('a',)
     aa = AA()
     aa.__class__ = A
-    raises(TypeError, "aa.__class__ = object")
+    with raises(TypeError):
+        aa.__class__ = object
     class Z1(A):
         pass
     class Z2(A):
@@ -921,16 +929,19 @@ def test_set___class__():
     class F(float):
         pass
     f = F()
-    raises(TypeError, "f.__class__ = I")
+    with raises(TypeError):
+        f.__class__ = I
     i = I()
-    raises(TypeError, "i.__class__ = F")
-    raises(TypeError, "i.__class__ = int")
+    with raises(TypeError):
+        i.__class__ = F
+    with raises(TypeError):
+        i.__class__ = int
 
     class I2(int):
         pass
     class I3(I2):
         __slots__ = ['a']
-    class I4(I3):
+    class I4(I2):
         pass
 
     i = I()
@@ -940,26 +951,27 @@ def test_set___class__():
     assert i.__class__ ==  I2
     assert i2.__class__ == I
 
-    i3 = I3()
-    raises(TypeError, "i3.__class__ = I2")
-    i3.__class__ = I4
-    assert i3.__class__ == I4
-    i3.__class__ = I3
-    assert i3.__class__ == I3
+    i2 = I2()
+    i2.__class__ = I4
 
     class X(object):
         pass
     class Y(object):
         __slots__ = ()
-    raises(TypeError, "X().__class__ = Y")
-    raises(TypeError, "Y().__class__ = X")
+    with raises(TypeError):
+        X().__class__ = Y
+    with raises(TypeError):
+        Y().__class__ = X
 
-    raises(TypeError, "X().__class__ = object")
-    raises(TypeError, "X().__class__ = 1")
+    with raises(TypeError):
+        X().__class__ = object
+    with raises(TypeError):
+        X().__class__ = 1
 
     class Int(int): __slots__ = []
 
-    raises(TypeError, "Int().__class__ = int")
+    with raises(TypeError):
+        Int().__class__ = int
 
     class Order1(object):
         __slots__ = ['a', 'b']
@@ -986,7 +998,8 @@ def test_set___class__():
     # that look compatible but aren't, because they don't have the
     # same base-layout class (even if these base classes are
     # themselves compatible)...  obscure.
-    raises(TypeError, "U2().__class__ = V2")
+    with raises(TypeError):
+        U2().__class__ = V2
 
 def test_name():
     class Abc(object):
@@ -994,9 +1007,12 @@ def test_name():
     assert Abc.__name__ == 'Abc'
     Abc.__name__ = 'Def'
     assert Abc.__name__ == 'Def'
-    raises(TypeError, "Abc.__name__ = 42")
-    raises(TypeError, "Abc.__name__ = b'A'")
-    raises(UnicodeEncodeError, setattr, Abc, '__name__', 'A\udcdcB')
+    with raises(TypeError):
+        Abc.__name__ = 42
+    with raises(TypeError):
+        Abc.__name__ = b'A'
+    with raises(UnicodeEncodeError):
+        Abc.__name__ = 'A\udcdcB'
     for v, err in [('G\x00hi', "type name must not contain null characters"),
                    ]:
         try:
@@ -1112,10 +1128,14 @@ def test_class_variations():
     assert b.x == 3
 
 def test_immutable_builtin():
-    raises(TypeError, setattr, list, 'append', 42)
-    raises(TypeError, setattr, list, 'foobar', 42)
-    raises(TypeError, delattr, dict, 'keys')
-    raises(TypeError, 'int.__dict__["a"] = 1')
+    with raises(TypeError):
+        list.append = 42
+    with raises(TypeError):
+        list.foobar = 42
+    with raises(TypeError):
+        del dict.keys
+    with raises(TypeError):
+        int.__dict__["a"] = 1
 
 def test_nontype_in_mro():
     class OldStyle:
@@ -1165,8 +1185,10 @@ def test_change_dict():
     a = A()
     A.x = 1
     assert A.__dict__["x"] == 1
-    raises(AttributeError, "del A.__dict__")
-    raises((AttributeError, TypeError), "A.__dict__ = {}")
+    with raises(AttributeError):
+        del A.__dict__
+    with raises(AttributeError):
+        A.__dict__ = {}
 
 def test_mutate_dict():
     class A(object):
