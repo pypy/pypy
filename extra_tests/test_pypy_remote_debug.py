@@ -123,10 +123,12 @@ sys.stdin.readline()
 def test_integration(tmpdir):
     import __pypy__
     code = """
-import time
+import sys, time
+sys.stdout.write("started\\n")
+sys.stdout.flush()
 for i in range(10):
     time.sleep(0.1)
-print("done")
+sys.stdout.write("done\\n")
 """
     debug_code = r"""
 import sys, os
@@ -139,11 +141,14 @@ sys.stdout.flush()
         out = subprocess.Popen([sys.executable, '-c',
              code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         pid = out.pid
-        func(pid, str(debug_script))
+        # wait until the child interpreter is fully started, otherwise
+        # libpypy-c.so might not be in its /proc/<pid>/maps yet
+        assert out.stdout.readline() == b'started\n'
+        func(pid, str(debug_script).encode('utf-8'))
         l = out.stdout.readline()
-        assert ''.join(l) == 'Executing remote debugger script %s\n' % debug_script
+        assert l == ('Executing remote debugger script %s\n' % debug_script).encode('utf-8')
         l = out.stdout.readline()
-        assert l == 'hello from %s\n' % pid
+        assert l == ('hello from %s\n' % pid).encode('utf-8')
         exitcode = out.wait()
         assert exitcode == 0
 
@@ -151,10 +156,12 @@ sys.stdout.flush()
 def test_disable_remote_debug(tmpdir):
     import __pypy__
     code = """
-import time
+import sys, time
+sys.stdout.write("started\\n")
+sys.stdout.flush()
 for i in range(10):
     time.sleep(0.1)
-print("done")
+sys.stdout.write("done\\n")
 """
     debug_code = r"""
 import sys, os
@@ -168,9 +175,12 @@ sys.stdout.flush()
         out = subprocess.Popen([sys.executable, '-X', 'disable-remote-debug', '-c',
              code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         pid = out.pid
-        func(pid, debug_code)
+        # wait until the child interpreter is fully started, otherwise
+        # libpypy-c.so might not be in its /proc/<pid>/maps yet
+        assert out.stdout.readline() == b'started\n'
+        func(pid, str(debug_script).encode('utf-8'))
         l = out.stdout.readline()
-        assert l == 'done\n'
+        assert l == b'done\n'
 
         # disable with env var option
         env = os.environ.copy()
@@ -179,9 +189,10 @@ sys.stdout.flush()
              code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
              env=env)
         pid = out.pid
-        func(pid, debug_code)
+        assert out.stdout.readline() == b'started\n'
+        func(pid, str(debug_script).encode('utf-8'))
         l = out.stdout.readline()
-        assert l == 'done\n'
+        assert l == b'done\n'
 
 # __________________________________________________________
 # symbolification tests
