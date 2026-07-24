@@ -853,6 +853,10 @@ class TestNonInteractive:
         if data.startswith('Traceback'):
             py.test.skip("'python -S' cannot import extension modules: "
                          "see probably http://bugs.python.org/issue586680")
+        if data.startswith('debug:'):
+            py.test.skip("'python -S' cannot bootstrap in this environment: "
+                         "a virtualenv'd pypy cannot find its stdlib "
+                         "without running site.py")
 
         @contextmanager
         def chdir_and_unset_pythonpath(new_cwd):
