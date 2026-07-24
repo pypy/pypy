@@ -229,6 +229,37 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             module.roundtrip()
         assert excinfo.value.args == ("message",)
 
+    def test_display_exception(self):
+        import sys, io
+        module = self.import_extension('foo', [
+            ("display", "METH_O",
+             '''
+             PyErr_DisplayException(args);
+             if (PyErr_Occurred()) {
+                 return NULL;
+             }
+             Py_RETURN_NONE;
+             '''),
+            ])
+        try:
+            raise ValueError("xyz")
+        except ValueError as e:
+            e.add_note("a note")
+            e.__cause__ = KeyError("cause")
+            exc = e
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+        try:
+            module.display(exc)
+            out = sys.stderr.getvalue()
+        finally:
+            sys.stderr = old_stderr
+        assert "Traceback (most recent call last):" in out
+        assert "ValueError: xyz" in out
+        assert "a note" in out
+        assert "KeyError: 'cause'" in out
+        assert "direct cause" in out
+
     def test_normalize(self):
         module = self.import_extension('foo', [
             ("check_error", "METH_NOARGS",

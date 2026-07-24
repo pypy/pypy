@@ -639,3 +639,16 @@ def PyErr_SetRaisedException(space, exc):
     w_tb = space.getattr(w_exc, space.newtext('__traceback__'))
     tb = None if space.is_none(w_tb) else w_tb
     state.set_exception(OperationError(space.type(w_exc), w_exc, tb))
+
+@cpython_api([PyObject], lltype.Void)
+def PyErr_DisplayException(space, w_exc):
+    """Print the standard traceback display of exc to sys.stderr, including
+    chained exceptions and notes.  Unlike PyErr_PrintEx this does not consult
+    a user-installed sys.excepthook, so use the pristine __excepthook__."""
+    try:
+        w_tb = space.getattr(w_exc, space.newtext('__traceback__'))
+        space.call_function(space.sys.get("__excepthook__"),
+                            space.type(w_exc), w_exc, w_tb)
+    except OperationError:
+        # Like CPython: errors while displaying are ignored
+        pass

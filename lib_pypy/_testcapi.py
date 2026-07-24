@@ -20,7 +20,7 @@ else:
                 #'_testcapi/dict.c',
                 '_testcapi/docstring.c',
                 '_testcapi/eval.c',
-                #'_testcapi/exceptions.c',
+                '_testcapi/exceptions.c',
                 '_testcapi/file.c',
                 #'_testcapi/float.c',
                 #'_testcapi/getargs.c',

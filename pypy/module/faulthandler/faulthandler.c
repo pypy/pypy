@@ -114,7 +114,7 @@ static void pypy_faulthandler_write_hex(int fd, Unsigned uvalue)
         if (byte < 10)
             *--p = '0' + byte;
         else
-            *--p = 'A' + byte - 10;
+            *--p = 'a' + byte - 10;   /* lowercase, like CPython */
         uvalue /= 16UL;
     } while (uvalue > 0UL);
 

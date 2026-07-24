@@ -458,6 +458,7 @@ exit:
     return return_value;
 }
 
+#ifndef PYPY_VERSION
 PyDoc_STRVAR(_testcapi_unstable_exc_prep_reraise_star__doc__,
 "unstable_exc_prep_reraise_star($module, orig, excs, /)\n"
 "--\n"
@@ -489,3 +490,4 @@ exit:
     return return_value;
 }
 /*[clinic end generated code: output=d574342d716e98b5 input=a9049054013a1b77]*/
+#endif

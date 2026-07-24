@@ -9,20 +9,23 @@ from pypy.module.faulthandler.cintf import pypy_faulthandler_write_uint
 
 MAX_STRING_LENGTH = 500
 
-global_buf = lltype.malloc(rffi.CCHARP.TO, MAX_STRING_LENGTH, flavor='raw',
+global_buf = lltype.malloc(rffi.CCHARP.TO, MAX_STRING_LENGTH + 1, flavor='raw',
                            immortal=True, zero=True)
 
 def _dump(fd, s):
     assert isinstance(s, str)
     l = len(s)
-    if l >= MAX_STRING_LENGTH:
-        l = MAX_STRING_LENGTH - 1
+    truncated = l > MAX_STRING_LENGTH
+    if truncated:
+        l = MAX_STRING_LENGTH
     i = 0
     while i < l:
         global_buf[i] = s[i]
         i += 1
     global_buf[l] = '\x00'
     pypy_faulthandler_write(fd, global_buf)
+    if truncated:
+        _dump(fd, "...")   # like CPython's dump_ascii
 
 def _dump_nonneg_int(fd, i):
     pypy_faulthandler_write_uint(fd, rffi.cast(lltype.Unsigned, i),
@@ -30,6 +33,9 @@ def _dump_nonneg_int(fd, i):
 
 
 def dump_code(pycode, loc, fd):
+    if pycode is not None and pycode.hidden_applevel:
+        # PyPy change
+        return
     if pycode is None:
         _dump(fd, "  File ???")
     else:

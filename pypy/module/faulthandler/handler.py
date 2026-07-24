@@ -143,7 +143,7 @@ def finish(space):
 
 
 @unwrap_spec(all_threads=int)
-def enable(space, w_file=None, all_threads=0):
+def enable(space, w_file=None, all_threads=1):
     "enable(file=sys.stderr, all_threads=True): enable the fault handler"
     space.fromcache(Handler).enable(w_file, all_threads)
 
@@ -156,7 +156,7 @@ def is_enabled(space):
     return space.newbool(space.fromcache(Handler).is_enabled())
 
 @unwrap_spec(all_threads=int)
-def dump_traceback(space, w_file=None, all_threads=0):
+def dump_traceback(space, w_file=None, all_threads=1):
     """dump the traceback of the current thread into file
     including all threads if all_threads is True"""
     space.fromcache(Handler).dump_traceback(w_file, all_threads)

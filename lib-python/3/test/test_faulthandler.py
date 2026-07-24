@@ -22,8 +22,24 @@ if not support.has_subprocess_support:
 
 TIMEOUT = 0.5
 
+PYPY = support.check_impl_detail(pypy=True)   # PyPy change
+
+def normalize_approx_lineno(lines):
+    # PyPy change: dumps report each frame at the function's first line
+    # ("approximate line numbers"), so compare with line numbers masked
+    result = []
+    for line in lines:
+        line = line.replace(', approximate line numbers):', '):')
+        line = re.sub(r'line [0-9]+', 'line N', line)
+        result.append(line)
+    return result
+
 
 def expected_traceback(lineno1, lineno2, header, min_count=1):
+    if PYPY:   # PyPy change
+        lineno1 = lineno2 = '[0-9]+'
+        header = header.replace(r'\(most recent call first\)',
+                r'\(most recent call first, approximate line numbers\)')
     regex = header
     regex += '  File "<string>", line %s in func\n' % lineno1
     regex += '  File "<string>", line %s in <module>' % lineno2
@@ -107,12 +123,15 @@ class FaultHandlerTests(unittest.TestCase):
                 header = 'Thread 0x[0-9a-f]+'
         else:
             header = 'Stack'
+        if PYPY:   # PyPy change
+            lineno = '[0-9]+'
         regex = [f'^{fatal_error}']
         if py_fatal_error:
             regex.append("Python runtime state: initialized")
         regex.append('')
-        regex.append(fr'{header} \(most recent call first\):')
-        if garbage_collecting:
+        regex.append(fr'{header} \(most recent call first'
+                     fr'(?:, approximate line numbers)?\):')   # PyPy change
+        if garbage_collecting and not PYPY:   # PyPy change
             regex.append('  Garbage-collecting')
         regex.append(fr'  File "<string>", line {lineno} in {function}')
         regex = '\n'.join(regex)
@@ -206,6 +225,8 @@ class FaultHandlerTests(unittest.TestCase):
             function='__del__',
             garbage_collecting=True)
 
+    @unittest.skipIf(not hasattr(faulthandler, '_fatal_error_c_thread'),
+                     'need faulthandler._fatal_error_c_thread')   # PyPy change
     def test_fatal_error_c_thread(self):
         self.check_fatal_error("""
             import faulthandler
@@ -278,9 +299,11 @@ class FaultHandlerTests(unittest.TestCase):
                 func='_testcapi_fatal_error_impl',
                 py_fatal_error=True)
 
+    @unittest.skipIf(PYPY, "Py_FatalError does not dump tracebacks")   # PyPy change
     def test_fatal_error(self):
         self.check_fatal_error_func(False)
 
+    @unittest.skipIf(PYPY, "Py_FatalError does not dump tracebacks")   # PyPy change
     def test_fatal_error_without_gil(self):
         self.check_fatal_error_func(True)
 
@@ -364,6 +387,7 @@ class FaultHandlerTests(unittest.TestCase):
                      "%r is present in %r" % (not_expected, stderr))
         self.assertNotEqual(exitcode, 0)
 
+    @unittest.skipIf(PYPY, "no 'Extension modules:' list")   # PyPy change
     @skip_segfault_on_android
     def test_dump_ext_modules(self):
         code = """
@@ -490,6 +514,9 @@ class FaultHandlerTests(unittest.TestCase):
             '  File "<string>", line 19 in <module>'
         ]
         trace, exitcode = self.get_output(code, filename, fd)
+        if PYPY:   # PyPy change
+            trace = normalize_approx_lineno(trace)
+            expected = normalize_approx_lineno(expected)
         self.assertEqual(trace, expected)
         self.assertEqual(exitcode, 0)
 
@@ -527,6 +554,9 @@ class FaultHandlerTests(unittest.TestCase):
             '  File "<string>", line 6 in <module>'
         ]
         trace, exitcode = self.get_output(code)
+        if PYPY:   # PyPy change
+            trace = normalize_approx_lineno(trace)
+            expected = normalize_approx_lineno(expected)
         self.assertEqual(trace, expected)
         self.assertEqual(exitcode, 0)
 
@@ -586,6 +616,10 @@ class FaultHandlerTests(unittest.TestCase):
               File "<string>", line 28 in <module>$
             """
         regex = dedent(regex.format(lineno=lineno)).strip()
+        if PYPY:   # PyPy change
+            regex = re.sub(r'line \d+', 'line [0-9]+', regex)
+            regex = regex.replace(r'most recent call first\)',
+                    r'most recent call first, approximate line numbers\)')
         self.assertRegex(output, regex)
         self.assertEqual(exitcode, 0)
 

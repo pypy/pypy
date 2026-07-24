@@ -4315,11 +4315,9 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Structmember(m) < 0) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Exceptions(m) < 0) {
         return NULL;
     }
-#endif
 #ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Code(m) < 0) {
         return NULL;
