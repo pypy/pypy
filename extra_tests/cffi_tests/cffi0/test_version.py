@@ -2,7 +2,7 @@
 import os, sys
 import pytest
 import cffi, _cffi_backend
-#from pathlib import Path --- but on pypy, this module should be skipped anyway
+from pathlib import Path
 
 def setup_module(mod):
     if '_cffi_backend' in sys.builtin_module_names:
@@ -41,11 +41,11 @@ def test_doc_version():
 
 def test_pyproject_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
-    p = cffi_root / 'setup.py'
+    p = cffi_root / 'pyproject.toml'
     content = _read(p)
     #
     v = cffi.__version__.replace('+', '')
-    assert ("version='%s'" % v) in content
+    assert f'version = "{v}"' in content
 
 def test_c_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent

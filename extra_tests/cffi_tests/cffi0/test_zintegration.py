@@ -13,6 +13,25 @@ if sys.version_info < (2, 7):
     pytestmark = pytest.mark.skip(
                  'fails e.g. on a Debian/Ubuntu which patches virtualenv'
                  ' in a non-2.6-friendly way')
+# XXX patch start
+elif sys.prefix != sys.base_prefix:
+    # These tests run 'virtualenv -p sys.executable', which, since we are
+    # already in a venv, resolves the *base* interpreter and searches
+    # sys.base_prefix for a conventionally-named binary.  A PyPy source
+    # checkout only contains e.g. 'pypy3.12-c', which virtualenv does not
+    # recognize, and it fails with "failed to detect pypy3...".
+    _base = os.path.realpath(sys.executable)
+    _dir, _name = os.path.split(_base)
+    _names = ['pypy3.%d' % sys.version_info[1], 'pypy3', 'pypy',
+              'python3.%d' % sys.version_info[1], 'python3', 'python']
+    if _name not in _names and not any(
+            os.path.isfile(os.path.join(_dir, n)) for n in _names):
+        pytestmark = pytest.mark.skip(
+            "'virtualenv' cannot find the base interpreter of this venv: "
+            "%r is not named like %s.  If it is a PyPy source checkout, "
+            "create a symlink, e.g. 'ln -s %s %s' in %s" % (
+                _base, '|'.join(_names), _name, _names[0], _dir))
+# XXX patch end
 
 def create_venv(name):
     tmpdir = udir / name
