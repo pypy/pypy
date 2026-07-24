@@ -485,6 +485,13 @@ class PyFrame(W_Root):
         assert index >= 0
         self.locals_cells_stack_w[index] = ll_assert_not_none(w_object)
 
+    def settopvalue_maybe_none(self, w_object, index_from_top=0):
+        index_from_top = hint(index_from_top, promote=True)
+        index = self.valuestackdepth + ~index_from_top
+        self.assert_stack_index(index)
+        assert index >= 0
+        self.locals_cells_stack_w[index] = w_object
+
     @jit.unroll_safe
     def dropvaluesuntil(self, finaldepth):
         depth = self.valuestackdepth - 1
@@ -546,19 +553,23 @@ class PyFrame(W_Root):
         if w_locals is None:
             w_locals = self.space.newdict(instance=True)
             write = True
-        varnames = self.getcode().getvarnames()
-        for i in range(min(len(varnames), self.getcode().co_nlocals)):
-            name = varnames[i]
-            w_value = self.locals_cells_stack_w[i]
-            if w_value is not None:
-                self.space.setitem_str(w_locals, name, w_value)
-            else:
-                w_name = self.space.newtext(name)
-                try:
-                    self.space.delitem(w_locals, w_name)
-                except OperationError as e:
-                    if not e.match(self.space, self.space.w_KeyError):
-                        raise
+        if self.getcode().co_flags & consts.CO_OPTIMIZED:
+            varnames = self.getcode().getvarnames()
+            for i in range(min(len(varnames), self.getcode().co_nlocals)):
+                name = varnames[i]
+                w_value = self.locals_cells_stack_w[i]
+                if w_value is not None:
+                    self.space.setitem_str(w_locals, name, w_value)
+                else:
+                    w_name = self.space.newtext(name)
+                    try:
+                        self.space.delitem(w_locals, w_name)
+                    except OperationError as e:
+                        if not e.match(self.space, self.space.w_KeyError):
+                            raise
+        # else: the only fast locals in a non-optimized (module) code object
+        # are PEP 709 inlined-comprehension names; they are hidden from the
+        # locals dict (CPython's CO_FAST_HIDDEN) and must not be synced
 
         # cellvars are values exported to inner scopes
         # freevars are values coming from outer scopes
@@ -589,18 +600,21 @@ class PyFrame(W_Root):
         # Copy values from self.w_locals to the fastlocals
         w_locals = self.getorcreatedebug().w_locals
         assert w_locals is not None
-        varnames = self.getcode().getvarnames()
-        numlocals = self.getcode().co_nlocals
+        if self.getcode().co_flags & consts.CO_OPTIMIZED:
+            varnames = self.getcode().getvarnames()
+            numlocals = self.getcode().co_nlocals
 
-        new_fastlocals_w = [None] * numlocals
+            new_fastlocals_w = [None] * numlocals
 
-        for i in range(min(len(varnames), numlocals)):
-            name = varnames[i]
-            w_value = self.space.finditem_str(w_locals, name)
-            if w_value is not None:
-                new_fastlocals_w[i] = w_value
+            for i in range(min(len(varnames), numlocals)):
+                name = varnames[i]
+                w_value = self.space.finditem_str(w_locals, name)
+                if w_value is not None:
+                    new_fastlocals_w[i] = w_value
 
-        self.setfastscope(new_fastlocals_w)
+            self.setfastscope(new_fastlocals_w)
+        # else: PEP 709 fast-hidden comprehension locals; never seeded from
+        # nor synced to the locals dict, and must not be wiped here
 
         freevarnames = self.pycode.co_cellvars
         if self.pycode.co_flags & consts.CO_OPTIMIZED and not skip_free_vars:

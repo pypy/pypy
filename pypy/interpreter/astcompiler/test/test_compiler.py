@@ -3471,15 +3471,17 @@ class TestOptimizations:
         assert self._blocks[0].instructions[1].jump is self._blocks[-1]
 
     def test_listcomp_assignment_hack(self):
-        self.count_instructions("""def listcomp_assignment_hack():
+        # the comprehension is inlined (PEP 709), so count FOR_ITER in the
+        # function's own code
+        counts = self.count_instructions("""def listcomp_assignment_hack():
             return [y for x in a for y in [f(x)]]
         """)
-        assert self._code.consts_w[1].co_code.count(chr(ops.FOR_ITER)) == 1
-        self.count_instructions("""def listcomp_assignment_hack2():
+        assert counts[ops.FOR_ITER] == 1
+        counts = self.count_instructions("""def listcomp_assignment_hack2():
             return [y for x in [1, 2, 3] for y in []]
         """)
         # it's really pointless to optimize this
-        assert self._code.consts_w[1].co_code.count(chr(ops.FOR_ITER)) == 2
+        assert counts[ops.FOR_ITER] == 2
 
 
 class TestHugeStackDepths:

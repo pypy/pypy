@@ -543,8 +543,10 @@ def f(x):
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
 
     def test_named_expr_list_comprehension(self):
+        # with the comprehension inlined (PEP 709) there is no child scope
+        # closing over y, so it is a plain local (CPython 3.12 agrees)
         fscp = self.func_scope("def f(): [(y := x) for x in range(5)]")
-        assert fscp.lookup("y") == symtable.SCOPE_CELL
+        assert fscp.lookup("y") == symtable.SCOPE_LOCAL
 
     # ==================== PEP 695 Type Parameter Tests ====================
 

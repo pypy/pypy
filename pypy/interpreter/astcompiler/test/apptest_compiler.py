@@ -102,3 +102,39 @@ def test_compile_ast_object_pep695_type_alias():
     for src in ("type X = int\n", "type Stack[T] = list[T]\n"):
         tree = compile(src, "<test>", "exec", PyCF_ONLY_AST)
         compile(tree, "<test>", "exec")
+
+
+def test_extended_arg_keeps_source_position():
+    # An instruction needing an EXTENDED_ARG prefix (here UNPACK_EX for
+    # 'a, *b, c', oparg (1<<8)|1 == 257) must keep its source position on the
+    # real opcode, not only on the EXTENDED_ARG.
+    import dis
+    import textwrap
+    snippet = textwrap.dedent("""\
+        match x:
+            case a, *b, c:
+                pass
+        """)
+    code = compile(snippet, "<test>", "exec")
+    for ins in dis.get_instructions(code):
+        if ins.opname == "UNPACK_EX":
+            p = ins.positions
+            assert (p.lineno, p.end_lineno, p.col_offset, p.end_col_offset) == \
+                   (2, 2, 9, 17)
+            break
+    else:
+        assert False, "UNPACK_EX not found"
+
+
+def test_backward_jump_has_lineno():
+    # CPython gh-107901: backward jumps must carry a line number
+    import dis
+    def f():
+        for i in x:      # noqa: F821
+            if y:        # noqa: F821
+                pass
+    linenos = [ins.positions.lineno
+               for ins in dis.get_instructions(f.__code__)
+               if ins.opname == 'JUMP_ABSOLUTE']
+    assert len(linenos) > 0
+    assert all(l is not None for l in linenos)
