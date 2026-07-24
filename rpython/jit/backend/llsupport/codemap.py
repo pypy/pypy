@@ -83,7 +83,8 @@ class CodemapStorage(object):
             if not key:
                 break
             items = pypy_jit_codemap_del(key, 1)
-            lltype.free(items, flavor='raw', track_allocation=False)
+            if items:
+                lltype.free(items, flavor='raw', track_allocation=False)
 
     def free_asm_block(self, start, stop):
         items = pypy_jit_codemap_del(start, stop - start)

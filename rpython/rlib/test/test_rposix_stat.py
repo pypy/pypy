@@ -46,6 +46,9 @@ class TestPosixStatFunctions:
         fname = udir.join('test_stat_large_number.txt')
         fname.ensure()
         t1 = 5000000000.0
+        if t1 > sys.maxint:
+            py.test.skip("This platform doesn't support setting stat times "
+                         "to large values")
         try:
             os.utime(str(fname), (t1, t1))
         except OverflowError:
@@ -120,7 +123,7 @@ def test_high_precision_stat_time():
                 - st.st_ctime * 1e9) < 3
         if rposix_stat.TIMESPEC is not None:
             with lltype.scoped_alloc(rposix_stat.STAT_STRUCT.TO) as stresult:
-                rposix_stat.c_stat(".", stresult)
+                rposix_stat.c_stat(dirname, stresult)
                 if sys.platform == "darwin":
                     assert 0 <= stresult.c_st_ctimespec.c_tv_nsec <= 999999999
                     assert highprec == (int(stresult.c_st_ctimespec.c_tv_sec) * 1000000000

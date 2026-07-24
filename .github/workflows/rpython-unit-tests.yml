@@ -29,159 +29,129 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
-
 permissions:
   contents: read
 
 jobs:
-  test-misc:
-    runs-on: ${{ matrix.os }}
+  test:
+    name: ${{ matrix.suite }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        suite: [misc, rlib, translator, jit-arch, jit-other]
+        platform: [linux64, linux32, arm64, macos-x86_64, macos-arm64, win64]
+        include:
+          - platform: linux64
+            runner: ubuntu-24.04
+            # Container from the pypy/pypy-ci repo (buildworker_x86_64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:61ba2d5fcd68bfe76d99a40ae52c30e88cde919ca40fe65ea24bd34b820e3165
+            arch: x86
+          - platform: linux32
+            runner: ubuntu-24.04
+            # Container from the pypy/pypy-ci repo (buildworker_i686:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_i686@sha256:5bec0450459eccc503ee3dc2448a5d207c085ab267477c78fbca6eba1d64b984
+            arch: x86
+          - platform: arm64
+            runner: ubuntu-24.04-arm
+            # Container from the pypy/pypy-ci repo (buildworker_aarch64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_aarch64@sha256:39e5c08e54bfb55bb730b5618bed52ec72a13165d08090e973fd8737276a2526
+            arch: arm64
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            arch: x86
+            localbase: /usr/local
+          - platform: macos-arm64
+            runner: macos-latest
+            arch: arm64
+            localbase: /opt/homebrew
+          - platform: win64
+            runner: windows-latest
+            arch: win64
 
     steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      if: ${{ !matrix.container }}
       with:
-        python-version: "pypy2.7-7.3.23"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test Annotator
-      run: pypy2 pytest.py rpython/annotator
-    - name: Test Config
-      run: pypy2 pytest.py rpython/config
-    - name: Test Flowspace
-      run: pypy2 pytest.py rpython/flowspace
-    - name: Test Tool
-      run: pypy2 pytest.py rpython/tool
-
-  # FIXME: jit tests hang for 6 hours under pypy + linux
-  # Possibly enable cpython + linux tests as a half-way house?
-  # test-jit-x86:
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [ubuntu-24.04]
-
-  #   steps:
-  #   - uses: actions/checkout@v7
-  #   - uses: actions/setup-python@v6
-  #     with:
-  #       python-version: "pypy2.7-7.3.17"
-  #   - run: |
-  #         echo "Install requirements"
-  #         sudo apt-get install -y libgc-dev
-  #         pypy2 -m pip install --user hypothesis==4.39.3
-  #   - name: Test Jit - X86
-  #     run: pypy2 pytest.py -v rpython/jit/backend/x86
-
-  # test-jit-other:
-  #   runs-on: ${{ matrix.os }}
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       os: [ubuntu-24.04]
-
-  #   steps:
-  #   - uses: actions/checkout@v7
-  #   - uses: actions/setup-python@v6
-  #     with:
-  #       python-version: "pypy2.7-7.3.17"
-  #   - run: |
-  #         echo "Install requirements"
-  #         sudo apt-get install -y libgc-dev
-  #         pypy2 -m pip install --user hypothesis==4.39.3
-  #   - name: Test Jit - Other
-  #     run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
-
-  test-memory:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04]
-
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test Memory
-      run: pypy2 pytest.py rpython/memory
-
-  test-rlib:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04]
-
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3 vmprof enum34>=1.1.2
-    - name: Test RLib
-      run: pypy2 pytest.py rpython/rlib -v -m "not flaky"
-
-  test-rtyper:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04]
-
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test RTyper
-      # Note we split out test_rlist.py due to occasional segfaults
-      # with test_memoryerror that only occur when run with the full
-      # test suite
+        python-version: "pypy2.7-7.3.22"
+    - name: Install test dependencies
+      if: ${{ !matrix.container }}
+      run: pypy -m pip install hypothesis==4.39.3
+    - name: Install macOS dependencies
+      if: ${{ startsWith(matrix.runner, 'macos') }}
       run: |
-          pypy2 pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
-          pypy2 pytest.py -v rpython/rtyper/test/test_rlist.py
-
-  test-translator:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04]
-
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v6
-      with:
-        python-version: "pypy2.7-7.3.17"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test Translator
+        brew install bdw-gc binutils
+        pypy -m pip install vmprof
+    - name: Install Windows dependencies
+      if: ${{ matrix.platform == 'win64' }}
+      env:
+        PYTHONPATH: .
+      run: pypy get_externals.py
+    - name: Create machine config
+      shell: bash
+      run: echo "parallel_runs=4" > machine_cfg.py
+    - name: Run tests
+      env:
+        SUITE: ${{ matrix.suite }}
+        ARCH: ${{ matrix.arch }}
+        CONTAINER: ${{ matrix.container }}
+        PYTHONPATH: .
+        PYPY_LOCALBASE: ${{ matrix.localbase }}
+      shell: bash
       run: |
-        # we don't need to run test_typed.py, because test_backendoptimized.py
-        # runs the same tests, just with more optimizations
-        pypy2 pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
-        # only run the tests for the incminimark GC, the one that we always use
-        # in practice
-        pypy2 pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC
+        set -o pipefail
+        case "$SUITE" in
+          rlib)
+            PYPYCHERRYPICK="rlib" ;;
+          translator)
+            PYPYCHERRYPICK="translator" ;;
+          misc)
+            case "$ARCH" in
+              win64) PYPYCHERRYPICK="annotator:config:flowspace:tool:memory" ;;
+              *)     PYPYCHERRYPICK="annotator:config:flowspace:tool:rtyper:memory" ;;
+            esac ;;
+          jit-arch)
+            case "$ARCH" in
+              arm64) PYPYCHERRYPICK="jit/backend/aarch64" ;;
+              *)     PYPYCHERRYPICK="jit/backend/x86" ;;
+            esac ;;
+          jit-other)
+            case "$ARCH" in
+              arm64) PYPYCHERRYPICK="jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/x86:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch" ;;
+              *)     PYPYCHERRYPICK="jit/metainterp:jit/codewriter:jit/tl:jit/tool:jit/backend/aarch64:jit/backend/arm:jit/backend/llgraph:jit/backend/llsupport:jit/backend/ppc:jit/backend/riscv:jit/backend/test:jit/backend/tool:jit/backend/zarch" ;;
+            esac ;;
+        esac
+        export PYPYCHERRYPICK
+        if [ -n "$CONTAINER" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            -e PYPYCHERRYPICK \
+            -e PYTHONPATH \
+            "$CONTAINER" \
+            pypy testrunner/runner.py \
+              --config=pypy/testrunner_cfg.py \
+              --config=machine_cfg.py \
+              --root=rpython \
+              --timeout=1759 \
+              --logfile=testrun.log \
+            2>&1 | tee testrun-output.log
+        else
+          pypy testrunner/runner.py \
+            --config=pypy/testrunner_cfg.py \
+            --config=machine_cfg.py \
+            --root=rpython \
+            --timeout=1759 \
+            --logfile=testrun.log \
+          2>&1 | tee testrun-output.log
+        fi
+    - name: Upload test logs
+      if: ${{ always() }}
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: ${{ matrix.suite }}-testrun-log-${{ matrix.platform }}
+        path: |
+          testrun.log
+          testrun-output.log

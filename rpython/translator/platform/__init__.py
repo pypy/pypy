@@ -267,7 +267,10 @@ class Platform(object):
         return dirs
 
     def _include_dirs_for_openssl(self):
-        return []
+        dirs = []
+        if os.path.isdir('/usr/include/openssl3'):
+            dirs.append('/usr/include/openssl3')
+        return dirs
 
     def _library_dirs_for_openssl(self):
         return []

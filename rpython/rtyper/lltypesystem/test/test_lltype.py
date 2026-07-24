@@ -815,7 +815,8 @@ class TestTrackAllocation:
         assert not leakfinder.ALLOCATED
         buf = malloc(Array(Signed), 1, flavor="raw")
         assert len(leakfinder.ALLOCATED) == 1
-        assert leakfinder.ALLOCATED.keys() == [buf._obj]
+        assert leakfinder.ALLOCATED.keys() == [id(buf._obj)]
+        assert leakfinder.ALLOCATED.values()[0][0] is buf._obj
         free(buf, flavor="raw")
         assert not leakfinder.ALLOCATED
 
@@ -831,7 +832,7 @@ class TestTrackAllocation:
     def test_leak_traceback(self):
         """Test info stored for allocated items"""
         buf = malloc(Array(Signed), 1, flavor="raw")
-        traceback = leakfinder.ALLOCATED.values()[0]
+        obj, traceback = leakfinder.ALLOCATED.values()[0]
         lines = traceback.splitlines()
         assert 'malloc(' in lines[-1] and 'flavor="raw")' in lines[-1]
 

@@ -29,6 +29,8 @@
 #ifdef RPY_WITH_GIL
 # include <src/thread.h>
 # include <src/threadlocal.h>
+#else
+  RPY_EXTERN void RPython_ThreadLocals_ProgramInit(void);
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
@@ -44,8 +46,8 @@ int rpython_startup_code(void)
     if (already_initialized_non_threadsafe)
         return 67;
 
-#ifdef RPY_WITH_GIL
     RPython_ThreadLocals_ProgramInit();
+#ifdef RPY_WITH_GIL
     RPyGilAcquire();
 #endif
     RPython_StartupCode();
@@ -69,12 +71,12 @@ int pypy_main_function(int argc, ARGV_T *argv[])
     _setmode(2, _O_BINARY);
 #endif
 
+    RPython_ThreadLocals_ProgramInit();
 #ifdef RPY_WITH_GIL
     /* Note that the GIL's mutexes are not automatically made; if the
        program starts threads, it needs to call rgil.gil_allocate().
        RPyGilAcquire() still works without that, but crash if it finds
        that it really needs to wait on a mutex. */
-    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
 
