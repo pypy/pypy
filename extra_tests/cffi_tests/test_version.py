@@ -7,7 +7,7 @@ import cffi
 import pypy
 import pytest
 
-metadata = py.path.local(pypy.__file__)/'../../lib_pypy/cffi-1.18.0.dev0.dist-info/METADATA'
+metadata = py.path.local(pypy.__file__)/'../../lib_pypy/cffi-2.1.0.dist-info/METADATA'
 
 def test_metadata():
     info = Parser().parsestr(metadata.read())

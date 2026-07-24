@@ -1,7 +1,7 @@
 #
 # DEPRECATED: implementation for ffi.verify()
 #
-import sys, os, binascii, shutil, io, threading
+import sys, os, binascii, shutil, io
 from . import __version_verifier_modules__
 from . import ffiplatform
 from .error import VerificationError
@@ -24,10 +24,10 @@ else:
         def write(self, s):
             if isinstance(s, unicode):
                 s = s.encode('ascii')
-            super(NativeIO, self).write(s)
+            super().write(s)
 
 
-class Verifier(object):
+class Verifier:
 
     def __init__(self, ffi, preamble, tmpdir=None, modulename=None,
                  ext_package=None, tag='', force_generic_engine=False,
@@ -182,7 +182,7 @@ class Verifier(object):
             # Determine if this matches the current file
             if os.path.exists(self.sourcefilename):
                 with open(self.sourcefilename, "r") as fp:
-                    needs_written = not (fp.read() == source_data)
+                    needs_written = fp.read() != source_data
             else:
                 needs_written = True
 
@@ -197,20 +197,8 @@ class Verifier(object):
 
     def _compile_module(self):
         # compile this C source
-        # Note: compilation will create artifacts in tmpdir + sourcefilename
-        # This can exceed the windows MAXPATH quite easily. To make it shorter,
-        # cd into tmpdir and make the sourcefilename relative to tmdir
         tmpdir = os.path.dirname(self.sourcefilename)
-        olddir = os.getcwd()
-        os.chdir(tmpdir)
-        self.sourcefilename_orig = self.sourcefilename
-        try:
-            self.sourcefilename = os.path.relpath(self.sourcefilename)
-            output_rel_filename = ffiplatform.compile(tmpdir, self.get_extension())
-            outputfilename = os.path.join(tmpdir, output_rel_filename)
-        finally:
-            os.chdir(olddir)
-            self.sourcefilename = self.sourcefilename_orig
+        outputfilename = ffiplatform.compile(tmpdir, self.get_extension())
         try:
             same = ffiplatform.samefile(outputfilename, self.modulefilename)
         except OSError:
@@ -227,13 +215,12 @@ class Verifier(object):
         else:
             return self._vengine.load_library()
 
-local = threading.local()
 # ____________________________________________________________
 
-local._FORCE_GENERIC_ENGINE = False      # for tests
+_FORCE_GENERIC_ENGINE = False      # for tests
 
 def _locate_engine_class(ffi, force_generic_engine):
-    if local._FORCE_GENERIC_ENGINE:
+    if _FORCE_GENERIC_ENGINE:
         force_generic_engine = True
     if not force_generic_engine:
         if '__pypy__' in sys.builtin_module_names:
@@ -254,11 +241,11 @@ def _locate_engine_class(ffi, force_generic_engine):
 
 # ____________________________________________________________
 
-local._TMPDIR = None
+_TMPDIR = None
 
 def _caller_dir_pycache():
-    if local._TMPDIR:
-        return local._TMPDIR
+    if _TMPDIR:
+        return _TMPDIR
     result = os.environ.get('CFFI_TMPDIR')
     if result:
         return result
@@ -268,7 +255,8 @@ def _caller_dir_pycache():
 
 def set_tmpdir(dirname):
     """Set the temporary directory to use instead of __pycache__."""
-    local._TMPDIR = dirname
+    global _TMPDIR
+    _TMPDIR = dirname
 
 def cleanup_tmpdir(tmpdir=None, keep_so=False):
     """Clean up the temporary directory by removing all files in it

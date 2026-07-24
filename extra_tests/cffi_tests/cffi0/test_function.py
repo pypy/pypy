@@ -29,7 +29,7 @@ if sys.platform == 'win32':
 elif is_musl:
     lib_m = 'c'
 
-class TestFunction(object):
+class TestFunction:
     Backend = CTypesBackend
 
     def test_sin(self):
@@ -115,6 +115,7 @@ class TestFunction(object):
         y = lib.TlsFree(x)
         assert y != 0
 
+    @pytest.mark.thread_unsafe(reason="manipulates stderr")
     def test_fputs(self):
         if not sys.platform.startswith('linux'):
             pytest.skip("probably no symbol 'stderr' in the lib")
@@ -132,6 +133,7 @@ class TestFunction(object):
         res = fd.getvalue()
         assert res == b'hello\n  world\n'
 
+    @pytest.mark.thread_unsafe(reason="manipulates stderr")
     def test_fputs_without_const(self):
         if not sys.platform.startswith('linux'):
             pytest.skip("probably no symbol 'stderr' in the lib")
@@ -149,6 +151,7 @@ class TestFunction(object):
         res = fd.getvalue()
         assert res == b'hello\n  world\n'
 
+    @pytest.mark.thread_unsafe(reason="manipulates stderr")
     def test_vararg(self):
         if not sys.platform.startswith('linux'):
             pytest.skip("probably no symbol 'stderr' in the lib")
@@ -206,6 +209,7 @@ class TestFunction(object):
         if self.Backend is CTypesBackend:
             assert repr(fptr).startswith("<cdata 'int puts(char *)' 0x")
 
+    @pytest.mark.thread_unsafe(reason="manipulates stderr")
     def test_function_pointer(self):
         ffi = FFI(backend=self.Backend())
         def cb(charp):
@@ -233,6 +237,7 @@ class TestFunction(object):
         res = fd.getvalue()
         assert res == b'world\n'
 
+    @pytest.mark.thread_unsafe(reason="manipulates stderr")
     def test_callback_returning_void(self):
         ffi = FFI(backend=self.Backend())
         for returnvalue in [None, 42]:
@@ -276,6 +281,7 @@ class TestFunction(object):
         res = ffi.C.strlen(p)
         assert res == 5
 
+    @pytest.mark.thread_unsafe(reason="Mutates process-global libc stdout pointer")
     def test_write_variable(self):
         if not sys.platform.startswith('linux') or _is_musl:
             pytest.skip("probably no symbol 'stdout' in the lib")
@@ -302,9 +308,9 @@ class TestFunction(object):
         q = ffi.C.strchr(p, ord('w'))
         assert ffi.string(q) == b"world!"
 
+    @pytest.mark.skipif(sys.platform == "win32", reason="no 'inet_ntoa'")
+    @pytest.mark.thread_unsafe(reason="inet_ntoa returns a globally shared static buffer on some systems")
     def test_function_with_struct_argument(self):
-        if sys.platform == 'win32':
-            pytest.skip("no 'inet_ntoa'")
         if (self.Backend is CTypesBackend and
             '__pypy__' in sys.builtin_module_names):
             pytest.skip("ctypes limitation on pypy")
@@ -329,21 +335,22 @@ class TestFunction(object):
         x = m.sin(1.23)
         assert x == math.sin(1.23)
 
+    @pytest.mark.thread_unsafe(reason="workers would share a file descriptor")
     def test_fputs_custom_FILE(self):
         if self.Backend is CTypesBackend:
             pytest.skip("FILE not supported with the ctypes backend")
-        filename = str(udir.join('fputs_custom_FILE'))
+        temp_file = udir / 'fputs_custom_FILE'
         ffi = FFI(backend=self.Backend())
         ffi.cdef("int fputs(const char *, FILE *);")
         needs_dlopen_none()
         C = ffi.dlopen(None)
-        with open(filename, 'wb') as f:
+        with temp_file.open('wb') as f:
             f.write(b'[')
             C.fputs(b"hello from custom file", f)
             f.write(b'][')
             C.fputs(b"some more output", f)
             f.write(b']')
-        with open(filename, 'rb') as f:
+        with temp_file.open('rb') as f:
             res = f.read()
         assert res == b'[hello from custom file][some more output]'
 
@@ -412,6 +419,8 @@ class TestFunction(object):
         x = sin100(1.23)
         assert x == math.sin(1.23) + 100
 
+    @pytest.mark.thread_unsafe(
+        reason="may fail if other threads trigger garbage collection")
     def test_free_callback_cycle(self):
         if self.Backend is CTypesBackend:
             pytest.skip("seems to fail with the ctypes backend on windows")
@@ -423,7 +432,7 @@ class TestFunction(object):
             # Ref cycle: callback -> lambda (closure) -> container -> callback
             return callback
 
-        class Data(object):
+        class Data:
             pass
         ffi = FFI(backend=self.Backend())
         data = Data()
@@ -528,6 +537,8 @@ class TestFunction(object):
         m = ffi.dlopen(lib_m)
         assert dir(m) == ['MYE1', 'MYE2', 'MYFOO', 'myconst', 'myfunc', 'myvar']
 
+    @pytest.mark.thread_unsafe(
+        reason="Worker threads might call dlclose simultaneously")
     def test_dlclose(self):
         if self.Backend is CTypesBackend:
             pytest.skip("not with the ctypes backend")
