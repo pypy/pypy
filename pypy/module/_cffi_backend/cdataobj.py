@@ -184,6 +184,11 @@ class W_CData(W_Root):
                     rffi.ptradd(ptr, i * ctitem.size),
                     w_value)
 
+    def delitem(self, w_index):
+        space = self.space
+        raise oefmt(space.w_TypeError,
+                    "'del x[n]' not supported for cdata objects")
+
     def _do_getslicearg(self, w_slice):
         from pypy.module._cffi_backend.ctypeptr import W_CTypePointer
         from pypy.objspace.std.sliceobject import W_SliceObject
@@ -777,6 +782,7 @@ W_CData.typedef = TypeDef(
     __hash__ = interp2app(W_CData.hash),
     __getitem__ = interp2app(W_CData.getitem),
     __setitem__ = interp2app(W_CData.setitem),
+    __delitem__ = interp2app(W_CData.delitem),
     __add__ = interp2app(W_CData.add),
     __radd__ = interp2app(W_CData.add),
     __sub__ = interp2app(W_CData.sub),

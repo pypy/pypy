@@ -52,6 +52,10 @@ class MiniBuffer(W_BufferExporter):
         elif step == 1:
             self.buffer.setslice(start, value.as_str())
 
+    def descr_delitem(self, space, w_index):
+        raise oefmt(space.w_TypeError,
+                    "'del x[n]' not supported for buffer objects")
+
 
     def _comparison_helper(self, space, w_other, mode):
         if space.isinstance_w(w_other, space.w_unicode):
@@ -154,6 +158,7 @@ MiniBuffer.typedef = TypeDef(
     __len__ = interp2app(MiniBuffer.descr_len),
     __getitem__ = interp2app(MiniBuffer.descr_getitem),
     __setitem__ = interp2app(MiniBuffer.descr_setitem),
+    __delitem__ = interp2app(MiniBuffer.descr_delitem),
     __eq__ = interp2app(MiniBuffer.descr_eq),
     __ne__ = interp2app(MiniBuffer.descr_ne),
     __lt__ = interp2app(MiniBuffer.descr_lt),
