@@ -84,6 +84,7 @@ class BaseTest(unittest.TestCase):
         os.close(fd)
 
     def tearDown(self):
+        support.gc_collect() # PYPY
         unlink(self.filename)
 
 
@@ -459,6 +460,8 @@ class BZ2FileTest(BaseTest):
         for i in range(10000):
             o = BZ2File(self.filename)
             del o
+            if i % 100 == 0:
+                support.gc_collect()  # PYPY
 
     def testOpenNonexistent(self):
         self.assertRaises(OSError, BZ2File, "/non/existent")
@@ -476,6 +479,7 @@ class BZ2FileTest(BaseTest):
         self.assertEqual(xlines, [b'Test'])
 
     def testContextProtocol(self):
+        f = None  # PYPY
         with BZ2File(self.filename, "wb") as f:
             f.write(b"xxx")
         f = BZ2File(self.filename, "rb")
