@@ -940,10 +940,11 @@ def test_sched_rr_get_interval():
         # processes with the SCHED_RR scheduler in effect.
         if e.errno != errno.EINVAL:
                 raise
-        pytest.mark.skip("only works on SCHED_RR processes")
+        pytest.skip("only works on SCHED_RR processes")
     assert isinstance(interval, float)
-    # Reasonable constraints, I think.
-    assert interval > 0
+    # Reasonable constraints, I think.  A SCHED_OTHER process (the normal
+    # case) legitimately reports a 0.0 round-robin quantum on Linux.
+    assert interval >= 0
     assert interval < 1.
 
 @pytest.mark.skipif(not hasattr(rposix, 'sched_getscheduler'),

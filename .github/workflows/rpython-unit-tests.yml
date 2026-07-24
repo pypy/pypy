@@ -45,18 +45,18 @@ jobs:
         include:
           - platform: linux64
             runner: ubuntu-24.04
-            # Container from the pypy/pypy-ci repo
-            container: ghcr.io/pypy/buildworker_x86_64:latest
+            # Container from the pypy/pypy-ci repo (buildworker_x86_64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:61ba2d5fcd68bfe76d99a40ae52c30e88cde919ca40fe65ea24bd34b820e3165
             arch: x86
           - platform: linux32
             runner: ubuntu-24.04
-            # Container from the pypy/pypy-ci repo
-            container: ghcr.io/pypy/buildworker_i686:latest
+            # Container from the pypy/pypy-ci repo (buildworker_i686:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_i686@sha256:5bec0450459eccc503ee3dc2448a5d207c085ab267477c78fbca6eba1d64b984
             arch: x86
           - platform: arm64
             runner: ubuntu-24.04-arm
-            # Container from the pypy/pypy-ci repo
-            container: ghcr.io/pypy/buildworker_aarch64:latest
+            # Container from the pypy/pypy-ci repo (buildworker_aarch64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_aarch64@sha256:39e5c08e54bfb55bb730b5618bed52ec72a13165d08090e973fd8737276a2526
             arch: arm64
           - platform: macos-x86_64
             runner: macos-15-intel

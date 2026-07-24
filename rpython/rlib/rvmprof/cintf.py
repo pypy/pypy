@@ -149,7 +149,7 @@ def setup():
                                               _nowrapper=True)
 
     vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
-                                           rffi.INT, compilation_info=eci,
+                                           rffi.INT_real, compilation_info=eci,
                                            _nowrapper=True)
     vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
                                             lltype.Void, compilation_info=eci,
