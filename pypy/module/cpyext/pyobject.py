@@ -17,13 +17,8 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
-from rpython.rlib.rarithmetic import UINT_MAX, widen
+from rpython.rlib.rawrefcount import _Py_IMMORTAL_REFCNT, refcnt_is_immortal
 from rpython.rlib.debug import ll_assert, fatalerror, check_annotation
-
-if sys.maxint > 2**32:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX)
-else:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed,UINT_MAX >> 2)
 
 #________________________________________________________
 # ob_pypy_link prefix
@@ -109,12 +104,12 @@ def w_root_attach_pyobj_static(w_obj, space, py_obj):
 
 def track_static_reference(space, py_obj, w_obj):
     """Register an immortal static object (one of pypy_static_pyobjs[]).  Creates NO
-    rawrefcount link -- the object is bare, with no ob_pypy_link prefix.  Marks it with
-    the REFCNT_STATIC sentinel, records the forward mapping through the object's native
-    storage (_cpy_ref for direct-storage types, else State.static_w2py via
-    _cpyext_attach_pyobj_static) and the reverse mapping in State.static_py2w (consulted
-    by from_ref)."""
-    py_obj.c_ob_refcnt = rawrefcount.REFCNT_STATIC
+    rawrefcount link -- the object is bare, with no ob_pypy_link prefix.  Marks it
+    immortal (_Py_IMMORTAL_REFCNT, no REFCNT_FROM_PYPY tag since there is no prefix),
+    records the forward mapping through the object's native storage (_cpy_ref for
+    direct-storage types, else State.static_w2py via _cpyext_attach_pyobj_static) and
+    the reverse mapping in State.static_py2w (consulted by from_ref)."""
+    py_obj.c_ob_refcnt = _Py_IMMORTAL_REFCNT
     w_obj._cpyext_attach_pyobj_static(space, py_obj)
     space.fromcache(State).static_py2w[rffi.cast(lltype.Signed, py_obj)] = w_obj
 
@@ -369,10 +364,16 @@ def from_ref(space, ref):
     if not ref:
         return None
     ref = rffi.cast(PyObject, ref)
-    if ref.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
-        # immortal static object: no ob_pypy_link prefix, mapped out-of-band
-        return space.fromcache(State).static_py2w.get(
-            rffi.cast(lltype.Signed, ref), None)
+    if refcnt_is_immortal(ref.c_ob_refcnt):
+        if ref.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY:
+            # prefix-less immortal (bare static): mapped out-of-band.  A miss
+            # means an immortal object we did not create (e.g. immortalized by
+            # an extension): fall through and realize it like a foreign object.
+            w_obj = space.fromcache(State).static_py2w.get(
+                rffi.cast(lltype.Signed, ref), None)
+            if w_obj is not None:
+                return w_obj
+        # else: owned immortal, found through its prefix link below
     if ref.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY:
         w_obj = rawrefcount.to_obj(W_Root, ref)
         if w_obj is not None:
@@ -421,7 +422,9 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         #
         # Try to crash here, instead of randomly, if we don't keep w_obj alive
-        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY,
+        # (immortals are prefix-less statics with refcnt pinned below the tag)
+        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY or
+                  refcnt_is_immortal(py_obj.c_ob_refcnt),
                   "Bug in cpyext: The W_Root object was garbage-collected "
                   "while being converted to PyObject.")
         return py_obj
@@ -456,8 +459,9 @@ class Entry(ExtRegistryEntry):
 def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
     pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
     if pyobj:  # != NULL
-        assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
-        pyobj.c_ob_refcnt += 1
+        if not refcnt_is_immortal(pyobj.c_ob_refcnt):
+            assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+            pyobj.c_ob_refcnt += 1
         keepalive_until_here(w_obj)
     return pyobj
 
@@ -492,8 +496,8 @@ def get_w_obj_and_decref(space, pyobj):
     pyobj = rffi.cast(PyObject, pyobj)
     w_obj = from_ref(space, pyobj)
     if pyobj:
-        if pyobj.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
-            return w_obj   # immortal static: refcnt frozen
+        if refcnt_is_immortal(pyobj.c_ob_refcnt):
+            return w_obj   # immortal: refcnt pinned
         pyobj.c_ob_refcnt -= 1
         if pyobj.c_ob_refcnt == 0:
             from pypy.module.cpyext.api import generic_cpy_call
@@ -509,10 +513,8 @@ def incref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     assert pyobj.c_ob_refcnt >= 1
-    if pyobj.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-        return
-    if pyobj.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
-        return   # immortal static: refcnt frozen (no prefix, never freed)
+    if refcnt_is_immortal(pyobj.c_ob_refcnt):
+        return   # immortal: refcnt pinned, never freed
     pyobj.c_ob_refcnt += 1
 
 @specialize.ll()
@@ -521,10 +523,8 @@ def decref(space, pyobj):
     assert is_pyobj(pyobj)
     pyobj = rffi.cast(PyObject, pyobj)
     if pyobj:
-        if pyobj.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-            return
-        if pyobj.c_ob_refcnt >= rawrefcount.REFCNT_STATIC_MIN:
-            return   # immortal static: refcnt frozen, never freed, no prefix
+        if refcnt_is_immortal(pyobj.c_ob_refcnt):
+            return   # immortal: refcnt pinned, never freed
         assert pyobj.c_ob_refcnt > 0
         pyobj.c_ob_refcnt -= 1
         rc = pyobj.c_ob_refcnt

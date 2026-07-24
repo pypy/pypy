@@ -26,8 +26,8 @@ class State:
         # ob_pypy_link prefix (see pypy/doc/discussion/rawrefcount.rst).  They are
         # bare PyObjects, never managed by the GC/rawrefcount, and are mapped through
         # these constant tables, built once by StaticObjectBuilder.attach_all.  Each
-        # is marked with the rawrefcount.REFCNT_STATIC sentinel so from_ref/decref
-        # recognize them without reading a prefix they do not have.
+        # is marked immortal (_Py_IMMORTAL_REFCNT) so from_ref/decref recognize
+        # them without reading a prefix they do not have.
         self.static_w2py = {}   # w_obj -> py_obj              (forward, as_pyobj)
         self.static_py2w = {}   # int(address(py_obj)) -> w_obj (reverse, from_ref)
 

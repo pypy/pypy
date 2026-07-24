@@ -50,14 +50,21 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
 #define _PyPy_LINK_PREFIX  (sizeof(Py_ssize_t))
 #define _PyPy_LINK(op)     (((Py_ssize_t *)(op))[-1])
 
-/* Refcount tag constants -- MUST match rpython/rlib/rawrefcount.py exactly
-   (both derive from the max ssize_t the same way).  REFCNT_FROM_PYPY is the
-   permanent "this PyObject has a prefix" tag applied at allocation; an object
-   is owned iff ob_refcnt >= REFCNT_FROM_PYPY (and below REFCNT_STATIC_MIN, the
-   immortal-static region).  See pypy/doc/discussion/rawrefcount.rst. */
+/* Refcount tag constants -- MUST match rpython/rlib/rawrefcount.py exactly.
+   REFCNT_FROM_PYPY is the permanent "this PyObject has a prefix" tag applied
+   at allocation; an object is owned iff ob_refcnt >= REFCNT_FROM_PYPY.  It
+   sits above the _Py_IMMORTAL_REFCNT field (low 32 bits on 64-bit, low 30 on
+   32-bit), so immortality (checked with _Py_IsImmortal, see include/object.h)
+   is orthogonal to the tag: an immortalized owned object has
+   ob_refcnt == REFCNT_FROM_PYPY + _Py_IMMORTAL_REFCNT.
+   See pypy/doc/discussion/rawrefcount.rst. */
+#if SIZEOF_VOID_P > 4
 #define _PyPy_REFCNT_FROM_PYPY        ((Py_ssize_t)(PY_SSIZE_T_MAX / 4 + 1))
 #define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)(_PyPy_REFCNT_FROM_PYPY + (PY_SSIZE_T_MAX / 2 + 1)))
-#define _PyPy_REFCNT_STATIC_MIN       ((Py_ssize_t)(_PyPy_REFCNT_FROM_PYPY_LIGHT + (PY_SSIZE_T_MAX / 16)))
+#else
+#define _PyPy_REFCNT_FROM_PYPY        ((Py_ssize_t)0x40000000)
+#define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)0x70000000)
+#endif
 
 /* 
  * The actual value of this variable will be the address of
@@ -106,16 +113,16 @@ _Py_Dealloc(PyObject *obj)
 void
 _Py_IncRef(PyObject *op)
 {
-    if (op->ob_refcnt >= _PyPy_REFCNT_STATIC_MIN)
-        return;   /* immortal static: refcnt frozen */
+    if (_Py_IsImmortal(op))
+        return;   /* immortal: refcnt pinned */
     op->ob_refcnt++;
 }
 
 void
 _Py_DecRef(PyObject *op)
 {
-    if (op->ob_refcnt >= _PyPy_REFCNT_STATIC_MIN)
-        return;   /* immortal static: refcnt frozen, never freed */
+    if (_Py_IsImmortal(op))
+        return;   /* immortal: refcnt pinned, never freed */
     if (--op->ob_refcnt == 0)
         _Py_Dealloc(op);
     else if (op->ob_refcnt == _PyPy_REFCNT_FROM_PYPY && _PyPy_LINK(op) == 0)

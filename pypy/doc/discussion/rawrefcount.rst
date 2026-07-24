@@ -133,8 +133,57 @@ deallocation above.
 
 LIGHT finalizers (REFCNT_FROM_PYPY_LIGHT) are, in current pypy3, never created
 (only rawrefcount's own unit tests add them), so this refinement ignores them; a
-single tag region suffices.  Immortal statics (no prefix) stay exempt and mapped
-out of band as described above, in a refcnt region above the tag.
+single tag region suffices.
+
+Immortality is orthogonal to the tag
+------------------------------------
+
+CPython 3.12 marks an object immortal in the *low bits* of ob_refcnt: the
+immortal value is ``_Py_IMMORTAL_REFCNT`` (``UINT_MAX`` on 64-bit,
+``UINT_MAX >> 2`` on 32-bit), and on 64-bit the check ``_Py_IsImmortal`` is
+"bit 31 set" (``(int32_t)ob_refcnt < 0``), deliberately tolerant of stale
+extensions drifting the exact value.  For abi3 compatibility PyPy keeps these
+*values* bit-for-bit identical to CPython, and places the REFCNT_FROM_PYPY
+"has prefix" tag in bits *above* the immortal field, so the two properties
+compose without interfering:
+
+===============================  ====================================  =======  =====================
+state                            ob_refcnt                             prefix?  w_obj lookup
+===============================  ====================================  =======  =====================
+owned, mortal                    ``FROM_PYPY + n``                     yes      prefix link
+owned, immortal                  ``FROM_PYPY + _Py_IMMORTAL_REFCNT``   yes      prefix link
+prefix-less immortal (statics)   ``_Py_IMMORTAL_REFCNT``               no       State.static_py2w
+foreign, mortal                  small ``n``                           no       realize a shadow
+===============================  ====================================  =======  =====================
+
+Consequences:
+
+- Py_INCREF/Py_DECREF (header fast path via ``_Py_IsImmortal``), _Py_IncRef/
+  _Py_DecRef, and the interp-level incref/decref all no-op on immortals, so an
+  immortal refcnt never drifts and the bit patterns above are stable.
+- An immortalized *owned* object (e.g. a heaptype promoted at runtime) keeps
+  its prefix and link: it still passes ``>= REFCNT_FROM_PYPY``, so from_ref
+  finds it through the prefix unchanged, and the two-condition dead test
+  (``== REFCNT_FROM_PYPY``) can never fire on it.  Immortalizing an owned
+  object must *add* the immortal value to the tag, never overwrite it.
+- The out-of-band table (State.static_py2w/static_w2py) is only needed for
+  immortals that physically cannot have a prefix: our bare
+  pypy_static_pyobjs[] structs and extension-declared static (non-heaptype)
+  type objects, whose storage sits in a C ``.data`` section.
+- from_ref checks the immortal bit and the table first; a table miss (an
+  immortal object we did not register, e.g. immortalized by an extension)
+  falls through to foreign-style shadow realization.
+
+On 32-bit the immortal field is 30 bits, which leaves only bit 30 above it:
+REFCNT_FROM_PYPY moves to ``0x40000000`` and REFCNT_FROM_PYPY_LIGHT is
+squeezed to ``0x70000000`` (harmless: the LIGHT region is never created, see
+above).  An owned immortal is then ``0x7FFFFFFF``; since the tagged value no
+longer *equals* ``_Py_IMMORTAL_REFCNT``, the 32-bit check is mask-equality
+``(rc & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT`` instead of CPython's
+plain equality -- identical behaviour for untagged (foreign) refcounts.
+The canonical constants and ``refcnt_is_immortal()`` live in
+rpython/rlib/rawrefcount.py; pypy/module/cpyext/src/object.c and
+pypy/module/cpyext/include/object.h carry the C copies and MUST match.
 
 Most PyPy objects exist outside cpyext, and conversely in cpyext it is
 possible that a lot of PyObjects exist without being seen by the rest
