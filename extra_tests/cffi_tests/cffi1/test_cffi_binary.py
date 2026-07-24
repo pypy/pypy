@@ -18,7 +18,7 @@ def test_no_unknown_exported_symbols():
         if '*UND*' in line:
             continue
         name = line.split()[-1]
-        if name.startswith('_') or name.startswith('.'):
+        if name.startswith(('_', '.')):
             continue
         # a statically-linked libffi will always appear here without header hackage, ignore it if it's internal
         if name.startswith('ffi_') and 'Base' in line:

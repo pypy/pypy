@@ -5,12 +5,12 @@ from cffi._imp_emulation import load_dynamic
 if sys.version_info < (3,):
     __all__ = ['u', 'arraytostring', 'load_dynamic']
 
-    class U(object):
+    class U:
         def __add__(self, other):
             return eval('u'+repr(other).replace(r'\\u', r'\u')
                                        .replace(r'\\U', r'\U'))
     u = U()
-    long = long     # for further "from testing.support import long"
+    long = long     # for further "from extra_tests.cffi_tests.support import long"
     assert u+'a\x00b' == eval(r"u'a\x00b'")
     assert u+'a\u1234b' == eval(r"u'a\u1234b'")
     assert u+'a\U00012345b' == eval(r"u'a\U00012345b'")
@@ -26,7 +26,7 @@ else:
         return a.tobytes()
 
 
-class StdErrCapture(object):
+class StdErrCapture:
     """Capture writes to sys.stderr (not to the underlying file descriptor)."""
     def __enter__(self):
         try:
@@ -45,7 +45,7 @@ class StdErrCapture(object):
             sys.unraisablehook = self.old_unraisablebook
 
 
-class FdWriteCapture(object):
+class FdWriteCapture:
     """xxx limited to capture at most 512 bytes of output, according
     to the Posix manual."""
 
@@ -104,20 +104,19 @@ def _verify(ffi, module_name, preamble, *args, **kwds):
 
 if sys.platform == 'win32':
     extra_compile_args = []      # no obvious -Werror equivalent on MSVC
+elif (sys.platform == 'darwin' and
+      [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
+    # assume a standard clang or gcc
+    extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
+                          '-Wno-unused-parameter',
+                          '-Wno-unreachable-code']
+    # special things for clang
+    extra_compile_args.append('-Qunused-arguments')
 else:
-    if (sys.platform == 'darwin' and
-          [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
-        # assume a standard clang or gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
-                              '-Wno-unused-parameter',
-                              '-Wno-unreachable-code']
-        # special things for clang
-        extra_compile_args.append('-Qunused-arguments')
-    else:
-        # assume a standard gcc
-        extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
-                              '-Wno-unused-parameter',
-                              '-Wno-unreachable-code']
+    # assume a standard gcc
+    extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
+                          '-Wno-unused-parameter',
+                          '-Wno-unreachable-code']
 
 is_musl = False
 if sys.platform == 'linux':

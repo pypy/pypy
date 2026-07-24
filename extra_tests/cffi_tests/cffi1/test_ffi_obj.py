@@ -33,6 +33,7 @@ def test_ffi_cache_type():
     assert ffi.typeof("int[][10]") is ffi.typeof("int[][10]")
     assert ffi.typeof("int(*)()") is ffi.typeof("int(*)()")
 
+@pytest.mark.thread_unsafe(reason="May not pass if other threads unexpectedly trigger the gc")
 def test_ffi_type_not_immortal():
     import weakref, gc
     ffi = _cffi1_backend.FFI()
@@ -387,8 +388,8 @@ def test_ffi_new_allocator_2():
         retries += 1
         assert retries <= 5
         import gc; gc.collect()
-    assert (seen == [40, 40, raw1, raw2] or
-            seen == [40, 40, raw2, raw1])
+    assert seen in ([40, 40, raw1, raw2],
+                    [40, 40, raw2, raw1])
     assert repr(seen[2]) == "<cdata 'char[]' owning 41 bytes>"
     assert repr(seen[3]) == "<cdata 'char[]' owning 41 bytes>"
 
@@ -534,4 +535,3 @@ def test_unpack():
 def test_negative_array_size():
     ffi = _cffi1_backend.FFI()
     pytest.raises(ffi.error, ffi.cast, "int[-5]", 0)
-

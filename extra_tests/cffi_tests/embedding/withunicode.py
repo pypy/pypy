@@ -9,7 +9,7 @@ else:
 
 ffi = cffi.FFI()
 
-ffi.embedding_api(u"""
+ffi.embedding_api("""
     int add1(int, int);
 """)
 

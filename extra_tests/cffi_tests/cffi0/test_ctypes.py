@@ -12,6 +12,10 @@ class TestCTypes(backend_tests.BackendTests):
     Backend = CTypesBackend
     TypeRepr = "<class 'ffi.CData<%s>'>"
 
+    def test_array_slicing(self):
+        pytest.skip("ctypes backend: not supported: "
+                     "slice of array")
+
     def test_array_of_func_ptr(self):
         pytest.skip("ctypes backend: not supported: "
                      "initializers for function pointers")
