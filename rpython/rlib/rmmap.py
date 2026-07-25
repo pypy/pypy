@@ -796,7 +796,11 @@ if _POSIX:
         if we_are_translated():
             flags = NonConstant(flags)
             prot = NonConstant(prot)
-        return c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+        res = c_mmap_safe(hintp, map_size, prot, flags, -1, 0)
+        if res == rffi.cast(PTR, -1):
+            errno = rposix.get_saved_errno()
+            raise OSError(errno, os.strerror(errno))
+        return res
 
     def clear_large_memory_chunk_aligned(addr, map_size):
         addr = rffi.cast(PTR, addr)
