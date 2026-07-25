@@ -96,8 +96,18 @@ void LL_stack_set_length_fraction(double fraction)
 		OP_THREADLOCALREF_ADDR(tl);
 		tl1 = (struct pypy_threadlocal_s *)tl;
 		if (tl1->stack_end == NULL || curptr > tl1->stack_end) {
+            /* 'curptr' is the address of a local variable, and on some targets
+             * (seen on aarch64/gcc14) it flags the
+			 *  store as a dangling pointer. */
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-pointer"
+#endif
 			tl1->stack_end = curptr;
 			rpy_stacktoobig.stack_end = curptr;
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12
+#pragma GCC diagnostic pop
+#endif
 		}
 	}
 }
