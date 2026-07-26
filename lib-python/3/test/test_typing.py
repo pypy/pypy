@@ -9534,10 +9534,11 @@ class SpecialAttrsTests(BaseTestCase):
         self.assertFalse(hasattr(fr, '__name__'))
         self.assertFalse(hasattr(fr, '__qualname__'))
         self.assertEqual(fr.__module__, 'typing')
-        # Forward refs are currently unpicklable.
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            with self.assertRaises(TypeError):
-                pickle.dumps(fr, proto)
+        # Forward refs are currently unpicklable on cpython.
+        if sys.implementation.name != 'pypy':
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                with self.assertRaises(TypeError):
+                    pickle.dumps(fr, proto)
 
         self.assertEqual(SpecialAttrsTests.TypeName.__name__, 'TypeName')
         self.assertEqual(

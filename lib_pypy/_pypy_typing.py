@@ -38,8 +38,22 @@ def _caller_module():
 
 
 class _Immutable:
-    """Mixin that makes instances immutable (no __dict__)."""
+    """Mixin that makes instances immutable: attribute assignment and
+    deletion are blocked from outside this module.  Internal code that
+    legitimately needs to set up or lazily patch an attribute must go
+    through object.__setattr__/object.__delattr__ to bypass this.
+    """
     __slots__ = ()
+
+    def __setattr__(self, name, value):
+        raise TypeError(
+            "cannot set %r attribute of immutable type %r" %
+            (name, type(self).__name__))
+
+    def __delattr__(self, name):
+        raise TypeError(
+            "cannot delete %r attribute of immutable type %r" %
+            (name, type(self).__name__))
 
     def __copy__(self):
         return self
@@ -69,14 +83,17 @@ class _BoundVarianceMixin:
         """
         if covariant and contravariant:
             raise ValueError("Bivariant types are not supported.")
-        self.__covariant__ = bool(covariant)
-        self.__contravariant__ = bool(contravariant)
-        self.__infer_variance__ = bool(infer_variance)
+        if infer_variance and (covariant or contravariant):
+            raise ValueError("Variance cannot be specified with infer_variance.")
+        object.__setattr__(self, '__covariant__', bool(covariant))
+        object.__setattr__(self, '__contravariant__', bool(contravariant))
+        object.__setattr__(self, '__infer_variance__', bool(infer_variance))
         if bound:
             from typing import _type_check
-            self.__bound__ = _type_check(bound, "Bound must be a type.")
+            bound = _type_check(bound, "Bound must be a type.")
         else:
-            self.__bound__ = None
+            bound = None
+        object.__setattr__(self, '__bound__', bound)
 
     def __or__(self, right):
         import typing
@@ -109,7 +126,7 @@ class _LazyEvaluator:
         if instance is None:
             return self
         value = getattr(instance, f"__evaluate_{self._name}__")()
-        setattr(instance, f"__{self._name}__", value)
+        object.__setattr__(instance, f"__{self._name}__", value)
         return value
 
 
@@ -128,7 +145,7 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
 
     def __init__(self, name, *constraints, bound=None, covariant=False,
                  contravariant=False, infer_variance=False):
-        self.__name__ = name
+        object.__setattr__(self, '__name__', name)
         super().__init__(bound, covariant, contravariant, infer_variance)
         if constraints:
             if len(constraints) == 1:
@@ -137,11 +154,12 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
                 raise TypeError("Constraints cannot be combined with bound=...")
             from typing import _type_check
             msg = "TypeVar(name, constraint, ...): constraints must be types."
-            self.__constraints__ = tuple(_type_check(t, msg) for t in constraints)
+            constraints = tuple(_type_check(t, msg) for t in constraints)
         else:
-            self.__constraints__ = ()
+            constraints = ()
+        object.__setattr__(self, '__constraints__', constraints)
 
-        self.__module__ = _caller_module()
+        object.__setattr__(self, '__module__', _caller_module())
 
     __bound__ = _LazyEvaluator()
     __constraints__ = _LazyEvaluator()
@@ -153,6 +171,9 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
 
     def __mro_entries__(self, bases):
         raise TypeError("Cannot subclass an instance of TypeVar")
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.TypeVar' is not an acceptable base type")
 
 
 class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
@@ -202,14 +223,14 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     """
 
     def __init__(self, name, *, bound=None, covariant=False, contravariant=False, infer_variance=False):
-        self.__name__ = name
+        object.__setattr__(self, '__name__', name)
         super().__init__(bound, covariant, contravariant, infer_variance)
 
-        self.__module__ = _caller_module()
+        object.__setattr__(self, '__module__', _caller_module())
 
         # Create args and kwargs attributes
-        self.args = ParamSpecArgs(self)
-        self.kwargs = ParamSpecKwargs(self)
+        object.__setattr__(self, 'args', ParamSpecArgs(self))
+        object.__setattr__(self, 'kwargs', ParamSpecKwargs(self))
 
     def __typing_subst__(self, arg):
         import typing
@@ -222,8 +243,11 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     def __mro_entries__(self, bases):
         raise TypeError("Cannot subclass an instance of ParamSpec")
 
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.ParamSpec' is not an acceptable base type")
 
-class ParamSpecArgs:
+
+class ParamSpecArgs(_Immutable):
     """The args for a ParamSpec object.
 
     Given P = ParamSpec('P'), P.args is an instance of ParamSpecArgs.
@@ -231,7 +255,7 @@ class ParamSpecArgs:
     __slots__ = ('__origin__',)
 
     def __init__(self, origin):
-        self.__origin__ = origin
+        object.__setattr__(self, '__origin__', origin)
 
     def __repr__(self):
         return f"{self.__origin__.__name__}.args"
@@ -247,8 +271,11 @@ class ParamSpecArgs:
     def __mro_entries__(self, bases):
         raise TypeError("Cannot subclass an instance of ParamSpecArgs")
 
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.ParamSpecArgs' is not an acceptable base type")
 
-class ParamSpecKwargs:
+
+class ParamSpecKwargs(_Immutable):
     """The kwargs for a ParamSpec object.
 
     Given P = ParamSpec('P'), P.kwargs is an instance of ParamSpecKwargs.
@@ -256,7 +283,7 @@ class ParamSpecKwargs:
     __slots__ = ('__origin__',)
 
     def __init__(self, origin):
-        self.__origin__ = origin
+        object.__setattr__(self, '__origin__', origin)
 
     def __repr__(self):
         return f"{self.__origin__.__name__}.kwargs"
@@ -272,6 +299,9 @@ class ParamSpecKwargs:
     def __mro_entries__(self, bases):
         raise TypeError("Cannot subclass an instance of ParamSpecKwargs")
 
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.ParamSpecKwargs' is not an acceptable base type")
+
 
 class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
     """Type variable tuple.
@@ -286,8 +316,8 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
     __slots__ = ('__name__',)
 
     def __init__(self, name):
-        self.__name__ = name
-        self.__module__ = _caller_module()
+        object.__setattr__(self, '__name__', name)
+        object.__setattr__(self, '__module__', _caller_module())
 
     def __repr__(self):
         return self.__name__
@@ -306,8 +336,11 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
     def __mro_entries__(self, bases):
         raise TypeError("Cannot subclass an instance of TypeVarTuple")
 
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.TypeVarTuple' is not an acceptable base type")
 
-class TypeAliasType(_PickleUsingNameMixin):
+
+class TypeAliasType(_Immutable, _PickleUsingNameMixin):
     """Runtime representation of a type alias created with PEP 695 syntax.
 
     The __value__ is lazily evaluated - the evaluate_func is called
@@ -328,10 +361,11 @@ class TypeAliasType(_PickleUsingNameMixin):
             value: The value of the type alias.
             type_params: The type parameters of the alias (for generic aliases).
         """
-        self._name = name
-        self._type_params = tuple(type_params) if type_params else ()
-        self.__value__ = value
-        self.__module__ = _caller_module()
+        object.__setattr__(self, '_name', name)
+        object.__setattr__(self, '_type_params',
+                           tuple(type_params) if type_params else ())
+        object.__setattr__(self, '__value__', value)
+        object.__setattr__(self, '__module__', _caller_module())
 
     @property
     def __name__(self):
@@ -385,43 +419,43 @@ class TypeAliasType(_PickleUsingNameMixin):
 
 def _make_typevar(name):
     t = TypeVar(name, infer_variance=True)
-    t.__module__ = 'typing'
+    object.__setattr__(t, '__module__', 'typing')
     return t
 
 
 def _make_typevar_with_bound(name, evaluate_bound):
     t = TypeVar(name, infer_variance=True)
-    del t.__bound__
-    t.__evaluate_bound__ = evaluate_bound
-    t.__module__ = 'typing'
+    object.__delattr__(t, '__bound__')
+    object.__setattr__(t, '__evaluate_bound__', evaluate_bound)
+    object.__setattr__(t, '__module__', 'typing')
     return t
 
 
 def _make_typevar_with_constraints(name, evaluate_constraints):
     t = TypeVar(name, infer_variance=True)
-    del t.__constraints__
-    t.__evaluate_constraints__ = evaluate_constraints
-    t.__module__ = 'typing'
+    object.__delattr__(t, '__constraints__')
+    object.__setattr__(t, '__evaluate_constraints__', evaluate_constraints)
+    object.__setattr__(t, '__module__', 'typing')
     return t
 
 
 def _make_paramspec(name):
     t = ParamSpec(name, infer_variance=True)
-    t.__module__ = 'typing'
+    object.__setattr__(t, '__module__', 'typing')
     return t
 
 
 def _make_typevartuple(name):
     t = TypeVarTuple(name)
-    t.__module__ = 'typing'
+    object.__setattr__(t, '__module__', 'typing')
     return t
 
 
 def _make_typealiastype(name, evaluate_value, type_params):
     t = TypeAliasType(name, None, type_params=type_params)
-    del t.__value__
-    t.__evaluate_value__ = evaluate_value
-    t.__module__ = getattr(evaluate_value, '__module__', None)
+    object.__delattr__(t, '__value__')
+    object.__setattr__(t, '__evaluate_value__', evaluate_value)
+    object.__setattr__(t, '__module__', getattr(evaluate_value, '__module__', None))
     return t
 
 
@@ -451,14 +485,19 @@ class Generic:
     def __class_getitem__(cls, params):
         import typing
         # PEP 695: the compiler builds the implicit Generic[...] base from a
-        # tuple of the class's bare type params. CPython's _Py_subscript_generic
-        # intrinsic unpacks any TypeVarTuple (Ts -> *Ts) before the subscript,
-        # which _generic_class_getitem then requires (a bare TypeVarTuple is not
-        # "type-var-like"). PyPy routes that intrinsic through __class_getitem__,
-        # so mirror the unpacking here.
-        if isinstance(params, typing.TypeVarTuple):
-            params = typing.Unpack[params]
-        elif isinstance(params, tuple):
+        # tuple of the class's bare type params (Generic[(T, Ts, P)], always
+        # a genuine tuple, built by BUILD_TUPLE). CPython's
+        # _Py_subscript_generic intrinsic unpacks any TypeVarTuple (Ts -> *Ts)
+        # before the subscript, which _generic_class_getitem then requires (a
+        # bare TypeVarTuple is not "type-var-like"). PyPy routes that
+        # intrinsic through Generic.__class_getitem__ itself, so mirror the
+        # unpacking here -- but only for that specific cls-is-Generic, tuple
+        # call shape. An ordinary bare TypeVarTuple subscript of Generic
+        # itself (`Generic[Ts]`, no comma) is user code, not the compiler,
+        # and must stay invalid; likewise subscripting an already-defined
+        # subclass (`SomeGeneric[Ts]`) must leave a bare Ts as an
+        # unsubstitutable placeholder rather than silently unpacking it.
+        if cls is Generic and isinstance(params, tuple):
             params = tuple(
                 typing.Unpack[p] if isinstance(p, typing.TypeVarTuple) else p
                 for p in params)
