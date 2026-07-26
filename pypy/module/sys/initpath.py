@@ -224,7 +224,7 @@ def compute_stdlib_path_maybe(state, platlibdir, prefix):
 
 @unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    if _WIN32:
+    if _WIN32 and we_are_translated():
         module_filename = pypy_init_executable()
         if module_filename:
             if _WIN32:

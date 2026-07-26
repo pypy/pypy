@@ -87,8 +87,12 @@ class TestMMap:
             def as_num(ptr):
                 return rffi.cast(lltype.Unsigned, ptr)
             res = mmap.alloc_hinted(in_map(m, (left+right)/2 * 4096), 4096)
+            if res == rffi.cast(mmap.PTR, -1):
+                return -1
             assert as_num(in_map(m, left*4096)) <= as_num(res) < as_num(in_map(m, right*4096))
-        interpret(func, [f.fileno()])
+            return 0
+        if interpret(func, [f.fileno()]) == -1:
+            pytest.skip("mmap() with PROT_EXEC|PROT_WRITE failed")
         f.close()
 
     def test_close(self):

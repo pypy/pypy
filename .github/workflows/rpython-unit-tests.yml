@@ -82,7 +82,7 @@ jobs:
     - name: Install macOS dependencies
       if: ${{ startsWith(matrix.runner, 'macos') }}
       run: |
-        brew install bdw-gc binutils
+        brew install bdw-gc binutils gettext
         pypy -m pip install vmprof
     - name: Install Windows dependencies
       if: ${{ matrix.platform == 'win64' }}

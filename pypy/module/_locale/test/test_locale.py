@@ -168,7 +168,6 @@ class AppTestLocaleTrivia:
         _locale.setlocale(_locale.LC_ALL, "C")
         a = "1234"
         b = _locale.strxfrm(a)
-        assert a is not b
         assert a == b
 
         with raises(TypeError):

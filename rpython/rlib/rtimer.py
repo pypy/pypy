@@ -1,5 +1,3 @@
-import time
-
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.rarithmetic import intmask, longlongmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
@@ -25,7 +23,8 @@ UNIT_QUERY_PERFORMANCE_COUNTER = 2
 def read_timestamp():
     # Returns a longlong on 32-bit, and a regular int on 64-bit.
     # When running on top of python, build the result a bit arbitrarily.
-    x = long(time.time() * 500000000)
+    from rpython.rlib import rtime
+    x = long(rtime.clock() * 500000000)
     if _is_64_bit:
         return intmask(x)
     else:

@@ -438,6 +438,16 @@ class TestInteraction:
         child.sendline('import sys; sys.argv')
         child.expect(re.escape("['-c']"))
 
+    def test_putenv_fires_interactive_within_process(self):
+        # PYTHONINSPECT set via os.putenv (i.e. the real environment, not
+        # os.environ) during a "-c" command should cause a prompt to start
+        # once the command finishes, but only because stdin is a tty here.
+        if __pypy__ is None:
+            py.test.skip("This can be only tested on PyPy with real_getenv")
+        child = self.spawn(['-c',
+                             'import os; os.putenv("PYTHONINSPECT", "1")'])
+        child.expect('>>> ')
+
     def test_options_i_c_crashing(self, monkeypatch):
         monkeypatch.setenv('PYTHONPATH', None)
         child = self.spawn(['-i', '-c', 'x=666;foobar'])
@@ -788,7 +798,7 @@ class TestNonInteractive:
         child_out_err.close()
         process.wait()
         assert (banner in data) == expect_banner   # no banner unless expected
-        assert ('>>> ' in data) == expect_prompt   # no prompt unless expected
+        assert ('>>>> ' in data) == expect_prompt   # no prompt unless expected
         return data, process.returncode
 
     def run(self, *args, **kwargs):
@@ -972,13 +982,9 @@ class TestNonInteractive:
         if result != 0:
             py.test.skip("This can be only tested on PyPy with real_getenv")
 
-        # should be noninteractive when piped in
+        # should be noninteractive when piped in, since stdin is not a tty
         data = 'import os\nos.putenv("PYTHONINSPECT", "1")\n'
         self.run('', senddata=data, expect_prompt=False)
-
-        # should go interactive with -c
-        data = data.replace('\n', ';')
-        self.run("-c '%s'" % data, expect_prompt=True)
 
     def test_option_S_copyright(self):
         data = self.run('-S -i', expect_prompt=True, expect_banner=True)

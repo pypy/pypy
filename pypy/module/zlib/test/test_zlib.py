@@ -399,8 +399,7 @@ class AppTestZlib(object):
 
             assert (d1 + from_copy) == (d1 + from_decompressor)
 
-    @py.test.mark.skipif(zlib_does_not_error_check,
-                         reason='zlib < 1.2.12 lacks inflateStateCheck and segfaults')
+    @py.test.mark.skipif(zlib_does_not_error_check, reason='zlib < 1.2.12 lacks inflateStateCheck and segfaults')
     def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         decompressor = self.zlib.decompressobj()

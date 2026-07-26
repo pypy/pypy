@@ -18,9 +18,10 @@ class AppTestEpoll(object):
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])
-        if platform.machine().startswith('arm'):
+        machine = platform.machine()
+        if machine.startswith('arm') or machine.startswith('aarch64'):
             self.w_timeout = self.space.wrap(0.06)
-        if platform.machine().startswith('s390x'):
+        elif machine.startswith('s390x'):
             # s390x is not slow, but it seems there is one case when epoll
             # modify method is called that takes longer on s390x
             self.w_timeout = self.space.wrap(0.06)
