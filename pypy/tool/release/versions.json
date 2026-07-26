@@ -4564,5 +4564,31 @@
         "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-win64.zip"
       }
     ]
+  },
+  {
+    "pypy_version": "nightly",
+    "python_version": "3.12",
+    "stable": false,
+    "latest_pypy": false,
+    "files": [
+      {
+        "filename": "pypy-c-jit-latest-aarch64.tar.gz",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-aarch64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-linux.tar.gz",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-linux.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-linux64.tar.gz",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-linux64.tar.gz"
+      }
+    ]
   }
 ]
