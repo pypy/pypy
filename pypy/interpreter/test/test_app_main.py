@@ -442,7 +442,11 @@ class TestInteraction:
         # PYTHONINSPECT set via os.putenv (i.e. the real environment, not
         # os.environ) during a "-c" command should cause a prompt to start
         # once the command finishes, but only because stdin is a tty here.
-        if __pypy__ is None:
+        from pexpect import EOF
+        check = self.spawn(['-c', 'import __pypy__'])
+        check.expect(EOF)
+        check.close()
+        if check.exitstatus:
             py.test.skip("This can be only tested on PyPy with real_getenv")
         child = self.spawn(['-c',
                              'import os; os.putenv("PYTHONINSPECT", "1")'])
