@@ -365,6 +365,11 @@ def PyInterpreterState_Head(space):
     """
     return space.fromcache(InterpreterState).interpreter_state
 
+@cpython_api([], PyInterpreterState, error=CANNOT_FAIL)
+def PyInterpreterState_Main(space):
+    """Return the main interpreter state object."""
+    return space.fromcache(InterpreterState).interpreter_state
+
 @cpython_api([PyInterpreterState], PyInterpreterState, error=CANNOT_FAIL)
 def PyInterpreterState_Next(space, interp):
     """Return the next interpreter state object after interp from the list of all

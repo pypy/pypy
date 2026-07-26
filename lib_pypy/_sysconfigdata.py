@@ -32,6 +32,7 @@ build_time_vars = {
     'LDVERSION': pydot,
     'Py_DEBUG': 0,  # cpyext never uses this
     'Py_ENABLE_SHARED': 0,  # if 1, will add python so to link like -lpython3.7
+    'LIBPYTHON': '',  # only non-empty on Android/Cygwin shared builds
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 

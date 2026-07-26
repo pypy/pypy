@@ -275,8 +275,14 @@ def create_package(basedir, options, _fake=False):
         binaries.append((libpypy_c, libpypy_name, None))
     #
 
-    includedir = basedir.join('include')
-    copytree(str(includedir), str(pypydir.join('include')))
+    if ARCH == 'win32':
+        includedir = basedir.join('include')
+        target_includedir = pypydir.join('include')
+    else:
+        cpyver_dir = 'pypy' + python_ver
+        includedir = basedir.join('include', cpyver_dir)
+        target_includedir = pypydir.join('include', cpyver_dir)
+    copytree(str(includedir), str(target_includedir))
     pypydir.ensure('include', dir=True)
 
     if ARCH == 'win32':

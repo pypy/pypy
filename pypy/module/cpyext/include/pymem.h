@@ -71,6 +71,17 @@ PyAPI_FUNC(void) PyMem_Free(void *ptr);
  */
 #define PYPY_TRACEMALLOC        1
 
+typedef enum {
+    /* PyMem_RawMalloc(), PyMem_RawRealloc() and PyMem_RawFree() */
+    PYMEM_DOMAIN_RAW,
+
+    /* PyMem_Malloc(), PyMem_Realloc() and PyMem_Free() */
+    PYMEM_DOMAIN_MEM,
+
+    /* PyObject_Malloc(), PyObject_Realloc() and PyObject_Free() */
+    PYMEM_DOMAIN_OBJ
+} PyMemAllocatorDomain;
+
 PyAPI_FUNC(int) PyTraceMalloc_Track(
     unsigned int domain,
     uintptr_t ptr,
