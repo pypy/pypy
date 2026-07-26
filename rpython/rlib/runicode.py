@@ -71,8 +71,11 @@ else:
 
 if MAXUNICODE > 0xFFFF:
     def code_to_unichr(code):
-        if is_narrow_host():
-            # Host CPython is narrow build, generate surrogates
+        if is_narrow_host() or rffi.sizeof(lltype.UniChar) == 2:
+            # Host CPython is a narrow build, or the translation
+            # target's UniChar (native wchar_t) is 2 bytes (e.g.
+            # Windows): unichr() would silently truncate codes above
+            # 0xffff via cast_int_to_unichar, so generate surrogates.
             return unichr_returns_surrogate(code)
         else:
             return unichr(code)
