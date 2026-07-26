@@ -12,6 +12,21 @@ else:
     pypy_win32_extra = []
 
 libraries=_get_openssl_libraries(sys.platform)
+
+# openssl headers/libraries frequently live outside the compiler's default
+# search path (Homebrew's keg-only openssl@3, a custom prefix on CI, ...).
+# Point the build at them by exporting CFLAGS/LDFLAGS, e.g. on macOS:
+#     CFLAGS="-I$(brew --prefix openssl@3)/include" \
+#     LDFLAGS="-L$(brew --prefix openssl@3)/lib" \
+#         pypy build_cffi_imports.py
+# The compiler driver already forwards CFLAGS/CPPFLAGS/LDFLAGS from the
+# environment, so we do not hard-code any platform path here; /usr/local is
+# only added as a fallback when it actually exists (Intel Homebrew, the
+# benchmarker).
+extra_compile_args = []
+if sys.platform != 'win32' and os.path.isdir('/usr/local/include'):
+    extra_compile_args.append('-I/usr/local/include')
+
 ffi = build_ffi_for_binding(
     module_name="_pypy_openssl",
     module_prefix="_cffi_src.openssl.",
@@ -54,7 +69,7 @@ ffi = build_ffi_for_binding(
         "callbacks",
     ] + pypy_win32_extra,
     libraries=libraries,
-    extra_compile_args=['-I/usr/local/include'],
+    extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args(compiler_type()),
 )
 

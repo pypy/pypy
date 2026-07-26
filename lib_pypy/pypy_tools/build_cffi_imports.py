@@ -177,6 +177,55 @@ def _build_dependency(name, patches=[]):
             break
     return status, stdout, stderr
 
+# cffi module -> Homebrew formula that provides its headers/libraries.  On
+# macOS these are frequently keg-only (deliberately kept off the compiler's
+# default search path), so the formula's prefix is injected into CFLAGS/LDFLAGS
+# for that one module's build.  Missing formulae are simply skipped.
+brew_formulae = {
+    '_ssl': 'openssl@3',
+    'sqlite3': 'sqlite',
+    '_gdbm': 'gdbm',
+    'lzma': 'xz',
+    '_tkinter': 'tcl-tk',
+    'curses': 'ncurses',
+}
+
+_brew_prefix_cache = {}
+
+def _brew_prefix(formula):
+    """Return the Homebrew prefix for `formula`, or None.
+
+    None means either `brew` is not on PATH or the formula is not installed.
+    Results are cached so we run `brew` at most once per formula.
+    """
+    if formula in _brew_prefix_cache:
+        return _brew_prefix_cache[formula]
+    import subprocess
+    try:
+        proc = subprocess.Popen(['brew', '--prefix', formula],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        out, _ = proc.communicate()
+        prefix = out.decode('utf-8').strip() if proc.returncode == 0 else None
+    except OSError:
+        prefix = None            # no `brew` on PATH
+    _brew_prefix_cache[formula] = prefix or None
+    return _brew_prefix_cache[formula]
+
+def _brew_flags(formula):
+    """(-I, -L) arg lists for a Homebrew `formula`; both empty if not present."""
+    prefix = _brew_prefix(formula)
+    if not prefix:
+        return [], []
+    cflags, ldflags = [], []
+    inc = os.path.join(prefix, 'include')
+    lib = os.path.join(prefix, 'lib')
+    if os.path.isdir(inc):
+        cflags.append('-I' + inc)
+    if os.path.isdir(lib):
+        ldflags.append('-L' + lib)
+    return cflags, ldflags
+
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
     """
@@ -261,9 +310,28 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['LDFLAGS'] = '-L{}/usr/lib64 -L{}/usr/lib {}'.format(
                             deps_destdir, deps_destdir, env.get('LDFLAGS', ''))
 
+        # On macOS, inject the keg-only Homebrew prefix for this module's
+        # library (openssl@3 for _ssl, ...) so a plain build finds it.  Applied
+        # to this module's compile only, and appended so any explicit
+        # CFLAGS/LDFLAGS still take precedence.  Skipped for
+        # --embed-dependencies, which links the bundled libraries instead.
+        build_env = env
+        if (sys.platform == 'darwin' and not embed_dependencies
+                and key in brew_formulae):
+            brew_cflags, brew_ldflags = _brew_flags(brew_formulae[key])
+            if brew_cflags or brew_ldflags:
+                build_env = env.copy()
+                build_env['CFLAGS'] = ' '.join(
+                    [env.get('CFLAGS', '')] + brew_cflags).strip()
+                build_env['LDFLAGS'] = ' '.join(
+                    [env.get('LDFLAGS', '')] + brew_ldflags).strip()
+                print('* adding Homebrew {} flags for {}: {}'.format(
+                    brew_formulae[key], key,
+                    ' '.join(brew_cflags + brew_ldflags)), file=sys.stderr)
+
         try:
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
-                                                    cwd=cwd, env=env)
+                                                    cwd=cwd, env=build_env)
             try:
                 bld_stdout = bld_stdout.decode('utf-8')
             except Exception:

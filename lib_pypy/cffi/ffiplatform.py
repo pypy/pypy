@@ -8,14 +8,13 @@ LIST_OF_FILE_NAMES = ['sources', 'include_dirs', 'library_dirs',
 def _pypy_compile_backend():
     # PyPy ships a distutils-free compiler driver so that out-of-line modules
     # (and PyPy's own build_cffi_imports) can be built without setuptools on
-    # Python >= 3.12.  Only use it as a *fallback*: both when distutils is
-    # genuinely unavailable AND when the C toolchain has been handed down via
-    # PYPY_CC (PyPy's translation driver / packaging set it from
-    # rpython.translator.platform).  Otherwise behave exactly as before and
-    # use the normal distutils path (raising the usual "requires setuptools"
-    # error if it is missing).
-    if not os.environ.get('PYPY_CC'):
-        return None
+    # Python >= 3.12.  Use it only as a *fallback*: when distutils/setuptools
+    # imports cleanly we prefer it and behave exactly as before.  Otherwise
+    # (Python >= 3.12 before ensurepip has installed setuptools, or a standalone
+    # ``pypy build_cffi_imports.py`` on a pypy without setuptools) fall back to
+    # the distutils-free driver, which discovers the toolchain via PYPY_CC (set
+    # by PyPy's translation driver / packaging from rpython.translator.platform)
+    # or, failing that, from sysconfig's CC.
     try:
         import cffi._shimmed_dist_utils       # probe: does distutils work?
     except Exception:
