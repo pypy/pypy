@@ -169,6 +169,17 @@ def _build_unix(ext, verbose):
     return out
 
 
+def _msvc_library_dirs(ext):
+    # distutils' build_ext used to append these for every win32 extension
+    # (that's where e.g. python312.lib, pulled in via pyconfig.h's #pragma
+    # comment(lib, ...), gets found); replicate it since distutils is gone.
+    library_dirs = list(ext.library_dirs)
+    library_dirs.append(os.path.join(sys.exec_prefix, 'libs'))
+    if sys.base_exec_prefix != sys.exec_prefix:  # e.g. running in a venv
+        library_dirs.append(os.path.join(sys.base_exec_prefix, 'libs'))
+    return library_dirs
+
+
 def _build_msvc(ext, verbose):
     # NB: validated on POSIX; the MSVC command lines mirror distutils'
     # MSVCCompiler and rely on the translation driver having exported the
@@ -196,7 +207,7 @@ def _build_msvc(ext, verbose):
     init = 'PyInit_' + ext.name.split('.')[-1]
     args = list(link) + ['/nologo', '/DLL', '/EXPORT:' + init]
     args += ['/OUT:' + out] + objects + ext.extra_objects
-    args += ['/LIBPATH:' + d for d in ext.library_dirs]
+    args += ['/LIBPATH:' + d for d in _msvc_library_dirs(ext)]
     args += [l if l.lower().endswith('.lib') else l + '.lib'
              for l in ext.libraries]
     args += ext.extra_link_args
