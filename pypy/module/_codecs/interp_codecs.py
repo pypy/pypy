@@ -569,10 +569,10 @@ def register_builtin_error_handlers(space):
 
 
 def _wrap_codec_error(space, operr, action, encoding):
-    # Note that UnicodeErrors are not wrapped and returned as is,
-    # "thanks to" a limitation of try_set_from_cause.
     message = "%s with '%s' codec failed" % (action, encoding)
-    return operr.try_set_from_cause(space, message)
+    w_exc = operr.normalize_exception(space)
+    space.call_method(w_exc, "add_note", space.newtext(message))
+    return operr
 
 def _call_codec(space, w_coder, w_obj, action, encoding, errors):
     try:

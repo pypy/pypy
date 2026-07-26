@@ -793,23 +793,29 @@ class AppTestPartialEvaluation:
                 return (f, f, None, None)
             return None
         _codecs.register(search_function)
-        to_raise = RuntimeError('should be wrapped')
+        to_raise = RuntimeError('should be noted')
         exc = raises(RuntimeError, b"hello".decode, "test.failingenc")
-        assert str(exc.value) == (
-            "decoding with 'test.failingenc' codec failed "
-            "(RuntimeError: should be wrapped)")
+        assert exc.value is to_raise
+        assert exc.value.__notes__[0] == (
+            "decoding with 'test.failingenc' codec failed")
+        to_raise.__notes__ = []
         exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
-        assert str(exc.value) == (
-            "encoding with 'test.failingenc' codec failed "
-            "(RuntimeError: should be wrapped)")
+        assert exc.value is to_raise
+        assert exc.value.__notes__[0] == (
+            "encoding with 'test.failingenc' codec failed")
         #
-        to_raise.attr = "don't wrap"
+        to_raise.__notes__ = []
+        to_raise.attr = "still noted"
         exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
-        assert exc.value == to_raise
+        assert exc.value is to_raise
+        assert exc.value.__notes__[0] == (
+            "encoding with 'test.failingenc' codec failed")
         #
-        to_raise = RuntimeError("Should", "Not", "Wrap")
+        to_raise = RuntimeError("Should", "Also", "Note")
         exc = raises(RuntimeError, u"hello".encode, "test.failingenc")
-        assert exc.value == to_raise
+        assert exc.value is to_raise
+        assert exc.value.__notes__[0] == (
+            "encoding with 'test.failingenc' codec failed")
 
     def test_one_arg_encoder(self):
         import _codecs
