@@ -83,6 +83,8 @@ class CProfileTest(ProfileTest):
             profiler_with_evil_timer.clear()
             self.assertEqual(cm.unraisable.exc_type, RuntimeError)
 
+    @unittest.skipUnless(getattr(sys, 'monitoring', None),
+                          'needs sys.monitoring (PEP 669), not implemented yet')
     def test_profile_enable_disable(self):
         prof = self.profilerclass()
         # Make sure we clean ourselves up if the test fails for some reason.
@@ -95,6 +97,8 @@ class CProfileTest(ProfileTest):
         prof.disable()
         self.assertIs(sys.monitoring.get_tool(sys.monitoring.PROFILER_ID), None)
 
+    @unittest.skipUnless(getattr(sys, 'monitoring', None),
+                          'needs sys.monitoring (PEP 669), not implemented yet')
     def test_profile_as_context_manager(self):
         prof = self.profilerclass()
         # Make sure we clean ourselves up if the test fails for some reason.
