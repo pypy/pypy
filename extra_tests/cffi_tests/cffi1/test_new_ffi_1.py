@@ -114,7 +114,7 @@ class TestNewFFI1:
                 c_decl = {None: '',
                           False: 'signed ',
                           True: 'unsigned '}[unsigned] + c_type
-                if c_decl == 'char' or c_decl == '':
+                if c_decl in {'char', ''}:
                     continue
                 self._test_int_type(ffi, c_decl, size, unsigned)
 
@@ -266,7 +266,7 @@ class TestNewFFI1:
         assert p is not None
         assert bool(p) is False
         assert p == ffi.cast("int*", 0)
-        assert p != None
+        assert p is not None
         assert repr(p) == "<cdata 'int *' NULL>"
         a = ffi.new("int[]", [123, 456])
         p = ffi.cast("int*", a)
@@ -447,7 +447,7 @@ class TestNewFFI1:
     def test_none_as_null_doesnt_work(self):
         p = ffi.new("int*[1]")
         assert p[0] is not None
-        assert p[0] != None
+        assert p[0] is not None
         assert p[0] == ffi.NULL
         assert repr(p[0]) == "<cdata 'int *' NULL>"
         #
@@ -1131,14 +1131,14 @@ class TestNewFFI1:
         assert (p >  q) is False
         assert (p >= q) is False
         #
-        assert (None == s) is False
-        assert (None != s) is True
-        assert (s == None) is False
-        assert (s != None) is True
-        assert (None == q) is False
-        assert (None != q) is True
-        assert (q == None) is False
-        assert (q != None) is True
+        assert (None is s) is False
+        assert (None is not s) is True
+        assert (s is None) is False
+        assert (s is not None) is True
+        assert (None is q) is False
+        assert (None is not q) is True
+        assert (q is None) is False
+        assert (q is not None) is True
 
     def test_integer_comparison(self):
         x = ffi.cast("int", 123)
@@ -1615,6 +1615,7 @@ class TestNewFFI1:
         assert ffi.typeof(p2) is ffi.typeof("struct abc50 *")
         assert p2 == p + 1
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_multiple_independent_structs(self):
         CDEF2 = "struct ab { int x; };"
         ffi2 = cffi.FFI(); ffi2.cdef(CDEF2)
@@ -1629,6 +1630,7 @@ class TestNewFFI1:
         assert foo2.a == 20
         assert foo2.b == 30
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_include_struct_union_enum_typedef(self):
         ffi1, CCODE = construction_params
         ffi2 = cffi.FFI()
@@ -1770,13 +1772,15 @@ class TestNewFFI1:
             x = ffi.sizeof(name)
             assert 1 <= x <= 16
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_emit_c_code(self):
         ffi = cffi.FFI()
         ffi.set_source("foobar", "??")
-        c_file = str(udir.join('test_emit_c_code'))
-        ffi.emit_c_code(c_file)
-        assert os.path.isfile(c_file)
+        c_file = udir / 'test_emit_c_code'
+        ffi.emit_c_code(str(c_file))
+        assert c_file.is_file()
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_emit_c_code_to_file_obj(self):
         ffi = cffi.FFI()
         ffi.set_source("foobar", "??")
@@ -1784,6 +1788,7 @@ class TestNewFFI1:
         ffi.emit_c_code(fileobj)
         assert 'foobar' in fileobj.getvalue()
 
+    @pytest.mark.thread_unsafe(reason="workers would share a compilation directory")
     def test_import_from_lib(self):
         ffi2 = cffi.FFI()
         ffi2.cdef("int myfunc(int); extern int myvar;\n#define MYFOO ...\n")
@@ -1807,7 +1812,7 @@ class TestNewFFI1:
         # equivalent to "import ffi, lib"
         d = {}
         exec("from _test_import_from_lib import *", d)
-        assert (sorted([x for x in d.keys() if not x.startswith('__')]) ==
+        assert (sorted(x for x in d if not x.startswith('__')) ==
                 ['ffi', 'lib'])
 
     def test_char16_t(self):

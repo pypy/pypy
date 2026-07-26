@@ -187,20 +187,21 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             if self.is_void_ptr or other.is_void_ptr:
                 pass     # cast from or to 'void *'
             elif self.is_voidchar_ptr or other.is_voidchar_ptr:
-                # for backward compatibility, accept "char *" as either
-                # source of target.  This is not what C does, though,
-                # so emit a warning that will eventually turn into an
-                # error.  The warning is turned off if both types are
-                # pointers to single bytes.
                 if self.is_onebyte_ptr and other.is_onebyte_ptr:
-                    pass   # no warning
+                    pass   # no error
                 else:
                     space = self.space
-                    msg = ("implicit cast from '%s' to '%s' "
-                        "will be forbidden in the future (check that the types "
-                        "are as you expect; use an explicit ffi.cast() if they "
-                        "are correct)" % (other.name, self.name))
-                    space.warn(space.newtext(msg), space.w_UserWarning)
+                    if self.is_voidchar_ptr:
+                        msg = ("implicit cast to 'char *' from a different "
+                            "pointer type.(check that the types are as you "
+                            "expect; use an explicit ffi.cast() if they "
+                            "are correct)")
+                    else:
+                        msg = ("implicit cast from 'char *' to a different "
+                            "pointer type: (check that the types are as you "
+                            "expect; use an explicit ffi.cast() if they "
+                            "are correct)")
+                    raise OperationError(space.w_TypeError, space.newtext(msg))
             else:
                 raise self._convert_error("compatible pointer", w_ob)
 

@@ -8,6 +8,10 @@ from extra_tests.cffi_tests.support import *
 from extra_tests.cffi_tests.support import _verify, extra_compile_args, is_musl
 import _cffi_backend
 
+pytestmark = [
+    pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe"),
+]
+
 lib_m = ['m']
 if sys.platform == 'win32':
     #there is a small chance this fails on Mingw via environ $CC
@@ -225,7 +229,7 @@ def test_all_integer_and_float_types():
     for typename in all_primitive_types:
         if (all_primitive_types[typename] == 'c' or
             all_primitive_types[typename] == 'j' or    # complex
-            typename == '_Bool' or typename == 'long double'):
+            typename in {'_Bool', 'long double'}):
             pass
         else:
             typenames.append(typename)
@@ -778,6 +782,7 @@ def test_get_set_errno():
     ffi = FFI()
     ffi.cdef("int foo(int);")
     lib = ffi.verify("""
+        #include <errno.h>
         static int foo(int x)
         {
             errno += 1;
@@ -1407,9 +1412,8 @@ def test_relative_to():
     tmpdir = tempfile.mkdtemp(dir=str(udir))
     ffi = FFI()
     ffi.cdef("int foo(int);")
-    f = open(os.path.join(tmpdir, 'foo.h'), 'w')
-    f.write("int foo(int a) { return a + 42; }\n")
-    f.close()
+    with open(os.path.join(tmpdir, 'foo.h'), 'w') as f:
+        f.write("int foo(int a) { return a + 42; }\n")
     lib = ffi.verify('#include "foo.h"',
                      include_dirs=['.'],
                      relative_to=os.path.join(tmpdir, 'x'))
@@ -1469,7 +1473,7 @@ def test_bool():
     assert int(ffi.cast("_Bool", 10**200)) == 1
     assert int(ffi.cast("_Bool", 10**40000)) == 1
     #
-    class Foo(object):
+    class Foo:
         def __int__(self):
             self.seen = 1
             return result
@@ -1626,7 +1630,7 @@ def test_FILE_stored_in_stdout():
     os.close(fdr)
     # the 'X' might remain in the user-level buffer of 'fw1' and
     # end up showing up after the 'hello, 42!\n'
-    assert result == b"Xhello, 42!\n" or result == b"hello, 42!\nX"
+    assert result in {b"Xhello, 42!\n", b"hello, 42!\nX"}
 
 def test_FILE_stored_explicitly():
     ffi = FFI()
@@ -1652,7 +1656,7 @@ def test_FILE_stored_explicitly():
     os.close(fdr)
     # the 'X' might remain in the user-level buffer of 'fw1' and
     # end up showing up after the 'hello, 42!\n'
-    assert result == b"Xhello, 42!\n" or result == b"hello, 42!\nX"
+    assert result in {b"Xhello, 42!\n", b"hello, 42!\nX"}
 
 def test_global_array_with_missing_length():
     ffi = FFI()
@@ -2255,8 +2259,8 @@ def test_windows_dllimport_data():
     if sys.platform != 'win32':
         pytest.skip("Windows only")
     from extra_tests.cffi_tests.udir import udir
-    tmpfile = udir.join('dllimport_data.c')
-    tmpfile.write('int my_value = 42;\n')
+    tmpfile = udir / 'dllimport_data.c'
+    tmpfile.write_text('int my_value = 42;\n')
     ffi = FFI()
     ffi.cdef("int my_value;")
     lib = ffi.verify("extern __declspec(dllimport) int my_value;",
@@ -2352,7 +2356,7 @@ def test_ffi_gc_size_arg_2():
     lib = ffi.verify(r"""
         #include <stdlib.h>
     """)
-    class X(object):
+    class X:
         pass
     for i in range(2000):
         p = lib.malloc(50*1024*1024)    # 50 MB
@@ -2372,7 +2376,7 @@ def test_ffi_new_with_cycles():
     ffi = FFI()
     ffi.cdef("")
     lib = ffi.verify("")
-    class X(object):
+    class X:
         pass
     for i in range(2000):
         p = ffi.new("char[]", 50*1024*1024)    # 50 MB

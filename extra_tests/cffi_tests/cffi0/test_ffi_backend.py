@@ -250,11 +250,13 @@ class TestBitfield:
         buff2 = ffi.buffer(t, len(buff1))
         assert buff1 == buff2
 
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_basic(self):
         self.check("int a; int b:9; int c:20; int y;", 8, 4, 12)
         self.check("int a; short b:9; short c:7; int y;", 8, 4, 12)
         self.check("int a; short b:9; short c:9; int y;", 8, 4, 12)
 
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_reuse_if_enough_space(self):
         self.check("int a:2; char y;", 1, 4, 4)
         self.check("int a:1; char b  ; int c:1; char y;", 3, 4, 4)
@@ -270,6 +272,7 @@ class TestBitfield:
         "not (sys.platform == 'darwin' and platform.machine() == 'arm64')"
         " and "
         "platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_anonymous_no_align(self):
         L = FFI().alignof("long long")
         self.check("char y; int :1;", 0, 1, 2)
@@ -286,6 +289,7 @@ class TestBitfield:
         "(sys.platform == 'darwin' and platform.machine() == 'arm64')"
         " or "
         "not platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_anonymous_align_arm(self):
         L = FFI().alignof("long long")
         self.check("char y; int :1;", 0, 4, 4)
@@ -302,6 +306,7 @@ class TestBitfield:
         "not (sys.platform == 'darwin' and platform.machine() == 'arm64')"
         " and "
         "platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_zero(self):
         L = FFI().alignof("long long")
         self.check("char y; int :0;", 0, 1, 4)
@@ -316,6 +321,7 @@ class TestBitfield:
         "(sys.platform == 'darwin' and platform.machine() == 'arm64')"
         " or "
         "not platform.machine().startswith(('arm', 'aarch64'))")
+    @pytest.mark.thread_unsafe(reason="FFI verifier is not thread-safe")
     def test_bitfield_zero_arm(self):
         L = FFI().alignof("long long")
         self.check("char y; int :0;", 0, 4, 4)
@@ -581,6 +587,14 @@ class TestBitfield:
         assert ffi.unpack(p+1, 7) == b"bc\x00def\x00"
         p = ffi.new("int[]", [-123456789])
         assert ffi.unpack(p, 1) == [-123456789]
+
+    def test_delitem_raises(self):
+        ffi = FFI()
+        arr = ffi.new("int[5]")
+        buf = ffi.buffer(arr)
+        for obj in (arr, buf):
+            pytest.raises(TypeError, obj.__delitem__, 0) # del obj[0]
+            pytest.raises(TypeError, obj.__delitem__, slice(1, 3)) # del obj[1:3]
 
     def test_negative_array_size(self):
         ffi = FFI()

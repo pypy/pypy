@@ -131,12 +131,21 @@ def longdouble2str(lvalue):
 
 # ____________________________________________________________
 
-def _is_a_float(space, w_ob):
+def _raise_if_inconvertible(space, w_ob, refuse_float=True):
+    # Matches CPython's _cffi_backend: raise for floats (unless
+    # 'not refuse_float', for the non-strict unsigned conversions) and
+    # for objects that cannot be converted to an integer at all.
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend.ctypeprim import W_CTypePrimitiveFloat
-    if isinstance(w_ob, W_CData):
-        return isinstance(w_ob.ctype, W_CTypePrimitiveFloat)
-    return space.isinstance_w(w_ob, space.w_float)
+    if refuse_float:
+        if isinstance(w_ob, W_CData):
+            if isinstance(w_ob.ctype, W_CTypePrimitiveFloat):
+                raise oefmt(space.w_TypeError, "an integer is required")
+        elif space.isinstance_w(w_ob, space.w_float):
+            raise oefmt(space.w_TypeError, "an integer is required")
+    if (space.lookup(w_ob, '__int__') is None and
+            space.lookup(w_ob, '__index__') is None):
+        raise oefmt(space.w_TypeError, "an integer is required")
 
 def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
@@ -148,8 +157,7 @@ def as_long_long(space, w_ob):
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
-        if _is_a_float(space, w_ob):
-            raise
+        _raise_if_inconvertible(space, w_ob)
     bigint = space.bigint_w(w_ob, allow_conversion=True)
     try:
         return bigint.tolonglong()
@@ -164,8 +172,7 @@ def as_long(space, w_ob):
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
-        if _is_a_float(space, w_ob):
-            raise
+        _raise_if_inconvertible(space, w_ob)
     return space.int_w(w_ob, allow_conversion=True)
 
 def as_unsigned_long_long(space, w_ob, strict):
@@ -179,8 +186,7 @@ def as_unsigned_long_long(space, w_ob, strict):
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
-        if strict and _is_a_float(space, w_ob):
-            raise
+        _raise_if_inconvertible(space, w_ob, refuse_float=strict)
     else:
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
@@ -205,8 +211,7 @@ def as_unsigned_long(space, w_ob, strict):
         if not (e.match(space, space.w_OverflowError) or
                 e.match(space, space.w_TypeError)):
             raise
-        if strict and _is_a_float(space, w_ob):
-            raise
+        _raise_if_inconvertible(space, w_ob, refuse_float=strict)
     else:
         if strict and value < 0:
             raise OperationError(space.w_OverflowError, space.newtext(neg_msg))

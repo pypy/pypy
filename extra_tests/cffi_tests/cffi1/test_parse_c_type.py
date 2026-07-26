@@ -3,8 +3,6 @@ import sys, re, os
 import pytest
 import cffi
 from cffi import cffi_opcode
-from filelock import FileLock
-from pathlib import Path
 
 if '__pypy__' in sys.builtin_module_names:
     try:
@@ -14,7 +12,7 @@ if '__pypy__' in sys.builtin_module_names:
         # older pytest
         pytest.skip("not available on pypy")
 
-cffi_dir = str(Path(os.path.dirname(__file__)).parent.parent / "src/cffi")
+cffi_dir = os.path.dirname(cffi_opcode.__file__)
 
 r_macro = re.compile(r"#define \w+[(][^\n]*|#include [^\n]*")
 r_define = re.compile(r"(#define \w+) [^\n]*")
@@ -28,21 +26,14 @@ header = r_ifdefs.sub(r"", header)
 ffi = cffi.FFI()
 ffi.cdef(header)
 
-
-def build_lib():
-    sourcename = os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')
-    with FileLock(sourcename + ".lock"):
-        with open(sourcename) as _body:
-            body = _body.read()
-        lib = ffi.verify(
-            body + """
-        static const char *get_common_type(const char *search, size_t search_len) {
-            return NULL;
-        }
-        """,    include_dirs=[cffi_dir])
-    return lib
-
-lib = build_lib()
+with open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')) as _body:
+    body = _body.read()
+lib = ffi.verify(
+    body + """
+static const char *get_common_type(const char *search, size_t search_len) {
+    return NULL;
+}
+""",    include_dirs=[cffi_dir])
 
 class ParseError(Exception):
     pass

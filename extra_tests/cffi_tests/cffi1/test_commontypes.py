@@ -8,9 +8,9 @@ def getlines():
     try:
         f = open(os.path.join(os.path.dirname(cffi.__file__),
                               '..', 'c', 'commontypes.c'))
-    except IOError:
+    except OSError:
         pytest.skip("cannot find ../c/commontypes.c")
-    lines = [line for line in f.readlines() if line.strip().startswith('EQ(')]
+    lines = [line for line in f if line.strip().startswith('EQ(')]
     f.close()
     return lines
 
