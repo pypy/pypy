@@ -6,9 +6,42 @@ import sys
 
 _WIN = sys.platform == 'win32'
 
+
+class MonitoringModule(MixedModule):
+    """Backing implementation for sys.monitoring (PEP 669)."""
+
+    appleveldefs = {
+        'DISABLE': 'app_monitoring.DISABLE',
+        'MISSING': 'app_monitoring.MISSING',
+        'events': 'app_monitoring.events',
+    }
+
+    interpleveldefs = {
+        'DEBUGGER_ID': 'space.newint(0)',
+        'COVERAGE_ID': 'space.newint(1)',
+        'PROFILER_ID': 'space.newint(2)',
+        'OPTIMIZER_ID': 'space.newint(5)',
+
+        'use_tool_id': 'interp_monitoring.use_tool_id',
+        'free_tool_id': 'interp_monitoring.free_tool_id',
+        'get_tool': 'interp_monitoring.get_tool',
+        'register_callback': 'interp_monitoring.register_callback',
+        'get_events': 'interp_monitoring.get_events',
+        'set_events': 'interp_monitoring.set_events',
+        'get_local_events': 'interp_monitoring.get_local_events',
+        'set_local_events': 'interp_monitoring.set_local_events',
+        'restart_events': 'interp_monitoring.restart_events',
+        '_all_events': 'interp_monitoring._all_events',
+    }
+
+
 class Module(MixedModule):
     """Sys Builtin Module. """
     _immutable_fields_ = ["defaultencoding", "debug?", "filesystemencoding?"]
+
+    submodules = {
+        "monitoring": MonitoringModule,
+    }
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
