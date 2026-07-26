@@ -39,21 +39,35 @@ def _caller_module():
 
 class _Immutable:
     """Mixin that makes instances immutable: attribute assignment and
-    deletion are blocked from outside this module.  Internal code that
-    legitimately needs to set up or lazily patch an attribute must go
-    through object.__setattr__/object.__delattr__ to bypass this.
+    deletion are blocked from outside this module, for a fixed set of
+    "core" attributes given by _readonly_attrs.  This mirrors CPython,
+    where these types are implemented in C with a handful of read-only
+    struct members but otherwise allow arbitrary new instance attributes
+    (e.g. typing_extensions patches 'has_default' onto TypeVar/ParamSpec
+    instances on Python < 3.13).  _readonly_attrs of None means there are
+    no such extra attributes and everything is blocked, matching types
+    that CPython implements without a per-instance dict at all.  Internal
+    code that legitimately needs to set up or lazily patch one of the
+    readonly attributes must go through
+    object.__setattr__/object.__delattr__ to bypass this.
     """
     __slots__ = ()
 
+    _readonly_attrs = None
+
     def __setattr__(self, name, value):
-        raise TypeError(
-            "cannot set %r attribute of immutable type %r" %
-            (name, type(self).__name__))
+        if self._readonly_attrs is None or name in self._readonly_attrs:
+            raise TypeError(
+                "cannot set %r attribute of immutable type %r" %
+                (name, type(self).__name__))
+        object.__setattr__(self, name, value)
 
     def __delattr__(self, name):
-        raise TypeError(
-            "cannot delete %r attribute of immutable type %r" %
-            (name, type(self).__name__))
+        if self._readonly_attrs is None or name in self._readonly_attrs:
+            raise TypeError(
+                "cannot delete %r attribute of immutable type %r" %
+                (name, type(self).__name__))
+        object.__delattr__(self, name)
 
     def __copy__(self):
         return self
@@ -143,6 +157,11 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     as for generic function definitions.
     """
 
+    _readonly_attrs = frozenset((
+        '__name__', '__bound__', '__covariant__', '__contravariant__',
+        '__infer_variance__', '__constraints__',
+    ))
+
     def __init__(self, name, *constraints, bound=None, covariant=False,
                  contravariant=False, infer_variance=False):
         object.__setattr__(self, '__name__', name)
@@ -221,6 +240,11 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
     Note that only parameter specification variables defined in the global
     scope can be pickled.
     """
+
+    _readonly_attrs = frozenset((
+        '__name__', '__bound__', '__covariant__', '__contravariant__',
+        '__infer_variance__', 'args', 'kwargs',
+    ))
 
     def __init__(self, name, *, bound=None, covariant=False, contravariant=False, infer_variance=False):
         object.__setattr__(self, '__name__', name)
@@ -312,6 +336,8 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
 
     A TypeVarTuple is a placeholder for an *arbitrary* number of types.
     """
+
+    _readonly_attrs = frozenset(('__name__',))
 
     __slots__ = ('__name__',)
 
