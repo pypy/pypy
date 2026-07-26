@@ -10,6 +10,9 @@ import types
 import unittest
 import asyncio
 
+if getattr(sys, 'monitoring', None) is None:
+    raise unittest.SkipTest('needs sys.monitoring (PEP 669), not implemented yet')
+
 PAIR = (0,1)
 
 def f1():

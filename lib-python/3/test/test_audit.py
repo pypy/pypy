@@ -259,6 +259,8 @@ class AuditTest(unittest.TestCase):
             self.fail(stderr)
 
 
+    @unittest.skipUnless(getattr(sys, 'monitoring', None),
+                          'needs sys.monitoring (PEP 669), not implemented yet')
     def test_sys_monitoring_register_callback(self):
         returncode, events, stderr = self.run_python("test_sys_monitoring_register_callback")
         if returncode:
