@@ -540,6 +540,19 @@ def VirtualQuerySize(address):
     if size_of_buf == 0:
         RaiseFromWindowsErr(0)
     return mem_basic_info[0].RegionSize
+
+def NeedCurrentDirectoryForExePath(exe_name):
+    return _kernel32.NeedCurrentDirectoryForExePathW(_Z(exe_name))
+
+
+def GetLongPathName(path):
+    cchBuffer = _kernel32.GetLongPathNameW(_Z(path), _ffi.NULL, 0)
+    if cchBuffer:
+        tempbuffer = _ffi.new("CHAR[]", cchBuffer)
+        cchBuffer = _kernel32.GetLongPathNameW(path), tempbuffer, cchBuffer)
+        if cchBuffer:
+            return _ffi.string(cchBuffer)
+    RaiseFromWindowsErr(0)
     
 # #define macros from WinBase.h and elsewhere
 STD_INPUT_HANDLE = -10
