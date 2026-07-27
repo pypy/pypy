@@ -32,15 +32,6 @@ def _zlib_older_than_1_2_12():
 
 zlib_does_not_error_check = _zlib_older_than_1_2_12()
 
-def test_unsigned_to_signed_32bit():
-    assert interp_zlib.unsigned_to_signed_32bit(123) == 123
-    assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
-    assert interp_zlib.unsigned_to_signed_32bit(2**32-1) == -1
-    if sys.maxint > 2**32:
-        from rpython.rlib.rarithmetic import r_uint
-        assert interp_zlib.unsigned_to_signed_32bit(r_uint(sys.maxint)) == -1
-        assert interp_zlib.unsigned_to_signed_32bit(r_uint(sys.maxint+1)) == 0
-
 
 class AppTestZlib(object):
     spaceconfig = dict(usemodules=['zlib'])
@@ -399,8 +390,7 @@ class AppTestZlib(object):
 
             assert (d1 + from_copy) == (d1 + from_decompressor)
 
-    @py.test.mark.skipif(zlib_does_not_error_check,
-                         reason='zlib < 1.2.12 lacks inflateStateCheck and segfaults')
+    @py.test.mark.skipif(zlib_does_not_error_check, reason='zlib < 1.2.12 lacks inflateStateCheck and segfaults')
     def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         decompressor = self.zlib.decompressobj()
@@ -438,8 +428,7 @@ class AppTestZlib(object):
 
             assert (d1 + from_copy) == (d1 + from_compressor)
 
-    @py.test.mark.skipif(zlib_does_not_error_check,
-                         reason='zlib < 1.2.12 lacks deflateStateCheck and segfaults')
+    @py.test.mark.skipif(zlib_does_not_error_check, reason='zlib < 1.2.12 lacks deflateStateCheck and segfaults')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()

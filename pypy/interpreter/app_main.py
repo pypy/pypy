@@ -433,8 +433,11 @@ def initstdio(encoding=None, unbuffered=False, utf8_mode=False):
             # trigger EncodingWarning under -X warn_default_encoding.
             encoding = "locale"
         if errors is None and not user_set_encoding:
-            if utf8_mode or _locale.setlocale(_locale.LC_CTYPE, None) in ('C', 'POSIX'):
+            is_c_locale = _locale.setlocale(_locale.LC_CTYPE, None) in (
+                'C', 'POSIX', 'C.UTF-8', 'C.utf8', 'UTF-8')
+            if utf8_mode or is_c_locale:
                 errors = 'surrogateescape'
+                encoding = 'utf-8'
 
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)

@@ -12,6 +12,8 @@ from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket']
+if os.name != 'nt':
+    USEMODULES += ['pwd']
 
 def setup_module(mod):
     mod.path = udir.join('posixtestfile.txt')

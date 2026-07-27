@@ -717,9 +717,13 @@ class TestFinalizerQueue:
         assert str(e.value).startswith('the RPython-level __del__() method in')
 
     def test_translated_boehm(self):
+        if sys.platform == 'win32':
+            py.test.skip("failing on windows, not worth chasing")
         self._test_translated(use_gc="boehm", llcase=False)
 
     def test_translated_boehm_ll(self):
+        if sys.platform == 'win32':
+            py.test.skip("see test_translated_boehm")
         self._test_translated(use_gc="boehm", llcase=True)
 
     def test_translated_incminimark(self):

@@ -34,7 +34,7 @@ class BackendTests:
                 c_decl = {None: '',
                           False: 'signed ',
                           True: 'unsigned '}[unsigned] + c_type
-                if c_decl == 'char' or c_decl == '':
+                if c_decl in {'char', ''}:
                     continue
                 self._test_int_type(ffi, c_decl, size, unsigned)
 
@@ -122,6 +122,16 @@ class BackendTests:
         with pytest.raises(IndexError):
             p[-1] = 44
 
+    def test_array_slicing(self):
+        ffi = FFI(backend=self.Backend())
+        p = ffi.new("int[10]")
+        for i in range(10):
+            p[i] = i
+        assert repr(p[0:3]) == "<cdata 'int[]' sliced length 3>"
+        assert list(p[0:3]) == [0, 1, 2]
+        with pytest.raises(IndexError):
+            _ = p[0:11]
+
     def test_new_array_args(self):
         ffi = FFI(backend=self.Backend())
         # this tries to be closer to C: where we say "int x[5] = {10, 20, ..}"
@@ -198,7 +208,7 @@ class BackendTests:
         assert p is not None
         assert bool(p) is False
         assert p == ffi.cast("int*", 0)
-        assert p != None
+        assert p is not None
         assert repr(p) == "<cdata 'int *' NULL>"
         a = ffi.new("int[]", [123, 456])
         p = ffi.cast("int*", a)
@@ -388,7 +398,7 @@ class BackendTests:
         ffi = FFI(backend=self.Backend())
         p = ffi.new("int*[1]")
         assert p[0] is not None
-        assert p[0] != None
+        assert p[0] is not None
         assert p[0] == ffi.NULL
         assert repr(p[0]) == "<cdata 'int *' NULL>"
         #
@@ -1145,14 +1155,14 @@ class BackendTests:
         assert (p >  q) is False
         assert (p >= q) is False
         #
-        assert (None == s) is False
-        assert (None != s) is True
-        assert (s == None) is False
-        assert (s != None) is True
-        assert (None == q) is False
-        assert (None != q) is True
-        assert (q == None) is False
-        assert (q != None) is True
+        assert (None is s) is False
+        assert (None is not s) is True
+        assert (s is None) is False
+        assert (s is not None) is True
+        assert (None is q) is False
+        assert (None is not q) is True
+        assert (q is None) is False
+        assert (q is not None) is True
 
     def test_integer_comparison(self):
         ffi = FFI(backend=self.Backend())

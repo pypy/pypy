@@ -24,6 +24,7 @@ typedef unsigned char bool_t;
 /* use [1] (C89 struct hack) rather than [] (C99 FAM) to avoid GCC placing
    a struct-with-FAM inside a union, which GCC 14 handles more strictly */
 # define RPY_VARLENGTH   1
+/* XXX change to flexible items[] */
 
 #ifdef RPY_REVERSE_DEBUGGER
 #include "src-revdb/revdb_preinclude.h"

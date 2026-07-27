@@ -1,12 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """ A simple tool for importing the cffi version into pypy, should sync
 whatever version you provide. Usage:
 
-python3.9 pypy/tool/import_cffi.py <path-to-cffi>
+python3.12 pypy/tool/import_cffi.py <path-to-cffi>
 """
-from __future__ import print_function
 
-import sys, pathlib
+import os
+import sys
+import pathlib
 
 def mangle(lines, ext):
     if ext == '.py':
@@ -22,35 +23,44 @@ def mangle(lines, ext):
         raise AssertionError(ext)
 
 def fixeol(s):
-    s = s.replace('\r\n', '\n')
-    return s
+    return s.replace('\r\n', '\n')
+
+def copy_mangled(p, srcdir, destdir):
+    dest = destdir / p.relative_to(srcdir)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    lines = p.read_text(encoding='utf-8').splitlines(keepends=True)
+    text = fixeol(''.join(mangle(lines, p.suffix)))
+    dest.write_text(text, encoding='utf-8', newline='\n')
 
 def main(cffi_dir):
     cffi_dir = pathlib.Path(cffi_dir)
     rootdir = pathlib.Path(__file__).parent.parent.parent
     cffi_dest = rootdir / 'lib_pypy' / 'cffi'
-    cffi_dest.mkdir(exist_ok=True)
+    cffi_dest.mkdir(parents=True, exist_ok=True)
     test_dest = rootdir / 'extra_tests' / 'cffi_tests'
-    test_dest.ensure(dir=1)
-    for p in (list(cffi_dir.join('src', 'cffi').visit(fil='*.py')) +
-              list(cffi_dir.join('src', 'cffi').visit(fil='*.h'))):
-        cffi_dest.join(p.relto(cffi_dir.join('src', 'cffi'))).write_binary(fixeol(p.read()))
-    for p in (list(cffi_dir.join('testing').visit(fil='*.py')) +
-              list(cffi_dir.join('testing').visit(fil='*.h')) +
-              list(cffi_dir.join('testing').visit(fil='*.c'))):
-        path = test_dest.join(p.relto(cffi_dir.join('testing')))
-        path.join('..').ensure(dir=1)
-        path.write_binary(fixeol(''.join(mangle(p.readlines(), p.ext))))
-    path = test_dest.join('test_c.py')
-    path.write_binary(fixeol(cffi_dir.join('src', 'c', 'test_c.py').read()))
+    test_dest.mkdir(parents=True, exist_ok=True)
+    srcdir = cffi_dir / 'src' / 'cffi'
+    for p in sorted(srcdir.rglob('*.py')) + sorted(srcdir.rglob('*.h')):
+        dest = cffi_dest / p.relative_to(srcdir)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(fixeol(p.read_text(encoding='utf-8')),
+                        encoding='utf-8', newline='\n')
+    testdir = cffi_dir / 'testing'
+    for pattern in ('*.py', '*.h', '*.c'):
+        for p in sorted(testdir.rglob(pattern)):
+            copy_mangled(p, testdir, test_dest)
+    test_c = cffi_dir / 'src' / 'c' / 'test_c.py'
+    (test_dest / 'test_c.py').write_text(
+        fixeol(test_c.read_text(encoding='utf-8')),
+        encoding='utf-8', newline='\n')
     #
     # hack around a little bit...
-    os.system("cd '%s' && patch -p0 < pypy/tool/import_cffi.patch" % str(rootdir))
+    os.system("cd '%s' && patch -p0 < pypy/tool/import_cffi.patch" % rootdir)
 
 if __name__ == '__main__':
     if sys.version_info < (3, 0):
         print(__doc__)
-        print("must not use python2") 
+        print("must not use python2")
         sys.exit(2)
     if len(sys.argv) != 2:
         print(__doc__)

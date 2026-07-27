@@ -4,13 +4,16 @@ from cffi import FFI, VerificationError, CDefError
 from cffi.recompiler import make_py_source
 from extra_tests.cffi_tests.udir import udir
 
+pytestmark = [
+    pytest.mark.thread_unsafe(reason="worker threads would share a compilation directory"),
+]
 
 def test_simple():
     ffi = FFI()
     ffi.cdef("int close(int); static const int BB = 42; extern int somevar;")
-    target = udir.join('test_simple.py')
+    target = udir / 'test_simple.py'
     make_py_source(ffi, 'test_simple', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_simple',
@@ -23,9 +26,9 @@ ffi = _cffi_backend.FFI('test_simple',
 def test_global_constant():
     ffi = FFI()
     ffi.cdef("static const long BB; static const float BF = 12;")
-    target = udir.join('test_valid_global_constant.py')
+    target = udir / 'test_valid_global_constant.py'
     make_py_source(ffi, 'test_valid_global_constant', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_valid_global_constant',
@@ -44,7 +47,7 @@ def test_invalid_global_constant_3():
 def test_invalid_dotdotdot_in_macro():
     ffi = FFI()
     ffi.cdef("#define FOO ...")
-    target = udir.join('test_invalid_dotdotdot_in_macro.py')
+    target = udir / 'test_invalid_dotdotdot_in_macro.py'
     e = pytest.raises(VerificationError, make_py_source, ffi,
                        'test_invalid_dotdotdot_in_macro', str(target))
     assert str(e.value) == ("macro FOO: cannot use the syntax '...' in "
@@ -53,9 +56,9 @@ def test_invalid_dotdotdot_in_macro():
 def test_typename():
     ffi = FFI()
     ffi.cdef("typedef int foobar_t;")
-    target = udir.join('test_typename.py')
+    target = udir / 'test_typename.py'
     make_py_source(ffi, 'test_typename', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_typename',
@@ -68,9 +71,9 @@ ffi = _cffi_backend.FFI('test_typename',
 def test_enum():
     ffi = FFI()
     ffi.cdef("enum myenum_e { AA, BB, CC=-42 };")
-    target = udir.join('test_enum.py')
+    target = udir / 'test_enum.py'
     make_py_source(ffi, 'test_enum', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_enum',
@@ -84,9 +87,9 @@ ffi = _cffi_backend.FFI('test_enum',
 def test_struct():
     ffi = FFI()
     ffi.cdef("struct foo_s { int a; signed char b[]; }; struct bar_s;")
-    target = udir.join('test_struct.py')
+    target = udir / 'test_struct.py'
     make_py_source(ffi, 'test_struct', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_struct',
@@ -100,9 +103,9 @@ def test_include():
     ffi = FFI()
     ffi.cdef("#define ABC 123")
     ffi.set_source('test_include', None)
-    target = udir.join('test_include.py')
+    target = udir / 'test_include.py'
     make_py_source(ffi, 'test_include', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_include',
@@ -114,9 +117,9 @@ ffi = _cffi_backend.FFI('test_include',
     #
     ffi2 = FFI()
     ffi2.include(ffi)
-    target2 = udir.join('test2_include.py')
+    target2 = udir / 'test2_include.py'
     make_py_source(ffi2, 'test2_include', str(target2))
-    assert target2.read() == r"""# auto-generated file
+    assert target2.read_text() == r"""# auto-generated file
 import _cffi_backend
 from test_include import ffi as _ffi0
 
@@ -130,9 +133,9 @@ ffi = _cffi_backend.FFI('test2_include',
 def test_negative_constant():
     ffi = FFI()
     ffi.cdef("static const int BB = -42;")
-    target = udir.join('test_negative_constant.py')
+    target = udir / 'test_negative_constant.py'
     make_py_source(ffi, 'test_negative_constant', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_negative_constant',
@@ -149,9 +152,9 @@ def test_struct_included():
     #
     ffi = FFI()
     ffi.include(baseffi)
-    target = udir.join('test_struct_included.py')
+    target = udir / 'test_struct_included.py'
     make_py_source(ffi, 'test_struct_included', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 from test_struct_included_base import ffi as _ffi0
 
@@ -169,16 +172,16 @@ def test_no_cross_include():
     #
     ffi = FFI()
     ffi.include(baseffi)
-    target = udir.join('test_no_cross_include.py')
+    target = udir / 'test_no_cross_include.py'
     pytest.raises(VerificationError, make_py_source,
                    ffi, 'test_no_cross_include', str(target))
 
 def test_array():
     ffi = FFI()
     ffi.cdef("typedef int32_t my_array_t[42];")
-    target = udir.join('test_array.py')
+    target = udir / 'test_array.py'
     make_py_source(ffi, 'test_array', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_array',
@@ -191,16 +194,16 @@ ffi = _cffi_backend.FFI('test_array',
 def test_array_overflow():
     ffi = FFI()
     ffi.cdef("typedef int32_t my_array_t[3000000000];")
-    target = udir.join('test_array_overflow.py')
+    target = udir / 'test_array_overflow.py'
     pytest.raises(OverflowError, make_py_source,
                    ffi, 'test_array_overflow', str(target))
 
 def test_global_var():
     ffi = FFI()
     ffi.cdef("extern int myglob;")
-    target = udir.join('test_global_var.py')
+    target = udir / 'test_global_var.py'
     make_py_source(ffi, 'test_global_var', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_global_var',
@@ -213,9 +216,9 @@ ffi = _cffi_backend.FFI('test_global_var',
 def test_bitfield():
     ffi = FFI()
     ffi.cdef("struct foo_s { int y:10; short x:5; };")
-    target = udir.join('test_bitfield.py')
+    target = udir / 'test_bitfield.py'
     make_py_source(ffi, 'test_bitfield', str(target))
-    assert target.read() == r"""# auto-generated file
+    assert target.read_text() == r"""# auto-generated file
 import _cffi_backend
 
 ffi = _cffi_backend.FFI('test_bitfield',

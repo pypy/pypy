@@ -243,7 +243,9 @@ class AppTestRecompiler:
         vals = ['42', '-42', '0x80000000', '-2147483648',
                 '0', '9223372036854775809ULL',
                 '-9223372036854775807LL']
-        if sys.maxsize <= 2**32:
+        if sys.maxsize <= 2**32 or sys.platform == 'win32':
+            # same ambiguity as on 32-bit systems: on win64 'long' is only
+            # 32 bits wide (LLP64), even though sys.maxsize is 64-bit
             vals.remove('-2147483648')
 
         cdef_lines = ['#define FOO_%d_%d %s' % (i, j, vals[i])
@@ -519,6 +521,9 @@ class AppTestRecompiler:
         assert repr(ffi.cast("e1", 2)) == "<cdata 'e1' 2: AA>"
         #
         import sys
+        if sys.platform == 'win32':
+            skip("MSVC keeps enums as int and truncates oversized values "
+                "instead of widening the underlying type like GCC/Clang")
         ffi, lib = self.prepare(
             "typedef enum { AA=%d } e1;" % sys.maxsize,
             'test_verify_anonymous_enum_with_typedef2',

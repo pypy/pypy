@@ -6,7 +6,7 @@ from .backend_tests import needs_dlopen_none
 from extra_tests.cffi_tests.support import is_musl
 
 
-class FakeBackend(object):
+class FakeBackend:
 
     def nonstandard_integer_types(self):
         return {}
@@ -54,24 +54,24 @@ class FakeBackend(object):
 
     buffer = "buffer type"
 
-class FakeType(object):
+class FakeType:
     def __init__(self, cdecl):
         self.cdecl = cdecl
     def __str__(self):
         return self.cdecl
 
-class FakeStruct(object):
+class FakeStruct:
     def __init__(self, name):
         self.name = name
     def __str__(self):
         return ', '.join([str(y) + str(x) for x, y, z in self.fields])
 
-class FakeLibrary(object):
+class FakeLibrary:
 
     def load_function(self, BType, name):
         return FakeFunction(BType, name)
 
-class FakeFunction(object):
+class FakeFunction:
 
     def __init__(self, BType, name):
         self.BType = str(BType)

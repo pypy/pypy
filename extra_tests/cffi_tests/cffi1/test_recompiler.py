@@ -8,6 +8,10 @@ from extra_tests.cffi_tests.udir import udir
 from extra_tests.cffi_tests.support import u, long
 from extra_tests.cffi_tests.support import FdWriteCapture, StdErrCapture, _verify
 
+pytestmark = [
+    pytest.mark.thread_unsafe(reason="worker threads would share a compilation directory"),
+]
+
 try:
     import importlib
 except ImportError:
@@ -547,13 +551,13 @@ def test_module_name_in_package():
                          tmpdir=str(udir))
     old_sys_path = sys.path[:]
     try:
-        package_dir = udir.join('test_module_name_in_package')
-        for name in os.listdir(str(udir)):
-            assert not name.startswith('test_module_name_in_package.')
-        assert os.path.isdir(str(package_dir))
-        assert len(os.listdir(str(package_dir))) > 0
-        assert os.path.exists(str(package_dir.join('mymod.c')))
-        package_dir.join('__init__.py').write('')
+        package_dir = udir / 'test_module_name_in_package'
+        for item in udir.iterdir():
+            assert not item.name.startswith('test_module_name_in_package.')
+        assert package_dir.is_dir()
+        assert next(package_dir.iterdir())
+        assert (package_dir / 'mymod.c').is_file()
+        (package_dir / '__init__.py').touch()
         #
         getattr(importlib, 'invalidate_caches', object)()
         #
@@ -890,8 +894,7 @@ def test_unpack_args():
     e7 = pytest.raises(TypeError, lib.foo2, 45, 46, 47)
     def st1(s):
         s = str(s)
-        if s.startswith("_CFFI_test_unpack_args.Lib."):
-            s = s[len("_CFFI_test_unpack_args.Lib."):]
+        s = s.removeprefix("_CFFI_test_unpack_args.Lib.")
         return s
     assert st1(e1.value) == "foo0() takes no arguments (1 given)"
     assert st1(e2.value) == "foo0() takes no arguments (2 given)"
@@ -999,9 +1002,9 @@ def test_variable_of_unknown_size():
     assert ffi.string(ffi.cast("char *", p), 8) == b"hello"
 
 def test_constant_of_value_unknown_to_the_compiler():
-    extra_c_source = udir.join(
-        'extra_test_constant_of_value_unknown_to_the_compiler.c')
-    extra_c_source.write('const int external_foo = 42;\n')
+    extra_c_source = (
+        udir / 'extra_test_constant_of_value_unknown_to_the_compiler.c')
+    extra_c_source.write_text('const int external_foo = 42;\n')
     ffi = FFI()
     ffi.cdef("const int external_foo;")
     lib = verify(ffi, 'test_constant_of_value_unknown_to_the_compiler', """
@@ -1010,9 +1013,8 @@ def test_constant_of_value_unknown_to_the_compiler():
     assert lib.external_foo == 42
 
 def test_dotdot_in_source_file_names():
-    extra_c_source = udir.join(
-        'extra_test_dotdot_in_source_file_names.c')
-    extra_c_source.write('const int external_foo = 42;\n')
+    extra_c_source = udir / 'extra_test_dotdot_in_source_file_names.c'
+    extra_c_source.write_text('const int external_foo = 42;\n')
     ffi = FFI()
     ffi.cdef("const int external_foo;")
     lib = verify(ffi, 'test_dotdot_in_source_file_names', """
@@ -1239,8 +1241,7 @@ def test_macro_var_callback():
     #
     values = ffi.new("int[50]")
     def it():
-        for i in range(50):
-            yield i
+        yield from range(50)
     it = it()
     #
     @ffi.callback("int *(*)(void)")
@@ -2046,7 +2047,7 @@ def test_function_returns_partial_struct():
 
 def test_function_returns_float_complex():
     ffi = FFI()
-    ffi.cdef("float _Complex f1(float a, float b);");
+    ffi.cdef("float _Complex f1(float a, float b);")
     if sys.platform == 'win32':
         lib = verify(ffi, "test_function_returns_float_complex", """
             #include <complex.h>
@@ -2064,7 +2065,7 @@ def test_function_returns_float_complex():
 
 def test_function_returns_double_complex():
     ffi = FFI()
-    ffi.cdef("double _Complex f1(double a, double b);");
+    ffi.cdef("double _Complex f1(double a, double b);")
     if sys.platform == 'win32':
         lib = verify(ffi, "test_function_returns_double_complex", """
             #include <complex.h>
@@ -2084,7 +2085,7 @@ def test_cdef_using_windows_complex():
     if sys.platform != 'win32':
         pytest.skip("only for MSVC")
     ffi = FFI()
-    ffi.cdef("_Fcomplex f1(float a, float b); _Dcomplex f2(double a, double b);");
+    ffi.cdef("_Fcomplex f1(float a, float b); _Dcomplex f2(double a, double b);")
     lib = verify(ffi, "test_cdef_using_windows_complex", """
         #include <complex.h>
         static _Fcomplex f1(float a, float b) { return _FCbuild(a, 2.0f*b); }
@@ -2101,7 +2102,7 @@ def test_cdef_using_windows_complex():
 
 def test_function_argument_float_complex():
     ffi = FFI()
-    ffi.cdef("float f1(float _Complex x);");
+    ffi.cdef("float f1(float _Complex x);")
     if sys.platform == 'win32':
         lib = verify(ffi, "test_function_argument_float_complex", """
             #include <complex.h>
@@ -2118,7 +2119,7 @@ def test_function_argument_float_complex():
 
 def test_function_argument_double_complex():
     ffi = FFI()
-    ffi.cdef("double f1(double _Complex);");
+    ffi.cdef("double f1(double _Complex);")
     if sys.platform == 'win32':
         lib = verify(ffi, "test_function_argument_double_complex", """
             #include <complex.h>
@@ -2576,3 +2577,22 @@ def test_convert_api_mode_builtin_function_to_cdata():
     my_array_2 = ffi.new("void *[]", [lib.add1, lib.add2])
     assert ffi.cast("struct s(*)(struct s)", my_array_2[1])(s).x == 302
     assert ffi.typeof(lib.add1) == ffi.typeof("struct s(*)(struct s)")
+
+def test_large_enum():
+    ffi = FFI()
+    biglist = ['nn%d' % i for i in range(6000)]
+    ffi.cdef(
+        """enum foo_s { %s };""" % ','.join(biglist))
+    lib = verify(ffi, "test_large_enum", """
+        enum foo_s { %s };""" % ','.join(biglist))
+    assert lib.nn0 == 0
+    assert lib.nn1234 == 1234
+    assert lib.nn5999 == 5999
+    e = ffi.typeof("enum foo_s")
+    elements = {}
+    relements = {}
+    for i in range(6000):
+        elements[i] = biglist[i]
+        relements[biglist[i]] = i
+    assert e.elements == elements
+    assert e.relements == relements

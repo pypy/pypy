@@ -77,7 +77,8 @@ def str_decode_utf8(s):
                  ((ordch2 & 0x3F) << 12) +      # 0b00111111
                  ((ordch3 & 0x3F) << 6) +       # 0b00111111
                  (ordch4 & 0x3F))               # 0b00111111
-            if c <= runicode.MAXUNICODE:
+            from rpython.rtyper.lltypesystem import rffi
+            if rffi.sizeof(UniChar) == 4 or c <= 0xFFFF:
                 result.append(runicode.UNICHR(c))
             else:
                 # compute and append the two surrogates:

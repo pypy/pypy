@@ -31,6 +31,13 @@ class Darwin(posix.BasePosix):
               '-fomit-frame-pointer',
               # The parser turns 'const char *const *includes' into 'const const char **includes'
               '-Wno-duplicate-decl-specifier',
+              # RPY_VARLENGTH structs use a fake items[1] trailing array
+              # (see RPyItem/RPyField in support.h and the XXX in
+              # g_prerequisite.h) to stand in for a variable-length array;
+              # some toolchains/environments turn this -Warray-bounds into
+              # a hard error via -Werror.  Keep it a (non-fatal) warning
+              # until the flexible items[] rewrite happens.
+              '-Wno-error=array-bounds',
               DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'

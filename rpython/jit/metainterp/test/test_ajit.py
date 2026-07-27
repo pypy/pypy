@@ -4631,8 +4631,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
     def test_unichar_ord_is_never_signed_on_64bit(self):
         import sys
-        if sys.maxunicode == 0xffff:
-            py.test.skip("test for 32-bit unicodes")
+        # what matters here is the width of the C-level lltype.UniChar
+        # used by the JIT backend (i.e. the target's wchar_t), not
+        # sys.maxunicode of the *hosting* interpreter running this
+        # untranslated test: on Windows wchar_t is always 2 bytes
+        # (UTF-16), even when hosted by a "wide" build whose own
+        # sys.maxunicode is 0x10ffff.
+        if rffi.sizeof(lltype.UniChar) == 2:
+            py.test.skip("test for 16-bit unicodes (e.g. UTF-16 on Windows)")
         def f(x):
             return ord(rffi.cast(lltype.UniChar, x))
         res = self.interp_operations(f, [-1])

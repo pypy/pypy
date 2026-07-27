@@ -694,11 +694,13 @@ if _DARWIN and _ARM64:
         if nester.counter == 0:
             c_pthread_jit_write_protect_np(0)
         nester.counter += 1
+    enter_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
     def leave_assembler_writing():
         nester.counter -= 1
         if nester.counter == 0:
             c_pthread_jit_write_protect_np(1)
+    leave_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
 else:
     def enter_assembler_writing():
