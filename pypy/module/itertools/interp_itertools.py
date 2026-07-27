@@ -8,6 +8,11 @@ from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module.__builtin__.functional import W_Filter, build_iterators_from_args
 
+def _pickle_deprecation_warning(space):
+    space.warn(space.newtext(
+        "Pickle, copy, and deepcopy support will be "
+        "removed from itertools in Python 3.14."), space.w_DeprecationWarning)
+
 def W_Twoarg__new__(space, w_subtype, W_Base, name, __args__):
     args_w = __args__.arguments_w
     w_type = space.gettypeobject(W_Base.typedef)
@@ -56,6 +61,7 @@ class W_Count(W_Root):
 
     def reduce_w(self):
         space = self.space
+        _pickle_deprecation_warning(space)
         if self.single_argument():
             args_w = [self.w_c]
         else:
@@ -139,6 +145,7 @@ class W_Repeat(W_Root):
 
     def descr_reduce(self):
         space = self.space
+        _pickle_deprecation_warning(space)
         if self.counting:
             args_w = [self.w_obj, space.newint(self.count)]
         else:
@@ -199,6 +206,7 @@ class W_TakeWhile(W_Root):
         return w_obj
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.w_predicate, self.w_iterable]),
@@ -206,6 +214,7 @@ class W_TakeWhile(W_Root):
         ])
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         self.stopped = space.bool_w(w_state)
 
 def W_TakeWhile___new__(space, w_subtype, __args__):
@@ -259,6 +268,7 @@ class W_DropWhile(W_Root):
         return w_obj
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.w_predicate, self.w_iterable]),
@@ -266,6 +276,7 @@ class W_DropWhile(W_Root):
         ])
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         self.started = space.bool_w(w_state)
 
 def W_DropWhile___new__(space, w_subtype, __args__):
@@ -302,6 +313,7 @@ W_DropWhile.typedef = TypeDef(
 class W_FilterFalse(W_Filter):
     reverse = True
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         args_w = [space.w_None if self.w_predicate is None else self.w_predicate,
                   self.w_iterable]
         return space.newtuple([space.type(self), space.newtuple(args_w)])
@@ -441,6 +453,7 @@ class W_ISlice(W_Root):
             self.count += 1
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.iterable is None:
             return space.newtuple([
                 space.type(self),
@@ -463,6 +476,7 @@ class W_ISlice(W_Root):
         ])
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         self.count = rffi.cast(rffi.UNSIGNED, space.int_w(w_state))
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, __args__):
@@ -539,6 +553,7 @@ class W_Chain(W_Root):
                 pass # loop back to the start of _handle_error(e)
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.w_iterables is not None:
             if self.w_it is not None:
                 inner_contents = [self.w_iterables, self.w_it]
@@ -553,6 +568,7 @@ class W_Chain(W_Root):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         state = space.unpackiterable(w_state)
         num_args = len(state)
         if num_args < 1:
@@ -658,6 +674,7 @@ class W_ZipLongest(W_Root):
         return [self._fetch(index) for index in range(nb)]
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         result_w = [space.type(self)]
 
         if self.iterators_w is not None:
@@ -672,6 +689,7 @@ class W_ZipLongest(W_Root):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         self.w_fillvalue = w_state
 
     def iterator_greenkey(self, space):
@@ -756,6 +774,7 @@ class W_Cycle(W_Root):
         # reduces differently than CPython 3.5.  Unsure if it is a
         # problem.  To be on the safe side, keep three arguments for
         # __setstate__; CPython takes two.
+        _pickle_deprecation_warning(space)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.w_iterable]),
@@ -767,6 +786,7 @@ class W_Cycle(W_Root):
         ])
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         state_w = space.unpackiterable(w_state, 2)
         w_saved = state_w[0]
         self.saved_w = space.unpackiterable(w_saved)
@@ -821,6 +841,7 @@ class W_StarMap(W_Root):
         return self.space.call(self.w_fun, w_obj)
 
     def descr_reduce(self):
+        _pickle_deprecation_warning(self.space)
         return self.space.newtuple([self.space.gettypefor(W_StarMap),
                                     self.space.newtuple([
                                         self.w_fun,
@@ -912,6 +933,7 @@ class W_TeeChainedListNode(W_Root):
         self.running = False
 
     def reduce_w(self, space):
+        _pickle_deprecation_warning(space)
         list_w = []
         node = self
         while node is not None and node.w_obj is not None:
@@ -926,6 +948,7 @@ class W_TeeChainedListNode(W_Root):
             ])
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         state = space.unpackiterable(w_state)
         if len(state) != 1:
             raise oefmt(space.w_ValueError, "invalid arguments")
@@ -988,6 +1011,7 @@ class W_TeeIterable(W_Root):
         return tee_iter
 
     def reduce_w(self):
+        _pickle_deprecation_warning(self.space)
         return self.space.newtuple([self.space.gettypefor(W_TeeIterable),
                                     self.space.newtuple([self.space.newtuple([])]),
                                     self.space.newtuple([
@@ -995,6 +1019,7 @@ class W_TeeIterable(W_Root):
                                         self.w_chained_list])
                                     ])
     def setstate_w(self, w_state):
+        _pickle_deprecation_warning(self.space)
         state = self.space.unpackiterable(w_state)
         num_args = len(state)
         if num_args != 2:
@@ -1075,6 +1100,7 @@ class W_GroupBy(W_Root):
             self.w_currvalue = w_newvalue
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         items_w = [space.type(self),
                    space.newtuple([
                        self.w_iterator,
@@ -1090,6 +1116,7 @@ class W_GroupBy(W_Root):
         return space.newtuple(items_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         state = space.unpackiterable(w_state)
         num_args = len(state)
         if num_args != 3:
@@ -1164,6 +1191,7 @@ class W_GroupByIterator(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.groupby.w_currgrouper is not self:
             w_callable = space.builtin.get('iter')
             return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])
@@ -1208,6 +1236,7 @@ class W_Compress(W_Root):
                 return w_next_item
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         return space.newtuple([
             space.type(self),
             space.newtuple([self.w_data, self.w_selectors])
@@ -1311,6 +1340,7 @@ class W_Product(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if not self.stopped:
             gears = [space.newtuple(gear) for gear in self.gears]
             result_w = [
@@ -1328,6 +1358,7 @@ class W_Product(W_Root):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         gear_count = len(self.gears)
         indices_w = space.unpackiterable(w_state)
         lst = []
@@ -1456,6 +1487,7 @@ class W_Combinations(W_Root):
         return space.newtuple(result_w)
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.stopped:
             pool_w = []
         else:
@@ -1473,6 +1505,7 @@ class W_Combinations(W_Root):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
             raise oefmt(space.w_ValueError, "invalid arguments")
@@ -1525,6 +1558,7 @@ class W_CombinationsWithReplacement(W_Combinations):
         return self.indices[j - 1]
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.stopped:
             pool_w = []
         else:
@@ -1542,6 +1576,7 @@ class W_CombinationsWithReplacement(W_Combinations):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         indices_w = space.fixedview(w_state)
         if len(indices_w) != self.r:
             raise oefmt(space.w_ValueError, "invalid arguments")
@@ -1633,6 +1668,7 @@ class W_Permutations(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        _pickle_deprecation_warning(space)
         if self.raised_stop_iteration:
             pool_w = []
         else:
@@ -1655,6 +1691,7 @@ class W_Permutations(W_Root):
         return space.newtuple(result_w)
 
     def descr_setstate(self, space, w_state):
+        _pickle_deprecation_warning(space)
         state = space.unpackiterable(w_state)
         if len(state) == 3:
             w_indices, w_cycles, w_started = state
@@ -1741,6 +1778,7 @@ class W_Accumulate(W_Root):
 
     def reduce_w(self):
         space = self.space
+        _pickle_deprecation_warning(space)
         w_func = space.w_None if self.w_func is None else self.w_func
         if not space.is_w(self.w_initial, space.w_None):
             w_it = W_Chain(space, space.iter(space.newlist([
@@ -1763,6 +1801,7 @@ class W_Accumulate(W_Root):
                                space.newtuple([self.w_iterable, w_func]), w_total])
 
     def setstate_w(self, space, w_state):
+        _pickle_deprecation_warning(space)
         self.w_total = w_state if not space.is_w(w_state, space.w_None) else None
 
 @unwrap_spec(w_initial=WrappedDefault(None))
