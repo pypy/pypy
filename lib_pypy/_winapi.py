@@ -548,10 +548,10 @@ def NeedCurrentDirectoryForExePath(exe_name):
 def GetLongPathName(path):
     cchBuffer = _kernel32.GetLongPathNameW(_Z(path), _ffi.NULL, 0)
     if cchBuffer:
-        tempbuffer = _ffi.new("CHAR[]", cchBuffer)
-        cchBuffer = _kernel32.GetLongPathNameW(path), tempbuffer, cchBuffer)
+        buf = _ffi.new("wchar_t[]", cchBuffer)
+        cchBuffer = _kernel32.GetLongPathNameW(_Z(path), buf, cchBuffer)
         if cchBuffer:
-            return _ffi.string(cchBuffer)
+            return _ffi.string(buf)
     RaiseFromWindowsErr(0)
     
 # #define macros from WinBase.h and elsewhere
