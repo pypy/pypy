@@ -20,6 +20,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
+from pypy.interpreter.pymonitoring import fire2, fire3, PY_RETURN, PY_YIELD, PY_UNWIND
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -182,6 +183,8 @@ class __extend__(pyframe.PyFrame):
         if reraise_lasti >= 0:
             self.last_instr = reraise_lasti
         self.frame_finished_execution = True  # allows frame.clear() after propagation
+        fire3(self.space, PY_UNWIND, self.pycode, intmask(self.last_instr),
+              operr.get_w_value(self.space))
         if we_are_translated():
             raise operr
         else:
@@ -237,6 +240,8 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
+                fire3(ec.space, PY_RETURN, self.pycode, intmask(self.last_instr),
+                      self.peekvalue())
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
@@ -1252,6 +1257,8 @@ class __extend__(pyframe.PyFrame):
             w_value = self.popvalue()
             w_value = AsyncGenValueWrapper(w_value)
             self.pushvalue(w_value)
+        fire3(self.space, PY_YIELD, self.pycode, intmask(self.last_instr),
+              self.peekvalue())
         raise Yield
 
     def next_yield_from(self, w_yf, w_inputvalue_or_err):

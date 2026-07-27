@@ -10,13 +10,13 @@ _WIN = sys.platform == 'win32'
 class MonitoringModule(MixedModule):
     """Backing implementation for sys.monitoring (PEP 669)."""
 
-    appleveldefs = {
-        'DISABLE': 'app_monitoring.DISABLE',
-        'MISSING': 'app_monitoring.MISSING',
-        'events': 'app_monitoring.events',
-    }
+    appleveldefs = {}
 
     interpleveldefs = {
+        'DISABLE': 'interp_monitoring.w_disable(space)',
+        'MISSING': 'interp_monitoring.w_missing(space)',
+        'events': 'interp_monitoring.w_events(space)',
+
         'DEBUGGER_ID': 'space.newint(0)',
         'COVERAGE_ID': 'space.newint(1)',
         'PROFILER_ID': 'space.newint(2)',

@@ -86,14 +86,30 @@ def test_get_set_events():
         sys.monitoring.free_tool_id(3)
 
 
+def test_set_events_requires_tool_in_use():
+    E = sys.monitoring.events
+    raises(ValueError, sys.monitoring.set_events, 3, E.PY_START)
+    raises(ValueError, sys.monitoring.set_local_events, 3, test_set_events_requires_tool_in_use.__code__, 0)
+    sys.monitoring.use_tool_id(3, "test tool")
+    sys.monitoring.set_events(3, E.PY_START)
+    sys.monitoring.set_events(3, 0)
+    sys.monitoring.free_tool_id(3)
+    raises(ValueError, sys.monitoring.set_events, 3, E.PY_START)
+    assert sys.monitoring.get_events(3) == 0
+
+
 def test_set_events_c_return_independent():
     E = sys.monitoring.events
-    raises(ValueError, sys.monitoring.set_events, 3, E.C_RETURN)
-    raises(ValueError, sys.monitoring.set_events, 3, E.C_RAISE)
-    # allowed together with CALL, and C_RETURN/C_RAISE bits are dropped
-    sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
-    assert sys.monitoring.get_events(3) == E.CALL
-    sys.monitoring.set_events(3, 0)
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        raises(ValueError, sys.monitoring.set_events, 3, E.C_RETURN)
+        raises(ValueError, sys.monitoring.set_events, 3, E.C_RAISE)
+        # allowed together with CALL, and C_RETURN/C_RAISE bits are dropped
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+        assert sys.monitoring.get_events(3) == E.CALL
+        sys.monitoring.set_events(3, 0)
+    finally:
+        sys.monitoring.free_tool_id(3)
 
 
 def test_local_events():
@@ -118,6 +134,127 @@ def test_local_events_requires_code_object():
 
 def test_restart_events():
     sys.monitoring.restart_events()
+
+
+def test_fire_py_start_return():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_START, callback)
+        sys.monitoring.register_callback(3, E.PY_RETURN, callback)
+        sys.monitoring.set_events(3, E.PY_START | E.PY_RETURN)
+
+        def f():
+            return 42
+
+        events.clear()
+        assert f() == 42
+        assert len(events) == 2
+        assert events[0][0] is f.__code__
+        assert events[1][0] is f.__code__
+        assert events[1][2] == 42
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_py_yield_resume():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args[:2])
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_START, callback)
+        sys.monitoring.register_callback(3, E.PY_RESUME, callback)
+        sys.monitoring.register_callback(3, E.PY_YIELD, callback)
+        sys.monitoring.register_callback(3, E.PY_RETURN, callback)
+        sys.monitoring.set_events(3, E.PY_START | E.PY_RESUME | E.PY_YIELD | E.PY_RETURN)
+
+        def g():
+            yield 1
+            yield 2
+
+        events[:] = []
+        gen = g()
+        code = g.__code__
+        assert next(gen) == 1
+        assert next(gen) == 2
+        raises(StopIteration, next, gen)
+        sys.monitoring.set_events(3, 0)
+        g_events = [ev for ev in events if ev[0] is code]
+        assert len(g_events) == 6  # start, yield, resume, yield, resume, return
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_py_unwind():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_UNWIND, callback)
+        sys.monitoring.set_events(3, E.PY_UNWIND)
+
+        def f():
+            raise ValueError("boom")
+
+        events[:] = []
+        raises(ValueError, f)
+        assert len(events) == 1
+        assert events[0][0] is f.__code__
+        assert isinstance(events[0][2], ValueError)
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_py_throw():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_THROW, callback)
+        sys.monitoring.set_events(3, E.PY_THROW)
+
+        def g():
+            try:
+                yield 1
+            except ValueError:
+                yield 2
+
+        events[:] = []
+        gen = g()
+        next(gen)
+        assert gen.throw(ValueError) == 2
+        assert len(events) == 1
+        assert events[0][0] is g.__code__
+        assert isinstance(events[0][2], ValueError)
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_no_events_when_not_registered():
+    def f():
+        return 1
+    f()  # should not raise/crash even with monitoring untouched
 
 
 def test_all_events():
