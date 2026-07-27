@@ -1,32 +1,71 @@
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.pycode import PyCode
-
-NUM_TOOLS = 6
-NUM_EVENTS = 17
-LOCAL_EVENTS = 10
-UNGROUPED_EVENTS = 15
-
-EVENT_NAMES = [
-    "PY_START", "PY_RESUME", "PY_RETURN", "PY_YIELD", "CALL", "LINE",
-    "INSTRUCTION", "JUMP", "BRANCH", "STOP_ITERATION", "RAISE",
-    "EXCEPTION_HANDLED", "PY_UNWIND", "PY_THROW", "RERAISE",
-    "C_RETURN", "C_RAISE",
-]
-
-CALL = 4
-C_RETURN = 15
-C_RAISE = 16
-C_RETURN_EVENTS = (1 << C_RETURN) | (1 << C_RAISE)
-C_CALL_EVENTS = C_RETURN_EVENTS | (1 << CALL)
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.pymonitoring import (
+    MonitoringState, NUM_TOOLS, NUM_EVENTS, LOCAL_EVENTS, UNGROUPED_EVENTS,
+    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS)
 
 
-class MonitoringState(object):
+class W_MonitoringSentinel(W_Root):
+    def __init__(self, name):
+        self.name = name
+
+    def descr_repr(self, space):
+        return space.newtext("<%s>" % self.name)
+
+
+W_MonitoringSentinel.typedef = TypeDef("sys.monitoring.sentinel",
+    __repr__=interp2app(W_MonitoringSentinel.descr_repr),
+)
+
+
+class W_EventsNamespace(W_Root):
+    def __init__(self):
+        self.NO_EVENTS = 0
+        self.PY_START = 1 << 0
+        self.PY_RESUME = 1 << 1
+        self.PY_RETURN = 1 << 2
+        self.PY_YIELD = 1 << 3
+        self.CALL = 1 << 4
+        self.LINE = 1 << 5
+        self.INSTRUCTION = 1 << 6
+        self.JUMP = 1 << 7
+        self.BRANCH = 1 << 8
+        self.STOP_ITERATION = 1 << 9
+        self.RAISE = 1 << 10
+        self.EXCEPTION_HANDLED = 1 << 11
+        self.PY_UNWIND = 1 << 12
+        self.PY_THROW = 1 << 13
+        self.RERAISE = 1 << 14
+        self.C_RETURN = 1 << 15
+        self.C_RAISE = 1 << 16
+
+
+W_EventsNamespace.typedef = TypeDef("sys.monitoring.events", **{
+    name: interp_attrproperty(name, W_EventsNamespace, wrapfn="newint")
+    for name in EVENT_NAMES + ["NO_EVENTS"]
+})
+
+
+class Singletons(object):
     def __init__(self, space):
-        self.tool_names = [None] * NUM_TOOLS
-        self.callbacks = [None] * (NUM_TOOLS * NUM_EVENTS)
-        self.global_events = [0] * NUM_TOOLS
-        self.local_events = {}   # PyCode -> [event_set per tool]
+        self.w_disable = W_MonitoringSentinel("DISABLE")
+        self.w_missing = W_MonitoringSentinel("MISSING")
+        self.w_events = W_EventsNamespace()
+
+
+def w_disable(space):
+    return space.fromcache(Singletons).w_disable
+
+
+def w_missing(space):
+    return space.fromcache(Singletons).w_missing
+
+
+def w_events(space):
+    return space.fromcache(Singletons).w_events
 
 
 def _popcount(x):
@@ -49,6 +88,12 @@ def check_valid_tool(space, tool_id):
     if tool_id < 0 or tool_id >= NUM_TOOLS:
         raise oefmt(space.w_ValueError,
             "invalid tool %d (must be between 0 and 5)", tool_id)
+
+
+def check_tool_in_use(space, tool_id):
+    state = space.fromcache(MonitoringState)
+    if state.tool_names[tool_id] is None:
+        raise oefmt(space.w_ValueError, "tool %d is not in use", tool_id)
 
 
 def _get_code(space, w_code):
@@ -116,16 +161,17 @@ def get_events(space, tool_id):
 def set_events(space, tool_id, event_set):
     check_valid_tool(space, tool_id)
     if event_set < 0 or event_set >= (1 << NUM_EVENTS):
-        raise oefmt(space.w_ValueError, "invalid event set 0x%x", event_set)
+        raise oefmt(space.w_ValueError, "invalid event set %s", hex(event_set))
     if (event_set & C_RETURN_EVENTS) and (event_set & C_CALL_EVENTS) != C_CALL_EVENTS:
         raise oefmt(space.w_ValueError,
             "cannot set C_RETURN or C_RAISE events independently")
     event_set &= ~C_RETURN_EVENTS
+    check_tool_in_use(space, tool_id)
     state = space.fromcache(MonitoringState)
     state.global_events[tool_id] = event_set
-    # Phase 1 (scaffolding): bookkeeping only. Wiring this into the
-    # interpreter's dispatch loop so events actually fire is later
-    # phases -- see sys.monitoring.md.
+    state.recompute_any_events()
+    # Local (per-code) events and DISABLE/JUMP/BRANCH/LINE/INSTRUCTION
+    # instrumentation are later phases -- see sys.monitoring.md.
 
 
 @unwrap_spec(tool_id=int)
@@ -148,19 +194,20 @@ def set_local_events(space, tool_id, w_code, event_set):
             "cannot set C_RETURN or C_RAISE events independently")
     event_set &= ~C_RETURN_EVENTS
     if event_set < 0 or event_set >= (1 << LOCAL_EVENTS):
-        raise oefmt(space.w_ValueError, "invalid local event set 0x%x", event_set)
+        raise oefmt(space.w_ValueError, "invalid local event set %s", hex(event_set))
+    check_tool_in_use(space, tool_id)
     state = space.fromcache(MonitoringState)
     per_tool = state.local_events.get(code, None)
     if per_tool is None:
         per_tool = [0] * NUM_TOOLS
         state.local_events[code] = per_tool
     per_tool[tool_id] = event_set
-    # Phase 1 (scaffolding): bookkeeping only, see set_events above.
+    # Bookkeeping only for now, see set_events above.
 
 
 def restart_events(space):
-    # Phase 1 (scaffolding): no live per-instruction instrumentation
-    # exists yet, so there is nothing to re-arm.
+    # No live per-instruction instrumentation exists yet (see
+    # set_local_events above), so there is nothing to re-arm.
     pass
 
 
