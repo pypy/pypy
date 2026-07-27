@@ -1,3 +1,4 @@
+from test import support
 import collections.abc
 import copy
 import pickle
@@ -7,6 +8,7 @@ from test.support import C_RECURSION_LIMIT
 
 class DictSetTest(unittest.TestCase):
 
+    @support.cpython_only
     def test_constructors_not_callable(self):
         kt = type({}.keys())
         self.assertRaises(TypeError, kt, {})
@@ -278,6 +280,7 @@ class DictSetTest(unittest.TestCase):
         # Again.
         self.assertIsInstance(r, str)
 
+    @support.cpython_only
     def test_deeply_nested_repr(self):
         d = {}
         for i in range(C_RECURSION_LIMIT//2 + 100):

@@ -271,7 +271,8 @@ class CompressorDecompressorTestCase(unittest.TestCase):
         lzd = LZMADecompressor()
         self.assertRaises(LZMAError, lzd.decompress, COMPRESSED_RAW_1)
         # Previously, a second call could crash due to internal inconsistency
-        self.assertRaises(LZMAError, lzd.decompress, COMPRESSED_RAW_1)
+        # PyPy raises a MemoryError
+        self.assertRaises((LZMAError, MemoryError), lzd.decompress, COMPRESSED_RAW_1)
 
     # Test that LZMACompressor->LZMADecompressor preserves the input data.
 

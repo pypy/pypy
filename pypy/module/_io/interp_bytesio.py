@@ -195,6 +195,7 @@ class W_BytesIO(W_BufferedIOBase):
         self._check_closed(space)
 
     def close_w(self, space):
+        self._check_exports(space)
         self.close()
 
     def needs_finalizer(self):

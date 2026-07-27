@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from test.support import cpython_only
 from test.support.import_helper import import_module
 
 termios = import_module('termios')
@@ -55,6 +56,7 @@ class TestFunctions(unittest.TestCase):
         termios.tcsetattr(self.fd, termios.TCSAFLUSH, attrs)
         termios.tcsetattr(self.stream, termios.TCSANOW, attrs)
 
+    @cpython_only
     def test_tcsetattr_errors(self):
         attrs = termios.tcgetattr(self.fd)
         self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, tuple(attrs))
