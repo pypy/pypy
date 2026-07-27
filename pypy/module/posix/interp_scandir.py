@@ -439,6 +439,14 @@ class W_DirEntry(W_Root):
         """return True if the entry is a symbolic link; cached per entry"""
         return space.newbool(self.is_symlink())
 
+    def descr_is_junction(self, space):
+        """Return True if the entry is a junction; cached per entry."""
+        if _WIN32:
+            IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+            return space.newbool(self.get_lstat().st_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT)
+        else:
+            return space.newbool(0)
+
     @unwrap_spec(follow_symlinks=bool)
     def descr_stat(self, space, __kwonly__, follow_symlinks=True):
         """return stat_result object for the entry; cached per entry"""
@@ -478,6 +486,7 @@ W_DirEntry.typedef = TypeDef(
     is_dir = interp2app(W_DirEntry.descr_is_dir),
     is_file = interp2app(W_DirEntry.descr_is_file),
     is_symlink = interp2app(W_DirEntry.descr_is_symlink),
+    is_junction = interp2app(W_DirEntry.descr_is_junction),
     stat = interp2app(W_DirEntry.descr_stat),
     inode = interp2app(W_DirEntry.descr_inode),
     __class_getitem__ = interp2app(

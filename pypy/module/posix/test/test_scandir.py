@@ -126,6 +126,7 @@ class AppTestScandir(object):
         assert not d.is_file()
         assert     d.is_dir()
         assert not d.is_symlink()
+        assert not d.is_junction()
         assert not d.is_file(follow_symlinks=False)
         assert     d.is_dir(follow_symlinks=False)
 
