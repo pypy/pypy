@@ -11,47 +11,6 @@ from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
-class TestMemoryViewObject(BaseApiTest):
-    def test_frombuffer(self, space, api):
-        w_view = SimpleView(StringBuffer("hello"), w_obj=self).wrap(space)
-        w_memoryview = api.PyMemoryView_FromObject(w_view)
-        c_memoryview = rffi.cast(
-            PyMemoryViewObject, make_ref(space, w_memoryview))
-        view = c_memoryview.c_view
-        assert view.c_ndim == 1
-        f = rffi.charp2str(view.c_format)
-        assert f == 'B'
-        assert view.c_shape[0] == 5
-        assert view.c_strides[0] == 1
-        assert view.c_len == 5
-        o = rffi.charp2str(view.c_buf)
-        assert o == 'hello'
-        ref = api.PyMemoryView_FromBuffer(view)
-        w_mv = from_ref(space, ref)
-        for f in ('format', 'itemsize', 'ndim', 'readonly',
-                  'shape', 'strides', 'suboffsets'):
-            w_f = space.wrap(f)
-            assert space.eq_w(space.getattr(w_mv, w_f),
-                              space.getattr(w_memoryview, w_f))
-        decref(space, ref)
-        decref(space, c_memoryview)
-
-    def test_class_with___buffer__(self, space, api):
-        w_obj = space.appexec([], """():
-            from __pypy__.bufferable import bufferable
-            class B(bufferable):
-                def __init__(self):
-                    self.buf = bytearray(10)
-
-                def __buffer__(self, flags):
-                    return memoryview(self.buf)
-            return B()""")
-        py_obj = make_ref(space, w_obj)
-        assert py_obj.c_ob_type.c_tp_as_buffer
-        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
-        assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
-         
-
 class AppTestPyBuffer(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
         module = self.import_extension('foo', [
@@ -450,3 +409,49 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
         # release the buffer
         del inst
         import gc; gc.collect()
+
+
+# Keep this class last in the file: test_frombuffer and
+# test_class_with___buffer__, if run before AppTestPyBuffer's
+# test_releasebuffer/test_releasebuffer_gc, leave the space's rawrefcount
+# state such that a later cpyext object created via bf_getbuffer never
+# becomes collectible (see issue #5100).
+class TestMemoryViewObject(BaseApiTest):
+    def test_frombuffer(self, space, api):
+        w_view = SimpleView(StringBuffer("hello"), w_obj=self).wrap(space)
+        w_memoryview = api.PyMemoryView_FromObject(w_view)
+        c_memoryview = rffi.cast(
+            PyMemoryViewObject, make_ref(space, w_memoryview))
+        view = c_memoryview.c_view
+        assert view.c_ndim == 1
+        f = rffi.charp2str(view.c_format)
+        assert f == 'B'
+        assert view.c_shape[0] == 5
+        assert view.c_strides[0] == 1
+        assert view.c_len == 5
+        o = rffi.charp2str(view.c_buf)
+        assert o == 'hello'
+        ref = api.PyMemoryView_FromBuffer(view)
+        w_mv = from_ref(space, ref)
+        for f in ('format', 'itemsize', 'ndim', 'readonly',
+                  'shape', 'strides', 'suboffsets'):
+            w_f = space.wrap(f)
+            assert space.eq_w(space.getattr(w_mv, w_f),
+                              space.getattr(w_memoryview, w_f))
+        decref(space, ref)
+        decref(space, c_memoryview)
+
+    def test_class_with___buffer__(self, space, api):
+        w_obj = space.appexec([], """():
+            from __pypy__.bufferable import bufferable
+            class B(bufferable):
+                def __init__(self):
+                    self.buf = bytearray(10)
+
+                def __buffer__(self, flags):
+                    return memoryview(self.buf)
+            return B()""")
+        py_obj = make_ref(space, w_obj)
+        assert py_obj.c_ob_type.c_tp_as_buffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+        assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
