@@ -1364,6 +1364,11 @@ class RecursiveTests:
         # code in llinterp and pyjitpl are already jitted. therefore we run the
         # function in a subprocess.
         import subprocess, sys, os
+        if hasattr(sys, 'pypy_version_info'):
+            py.test.skip("crashes obscurely when the host interpreter "
+                          "running this test is PyPy itself, because the "
+                          "llinterp is being pushed even closer to the C "
+                          "stack limit than on CPython")
         env = os.environ.copy()
         env["PYTHONPATH"] = os.pathsep.join(sys.path)
         subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
