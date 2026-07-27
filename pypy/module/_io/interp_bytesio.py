@@ -191,6 +191,9 @@ class W_BytesIO(W_BufferedIOBase):
         self._check_closed(space)
         return space.w_True
 
+    def flush_w(self, space):
+        self._check_closed(space)
+
     def close_w(self, space):
         self.close()
 
@@ -245,6 +248,7 @@ W_BytesIO.typedef = TypeDef(
     readable = interp2app(W_BytesIO.readable_w),
     writable = interp2app(W_BytesIO.writable_w),
     seekable = interp2app(W_BytesIO.seekable_w),
+    flush = interp2app(W_BytesIO.flush_w),
     close = interp2app(W_BytesIO.close_w),
     closed = GetSetProperty(W_BytesIO.closed_get_w),
     __getstate__ = interp2app(W_BytesIO.getstate_w),
