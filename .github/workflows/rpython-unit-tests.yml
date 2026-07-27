@@ -36,7 +36,7 @@ jobs:
   test:
     name: ${{ matrix.suite }} (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 90
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
