@@ -1,3 +1,4 @@
+import sys
 import py
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.llsupport.regalloc import Lifetime, LifetimeManager
@@ -10,6 +11,9 @@ from rpython.jit.backend.x86.test.test_assembler import \
 from rpython.jit.metainterp.test import test_zvector
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.detect_cpu import getcpuclass
+
+if sys.platform == 'win32':
+    py.test.skip("takes over 20 minutes on Windows")
 
 class TestBasic(test_basic.Jit386Mixin, test_zvector.VectorizeTests):
     # for the individual tests see
