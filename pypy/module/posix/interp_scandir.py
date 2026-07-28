@@ -445,7 +445,7 @@ class W_DirEntry(W_Root):
             IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
             return space.newbool(self.get_lstat().st_reparse_tag == IO_REPARSE_TAG_MOUNT_POINT)
         else:
-            return space.newbool(0)
+            return space.newbool(False)
 
     @unwrap_spec(follow_symlinks=bool)
     def descr_stat(self, space, __kwonly__, follow_symlinks=True):
