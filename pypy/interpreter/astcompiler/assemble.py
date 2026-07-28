@@ -688,7 +688,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                     continue
                 encode_single_position(table, instr.position_info, self.first_lineno)
                 for extra in range((instr.size() - 2) // 2):
-                    encode_single_position(table, UNKNOWN_POSITION, self.first_lineno)
+                    encode_single_position(table, instr.position_info, self.first_lineno)
         return table.build()
 
     def _build_code(self, blocks, size):
@@ -744,14 +744,18 @@ class PythonCodeMaker(ast.ASTVisitor):
         # CPython equivalent: guarantee_lineno_for_exits (compile.c).
         # After propagate_line_numbers, any block ending in RETURN_VALUE whose
         # last instruction is still UNSET gets the running lineno assigned to
-        # all its UNSET instructions.
+        # all its UNSET instructions.  Likewise for JUMP_ABSOLUTE: backward
+        # jumps must carry a line number for tracing (CPython gh-107901); a
+        # loop back-jump can remain unset when its block has several
+        # predecessors.
         lineno = self.first_lineno
         for block in blocks:
             if not block.instructions:
                 continue
             last = block.instructions[-1]
             if last.position_info[0] < 0:
-                if last.opcode == ops.RETURN_VALUE:
+                if last.opcode == ops.RETURN_VALUE or \
+                        last.opcode == ops.JUMP_ABSOLUTE:
                     for instr in block.instructions:
                         if instr.position_info[0] < 0:
                             instr.position_info = (lineno,
@@ -1553,6 +1557,7 @@ _static_opcode_stack_effects = {
     ops.DELETE_NAME: 0,
 
     ops.LOAD_FAST: 1,
+    ops.LOAD_FAST_AND_CLEAR: 1,
     ops.STORE_FAST: -1,
     ops.DELETE_FAST: 0,
 

@@ -395,6 +395,8 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_CLASSDEREF(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_FAST.index:
                 self.LOAD_FAST(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_FAST_AND_CLEAR.index:
+                self.LOAD_FAST_AND_CLEAR(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_GLOBAL.index:
                 self.LOAD_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_NAME.index:
@@ -553,13 +555,21 @@ class __extend__(pyframe.PyFrame):
                     "local variable '%s' referenced before assignment",
                     varname)
 
+    def LOAD_FAST_AND_CLEAR(self, varindex, next_instr):
+        # push the local (or None if unbound) and clear it; used to isolate
+        # comprehension-bound locals when a comprehension is inlined.
+        w_value = self.locals_cells_stack_w[varindex]
+        self.locals_cells_stack_w[varindex] = None
+        self.pushvalue_maybe_none(w_value)
+
     def LOAD_CONST(self, constindex, next_instr):
         w_const = self.getconstant_w(constindex)
         self.pushvalue(w_const)
 
     def STORE_FAST(self, varindex, next_instr):
-        w_newvalue = self.popvalue()
-        assert w_newvalue is not None
+        # popvalue_maybe_none: the value may be None (unbound) when restoring a
+        # saved comprehension local via the STORE_FAST_MAYBE_NULL pseudo-op.
+        w_newvalue = self.popvalue_maybe_none()
         self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
@@ -1908,10 +1918,12 @@ class __extend__(pyframe.PyFrame):
         # CPython 3.11 SWAP i: swap TOS with the i-th item from the top (1-indexed).
         # SWAP 2 = ROT_TWO.
         assert oparg >= 2
-        w_top = self.peekvalue(0)
-        w_i = self.peekvalue(oparg - 1)
-        self.settopvalue(w_i, 0)
-        self.settopvalue(w_top, oparg - 1)
+        # _maybe_none: a stack slot may hold None (an unbound local saved by
+        # LOAD_FAST_AND_CLEAR) while an inlined comprehension is running.
+        w_top = self.peekvalue_maybe_none(0)
+        w_i = self.peekvalue_maybe_none(oparg - 1)
+        self.settopvalue_maybe_none(w_i, 0)
+        self.settopvalue_maybe_none(w_top, oparg - 1)
 
     def CHECK_EG_MATCH(self, oparg, next_instr):
         space = self.space

@@ -130,6 +130,7 @@ class __extend__(ast.GeneratorExp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op(ops.YIELD_VALUE)
         codegen.emit_op(ops.POP_TOP)
 
@@ -155,6 +156,7 @@ class __extend__(ast.ListComp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op_arg(ops.LIST_APPEND, index + 1)
 
 
@@ -169,6 +171,7 @@ class __extend__(ast.SetComp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op_arg(ops.SET_ADD, index + 1)
 
 
@@ -184,6 +187,10 @@ class __extend__(ast.DictComp):
     def accept_comp_iteration(self, codegen, index):
         self.key.walkabout(codegen)
         self.value.walkabout(codegen)
+        # start of the key through end of the value, like CPython
+        codegen.update_position((self.key.lineno, self.value.end_lineno,
+                                 self.key.col_offset,
+                                 self.value.end_col_offset))
         codegen.emit_op_arg(ops.MAP_ADD, index + 1)
 
 
@@ -255,6 +262,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
+        # PEP 709: names forced to fast locals while compiling an inlined
+        # comprehension in a non-function scope (CPython's u_fasthidden)
+        self.fasthidden = {}
         self.qualname = qualname
         self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
@@ -403,6 +413,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         """Generate an operation appropriate for the scope of the identifier."""
         # node is used only for the possible syntax error
         self.check_forbidden_name(identifier, node, ctx)
+
+        if self.fasthidden.get(identifier, False):
+            self.emit_op_arg(name_ops_fast(ctx),
+                             self.add_name(self.var_names, identifier))
+            return
 
         scope = self.scope.lookup(identifier)
         op = ops.NOP
@@ -2246,16 +2261,113 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self._emit_async_for_handler(b_except, b_reraise, b_end)
 
+    def _restore_inlined_comp_locals(self, indices):
+        # stack: [saved_rotated..., tos] where tos is the result (normal path)
+        # or the exception (cleanup path); rotate tos below the saved values
+        # and store them back in reverse order, as in CPython's
+        # restore_inlined_comprehension_locals
+        n = len(indices)
+        if n == 0:      # e.g. "for () in it": nothing was saved
+            return
+        self.emit_op_arg(ops.SWAP, n + 1)
+        i = n - 1
+        while i >= 0:
+            self.emit_op_arg(ops.STORE_FAST, indices[i])
+            i -= 1
+
+    def _compile_inlined_comprehension(self, node, comp_scope):
+        # PEP 709: emit the comprehension body directly in this scope.  The
+        # names bound by the comprehension are isolated from the enclosing
+        # scope by saving+clearing them (LOAD_FAST_AND_CLEAR) and restoring
+        # them after, also on exception, matching CPython.  The saved values
+        # live at the bottom of the region and do not affect the loop's
+        # stack layout.
+        self.update_position(node)
+        saved_depth = self._stack_depth
+        first = node.get_generators()[0]
+        assert isinstance(first, ast.comprehension)
+        first.iter.walkabout(self)
+        if first.is_async:
+            self.emit_op(ops.GET_AITER)
+        else:
+            self.emit_op(ops.GET_ITER)
+        indices = []
+        bound_names = comp_scope.inlined_bound_names
+        assert bound_names is not None   # set when comp_inlined was set
+        # a name that resolves to anything but a plain fast local outside the
+        # comprehension (module dict, global, cell made by a sibling closure,
+        # closure) gets a fast-hidden slot while compiling the body
+        # (CPython's temp-symbols swap / u_fasthidden)
+        hidden_names = []
+        for name in bound_names:
+            index = self.add_name(self.var_names, name)
+            self.emit_op_arg(ops.LOAD_FAST_AND_CLEAR, index)
+            indices.append(index)
+            if not self.scope.can_be_optimized or \
+                    self.scope.lookup(name) != symtable.SCOPE_LOCAL:
+                hidden_names.append(name)
+        for name in hidden_names:
+            self.fasthidden[name] = True
+        n = len(indices)
+        # stack: [iter, saved1..savedN]; rotate the iterator back to the top
+        # (this leaves the saved values rotated, undone on restore)
+        if n:
+            self.emit_op_arg(ops.SWAP, n + 1)
+        # protect build+loop so that on exception the saved locals are
+        # restored before reraising
+        cleanup = self.new_block()
+        end = self.new_block()
+        self.emit_jump(_SETUP_FINALLY, cleanup)
+        if isinstance(node, ast.ListComp):
+            if len(node.get_generators()) == 1 and not first.ifs:
+                # preallocate via __length_hint__; [.., iter] -> [.., list, iter]
+                self.emit_op(ops.BUILD_LIST_FROM_ARG)
+            else:
+                self.emit_op_arg(ops.BUILD_LIST, 0)
+                self.emit_op_arg(ops.SWAP, 2)
+        elif isinstance(node, ast.SetComp):
+            self.emit_op_arg(ops.BUILD_SET, 0)
+            self.emit_op_arg(ops.SWAP, 2)
+        else:
+            assert isinstance(node, ast.DictComp)
+            self.emit_op_arg(ops.BUILD_MAP, 0)
+            self.emit_op_arg(ops.SWAP, 2)
+        # stack: [saved..., result, iter]
+        self._comp_generator(node, node.get_generators())
+        # like visit_For: FOR_ITER exhaustion popped the iterator, the linear
+        # counter is stale here; stack is [saved..., result]
+        self._stack_depth = saved_depth + n + 1
+        self.no_position_info()
+        self.emit_op(_POP_BLOCK)
+        self.emit_jump_noline(ops.JUMP_FORWARD, end)
+        # cleanup: [saved..., result, exc]; drop the incomplete result,
+        # restore the saved locals, reraise
+        self.use_next_block(cleanup)
+        self.emit_op_arg(ops.SWAP, 2)
+        self.emit_op(ops.POP_TOP)
+        self.update_position(node)
+        self._restore_inlined_comp_locals(indices)
+        self.emit_op_arg(ops.RERAISE, 0)
+        # end: [saved..., result]
+        self.use_next_block(end)
+        self._stack_depth = saved_depth + n + 1
+        self._restore_inlined_comp_locals(indices)
+        for name in hidden_names:
+            self.fasthidden[name] = False
+
     def _compile_comprehension(self, node, name, sub_scope):
-        is_async_function = self.scope.is_coroutine
-        code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
-        is_async_comprehension = self.symbols.find_scope(node).is_coroutine
+        comp_scope = self.symbols.find_scope(node)
+        is_async_comprehension = comp_scope.is_coroutine
         if is_async_comprehension and not self._check_async_function():
             if (not isinstance(node, ast.GeneratorExp) and
                     not isinstance(self.scope, symtable.AsyncFunctionScope) and
                     not isinstance(self.scope, symtable.ComprehensionScope)):
                 self.error("asynchronous comprehension outside of "
                            "an asynchronous function", node)
+        if comp_scope.comp_inlined:
+            self._compile_inlined_comprehension(node, comp_scope)
+            return
+        code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
 
         self.update_position(node)
         self._make_function(code, qualname=qualname)

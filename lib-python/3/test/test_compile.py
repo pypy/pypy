@@ -1127,9 +1127,11 @@ class TestSpecifics(unittest.TestCase):
                 if y:
                     pass
 
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
         linenos = list(inst.positions.lineno
                        for inst in dis.get_instructions(f.__code__)
-                       if inst.opname == 'JUMP_BACKWARD')
+                       if inst.opname == jump_opname)
 
         self.assertTrue(len(linenos) > 0)
         self.assertTrue(all(l is not None for l in linenos))
@@ -1454,7 +1456,8 @@ class TestSourcePositions(unittest.TestCase):
         #  The "error msg":
         self.assertOpcodeSourcePositionIs(compiled_code, 'LOAD_CONST',
             line=3, end_line=3, column=19, end_column=30, occurrence=4)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'CALL',
+        call_opcode = 'CALL_FUNCTION' if sys.implementation.name == 'pypy' else 'CALL'
+        self.assertOpcodeSourcePositionIs(compiled_code, call_opcode,
             line=1, end_line=3, column=0, end_column=30, occurrence=1)
         self.assertOpcodeSourcePositionIs(compiled_code, 'RAISE_VARARGS',
             line=1, end_line=3, column=8, end_column=16, occurrence=1)
@@ -1473,10 +1476,18 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
-            line=1, end_line=2, column=1, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
-            line=4, end_line=4, column=7, end_column=14, occurrence=1)
+        if sys.implementation.name == 'pypy':
+            # PyPy: JUMP_ABSOLUTE, and the implicit return is LOAD_CONST +
+            # RETURN_VALUE spanning the whole genexp
+            self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_ABSOLUTE',
+                line=1, end_line=2, column=1, end_column=8, occurrence=1)
+            self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_VALUE',
+                line=1, end_line=6, column=0, end_column=32, occurrence=1)
+        else:
+            self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+                line=1, end_line=2, column=1, end_column=8, occurrence=1)
+            self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
+                line=4, end_line=4, column=7, end_column=14, occurrence=1)
 
     def test_multiline_async_generator_expression(self):
         snippet = textwrap.dedent("""\
@@ -1490,10 +1501,18 @@ class TestSourcePositions(unittest.TestCase):
         compiled_code, _ = self.check_positions_against_ast(snippet)
         compiled_code = compiled_code.co_consts[0]
         self.assertIsInstance(compiled_code, types.CodeType)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
-            line=1, end_line=2, column=1, end_column=8, occurrence=2)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
-            line=1, end_line=6, column=0, end_column=32, occurrence=1)
+        if sys.implementation.name == 'pypy':
+            # PyPy awaits with YIELD_FROM, so the elt yield is the only
+            # YIELD_VALUE; the implicit return carries the elt position
+            self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
+                line=1, end_line=2, column=1, end_column=8, occurrence=1)
+            self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_VALUE',
+                line=1, end_line=2, column=1, end_column=8, occurrence=1)
+        else:
+            self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
+                line=1, end_line=2, column=1, end_column=8, occurrence=2)
+            self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
+                line=1, end_line=6, column=0, end_column=32, occurrence=1)
 
     def test_multiline_list_comprehension(self):
         snippet = textwrap.dedent("""\
@@ -1508,7 +1527,9 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'LIST_APPEND',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
 
     def test_multiline_async_list_comprehension(self):
@@ -1528,9 +1549,13 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'LIST_APPEND',
             line=2, end_line=3, column=5, end_column=12, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=2, end_line=3, column=5, end_column=12, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
+        return_opname = ('RETURN_VALUE' if sys.implementation.name == 'pypy'
+                         else 'RETURN_CONST')
+        self.assertOpcodeSourcePositionIs(compiled_code, return_opname,
             line=2, end_line=7, column=4, end_column=36, occurrence=1)
 
     def test_multiline_set_comprehension(self):
@@ -1546,7 +1571,9 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'SET_ADD',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
 
     def test_multiline_async_set_comprehension(self):
@@ -1566,9 +1593,13 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'SET_ADD',
             line=2, end_line=3, column=5, end_column=12, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=2, end_line=3, column=5, end_column=12, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
+        return_opname = ('RETURN_VALUE' if sys.implementation.name == 'pypy'
+                         else 'RETURN_CONST')
+        self.assertOpcodeSourcePositionIs(compiled_code, return_opname,
             line=2, end_line=7, column=4, end_column=36, occurrence=1)
 
     def test_multiline_dict_comprehension(self):
@@ -1584,7 +1615,9 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'MAP_ADD',
             line=1, end_line=2, column=1, end_column=7, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=1, end_line=2, column=1, end_column=7, occurrence=1)
 
     def test_multiline_async_dict_comprehension(self):
@@ -1604,9 +1637,13 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'MAP_ADD',
             line=2, end_line=3, column=5, end_column=11, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        jump_opname = ('JUMP_ABSOLUTE' if sys.implementation.name == 'pypy'
+                       else 'JUMP_BACKWARD')
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=2, end_line=3, column=5, end_column=11, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
+        return_opname = ('RETURN_VALUE' if sys.implementation.name == 'pypy'
+                         else 'RETURN_CONST')
+        self.assertOpcodeSourcePositionIs(compiled_code, return_opname,
             line=2, end_line=7, column=4, end_column=36, occurrence=1)
 
     def test_matchcase_sequence(self):
