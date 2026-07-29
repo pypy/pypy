@@ -42,7 +42,12 @@
 #define PYPYSIG_USE_SEND        0x02
 #define PYPYSIG_NO_WARN_FULL    0x04
 
-struct pypysig_long_struct pypysig_counter = {
+#ifdef _WIN32
+DEBUG_SECTION(pypysig, struct pypysig_long_struct pypysig_counter)
+#else
+struct pypysig_long_struct pypysig_counter
+#endif
+= {
     { 0L, },
     "pypysigs",
     0L,
