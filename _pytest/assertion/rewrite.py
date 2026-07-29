@@ -561,7 +561,12 @@ class AssertionRewriter(ast.NodeVisitor):
         # Now actually insert the special imports.
         if sys.version_info >= (3, 10):
             aliases = [
-                ast.alias("builtins", "@py_builtins", lineno=lineno, col_offset=0),
+                ast.alias(
+                    py.builtin.builtins.__name__,
+                    "@py_builtins",
+                    lineno=lineno,
+                    col_offset=0,
+                ),
                 ast.alias(
                     "_pytest.assertion.rewrite",
                     "@pytest_ar",
@@ -571,7 +576,7 @@ class AssertionRewriter(ast.NodeVisitor):
             ]
         else:
             aliases = [
-                ast.alias("builtins", "@py_builtins"),
+                ast.alias(py.builtin.builtins.__name__, "@py_builtins"),
                 ast.alias("_pytest.assertion.rewrite", "@pytest_ar"),
             ]
         imports = [
