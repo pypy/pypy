@@ -62,7 +62,12 @@ class LLAssertFailure(Exception):
 
 
 def type_name(etype):
-    return ''.join(etype.name.chars)
+    if not etype:
+        return '<unknown, null pointer>'
+    try:
+        return ''.join(etype.name.chars)
+    except AttributeError:
+        return '<unknown, %r>' % (etype,)
 
 class LLInterpreter(object):
     """ low level interpreter working with concrete values. """
