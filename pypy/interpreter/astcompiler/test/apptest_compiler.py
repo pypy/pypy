@@ -94,3 +94,19 @@ def or_with_implicit_return():
          or
          h)""", function=True)
     assert got == [2, 3, 5, 2]
+
+
+def test_exception_table_after_early_return_block():
+    values = {}
+
+    def f(obj):
+        try:
+            if ((getattr(obj, "a", None) and
+                    getattr(obj, "b", None)) or
+                    getattr(obj, "c", None)):
+                return 0.1
+            return values[None]
+        except KeyError:
+            return 1.0
+
+    assert f(object()) == 1.0

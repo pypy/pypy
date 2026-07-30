@@ -895,10 +895,13 @@ class PythonCodeMaker(ast.ASTVisitor):
                         block_entry_stack[target] = stk[:]
                         worklist.append(target)
 
-            # Propagate to fallthrough successor.
-            # Match CPython's label_exception_targets, which always follows
-            # b_next unconditionally.
-            if b.next_block is not None and b.next_block not in block_entry_stack:
+            # Propagate to the fallthrough successor only when control can
+            # actually reach it.  In particular, a return block may have a
+            # next_block merely because it precedes another block in the
+            # assembler's linear order.  Propagating through that dead edge
+            # can overwrite the handler state of the real jump edge.
+            if (not b.cant_add_instructions and b.next_block is not None and
+                    b.next_block not in block_entry_stack):
                 block_entry_stack[b.next_block] = stk
                 worklist.append(b.next_block)
 
