@@ -3255,6 +3255,21 @@ class BasicTests:
         res = self.interp_operations(f, [127 - 256 * 29])
         assert res == 127
 
+    def test_getarrayitem_raw_of_gc_pointers_is_refused(self):
+        # there is no getarrayitem_raw_r anywhere: no bhimpl_, no opimpl_, and
+        # resoperation.py spells the operation 'GETARRAYITEM_RAW/2d/fi'.  The
+        # codewriter has to say so itself, instead of emitting the opcode and
+        # letting the blackhole interpreter fail to find a handler for it.
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = rffi.CArray(lltype.Ptr(S))
+        def f(n):
+            a = lltype.malloc(A, 5, flavor='raw', zero=True)
+            res = 1 if a[n] else 0
+            lltype.free(a, flavor='raw')
+            return res
+        e = py.test.raises(Exception, self.interp_operations, f, [0])
+        assert 'getarrayitem_raw_r not supported' in str(e.value)
+
     def test_bug_inline_short_preamble_can_be_inconsistent_in_optimizeopt(self):
         myjitdriver = JitDriver(greens = [], reds = "auto")
         class Str(object):
