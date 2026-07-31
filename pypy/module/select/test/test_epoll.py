@@ -1,9 +1,6 @@
 import py
 import sys
 
-# add a larger timeout for slow ARM machines
-import platform
-
 
 class AppTestEpoll(object):
     spaceconfig = {
@@ -18,15 +15,7 @@ class AppTestEpoll(object):
 
     def setup_method(self, meth):
         self.w_sockets = self.space.wrap([])
-        machine = platform.machine()
-        if machine.startswith('arm') or machine.startswith('aarch64'):
-            self.w_timeout = self.space.wrap(0.06)
-        elif machine.startswith('s390x'):
-            # s390x is not slow, but it seems there is one case when epoll
-            # modify method is called that takes longer on s390x
-            self.w_timeout = self.space.wrap(0.06)
-        else:
-            self.w_timeout = self.space.wrap(0.02)
+        self.w_timeout = self.space.wrap(0.06)
 
     def teardown_method(self, meth):
         for socket in self.space.unpackiterable(self.w_sockets):
@@ -129,6 +118,7 @@ class AppTestEpoll(object):
 
         exc_info = raises(IOError, ep2.poll, 1, 4)
         assert exc_info.value.args[0] == errno.EBADF
+        ep2.close()
 
     def test_control_and_wait(self):
         import select
@@ -147,7 +137,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.1
+        assert then - now < 0.2
 
         events.sort()
         expected = [

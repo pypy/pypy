@@ -102,3 +102,19 @@ def test_compile_ast_object_pep695_type_alias():
     for src in ("type X = int\n", "type Stack[T] = list[T]\n"):
         tree = compile(src, "<test>", "exec", PyCF_ONLY_AST)
         compile(tree, "<test>", "exec")
+
+
+def test_exception_table_after_early_return_block():
+    values = {}
+
+    def f(obj):
+        try:
+            if ((getattr(obj, "a", None) and
+                    getattr(obj, "b", None)) or
+                    getattr(obj, "c", None)):
+                return 0.1
+            return values[None]
+        except KeyError:
+            return 1.0
+
+    assert f(object()) == 1.0
