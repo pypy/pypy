@@ -1118,6 +1118,21 @@ class W_UnicodeObject(W_Root):
         start_index, end_index = self._unwrap_and_compute_idx_params(
             space, w_start, w_end)
         sub = self.convert_arg_to_w_unicode(space, w_sub)._utf8
+        if len(sub) == 0:
+            # The empty string matches between code points, so the result is a
+            # number of code points.  start_index and end_index are byte
+            # offsets, and counting the matches in that domain would answer the
+            # width of the encoded form instead.  end_index can be one past the
+            # end, which is how an out of range start is signalled; clip it the
+            # way the search below would.
+            if end_index > len(value):
+                end_index = len(value)
+            if start_index > end_index:
+                return space.newint(0)
+            if start_index == 0 and end_index == len(value):
+                return space.newint(self._len() + 1)
+            return space.newint(
+                self._codepoints_in_utf8(start_index, end_index) + 1)
         return space.newint(value.count(sub, start_index, end_index))
 
     def descr_contains(self, space, w_sub):
