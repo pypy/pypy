@@ -10,6 +10,23 @@ def test_f_locals():
     f = sys._getframe()
     assert f.f_locals is locals()
 
+
+def test_module_comprehension_variable_in_locals():
+    namespace = {}
+    exec("result = [locals()['x'] for x in [1]]", namespace)
+    assert namespace["result"] == [1]
+
+
+def test_module_comprehension_variable_in_frame_locals():
+    namespace = {}
+    exec(
+        "import sys\n"
+        "result = [sys._getframe().f_locals['x'] for x in [1]]",
+        namespace,
+    )
+    assert namespace["result"] == [1]
+
+
 def test_f_globals():
     import sys
     f = sys._getframe()
@@ -1032,6 +1049,7 @@ def test_line_tracing_bug_exception_yieldfrom():
         pass
     finally:
         sys.settrace(None)
+
     assert tr == [
         ('call', 0), ('line', 1),
             ('call', -3), ('line', -2), ('line', -1),
@@ -1429,4 +1447,3 @@ def test_locals2fast_del_cell_var():
             f()
     finally:
         sys.settrace(None)
-

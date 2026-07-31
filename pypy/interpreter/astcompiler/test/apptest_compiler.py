@@ -138,3 +138,25 @@ def test_backward_jump_has_lineno():
                if ins.opname == 'JUMP_ABSOLUTE']
     assert len(linenos) > 0
     assert all(l is not None for l in linenos)
+
+
+def test_inlined_comprehension_private_name_reuse():
+    x = 3
+
+    def f():
+        [x for x in [1]]
+        return [x for _ in [1]]
+
+    assert f() == [3]
+
+
+def test_inlined_comprehension_iterator_position():
+    import dis
+
+    code = compile("[x for x in BrokenIter()]", "<test>", "exec")
+    get_iter = [ins for ins in dis.get_instructions(code)
+                if ins.opname == "GET_ITER"][0]
+    position = get_iter.positions
+    assert (position.lineno, position.end_lineno,
+            position.col_offset, position.end_col_offset) == \
+           (1, 1, 12, 24)
