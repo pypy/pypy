@@ -119,8 +119,8 @@ class CallControl(object):
             if self.jitdriver_sd_from_portal_runner_ptr(funcptr) is not None:
                 return 'recursive'
             funcobj = funcptr._obj
-            assert (funcobj is not rposix._get_errno and
-                    funcobj is not rposix._set_errno), (
+            assert (funcobj is not rposix._get_errno._obj and
+                    funcobj is not rposix._set_errno._obj), (
                 "the JIT must never come close to _get_errno() or _set_errno();"
                 " it should all be done at a lower level")
             if getattr(funcobj, 'graph', None) is None:
