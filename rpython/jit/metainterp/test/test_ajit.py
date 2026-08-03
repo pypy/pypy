@@ -938,6 +938,36 @@ class BasicTests:
         res = self.interp_operations(f, [3, 2])
         assert res == 6
 
+    def test_ovf_reraise_caught_again_in_the_same_function(self):
+        # catching it a second time needs a class check on the exception, so
+        # generate_last_exc() emits last_exception/last_exc_value reads right
+        # after int_mul_jump_if_ovf -- which jumps without ever writing those
+        # slots.  Whether the first handler does any work is irrelevant.
+        def f(x, y):
+            try:
+                try:
+                    return ovfcheck(x * y)
+                except OverflowError:
+                    raise
+            except OverflowError:
+                return 3
+
+        def g(x, y):
+            try:
+                try:
+                    return ovfcheck(x * y)
+                except OverflowError:
+                    x += 1
+                    raise
+            except OverflowError:
+                return 3
+
+        for fn in [f, g]:
+            res = self.interp_operations(fn, [sys.maxint, 2])
+            assert res == 3
+            res = self.interp_operations(fn, [3, 2])
+            assert res == 6
+
     def test_int_sub_ovf(self):
         def f(x, y):
             try:
