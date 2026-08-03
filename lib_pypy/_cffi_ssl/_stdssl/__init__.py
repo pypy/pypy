@@ -6,6 +6,7 @@ import _thread
 import threading
 import warnings
 import weakref
+import warnings
 import __pypy__
 
 try:
@@ -1592,8 +1593,12 @@ class _SSLContext(object):
         try:
             store = lib.SSL_CTX_get_cert_store(self.ctx)
             loaded = 0
+            was_bio_eof = False
             while True:
                 if ca_file_type == lib.SSL_FILETYPE_ASN1:
+                    if lib.BIO_ctrl(biobuf, lib.BIO_CTRL_EOF, 0, ffi.NULL):
+                        was_bio_eof = True
+                        break
                     cert = lib.d2i_X509_bio(biobuf, ffi.NULL)
                 else:
                     cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL,
@@ -1624,10 +1629,7 @@ class _SSLContext(object):
                 else:
                     msg = "not enough data: cadata does not contain a certificate";
                 raise ssl_error(msg)
-            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
-                loaded > 0 and
-                lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
-                lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
+            elif ca_file_type == lib.SSL_FILETYPE_ASN1 and was_bio_eof:
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
