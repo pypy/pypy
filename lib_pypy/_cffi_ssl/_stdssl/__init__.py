@@ -3,6 +3,7 @@ import os
 import time
 import thread as _thread
 import weakref
+import warnings
 import __pypy__
 
 try:
@@ -991,16 +992,21 @@ class _SSLContext(object):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
+            warnings.warn("ssl.PROTOCOL_TLSv1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
+            warnings.warn("ssl.PROTOCOL_TLSv1_1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
+            warnings.warn("ssl.PROTOCOL_TLSv1_2 is deprecated", DeprecationWarning)
             method = lib.TLSv1_2_method()
         elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
+            warnings.warn("ssl.PROTOCOL_SSLv3 is deprecated", DeprecationWarning)
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
+            warnings.warn("ssl.PROTOCOL_TLS is deprecated", DeprecationWarning)
             method = lib.TLS_method()
         else:
             raise ValueError("invalid protocol version")
@@ -1366,8 +1372,12 @@ class _SSLContext(object):
         try:
             store = lib.SSL_CTX_get_cert_store(self.ctx)
             loaded = 0
+            was_bio_eof = False
             while True:
                 if ca_file_type == lib.SSL_FILETYPE_ASN1:
+                    if lib.BIO_ctrl(biobuf, lib.BIO_CTRL_EOF, 0, ffi.NULL):
+                        was_bio_eof = True
+                        break
                     cert = lib.d2i_X509_bio(biobuf, ffi.NULL)
                 else:
                     cert = lib.PEM_read_bio_X509(biobuf, ffi.NULL,
@@ -1398,9 +1408,7 @@ class _SSLContext(object):
                 else:
                     msg = "not enough data: cadata does not contain a certificate"
                 raise ssl_error(msg)
-            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
-                lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
-                lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
+            elif ca_file_type == lib.SSL_FILETYPE_ASN1 and was_bio_eof:
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
