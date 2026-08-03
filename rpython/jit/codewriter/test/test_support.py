@@ -144,6 +144,34 @@ def test_int_abs():
     assert _ll_1_int_abs(-10) == 10
     assert _ll_1_int_abs(-sys.maxint) == sys.maxint
 
+def test_list_getitem_calls_ll_getitem(monkeypatch):
+    # rlist.ll_getitem() is ll_getitem(func, basegetitem, l, index), so the
+    # wrapper has to pass four arguments or the list is bound to
+    # 'basegetitem' and the index is dropped
+    from rpython.rtyper import rlist
+    from rpython.jit.codewriter import support
+    seen = []
+    def fake_ll_getitem(func, basegetitem, l, index):
+        seen.append((func, basegetitem, l, index))
+        return 'the item'
+    monkeypatch.setattr(rlist, 'll_getitem', fake_ll_getitem)
+    assert support._ll_2_list_getitem('the list', 7) == 'the item'
+    assert seen == [(rlist.dum_checkidx, rlist.ll_getitem_fast,
+                     'the list', 7)]
+
+def test_list_getitem_foldable_calls_the_foldable_getter(monkeypatch):
+    # 'list.getitem_foldable' must not reach the mutable ll_getitem_fast
+    from rpython.rtyper import rlist
+    from rpython.jit.codewriter import support
+    seen = []
+    def fake_ll_getitem(func, basegetitem, l, index):
+        seen.append((func, basegetitem, l, index))
+        return 'the item'
+    monkeypatch.setattr(rlist, 'll_getitem', fake_ll_getitem)
+    assert support._ll_2_list_getitem_foldable('the list', 7) == 'the item'
+    assert seen == [(rlist.dum_checkidx, rlist.ll_getitem_foldable_nonneg,
+                     'the list', 7)]
+
 def test_int_floordiv_mod():
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.jit.codewriter.support import _ll_2_int_floordiv, _ll_2_int_mod

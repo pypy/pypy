@@ -106,3 +106,15 @@ def test_allow_nan_false_message():
         exc = raises(ValueError, lambda: ''.join(enc([val], 0)))
         assert str(exc.value) == (
             'Out of range float values are not JSON compliant: ' + r)
+
+
+def test_encode_del_before_multibyte_char():
+    # https://github.com/pypy/pypy/issues/5547
+    # '\x7f' (DEL) is a single UTF-8 byte and must not be treated as the
+    # start of a multi-byte sequence when copying raw bytes.
+    enc = _make_encoder(ensure_ascii=False)
+    u = u'\x7f\U000625eb'
+    result = ''.join(enc([u], 0))
+    assert result == u'["' + u + u'"]'
+    # the result must itself be valid utf-8
+    result.encode('utf-8')

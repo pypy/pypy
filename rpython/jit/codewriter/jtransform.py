@@ -760,9 +760,9 @@ class Transformer(object):
         if op.args[0] in self.vable_array_vars:     # for virtualizables
             vars = self.vable_array_vars[op.args[0]]
             (v_base, arrayfielddescr, arraydescr) = vars
-            kind = getkind(op.result.concretetype)
+            kind = getkind(op.result.concretetype)[0]
             return [SpaceOperation('-live-', [], None),
-                    SpaceOperation('getarrayitem_vable_%s' % kind[0],
+                    SpaceOperation('getarrayitem_vable_%s' % kind,
                                    [v_base, op.args[1], arrayfielddescr,
                                     arraydescr], op.result)]
         # normal case follows
@@ -771,7 +771,7 @@ class Transformer(object):
         if immut:
             pure = '_pure'
         arraydescr = self.cpu.arraydescrof(ARRAY)
-        kind = getkind(op.result.concretetype)
+        kind = getkind(op.result.concretetype)[0]
         if ARRAY._gckind != 'gc':
             assert ARRAY._gckind == 'raw'
             if kind == 'r':
@@ -779,7 +779,7 @@ class Transformer(object):
             pure = ''   # always redetected from pyjitpl.py: we don't need
                         # a '_pure' version of getarrayitem_raw
         return SpaceOperation('getarrayitem_%s_%s%s' % (ARRAY._gckind,
-                                                        kind[0], pure),
+                                                        kind, pure),
                               [op.args[0], op.args[1], arraydescr],
                               op.result)
 

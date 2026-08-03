@@ -1419,6 +1419,36 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
     tr = Transformer(None, None)
     py.test.raises(NotImplementedError, tr.rewrite_operation, op)
 
+def _rewrite_getarrayitem_raw(ITEM):
+    A = rffi.CArray(ITEM)
+    assert A._gckind == 'raw'
+    op = SpaceOperation('getarrayitem',
+                        [varoftype(lltype.Ptr(A)),
+                         Constant(0, lltype.Signed)],
+                        varoftype(ITEM))
+    tr = Transformer(FakeCPU(), None)
+    tr.vable_array_vars = {}
+    return tr.rewrite_operation(op)
+
+def test_getarrayitem_raw_of_gc_pointers_is_rejected():
+    # neither blackhole.py nor pyjitpl.py has a getarrayitem_raw_r, so this
+    # has to be refused right here instead of surfacing much later
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    e = py.test.raises(Exception, _rewrite_getarrayitem_raw, lltype.Ptr(S))
+    assert 'getarrayitem_raw_r not supported' in str(e.value)
+
+def test_getarrayitem_raw_of_everything_else_is_accepted():
+    # only a GC pointer gets kind 'r'; the item's width is irrelevant, and
+    # a pointer to a raw struct is an 'i' too.  These are the kinds that do
+    # have a bhimpl_, so the guard above must not widen to them
+    RAW = lltype.Struct('RAW', ('x', lltype.Signed))
+    for ITEM, expected in [(rffi.UCHAR, 'getarrayitem_raw_i'),
+                           (rffi.SHORT, 'getarrayitem_raw_i'),
+                           (lltype.Signed, 'getarrayitem_raw_i'),
+                           (lltype.Float, 'getarrayitem_raw_f'),
+                           (lltype.Ptr(RAW), 'getarrayitem_raw_i')]:
+        assert _rewrite_getarrayitem_raw(ITEM).opname == expected
+
 def test_no_fixedsizearray():
     A = lltype.FixedSizeArray(lltype.Signed, 5)
     v_x = varoftype(lltype.Ptr(A))

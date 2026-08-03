@@ -105,12 +105,24 @@ class RVMProfSamplingTest(RVMProfTest):
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
         rvmprof.enable(fd, self.SAMPLING_INTERVAL, memory=memory)
         start = time.time()
+        cpu_start = os.times()
         res = 0
         while time.time() < start+delta_t:
             res = self.main(code, value)
+        cpu_end = os.times()
         rvmprof.disable()
         os.close(fd)
+        cpu_usec = int((cpu_end[0] + cpu_end[1] -
+                         cpu_start[0] - cpu_start[1]) * 1000000.0)
+        cpu_fd = os.open(self.tmpfilename + '.cpu',
+                          os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
+        os.write(cpu_fd, str(cpu_usec))
+        os.close(cpu_fd)
         return res
+
+    def get_cpu_time(self):
+        with open(self.tmpfilename + '.cpu') as f:
+            return int(f.read()) / 1000000.0
 
     def approx_equal(self, a, b, tolerance=0.15):
         max_diff = (a+b)/2.0 * tolerance
@@ -133,11 +145,12 @@ class TestEnable(RVMProfSamplingTest):
         self.tmpfile.remove()
         #
         assert self.rpy_entry_point(10**4, 0.5, 0) == 99990000
+        cpu_time = self.get_cpu_time()
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
         assert tree.name == 'py:code:52:test_enable'
-        assert self.approx_equal(tree.count, 0.5/self.SAMPLING_INTERVAL)
+        assert self.approx_equal(tree.count, cpu_time/self.SAMPLING_INTERVAL)
 
     def test_mem(self):
         from vmprof import read_profile

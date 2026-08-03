@@ -76,7 +76,7 @@ def _append_str_unicode(sb, u):
     """Append a JSON-encoded string (with quotes) preserving non-ASCII chars."""
     sb.append('"')
     for c, pos in Utf8StringPosIterator(u):
-        if c <= ord('~'):
+        if c < 0x80:
             if c == ord('"') or c == ord('\\'):
                 sb.append('\\')
             elif c < ord(' '):

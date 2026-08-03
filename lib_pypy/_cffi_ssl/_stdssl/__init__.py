@@ -6,6 +6,7 @@ import _thread
 import threading
 import warnings
 import weakref
+import warnings
 import __pypy__
 
 try:

@@ -198,7 +198,8 @@ _ll_1_newlist_hint.need_result_type = True
 def _ll_1_list_len(l):
     return l.ll_length()
 def _ll_2_list_getitem(l, index):
-    return rlist.ll_getitem(rlist.dum_checkidx, l, index)
+    return rlist.ll_getitem(rlist.dum_checkidx, rlist.ll_getitem_fast,
+                            l, index)
 def _ll_3_list_setitem(l, index, newitem):
     rlist.ll_setitem(rlist.dum_checkidx, l, index, newitem)
 def _ll_2_list_delitem(l, index):
@@ -213,7 +214,9 @@ _ll_2_list_delslice_startonly = rlist.ll_listdelslice_startonly
 _ll_3_list_delslice_startstop = rlist.ll_listdelslice_startstop
 _ll_2_list_inplace_mul = rlist.ll_inplace_mul
 
-_ll_2_list_getitem_foldable = _ll_2_list_getitem
+def _ll_2_list_getitem_foldable(l, index):
+    return rlist.ll_getitem(rlist.dum_checkidx,
+                            rlist.ll_getitem_foldable_nonneg, l, index)
 _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
