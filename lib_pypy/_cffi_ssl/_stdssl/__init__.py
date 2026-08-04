@@ -3,7 +3,6 @@ import os
 import time
 import thread as _thread
 import weakref
-import warnings
 import __pypy__
 
 try:
@@ -992,21 +991,16 @@ class _SSLContext(object):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
         if protocol == PROTOCOL_TLSv1:
-            warnings.warn("ssl.PROTOCOL_TLSv1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
-            warnings.warn("ssl.PROTOCOL_TLSv1_1 is deprecated", DeprecationWarning)
             method = lib.TLSv1_1_method()
         elif lib.Cryptography_HAS_TLSv1_2 and protocol == PROTOCOL_TLSv1_2 :
-            warnings.warn("ssl.PROTOCOL_TLSv1_2 is deprecated", DeprecationWarning)
             method = lib.TLSv1_2_method()
         elif SSLv3_method_ok and protocol == PROTOCOL_SSLv3:
-            warnings.warn("ssl.PROTOCOL_SSLv3 is deprecated", DeprecationWarning)
             method = lib.SSLv3_method()
         elif lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
             method = lib.SSLv2_method()
         elif protocol == PROTOCOL_SSLv23:
-            warnings.warn("ssl.PROTOCOL_TLS is deprecated", DeprecationWarning)
             method = lib.TLS_method()
         else:
             raise ValueError("invalid protocol version")
