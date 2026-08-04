@@ -202,7 +202,8 @@ def test_issue1655(dll):
         def sz_array_p(obj, func, args):
             assert ('.LP_c_int object' in repr(obj) or
                     '.LP_c_long object' in repr(obj))
-            assert repr(args) =="(b'testing!', c_int(4))"
+            assert repr(args) in ("(b'testing!', c_int(4))",
+                                   "(b'testing!', c_long(4))")
             assert args[icount].value == 4
             return [obj[i] for i in range(args[icount].value)]
         return sz_array_p
