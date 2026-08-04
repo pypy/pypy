@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 import site
+import warnings
 
 from test.support import captured_stdout, requires_subprocess
 
@@ -182,6 +183,15 @@ class InstallTestCase(support.TempdirManager,
         cmd.prefix = None
         cmd.user = 'user'
         self.assertRaises(DistutilsOptionError, cmd.finalize_options)
+
+    def test_finalize_options_does_not_use_deprecated_check_home(self):
+        dist = Distribution({'name': 'xx'})
+        cmd = install(dist)
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', message='check_home argument is deprecated')
+            cmd.ensure_finalized()
 
     def test_record(self):
         install_dir = self.mkdtemp()
