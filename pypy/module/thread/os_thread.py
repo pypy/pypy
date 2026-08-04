@@ -187,7 +187,7 @@ printed unless the exception is SystemExit."""
             raise
     except rthread.error:
         raise wrap_thread_error(space, "can't start new thread")
-    return space.newint(ident)
+    return space.newint_from_size_t(ident)
 
 
 def get_ident(space):
