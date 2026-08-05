@@ -247,16 +247,16 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         module = self.import_extension('disruptor', [
                 ("surprise", "METH_VARARGS",
                  """
-                 long tid;
+                 unsigned long tid;
                  PyObject *exc;
-                 if (!PyArg_ParseTuple(args, "lO", &tid, &exc))
+                 if (!PyArg_ParseTuple(args, "kO", &tid, &exc))
                      return NULL;
                  return PyLong_FromLong(PyThreadState_SetAsyncExc(tid, exc));
                  """),
                 ("nosurprise", "METH_VARARGS",
                  """
-                 long tid;
-                 if (!PyArg_ParseTuple(args, "l", &tid))
+                 unsigned long tid;
+                 if (!PyArg_ParseTuple(args, "k", &tid))
                      return NULL;
                  return PyLong_FromLong(PyThreadState_SetAsyncExc(tid, NULL));
                  """),

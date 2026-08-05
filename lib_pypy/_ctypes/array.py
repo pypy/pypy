@@ -182,9 +182,9 @@ def array_slice_setitem(self, index, value):
         (step > 0 and start >= stop)):
         slicelength = 0
     elif step < 0:
-        slicelength = (stop - start + 1) / step + 1
+        slicelength = (stop - start + 1) // step + 1
     else:
-        slicelength = (stop - start - 1) / step + 1;
+        slicelength = (stop - start - 1) // step + 1
 
     if slicelength != len(value):
         raise ValueError("Can only assign slices of the same length")
