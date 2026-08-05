@@ -3241,6 +3241,20 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_force_cast_to_bool(self):
+        # a cast to Bool has to normalize to 0/1 whatever the source is, and
+        # Bool is itself (size 1, unsigned), so the byte types are the ones
+        # whose range it covers and for which the cast can look like a no-op
+        def f(n):
+            return int(rffi.cast(lltype.Bool, rffi.cast(rffi.UCHAR, n)))
+        def g(n):
+            return int(rffi.cast(lltype.Bool, rffi.cast(rffi.SIGNEDCHAR, n)))
+        for fn in [f, g]:
+            assert self.interp_operations(fn, [0]) == 0
+            assert self.interp_operations(fn, [1]) == 1
+            assert self.interp_operations(fn, [2]) == 1
+            assert self.interp_operations(fn, [200]) == 1
+
     def test_int_signext(self):
         def f(n):
             return rffi.cast(rffi.SIGNEDCHAR, n)
