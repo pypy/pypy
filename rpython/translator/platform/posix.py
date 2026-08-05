@@ -110,6 +110,9 @@ class BasePosix(Platform):
             # the following may fail on non-JIT builds
             from rpython.jit.backend import detect_cpu
             model = detect_cpu.autodetect()
+            # translate the JIT backend model name to the corresponding
+            # Debian/glibc multiarch triplet arch component
+            model = {'x86': 'i386', 'x86-without-sse2': 'i386'}.get(model, model)
             ret = model.replace('-', '_') + '-linux-gnu'
         if not ret:
             raise ValueError("cannot detect multiarch value on this platform")
