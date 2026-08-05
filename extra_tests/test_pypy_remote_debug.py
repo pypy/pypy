@@ -122,7 +122,7 @@ sys.stdin.readline()
          code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     pid = out.pid
     file, base_addr = _pypy_remote_debug._find_file_and_base_addr(pid)
-    assert file == sys.executable or 'libpypy' in file
+    assert file == os.path.realpath(sys.executable) or 'libpypy' in file
     out.stdin.write(b'1\n')
     out.stdin.flush()
     out.wait()
