@@ -152,6 +152,14 @@ def test_guess_call_kind_and_calls_from_graphs():
     assert res is None
     assert cc.guess_call_kind(op) == 'residual'
 
+def test_guess_call_kind_refuses_the_errno_helpers():
+    # the helpers arrive as a _ptr, and guess_call_kind holds their ._obj
+    from rpython.rlib import rposix
+    cc = CallControl()
+    for funcptr in [rposix._get_errno, rposix._set_errno]:
+        op = SpaceOperation('direct_call', [Constant(funcptr)], Variable())
+        py.test.raises(AssertionError, cc.guess_call_kind, op)
+
 # ____________________________________________________________
 
 def test_get_jitcode(monkeypatch):
