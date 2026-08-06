@@ -1316,6 +1316,7 @@ class StressTest(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(signal, "setitimer"),
                          "test needs setitimer()")
+    @unittest.skipIf(sys.maxsize < 2**32, "too slow on 32-bit")
     def test_stress_delivery_simultaneous(self):
         """
         This test uses simultaneous signal handlers.

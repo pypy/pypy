@@ -22,6 +22,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR, Py_TPFLAGS_IMMUTABLETYPE,
+    Py_TPFLAGS_HAVE_GC,
     PyObject, PyVarObject,
     )
 
@@ -952,7 +953,15 @@ def inherit_slots(space, pto, w_base):
             pto.c_tp_init = base.c_tp_init
         if not pto.c_tp_alloc:
             pto.c_tp_alloc = base.c_tp_alloc
-        # XXX check for correct GC flags!
+        # Py_TPFLAGS_HAVE_GC is inherited together with tp_traverse and
+        # tp_clear, only if the subtype defines neither of them.
+        if (not widen(pto.c_tp_flags) & Py_TPFLAGS_HAVE_GC and
+                widen(base.c_tp_flags) & Py_TPFLAGS_HAVE_GC and
+                not pto.c_tp_traverse and not pto.c_tp_clear):
+            pto.c_tp_flags = rffi.cast(rffi.ULONG,
+                                        widen(pto.c_tp_flags) | Py_TPFLAGS_HAVE_GC)
+            pto.c_tp_traverse = base.c_tp_traverse
+            pto.c_tp_clear = base.c_tp_clear
         if not pto.c_tp_free:
             pto.c_tp_free = base.c_tp_free
         if not pto.c_tp_setattro:

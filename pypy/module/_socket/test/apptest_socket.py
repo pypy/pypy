@@ -900,13 +900,15 @@ def test_create_qipcrtr():
     import _socket
     if not hasattr(_socket, 'AF_QIPCRTR'):
         pytest.skip('No AF_QIPCRTR on this platform')
+    sock = None
     try:
         sock = _socket.socket(_socket.AF_QIPCRTR, _socket.SOCK_DGRAM)
         assert sock.getsockname()[1] == 0
         sock.bind((sock.getsockname()[0], 0))
         assert sock.getsockname()[1] != 0
     finally:
-        sock.close()
+        if sock is not None:
+            sock.close()
 
 
 def _alg_skip_if_unavailable():

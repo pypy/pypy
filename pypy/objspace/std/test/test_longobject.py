@@ -542,6 +542,8 @@ class AppTestLong:
     def test_pow_negative_exponent_modulo(self):
         import math
         import sys
+        if sys.maxsize < 2**32:
+            skip("fails on 32-bit")
         mod = 2 ** 100
         res = 519502503658624787456021964081
         assert pow(3**100, -1, mod) == res

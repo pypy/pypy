@@ -1534,6 +1534,9 @@ class AppTestPosix:
 
     def test_urandom_large(self):
         os = self.posix
+        import sys
+        if sys.maxsize < 2**32:
+            skip("2GB allocation is too large for 32-bit")
         length = 2147479553
         s = os.urandom(length)
         assert len(s) == length

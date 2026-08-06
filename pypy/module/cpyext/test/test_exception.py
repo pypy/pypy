@@ -68,3 +68,75 @@ class AppTestExceptions(AppTestCpythonExtensionBase):
         excinfo = raises(TypeError, module.raise_exc)
         assert excinfo.value.__context__
 
+    def test_heaptype_dealloc_calls_base_tp_dealloc(self):
+        # Regression test for issue 5555: a heap type deriving from a
+        # builtin exception, whose own tp_dealloc follows the documented
+        # CPython convention (call the base's tp_dealloc, then decref its
+        # own type if the base is not itself a heap type).
+        module = self.import_extension('foo_5555', [
+            ("get_type", "METH_NOARGS", """
+                PyObject *bases = PyTuple_Pack(1, PyExc_Exception);
+                if (bases == NULL) return NULL;
+                PyObject *type = PyType_FromSpecWithBases(&Repro_spec, bases);
+                Py_DECREF(bases);
+                return type;
+             """),
+            ("get_refcnt", "METH_O", """
+                return PyLong_FromSsize_t(Py_REFCNT(args));
+             """)],
+            prologue="""
+            typedef struct {
+                PyObject ob_base;
+            } ReproObject;
+
+            static PyObject *
+            Repro_new(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+            {
+                PyObject *empty_args = PyTuple_New(0);
+                if (empty_args == NULL) return NULL;
+                PyTypeObject *base = (PyTypeObject *)PyExc_Exception;
+                PyObject *obj = base->tp_new(type, empty_args, NULL);
+                Py_DECREF(empty_args);
+                return obj;
+            }
+
+            static void
+            Repro_dealloc(PyObject *self)
+            {
+                PyTypeObject *type = Py_TYPE(self);
+                PyTypeObject *base = (PyTypeObject *)PyExc_Exception;
+                int type_needs_decref = (
+                    PyType_HasFeature(type, Py_TPFLAGS_HEAPTYPE) &&
+                    !PyType_HasFeature(base, Py_TPFLAGS_HEAPTYPE));
+                base->tp_dealloc(self);
+                if (type_needs_decref) {
+                    Py_DECREF(type);
+                }
+            }
+
+            static PyType_Slot Repro_slots[] = {
+                {Py_tp_dealloc, Repro_dealloc},
+                {Py_tp_new, Repro_new},
+                {0, 0}
+            };
+
+            static PyType_Spec Repro_spec = {
+                "foo_5555.Repro",
+                sizeof(ReproObject),
+                0,
+                Py_TPFLAGS_DEFAULT,
+                Repro_slots
+            };
+            """)
+        Repro = module.get_type()
+        assert issubclass(Repro, Exception)
+        refcount_before = module.get_refcnt(Repro)
+        for _ in range(5):
+            exc = Repro()
+            del exc
+            for i in range(10):
+                if module.get_refcnt(Repro) <= refcount_before:
+                    break
+                self.debug_collect()
+            assert module.get_refcnt(Repro) == refcount_before
+

@@ -771,10 +771,16 @@ def filter():
     lib.filter()
     return None
 
-def color_converter(color):
+def color_allow_default_converter(color):
     if color >= lib.COLORS:
         raise ValueError(f"Color number is greater than COLORS-1 ({lib.COLORS-1}).")
     elif color < 0:
+        return -1
+    return color
+
+def color_converter(color):
+    color = color_allow_default_converter(color)
+    if color < 0:
         raise ValueError(f"Color number is less than 0.")
     return color
 
@@ -873,8 +879,8 @@ def init_pair(pair, f, b):
         raise ValueError("Color pair is greater than COLOR_PAIRS-1 ({lib.COLOR_PAIRS}).")
     elif pair < 0:
         raise ValueError("Color pair is less than 0.")
-    f = color_converter(f)
-    b = color_converter(b)
+    f = color_allow_default_converter(f)
+    b = color_allow_default_converter(b)
     return _check_ERR(_CURSES_INIT_PAIR_FUNC(pair, f, b), "init_pair")
 
 

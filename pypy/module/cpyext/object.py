@@ -60,14 +60,18 @@ def _PyPy_Malloc(size):
         return lltype.nullptr(rffi.VOIDP.TO)
 
 
+def _tp_free(space, obj):
+    pto = obj.c_ob_type
+    obj_voidp = rffi.cast(rffi.VOIDP, obj)
+    generic_cpy_call(space, pto.c_tp_free, obj_voidp)
+
 def _dealloc(space, obj):
     # This frees an object after its refcount dropped to zero, so we
     # assert that it is really zero here.
     assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
-    obj_voidp = rffi.cast(rffi.VOIDP, obj)
     try:
-        generic_cpy_call(space, pto.c_tp_free, obj_voidp)
+        _tp_free(space, obj)
     finally:
         if widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
             decref(space, rffi.cast(PyObject, pto))
