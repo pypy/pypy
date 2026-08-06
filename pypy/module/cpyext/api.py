@@ -670,6 +670,7 @@ SYMBOLS_C = [
     'PyVectorcall_Call', 'PyState_FindModule', 'PySlice_AdjustIndices',
     'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8', 'PyFloat_Unpack2',
     'PyFloat_Unpack4', 'PyFloat_Unpack8', '_PyFloat_InitState',
+    '_PyObject_VisitManagedDict',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')

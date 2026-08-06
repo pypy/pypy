@@ -952,6 +952,8 @@ static inline int _PyType_CheckExact(PyObject *op) {
 #define PyType_CheckExact(op) _PyType_CheckExact(_PyObject_CAST(op))
 
 
+PyAPI_FUNC(int) _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg);
+
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define _PyObject_GC_Del PyObject_GC_Del

@@ -258,6 +258,23 @@ PyType_GetQualName(PyTypeObject *type)
 }
 
 
+int
+_PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg)
+{
+    PyTypeObject *tp = Py_TYPE(obj);
+    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0) {
+        return 0;
+    }
+    assert(tp->tp_dictoffset);
+    PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
+    if (*dictptr != NULL) {
+        int vret = visit(*dictptr, arg);
+        if (vret)
+            return vret;
+    }
+    return 0;
+}
+
 void
 _Py_NewReference(PyObject *op)
 {
