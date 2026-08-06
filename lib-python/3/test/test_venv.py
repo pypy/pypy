@@ -18,6 +18,7 @@ import sys
 import sysconfig
 import tempfile
 import shlex
+import warnings
 from test.support import (captured_stdout, captured_stderr,
                           skip_if_broken_multiprocessing_synchronize, verbose,
                           requires_subprocess, is_emscripten, is_wasi,
@@ -123,6 +124,13 @@ class BasicTest(BaseTest):
         rmtree(self.env_dir)
         self.run_with_capture(venv.create, pathlib.Path(self.env_dir))
         self._check_output_of_default_create()
+
+    def test_create_does_not_use_deprecated_check_home(self):
+        rmtree(self.env_dir)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'error', message='check_home argument is deprecated')
+            venv.create(self.env_dir)
 
     def _check_output_of_default_create(self):
         self.isdir(self.bindir)

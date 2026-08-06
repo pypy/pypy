@@ -401,7 +401,7 @@ class EnvBuilder:
                 else:
                     raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
-            if sysconfig.is_python_build(True):
+            if sysconfig.is_python_build():
                 # copy init.tcl
                 for root, dirs, files in os.walk(context.python_dir):
                     if 'init.tcl' in files:
