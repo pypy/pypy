@@ -7,9 +7,11 @@ from pypy.interpreter.error import OperationError, oefmt, strerror as _strerror
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, CONST_STRING
 from pypy.module.cpyext.api import PyObjectFields, cpython_struct
 from pypy.module.cpyext.api import bootstrap_function, slot_function
+from pypy.module.cpyext.api import Py_TPFLAGS_HEAPTYPE
 from pypy.module.cpyext.pyobject import make_typedescr
 from pypy.module.exceptions.interp_exceptions import W_RuntimeWarning
 from pypy.module.exceptions.interp_exceptions import W_StopIteration
+from pypy.module.exceptions.interp_exceptions import W_BaseException
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
@@ -46,6 +48,33 @@ def stopiteration_dealloc(space, py_obj):
     decref(space, py_stopiteration.c_value)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
+
+
+@bootstrap_function
+def init_exceptionobject(space):
+    "Type description of the root of the exception hierarchy"
+    make_typedescr(W_BaseException.typedef,
+                   dealloc=exception_dealloc)
+
+@slot_function([PyObject], lltype.Void)
+def exception_dealloc(space, py_obj):
+    # A heap subtype's custom tp_dealloc may call us directly as "the
+    # base type's tp_dealloc" and already have decref'd its own type
+    # (see issue 5555); skip our decref in that case.
+    from pypy.module.cpyext.object import _dealloc, _tp_free
+    from pypy.module.cpyext.slotdefs import llslot
+    from pypy.module.cpyext.typeobjectdefs import destructor
+    pto = py_obj.c_ob_type
+    state = space.fromcache(State)
+    my_dealloc = rffi.cast(destructor, llslot(space, exception_dealloc))
+    subtype_dealloc = rffi.cast(destructor, state.C._PyPy_subtype_dealloc)
+    if (widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE and
+            pto.c_tp_dealloc != my_dealloc and
+            pto.c_tp_dealloc != subtype_dealloc):
+        assert py_obj.c_ob_refcnt == 0
+        _tp_free(space, py_obj)
+    else:
+        _dealloc(space, py_obj)
 
 
 @cpython_api([PyObject, PyObject], lltype.Void)
