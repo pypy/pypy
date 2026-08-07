@@ -45,47 +45,82 @@ else:
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 
-# ob_pypy_link lives in a hidden prefix word immediately before the C PyObject (see
-# pypy/module/cpyext -- keeps the visible header CPython-compatible for abi3, like
-# PyGC_HEAD).  The translated GC reaches it in incminimark (PYOBJ_HDR / _pyobj); these
-# are the untranslated (test-only) equivalents, reaching the prefix by fixed offset.
-# ob_refcnt is still field 0 of the object, so ob.c_ob_refcnt is used directly.
+# ob_pypy_link storage: cpyext branches that need the visible PyObject header to
+# match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move the link to
+# a hidden prefix word immediately *before* ob_refcnt, like PyGC_HEAD; their cpyext
+# allocator reserves that word (see pypy/module/cpyext). Branches that don't need
+# abi3 compatibility keep the link inline as a regular header field, as PyPy has
+# always done, and MUST leave this False -- their allocator never reserves a prefix
+# word, so flipping it on without the matching cpyext change corrupts memory before
+# every allocation. Mirrors IncrementalMiniMarkGC.rrc_link_prefix in incminimark.py,
+# which the translated GC uses instead of these untranslated (test-only) equivalents.
+#
+# True here because this branch (abi3) does reserve the prefix in its cpyext
+# allocator -- see pypy/module/cpyext/src/object.c _generic_alloc. Branches
+# without the matching cpyext change must keep this False.
+RRC_LINK_PREFIX = True
+
 _LINK_PREFIX = rffi.sizeof(lltype.Signed)
 
-def _ob_link_get(ob):
-    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
-    return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
+if RRC_LINK_PREFIX:
+    def _ob_link_get(ob):
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+        return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
 
-def _ob_link_set(ob, value):
-    base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
-    rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
+    def _ob_link_set(ob, value):
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
 
-def _ob_free(ob, track_allocation=True):
-    # free the whole allocation, which starts at the hidden prefix.  Address
-    # arithmetic (not ptradd) so ll2ctypes maps the base back to the malloc.
-    base = rffi.cast(rffi.VOIDP, rffi.cast(lltype.Signed, ob) - _LINK_PREFIX)
-    lltype.free(base, flavor='raw', track_allocation=track_allocation)
+    def _ob_free(ob, track_allocation=True):
+        # free the whole allocation, which starts at the hidden prefix.  Address
+        # arithmetic (not ptradd) so ll2ctypes maps the base back to the malloc.
+        base = rffi.cast(rffi.VOIDP, rffi.cast(lltype.Signed, ob) - _LINK_PREFIX)
+        lltype.free(base, flavor='raw', track_allocation=track_allocation)
 
+    # Canonical test PyObject: the visible CPython header.  ob_pypy_link is NOT a
+    # field here -- it lives in the hidden prefix reserved by _pyobject_alloc,
+    # reached at ob-8.
+    PyObjectS = lltype.Struct('PyObjectS',
+                              ('c_ob_refcnt', lltype.Signed),
+                              ('c_ob_type', lltype.Signed))
+    PyObject = lltype.Ptr(PyObjectS)
 
-# Canonical test PyObject: the visible CPython header.  ob_pypy_link is NOT a field
-# here -- it lives in the hidden prefix reserved by _pyobject_alloc, reached at ob-8.
-PyObjectS = lltype.Struct('PyObjectS',
-                          ('c_ob_refcnt', lltype.Signed),
-                          ('c_ob_type', lltype.Signed))
-PyObject = lltype.Ptr(PyObjectS)
+    # Allocation layout: the hidden link word then the visible PyObjectS.  Handing
+    # back a pointer to .body reserves the prefix at body-_LINK_PREFIX, matching
+    # pyobj_raw_alloc.
+    _PyObjectPrefixedS = lltype.Struct('_PyObjectPrefixedS',
+                                       ('ob_pypy_link', lltype.Signed),
+                                       ('body', PyObjectS))
 
-# Allocation layout: the hidden link word then the visible PyObjectS.  Handing back a
-# pointer to .body reserves the prefix at body-_LINK_PREFIX, matching pyobj_raw_alloc.
-_PyObjectPrefixedS = lltype.Struct('_PyObjectPrefixedS',
-                                   ('ob_pypy_link', lltype.Signed),
-                                   ('body', PyObjectS))
+    def _pyobject_alloc(track_allocation=True, immortal=False):
+        "Allocate a PyObjectS with the hidden link prefix reserved (see pyobj_raw_alloc)."
+        full = lltype.malloc(_PyObjectPrefixedS, flavor='raw', zero=True,
+                             immortal=immortal,
+                             track_allocation=track_allocation and not immortal)
+        return rffi.cast(PyObject, rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
 
-def _pyobject_alloc(track_allocation=True, immortal=False):
-    "Allocate a PyObjectS with the hidden link prefix reserved (see pyobj_raw_alloc)."
-    full = lltype.malloc(_PyObjectPrefixedS, flavor='raw', zero=True,
-                         immortal=immortal,
-                         track_allocation=track_allocation and not immortal)
-    return rffi.cast(PyObject, rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
+else:
+    def _ob_link_get(ob):
+        return ob.c_ob_pypy_link
+
+    def _ob_link_set(ob, value):
+        ob.c_ob_pypy_link = value
+
+    def _ob_free(ob, track_allocation=True):
+        lltype.free(ob, flavor='raw', track_allocation=track_allocation)
+
+    # Canonical test PyObject: ob_pypy_link is a plain header field, PyPy's
+    # traditional (pre-abi3) layout -- no hidden prefix.
+    PyObjectS = lltype.Struct('PyObjectS',
+                              ('c_ob_refcnt', lltype.Signed),
+                              ('c_ob_pypy_link', lltype.Signed))
+    PyObject = lltype.Ptr(PyObjectS)
+
+    def _pyobject_alloc(track_allocation=True, immortal=False):
+        "Allocate a PyObjectS; ob_pypy_link is just a field, no hidden prefix."
+        return lltype.malloc(PyObjectS, flavor='raw', zero=True,
+                             immortal=immortal,
+                             track_allocation=track_allocation and not immortal)
 
 
 def _build_pypy_link(p):

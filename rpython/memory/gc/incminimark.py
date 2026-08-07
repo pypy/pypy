@@ -3161,25 +3161,45 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     rrc_enabled = False
 
+    # ob_pypy_link storage: cpyext branches that need the visible PyObject header to
+    # match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move the link
+    # to a hidden prefix word immediately *before* ob_refcnt, like PyGC_HEAD; their
+    # cpyext allocator reserves that word. Branches that don't need abi3 compatibility
+    # keep the link inline as a regular header field, as PyPy has always done, and
+    # MUST leave this False -- their allocator never reserves a prefix word, so
+    # flipping it on without the matching cpyext change corrupts memory before every
+    # allocation. This is a fixed per-build policy switch, not a runtime toggle like
+    # rrc_enabled above.
+    #
+    # True here because this branch (abi3) does reserve the prefix in its cpyext
+    # allocator -- see pypy/module/cpyext/src/object.c _generic_alloc. Branches
+    # without the matching cpyext change must keep this False.
+    rrc_link_prefix = True
+
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
-    # The C PyObject pointer points at ob_refcnt.  ob_pypy_link lives in a hidden
-    # prefix word immediately *before* ob_refcnt (kept out of the visible object
-    # header so the layout matches CPython for abi3; similar to PyGC_HEAD).  So the
-    # header is laid out link-then-refcnt and _pyobj() shifts the incoming pointer
-    # back to the prefix; every .ob_refcnt/.ob_pypy_link access then lands correctly.
-    PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
-                              ('ob_pypy_link', lltype.Signed),
-                              ('ob_refcnt', lltype.Signed))
+    if rrc_link_prefix:
+        PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                  ('ob_pypy_link', lltype.Signed),
+                                  ('ob_refcnt', lltype.Signed))
+    else:
+        PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                  ('ob_refcnt', lltype.Signed),
+                                  ('ob_pypy_link', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
-    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # bytes reserved before ob_refcnt
+    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # bytes reserved before ob_refcnt, iff rrc_link_prefix
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
     def _pyobj(self, pyobjaddr):
-        # reach the prefix by byte arithmetic, matching cpyext and
-        # rpython.rlib.rawrefcount; llmemory offset arithmetic can't cross the
-        # typed field boundary in the untranslated fakeaddress simulation.
-        base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobjaddr),
-                           -self.PYOBJ_LINK_PREFIX)
+        # rffi.cast is an unchecked reinterpret (identical to a plain C cast once
+        # translated). Needed in both modes: the test-only allocator in
+        # rpython.rlib.rawrefcount hands out a "visible header" type (PyObjectS)
+        # that's deliberately a separate lltype Struct from PYOBJ_HDR even when
+        # they happen to have the same shape (link_prefix=False), so the stricter
+        # llmemory.cast_adr_to_ptr -- which structurally validates the pointer's
+        # origin type only in the untranslated fakeaddress simulation -- would
+        # reject it despite the bytes lining up correctly.
+        prefix = self.PYOBJ_LINK_PREFIX if self.rrc_link_prefix else 0
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobjaddr), -prefix)
         return rffi.cast(self.PYOBJ_HDR_PTR, base)
 
     def rawrefcount_init(self, dealloc_trigger_callback):
