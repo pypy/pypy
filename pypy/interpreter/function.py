@@ -45,6 +45,8 @@ class Function(W_Root):
     w_objclass = None
     w_text_signature = None
     _empty_defs = []
+    _w_name = None
+    _w_qualname = None
 
     def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
                  closure=None, w_ann=None, forcename=None, qualname=None):
@@ -362,7 +364,9 @@ class Function(W_Root):
 
         self.space = space
         self.name = space.text_w(w_name)
+        self._w_name = w_name
         self.qualname = space.utf8_w(w_qualname)
+        self._w_qualname = w_qualname
         self.code = space.interp_w(Code, w_code)
         if not space.is_w(w_closure, space.w_None):
             from pypy.interpreter.nestedscope import Cell
@@ -457,21 +461,31 @@ class Function(W_Root):
         self.w_doc = space.w_None
 
     def fget_func_name(self, space):
-        return space.newtext(self.name)
+        w_name = self._w_name
+        if w_name is None:
+            w_name = space.newtext(self.name)
+            self._w_name = w_name
+        return w_name
 
     def fset_func_name(self, space, w_name):
         self._check_code_mutable("__name__")
         if space.isinstance_w(w_name, space.w_text):
             self.name = space.text_w(w_name)
+            self._w_name = w_name
         else:
             raise oefmt(space.w_TypeError,
                         "__name__ must be set to a string object")
 
     def fget_func_qualname(self, space):
-        return space.newtext(self.qualname)
+        w_qualname = self._w_qualname
+        if w_qualname is None:
+            w_qualname = space.newtext(self.qualname)
+            self._w_qualname = w_qualname
+        return w_qualname
 
     def set_qualname(self, qualname):
         self.qualname = qualname
+        self._w_qualname = None
 
     def fset_func_qualname(self, space, w_name):
         self._check_code_mutable("__qualname__")
@@ -482,7 +496,8 @@ class Function(W_Root):
                 raise oefmt(space.w_TypeError,
                             "__qualname__ must be set to a string object")
             raise
-        self.set_qualname(qualname)
+        self.qualname = qualname
+        self._w_qualname = w_name
 
     def fget_func_text_signature(self, space):
         if self.w_text_signature is None:
