@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
@@ -33,6 +33,9 @@ class ExecutionContext(object):
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
+        # Python-level recursion counter, counts down
+        # In CPython it is called py_recursion_remaining
+        self.recursion_remaining = space.sys.recursionlimit
         # this is exposed to app-level as 'sys.exc_info()'.  At any point in
         # time it is the exception caught by the topmost 'except ... as e:'
         # app-level block.
@@ -85,10 +88,21 @@ class ExecutionContext(object):
     def enter(self, frame):
         if self.space.reverse_debugging:
             self._revdb_enter(frame)
+        # recursion_checking is a quasi-immutable flag: if noone called
+        # sys.setrecursionlimit() it stays False and theJIT folds this
+        # block away, the per-frame counter costs nothing on the hot path.
+        if self.space.actionflag.recursion_checking:
+            remaining = self.recursion_remaining
+            if remaining <= 0:
+                raise oefmt(self.space.w_RecursionError,
+                            "maximum recursion depth exceeded")
+            self.recursion_remaining = remaining - 1
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
     def leave(self, frame, w_exitvalue, got_exception):
+        if self.space.actionflag.recursion_checking:
+            self.recursion_remaining += 1
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
@@ -468,7 +482,7 @@ class AbstractActionFlag(object):
     whenever we fire any of the asynchronous actions.
     """
 
-    _immutable_fields_ = ["checkinterval_scaled?"]
+    _immutable_fields_ = ["checkinterval_scaled?", "recursion_checking?"]
 
     def __init__(self):
         self._periodic_actions = []
@@ -476,6 +490,12 @@ class AbstractActionFlag(object):
         # a bitmask where the ith bit is set if self._nonperiodic_actions[i]
         # has fired
         self._fired_bitmask = r_uint(0)
+
+        # quasi-immutable: False until the app calls sys.setrecursionlimit().
+        # While False the JIT constant-folds away the per-frame Python
+        # recursion counting in ExecutionContext.enter/leave, and only the
+        # low-level C-stack check guards against segfaults (old PyPy behaviour).
+        self.recursion_checking = False
 
         self.has_bytecode_counter = False
         # the default value is not 100, unlike CPython 2.7, but a much
