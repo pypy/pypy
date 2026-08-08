@@ -276,6 +276,18 @@ _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg)
 }
 
 void
+_PyObject_ClearManagedDict(PyObject *obj)
+{
+    PyTypeObject *tp = Py_TYPE(obj);
+    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0) {
+        return;
+    }
+    assert(tp->tp_dictoffset);
+    PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
+    Py_CLEAR(*dictptr);
+}
+
+void
 _Py_NewReference(PyObject *op)
 {
 #ifndef PYPY_VERSION

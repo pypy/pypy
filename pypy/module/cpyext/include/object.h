@@ -953,6 +953,7 @@ static inline int _PyType_CheckExact(PyObject *op) {
 
 
 PyAPI_FUNC(int) _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg);
+PyAPI_FUNC(void) _PyObject_ClearManagedDict(PyObject *obj);
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
