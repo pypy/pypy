@@ -696,6 +696,75 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         cls.w__check_type_object = cls.space.wrap(
             gateway.interp2app(_check_type_object))
 
+    def test_nanobind2_tp_traverse(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import gc
+        import sys
+        if sys.implementation.name == 'pypy':
+            skip("tp_traverse not yet implemented in PyPy")
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+        # Create an unreferenced cycle
+        a = module.wrapper()
+        a.nested = a
+        del a
+        for i in range(5):
+            gc.collect()
+        gl = module.global_list
+        assert gl == ['wrapper tp_init called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_clear called.',
+                      'wrapper tp_dealloc called.',
+                     ]
+
+    def test_nanobind2_module_attributes(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import sys
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        f = module.func()
+        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
+            assert f.__module__   == "my_module"
+        else:
+            assert f.__module__   == "nanobind2"
+        assert f.__name__ == "my_name"
+        assert f.__qualname__ == "my_qualname"
+
+    def test_nanobind2_vectorcall_method(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        class A:
+            def __init__(self):
+                self.value = 0
+
+            def my_method(self, *args, **kwargs):
+                self.args = args
+                self.kwargs = kwargs
+                return "success"
+
+        a = A()
+        assert module.method_call(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {}
+        assert module.method_call_kw(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {"foo" : "bar"}
+
+
+        def unbound_method(*args, **kwargs):
+            args_value.update(args)
+            kwargs_value.update(kwargs)
+            return "unbound"
+
+        a.my_method = unbound_method
+        kwargs_value = {}
+        args_value = set()
+
+
+        assert module.method_call(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {}
+        assert module.method_call_kw(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
+
     def test_sq_item_negative_index(self):
         # issue 5526: __getitem__/__setitem__/__delitem__ must adjust a
         # negative index with sq_length before handing it to the slot,
@@ -2449,8 +2518,104 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         inst = module.negative_dictoffset()()
         inst.foo = 42
         assert inst.dictobj == inst.__dict__
-        assert inst.dictobj == {"foo": 42} 
- 
+        assert inst.dictobj == {"foo": 42}
+
+    def test_dictoffset_struct_field_sync(self):
+        # https://github.com/pypy/pypy/issues/5515 -- a tp_new that
+        # explicitly zeroes the raw __dictoffset__ struct field (as CPython
+        # extensions do to get lazy dict creation) must not desync it from
+        # what PyObject_GenericGetDict/__dict__/_PyObject_GetDictPtr see.
+        module = self.import_extension("foo", [
+            ("get_custom_type", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&Custom_spec);
+            """),
+            ("investigate_dict", "METH_O",
+            """
+                    PyObject *dict1 = PyObject_GenericGetDict(args, NULL);
+                    PyObject *dict2 = ((CustomObject *)args)->d;
+                    Py_XINCREF(dict2);
+                    PyObject *dict3 = PyObject_GetAttrString(args, "__dict__");
+                    PyObject *dict4 = NULL;
+                    PyObject **dict4p = _PyObject_GetDictPtr(args);
+                    if (dict4p) {
+                        dict4 = *dict4p;
+                        Py_XINCREF(dict4);
+                    }
+                    if (!dict1 || !dict2 || !dict3 || !dict4) {
+                        Py_XDECREF(dict1);
+                        Py_XDECREF(dict2);
+                        Py_XDECREF(dict3);
+                        Py_XDECREF(dict4);
+                        Py_RETURN_NONE;
+                    }
+                    return Py_BuildValue("(OOOO)", dict1, dict2, dict3, dict4);
+            """),
+
+            ], prologue="""
+                #include <structmember.h>
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *d;
+                } CustomObject;
+
+                static PyObject *
+                Custom_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+                {
+                    CustomObject *self;
+                    self = (CustomObject *) type->tp_alloc(type, 0);
+                    if (self != NULL) {
+                        self->d = NULL;
+                    }
+                    return (PyObject *) self;
+                }
+
+                static void
+                Custom_dealloc(CustomObject *self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    Py_XDECREF(self->d);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyMemberDef Custom_members[] = {
+                    {"__dictoffset__", T_PYSSIZET, offsetof(CustomObject, d),
+                        READONLY, 0},
+                    {NULL}
+                };
+
+                static PyGetSetDef Custom_getsets[] = {
+                    {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+                    {NULL}
+                };
+
+                static PyType_Slot Custom_slots[] = {
+                    {Py_tp_members, Custom_members},
+                    {Py_tp_getset, Custom_getsets},
+                    {Py_tp_new, Custom_new},
+                    {Py_tp_dealloc, Custom_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec Custom_spec = {
+                    "foo.Custom",
+                    sizeof(CustomObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    Custom_slots
+                };
+            """)
+        w_custom_type = module.get_custom_type()
+        inst = w_custom_type()
+        result = module.investigate_dict(inst)
+        assert result is not None
+        dict1, dict2, dict3, dict4 = result
+        assert dict1 is dict2
+        assert dict1 is dict3
+        assert dict1 is dict4
+        assert isinstance(dict1, dict)
+
     def test_unhashable(self):
         if not self.runappdirect:
             skip('pointer to function equality available'
@@ -2596,75 +2761,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert value == 1234
 
         module.call(f)
-
-    def test_nanobind2_tp_traverse(self):
-        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
-        import gc
-        import sys
-        if sys.implementation.name == 'pypy':
-            skip("tp_traverse not yet implemented in PyPy")
-        module = self.import_module(name='nanobind2', filename="nanobind2")
-        # Create an unreferenced cycle
-        a = module.wrapper()
-        a.nested = a
-        del a
-        for i in range(5):
-            gc.collect()
-        gl = module.global_list
-        assert gl == ['wrapper tp_init called.',
-                      'wrapper tp_traverse called.',
-                      'wrapper tp_traverse called.',
-                      'wrapper tp_clear called.',
-                      'wrapper tp_dealloc called.',
-                     ]
-
-    def test_nanobind2_module_attributes(self):
-        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
-        import sys
-        module = self.import_module(name='nanobind2', filename="nanobind2")
-
-        f = module.func()
-        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
-            assert f.__module__   == "my_module"
-        else:
-            assert f.__module__   == "nanobind2"
-        assert f.__name__ == "my_name"
-        assert f.__qualname__ == "my_qualname"
-
-    def test_nanobind2_vectorcall_method(self):
-        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
-        module = self.import_module(name='nanobind2', filename="nanobind2")
-
-        class A:
-            def __init__(self):
-                self.value = 0
-
-            def my_method(self, *args, **kwargs):
-                self.args = args
-                self.kwargs = kwargs
-                return "success"
-
-        a = A()
-        assert module.method_call(a) == "success"
-        assert a.args == (1234,) and a.kwargs == {}
-        assert module.method_call_kw(a) == "success"
-        assert a.args == (1234,) and a.kwargs == {"foo" : "bar"}
-
-
-        def unbound_method(*args, **kwargs):
-            args_value.update(args)
-            kwargs_value.update(kwargs)
-            return "unbound"
-
-        a.my_method = unbound_method
-        kwargs_value = {}
-        args_value = set()
-
-
-        assert module.method_call(a) == "unbound"
-        assert args_value == set([1234]) and kwargs_value == {}
-        assert module.method_call_kw(a) == "unbound"
-        assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
 
     def test_nanobind3(self):
         module = self.import_module(name='nanobind3', filename="nanobind3")

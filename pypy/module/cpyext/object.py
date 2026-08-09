@@ -78,7 +78,14 @@ def _dealloc(space, obj):
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
-    return lltype.nullptr(PyObjectP.TO)
+    pytype = op.c_ob_type
+    dictoffset = pytype.c_tp_dictoffset
+    if not dictoffset:
+        return lltype.nullptr(PyObjectP.TO)
+    if dictoffset < 0:
+        dictoffset += pytype.c_tp_basicsize
+    loc = rffi.ptradd(cts.cast("char *", op), dictoffset)
+    return cts.cast("PyObject **", loc)
 
 @cpython_api([PyObject], rffi.INT_real, error=-1)
 def PyObject_IsTrue(space, w_obj):
