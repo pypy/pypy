@@ -243,9 +243,12 @@ class W_BytearrayObject(W_BufferExporter):
             w_result = space.call_function(w_bytearraytype, w_result)
         return w_result
 
-    @unwrap_spec(encoding='text_or_none', errors='text_or_none')
-    def descr_init(self, space, w_source=None, encoding=None, errors=None):
+    def descr_init(self, space, w_source=None, w_encoding=None, w_errors=None):
         assert isinstance(self, W_BytearrayObject)
+        encoding = (None if w_encoding is None else
+                    space.text_arg_w(w_encoding, 'bytearray', 'encoding'))
+        errors = (None if w_errors is None else
+                  space.text_arg_w(w_errors, 'bytearray', 'errors'))
         data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]
         data += "\0"
         self._data = resizable_list_supporting_raw_ptr(data)
