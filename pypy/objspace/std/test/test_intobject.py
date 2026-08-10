@@ -427,6 +427,19 @@ class TestW_IntObject:
         assert result == f1
 
 class AppTestInt(object):
+    def test_base_range_checked_before_value_type(self):
+        # CPython's long_new_impl validates the base range before it dispatches
+        # on the type of the first argument.
+        raises(ValueError, int, None, 1)
+        raises(ValueError, int, None, -35)
+        raises(ValueError, int, None, 37)
+        raises(ValueError, int, [], 1)
+        raises(ValueError, int, '10', 1)
+        raises(TypeError, int, None, 10)
+        assert int('10', 2) == 2
+        assert int('ff', 16) == 255
+        assert int('10', 0) == 10
+
     def test_hash(self):
         assert hash(-1) == (-1).__hash__() == -2
         assert hash(-2) == (-2).__hash__() == -2

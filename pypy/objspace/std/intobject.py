@@ -1075,7 +1075,14 @@ def _new_baseint(space, w_value, w_base=None):
         except OperationError as e:
             if not e.match(space, space.w_OverflowError):
                 raise
-            base = 37 # this raises the right error in string_to_bigint()
+            base = 37 # out of range, so the check below raises
+
+        # CPython validates the base range in long_new_impl(), before it
+        # dispatches on the type of the value.  The message is the one
+        # NumberStringParser builds for the string path.
+        if base != 0 and (base < 2 or base > 36):
+            raise oefmt(space.w_ValueError,
+                        "int() base must be >= 2 and <= 36, or 0")
 
         if space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
