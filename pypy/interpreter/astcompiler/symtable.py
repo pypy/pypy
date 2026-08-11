@@ -927,7 +927,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
                 if isinstance(parent, ComprehensionScope):
-                    if parent.lookup_role(name) & SYM_COMP_ITER:
+                    role = parent.lookup_role(name)
+                    if role & SYM_COMP_ITER and role & SYM_ASSIGNED:
                         self.error(
                             "assignment expression cannot rebind comprehension iteration variable '%s'" % name,
                             node)
