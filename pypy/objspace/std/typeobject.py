@@ -251,16 +251,24 @@ class W_TypeObject(W_Root):
             # dict_w of any of the types in the mro changes, or if the mro
             # itself changes
             self._version_tag = VersionTag()
-        from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
         # if the typedef has a dict, then the rpython-class does all the dict
         # management, which means from the point of view of mapdict there is no
         # dict.
         typedef = self.layout.typedef
         self.flag_method_descriptor = typedef.method_descriptor
+        self.terminator = self.get_terminator(space, typedef)
+
+    def get_terminator(self, space, typedef):
+        # overridden by W_PyCTypeObject when tp_dictoffset is set, to back
+        # the dict with the C-visible struct field instead of mapdict's own
+        # storage. Kept as a plain method (not a field like flag_cpytype) so
+        # that ordinary, non-cpyext W_TypeObject instances don't carry an
+        # unused field just for this.
+        from pypy.objspace.std.mapdict import DictTerminator, NoDictTerminator
         if (self.hasdict and not typedef.hasdict):
-            self.terminator = DictTerminator(space, self)
+            return DictTerminator(space, self)
         else:
-            self.terminator = NoDictTerminator(space, self)
+            return NoDictTerminator(space, self)
 
     @not_rpython
     def __repr__(self):

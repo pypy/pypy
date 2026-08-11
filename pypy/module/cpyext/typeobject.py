@@ -19,7 +19,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
-    Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
+    Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR, Py_TPFLAGS_IMMUTABLETYPE,
     Py_TPFLAGS_HAVE_GC,
@@ -33,7 +33,7 @@ from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     make_ref, from_ref, get_typedescr, make_typedescr,
-    track_reference, decref, as_pyobj, incref)
+    track_reference, decref, as_pyobj, incref, CPyExtDictTerminator)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
     llslot)
@@ -606,6 +606,8 @@ def get_type_name(name):
 
 
 class W_PyCTypeObject(W_TypeObject):
+    _cpyext_dictoffset = 0
+
     @jit.dont_look_inside
     def __init__(self, space, pto):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
@@ -662,6 +664,10 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_weaklistoffset > 0:
             extra -= rffi.sizeof(rffi.VOIDP)
         new_layout = (extra > 0 or pto.c_tp_itemsize > 0)
+        dictoffset = pto.c_tp_dictoffset
+        if dictoffset < 0:
+            dictoffset += pto.c_tp_basicsize
+        self._cpyext_dictoffset = dictoffset
         self.flag_cpytype = True
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
@@ -676,6 +682,11 @@ class W_PyCTypeObject(W_TypeObject):
             rawdoc = rffi.constcharp2str(pto.c_tp_doc)
             self.w_doc = space.newtext_or_none(extract_doc(rawdoc, name))
             self.text_signature = extract_txtsig(rawdoc, name)
+
+    def get_terminator(self, space, typedef):
+        if self._cpyext_dictoffset:
+            return CPyExtDictTerminator(space, self, self._cpyext_dictoffset)
+        return W_TypeObject.get_terminator(self, space, typedef)
 
     def _cpyext_attach_pyobj(self, space, py_obj):
         self._cpy_ref = py_obj
@@ -885,8 +896,6 @@ def type_realize(space, py_obj):
     flags = widen(pto.c_tp_flags)
     assert flags & Py_TPFLAGS_READY == 0
     assert flags & Py_TPFLAGS_READYING == 0
-    if flags & Py_TPFLAGS_MANAGED_DICT:
-        raise oefmt(space.w_RuntimeError, "cannot use Py_TPFLAGS_MANAGED_DICT")
     if flags & Py_TPFLAGS_MANAGED_WEAKREF:
         raise oefmt(space.w_RuntimeError, "cannot use Py_TPFLAGS_MANAGED_WEAKREF")
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_READYING)

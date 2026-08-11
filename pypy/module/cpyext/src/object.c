@@ -262,10 +262,9 @@ int
 _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg)
 {
     PyTypeObject *tp = Py_TYPE(obj);
-    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0) {
+    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset) {
         return 0;
     }
-    assert(tp->tp_dictoffset);
     PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
     if (*dictptr != NULL) {
         int vret = visit(*dictptr, arg);
@@ -279,10 +278,9 @@ void
 _PyObject_ClearManagedDict(PyObject *obj)
 {
     PyTypeObject *tp = Py_TYPE(obj);
-    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0) {
+    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset) {
         return;
     }
-    assert(tp->tp_dictoffset);
     PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
     Py_CLEAR(*dictptr);
 }

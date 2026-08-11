@@ -13,6 +13,8 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.boolobject import W_BoolObject
 from pypy.objspace.std.objectobject import W_ObjectObject
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.mapdict import DevolvedDictTerminator
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
@@ -263,23 +265,43 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
     py_obj.c_ob_refcnt -= 1
     #
     typedescr.attach(space, py_obj, w_obj, w_userdata)
-    # This is probably not the best place for this stanza, but we need the
-    # w_obj so it cannot be done in allocate()
-    # It should probably also be in track_reference
-    if pytype.c_tp_dictoffset:
-        dictoffset = pytype.c_tp_dictoffset
-        try:
-            w_dict = space.getattr(w_obj, space.newtext("__dict__"))
-        except OperationError as e:
-            dictref = make_ref(space, space.w_None)
-        else:
-            dictref = make_ref(space, w_dict)
-        if dictoffset < 0:
-            dictoffset += pytype.c_tp_basicsize
-        loc = rffi.ptradd(cts.cast("char *", py_obj), dictoffset)
-        dictloc = cts.cast("PyObject **", loc)
-        dictloc[0] = dictref
     return py_obj
+
+
+class CPyExtDictTerminator(DevolvedDictTerminator):
+    """Per-class terminator for cpyext types with a nonzero tp_dictoffset
+    (see W_PyCTypeObject.get_terminator in cpyext/typeobject.py, overriding
+    W_TypeObject.get_terminator). Subclasses DevolvedDictTerminator so every
+    dict-kind attribute access already routes through obj.getdict() -- there
+    is no per-object unboxed fast path, because the C struct field must stay
+    authoritative. dictoffset is fixed per w_cls (basicsize doesn't vary per
+    instance), so it's computed once by the caller instead of re-read here.
+    """
+    def __init__(self, space, w_cls, dictoffset):
+        DevolvedDictTerminator.__init__(self, space, w_cls)
+        self.dictoffset = dictoffset
+
+    def build_dict(self, obj, space):
+        # Called once per object (mapdict caches the result), so this is not
+        # a hot path -- no need for a live/re-checking strategy here. Either
+        # adopt whatever's already published at the struct field, or create
+        # and publish a plain dict, mirroring PyObject_GenericGetDict's
+        # get-or-create semantics. Either way there's exactly one dict
+        # object for the lifetime of the instance: the struct field and
+        # obj.getdict() always agree because they name the same object,
+        # not because anything re-checks them against each other.
+        py_obj = as_pyobj(space, obj)
+        loc = rffi.ptradd(cts.cast("char *", py_obj), self.dictoffset)
+        dictptr = cts.cast("PyObject **", loc)
+        pyobj = dictptr[0]
+        if pyobj:
+            result = from_ref(space, pyobj)
+        else:
+            result = space.newdict()
+            dictptr[0] = make_ref(space, result)
+        assert isinstance(result, W_DictMultiObject)
+        return result
+
 
 def track_reference(space, py_obj, w_obj):
     """

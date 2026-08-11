@@ -312,6 +312,17 @@ class Terminator(AbstractAttribute):
     def _read_terminator(self, obj, name, attrkind):
         return None
 
+    def build_dict(self, obj, space):
+        """Build the W_DictMultiObject returned by obj.getdict() the first
+        time it's requested (see _obj_getdict below). Overridden by
+        CPyExtDictTerminator (pypy.module.cpyext.pyobject) to back the dict
+        with the C-visible tp_dictoffset field instead of this object's own
+        mapdict storage; kept here, not in cpyext, so mapdict.py doesn't
+        need to know cpyext exists."""
+        strategy = space.fromcache(MapDictStrategy)
+        storage = strategy.erase(obj)
+        return W_DictObject(space, strategy, storage)
+
     def _write_terminator(self, obj, name, attrkind, w_value):
         obj._get_mapdict_map().add_attr(obj, name, attrkind, w_value)
         if attrkind == DICT and obj._get_mapdict_map().num_attributes() >= LIMIT_MAP_ATTRIBUTES:
@@ -874,9 +885,7 @@ def _obj_getdict(self, space):
         assert isinstance(w_dict, W_DictMultiObject)
         return w_dict
 
-    strategy = space.fromcache(MapDictStrategy)
-    storage = strategy.erase(self)
-    w_dict = W_DictObject(space, strategy, storage)
+    w_dict = terminator.build_dict(self, space)
     flag = self._get_mapdict_map().write(self, "dict", SPECIAL, w_dict)
     assert flag
     return w_dict
