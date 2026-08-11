@@ -2616,6 +2616,36 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert dict1 is dict4
         assert isinstance(dict1, dict)
 
+    def test_managed_dict(self):
+        # Cython sets Py_TPFLAGS_MANAGED_DICT without an explicit
+        # __dictoffset__ member (that's the whole point of the flag on
+        # CPython -- storage is managed internally, not at a fixed struct
+        # offset). This used to raise "cannot use Py_TPFLAGS_MANAGED_DICT"
+        # at type-creation time.
+        module = self.import_extension("foo", [
+            ("get_managed_dict_type", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&ManagedDict_spec);
+            """),
+            ], prologue="""
+                static PyType_Slot ManagedDict_slots[] = {
+                    {0, 0},
+                };
+
+                static PyType_Spec ManagedDict_spec = {
+                    "foo.ManagedDict",
+                    sizeof(PyObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_MANAGED_DICT,
+                    ManagedDict_slots
+                };
+            """)
+        w_managed_dict_type = module.get_managed_dict_type()
+        inst = w_managed_dict_type()
+        inst.foo = 42
+        assert inst.foo == 42
+        assert inst.__dict__ == {"foo": 42}
+
     def test_unhashable(self):
         if not self.runappdirect:
             skip('pointer to function equality available'
