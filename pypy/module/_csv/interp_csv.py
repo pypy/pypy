@@ -116,7 +116,7 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
     dialect.escapechar = _get_codepoint(space, w_escapechar, NOT_SET, 'escapechar', can_be_not_set=False)
     dialect.lineterminator = _get_str(space, w_lineterminator, '\r\n', 'lineterminator')
     tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL, 'quoting')
-    if not (0 <= tmp_quoting < 4):
+    if not (0 <= tmp_quoting < 6):
         raise oefmt(space.w_TypeError, 'bad "quoting" value')
     if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
         tmp_quoting = QUOTE_NONE

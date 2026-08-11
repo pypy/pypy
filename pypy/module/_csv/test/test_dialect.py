@@ -59,7 +59,7 @@ class AppTestDialect(object):
                     ("escapechar", Ellipsis, 'foo', 0),
                     ("lineterminator", -132),
                     ("quotechar", '', 25),
-                    ("quoting", 4, '', '\x00'),
+                    ("quoting", 6, '', '\x00'),
                     ]
         for attempt in attempts:
             name = attempt[0]

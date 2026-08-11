@@ -425,6 +425,11 @@ class W_Profiler(W_Root):
         c_teardown_profiling()
         self._flush_unmatched()
 
+    def clear(self, space):
+        self.data = {}
+        self.builtin_data = {}
+        self.current_context = None
+
     def getstats(self, space):
         if self.w_callable is None:
             if self.is_enabled:
@@ -454,5 +459,6 @@ W_Profiler.typedef = TypeDef(
     __new__ = interp2app(descr_new_profile),
     enable = interp2app(W_Profiler.enable),
     disable = interp2app(W_Profiler.disable),
+    clear = interp2app(W_Profiler.clear),
     getstats = interp2app(W_Profiler.getstats),
 )

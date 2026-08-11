@@ -1,6 +1,7 @@
 """Test suite for the cProfile module."""
 
 import sys
+from test.support import cpython_only
 import unittest
 
 # rip off all interesting stuff from test_profile
@@ -18,6 +19,7 @@ class CProfileTest(ProfileTest):
     def get_expected_output(self):
         return _ProfileOutput
 
+    @cpython_only
     def test_bad_counter_during_dealloc(self):
         # bpo-3895
         import _lsprof
@@ -46,6 +48,7 @@ class CProfileTest(ProfileTest):
                     with self.assertRaises(TypeError):
                         method_obj()  # should not crash
 
+    @cpython_only
     def test_evil_external_timer(self):
         # gh-120289
         # Disabling profiler in external timer should not crash
