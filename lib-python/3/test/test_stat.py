@@ -2,6 +2,7 @@ import unittest
 import os
 import socket
 import sys
+from test.support import cpython_only
 from test.support import os_helper
 from test.support import socket_helper
 from test.support.import_helper import import_fresh_module
@@ -245,6 +246,7 @@ class TestFilemode:
             self.assertEqual(value, modvalue, key)
 
 
+@cpython_only
 class TestFilemodeCStat(TestFilemode, unittest.TestCase):
     statmod = c_stat
 
