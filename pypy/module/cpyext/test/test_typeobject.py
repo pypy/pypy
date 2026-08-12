@@ -2646,6 +2646,56 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert inst.foo == 42
         assert inst.__dict__ == {"foo": 42}
 
+    def test_managed_dict_negative_offset_clear(self):
+        # Py_TPFLAGS_MANAGED_DICT combined with an explicit negative
+        # __dictoffset__ member: CPython's own PyType_FromSpec never
+        # generates this combination, but nothing stops an extension from
+        # declaring it, and _PyObject_ClearManagedDict/_PyObject_VisitManagedDict
+        # must still compute the right (tp_basicsize-adjusted) address for a
+        # negative offset instead of corrupting memory before the object.
+        module = self.import_extension("foo", [
+            ("get_type", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&NegOffset_spec);
+            """),
+            ("clear_managed_dict", "METH_O",
+            """
+                    _PyObject_ClearManagedDict(args);
+                    Py_RETURN_NONE;
+            """),
+            ], prologue="""
+                #include <structmember.h>
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *d;
+                } NegOffsetObject;
+
+                static struct PyMemberDef NegOffset_members[] = {
+                    {"__dictoffset__", T_PYSSIZET,
+                        -(Py_ssize_t)sizeof(void*), READONLY, 0},
+                    {NULL}
+                };
+
+                static PyType_Slot NegOffset_slots[] = {
+                    {Py_tp_members, NegOffset_members},
+                    {0, 0},
+                };
+
+                static PyType_Spec NegOffset_spec = {
+                    "foo.NegOffset",
+                    sizeof(NegOffsetObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_MANAGED_DICT,
+                    NegOffset_slots
+                };
+            """)
+        w_type = module.get_type()
+        inst = w_type()
+        inst.foo = 42
+        assert inst.__dict__ == {"foo": 42}
+        module.clear_managed_dict(inst)
+        assert inst.__dict__ == {}
+
     def test_unhashable(self):
         if not self.runappdirect:
             skip('pointer to function equality available'

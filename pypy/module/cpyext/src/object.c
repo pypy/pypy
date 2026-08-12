@@ -265,7 +265,11 @@ _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg)
     if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset) {
         return 0;
     }
-    PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
+    Py_ssize_t dictoffset = tp->tp_dictoffset;
+    if (dictoffset < 0) {
+        dictoffset += tp->tp_basicsize;
+    }
+    PyObject **dictptr = (PyObject **)((char *)obj + dictoffset);
     if (*dictptr != NULL) {
         int vret = visit(*dictptr, arg);
         if (vret)
@@ -281,8 +285,20 @@ _PyObject_ClearManagedDict(PyObject *obj)
     if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset) {
         return;
     }
-    PyObject **dictptr = (PyObject **)((char *)obj + tp->tp_dictoffset);
-    Py_CLEAR(*dictptr);
+    Py_ssize_t dictoffset = tp->tp_dictoffset;
+    if (dictoffset < 0) {
+        dictoffset += tp->tp_basicsize;
+    }
+    PyObject **dictptr = (PyObject **)((char *)obj + dictoffset);
+    if (*dictptr != NULL) {
+        /* Empty the dict object in place (same identity) rather than just
+         * dropping this pointer's own reference to it: PyPy's obj.getdict()
+         * caches that same dict object once materialized and never re-reads
+         * this struct field, so a bare Py_CLEAR here would be invisible to
+         * Python-level code -- the dict would look untouched even though
+         * this field went NULL. */
+        PyDict_Clear(*dictptr);
+    }
 }
 
 void
