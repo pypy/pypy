@@ -15,10 +15,12 @@ app = applevel(r'''
 import sys
 
 def _abstract_method_error(typ):
-    methods = ", ".join(sorted(typ.__abstractmethods__))
-    method_s = 's' if len(typ.__abstractmethods__) > 1 else ''
-    err = "Can't instantiate abstract class %s with abstract method%s %s"
-    raise TypeError(err % (typ.__name__, method_s, methods))
+    methods = sorted(typ.__abstractmethods__)
+    methods_str = ", ".join("'%s'" % m for m in methods)
+    method_s = 's' if len(methods) > 1 else ''
+    err = ("Can't instantiate abstract class %s without an implementation "
+          "for abstract method%s %s")
+    raise TypeError(err % (typ.__name__, method_s, methods_str))
 
 def reduce_1(obj, proto):
     import copyreg
