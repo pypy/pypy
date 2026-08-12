@@ -2618,10 +2618,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_managed_dict(self):
         # Cython sets Py_TPFLAGS_MANAGED_DICT without an explicit
-        # __dictoffset__ member (that's the whole point of the flag on
-        # CPython -- storage is managed internally, not at a fixed struct
-        # offset). This used to raise "cannot use Py_TPFLAGS_MANAGED_DICT"
-        # at type-creation time.
+        # __dictoffset__ member
         module = self.import_extension("foo", [
             ("get_managed_dict_type", "METH_NOARGS",
             """
@@ -2645,6 +2642,37 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         inst.foo = 42
         assert inst.foo == 42
         assert inst.__dict__ == {"foo": 42}
+
+    def test_managed_weakref(self):
+        # Same shape as Py_TPFLAGS_MANAGED_DICT: Cython sets
+        # Py_TPFLAGS_MANAGED_WEAKREF without an explicit __weaklistoffset__
+        # member.
+        import weakref
+        module = self.import_extension("foo", [
+            ("get_managed_weakref_type", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&ManagedWeakref_spec);
+            """),
+            ], prologue="""
+                static PyType_Slot ManagedWeakref_slots[] = {
+                    {0, 0},
+                };
+
+                static PyType_Spec ManagedWeakref_spec = {
+                    "foo.ManagedWeakref",
+                    sizeof(PyObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_MANAGED_WEAKREF,
+                    ManagedWeakref_slots
+                };
+            """)
+        w_managed_weakref_type = module.get_managed_weakref_type()
+        inst = w_managed_weakref_type()
+        ref = weakref.ref(inst)
+        assert ref() is inst
+        del inst
+        self.debug_collect()  # will call gc.collect unless run untranslated
+        assert ref() is None
 
     def test_managed_dict_negative_offset_clear(self):
         # Py_TPFLAGS_MANAGED_DICT combined with an explicit negative
