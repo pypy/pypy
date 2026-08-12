@@ -877,17 +877,20 @@ def new_exception_class(space, name, w_bases=None, w_dict=None):
         space.setattr(w_exc, space.newtext("__module__"), space.newtext(module))
     return w_exc
 
-def new_import_error(space, w_msg, w_name, w_path):
+def new_import_error(space, w_msg, w_name, w_path, w_name_from=None):
     """Create a new instance of ImportError.
 
-    The result corresponds to ImportError(msg, name=name, path=path)
+    The result corresponds to
+    ImportError(msg, name=name, path=path, name_from=name_from)
     """
+    if w_name_from is None:
+        w_name_from = space.w_None
     return space.appexec(
-        [w_msg, w_name, w_path], """(msg, name, path):
-            return ImportError(msg, name=name, path=path)""")
+        [w_msg, w_name, w_path, w_name_from], """(msg, name, path, name_from):
+            return ImportError(msg, name=name, path=path, name_from=name_from)""")
 
-def raise_import_error(space, w_msg, w_name, w_path):
-    w_exc = new_import_error(space, w_msg, w_name, w_path)
+def raise_import_error(space, w_msg, w_name, w_path, w_name_from=None):
+    w_exc = new_import_error(space, w_msg, w_name, w_path, w_name_from)
     raise OperationError(space.w_ImportError, w_exc)
 
 @jit.dont_look_inside

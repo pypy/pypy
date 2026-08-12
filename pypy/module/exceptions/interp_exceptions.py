@@ -366,18 +366,21 @@ class W_ImportError(W_Exception):
     w_name = None
     w_path = None
     w_msg = None
+    w_name_from = None
 
     @jit.unroll_safe
     def descr_init(self, space, __args__):
         args_w, kwargs_w = __args__.unpack()
         w_name = kwargs_w.pop("name", None)
         w_path = kwargs_w.pop("path", None)
+        w_name_from = kwargs_w.pop("name_from", None)
         if kwargs_w:
             for key in kwargs_w:
                 raise oefmt(space.w_TypeError,
-                    "'%s' is an invalid keyword argument for ImportError", key)
+                    "'%s' is an invalid keyword argument for ImportError()", key)
         self.w_name = w_name if w_name is not None else space.w_None
         self.w_path = w_path if w_path is not None else space.w_None
+        self.w_name_from = w_name_from if w_name_from is not None else space.w_None
         if len(args_w) == 1:
             self.w_msg = args_w[0]
         else:
@@ -394,6 +397,8 @@ class W_ImportError(W_Exception):
             space.setitem(w_dict, space.newtext("name"), self.w_name)
         if not space.is_w(self.w_path, space.w_None):
             space.setitem(w_dict, space.newtext("path"), self.w_path)
+        if self.w_name_from is not None and not space.is_w(self.w_name_from, space.w_None):
+            space.setitem(w_dict, space.newtext("name_from"), self.w_name_from)
         if space.is_true(w_dict):
             lst = [lst[0], lst[1], w_dict]
         return space.newtuple(lst)
@@ -401,6 +406,7 @@ class W_ImportError(W_Exception):
     def descr_setstate(self, space, w_dict):
         self.w_name = space.call_method(w_dict, "pop", space.newtext("name"), space.w_None)
         self.w_path = space.call_method(w_dict, "pop", space.newtext("path"), space.w_None)
+        self.w_name_from = space.call_method(w_dict, "pop", space.newtext("name_from"), space.w_None)
         w_olddict = self.getdict(space)
         space.call_method(w_olddict, 'update', w_dict)
 
@@ -417,6 +423,7 @@ W_ImportError.typedef = TypeDef(
     name = readwrite_attrproperty_w('w_name', W_ImportError),
     path = readwrite_attrproperty_w('w_path', W_ImportError),
     msg = readwrite_attrproperty_w('w_msg', W_ImportError),
+    name_from = readwrite_attrproperty_w('w_name_from', W_ImportError),
 )
 
 

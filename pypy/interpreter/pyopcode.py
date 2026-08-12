@@ -1244,6 +1244,7 @@ class __extend__(pyframe.PyFrame):
                 space.newtext(msg),
                 w_pkgname,
                 w_pkgpath,
+                w_name,
             )
 
     def YIELD_VALUE(self, oparg, next_instr):

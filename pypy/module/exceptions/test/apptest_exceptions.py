@@ -28,7 +28,7 @@ def test_notes():
         e.add_note('abc')
 
 def test_importerror_kwarg_error():
-    msg = "'invalid' is an invalid keyword argument for ImportError"
+    msg = "'invalid' is an invalid keyword argument for ImportError()"
 
     exc = raises(TypeError, ImportError, 'test', invalid='keyword')
     assert str(exc.value) == msg
@@ -42,6 +42,29 @@ def test_importerror_kwarg_error():
                  ImportError,
                  'test', path='path', invalid='keyword')
     assert str(exc.value) == msg
+
+
+def test_importerror_name_from():
+    exc = ImportError('test', name='mod', path='path', name_from='attr')
+    assert exc.name == 'mod'
+    assert exc.path == 'path'
+    assert exc.name_from == 'attr'
+
+    exc = ImportError('test')
+    assert exc.name_from is None
+
+    # exercise __reduce__/__setstate__ without importing the pickle module
+    exc = ImportError('test', name='mod', name_from='attr')
+    cls, args, state = exc.__reduce__()
+    exc2 = cls(*args)
+    exc2.__setstate__(state)
+    assert exc2.name_from == 'attr'
+
+
+def test_importerror_from_import_sets_name_from():
+    exc = raises(ImportError, "from sys import bluchbluchblah")
+    assert exc.value.name == 'sys'
+    assert exc.value.name_from == 'bluchbluchblah'
 
 
 
