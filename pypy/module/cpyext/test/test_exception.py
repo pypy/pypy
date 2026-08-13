@@ -4,7 +4,8 @@ from pypy.module.cpyext.pyobject import make_ref
 from pypy.module.cpyext.exception import (
     PyExceptionInstance_Class, PyException_GetTraceback,
     PyException_SetTraceback, PyException_GetContext, PyException_SetContext,
-    PyException_GetCause, PyException_SetCause)
+    PyException_GetCause, PyException_SetCause,
+    PyException_GetArgs, PyException_SetArgs)
 
 class TestExceptions(BaseApiTest):
 
@@ -32,6 +33,14 @@ class TestExceptions(BaseApiTest):
         w_cause = space.call_function(space.w_IndexError)
         PyException_SetCause(space, w_exc, make_ref(space, w_cause))
         assert space.is_w(PyException_GetCause(space, w_exc), w_cause)
+
+    def test_args(self, space):
+        w_exc = space.call_function(space.w_ValueError, space.wrap(1))
+        w_args = PyException_GetArgs(space, w_exc)
+        assert space.eq_w(w_args, space.newtuple([space.wrap(1)]))
+        w_newargs = space.newtuple([space.wrap(2), space.wrap(3)])
+        PyException_SetArgs(space, w_exc, w_newargs)
+        assert space.eq_w(PyException_GetArgs(space, w_exc), w_newargs)
 
 
 class AppTestExceptions(AppTestCpythonExtensionBase):

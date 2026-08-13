@@ -77,3 +77,16 @@ def PyException_SetCause(space, w_exc, cause):
         w_cause = space.w_None
     space.setattr(w_exc, space.newtext('__cause__'), w_cause)
 
+
+@cpython_api([PyObject], PyObject)
+def PyException_GetArgs(space, w_exc):
+    """Return the args of the exception ex, as accessible from Python
+    through args."""
+    return space.getattr(w_exc, space.newtext('args'))
+
+
+@cpython_api([PyObject, PyObject], lltype.Void)
+def PyException_SetArgs(space, w_exc, w_args):
+    """Set the args of the exception ex to args."""
+    space.setattr(w_exc, space.newtext('args'), w_args)
+
