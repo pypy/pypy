@@ -79,6 +79,7 @@ class Test(unittest.TestCase):
         finally:
             sys.setswitchinterval(orig_si)
 
+    @support.cpython_only  # PYPY: subinterpreters are not supported
     def test_subinterpreter_syslog(self):
         # syslog.syslog() is not allowed in subinterpreters, but only if
         # syslog.openlog() hasn't been called in the main interpreter yet.
@@ -107,6 +108,7 @@ class Test(unittest.TestCase):
         finally:
             syslog.closelog()
 
+    @support.cpython_only  # PYPY: subinterpreters are not supported
     def test_subinterpreter_openlog(self):
         try:
             code = dedent('''
@@ -124,6 +126,7 @@ class Test(unittest.TestCase):
         finally:
             syslog.closelog()
 
+    @support.cpython_only  # PYPY: subinterpreters are not supported
     def test_subinterpreter_closelog(self):
         syslog.openlog('python')
         try:
