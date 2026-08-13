@@ -262,12 +262,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
+        self._in_inlined_comp = 0
+        self._temp_symbols = {}
         # PEP 709: names forced to fast locals while compiling an inlined
         # comprehension in a non-function scope (CPython's u_fasthidden)
-        self.fasthidden = {}
+        self._force_fast_names = {}
+        self._cell_slot_fixups = []
         self.qualname = qualname
         self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
+
+    def assemble(self):
+        # Cell slots follow all fast-local slots in the frame.  The number of
+        # fast locals is only final after code generation, so resolve these
+        # locals-plus operands here rather than assigning a real opcode to a
+        # compiler-internal operation.
+        nlocals = len(self.var_names)
+        for instr in self._cell_slot_fixups:
+            instr.arg += nlocals
+        self._cell_slot_fixups = []
+        return assemble.PythonCodeMaker.assemble(self)
 
     def _compile(self, tree):
         """Override in subclasses to compile a scope."""
@@ -414,33 +428,38 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # node is used only for the possible syntax error
         self.check_forbidden_name(identifier, node, ctx)
 
-        if self.fasthidden.get(identifier, False):
-            self.emit_op_arg(name_ops_fast(ctx),
-                             self.add_name(self.var_names, identifier))
-            return
-
-        scope = self.scope.lookup(identifier)
+        mangled = self.scope.mangle(identifier)
+        scope = self._temp_symbols.get(mangled,
+                                       self.scope.lookup(identifier))
+        force_fast = self._force_fast_names.get(mangled, 0) > 0
         op = ops.NOP
         container = self.names
+        in_inlined = self._in_inlined_comp > 0
         if scope == symtable.SCOPE_LOCAL:
-            if self.scope.can_be_optimized:
+            if self.scope.can_be_optimized or force_fast:
                 container = self.var_names
                 op = name_ops_fast(ctx)
         elif scope == symtable.SCOPE_FREE:
             op = name_ops_deref(ctx)
-            if op == ops.LOAD_DEREF and isinstance(self, ClassCodeGenerator):
+            if (op == ops.LOAD_DEREF and
+                    isinstance(self, ClassCodeGenerator) and
+                    not in_inlined):
                 op = ops.LOAD_CLASSDEREF
             container = self.free_vars
         elif scope == symtable.SCOPE_CELL:
             op = name_ops_deref(ctx)
             container = self.cell_vars
         elif scope == symtable.SCOPE_GLOBAL_IMPLICIT:
-            if self.scope.optimized:
+            if self.scope.optimized or in_inlined:
                 op = name_ops_global(ctx)
         elif scope == symtable.SCOPE_GLOBAL_EXPLICIT:
             op = name_ops_global(ctx)
         if op == ops.NOP:
-            op = name_ops_default(ctx)
+            if (in_inlined and isinstance(self, ClassCodeGenerator) and
+                    ctx == ast.Load):
+                op = name_ops_global(ctx)
+            else:
+                op = name_ops_default(ctx)
         self.emit_op_arg(op, self.add_name(container, identifier))
 
     def possible_docstring(self, node):
@@ -529,12 +548,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             oparg = oparg | 0x08
             # Load cell and free vars to pass on.
             for free in code.co_freevars:
-                free_scope = self.scope.lookup(free)
+                free_scope = self._temp_symbols.get(free,
+                                                    self.scope.lookup(free))
                 if free_scope in (symtable.SCOPE_CELL,
                                   symtable.SCOPE_CELL_CLASS):
                     index = self.cell_vars[free]
-                else:
+                elif free in self.cell_vars:
+                    index = self.cell_vars[free]
+                elif free in self.free_vars:
                     index = self.free_vars[free]
+                else:
+                    index = self.add_name(self.free_vars, free)
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
         self.load_const(code)
@@ -2272,7 +2296,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op_arg(ops.SWAP, n + 1)
         i = n - 1
         while i >= 0:
-            self.emit_op_arg(ops.STORE_FAST, indices[i])
+            index, is_cell = indices[i]
+            instr = self.emit_op_arg(ops.STORE_FAST, index)
+            if is_cell:
+                self._cell_slot_fixups.append(instr)
             i -= 1
 
     def _compile_inlined_comprehension(self, node, comp_scope):
@@ -2286,28 +2313,49 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         saved_depth = self._stack_depth
         first = node.get_generators()[0]
         assert isinstance(first, ast.comprehension)
+        self.update_position(first.iter)
         first.iter.walkabout(self)
         if first.is_async:
             self.emit_op(ops.GET_AITER)
         else:
             self.emit_op(ops.GET_ITER)
+        in_class = (self.scope._hide_bound_from_nested_scopes and
+                    self._in_inlined_comp == 0)
+        self._in_inlined_comp += 1
         indices = []
-        bound_names = comp_scope.inlined_bound_names
-        assert bound_names is not None   # set when comp_inlined was set
-        # a name that resolves to anything but a plain fast local outside the
-        # comprehension (module dict, global, cell made by a sibling closure,
-        # closure) gets a fast-hidden slot while compiling the body
-        # (CPython's temp-symbols swap / u_fasthidden)
-        hidden_names = []
-        for name in bound_names:
-            index = self.add_name(self.var_names, name)
-            self.emit_op_arg(ops.LOAD_FAST_AND_CLEAR, index)
-            indices.append(index)
-            if not self.scope.can_be_optimized or \
-                    self.scope.lookup(name) != symtable.SCOPE_LOCAL:
-                hidden_names.append(name)
-        for name in hidden_names:
-            self.fasthidden[name] = True
+        temp_symbols = {}
+        force_fast_names = []
+        for name, scope in comp_scope.symbols.iteritems():
+            flags = comp_scope.roles.get(name, symtable.SYM_BLANK)
+            if flags & symtable.SYM_PARAM and not in_class:
+                continue
+            outer_scope = self._temp_symbols.get(
+                name, self.scope.symbols.get(name, symtable.SCOPE_UNKNOWN))
+            is_bound = ((flags & symtable.SYM_BOUND) and
+                        not (flags & symtable.SYM_NONLOCAL))
+            if ((scope != outer_scope and scope != symtable.SCOPE_FREE and
+                    not (scope == symtable.SCOPE_CELL and
+                         outer_scope == symtable.SCOPE_FREE)) or
+                    in_class or is_bound):
+                temp_symbols[name] = self._temp_symbols.get(name, -1)
+                self._temp_symbols[name] = scope
+            if is_bound or in_class:
+                if not self.scope.can_be_optimized:
+                    self._force_fast_names[name] = \
+                        self._force_fast_names.get(name, 0) + 1
+                    force_fast_names.append(name)
+                    self.add_name(self.var_names, name)
+                if scope == symtable.SCOPE_CELL:
+                    cell_index = self.add_name(self.cell_vars, name)
+                    instr = self.emit_op_arg(ops.LOAD_FAST_AND_CLEAR,
+                                             cell_index)
+                    self._cell_slot_fixups.append(instr)
+                    self.emit_op_arg(ops.MAKE_CELL, cell_index)
+                    indices.append((cell_index, True))
+                else:
+                    index = self.add_name(self.var_names, name)
+                    self.emit_op_arg(ops.LOAD_FAST_AND_CLEAR, index)
+                    indices.append((index, False))
         n = len(indices)
         # stack: [iter, saved1..savedN]; rotate the iterator back to the top
         # (this leaves the saved values rotated, undone on restore)
@@ -2351,9 +2399,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # end: [saved..., result]
         self.use_next_block(end)
         self._stack_depth = saved_depth + n + 1
+        self.update_position(node)
         self._restore_inlined_comp_locals(indices)
-        for name in hidden_names:
-            self.fasthidden[name] = False
+        for name, previous in temp_symbols.iteritems():
+            if previous == -1:
+                del self._temp_symbols[name]
+            else:
+                self._temp_symbols[name] = previous
+        for name in force_fast_names:
+            count = self._force_fast_names[name]
+            if count == 1:
+                del self._force_fast_names[name]
+            else:
+                self._force_fast_names[name] = count - 1
+        self._in_inlined_comp -= 1
 
     def _compile_comprehension(self, node, name, sub_scope):
         comp_scope = self.symbols.find_scope(node)
@@ -3731,4 +3790,3 @@ def view(startblock):
     p.links = {}
     p.source = graph.generate(target=None)
     p.display()
-

@@ -15,6 +15,7 @@ class TestSymbolTable:
         module = ec.compiler.compile_to_ast(source, "<test>", mode, 0)
         info = pyparse.CompileInfo("<test>", mode, 0)
         builder = symtable.SymtableBuilder(self.space, module, info)
+        self._last_builder = builder
         scope = builder.find_scope(module)
         assert isinstance(scope, symtable.ModuleScope)
         return scope
@@ -39,10 +40,24 @@ class TestSymbolTable:
 
     def gen_scope(self, gen_code):
         mod_scope = self.mod_scope(gen_code)
-        assert len(mod_scope.children) == 1
-        gen_scope = mod_scope.children[0]
-        assert isinstance(gen_scope, symtable.FunctionScope)
-        assert not gen_scope.children
+        # Generator expressions remain nested children.
+        if len(mod_scope.children) == 1:
+            gen_scope = mod_scope.children[0]
+            assert isinstance(gen_scope, symtable.FunctionScope)
+            assert not gen_scope.children
+            assert gen_scope.name == "<genexpr>"
+            return mod_scope, gen_scope
+        # PEP 709: inlined list/set/dict comps are spliced out of children;
+        # recover the ComprehensionScope from the builder's scopes map.
+        gen_scope = None
+        for node, sc in self._last_builder.scopes.iteritems():
+            if (isinstance(sc, symtable.ComprehensionScope) and
+                    sc.comp_inlined):
+                gen_scope = sc
+                break
+        assert gen_scope is not None, (
+            "expected an inlined comprehension scope, children=%r"
+            % (mod_scope.children,))
         assert gen_scope.name == "<genexpr>"
         return mod_scope, gen_scope
 
@@ -90,7 +105,8 @@ class TestSymbolTable:
         self.check_unknown(scp, "X")
         self.check_unknown(scp, "Y")
 
-    def check_comprehension(self, template):
+    def check_comprehension_genexp(self, template):
+        """Generator expressions still use a nested scope (not PEP 709 inlined)."""
         def brack(s):
             return template % (s,)
         scp, gscp = self.gen_scope(brack("y[1] for y in z"))
@@ -106,25 +122,43 @@ class TestSymbolTable:
         self.check_unknown(scp, "f")
         assert gscp.lookup("f") == symtable.SCOPE_LOCAL
 
+    def check_comprehension_inlined(self, template):
+        """List/set/dict comps are inlined (PEP 709): symbols live on parent."""
+        def brack(s):
+            return template % (s,)
+        scp, gscp = self.gen_scope(brack("y[1] for y in z"))
+        # Parent sees free names from the (inlined) comprehension
+        assert scp.lookup("z") == symtable.SCOPE_GLOBAL_IMPLICIT
+        # Iteration var is a local of the parent after inlining
+        assert scp.lookup("y") == symtable.SCOPE_LOCAL
+        # Nested scope still exists for bookkeeping but is marked inlined
+        assert gscp.comp_inlined
+        assert gscp.lookup("y") == symtable.SCOPE_LOCAL
+        scp, gscp = self.gen_scope(brack("x for x in z if x"))
+        assert scp.lookup("x") == symtable.SCOPE_LOCAL
+        assert gscp.comp_inlined
+        scp, gscp = self.gen_scope(brack("x for y in g for f in n if f[h]"))
+        assert scp.lookup("f") == symtable.SCOPE_LOCAL
+        assert gscp.comp_inlined
+
     def test_genexp(self):
-        self.check_comprehension("(%s)")
+        self.check_comprehension_genexp("(%s)")
 
     def test_listcomp(self):
-        self.check_comprehension("[%s]")
+        self.check_comprehension_inlined("[%s]")
 
     def test_setcomp(self):
-        self.check_comprehension("{%s}")
+        self.check_comprehension_inlined("{%s}")
 
     def test_dictcomp(self):
         scp, gscp = self.gen_scope("{x : x[3] for x in y}")
         assert scp.lookup("y") == symtable.SCOPE_GLOBAL_IMPLICIT
-        self.check_unknown(scp, "a", "b", "x")
-        self.check_unknown(gscp, "y")
+        assert scp.lookup("x") == symtable.SCOPE_LOCAL
+        assert gscp.comp_inlined
         assert gscp.lookup("x") == symtable.SCOPE_LOCAL
-        assert gscp.lookup(".0") == symtable.SCOPE_LOCAL
         scp, gscp = self.gen_scope("{x : x[1] for x in y if x[23]}")
-        self.check_unknown(scp, "x")
-        assert gscp.lookup("x") == symtable.SCOPE_LOCAL
+        assert scp.lookup("x") == symtable.SCOPE_LOCAL
+        assert gscp.comp_inlined
 
     def test_arguments(self):
         scp = self.func_scope("def f(): pass")

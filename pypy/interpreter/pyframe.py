@@ -535,7 +535,29 @@ class PyFrame(W_Root):
         Get the locals as a dictionary
         """
         self.fast2locals()
-        return self.debugdata.w_locals
+        w_locals = self.debugdata.w_locals
+        if not self.pycode.co_flags & consts.CO_OPTIMIZED:
+            hidden_names = self.getcode().getvarnames()
+            hidden_values = []
+            for i in range(min(len(hidden_names), self.getcode().co_nlocals)):
+                w_value = self.locals_cells_stack_w[i]
+                if w_value is not None:
+                    hidden_values.append((hidden_names[i], w_value))
+            for i, name in enumerate(self.pycode.co_cellvars):
+                if name in hidden_names:
+                    try:
+                        w_value = self._getcell(i).get()
+                    except ValueError:
+                        pass
+                    else:
+                        hidden_values.append((name, w_value))
+            if hidden_values:
+                w_copy = self.space.newdict()
+                self.space.call_method(w_copy, 'update', w_locals)
+                for name, w_value in hidden_values:
+                    self.space.setitem_str(w_copy, name, w_value)
+                return w_copy
+        return w_locals
 
     def setdictscope(self, w_locals, skip_free_vars=False):
         """
@@ -553,8 +575,8 @@ class PyFrame(W_Root):
         if w_locals is None:
             w_locals = self.space.newdict(instance=True)
             write = True
+        varnames = self.getcode().getvarnames()
         if self.getcode().co_flags & consts.CO_OPTIMIZED:
-            varnames = self.getcode().getvarnames()
             for i in range(min(len(varnames), self.getcode().co_nlocals)):
                 name = varnames[i]
                 w_value = self.locals_cells_stack_w[i]
@@ -579,6 +601,9 @@ class PyFrame(W_Root):
             freevarnames = freevarnames + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
+            if (not self.pycode.co_flags & consts.CO_OPTIMIZED and
+                    name in varnames):
+                continue
             cell = self._getcell(i)
             try:
                 w_value = cell.get()
@@ -600,8 +625,8 @@ class PyFrame(W_Root):
         # Copy values from self.w_locals to the fastlocals
         w_locals = self.getorcreatedebug().w_locals
         assert w_locals is not None
+        varnames = self.getcode().getvarnames()
         if self.getcode().co_flags & consts.CO_OPTIMIZED:
-            varnames = self.getcode().getvarnames()
             numlocals = self.getcode().co_nlocals
 
             new_fastlocals_w = [None] * numlocals
@@ -628,6 +653,9 @@ class PyFrame(W_Root):
             # into the locals dict used by the class.
         for i in range(len(freevarnames)):
             name = freevarnames[i]
+            if (not self.pycode.co_flags & consts.CO_OPTIMIZED and
+                    name in varnames):
+                continue
             cell = self._getcell(i)
             w_value = self.space.finditem_str(w_locals, name)
             if w_value is not None:
@@ -1108,5 +1136,3 @@ def _get_arg(code, addr):
         if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
             raise ValueError("fix me please!")
     return oparg
-
-

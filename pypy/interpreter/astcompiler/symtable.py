@@ -44,15 +44,6 @@ class Scope(object):
     can_be_optimized = False
     is_coroutine = False
     class_entry = None  # Set by AnnotationScope for class scope visibility
-    # PEP 709; defined here so plain attribute reads work on any Scope (no
-    # getattr in RPython).  maybe_inline/comp_inlined/inlined_bound_names are
-    # set on ComprehensionScope; comp_private_names is set on the enclosing
-    # scope: names known here only through an inlined comprehension, which
-    # must stay invisible to sibling child scopes.
-    maybe_inline = False
-    comp_inlined = False
-    inlined_bound_names = None
-    comp_private_names = None
 
     def __init__(self, name, lineno=0, col_offset=0):
         self.lineno = lineno
@@ -75,6 +66,10 @@ class Scope(object):
         self._in_try_body_depth = 0
         self.comp_iter_target = False
         self.comp_iter_expr = 0
+        # PEP 709: names that need a cell slot only for an inlined comprehension
+        # (DEF_COMP_CELL).  These appear in co_cellvars but keep their outer
+        # name-resolution scope (often GLOBAL_IMPLICIT).
+        self.inlined_cells = {}
 
     def error(self, msg, ast_node):
         if ast_node is None:
@@ -246,89 +241,8 @@ class Scope(object):
 
     _hide_bound_from_nested_scopes = False
 
-    def _inline_comprehension_children_module(self):
-        """PEP 709 at module level: comprehension-bound names become
-        fast-hidden locals, disjoint from the module dict, so no role merge
-        and no name-conflict or sibling-scope concerns apply (sibling scopes
-        reach module names through globals, never through cells)."""
-        for child in self.children:
-            if not isinstance(child, ComprehensionScope):
-                continue
-            if not child.maybe_inline or child.children:
-                continue
-            if child.is_coroutine:
-                # async comprehension with top-level await: keep the old path
-                continue
-            bound_names = []
-            for name, flags in child.roles.iteritems():
-                if name == '.0':
-                    continue
-                if flags & SYM_ASSIGNED and \
-                        not flags & (SYM_GLOBAL | SYM_NONLOCAL):
-                    bound_names.append(name)
-            child.inlined_bound_names = bound_names
-            child.comp_inlined = True
-
-    def _inline_comprehension_children(self):
-        """PEP 709: fold simple list/set/dict comprehension children into this
-        scope so their bodies can be emitted inline by the code generator."""
-        if isinstance(self, ModuleScope):
-            self._inline_comprehension_children_module()
-            return
-        if not isinstance(self, FunctionScope) or \
-                isinstance(self, AnnotationScope):
-            return
-        for child in self.children:
-            # A comprehension containing its own nested scopes would need
-            # per-execution cells (MAKE_CELL); keep those on the old path.
-            # Other siblings (functions, lambdas, genexprs) are fine: names
-            # merged from inlined comprehensions stay invisible to them.
-            if not isinstance(child, ComprehensionScope) or \
-                    not child.maybe_inline or child.children:
-                continue
-            bound_names = []
-            for name, flags in child.roles.iteritems():
-                if name == '.0':
-                    continue
-                if flags & (SYM_GLOBAL | SYM_NONLOCAL):
-                    # walrus target: resolves (and escapes) via this scope,
-                    # visit_NamedExpr already noted it here
-                    continue
-                pflags = self.roles.get(name, SYM_BLANK)
-                if flags & SYM_ASSIGNED:
-                    if pflags == SYM_BLANK or \
-                            (pflags & (SYM_BOUND | SYM_ANNOTATED) and
-                             not pflags & (SYM_GLOBAL | SYM_NONLOCAL)):
-                        # unknown here, or a local here too: share the slot.
-                        # Purely comp-private names must stay invisible to
-                        # sibling child scopes (they resolve as globals
-                        # there, like CPython).
-                        if pflags == SYM_BLANK:
-                            if self.comp_private_names is None:
-                                self.comp_private_names = {}
-                            self.comp_private_names[name] = None
-                        self.roles[name] = pflags | \
-                                (flags & (SYM_ASSIGNED | SYM_USED))
-                        bound_names.append(name)
-                    else:
-                        # used/global/nonlocal here but bound in the
-                        # comprehension: the code generator compiles it to a
-                        # fast-hidden slot inside the comprehension
-                        # (CPython's temp-symbols swap), leaving resolution
-                        # outside unchanged
-                        bound_names.append(name)
-                else:
-                    # merely used in the comprehension: resolves via this
-                    # scope
-                    self.roles[name] = pflags | (flags & SYM_USED)
-            # save/restore order is the roles insertion order, which is
-            # deterministic (RPython dicts and the host's are both ordered)
-            child.inlined_bound_names = bound_names
-            child.comp_inlined = True
-
     def finalize(self, bound, free, globs, typeparams):
         """Enter final bookeeping data in to self.symbols."""
-        self._inline_comprehension_children()
         self.symbols = {}
         local = {}
         new_globs = {}
@@ -348,31 +262,46 @@ class Scope(object):
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
         else:
             self._pass_special_names(local, new_bound)
-        if self.comp_private_names is not None:
-            # names local here only because of an inlined comprehension are
-            # invisible to child scopes; in them they resolve as globals
-            for name in self.comp_private_names:
-                if name in new_bound:
-                    del new_bound[name]
         child_frees = {}
+        # Finalize children; inline non-generator comprehensions (PEP 709).
         for child in self.children:
-            if child.comp_inlined:
-                # Inlined comprehensions contribute no separate scope; their
-                # names were folded into this scope (or made fast-hidden).
-                # Still finalize them for introspection, discarding any
-                # effect on this scope.
-                child.finalize(new_bound.copy(), new_free.copy(),
-                               new_globs.copy(), new_typeparams)
-                continue
             # Symbol dictionaries are copied to avoid having child scopes
             # pollute each other's.
             child_free = new_free.copy()
             child.finalize(new_bound.copy(), child_free, new_globs.copy(), new_typeparams)
+            if (isinstance(child, ComprehensionScope) and
+                    not child.is_generator):
+                self._inline_comprehension(child, child_free)
+                child.comp_inlined = True
             child_frees.update(child_free)
             if child.has_free or child.child_has_free:
                 self.child_has_free = True
+        # Splice children of inlined comprehensions into our children list
+        # (so nested lambdas etc. become direct children of this scope).
+        new_children = []
+        for child in self.children:
+            if (isinstance(child, ComprehensionScope) and child.comp_inlined):
+                for grandchild in child.children:
+                    grandchild.parent = self
+                    new_children.append(grandchild)
+            else:
+                new_children.append(child)
+        self.children = new_children
         new_free.update(child_frees)
         self._finalize_cells(new_free)
+        # Inlined comprehension cells (CPython DEF_COMP_CELL):
+        # - Function scopes: if the name is already LOCAL, promote to CELL so
+        #   outer and comprehension share the cell when appropriate.
+        # - Module/class (non-optimized): never promote — keep LOCAL so
+        #   STORE_NAME/LOAD_NAME are used outside the comprehension; the cell
+        #   slot still exists via inlined_cells → co_cellvars.
+        for name in list(self.inlined_cells.keys()):
+            cur = self.symbols.get(name, SCOPE_UNKNOWN)
+            if cur == SCOPE_LOCAL and self.can_be_optimized:
+                self.symbols[name] = SCOPE_CELL
+                if name in new_free:
+                    del new_free[name]
+                del self.inlined_cells[name]
         for name in new_free:
             try:
                 role_here = self.roles[name]
@@ -392,6 +321,90 @@ class Scope(object):
                     self.free_vars.append(name)
         self._check_optimization()
         free.update(new_free)
+
+    def _inline_comprehension(self, comp, comp_free):
+        """Port of CPython 3.12's symtable.c:inline_comprehension()."""
+        assert isinstance(comp, ComprehensionScope)
+        is_class = self._hide_bound_from_nested_scopes
+        remove_dunder_class = False
+        for name, scope in comp.symbols.iteritems():
+            flags = comp.roles.get(name, SYM_BLANK)
+            # Skip comprehension parameter (.0).
+            if flags & SYM_PARAM:
+                continue
+            if scope == SCOPE_CELL:
+                self.inlined_cells[name] = None
+
+            existing = name in self.roles
+
+            # __class__ is never allowed to be free through a class scope
+            # (see CPython's drop_class_free()).
+            if (scope == SCOPE_FREE and is_class and name == '__class__'):
+                scope = SCOPE_GLOBAL_IMPLICIT
+                if name in comp_free:
+                    del comp_free[name]
+                remove_dunder_class = True
+
+            if not existing:
+                # Name does not exist in parent scope: copy it from the
+                # comprehension, including the analyzed scope.
+                only_flags = flags & ~SYM_PARAM
+                if only_flags:
+                    self.roles[name] = only_flags
+                self.symbols[name] = scope
+                if scope == SCOPE_FREE:
+                    if name not in self.free_vars:
+                        self.free_vars.append(name)
+                    self.has_free = True
+                elif scope == SCOPE_LOCAL or scope == SCOPE_CELL:
+                    if name not in self.varnames:
+                        self.varnames.append(name)
+                    if scope == SCOPE_CELL:
+                        self.inlined_cells[name] = None
+            else:
+                if scope == SCOPE_LOCAL or scope == SCOPE_CELL:
+                    if name not in self.varnames:
+                        self.varnames.append(name)
+                # Free vars in a comprehension that are locals in the outer
+                # scope can now simply be locals, unless they are free in a
+                # comprehension child or the outer scope is a class block.
+                if self.roles[name] & SYM_BOUND:
+                    if (not is_class and
+                            not self._is_free_in_any_child(comp, name)):
+                        if name in comp_free:
+                            del comp_free[name]
+
+        comp.has_free = bool(comp_free)
+        if remove_dunder_class:
+            del comp.symbols['__class__']
+            if '__class__' in comp.free_vars:
+                comp.free_vars = [name for name in comp.free_vars
+                                  if name != '__class__']
+
+        # Ensure bound iteration vars are in varnames (for LOAD_FAST_AND_CLEAR).
+        # Also pull in varnames already collected on the comprehension (e.g. from
+        # nested comps that were inlined into it).
+        for name, flags in comp.roles.iteritems():
+            if flags & SYM_PARAM:
+                continue
+            if flags & SYM_BOUND:
+                if name not in self.varnames:
+                    self.varnames.append(name)
+        for name in comp.varnames:
+            if name.startswith('.'):
+                continue  # skip .0 etc.
+            if name not in self.varnames:
+                self.varnames.append(name)
+        # Also inherit inlined_cells from the comprehension (nested comps)
+        for name in comp.inlined_cells:
+            self.inlined_cells[name] = None
+
+    def _is_free_in_any_child(self, scope, name):
+        for child in scope.children:
+            if child.symbols is not None:
+                if child.symbols.get(name, SCOPE_UNKNOWN) == SCOPE_FREE:
+                    return True
+        return False
 
 
 class ModuleScope(Scope):
@@ -486,11 +499,9 @@ class AsyncFunctionScope(FunctionScope):
 
 class ComprehensionScope(FunctionScope):
     # PEP 709: list/set/dict comprehensions are inlined into the enclosing
-    # scope.  maybe_inline is set at build time for the simple shapes we
-    # currently inline; comp_inlined is set at analysis time once we confirm
-    # the enclosing scope can absorb it.  inlined_bound_names lists the names
-    # bound by the comprehension, to save/clear/restore.  (attributes on Scope)
-    pass
+    # scope; generator expressions retain a separate scope. comp_inlined is
+    # set during finalize() for the inlined comprehensions.
+    comp_inlined = False
 
 
 class AnnotationScope(FunctionScope):
@@ -892,9 +903,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
         outer.iter.walkabout(self)
         self.scope.comp_iter_expr -= 1
         new_scope = ComprehensionScope("<genexpr>", node.lineno, node.col_offset)
-        # PEP 709: inline list/set/dict comprehensions, but not genexps
-        if not isinstance(node, ast.GeneratorExp):
-            new_scope.maybe_inline = True
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         new_scope.is_coroutine |= outer.is_async

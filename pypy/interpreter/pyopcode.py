@@ -405,6 +405,8 @@ class __extend__(pyframe.PyFrame):
                 self.LOAD_METHOD(oparg, next_instr)
             elif opcode == opcodedesc.MAKE_FUNCTION.index:
                 self.MAKE_FUNCTION(oparg, next_instr)
+            elif opcode == opcodedesc.MAKE_CELL.index:
+                self.MAKE_CELL(oparg, next_instr)
             elif opcode == opcodedesc.MAP_ADD.index:
                 self.MAP_ADD(oparg, next_instr)
             elif opcode == opcodedesc.DICT_MERGE.index:
@@ -691,6 +693,15 @@ class __extend__(pyframe.PyFrame):
         # nested scopes: access the cell object
         w_value = self._getcell(varindex)
         self.pushvalue(w_value)
+
+    def MAKE_CELL(self, varindex, next_instr):
+        from pypy.interpreter.nestedscope import Cell, DUMMY_FAMILY
+        index = varindex + self.pycode.co_nlocals
+        if varindex < len(self.pycode.co_cellvars):
+            family = self.pycode.cell_families[varindex]
+        else:
+            family = DUMMY_FAMILY
+        self.locals_cells_stack_w[index] = Cell(None, family)
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
