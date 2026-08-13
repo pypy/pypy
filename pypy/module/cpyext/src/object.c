@@ -215,6 +215,11 @@ PyObject_CallFinalizerFromDealloc(PyObject *self)
     return 0;
 }
 
+void
+PyObject_ClearWeakRefs(PyObject *object)
+{
+}
+
 const char *
 _PyType_Name(PyTypeObject *type)
 {

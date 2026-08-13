@@ -27,6 +27,21 @@ class TestGenObject(BaseApiTest):
         assert not PyGen_CheckExact(space, w_coroutine)
         assert PyCoro_CheckExact(space, w_coroutine)
 
+class AppTestCythonGenerator(AppTestCpythonExtensionBase):
+    def test_any_in_conditional_gen(self):
+        # Reproduces a crash seen running the Cython test suite: a
+        # Cython-compiled generator expression that any() abandons
+        # mid-iteration (short-circuit) gets garbage collected while
+        # suspended.  Its tp_dealloc calls PyObject_ClearWeakRefs(self)
+        # unconditionally (CPython 3.12+ codegen), which used to crash
+        # cpyext's "dying object" reentrancy guard even though the
+        # object never had any weakrefs.
+        mod = self.import_module(name="any")
+        assert mod.any_in_conditional_gen([3, 6, 9]) is False
+        assert mod.any_in_conditional_gen([0, 3, 7]) is True
+        self.debug_collect()
+
+
 class AppTestCoroutine(AppTestCpythonExtensionBase):
     def test_generator_coroutine(self):
         module = self.import_extension('test_gen', [

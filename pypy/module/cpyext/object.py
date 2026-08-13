@@ -148,10 +148,6 @@ def PyObject_SetAttrString(space, w_obj, name_ptr, value):
         space.delattr(w_obj, w_name)
     return 0
 
-@cpython_api([PyObject], lltype.Void)
-def PyObject_ClearWeakRefs(space, w_object):
-    w_object.clear_all_weakrefs()
-
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyObject_Size(space, w_obj):
     return space.len_w(w_obj)
