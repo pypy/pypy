@@ -302,6 +302,16 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.C.__next__.__doc__ == "usable docstring"
         assert mod.C.__next__.__text_signature__ == '($self, /)'
 
+    def test_reduce_pickle_module(self):
+        # Cython's default __reduce__ for cdef classes generates a
+        # module-level __pyx_unpickle_X function; pickle's whichmodule()
+        # trusts __module__ directly if it's set, so this has to correctly
+        # name the defining module, not wherever the C extension's
+        # exec-slot init happened to be running at the time.
+        mod = self.import_module(name="reduce_pickle")
+        unpickle = mod.__pyx_unpickle_Wrapper
+        assert unpickle.__module__ == "reduce_pickle"
+
     def test_module_name(self):
         # issue 3993
         mod = self.import_module(name="test_func")

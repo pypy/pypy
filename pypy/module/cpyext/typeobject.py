@@ -1031,8 +1031,8 @@ def _type_realize(space, py_obj):
             py_type.c_tp_itemsize = 1
         elif space.is_w(w_base, space.w_tuple):
             py_type.c_tp_itemsize = rffi.sizeof(PyObject)
-        # elif space.is_w(w_base, space.w_type):
-        #    py_type.c_tp_itemsize = rffi.sizeof(PyMemberDef)
+        elif space.is_w(w_base, space.w_type):
+            py_type.c_tp_itemsize = rffi.sizeof(PyMemberDef)
 
     finish_type_1(space, py_type)
     ob_type = rffi.cast(PyObject, py_type).c_ob_type
