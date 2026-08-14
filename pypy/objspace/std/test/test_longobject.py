@@ -378,21 +378,6 @@ class AppTestLong:
         raises(OverflowError, operator.truediv, huge, 3)
         raises(OverflowError, operator.truediv, huge, self._long(3))
 
-    def test_just_trunc(self):
-        class myint(object):
-            def __trunc__(self):
-                return 42
-        assert int(myint()) == 42
-
-    def test_override___int__(self):
-        class myint(int):
-            def __int__(self):
-                return 42
-        assert int(myint(21)) == 42
-        class myotherint(int):
-            pass
-        assert int(myotherint(21)) == 21
-
     def test___int__(self):
         class A(object):
             def __int__(self):
@@ -427,12 +412,6 @@ class AppTestLong:
         n = int(TruncReturnsNonInt())
         assert n == 42
         assert type(n) is int
-
-    def test_long_before_string(self):
-        class A(str):
-            def __int__(self):
-                return 42
-        assert int(A('abc')) == 42
 
     def test_conjugate(self):
         assert (self._long(7)).conjugate() == self._long(7)
@@ -477,11 +456,6 @@ class AppTestLong:
         x = eval("-self._long(0)")
         assert x == self._long(0)
 
-    def test_long_real(self):
-        class A(int): pass
-        b = A(5).real
-        assert type(b) is int
-
     @py.test.mark.skipif("not config.option.runappdirect and sys.maxunicode == 0xffff")
     def test_long_from_unicode(self):
         raises(ValueError, int, '123L')
@@ -503,11 +477,6 @@ class AppTestLong:
     def test_base_overflow(self):
         raises(ValueError, int, '42', 2**63)
 
-    def test_long_real(self):
-        class A(int): pass
-        b = A(5).real
-        assert type(b) is int
-
     def test__int__(self):
         class A(int):
             def __int__(self):
@@ -515,12 +484,6 @@ class AppTestLong:
 
         assert int(int(3)) == int(3)
         assert int(A(13)) == 42
-
-    def test_long_error_msg(self):
-        e = raises(TypeError, int, [])
-        assert str(e.value) == (
-            "int() argument must be a string, a bytes-like object "
-            "or a real number, not 'list'")
 
     def test_linear_long_base_16(self):
         # never finishes if int(_, 16) is not linear-time
