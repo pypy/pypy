@@ -423,7 +423,10 @@ class OperationError(Exception):
         """Attach another OperationError as __context__."""
         from pypy.module.exceptions.interp_exceptions import W_BaseException
         w_value = self.normalize_exception(space)
-        w_context = context.normalize_exception(space)
+        # Use get_w_value, not normalize_exception: normalizing would
+        # overwrite w_context.w_traceback with a stale snapshot (see
+        # PUSH_EXC_INFO for the same fix).
+        w_context = context.get_w_value(space)
         if not space.is_w(w_value, w_context):
             if not isinstance(w_value, W_BaseException):
                 raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_value)

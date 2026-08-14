@@ -691,6 +691,32 @@ def test_reraise_with_replaced_traceback():
     except ValueError as err:
         assert err.__traceback__ is othr
 
+def _raise_chained():
+    try:
+        raise AttributeError('inner')
+    except:
+        raise ValueError('outer')
+
+def test_with_traceback_survives_context_chaining():
+    # An explicit with_traceback() while still inside the active except:
+    # block must not get clobbered when a later, unrelated exception
+    # triggers __context__-chaining (record_context/chain_exceptions)
+    # against the stale OperationError snapshot for this exception.
+    import sys
+    try:
+        _raise_chained()
+    except:
+        typ, value, tb = sys.exc_info()
+        stripped = tb.tb_next
+        assert stripped is not None
+        value.with_traceback(stripped)
+        assert value.__traceback__ is stripped
+        try:
+            raise KeyError('unrelated')
+        except KeyError:
+            pass
+        assert value.__traceback__ is stripped
+
 def test_bare_except_return_finally_no_context():
     # return from bare except clears the exception; finally's raise must not
     # report "During handling of the above exception, another exception occurred"
