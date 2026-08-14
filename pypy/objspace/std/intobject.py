@@ -1048,7 +1048,7 @@ def _new_baseint(space, w_value, w_base=None):
                 else:
                     raise oefmt(space.w_TypeError,
                                 "int() argument must be a string, a bytes-like "
-                                "object or a number, not '%T'", w_value)
+                                "object or a real number, not '%T'", w_value)
             assert isinstance(w_obj, W_AbstractIntObject)
             return _ensure_baseint(space, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
@@ -1073,7 +1073,7 @@ def _new_baseint(space, w_value, w_base=None):
                     raise
                 raise oefmt(space.w_TypeError,
                             "int() argument must be a string, a bytes-like "
-                            "object or a number, not '%T'", w_value)
+                            "object or a real number, not '%T'", w_value)
             else:
                 return _string_to_int_or_long(space, w_value, buf)
     else:
