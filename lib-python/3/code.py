@@ -105,16 +105,17 @@ class InteractiveInterpreter:
         The output is written by self.write(), below.
 
         """
-        typ, value, tb = sys.exc_info()
-        if filename and issubclass(typ, SyntaxError):
-            value.filename = filename
-        if sys.excepthook is sys.__excepthook__:
-            lines = traceback.format_exception_only(type, value)
-            self.write(''.join(lines))
-        else:
-            # If someone has set sys.excepthook, we let that take precedence
-            # over self.write
-            sys.excepthook(type, value, tb)
+        # PyPy change: route through _showtraceback like showtraceback()
+        # does, so that sys.last_type/last_value/last_traceback/last_exc
+        # get set for syntax errors too (matches CPython >= 3.12).
+        try:
+            typ, value, tb = sys.exc_info()
+            source = kwargs.pop("source", "")
+            if filename and issubclass(typ, SyntaxError):
+                value.filename = filename
+            self._showtraceback(typ, value, None, source)
+        finally:
+            typ = value = tb = None
 
     def showtraceback(self, **kwargs):
         """Display the exception that just occurred.
