@@ -205,6 +205,13 @@ class W_AbstractIntObject(W_Root):
     def descr_get_imag(self, space):
         return wrapint(space, 0)
 
+    def descr_is_integer(self, space):
+        """int.is_integer() -> bool
+
+        Returns True. Exists for duck type compatibility with
+        float.is_integer."""
+        return space.w_True
+
     def int(self, space):
         """x.__int__() <==> int(x)"""
         raise NotImplementedError
@@ -1170,6 +1177,7 @@ Base 0 means to interpret the base from the string as an integer literal.
     conjugate = interpindirect2app(W_AbstractIntObject.descr_conjugate),
     bit_length = interpindirect2app(W_AbstractIntObject.descr_bit_length),
     bit_count = interpindirect2app(W_AbstractIntObject.descr_bit_count),
+    is_integer = interpindirect2app(W_AbstractIntObject.descr_is_integer),
     __format__ = interpindirect2app(W_AbstractIntObject.descr_format),
     __hash__ = interpindirect2app(W_AbstractIntObject.descr_hash),
     __getnewargs__ = interpindirect2app(W_AbstractIntObject.descr_getnewargs),
