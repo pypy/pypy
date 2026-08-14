@@ -170,6 +170,72 @@ def test_type_alias_type_creation():
     assert alias.__type_params__ == ()
 
 
+def test_type_alias_type_is_immutable():
+    from typing import TypeAliasType
+
+    alias = TypeAliasType('MyType', int)
+    assert not hasattr(alias, '__dict__')
+    # An instance has no dict, so an unknown name has nowhere to go.
+    for name in ('extra', '_TypeAliasType__name_value'):
+        exc = raises(AttributeError, setattr, alias, name, 42)
+        assert str(exc.value) == (
+            "'typing.TypeAliasType' object has no attribute '%s'" % name)
+    # __name__ is a read-only member, the rest are getsets without a setter.
+    exc = raises(AttributeError, setattr, alias, '__name__', 'Changed')
+    assert str(exc.value) == 'readonly attribute'
+    for name in ('__value__', '__type_params__', '__parameters__', '__module__'):
+        exc = raises(AttributeError, setattr, alias, name, 'Changed')
+        assert str(exc.value) == (
+            "attribute '%s' of 'typing.TypeAliasType' objects is not writable"
+            % name)
+        exc = raises(AttributeError, delattr, alias, name)
+        assert str(exc.value) == (
+            "attribute '%s' of 'typing.TypeAliasType' objects is not writable"
+            % name)
+    for name in ('_name', '_type_params', '_value', '_evaluate_value', '_module'):
+        assert not hasattr(alias, name)
+    assert not hasattr(alias, '_frozen')
+    assert not hasattr(TypeAliasType, '_frozen')
+    exc = raises(TypeError, setattr, TypeAliasType, 'extra', 42)
+    assert str(exc.value) == (
+        "cannot set 'extra' attribute of immutable type 'typing.TypeAliasType'")
+    exc = raises(TypeError, delattr, TypeAliasType, '__repr__')
+    assert str(exc.value) == (
+        "cannot set '__repr__' attribute of immutable type "
+        "'typing.TypeAliasType'")
+
+    alias.__init__('Changed', str, type_params=(int,))
+    assert alias.__name__ == 'MyType'
+    assert alias.__value__ is int
+    assert alias.__type_params__ == ()
+
+
+def test_type_alias_type_validates_type_params():
+    from typing import TypeAliasType
+
+    exc = raises(TypeError, TypeAliasType, None, int)
+    assert str(exc.value) == "typealias() argument 'name' must be str, not None"
+    exc = raises(TypeError, TypeAliasType,
+                 'MyType', int, type_params=[])
+    assert str(exc.value) == 'type_params must be a tuple'
+    # Only the tuple itself is checked: rejecting individual entries that are
+    # not type parameters was added after 3.12.
+    assert TypeAliasType('MyType', int, type_params=(int,)).__type_params__ \
+        == (int,)
+
+
+def test_type_alias_type_is_not_a_base():
+    from typing import TypeAliasType
+
+    # TypeAliasType is the one typing type without __mro_entries__, so an
+    # alias used as a base reaches type creation and is rejected there.
+    alias = TypeAliasType('MyType', int)
+    raises(TypeError, type, 'Sub', (alias,), {})
+    exc = raises(TypeError, type, 'Sub', (TypeAliasType,), {})
+    assert str(exc.value) == (
+        "type 'typing.TypeAliasType' is not an acceptable base type")
+
+
 def test_type_alias_type_subscript():
     type Stack[T] = list[T]
     result = Stack[int]
@@ -183,6 +249,16 @@ def test_type_alias_union():
     from typing import Union
     combined = IntAlias | StrAlias
     assert combined == Union[IntAlias, StrAlias]
+    raises(TypeError, lambda: IntAlias | 42)
+    raises(TypeError, lambda: 42 | IntAlias)
+
+
+def test_type_alias_union_rejects_spoofed_type():
+    class TypeAliasType:
+        pass
+    TypeAliasType.__module__ = 'typing'
+
+    raises(TypeError, lambda: int | TypeAliasType())
 
 
 # === __type_params__ attribute tests ===
@@ -321,6 +397,33 @@ def test_class_namespace_access():
     assert U.__bound__ is T
 
 
+def test_class_namespace_is_live_for_lazy_evaluation():
+    class DuringCreation:
+        T = int
+        type Alias = T
+        evaluated = Alias.__value__
+
+    assert DuringCreation.evaluated is int
+
+    class AfterCreation:
+        T = int
+        type Alias = T
+
+    AfterCreation.T = float
+    assert AfterCreation.Alias.__value__ is float
+    assert '__classdictcell__' not in vars(AfterCreation)
+
+
+def test_classdictcell_validation_and_type_params_on_type():
+    for value, type_name in [(object(), 'object'), (None, 'NoneType')]:
+        exc = raises(TypeError, type, 'Bad', (),
+                     {'__classdictcell__': value})
+        assert str(exc.value) == (
+            "__classdictcell__ must be a nonlocal cell, not "
+            "<class '%s'>" % type_name)
+    assert type.__type_params__ == ()
+
+
 def test_nested_class_namespace_isolation():
     """Class namespaces don't chain - only the immediate enclosing class is visible."""
     # Inner class cannot see outer class namespace
@@ -340,6 +443,21 @@ def test_nested_class_namespace_isolation():
                 X = "C"
                 type Alias[T: X] = T
     assert A.B.C.Alias.__type_params__[0].__bound__ == "C"
+
+
+def test_generic_class_does_not_mangle_non_type_params():
+    namespace = {'__name__': __name__}
+    exec("""
+__Base = list
+
+class Outer:
+    class Inner[T](__Base[T]):
+        pass
+""", namespace)
+
+    Inner = namespace['Outer'].Inner
+    assert Inner.__bases__[0] is list
+    assert Inner.__orig_bases__[0] == list[Inner.__type_params__[0]]
 
 
 def test_class_namespace_shadowing():
@@ -387,6 +505,17 @@ def test_function_scope_and_class_namespace():
             return InnerAlias
     alias = Outer().method()
     raises(NameError, getattr, alias.__type_params__[0], '__bound__')
+
+    # A generic class's type-parameter scope must pass the closure cell
+    # through to the nested class body, without exposing the outer class dict.
+    def make_nested_class():
+        value = 'function'
+        class Enclosing:
+            value = 'class'
+            class Generic[T]:
+                captured = value
+        return Enclosing.Generic
+    assert make_nested_class().captured == 'function'
 
 
 def test_class_conditionally_bound_name_with_enclosing_function():

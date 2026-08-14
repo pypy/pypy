@@ -286,8 +286,14 @@ class Scope(object):
                     # vars, so it will be passed through by the interpreter, but
                     # we leave the scope alone, so it can be local on its own.
                     self.free_vars.append(name)
+                else:
+                    self._note_passthrough_free(name)
         self._check_optimization()
         free.update(new_free)
+
+    def _note_passthrough_free(self, name):
+        """Hook for AnnotationScope free-var pass-through."""
+        pass
 
 
 class ModuleScope(Scope):
@@ -390,18 +396,54 @@ class AnnotationScope(FunctionScope):
     Key differences from FunctionScope:
     - Can access enclosing class namespace via LOAD_FROM_DICT_OR_* opcodes
     - Disallows yield, yield from, await, walrus operator
+    - Selective name mangling for type parameters of a generic class only
+      (CPython ste_mangled_names): __T is mangled to _Cls__T so the class
+      body can see it, but other names like base class __Base are not mangled
     """
     can_be_optimized = True
     needs_classdict = False
 
     def __init__(self, name, lineno, col_offset):
         FunctionScope.__init__(self, name, lineno, col_offset)
+        # If set, private name used for double-underscore mangling (class name).
+        self.private = None
+        # Names that should be mangled with self.private (type param names only).
+        # None means "inherit / use parent mangling" (no selective set).
+        # A dict used as a set means only those keys are mangled (CPython
+        # ste_mangled_names).
+        self.mangled_names = None
 
     # Causes translation error???
     # https://gist.github.com/BarrensZeppelin/30fe57eed1e88c81d0c1c324910a167c
     # @property
     # def needs_classdict(self):
     #     return self.class_entry is not None
+
+    def mangle(self, name):
+        # CPython _Py_MaybeMangle: when ste_mangled_names is set, only mangle
+        # names that appear in that set (the type parameters themselves).
+        if self.mangled_names is not None:
+            if name in self.mangled_names and self.private is not None:
+                return misc.mangle(name, self.private)
+            # _Py_MaybeMangle leaves every non-selected name untouched.  In
+            # particular, an enclosing class must not mangle globals used in
+            # a nested generic class's bases or bounds.
+            return name
+        # Nested scopes (a bound, a lambda or a comprehension in a base) have
+        # no selective set of their own; Scope.mangle sends them here.
+        return FunctionScope.mangle(self, name)
+
+    def _note_passthrough_free(self, name):
+        # Free vars from nested scopes (e.g. a nested generic class body
+        # referencing an outer function cell) must pass through annotation
+        # scopes even when the same name is GLOBAL_IMPLICIT here due to an
+        # enclosing class binding. Local resolution stays GLOBAL_IMPLICIT
+        # (classdict-then-globals); free_vars is only for cell pass-through.
+        # Avoid dict.get() (returns None) for RPython annotation.
+        if name in self.symbols and self.symbols[name] == SCOPE_GLOBAL_IMPLICIT:
+            if name not in self.free_vars:
+                self.free_vars.append(name)
+                self.has_free = True
 
     def note_yield(self, yield_node):
         self.error("yield expression cannot be used within an annotation scope", yield_node)
@@ -543,6 +585,14 @@ class SymtableBuilder(ast.GenericASTVisitor):
             # For classes, register .generic_base which holds Generic[T, ...]
             # This is used to automatically add Generic to bases like CPython does
             self.note_symbol('.generic_base', SYM_ASSIGNED | SYM_USED)
+            # CPython sets ste_private + ste_mangled_names on the type-param
+            # block: only the type parameter identifiers themselves are mangled
+            # with the class name (so the class body can see _Cls__T), while
+            # other names in bases/bounds (e.g. __Base) stay unmangled.
+            # TypeVar.__name__ stays the unmangled '__T'.
+            assert isinstance(self.scope, AnnotationScope)
+            self.scope.private = name
+            self.scope.mangled_names = {}
 
         self.visit_sequence(node.type_params)
 
@@ -992,8 +1042,21 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if type_alias.type_params:
             self.pop_scope()
 
+    def _register_type_param_name(self, name):
+        """Record a type parameter name for selective class mangling.
+
+        CPython only mangles type-parameter identifiers in the type-param
+        block (ste_mangled_names); other names stay unmangled so base classes
+        like ``__Base`` resolve correctly.
+        """
+        if isinstance(self.scope, AnnotationScope):
+            mangled_names = self.scope.mangled_names
+            if mangled_names is not None:
+                mangled_names[name] = None
+
     def visit_TypeVar(self, type_var):
         """Visit a TypeVar in a type parameter list."""
+        self._register_type_param_name(type_var.name)
         self.note_symbol(type_var.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var)
 
         # If there's a bound, create a sub-scope for lazy evaluation
@@ -1004,10 +1067,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_ParamSpec(self, param_spec):
         """Visit a ParamSpec in a type parameter list."""
+        self._register_type_param_name(param_spec.name)
         self.note_symbol(param_spec.name, SYM_TYPE_PARAM | SYM_ASSIGNED, param_spec)
 
     def visit_TypeVarTuple(self, type_var_tuple):
         """Visit a TypeVarTuple in a type parameter list."""
+        self._register_type_param_name(type_var_tuple.name)
         self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)
 
     def visit_MatchMapping(self, match_mapping):
