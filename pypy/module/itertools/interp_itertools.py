@@ -904,7 +904,7 @@ def tee(space, w_iterable, n=2):
         return tuple([gen(it.next) for i in range(n)])
 
     If iter(iterable) has a __copy__ method, though, we just return
-    a tuple t = (iterable, t[0].__copy__(), t[1].__copy__(), ...).
+    a tuple t = (t[0].__copy__(), t[1].__copy__(), ...).
     """
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
@@ -914,10 +914,7 @@ def tee(space, w_iterable, n=2):
         # In this case, we don't instantiate any W_TeeIterable.
         # We just rely on doing repeated __copy__().  This case
         # includes the situation where w_iterable is already
-        # a W_TeeIterable itself.  Every result (including the first) must be
-        # a fresh copy sharing the buffer, rather than w_iterator itself, so
-        # that consuming one does not advance w_iterator.  See CPython
-        # gh-123884 (tee of tee was not producing independent iterators).
+        # a W_TeeIterable itself.
         iterators_w = [space.call_method(w_iterator, "__copy__")
                        for i in range(n)]
     else:
