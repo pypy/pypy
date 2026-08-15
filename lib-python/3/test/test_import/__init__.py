@@ -21,7 +21,10 @@ import time
 import types
 import unittest
 from unittest import mock
-import _testinternalcapi
+try:
+    import _testinternalcapi
+except ImportError:
+    _testinternalcapi = None
 import _imp
 
 from test.support import os_helper
