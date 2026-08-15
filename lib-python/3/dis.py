@@ -35,6 +35,9 @@ FORMAT_VALUE_CONVERTERS = (
 MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
+# PYPY:
+IS_PYPY = sys.implementation.name == "pypy"
+
 LOAD_CONST = opmap['LOAD_CONST']
 # PYPY: opcodes not (yet) implemented by PyPy; -1 never matches a real opcode
 # RETURN_CONST = -1 ## opmap['RETURN_CONST']
@@ -473,13 +476,19 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
                 argval, argrepr = _get_const_info(deop, arg, co_consts)
             elif deop in hasname:
                 if deop == LOAD_GLOBAL:
-                    argval, argrepr = _get_name_info(arg//2, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = "NULL + " + argrepr
+                    if IS_PYPY:
+                        argval, argrepr = _get_name_info(arg, get_name)
+                    else:
+                        argval, argrepr = _get_name_info(arg//2, get_name)
+                        if (arg & 1) and argrepr:
+                            argrepr = "NULL + " + argrepr
                 elif deop == LOAD_ATTR:
-                    argval, argrepr = _get_name_info(arg//2, get_name)
-                    if (arg & 1) and argrepr:
-                        argrepr = "NULL|self + " + argrepr
+                    if IS_PYPY:
+                        argval, argrepr = _get_name_info(arg, get_name)
+                    else:
+                        argval, argrepr = _get_name_info(arg//2, get_name)
+                        if (arg & 1) and argrepr:
+                            argrepr = "NULL|self + " + argrepr
                 elif deop == LOAD_SUPER_ATTR:
                     argval, argrepr = _get_name_info(arg//4, get_name)
                     if (arg & 1) and argrepr:
