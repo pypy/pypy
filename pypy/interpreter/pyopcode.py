@@ -575,18 +575,26 @@ class __extend__(pyframe.PyFrame):
         self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
+        index = self.deref_index(index)
         pycode = self.pycode
-        if self.iscellvar(index):
+        if index < len(pycode.co_cellvars):
             return pycode.co_cellvars[index]
         return pycode.co_freevars[index - len(pycode.co_cellvars)]
 
     def iscellvar(self, index):
         # is the variable given by index a cell or a free var?
+        index = self.deref_index(index)
         return index < len(self.pycode.co_cellvars)
+
+    def deref_index(self, index):
+        assert 0 <= index < len(self.pycode._localsplus_to_deref)
+        deref_index = self.pycode._localsplus_to_deref[index]
+        assert deref_index >= 0
+        return deref_index
 
     def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
-        cell = self._getcell(varindex)
+        cell = self._getcell(self.deref_index(varindex))
         try:
             w_value = cell.get()
         except ValueError:
@@ -597,7 +605,7 @@ class __extend__(pyframe.PyFrame):
     def LOAD_CLASSDEREF(self, varindex, next_instr):
         # like LOAD_DEREF but used in class bodies
         space = self.space
-        i = varindex - len(self.pycode.co_cellvars)
+        i = self.deref_index(varindex) - len(self.pycode.co_cellvars)
         assert i >= 0
         name = self.pycode.co_freevars[i]
         w_value = space.finditem(self.debugdata.w_locals, space.newtext(name))
@@ -655,7 +663,7 @@ class __extend__(pyframe.PyFrame):
             return
 
         # Fall back to deref
-        cell = self._getcell(varindex)
+        cell = self._getcell(self.deref_index(varindex))
         try:
             w_value = cell.get()
         except ValueError:
@@ -666,11 +674,11 @@ class __extend__(pyframe.PyFrame):
     def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         w_newvalue = self.popvalue()
-        cell = self._getcell(varindex)
+        cell = self._getcell(self.deref_index(varindex))
         cell.set(w_newvalue)
 
     def DELETE_DEREF(self, varindex, next_instr):
-        cell = self._getcell(varindex)
+        cell = self._getcell(self.deref_index(varindex))
         try:
             cell.get()
         except ValueError:
@@ -691,16 +699,15 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
-        w_value = self._getcell(varindex)
+        w_value = self._getcell(self.deref_index(varindex))
         self.pushvalue(w_value)
 
     def MAKE_CELL(self, varindex, next_instr):
-        from pypy.interpreter.nestedscope import Cell, DUMMY_FAMILY
-        index = varindex + self.pycode.co_nlocals
-        if varindex < len(self.pycode.co_cellvars):
-            family = self.pycode.cell_families[varindex]
-        else:
-            family = DUMMY_FAMILY
+        from pypy.interpreter.nestedscope import Cell
+        cell_index = self.deref_index(varindex)
+        assert cell_index < len(self.pycode.co_cellvars)
+        family = self.pycode.cell_families[cell_index]
+        index = self.pycode._deref_to_localsplus[cell_index]
         self.locals_cells_stack_w[index] = Cell(None, family)
 
     def POP_TOP(self, oparg, next_instr):

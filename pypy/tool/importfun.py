@@ -177,10 +177,11 @@ def name_for_op(code, op, oparg):
     elif op in [_op_.LOAD_FAST, _op_.STORE_FAST]:
         return code.co_varnames[oparg]
     elif op in [_op_.LOAD_DEREF, _op_.STORE_DEREF]:
-        if oparg < len(code.co_cellvars):
-            return code.co_cellvars[oparg]
-        else:
-            return code.co_freevars[oparg - len(code.co_cellvars)]
+        varnames = list(code.co_varnames)
+        varnames += [name for name in code.co_cellvars
+                     if name not in code.co_varnames]
+        varnames += list(code.co_freevars)
+        return varnames[oparg]
     else:
         assert 0, "%s is not an opcode with a name!"%(opcode.opname[op],)
 

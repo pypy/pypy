@@ -267,21 +267,37 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # PEP 709: names forced to fast locals while compiling an inlined
         # comprehension in a non-function scope (CPython's u_fasthidden)
         self._force_fast_names = {}
-        self._cell_slot_fixups = []
+        self._localsplus_fixups = []
         self.qualname = qualname
         self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
 
     def assemble(self):
-        # Cell slots follow all fast-local slots in the frame.  The number of
-        # fast locals is only final after code generation, so resolve these
-        # locals-plus operands here rather than assigning a real opcode to a
-        # compiler-internal operation.
+        # Resolve cell/free indexes to CPython's locals-plus indexes after all
+        # fast locals have been discovered.
         nlocals = len(self.var_names)
-        for instr in self._cell_slot_fixups:
-            instr.arg += nlocals
-        self._cell_slot_fixups = []
+        ncellvars = len(self.cell_vars)
+        localsplus = [0] * (ncellvars + len(self.free_vars))
+        next_index = nlocals
+        cell_names = assemble._list_from_dict(self.cell_vars)
+        for cell_index in range(ncellvars):
+            name = cell_names[cell_index]
+            local_index = self.var_names.get(name, -1)
+            if local_index >= 0:
+                localsplus[cell_index] = local_index
+            else:
+                localsplus[cell_index] = next_index
+                next_index += 1
+        for free_index in self.free_vars.itervalues():
+            localsplus[free_index] = next_index + free_index - ncellvars
+        for instr in self._localsplus_fixups:
+            instr.arg = localsplus[instr.arg]
+        self._localsplus_fixups = []
         return assemble.PythonCodeMaker.assemble(self)
+
+    def emit_localsplus_op(self, op, index):
+        instr = self.emit_op_arg(op, index)
+        self._localsplus_fixups.append(instr)
 
     def _compile(self, tree):
         """Override in subclasses to compile a scope."""
@@ -434,6 +450,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         force_fast = self._force_fast_names.get(mangled, 0) > 0
         op = ops.NOP
         container = self.names
+        localsplus = False
         in_inlined = self._in_inlined_comp > 0
         if scope == symtable.SCOPE_LOCAL:
             if self.scope.can_be_optimized or force_fast:
@@ -446,9 +463,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     not in_inlined):
                 op = ops.LOAD_CLASSDEREF
             container = self.free_vars
+            localsplus = True
         elif scope == symtable.SCOPE_CELL:
             op = name_ops_deref(ctx)
             container = self.cell_vars
+            localsplus = True
         elif scope == symtable.SCOPE_GLOBAL_IMPLICIT:
             if self.scope.optimized or in_inlined:
                 op = name_ops_global(ctx)
@@ -460,7 +479,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 op = name_ops_global(ctx)
             else:
                 op = name_ops_default(ctx)
-        self.emit_op_arg(op, self.add_name(container, identifier))
+        index = self.add_name(container, identifier)
+        if localsplus:
+            self.emit_localsplus_op(op, index)
+        else:
+            self.emit_op_arg(op, index)
 
     def possible_docstring(self, node):
         if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
@@ -558,8 +581,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 elif free in self.free_vars:
                     index = self.free_vars[free]
                 else:
-                    index = self.add_name(self.free_vars, free)
-                self.emit_op_arg(ops.LOAD_CLOSURE, index)
+                    assert free in self.free_vars
+                    index = self.free_vars[free]
+                self.emit_localsplus_op(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
         self.load_const(code)
         self.emit_op_arg(ops.MAKE_FUNCTION, oparg)
@@ -2297,9 +2321,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         i = n - 1
         while i >= 0:
             index, is_cell = indices[i]
-            instr = self.emit_op_arg(ops.STORE_FAST, index)
             if is_cell:
-                self._cell_slot_fixups.append(instr)
+                self.emit_localsplus_op(ops.STORE_FAST, index)
+            else:
+                self.emit_op_arg(ops.STORE_FAST, index)
             i -= 1
 
     def _compile_inlined_comprehension(self, node, comp_scope):
@@ -2346,11 +2371,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     force_fast_names.append(name)
                     self.add_name(self.var_names, name)
                 if scope == symtable.SCOPE_CELL:
-                    cell_index = self.add_name(self.cell_vars, name)
-                    instr = self.emit_op_arg(ops.LOAD_FAST_AND_CLEAR,
-                                             cell_index)
-                    self._cell_slot_fixups.append(instr)
-                    self.emit_op_arg(ops.MAKE_CELL, cell_index)
+                    assert name in self.cell_vars
+                    cell_index = self.cell_vars[name]
+                    self.emit_localsplus_op(ops.LOAD_FAST_AND_CLEAR,
+                                            cell_index)
+                    self.emit_localsplus_op(ops.MAKE_CELL, cell_index)
                     indices.append((cell_index, True))
                 else:
                     index = self.add_name(self.var_names, name)
@@ -3283,13 +3308,16 @@ class AnnotationScopeCodeGenerator(AbstractFunctionCodeGenerator):
 
         # For implicit globals, check class dict first, then globals
         if scope == symtable.SCOPE_GLOBAL_IMPLICIT:
-            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_localsplus_op(
+                ops.LOAD_DEREF, self.free_vars['__classdict__'])
             self.emit_op_name(ops.LOAD_FROM_DICT_OR_GLOBALS, self.names, identifier)
         # For free vars, check class dict first, then cell
         elif scope == symtable.SCOPE_FREE:
-            self.emit_op_arg(ops.LOAD_DEREF, self.free_vars['__classdict__'])
-            self.emit_op_arg(ops.LOAD_FROM_DICT_OR_DEREF,
-                            self.add_name(self.free_vars, identifier))
+            self.emit_localsplus_op(
+                ops.LOAD_DEREF, self.free_vars['__classdict__'])
+            self.emit_localsplus_op(
+                ops.LOAD_FROM_DICT_OR_DEREF,
+                self.add_name(self.free_vars, identifier))
         else:
             # Local, cell, or explicit global - use normal resolution
             return PythonCodeGenerator.name_op(self, identifier, ctx, node)
@@ -3510,7 +3538,8 @@ class ClassCodeGenerator(PythonCodeGenerator):
         classdict_scope = self.scope.lookup("__classdict__")
         if classdict_scope == symtable.SCOPE_CELL:
             self.emit_op(ops.LOAD_LOCALS)  # Push locals() dict
-            self.emit_op_arg(ops.STORE_DEREF, self.cell_vars["__classdict__"])
+            self.emit_localsplus_op(
+                ops.STORE_DEREF, self.cell_vars["__classdict__"])
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)
         # ... and store it as __module__
@@ -3528,7 +3557,8 @@ class ClassCodeGenerator(PythonCodeGenerator):
         scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL_CLASS:
             # Return the cell where to store __class__
-            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__class__"])
+            self.emit_localsplus_op(
+                ops.LOAD_CLOSURE, self.cell_vars["__class__"])
             self.emit_op(ops.DUP_TOP)
             self.name_op("__classcell__", ast.Store, None)
         else:

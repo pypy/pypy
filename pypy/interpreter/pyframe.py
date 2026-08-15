@@ -170,7 +170,8 @@ class PyFrame(W_Root):
             self.pycode, self.get_last_lineno())
 
     def _getcell(self, varindex):
-        cell = self.locals_cells_stack_w[varindex + self.pycode.co_nlocals]
+        index = self.pycode._deref_to_localsplus[varindex]
+        cell = self.locals_cells_stack_w[index]
         assert isinstance(cell, Cell)
         return cell
 
@@ -235,14 +236,19 @@ class PyFrame(W_Root):
         if closure_size != nfreevars:
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
-        index = code.co_nlocals
         for i in range(ncellvars):
+            if (i < len(code._args_as_cellvars) and
+                    code._args_as_cellvars[i] >= 0):
+                # Leave argument cells empty until argument parsing has put
+                # the argument (or its default) in the shared locals-plus
+                # slot.  init_cells() wraps that value afterwards.
+                continue
+            index = code._deref_to_localsplus[i]
             self.locals_cells_stack_w[index] = Cell(
                     None, self.pycode.cell_families[i])
-            index += 1
         for i in range(nfreevars):
+            index = code._deref_to_localsplus[ncellvars + i]
             self.locals_cells_stack_w[index] = outer_func.closure[i]
-            index += 1
 
     def _is_generator_or_coroutine(self):
         return (self.getcode().co_flags & (pycode.CO_COROUTINE |
@@ -385,8 +391,7 @@ class PyFrame(W_Root):
             assert 0
 
     def _stack_start(self):
-        code = self.pycode
-        return code.co_nlocals + len(code.co_cellvars) + len(code.co_freevars)
+        return len(self.pycode._localsplus_names)
 
     def _check_stack_index(self, index):
         return index >= self._stack_start()
@@ -541,16 +546,14 @@ class PyFrame(W_Root):
             hidden_values = []
             for i in range(min(len(hidden_names), self.getcode().co_nlocals)):
                 w_value = self.locals_cells_stack_w[i]
+                if (self.pycode._localsplus_to_deref[i] >= 0 and
+                        isinstance(w_value, Cell)):
+                    try:
+                        w_value = w_value.get()
+                    except ValueError:
+                        w_value = None
                 if w_value is not None:
                     hidden_values.append((hidden_names[i], w_value))
-            for i, name in enumerate(self.pycode.co_cellvars):
-                if name in hidden_names:
-                    try:
-                        w_value = self._getcell(i).get()
-                    except ValueError:
-                        pass
-                    else:
-                        hidden_values.append((name, w_value))
             if hidden_values:
                 w_copy = self.space.newdict()
                 self.space.call_method(w_copy, 'update', w_locals)
@@ -580,6 +583,12 @@ class PyFrame(W_Root):
             for i in range(min(len(varnames), self.getcode().co_nlocals)):
                 name = varnames[i]
                 w_value = self.locals_cells_stack_w[i]
+                if (self.pycode._localsplus_to_deref[i] >= 0 and
+                        isinstance(w_value, Cell)):
+                    try:
+                        w_value = w_value.get()
+                    except ValueError:
+                        w_value = None
                 if w_value is not None:
                     self.space.setitem_str(w_locals, name, w_value)
                 else:
@@ -601,6 +610,8 @@ class PyFrame(W_Root):
             freevarnames = freevarnames + self.pycode.co_freevars
         for i in range(len(freevarnames)):
             name = freevarnames[i]
+            if i < len(self.pycode.co_cellvars) and name in varnames:
+                continue
             if (not self.pycode.co_flags & consts.CO_OPTIMIZED and
                     name in varnames):
                 continue
@@ -628,16 +639,15 @@ class PyFrame(W_Root):
         varnames = self.getcode().getvarnames()
         if self.getcode().co_flags & consts.CO_OPTIMIZED:
             numlocals = self.getcode().co_nlocals
-
-            new_fastlocals_w = [None] * numlocals
-
             for i in range(min(len(varnames), numlocals)):
                 name = varnames[i]
                 w_value = self.space.finditem_str(w_locals, name)
-                if w_value is not None:
-                    new_fastlocals_w[i] = w_value
-
-            self.setfastscope(new_fastlocals_w)
+                deref_index = self.pycode._localsplus_to_deref[i]
+                if deref_index >= 0:
+                    cell = self._getcell(deref_index)
+                    cell.set(w_value)
+                else:
+                    self.locals_cells_stack_w[i] = w_value
         # else: PEP 709 fast-hidden comprehension locals; never seeded from
         # nor synced to the locals dict, and must not be wiped here
 
@@ -653,6 +663,10 @@ class PyFrame(W_Root):
             # into the locals dict used by the class.
         for i in range(len(freevarnames)):
             name = freevarnames[i]
+            if (i < len(self.pycode.co_cellvars) and
+                    self.pycode._deref_to_localsplus[i] <
+                    self.pycode.co_nlocals):
+                continue
             if (not self.pycode.co_flags & consts.CO_OPTIMIZED and
                     name in varnames):
                 continue
@@ -668,15 +682,17 @@ class PyFrame(W_Root):
         """
         Initialize cellvars from self.locals_cells_stack_w.
         """
-        args_to_copy = self.pycode._args_as_cellvars
-        index = self.pycode.co_nlocals
-        for i in range(len(args_to_copy)):
-            argnum = args_to_copy[i]
-            if argnum >= 0:
-                cell = self.locals_cells_stack_w[index]
-                assert isinstance(cell, Cell)
-                cell.set(self.locals_cells_stack_w[argnum])
-            index += 1
+        for i in range(len(self.pycode.co_cellvars)):
+            index = self.pycode._deref_to_localsplus[i]
+            if index < self.pycode.co_nlocals:
+                w_value = self.locals_cells_stack_w[index]
+                is_arg_cell = (i < len(self.pycode._args_as_cellvars) and
+                               self.pycode._args_as_cellvars[i] >= 0)
+                if is_arg_cell or not isinstance(w_value, Cell):
+                    cell = Cell(None, self.pycode.cell_families[i])
+                    if w_value is not None:
+                        cell.set(w_value)
+                    self.locals_cells_stack_w[index] = cell
 
     def getclosure(self):
         return None
