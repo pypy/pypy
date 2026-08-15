@@ -37,6 +37,7 @@ _ag = _ag()
 AsyncGeneratorType = type(_ag)
 
 class _C:
+    __slots__ = ['x']  # PYPY
     def _m(self): pass
 MethodType = type(_C()._m)
 
@@ -57,7 +58,7 @@ except TypeError as exc:
     FrameType = type(exc.__traceback__.tb_frame)
 
 GetSetDescriptorType = type(FunctionType.__code__)
-MemberDescriptorType = type(FunctionType.__globals__)
+MemberDescriptorType = type(_C.x)  # PYPY
 
 del sys, _f, _g, _C, _c, _ag, _cell_factory  # Not for export
 
