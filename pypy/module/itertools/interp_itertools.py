@@ -883,7 +883,7 @@ def tee(space, w_iterable, n=2):
         return tuple([gen(it.next) for i in range(n)])
 
     If iter(iterable) has a __copy__ method, though, we just return
-    a tuple t = (iterable, t[0].__copy__(), t[1].__copy__(), ...).
+    a tuple t = (t[0].__copy__(), t[1].__copy__(), ...).
     """
     if n < 0:
         raise oefmt(space.w_ValueError, "n must be >= 0")
@@ -895,7 +895,7 @@ def tee(space, w_iterable, n=2):
         # includes the situation where w_iterable is already
         # a W_TeeIterable itself.
         iterators_w = [w_iterator] * n
-        for i in range(1, n):
+        for i in range(0, n):
             iterators_w[i] = space.call_method(w_iterator, "__copy__")
     else:
         w_chained_list = W_TeeChainedListNode(space)

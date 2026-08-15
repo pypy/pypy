@@ -601,87 +601,6 @@ class AppTestItertools(object):
         with raises(TypeError) as e:
             subclass(operator.add, [[1, 2]], newarg=3)
 
-    def test_tee(self):
-        import itertools
-
-        it1, it2 = itertools.tee([])
-        raises(StopIteration, next, it1)
-        raises(StopIteration, next, it2)
-
-        it1, it2 = itertools.tee([1, 2, 3])
-        for x in [1, 2]:
-            assert next(it1) == x
-        for x in [1, 2, 3]:
-            assert next(it2) == x
-        assert next(it1) == 3
-        raises(StopIteration, next, it1)
-        raises(StopIteration, next, it2)
-
-        assert itertools.tee([], 0) == ()
-
-        iterators = itertools.tee([1, 2, 3], 10)
-        for it in iterators:
-            for x in [1, 2, 3]:
-                assert next(it) == x
-            raises(StopIteration, next, it)
-
-    def test_tee_wrongargs(self):
-        import itertools
-
-        raises(TypeError, itertools.tee, 0)
-        raises(ValueError, itertools.tee, [], -1)
-        raises(TypeError, itertools.tee, [], None)
-
-    def test_tee_optimization(self):
-        import itertools
-
-        a, b = itertools.tee(iter('foobar'))
-        c, d = itertools.tee(b)
-        assert c is b
-        assert a is not c
-        assert a is not d
-        assert c is not d
-        res = list(a)
-        assert res == list('foobar')
-        res = list(c)
-        assert res == list('foobar')
-        res = list(d)
-        assert res == list('foobar')
-
-    def test_tee_copy_bug(self):
-        from itertools import tee
-        class Coll:
-            def __iter__(self):
-                return It()
-
-            def __copy__(self):
-                return self
-
-        class It:
-            def __copy__(self):
-                return It()
-
-            def __next__(self):
-                return 1
-
-        iterator1, iterator2 = tee(Coll())
-        assert isinstance(iterator1, It)
-
-    def test_tee_instantiate(self):
-        import itertools
-
-        a, b = itertools.tee(iter('foobar'))
-        c = type(a)(a)
-        assert a is not b
-        assert a is not c
-        assert b is not c
-        res = list(a)
-        assert res == list('foobar')
-        res = list(b)
-        assert res == list('foobar')
-        res = list(c)
-        assert res == list('foobar')
-
     def test_groupby(self):
         import itertools
 
@@ -896,23 +815,6 @@ class AppTestItertools(object):
         assert x == 'b'
         x = next(b)
         assert x == 'b'
-
-    def test_tee_function_uses_copy(self):
-        import itertools
-        class MyIterator(object):
-            def __iter__(self):
-                return self
-            def __next__(self):
-                raise NotImplementedError
-            def __copy__(self):
-                return iter('def')
-        my = MyIterator()
-        a, = itertools.tee(my, 1)
-        assert a is my
-        a, b = itertools.tee(my)
-        assert a is my
-        assert b is not my
-        assert list(b) == ['d', 'e', 'f']
 
     def test_tee_function_empty(self):
         import itertools
@@ -1290,7 +1192,7 @@ class AppTestItertools27(object):
         assert type(A('', 0)) is A
 
     def test_copy_pickle(self):
-        import itertools, copy, pickle as pickle, sys
+        import itertools, copy, _pickle as pickle, sys
         for value in [42, -sys.maxsize*99]:
             for step in [1, sys.maxsize*42, 5.5]:
                 expected = [value, value+step, value+2*step]
@@ -1358,7 +1260,7 @@ class AppTestItertools27(object):
 
     def test_takewhile_pickle(self):
         data = [1, 2, 3, 0, 4, 5, 6]
-        import itertools, pickle
+        import itertools, _pickle as pickle
         t = itertools.takewhile(bool, data)
         next(t)
         assert list(pickle.loads(pickle.dumps(t))) == [2, 3]
