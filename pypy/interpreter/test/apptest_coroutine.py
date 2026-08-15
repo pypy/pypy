@@ -1055,6 +1055,27 @@ def test_ag_running_asend_send():
     assert info.value.value == 0
     assert a.ag_running is False
 
+def test_ag_suspended():
+    async def agen():
+        await suspend('coro')
+        yield 1
+        assert not a.ag_suspended
+
+    a = agen()
+    assert not a.ag_suspended  # not running yet
+    coro = a.asend(None)
+    res = coro.send(None)
+    assert res == 'coro'
+    assert not a.ag_suspended  # running, not suspended
+    with raises(StopIteration) as info:
+        coro.send(None)
+    assert info.value.value == 1
+    assert a.ag_suspended
+    with raises(StopAsyncIteration):
+        a.asend(None).send(None)
+    assert not a.ag_suspended
+    assert a.ag_frame is None
+
 async def asynciter(iterable):
     """Convert an iterable to an asynchronous iterator."""
     for x in iterable:
