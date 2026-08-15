@@ -364,6 +364,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.cell_vars = _make_index_dict_filter(scope.symbols,
                                                  symtable.SCOPE_CELL,
                                                  symtable.SCOPE_CELL_CLASS)
+        for name in scope.inlined_cells:
+            if name not in self.cell_vars:
+                self.cell_vars[name] = len(self.cell_vars)
         string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
@@ -429,6 +432,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         if not self.is_dead_code():
             self.current_block.emit_instr(instr)
             self._stack_depth += _opcode_stack_effect(op, arg)
+        return instr
 
     def emit_swaps(self, arg):
         # Emit n-1 SWAPs to rotate TOS to depth n (CPython 3.11 style),
@@ -1574,6 +1578,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_DEREF: 1,
     ops.STORE_DEREF: -1,
     ops.DELETE_DEREF: 0,
+    ops.MAKE_CELL: 0,
 
     ops.LOAD_LOCALS: 1,
     ops.LOAD_FROM_DICT_OR_GLOBALS: 0,  # pops dict, pushes value

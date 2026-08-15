@@ -235,7 +235,10 @@ class AppTestCodeIntrospection:
             assert c.co_varnames == e_varnames
             assert c.co_cellvars == e_cellvars
             assert c.co_freevars == e_freevars
-            localsplus = e_varnames + e_cellvars + e_freevars
+            localsplus = (e_varnames +
+                          tuple(name for name in e_cellvars
+                                if name not in e_varnames) +
+                          e_freevars)
             assert tuple(c._varname_from_oparg(i) for i in range(len(localsplus))) == localsplus
             raises(IndexError, c._varname_from_oparg, -1)
             raises(IndexError, c._varname_from_oparg, len(localsplus))

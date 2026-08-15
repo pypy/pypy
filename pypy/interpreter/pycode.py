@@ -40,8 +40,9 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 464 # bump it by 16
+pypy_incremental_magic = 480 # bump it by 16
 # 464: PEP 709 inlined comprehensions (LOAD_FAST_AND_CLEAR)
+# 480: locals-plus operands for cell and free variable opcodes
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -101,6 +102,8 @@ class PyCode(eval.Code):
                           "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]",
+                          "_localsplus_names[*]", "_localsplus_to_deref[*]",
+                          "_deref_to_localsplus[*]",
                           "co_linetable",
                           "co_exceptiontable",
                           "w_globals?",
@@ -192,6 +195,10 @@ class PyCode(eval.Code):
         else:
             self._args_as_cellvars = []
             self.cell_families = []
+
+        (self._localsplus_names, self._localsplus_to_deref,
+         self._deref_to_localsplus) = _compute_localsplus_info(
+             self.co_varnames, self.co_cellvars, self.co_freevars)
 
         self._compute_flatcall()
 
@@ -343,21 +350,10 @@ class PyCode(eval.Code):
     def descr__varname_from_oparg(self, space, index):
         """Return the local variable name for the given oparg index.
 
-        The index maps into co_varnames + co_cellvars + co_freevars.
+        Cell variables already present in co_varnames share their local slot.
         """
-        nlocals = self.co_nlocals
-        ncellvars = len(self.co_cellvars)
-        nfreevars = len(self.co_freevars)
-
-        if index >= 0:
-            if index < nlocals:
-                return space.newtext(self.co_varnames[index])
-            index -= nlocals
-            if index < ncellvars:
-                return space.newtext(self.co_cellvars[index])
-            index -= ncellvars
-            if index < nfreevars:
-                return space.newtext(self.co_freevars[index])
+        if 0 <= index < len(self._localsplus_names):
+            return space.newtext(self._localsplus_names[index])
         raise oefmt(space.w_IndexError, "tuple index out of range")
 
     def descr_code__eq__(self, w_other):
@@ -720,6 +716,39 @@ def _compute_args_as_cellvars(varnames, cellvars, argcount):
                 last_arg_cellarg = i
     return args_as_cellvars[:]
 
+
+def _compute_localsplus_info(varnames, cellvars, freevars):
+    extra_cells = 0
+    for name in cellvars:
+        if name not in varnames:
+            extra_cells += 1
+    size = len(varnames) + extra_cells + len(freevars)
+    names = [''] * size
+    to_deref = [-1] * size
+    deref_to_localsplus = [0] * (len(cellvars) + len(freevars))
+    for i in range(len(varnames)):
+        names[i] = varnames[i]
+    next_index = len(varnames)
+    for cell_index in range(len(cellvars)):
+        name = cellvars[cell_index]
+        local_index = -1
+        for i in range(len(varnames)):
+            if varnames[i] == name:
+                local_index = i
+                break
+        if local_index < 0:
+            local_index = next_index
+            names[local_index] = name
+            next_index += 1
+        to_deref[local_index] = cell_index
+        deref_to_localsplus[cell_index] = local_index
+    for free_index in range(len(freevars)):
+        names[next_index] = freevars[free_index]
+        to_deref[next_index] = len(cellvars) + free_index
+        deref_to_localsplus[len(cellvars) + free_index] = next_index
+        next_index += 1
+    return names, to_deref, deref_to_localsplus
+
 def _code_const_eq(space, w_a, w_b):
     # this is a mess! CPython has complicated logic for this. essentially this
     # is supposed to be a "strong" equal, that takes types and signs of numbers
@@ -752,4 +781,3 @@ def _convert_const(space, w_a):
         return space.newfrozenset(elements_w)
     # use id for the rest
     return space.id(w_a)
-

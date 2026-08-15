@@ -791,6 +791,35 @@ def test_locals2fast_freevar_bug():
     sys.settrace(None)
     assert res == 10
 
+def test_locals2fast_preserves_shared_cell():
+    import sys
+    def trace(frame, event, arg):
+        frame.f_locals
+        return trace
+    def f(x):
+        def inner():
+            return x
+        x += 1
+        return inner(), inner.__closure__[0].cell_contents
+    sys.settrace(trace)
+    try:
+        assert f(41) == (42, 42)
+    finally:
+        sys.settrace(None)
+
+def test_fast2locals_preserves_cell_value_in_regular_local():
+    def make_cell(empty=False):
+        value = 1
+        cell = (lambda: value).__closure__[0]
+        if empty:
+            del value
+        return cell
+    def f(cell):
+        return cell, locals()['cell']
+    for cell in (make_cell(), make_cell(empty=True)):
+        cell, local = f(cell)
+        assert local is cell
+
 def test_disable_line_tracing():
     import sys
     assert sys._getframe().f_trace_lines

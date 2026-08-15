@@ -272,6 +272,5 @@ def reprargstring(space, pycode, next_instr, opcode, oparg):
     elif opcode in opcode3.hascompare:
         s +=  '(' + opcode3.cmp_op[oparg] + ')'
     elif opcode in opcode3.hasfree:
-        free = pycode.co_cellvars + pycode.co_freevars
-        s +=  '(' + free[oparg] + ')'
+        s +=  '(' + pycode._localsplus_names[oparg] + ')'
     return s

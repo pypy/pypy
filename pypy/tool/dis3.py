@@ -263,7 +263,7 @@ def get_instructions(x, first_line=None):
     the disassembled code object.
     """
     co = _get_code_object(x)
-    cell_names = co.co_cellvars + co.co_freevars
+    cell_names = _get_localsplus_names(co)
     linestarts = dict(findlinestarts(co))
     if first_line is not None:
         line_offset = first_line - co.co_firstlineno
@@ -299,6 +299,13 @@ def _get_name_info(name_index, name_list):
     else:
         argrepr = repr(argval)
     return argval, argrepr
+
+
+def _get_localsplus_names(co):
+    names = list(co.co_varnames)
+    names += [name for name in co.co_cellvars if name not in co.co_varnames]
+    names += list(co.co_freevars)
+    return names
 
 
 def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
@@ -360,7 +367,7 @@ def _get_instructions_bytes(code, varnames=None, names=None, constants=None,
 
 def disassemble(co, lasti=-1, file=None):
     """Disassemble a code object."""
-    cell_names = co.co_cellvars + co.co_freevars
+    cell_names = _get_localsplus_names(co)
     linestarts = dict(findlinestarts(co))
     _disassemble_bytes(co.co_code, lasti, co.co_varnames, co.co_names,
                        co.co_consts, cell_names, linestarts)
@@ -472,7 +479,7 @@ class Bytecode:
         else:
             self.first_line = first_line
             self._line_offset = first_line - co.co_firstlineno
-        self._cell_names = co.co_cellvars + co.co_freevars
+        self._cell_names = _get_localsplus_names(co)
         self._linestarts = dict(findlinestarts(co))
         self._original_object = x
         self.current_offset = current_offset
