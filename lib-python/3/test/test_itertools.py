@@ -1538,7 +1538,7 @@ class TestBasicOps(unittest.TestCase):
         # tee pass-through to copyable iterator
         a, b = tee('abc')
         c, d = tee(a)
-        self.assertTrue(a is c)
+        self.assertFalse(a is c) # PYPY
 
         # test tee_new
         t1, t2 = tee('abc')
