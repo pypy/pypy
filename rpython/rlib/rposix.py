@@ -2191,6 +2191,7 @@ if not _WIN32:
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
         AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+        AT_SYMLINK_FOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_FOLLOW')
         AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
         AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
         AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
@@ -2620,10 +2621,12 @@ if HAVE_LINKAT:
         """Thin wrapper around linkat(2) with an interface similar to
         Python3's os.link()
         """
+        # linkat() does not follow symlinks by default, the flag is
+        # AT_SYMLINK_FOLLOW and not AT_SYMLINK_NOFOLLOW
         if follow_symlinks:
-            flag = 0
+            flag = AT_SYMLINK_FOLLOW
         else:
-            flag = AT_SYMLINK_NOFOLLOW
+            flag = 0
         error = c_linkat(src_dir_fd, src, dst_dir_fd, dst, flag)
         handle_posix_error('linkat', error)
 

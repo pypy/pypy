@@ -34,7 +34,15 @@ constant_names = ['LOCK_SH', 'LOCK_EX', 'LOCK_NB', 'LOCK_UN', 'F_DUPFD',
     'I_SETSIG', 'I_GETSIG', 'I_FIND', 'I_LINK', 'I_UNLINK', 'I_PEEK',
     'I_FDINSERT', 'I_SENDFD', 'I_RECVFD', 'I_SWROPT', 'I_LIST', 'I_PLINK',
     'I_PUNLINK', 'I_FLUSHBAND', 'I_CKBAND', 'I_GETBAND', 'I_ATMARK',
-    'I_SETCLTIME', 'I_GETCLTIME', 'I_CANPUT']
+    'I_SETCLTIME', 'I_GETCLTIME', 'I_CANPUT', 'I_GWROPT',
+    'FASYNC', 'F_DUPFD_CLOEXEC', 'F_DUP2FD', 'F_DUP2FD_CLOEXEC',
+    # open file description locks (linux, freebsd, macOS)
+    'F_OFD_GETLK', 'F_OFD_SETLK', 'F_OFD_SETLKW',
+    # macOS specific
+    'F_FULLFSYNC', 'F_NOCACHE', 'F_GETPATH',
+    # linux specific
+    'F_GETPIPE_SZ', 'F_SETPIPE_SZ', 'F_ADD_SEALS', 'F_GET_SEALS',
+    'F_SEAL_SEAL', 'F_SEAL_SHRINK', 'F_SEAL_GROW', 'F_SEAL_WRITE']
 for name in constant_names:
     setattr(CConfig, name, platform.DefinedConstantInteger(name))
 

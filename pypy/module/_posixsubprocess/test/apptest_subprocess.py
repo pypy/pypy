@@ -133,32 +133,27 @@ def test_extra_groups():
         else:
             assert set(desired_gids) == set(parent_groups)
 
-def test_umask():
-    import tempfile, shutil
-    tmpdir = None
-    try:
-        tmpdir = tempfile.mkdtemp()
-        name = os.path.join(tmpdir, "beans")
-        # We set an unusual umask in the child so as a unique mode
-        # for us to test the child's touched file for.
-        subprocess.check_call(
-                ["python", "-c", f"open({name!r}, 'w').close()"],
-                umask=0o053)
-        # Ignore execute permissions entirely in our test,
-        # filesystems could be mounted to ignore or force that.
-        st_mode = os.stat(name).st_mode & 0o666
-        expected_mode = 0o624
-        assert expected_mode == st_mode
-    finally:
-        if tmpdir is not None:
-            shutil.rmtree(tmpdir)
+def test_umask(tmpdir):
+    # tmpdir comes from the fixture of the same name in fixtures.py
+    name = os.path.join(tmpdir, "beans")
+    # We set an unusual umask in the child so as a unique mode
+    # for us to test the child's touched file for.
+    subprocess.check_call(
+            ["python", "-c", f"open({name!r}, 'w').close()"],
+            umask=0o053)
+    # Ignore execute permissions entirely in our test,
+    # filesystems could be mounted to ignore or force that.
+    st_mode = os.stat(name).st_mode & 0o666
+    expected_mode = 0o624
+    assert expected_mode == st_mode
 
-def test_issue_3630():
+def test_issue_3630(tmpdir):
+    # tmpdir comes from the fixture of the same name in fixtures.py
     import time
     # Make sure the registered callback functions are not called unless
     # fork_exec has a preexec_fn
 
-    tmpfile = 'fork_exec.txt'
+    tmpfile = os.path.join(tmpdir, 'fork_exec.txt')
     with open(tmpfile, 'w'):
         pass
 

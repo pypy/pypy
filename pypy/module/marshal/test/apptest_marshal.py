@@ -268,28 +268,25 @@ def test_marshal_bufferlike_object():
 # Stream I/O
 # ---------------------------------------------------------------------------
 
-def test_stream_reader_writer():
-    import tempfile, os
+def test_stream_reader_writer(tmpdir):
+    # tmpdir comes from the fixture of the same name in fixtures.py
+    import os
     obj1 = [4, ("hello", 7.5)]
     obj2 = "foobar"
-    fd, tmpfile = tempfile.mkstemp()
-    os.close(fd)
-    try:
-        f = open(tmpfile, 'wb')
-        marshal.dump(obj1, f)
-        marshal.dump(obj2, f)
-        f.write(b'END')
-        f.close()
-        f = open(tmpfile, 'rb')
-        obj1b = marshal.load(f)
-        obj2b = marshal.load(f)
-        tail = f.read()
-        f.close()
-        assert obj1b == obj1
-        assert obj2b == obj2
-        assert tail == b'END'
-    finally:
-        os.unlink(tmpfile)
+    tmpfile = os.path.join(tmpdir, 'stream_reader_writer')
+    f = open(tmpfile, 'wb')
+    marshal.dump(obj1, f)
+    marshal.dump(obj2, f)
+    f.write(b'END')
+    f.close()
+    f = open(tmpfile, 'rb')
+    obj1b = marshal.load(f)
+    obj2b = marshal.load(f)
+    tail = f.read()
+    f.close()
+    assert obj1b == obj1
+    assert obj2b == obj2
+    assert tail == b'END'
 
 
 # ---------------------------------------------------------------------------
