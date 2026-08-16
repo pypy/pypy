@@ -1398,17 +1398,21 @@ def check_and_find_best_base(space, bases_w, is_cpytype=False):
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
-    if (not (is_cpytype and w_bestbase.is_cpytype()) and 
-        not w_bestbase.acceptable_as_base_class(space)):
-        # CPython allows cpytype classes with cpytype bestbase to violate this. Go figure.
-        raise oefmt(space.w_TypeError,
-                    "type '%s' is not an acceptable base type", w_bestbase.name)
 
     # check that all other bases' layouts are "super-layouts" of the
     # bestbase's layout
     best_layout = w_bestbase.layout
     for w_base in bases_w:
         if isinstance(w_base, W_TypeObject):
+            if (not (is_cpytype and w_base.is_cpytype()) and
+                not w_base.acceptable_as_base_class(space)):
+                # CPython allows cpytype classes with cpytype bestbase to violate this. Go figure.
+                # find_best_base() may pick a *different* base as
+                # w_bestbase (e.g. one with a bigger instance layout), so
+                # every base must be checked here, not just w_bestbase --
+                # otherwise a BASETYPE-ok co-base can hide one that isn't.
+                raise oefmt(space.w_TypeError,
+                            "type '%s' is not an acceptable base type", w_base.name)
             layout = w_base.layout
             if not best_layout.issublayout(layout):
                 if _layouts_equivalent(best_layout, layout) and (

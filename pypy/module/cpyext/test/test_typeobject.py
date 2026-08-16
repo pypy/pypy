@@ -2953,6 +2953,65 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         assert module.get_qualname(inttype) == "HeapType"
 
+    def test_multi_inherit_missing_basetype_flag(self):
+        # Mirrors numpy gh-23737: combining a C type that does *not* set
+        # Py_TPFLAGS_BASETYPE (like np.flexible, whose instance layout adds
+        # no fields beyond PyObject) with an unrelated C type that *does*
+        # and has a bigger instance layout (like ndarray) must still raise
+        # "not an acceptable base type" for the first one. CPython's
+        # best_base() checks every base in the tuple, not just the one
+        # whose layout ends up winning -- find_best_base() must not let a
+        # BASETYPE-ok winner with a bigger layout hide a non-BASETYPE,
+        # same-size-as-object co-base.
+        module = self.import_extension('foo_multi_basetype', [], prologue="""
+            static PyTypeObject NoBase_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_multi_basetype.NoBase",
+                sizeof(PyObject),
+                0,
+            };
+            typedef struct {
+                PyObject_HEAD
+                void *extra1, *extra2, *extra3, *extra4;
+            } WithBaseObject;
+            static PyTypeObject WithBase_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_multi_basetype.WithBase",
+                sizeof(WithBaseObject),
+                0,
+            };
+            """, more_init="""
+            NoBase_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+            NoBase_Type.tp_base = &PyBaseObject_Type;
+            if (PyType_Ready(&NoBase_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "NoBase", (PyObject *)&NoBase_Type);
+
+            WithBase_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+            WithBase_Type.tp_base = &PyBaseObject_Type;
+            if (PyType_Ready(&WithBase_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "WithBase", (PyObject *)&WithBase_Type);
+        """)
+        # sanity: NoBase alone cannot be subclassed
+        with raises(TypeError):
+            class Y(module.NoBase):
+                pass
+
+        # combined with an unrelated, bigger-layout base that does allow
+        # subclassing, NoBase's restriction must still apply
+        with raises(TypeError):
+            class Combined(module.NoBase, module.WithBase):
+                pass
+
+        # same, but with a *Python* subclass of WithBase as the second base
+        # -- this is exactly numpy's gh-23737 shape:
+        #   class X(np.flexible, np.ma.core.MaskedArray): pass
+        # where MaskedArray is a Python subclass of the C type ndarray.
+        class WithBaseSub(module.WithBase):
+            pass
+        with raises(TypeError):
+            class Combined2(module.NoBase, WithBaseSub):
+                pass
+
     def test_subclass_from_default(self):
         # CPython allows static types to subclass base classes without
         # the Py_TPFLAGS_BASETYPE flag
