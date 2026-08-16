@@ -848,6 +848,54 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.is_ascii(a) is True
         assert module.is_compact(a) is False
 
+    def test_fromobject_ignores_str_override(self):
+        # PyUnicode_FromObject on a str subtype must return a raw copy of
+        # the underlying data -- like CPython's _PyUnicode_Copy -- and
+        # must NOT go through the subtype's __str__/tp_str override.
+        # numpy's np.str_ overrides tp_str to strip a trailing NUL (its
+        # own legitimate behavior for the legacy fixed-width scalar) and
+        # relies on PyUnicode_FromObject to hand back the untouched data
+        # when using it as a generic "copy to plain str" utility; if
+        # FromObject goes through __str__ instead, that NUL-stripping
+        # leaks into contexts where it should not apply, corrupting data.
+        module = self.import_extension('foo_str_override', [
+           ("from_object", "METH_O",
+            '''
+                return PyUnicode_FromObject(args);
+            '''),
+            ], prologue="""
+                PyTypeObject Weird_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "foo_str_override.Weird",
+                    sizeof(PyUnicodeObject),
+                    0
+                };
+                static PyObject *
+                weird_str(PyObject *self) {
+                    Py_ssize_t size;
+                    const char *buf = PyUnicode_AsUTF8AndSize(self, &size);
+                    if (buf == NULL) return NULL;
+                    if (size > 0 && buf[size - 1] == 0) {
+                        size--;
+                    }
+                    return PyUnicode_FromStringAndSize(buf, size);
+                }
+            """, more_init='''
+                Weird_Type.tp_str = weird_str;
+                Weird_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Weird_Type.tp_base = &PyUnicode_Type;
+                if (PyType_Ready(&Weird_Type) < 0) INITERROR;
+                PyModule_AddObject(mod, "Weird", (PyObject *)&Weird_Type);
+            ''')
+        w = module.Weird("q\x00")
+        assert len(w) == 2
+        # sanity check: __str__ itself really does strip the trailing NUL
+        assert len(str(w)) == 1
+        # but FromObject must give back the raw, untouched data
+        copy = module.from_object(w)
+        assert len(copy) == 2
+        assert copy == "q\x00"
+
     def test_fsconverter(self):
         module = self.import_extension("foo", [
             ('fsdecoder', "METH_O",

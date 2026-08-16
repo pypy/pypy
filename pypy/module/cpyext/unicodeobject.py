@@ -726,7 +726,15 @@ def pyunicode_fromobject(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
     elif space.isinstance_w(w_obj, space.w_unicode):
-        return space.call_function(space.w_unicode, w_obj)
+        # Return a raw copy of the underlying string data -- must NOT
+        # call space.call_function(space.w_unicode, w_obj), since that
+        # is unicode_from_object()'s fallback to space.str(w_obj),
+        # which dispatches to the subtype's __str__/tp_str override.
+        # CPython's PyUnicode_FromObject does a raw buffer copy
+        # (_PyUnicode_Copy) for subtypes and never calls __str__.
+        utf8 = space.utf8_w(w_obj)
+        length = rutf8.codepoints_in_utf8(utf8)
+        return space.newutf8(utf8, length)
     else:
         raise oefmt(space.w_TypeError,
                     "Can't convert '%T' object to str implicitly", w_obj)
