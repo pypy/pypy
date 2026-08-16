@@ -83,16 +83,45 @@ def is_internal_frame(space, frame):
     # unhappy about, but I can't do anything more than say "bah"
     return "importlib" in code.co_filename and "_bootstrap" in code.co_filename
 
+def is_filename_to_skip(space, filename, skip_file_prefixes):
+    if not skip_file_prefixes:
+        return False
+    for w_prefix in skip_file_prefixes:
+        if filename.startswith(space.text_w(w_prefix)):
+            return True
+    return False
+
+def get_skip_file_prefixes(space, w_skip_file_prefixes):
+    if space.is_none(w_skip_file_prefixes):
+        return None
+    if not space.isinstance_w(w_skip_file_prefixes, space.w_tuple):
+        raise oefmt(space.w_TypeError,
+                    "skip_file_prefixes must be a tuple of strs.")
+    prefixes_w = space.fixedview(w_skip_file_prefixes)
+    for w_prefix in prefixes_w:
+        if not space.isinstance_w(w_prefix, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                        "Found non-str '%T' in skip_file_prefixes.", w_prefix)
+    return prefixes_w
+
 @jit.unroll_safe # usually runs once, or a small number of times
-def next_external_frame(space, frame):
+def next_external_frame(space, frame, skip_file_prefixes):
     ec = space.getexecutioncontext()
     while True:
         frame = ec.getnextframe_nohidden(frame)
-        if frame is None or not is_internal_frame(space, frame):
-            return frame
+        if frame is None:
+            return None
+        if is_internal_frame(space, frame):
+            continue
+        code = frame.getcode()
+        if code is not None and is_filename_to_skip(
+                space, code.co_filename, skip_file_prefixes):
+            continue
+        return frame
 
-@jit.look_inside_iff(lambda space, stacklevel: jit.isconstant(stacklevel))
-def _get_frame(space, stacklevel):
+@jit.look_inside_iff(lambda space, stacklevel, skip_file_prefixes:
+                      jit.isconstant(stacklevel))
+def _get_frame(space, stacklevel, skip_file_prefixes):
     ec = space.getexecutioncontext()
 
     # Direct copy of CPython's logic, which has grown its own notion of
@@ -104,13 +133,13 @@ def _get_frame(space, stacklevel):
             stacklevel -= 1
     else:
         while stacklevel > 1 and frame:
-            frame = next_external_frame(space, frame)
+            frame = next_external_frame(space, frame, skip_file_prefixes)
             stacklevel -= 1
     return frame
 
-def setup_context(space, stacklevel):
+def setup_context(space, stacklevel, skip_file_prefixes=None):
     # Setup globals and lineno
-    frame = _get_frame(space, stacklevel)
+    frame = _get_frame(space, stacklevel, skip_file_prefixes)
 
     if frame:
         w_globals = frame.get_w_globals()
@@ -260,8 +289,9 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
             break
     space.call_method(w_stderr, "write", space.newtext(message))
 
-def do_warn(space, w_message, w_category, stacklevel, w_source=None):
-    context_w = setup_context(space, stacklevel)
+def do_warn(space, w_message, w_category, stacklevel, w_source=None,
+            skip_file_prefixes=None):
+    context_w = setup_context(space, stacklevel, skip_file_prefixes)
     do_warn_explicit(space, w_category, w_message, context_w, w_source=w_source)
 
 def do_warn_explicit(space, w_category, w_message, context_w,
@@ -349,11 +379,16 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     space.call_function(w_show_fn, w_msg)
 
 
-@unwrap_spec(stacklevel=int)
-def warn(space, w_message, w_category=None, stacklevel=1, w_source=None):
+@unwrap_spec(stacklevel=int, w_skip_file_prefixes=WrappedDefault(None))
+def warn(space, w_message, w_category=None, stacklevel=1, w_source=None,
+         __kwonly__=None, w_skip_file_prefixes=None):
     "Issue a warning, or maybe ignore it or raise an exception."
     w_category = get_category(space, w_message, w_category);
-    do_warn(space, w_message, w_category, stacklevel, w_source)
+    skip_file_prefixes = get_skip_file_prefixes(space, w_skip_file_prefixes)
+    if skip_file_prefixes:
+        stacklevel = max(2, stacklevel)
+    do_warn(space, w_message, w_category, stacklevel, w_source,
+            skip_file_prefixes)
 
 
 def get_source_line(space, w_globals, lineno):

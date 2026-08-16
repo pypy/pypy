@@ -213,3 +213,36 @@ def test_filename_from_code():
         print(w[0].__dict__)
         assert len(w) == 1
         assert w[0].filename == "<string>"
+
+
+def test_skip_file_prefixes():
+    this_file = sys._getframe().f_code.co_filename
+    ns = {'warnings': warnings}
+    src = ("def inner():\n"
+           "    warnings.warn('msg', stacklevel=1,\n"
+           "                  skip_file_prefixes=('/skip/',))\n")
+    exec(compile(src, "/skip/mod.py", "exec"), ns)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ns['inner']()
+        assert len(w) == 1
+        assert w[-1].filename == this_file
+
+    # stacklevel is overridden to at least 2 when skip_file_prefixes is set
+    src2 = ("def inner2():\n"
+            "    warnings.warn('msg', skip_file_prefixes=('/skip/',))\n")
+    exec(compile(src2, "/skip/mod2.py", "exec"), ns)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        ns['inner2']()
+        assert len(w) == 1
+        assert w[-1].filename == this_file
+
+
+def test_skip_file_prefixes_type_errors():
+    with raises(TypeError):
+        warnings.warn("msg", skip_file_prefixes=[])
+    with raises(TypeError):
+        warnings.warn("msg", skip_file_prefixes=(b"bytes",))
+    with raises(TypeError):
+        warnings.warn("msg", skip_file_prefixes="a sequence of strs")
