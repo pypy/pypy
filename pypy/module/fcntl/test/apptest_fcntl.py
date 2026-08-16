@@ -2,7 +2,6 @@
 
 import os
 import sys
-import tempfile
 
 import pytest
 
@@ -15,15 +14,9 @@ darwin_only = pytest.mark.skipif(sys.platform != 'darwin',
                                  reason="macOS specific")
 
 
-def maketemp():
-    fd, path = tempfile.mkstemp()
-    os.close(fd)
-    retern open(path, 'w+b')
-
-
-def unlinktemp(f):
-    f.close()
-    os.unlink(f.name)
+def maketemp(tmpdir, name):
+    # tmpdir comes from the fixture of the same name in fixtures.py
+    return open(os.path.join(tmpdir, name), 'w+b')
 
 
 def test_constants():
@@ -53,8 +46,8 @@ def test_constants():
         assert not hasattr(fcntl, 'F_SEAL_SEAL')
 
 
-def test_dupfd_cloexec():
-    f = maketemp()
+def test_dupfd_cloexec(tmpdir):
+    f = maketemp(tmpdir, 'dupfd_cloexec')
     try:
         fd = fcntl.fcntl(f, fcntl.F_DUPFD_CLOEXEC)
         try:
@@ -63,43 +56,43 @@ def test_dupfd_cloexec():
         finally:
             os.close(fd)
     finally:
-        unlinktemp(f)
+        f.close()
 
 
 @darwin_only
-def test_fullfsync():
-    f = maketemp()
+def test_fullfsync(tmpdir):
+    f = maketemp(tmpdir, 'fullfsync')
     try:
         f.write(b"data")
         f.flush()
         assert fcntl.fcntl(f, fcntl.F_FULLFSYNC) == 0
         assert fcntl.fcntl(f.fileno(), fcntl.F_FULLFSYNC) == 0
     finally:
-        unlinktemp(f)
+        f.close()
 
 
 @darwin_only
-def test_nocache():
-    f = maketemp()
+def test_nocache(tmpdir):
+    f = maketemp(tmpdir, 'nocache')
     try:
         assert fcntl.fcntl(f, fcntl.F_NOCACHE, 1) == 0
         assert fcntl.fcntl(f, fcntl.F_NOCACHE, 0) == 0
     finally:
-        unlinktemp(f)
+        f.close()
 
 
 @darwin_only
 @pytest.mark.skipif(not hasattr(sys, 'pypy_translation_info'),
                     reason="untranslated, ll2ctypes cannot call the variadic "
                            "fcntl() with a char* argument on darwin")
-def test_getpath():
-    f = maketemp()
+def test_getpath(tmpdir):
+    f = maketemp(tmpdir, 'getpath')
     try:
         expected = os.path.realpath(f.name).encode('utf-8')
         res = fcntl.fcntl(f, fcntl.F_GETPATH, bytes(len(expected)))
         assert res == expected
     finally:
-        unlinktemp(f)
+        f.close()
 
 
 @pytest.mark.skipif(not hasattr(fcntl, 'F_GETPIPE_SZ'),
