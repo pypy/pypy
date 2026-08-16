@@ -816,7 +816,6 @@ class AppTestItertools(object):
         x = next(b)
         assert x == 'b'
 
-<<<<<<< HEAD
     def test_tee_function_uses_copy(self):
         import itertools
         class MyIterator(object):
@@ -838,8 +837,6 @@ class AppTestItertools(object):
         assert list(a) == ['d', 'e', 'f']
         assert list(b) == ['d', 'e', 'f']
 
-=======
->>>>>>> py3.11
     def test_tee_function_empty(self):
         import itertools
         assert itertools.tee('abc', 0) == ()

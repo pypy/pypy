@@ -161,6 +161,3 @@ def test_tee_function_uses_copy():
     assert a is not my
     assert b is not my
     assert list(b) == ['d', 'e', 'f']
-
-
->>>>>>> py3.11
