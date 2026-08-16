@@ -5,7 +5,7 @@ from pypy.module.cpyext.api import (
     PyBUF_READ, PyBUF_WRITE)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, decref, from_ref, make_typedescr,
-    get_typedescr, track_reference)
+    get_typedescr, track_reference, as_pyobj)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
@@ -20,6 +20,9 @@ PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
 FORMAT_ALLOCATED = 0x04
+# set when view.c_obj holds an owned reference that memory_dealloc must give
+# back. Normally it is borrowed: the buffer view keeps the exporter alive
+OBJ_OWNED = 0x08
 
 @bootstrap_function
 def init_memoryobject(space):
@@ -46,14 +49,32 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     fill_Py_buffer(space, w_obj.view, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
-        # In CPython, this is used to keep w_obj alive. We don't need that,
-        # but do it anyway for compatibility when checking mview.obj
-        view.c_obj = make_ref(space, w_obj)
+        # issue 5546: this is the object exporting the buffer, like CPython.
+        # It must not be w_obj itself: py_obj is already tracked as the
+        # PyObject of w_obj, so that would be a reference from py_obj to
+        # itself, and its refcount could never drop to zero again.
+        # issue 5546: like CPython, this is the object exporting the buffer.
+        # It must not be w_obj itself: py_obj is already tracked as the
+        # PyObject of w_obj, so that would be a reference from py_obj to
+        # itself, and its refcount could never drop to zero again.
+        # The reference is borrowed, w_obj.view keeps the exporter alive.
+        # Owning a second one (CPyBuffer already owns one, and releases it
+        # from its finalizer) would keep the exporter alive for as long as
+        # the memoryview's own PyObject, which is not always deallocated.
+        w_exporter = w_obj.view.w_obj
+        if w_exporter is None:
+            view.c_obj = lltype.nullptr(PyObject.TO)
+        else:
+            view.c_obj = as_pyobj(space, w_exporter)
         rffi.setintfield(view, 'c_readonly',
                          rffi.cast(rffi.INT_real, w_obj.view.readonly))
     except ValueError:
+        # the buffer has no raw address, so expose a copy of the data. This
+        # w_s is ours only, so unlike above the reference must be owned
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
+        flags = widen(view.c_flags) | OBJ_OWNED
+        view.c_flags = rffi.cast(rffi.INT_real, flags)
         view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(space.bytes_w(w_s),
                                              track_allocation=False))
         rffi.setintfield(view, 'c_readonly', 1)
@@ -91,10 +112,10 @@ def memory_realize(space, obj):
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = mem_obj.c_view
-    if view.c_obj:
+    flags = widen(view.c_flags)
+    if view.c_obj and flags & OBJ_OWNED == OBJ_OWNED:
         decref(space, view.c_obj)
     view.c_obj = rffi.cast(PyObject, 0)
-    flags = widen(view.c_flags)
     if flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
         lltype.free(view.c_format, flavor='raw')
     _dealloc(space, py_obj)
@@ -290,19 +311,24 @@ def PyMemoryView_GetContiguous(space, w_obj, buffertype, order):
                     "order must be in ('C', 'F', 'A')")
 
     w_mv = space.call_method(space.builtin, "memoryview", w_obj)
-    mv = make_ref(space, w_mv)
-    mv = rffi.cast(PyMemoryViewObject, mv)
-    view = mv.c_view
-    if buffertype == PyBUF_WRITE and widen(view.c_readonly):
-        raise oefmt(space.w_BufferError,
-                    "underlying buffer is not writable")
+    py_mv = make_ref(space, w_mv)
+    try:
+        # w_mv keeps the PyObject alive, this reference is only needed to
+        # look at c_view. It must be given back, or the memoryview leaks
+        mv = rffi.cast(PyMemoryViewObject, py_mv)
+        view = mv.c_view
+        if buffertype == PyBUF_WRITE and widen(view.c_readonly):
+            raise oefmt(space.w_BufferError,
+                        "underlying buffer is not writable")
 
-    if PyBuffer_IsContiguous(space, view, order):
-        return w_mv
+        if PyBuffer_IsContiguous(space, view, order):
+            return w_mv
 
-    if buffertype == PyBUF_WRITE:
-        raise oefmt(space.w_BufferError,
-                    "writable contiguous buffer requested "
-                    "for a non-contiguous object.")
+        if buffertype == PyBUF_WRITE:
+            raise oefmt(space.w_BufferError,
+                        "writable contiguous buffer requested "
+                        "for a non-contiguous object.")
 
-    return memory_from_contiguous_copy(space, view, order)
+        return memory_from_contiguous_copy(space, view, order)
+    finally:
+        decref(space, py_mv)
