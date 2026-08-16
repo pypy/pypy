@@ -559,16 +559,18 @@ def py_digest_by_digestmod(digestmod):
 
 def hmac_digest(key, msg, digest):
     """Single-shot HMAC"""
-    if len(key) > sys.maxsize:
+    key_buf = _str_to_ffi_buffer(key)
+    msg_buf = _str_to_ffi_buffer(msg)
+    if len(key_buf) > sys.maxsize:
         raise OverflowError("key is too long")
-    if len(msg) > sys.maxsize:
+    if len(msg_buf) > sys.maxsize:
         raise OverflowError("msg is too long")
     evp, _ = py_digest_by_digestmod(digest)
     md = ffi.new("unsigned char[]", lib.EVP_MAX_MD_SIZE)
     md_len = ffi.new("unsigned int[1]", [0])
-    result = lib.HMAC(evp, _str_to_ffi_buffer(key), len(key),
-                      msg, len(msg), md, md_len)
-    
+    result = lib.HMAC(evp, key_buf, len(key_buf),
+                      msg_buf, len(msg_buf), md, md_len)
+
     if not result:
         raise ValueError("could not call lib.HMAC")
     return _bytes_with_len(md, md_len[0])
