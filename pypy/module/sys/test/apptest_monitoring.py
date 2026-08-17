@@ -104,9 +104,35 @@ def test_set_events_c_return_independent():
     try:
         raises(ValueError, sys.monitoring.set_events, 3, E.C_RETURN)
         raises(ValueError, sys.monitoring.set_events, 3, E.C_RAISE)
-        # allowed together with CALL, and C_RETURN/C_RAISE bits are dropped
+        # allowed together with CALL, but C_RETURN/C_RAISE are never
+        # stored/reported as independent bits -- they ride on the CALL
+        # bit instead, see test_c_return_follows_call_bit.
         sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
         assert sys.monitoring.get_events(3) == E.CALL
+        sys.monitoring.set_events(3, 0)
+    finally:
+        sys.monitoring.free_tool_id(3)
+
+
+def test_c_return_follows_call_bit():
+    # Registering only a C_RETURN callback and enabling just E.CALL (not
+    # E.C_RETURN/E.C_RAISE) still fires C_RETURN -- these two events ride
+    # on the CALL bit rather than having independent on/off state (PEP
+    # 669: "C_RETURN and C_RAISE events will only be seen if the
+    # corresponding CALL event is being monitored").
+    E = sys.monitoring.events
+    sys.monitoring.use_tool_id(3, "test tool")
+    events = []
+    try:
+        sys.monitoring.register_callback(3, E.CALL, lambda *a: events.append(('CALL',) + a))
+        sys.monitoring.register_callback(3, E.C_RETURN, lambda *a: events.append(('C_RETURN',) + a))
+        sys.monitoring.set_events(3, E.CALL)  # only CALL, not C_RETURN|C_RAISE
+        assert sys.monitoring.get_events(3) == E.CALL
+
+        events[:] = []
+        assert len([1, 2, 3]) == 3
+        names = [ev[0] for ev in events if ev[3] is len]
+        assert names == ['CALL', 'C_RETURN']
         sys.monitoring.set_events(3, 0)
     finally:
         sys.monitoring.free_tool_id(3)
@@ -246,6 +272,192 @@ def test_fire_py_throw():
         assert len(events) == 1
         assert events[0][0] is g.__code__
         assert isinstance(events[0][2], ValueError)
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_call_python_function():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback)
+        sys.monitoring.set_events(3, E.CALL)
+
+        def f(x):
+            return x
+
+        events[:] = []
+        assert f(42) == 42
+        calls = [ev for ev in events if ev[2] is f]
+        assert len(calls) == 1
+        code, offset, callable, arg0 = calls[0]
+        assert callable is f
+        assert arg0 == 42
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_call_no_args_is_missing():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback)
+        sys.monitoring.set_events(3, E.CALL)
+
+        def f():
+            return 1
+
+        events[:] = []
+        f()
+        calls = [ev for ev in events if ev[2] is f]
+        assert len(calls) == 1
+        assert calls[0][3] is sys.monitoring.MISSING
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_c_return():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(event_name):
+        def cb(*args):
+            events.append((event_name,) + args)
+        return cb
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback('CALL'))
+        sys.monitoring.register_callback(3, E.C_RETURN, callback('C_RETURN'))
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+
+        events[:] = []
+        result = len([1, 2, 3])
+        assert result == 3
+        names = [ev[0] for ev in events if ev[3] is len]
+        assert names == ['CALL', 'C_RETURN']
+        c_return = [ev for ev in events if ev[0] == 'C_RETURN'][0]
+        assert c_return[3] is len
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_c_raise():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(event_name):
+        def cb(*args):
+            events.append((event_name,) + args)
+        return cb
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback('CALL'))
+        sys.monitoring.register_callback(3, E.C_RAISE, callback('C_RAISE'))
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+
+        events[:] = []
+        try:
+            abs('x')
+        except TypeError:
+            pass
+        names = [ev[0] for ev in events if ev[3] is abs]
+        assert names == ['CALL', 'C_RAISE']
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_c_raise_for_type_call():
+    # C_RETURN/C_RAISE must fire for calling a type (not just interp2app
+    # builtin functions) -- is_builtin_code() alone doesn't recognize
+    # type calls like int([]), so this needs the wider is_python_function()
+    # check (see pypy/interpreter/function.py) rather than is_builtin_code().
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.C_RAISE, callback)
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+
+        events[:] = []
+        try:
+            int([])
+        except TypeError:
+            pass
+        assert any(ev[2] is int for ev in events)
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_call_no_c_events_for_python_function():
+    # C_RETURN/C_RAISE only fire for non-Python callables -- Python
+    # function returns are covered by PY_RETURN/PY_UNWIND instead.
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.C_RETURN, callback)
+        sys.monitoring.register_callback(3, E.C_RAISE, callback)
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+
+        def f():
+            return 1
+
+        events[:] = []
+        f()
+        assert events == []
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_call_kw_and_ex():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback)
+        sys.monitoring.set_events(3, E.CALL)
+
+        def f(*args, **kwargs):
+            return args, kwargs
+
+        events[:] = []
+        assert f(1, a=2) == ((1,), {'a': 2})
+        assert f(*[3], **{'b': 4}) == ((3,), {'b': 4})
+        calls = [ev for ev in events if ev[2] is f]
+        assert len(calls) == 2
+        assert calls[0][3] == 1
+        assert calls[1][3] == 3
     finally:
         sys.monitoring.set_events(3, 0)
         sys.monitoring.free_tool_id(3)

@@ -845,3 +845,23 @@ def is_builtin_code(w_func):
     else:
         code = None
     return isinstance(code, BuiltinCode)
+
+
+def is_python_function(w_func):
+    """True iff calling w_func executes PyPy bytecode via PyFrame.execute_frame
+    (so its return/exception is already covered by PY_RETURN/PY_UNWIND).
+
+    Wider than 'not is_builtin_code(w_func)': is_builtin_code only
+    recognizes interp2app-wrapped Functions, so e.g. calling a type
+    ('int([])') is neither builtin-code nor a python function by that
+    check. sys.monitoring's CALL/C_RETURN/C_RAISE split (unlike the
+    legacy c_profile split it's modelled on) needs the wider notion,
+    since PEP 669 fires C_RETURN/C_RAISE for "any callable, except
+    Python functions" -- not just for the narrower interp2app case.
+    """
+    from pypy.interpreter.gateway import BuiltinCode
+    if isinstance(w_func, _Method):
+        w_func = w_func.w_function
+    if not isinstance(w_func, Function):
+        return False
+    return not isinstance(w_func.getcode(), BuiltinCode)

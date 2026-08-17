@@ -5,20 +5,8 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.pymonitoring import (
     MonitoringState, NUM_TOOLS, NUM_EVENTS, LOCAL_EVENTS, UNGROUPED_EVENTS,
-    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS)
-
-
-class W_MonitoringSentinel(W_Root):
-    def __init__(self, name):
-        self.name = name
-
-    def descr_repr(self, space):
-        return space.newtext("<%s>" % self.name)
-
-
-W_MonitoringSentinel.typedef = TypeDef("sys.monitoring.sentinel",
-    __repr__=interp2app(W_MonitoringSentinel.descr_repr),
-)
+    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS,
+    W_MonitoringSentinel, w_disable, w_missing)
 
 
 class W_EventsNamespace(W_Root):
@@ -51,17 +39,7 @@ W_EventsNamespace.typedef = TypeDef("sys.monitoring.events", **{
 
 class Singletons(object):
     def __init__(self, space):
-        self.w_disable = W_MonitoringSentinel("DISABLE")
-        self.w_missing = W_MonitoringSentinel("MISSING")
         self.w_events = W_EventsNamespace()
-
-
-def w_disable(space):
-    return space.fromcache(Singletons).w_disable
-
-
-def w_missing(space):
-    return space.fromcache(Singletons).w_missing
 
 
 def w_events(space):
@@ -165,6 +143,8 @@ def set_events(space, tool_id, event_set):
     if (event_set & C_RETURN_EVENTS) and (event_set & C_CALL_EVENTS) != C_CALL_EVENTS:
         raise oefmt(space.w_ValueError,
             "cannot set C_RETURN or C_RAISE events independently")
+    # C_RETURN/C_RAISE are never stored/reported as independent bits --
+    # they ride on the CALL bit instead (see pymonitoring._event_bit).
     event_set &= ~C_RETURN_EVENTS
     check_tool_in_use(space, tool_id)
     state = space.fromcache(MonitoringState)

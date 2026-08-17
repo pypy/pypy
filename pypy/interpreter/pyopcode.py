@@ -1494,11 +1494,7 @@ class __extend__(pyframe.PyFrame):
         w_function  = self.popvalue()
         args = self.argument_factory(arguments, keyword_names_w, keywords_w, None, None,
                                      w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
+        w_result = self._call_args_monitored(w_function, args)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION_EX(self, has_kwarg, next_instr):
@@ -1509,12 +1505,27 @@ class __extend__(pyframe.PyFrame):
         w_function = self.popvalue()
         args = self.argument_factory(
             [], None, None, w_star=w_args, w_starstar=w_kwargs, w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
+        w_result = self._call_args_monitored(w_function, args)
         self.pushvalue(w_result)
+
+    def _call_args_monitored(self, w_function, args):
+        # Shared by CALL_FUNCTION_KW/CALL_FUNCTION_EX: fire CALL
+        # unconditionally (any callable), then route C callables through
+        # call_args_and_c_profile if legacy profiling or C_RETURN/C_RAISE
+        # monitoring wants to see the C_RETURN/C_RAISE pair.
+        from pypy.interpreter.pymonitoring import should_fire, fire4, w_missing, CALL
+        call_wants_events = should_fire(self.space, CALL)
+        if call_wants_events:
+            w_arg0 = args.firstarg()
+            if w_arg0 is None:
+                w_arg0 = w_missing(self.space)
+            fire4(self.space, CALL, self.pycode, self.last_instr, w_function, w_arg0)
+        needs_c_wrap = (
+            (self.get_is_being_profiled() and function.is_builtin_code(w_function)) or
+            (call_wants_events and not function.is_python_function(w_function)))
+        if needs_c_wrap:
+            return self.space.call_args_and_c_profile(self, w_function, args)
+        return self.space.call_args(w_function, args)
 
     @jit.unroll_safe
     def MAKE_FUNCTION(self, oparg, next_instr):
