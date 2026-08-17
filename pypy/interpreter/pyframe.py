@@ -19,7 +19,9 @@ from pypy.interpreter.error import (
     OperationError, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
-from pypy.interpreter.pymonitoring import fire2, fire3, PY_START, PY_RESUME, PY_THROW
+from pypy.interpreter.pymonitoring import (
+    fire2, fire3, should_fire_any, PY_START, PY_RESUME, PY_THROW,
+    FRAME_ENTRY_EVENTS)
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -347,7 +349,8 @@ class PyFrame(W_Root):
         w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
-            self._monitor_frame_entry(w_arg_or_err)
+            if should_fire_any(self.space, FRAME_ENTRY_EVENTS):
+                self._monitor_frame_entry(w_arg_or_err)
             #
             # Execution starts just after the last_instr.  Initially,
             # last_instr is -1.  After a generator suspends it points to

@@ -1,3 +1,5 @@
+from rpython.rlib import jit
+
 NUM_TOOLS = 6
 NUM_EVENTS = 17
 LOCAL_EVENTS = 10
@@ -31,8 +33,12 @@ EVENT_NAMES = [
 C_RETURN_EVENTS = (1 << C_RETURN) | (1 << C_RAISE)
 C_CALL_EVENTS = C_RETURN_EVENTS | (1 << CALL)
 
+FRAME_ENTRY_EVENTS = (1 << PY_START) | (1 << PY_RESUME) | (1 << PY_THROW)
+
 
 class MonitoringState(object):
+    _immutable_fields_ = ['any_events?']
+
     def __init__(self, space):
         self.tool_names = [None] * NUM_TOOLS
         self.callbacks = [None] * (NUM_TOOLS * NUM_EVENTS)
@@ -46,6 +52,26 @@ class MonitoringState(object):
         for tool_id in range(NUM_TOOLS):
             any_events |= self.global_events[tool_id]
         self.any_events = any_events
+
+
+def should_fire(space, event_id):
+    """JIT-foldable check: does any tool want this event globally?
+
+    Callers must check this *before* calling fire2/fire3, not rely on
+    the (non-promoted) check inside those functions -- promoting here
+    lets the JIT constant-fold away the call and its argument setup
+    entirely when nobody is listening, the same way gettrace() promotes
+    ExecutionContext.w_tracefunc.
+    """
+    state = space.fromcache(MonitoringState)
+    any_events = jit.promote(state.any_events)
+    return (any_events >> event_id) & 1
+
+
+def should_fire_any(space, event_mask):
+    state = space.fromcache(MonitoringState)
+    any_events = jit.promote(state.any_events)
+    return any_events & event_mask
 
 
 def fire2(space, event_id, w_code, offset):

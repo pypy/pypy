@@ -168,8 +168,17 @@ def set_events(space, tool_id, event_set):
     event_set &= ~C_RETURN_EVENTS
     check_tool_in_use(space, tool_id)
     state = space.fromcache(MonitoringState)
+    old_any_events = state.any_events
     state.global_events[tool_id] = event_set
     state.recompute_any_events()
+    if state.any_events != old_any_events:
+        # any_events is quasi-immutable/promoted at every fire2/fire3 call
+        # site (see pymonitoring.should_fire); writing it already
+        # invalidates compiled loops that folded in the old value, but
+        # force_all_frames() additionally kicks frames *currently*
+        # executing already-compiled assembly out to the interpreter, the
+        # same way ExecutionContext.settrace() does for w_tracefunc.
+        space.getexecutioncontext().force_all_frames()
     # Local (per-code) events and DISABLE/JUMP/BRANCH/LINE/INSTRUCTION
     # instrumentation are later phases -- see sys.monitoring.md.
 
