@@ -559,9 +559,12 @@ class W_BytesObject(W_AbstractBytesObject):
         return space.newlist_bytes(lst)
 
     @staticmethod
-    @unwrap_spec(encoding='text_or_none', errors='text_or_none')
-    def descr_new(space, w_stringtype, w_source=None, encoding=None,
-                  errors=None):
+    def descr_new(space, w_stringtype, w_source=None, w_encoding=None,
+                  w_errors=None):
+        encoding = (None if w_encoding is None else
+                    space.text_arg_w(w_encoding, 'bytes', 'encoding'))
+        errors = (None if w_errors is None else
+                  space.text_arg_w(w_errors, 'bytes', 'errors'))
         if (w_source and space.is_w(w_stringtype, space.w_bytes)
                 and encoding is None and errors is None):
             # special-case 'bytes(byte_object)'

@@ -569,10 +569,12 @@ class W_SemLock(W_Root):
     def _finalize_(self):
         delete_semaphore(self.handle)
 
-@unwrap_spec(kind=int, value=int, maxvalue=int, name='text', unlink=int)
-def descr_new(space, w_subtype, kind, value, maxvalue, name, unlink):
+@unwrap_spec(kind=int, value=int, maxvalue=int, unlink=int)
+def descr_new(space, w_subtype, kind, value, maxvalue, w_name, unlink):
     if kind != RECURSIVE_MUTEX and kind != SEMAPHORE:
         raise oefmt(space.w_ValueError, "unrecognized kind")
+
+    name = space.text_arg_w(w_name, 'SemLock', 'name')
 
     counter = space.fromcache(CounterState).getCount()
 

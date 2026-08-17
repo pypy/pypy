@@ -832,6 +832,25 @@ class AppTestBytesArray:
         raises(TypeError, bytearray, b'', 'ascii')
         raises(TypeError, bytearray, '')
 
+    def test_constructor_encoding_must_be_str(self):
+        # a supplied None is a type error; an omitted argument is not
+        e = raises(TypeError, bytearray, 0, None)
+        assert str(e.value) == (
+            "bytearray() argument 'encoding' must be str, not None")
+        e = raises(TypeError, bytearray, 'abc', None)
+        assert str(e.value) == (
+            "bytearray() argument 'encoding' must be str, not None")
+        e = raises(TypeError, bytearray, 0, 1)
+        assert str(e.value) == (
+            "bytearray() argument 'encoding' must be str, not int")
+        e = raises(TypeError, bytearray, 0, 'utf-8', None)
+        assert str(e.value) == (
+            "bytearray() argument 'errors' must be str, not None")
+        assert bytearray(0) == bytearray(b'')
+        assert bytearray('abc', 'utf-8') == bytearray(b'abc')
+        assert bytearray('abc', 'utf-8', 'strict') == bytearray(b'abc')
+        assert bytearray('abc', encoding='utf-8') == bytearray(b'abc')
+
     def test_dont_force_offset(self):
         def make(x=b'abcdefghij', shift=3):
             b = bytearray(b'?'*shift + x)
