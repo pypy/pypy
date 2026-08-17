@@ -49,6 +49,12 @@ def get_file(space, w_file, filename, filemode):
 def create_dynamic(space, w_spec, w_file=None):
     if not importing.has_so_extension(space):
         raise oefmt(space.w_ImportError, "Not implemented")
+    w_name = space.getattr(w_spec, space.newtext("name"))
+    if '\x00' in space.text_w(w_name):
+        raise oefmt(space.w_ValueError, "embedded null character")
+    w_path = space.getattr(w_spec, space.newtext("origin"))
+    if '\x00' in space.text_w(w_path):
+        raise oefmt(space.w_ValueError, "embedded null character")
     from pypy.module.cpyext.api import create_extension_module
     # NB. cpyext.api.create_extension_module() can also delegate to _cffi_backend
     return create_extension_module(space, w_spec)
@@ -122,9 +128,24 @@ def list_frozen_module_names(space):
         pass
     return frozen
 
-def get_frozen_object(space, w_name):
-    raise oefmt(space.w_ImportError,
-                "No such frozen object named %R", w_name)
+def get_frozen_object(space, w_name, w_data=None):
+    if space.is_none(w_data):
+        raise oefmt(space.w_ImportError,
+                    "No such frozen object named %R", w_name)
+    # check buffer-ness first, like CPython's PyObject_CheckBuffer() check,
+    # before ever trying to interpret the bytes as marshalled data
+    with space.buffer_w(w_data, space.BUF_SIMPLE):
+        pass
+    from pypy.module.marshal.interp_marshal import loads
+    try:
+        w_code = loads(space, w_data)
+    except OperationError:
+        raise oefmt(space.w_ImportError,
+                    "Frozen object named %R is invalid", w_name)
+    if not isinstance(w_code, PyCode):
+        raise oefmt(space.w_TypeError,
+                    "frozen object %R is not a code object", w_name)
+    return w_code
 
 def is_frozen_package(space, w_name):
     return space.w_False

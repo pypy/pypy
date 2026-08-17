@@ -80,6 +80,21 @@ class AppTestImpModule:
         # functions that don't check the type of the argument.
         raises(TypeError, _imp.create_dynamic, FakeSpec(b'foo'))
 
+    def test_create_dynamic_null(self):
+        import _imp
+        class FakeSpec:
+            def __init__(self, name, origin):
+                self.name = name
+                self.origin = origin
+
+        excinfo = raises(ValueError, _imp.create_dynamic,
+                          FakeSpec("a\x00b", "abc"))
+        assert 'embedded null character' in str(excinfo.value)
+
+        excinfo = raises(ValueError, _imp.create_dynamic,
+                          FakeSpec("abc", "a\x00b"))
+        assert 'embedded null character' in str(excinfo.value)
+
     def test_ext_suffixes(self):
         import _imp
         for suffix in _imp.extension_suffixes():
@@ -99,6 +114,40 @@ class AppTestImpModule:
     def test_find_frozen(self):
         import _imp
         assert _imp.find_frozen('hello.what.now') is None
+
+    def test_get_frozen_object_no_such_name(self):
+        import _imp
+        excinfo = raises(ImportError, _imp.get_frozen_object,
+                          'hello.world.this.is.never.a.frozen.module.name')
+        assert 'No such frozen object named' in str(excinfo.value)
+
+    def test_get_frozen_object_issue105979(self):
+        # this used to crash on CPython; passing a 2nd positional
+        # argument of bogus marshalled bytes must give a clean ImportError
+        import _imp
+        excinfo = raises(ImportError, _imp.get_frozen_object,
+                          "x", b"6\'\xd5Cu\x12")
+        assert "Frozen object named 'x' is invalid" in str(excinfo.value)
+
+    def test_get_frozen_object_with_data(self):
+        import _imp, marshal
+        co = compile("marker = 42", "x.py", "exec")
+        data = marshal.dumps(co)
+        code = _imp.get_frozen_object("x", data)
+        assert code.co_filename == "x.py"
+        ns = {}
+        exec(code, ns)
+        assert ns['marker'] == 42
+
+    def test_get_frozen_object_bad_type(self):
+        import _imp
+        raises(TypeError, _imp.get_frozen_object, "x", 42)
+
+    def test_get_frozen_object_not_a_code_object(self):
+        import _imp, marshal
+        data = marshal.dumps([1, 2, 3])
+        excinfo = raises(TypeError, _imp.get_frozen_object, "x", data)
+        assert 'is not a code object' in str(excinfo.value)
 
     def test_is_builtin(self):
         import sys, _imp
