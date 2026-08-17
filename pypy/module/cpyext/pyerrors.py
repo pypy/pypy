@@ -17,7 +17,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, make_ref, from_ref, decref, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
-from rpython.rlib import rposix, jit
+from rpython.rlib import rawrefcount, rposix, jit
 from rpython.rlib import rwin32
 from rpython.rlib.rarithmetic import widen
 
@@ -72,7 +72,8 @@ def exception_dealloc(space, py_obj):
     if (widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE and
             pto.c_tp_dealloc != my_dealloc and
             pto.c_tp_dealloc != subtype_dealloc):
-        assert py_obj.c_ob_refcnt == 0
+        assert (py_obj.c_ob_refcnt == 0 or
+                py_obj.c_ob_refcnt == rawrefcount.REFCNT_FROM_PYPY)
         _tp_free(space, py_obj)
     else:
         _dealloc(space, py_obj)
