@@ -69,6 +69,20 @@ class AppTestSemaphore:
         sem._after_fork()
         assert sem._count() == 0
 
+    def test_semaphore_name_must_be_str(self):
+        from _multiprocessing import SemLock
+        kind = self.SEMAPHORE
+        value = 1
+        maxvalue = 1
+        e = raises(TypeError, SemLock, kind, value, maxvalue, None,
+                    unlink=True)
+        assert str(e.value) == (
+            "SemLock() argument 'name' must be str, not None")
+        e = raises(TypeError, SemLock, kind, value, maxvalue, 1,
+                    unlink=True)
+        assert str(e.value) == (
+            "SemLock() argument 'name' must be str, not int")
+
     @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_recursive(self):
         from _multiprocessing import SemLock
