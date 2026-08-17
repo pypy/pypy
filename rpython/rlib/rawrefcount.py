@@ -60,15 +60,16 @@ RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 # without the matching cpyext change must keep this False.
 RRC_LINK_PREFIX = True
 
-_LINK_PREFIX = rffi.sizeof(lltype.Signed)
+_LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
+_LINK_PREFIX = 16   # padded to 16 so body (ob_refcnt) keeps malloc's 16-byte alignment
 
 if RRC_LINK_PREFIX:
     def _ob_link_get(ob):
-        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
 
     def _ob_link_set(ob, value):
-        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_PREFIX)
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
 
     def _ob_free(ob, track_allocation=True):
@@ -85,10 +86,11 @@ if RRC_LINK_PREFIX:
                               ('c_ob_type', lltype.Signed))
     PyObject = lltype.Ptr(PyObjectS)
 
-    # Allocation layout: the hidden link word then the visible PyObjectS.  Handing
-    # back a pointer to .body reserves the prefix at body-_LINK_PREFIX, matching
-    # pyobj_raw_alloc.
+    # Allocation layout: padding, then the hidden link word, then the visible
+    # PyObjectS.  Handing back a pointer to .body reserves the prefix at
+    # body-_LINK_PREFIX, matching pyobj_raw_alloc.
     _PyObjectPrefixedS = lltype.Struct('_PyObjectPrefixedS',
+                                       ('pad', lltype.Signed),
                                        ('ob_pypy_link', lltype.Signed),
                                        ('body', PyObjectS))
 

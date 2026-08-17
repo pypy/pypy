@@ -34,7 +34,8 @@ from rpython.rlib.debug import ll_assert, fatalerror, check_annotation
 # and the untranslated path in rpython.rlib.rawrefcount.  These helpers may be
 # refactored into a small class later.
 
-PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # bytes reserved before ob_refcnt
+PYOBJ_LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from ob_refcnt to ob_pypy_link
+PYOBJ_LINK_PREFIX = 16   # padded to 16 so ob_refcnt keeps malloc's 16-byte alignment
 
 # The hidden prefix word, reached by shifting the visible PyObject pointer back.
 # ob_refcnt is read straight off the real PyObject, so only the link lives here.
@@ -42,7 +43,7 @@ PYOBJ_LINK_HDR = lltype.Struct('PyObjLinkHdr', ('ob_pypy_link', lltype.Signed))
 PYOBJ_LINK_HDR_PTR = lltype.Ptr(PYOBJ_LINK_HDR)
 
 def _pyobj_link_hdr(pyobj):
-    base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), -PYOBJ_LINK_PREFIX)
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), -PYOBJ_LINK_OFFSET)
     return rffi.cast(PYOBJ_LINK_HDR_PTR, base)
 
 def pyobj_get_link(pyobj):

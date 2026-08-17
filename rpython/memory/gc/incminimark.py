@@ -3186,7 +3186,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                   ('ob_refcnt', lltype.Signed),
                                   ('ob_pypy_link', lltype.Signed))
     PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
-    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # bytes reserved before ob_refcnt, iff rrc_link_prefix
+    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # offset of ob_pypy_link before ob_refcnt, iff rrc_link_prefix
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
     def _pyobj(self, pyobjaddr):
