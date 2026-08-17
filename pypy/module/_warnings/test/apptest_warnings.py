@@ -175,6 +175,7 @@ def test_surrogate_in_filename():
 
 
 def test_issue31285():
+    import importlib.machinery
     def get_bad_loader(splitlines_ret_val):
         class BadLoader:
             def get_source(self, fullname):
@@ -184,10 +185,13 @@ def test_issue31285():
                 return BadSource('spam')
         return BadLoader()
     # does not raise:
+    loader = get_bad_loader(42)
     with warnings.catch_warnings(record=True) as log:
         _warnings.warn_explicit(
             'eggs', UserWarning, 'bar', 1,
-            module_globals={'__loader__': get_bad_loader(42),
+            module_globals={'__loader__': loader,
+                            '__spec__': importlib.machinery.ModuleSpec(
+                                'foobar', loader),
                             '__name__': 'foobar'})
     assert len(log) == 1
 
@@ -246,3 +250,46 @@ def test_skip_file_prefixes_type_errors():
         warnings.warn("msg", skip_file_prefixes=(b"bytes",))
     with raises(TypeError):
         warnings.warn("msg", skip_file_prefixes="a sequence of strs")
+
+
+# gh-86298: warn_explicit()'s module_globals argument must be blessed via
+# importlib._bootstrap_external._bless_my_loader(), which cross-checks
+# __loader__ against __spec__.loader (see CPython's _PyImport_BlessMyLoader).
+
+def test_gh86298_no_loader_and_spec_is_none():
+    # __loader__ missing and __spec__ explicitly None: hard error, no warning
+    with warnings.catch_warnings(record=True) as log:
+        with raises(ValueError) as excinfo:
+            _warnings.warn_explicit('eggs', UserWarning, 'bar', 1,
+                module_globals={'__name__': 'bar', '__spec__': None})
+    assert 'Module globals is missing a __spec__.loader' in str(excinfo.value)
+    assert len(log) == 0
+
+def test_gh86298_no_loader_and_no_spec_loader():
+    # __spec__ present but lacks a .loader attribute: AttributeError, not
+    # ValueError, since spec_loader itself is entirely missing
+    import types
+    with warnings.catch_warnings(record=True) as log:
+        with raises(AttributeError) as excinfo:
+            _warnings.warn_explicit('eggs', UserWarning, 'bar', 1,
+                module_globals={'__name__': 'bar',
+                                '__spec__': types.SimpleNamespace()})
+    assert 'Module globals is missing a __spec__.loader' in str(excinfo.value)
+    assert len(log) == 0
+
+def test_gh86298_loader_and_spec_loader_disagree():
+    # __loader__ and __spec__.loader disagree: deprecated but not an error,
+    # so both the compatibility DeprecationWarning and the real warning fire
+    import types
+    with warnings.catch_warnings(record=True) as log:
+        # the DeprecationWarning is raised at importlib._bootstrap_external's
+        # own location, and is normally ignored there by default
+        warnings.simplefilter('always')
+        _warnings.warn_explicit('eggs', UserWarning, 'bar', 1,
+            module_globals={'__name__': 'bar', '__loader__': object(),
+                            '__spec__': types.SimpleNamespace(loader=object())})
+    assert len(log) == 2
+    assert log[0].category is DeprecationWarning
+    assert str(log[0].message) == 'Module globals; __loader__ != __spec__.loader'
+    assert log[1].category is UserWarning
+    assert str(log[1].message) == 'eggs'

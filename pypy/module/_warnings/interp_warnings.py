@@ -391,13 +391,24 @@ def warn(space, w_message, w_category=None, stacklevel=1, w_source=None,
             skip_file_prefixes)
 
 
+def bless_loader(space, w_globals):
+    # mirrors CPython's _PyImport_BlessMyLoader(), which delegates to the
+    # same importlib._bootstrap_external._bless_my_loader() (see gh-86298)
+    return space.appexec([w_globals], """(module_globals):
+        from importlib._bootstrap_external import _bless_my_loader
+        return _bless_my_loader(module_globals)
+    """)
+
 def get_source_line(space, w_globals, lineno):
     if space.is_none(w_globals):
         return None
 
+    w_loader = bless_loader(space, w_globals)
+    if space.is_none(w_loader):
+        return None
+
     # Check/get the requisite pieces needed for the loader.
     try:
-        w_loader = space.getitem(w_globals, space.newtext("__loader__"))
         w_module_name = space.getitem(w_globals, space.newtext("__name__"))
     except OperationError as e:
         if not e.match(space, space.w_KeyError):

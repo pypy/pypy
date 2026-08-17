@@ -709,8 +709,9 @@ class CWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.import_helper.import_fresh_module utility function
     def test_accelerated(self):
+        import inspect  # PyPy change: in pypy, even builtin functions have a __code__
         self.assertIsNot(original_warnings, self.module)
-        self.assertFalse(hasattr(self.module.warn, '__code__'))
+        self.assertTrue(inspect.isbuiltin(self.module.warn))
 
 class PyWarnTests(WarnTests, unittest.TestCase):
     module = py_warnings
@@ -718,8 +719,9 @@ class PyWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.import_helper.import_fresh_module utility function
     def test_pure_python(self):
+        import inspect  # PyPy change: in pypy, even builtin functions have a __code__
         self.assertIsNot(original_warnings, self.module)
-        self.assertTrue(hasattr(self.module.warn, '__code__'))
+        self.assertFalse(inspect.isbuiltin(self.module.warn))
 
 
 class WCmdLineTests(BaseTest):
@@ -1099,6 +1101,7 @@ class CWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
 class PyWarningsDisplayTests(WarningsDisplayTests, unittest.TestCase):
     module = py_warnings
 
+    @support.cpython_only  # PyPy change
     def test_tracemalloc(self):
         self.addCleanup(os_helper.unlink, os_helper.TESTFN)
 
@@ -1439,6 +1442,7 @@ class BootstrapTest(unittest.TestCase):
             assert_python_ok('-c', 'pass', '-W', 'always', PYTHONPATH=cwd)
 
 
+@support.cpython_only  # PyPy change
 class FinalizationTest(unittest.TestCase):
     def test_finalization(self):
         # Issue #19421: warnings.warn() should not crash
