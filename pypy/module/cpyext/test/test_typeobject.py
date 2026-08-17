@@ -480,8 +480,26 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                  value = PyObject_GetAttr((PyObject *)type, key);
                  return value;
              '''
-             )
-            ])
+             ),
+           ("hack_tp_repr", "METH_VARARGS",
+            '''
+                 PyTypeObject *type;
+                 PyObject *obj;
+                 if (!PyArg_ParseTuple(args, "O", &obj))
+                     return NULL;
+                 type = obj->ob_type;
+                 type->tp_repr = hacked_repr;
+                 PyType_Modified(type);
+                 Py_RETURN_NONE;
+             '''
+             ),
+            ], prologue='''
+                static PyObject *
+                hacked_repr(PyObject *self)
+                {
+                    return PyUnicode_FromString("<hacked repr>");
+                }
+            ''')
         obj = foo.new()
         assert module.hack_tp_dict(obj, "a") == 2
         class Sub(foo.fooType):
@@ -489,6 +507,132 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj = Sub()
         assert module.hack_tp_dict(obj, "b") == 2
 
+        # PyType_Modified() invalidates the attribute lookup
+        # cache and resyncs the dict_w entries that were
+        # derived from slot function pointers.
+        obj = foo.new()
+        before = repr(obj)
+        module.hack_tp_repr(obj)
+        assert repr(obj) == "<hacked repr>"
+        assert before != "<hacked repr>"
+
+
+    def test_metaclass_leaf_tp_new_mutation_excess_args(self):
+        # Mimics numpy's exact DTypeMeta pattern (numpy gh _rational_tests.c):
+        #   NPY_Rational2DType = (PyArray_DTypeMeta *)PyType_FromMetaclass(
+        #           &PyArrayDTypeMeta_Type, m, &rational2_dtype_spec,
+        #           (PyObject *)&PyArrayDescr_Type);
+        #   if (NPY_Rational2DType == NULL) goto fail;
+        #   if (PyArrayInitDTypeMeta_FromSpec(NPY_Rational2DType, &dtype_spec) < 0)
+        #       goto fail;
+        # -- a *metaclass* (like PyArrayDTypeMeta_Type: static,
+        # DISALLOW_INSTANTIATION, no custom tp_new, tp_base=&PyType_Type)
+        # is used to build a leaf type (MetaLeaf) whose *base* (like
+        # PyArrayDescr_Type) is an ordinary static type (DescrLike) with
+        # its own custom tp_new returning a cached MetaLeaf singleton --
+        # exactly like arraydescr_new returning a cached user-dtype
+        # descriptor for a registered scalar type. The
+        # PyArrayInitDTypeMeta_FromSpec-equivalent step here is the
+        # PyType_Modified() call, matching dtypemeta.c's legacy-proto
+        # branch (mutate tp_new, then PyType_Modified).
+        # Then `DescrLike(1, 2, 3)` mirrors `np.dtype(rational2)`:
+        # DescrLike.__new__ returns the cached MetaLeaf instance, and
+        # type.__call__'s follow-up step invokes
+        # type(instance).__init__(instance, 1, 2, 3) = MetaLeaf.__init__ --
+        # which must be tolerated (MetaLeaf never overrides __init__, its
+        # tp_new is custom) exactly like CPython tolerates it.
+        module4 = self.import_extension('probe_extra_args_meta', [
+            ("finish_registration", "METH_NOARGS",
+             """
+                 PyObject *leaf_spec_obj = PyType_FromMetaclass(
+                         &Meta_Type, NULL, &leaf_spec,
+                         (PyObject *)&DescrLike_Type);
+                 if (leaf_spec_obj == NULL) {
+                     return NULL;
+                 }
+                 MetaLeaf_Type = (PyTypeObject *)leaf_spec_obj;
+                 cached_instance = MetaLeaf_Type->tp_alloc(MetaLeaf_Type, 0);
+                 if (cached_instance == NULL) {
+                     return NULL;
+                 }
+                 /* Mirror dtypemeta.c exactly: mutate tp_new on the
+                    *leaf* (DType) post-hoc, then PyType_Modified() on
+                    that same leaf, like the legacy-proto branch does:
+                       ((PyTypeObject *)DType)->tp_new = legacy_dtype_default_new;
+                       PyType_Modified((PyTypeObject *)DType); */
+                 MetaLeaf_Type->tp_new = metaleaf_new;
+                 PyType_Modified(MetaLeaf_Type);
+                 Py_RETURN_NONE;
+             """),
+            ], prologue="""
+                static PyTypeObject *MetaLeaf_Type = NULL;
+                static PyObject *cached_instance = NULL;
+
+                static PyTypeObject Meta_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "probe_extra_args_meta.Meta",
+                    0,
+                    0,
+                };
+                static PyTypeObject DescrLike_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "probe_extra_args_meta.DescrLike",
+                    sizeof(PyObject),
+                    0,
+                };
+
+                static PyObject *
+                metaleaf_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+                {
+                    Py_INCREF(cached_instance);
+                    return cached_instance;
+                }
+
+                /* Permanent custom __new__, like PyArrayDescr_Type's own
+                   arraydescr_new -- set once, at type-creation time, and
+                   never mutated afterward. */
+                static PyObject *
+                descrlike_new(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
+                {
+                    if (subtype == &DescrLike_Type) {
+                        Py_INCREF(cached_instance);
+                        return cached_instance;
+                    }
+                    return subtype->tp_alloc(subtype, 0);
+                }
+
+                static PyType_Slot leaf_slots[] = {
+                    {0, 0},
+                };
+                static PyType_Spec leaf_spec = {
+                    "probe_extra_args_meta.MetaLeaf",
+                    0,
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    leaf_slots,
+                };
+            """, more_init="""
+                Meta_Type.tp_basicsize = sizeof(PyHeapTypeObject);
+                Meta_Type.tp_itemsize = sizeof(PyMemberDef);
+                Meta_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION;
+                Meta_Type.tp_base = &PyType_Type;
+                if (PyType_Ready(&Meta_Type) < 0) INITERROR;
+                PyModule_AddObject(mod, "Meta", (PyObject *)&Meta_Type);
+
+                /* Permanent custom __new__ from the start, like
+                   PyArrayDescr_Type.tp_new = arraydescr_new. */
+                DescrLike_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                DescrLike_Type.tp_new = descrlike_new;
+                DescrLike_Type.tp_base = &PyBaseObject_Type;
+                if (PyType_Ready(&DescrLike_Type) < 0) INITERROR;
+                PyModule_AddObject(mod, "DescrLike", (PyObject *)&DescrLike_Type);
+            """)
+        module4.finish_registration()
+        # establish the MetaLeaf singleton without excess args first
+        module4.DescrLike()
+        # This mirrors `np.dtype(rational2)` exactly.
+        obj4 = module4.DescrLike(1, 2, 3)
+        assert obj4 is not None
 
     def test_tp_dict_ready(self):
         module = self.import_extension('foo', [

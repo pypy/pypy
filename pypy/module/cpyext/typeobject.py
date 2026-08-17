@@ -1321,7 +1321,13 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     typ.c_tp_as_sequence = res.c_as_sequence
     typ.c_tp_as_mapping = res.c_as_mapping
     typ.c_tp_as_buffer = res.c_as_buffer
-    typ.c_tp_bases = bases
+    # `bases` is the raw argument as passed in by the caller, which may be
+    # a single type rather than a tuple (CPython accepts both) -- but
+    # tp_bases must always be a tuple, so use the already-normalized
+    # bases_w here instead of assigning `bases` directly.
+    is_heaptype = bool(widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE)
+    typ.c_tp_bases = make_ref(space, space.newtuple(bases_w),
+                               immortal=not is_heaptype)
     typ.c_tp_base = base
     typ.c_tp_basicsize = cts.cast('Py_ssize_t', spec.c_basicsize)
     typ.c_tp_itemsize = cts.cast('Py_ssize_t', spec.c_itemsize)
@@ -1426,16 +1432,87 @@ def _PyType_Lookup(space, type, w_name):
     # until w_type is modified or dies.  Assuming this, we return a borrowed ref
     return w_obj
 
+def resync_slot_wrappers(space, w_type, pto):
+    """Bring dict_w's slot-driven dunder entries (__new__, __hash__,
+    __repr__, the nb_*/sq_* wrappers, ...) back in sync with the
+    *current* values in the C struct.
+
+    C code that mutates a type's slots after creation -- a legitimate,
+    documented pattern (see e.g. numpy's dtypemeta.c's legacy-dtype
+    setup, which overwrites tp_new post-hoc) -- and then calls
+    PyType_Modified() expects that mutation to become visible.
+
+    Only slots that genuinely differ from the type's own base are
+    reflected. Some slots (tp_init, tp_alloc, tp_dealloc, ...) are
+    quietly auto-inherited from the base by inherit_slots() *after* the
+    type's dict_w was first populated (see finish_type_1/finish_type_2
+    ordering); reflecting that already-inherited value here would wrap
+    it in a *new*, distinct wrapper object -- e.g. shadowing a type's
+    correctly-inherited object.__init__ with a look-alike cpyext
+    wrapper, breaking identity checks like CPython's cooperative
+    __init__ check (descr__init__ compares by object identity). Only a
+    value that differs from the current base's own value represents a
+    real, intentional override worth exposing.
+    """
+    from pypy.module.cpyext.object import PyObject_HashNotImplemented
+    flags = widen(pto.c_tp_flags)
+    if flags & Py_TPFLAGS_HEAPTYPE:
+        type_name = space.text_w(
+            from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
+    else:
+        type_name = get_type_name(rffi.constcharp2str(pto.c_tp_name))
+
+    base = pto.c_tp_base
+    hash_not_impl = llslot(space, PyObject_HashNotImplemented)
+    for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
+        if wrapper_class is None:
+            continue
+        if len(slot_names) == 1:
+            func = getattr(pto, slot_names[0])
+            if slot_names[0] == 'c_tp_hash' and func == hash_not_impl:
+                w_type.dict_w[method_name] = space.w_None
+                continue
+            inherited_unchanged = bool(base) and func == getattr(base, slot_names[0])
+        else:
+            assert len(slot_names) == 2
+            struct = getattr(pto, slot_names[0])
+            if not struct:
+                continue
+            func = getattr(struct, slot_names[1])
+            inherited_unchanged = False
+            if base:
+                base_struct = getattr(base, slot_names[0])
+                if base_struct:
+                    inherited_unchanged = func == getattr(base_struct, slot_names[1])
+        if not func:
+            continue
+        if inherited_unchanged:
+            continue
+        func_voidp = rffi.cast(rffi.VOIDP, func)
+        w_type.dict_w[method_name] = wrapper_class(
+            space, w_type, method_name, doc, func_voidp, type_name)
+
+    if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
+        w_type.dict_w["__new__"] = space.lookup(space.w_DisallowNew, '__new__')
+    elif pto.c_tp_new:
+        pyo = rffi.cast(PyObject, pto)
+        w_type.dict_w["__new__"] = W_PyCFunctionObject(
+            space, get_new_method_def(space), from_ref(space, pyo), None)
+
 @cpython_api([PyTypeObjectPtr], lltype.Void)
 def PyType_Modified(space, w_obj):
     """Invalidate the internal lookup cache for the type and all of its
     subtypes.  This function must be called after any manual
     modification of the attributes or base classes of the type.
+
+    PyPy extension: also resync the slots
     """
     # Invalidate the type cache in case of a builtin type.
     if not isinstance(w_obj, W_TypeObject):
         return
     if w_obj.is_cpytype():
+        pto = cts.cast('PyTypeObject*', as_pyobj(space, w_obj))
+        resync_slot_wrappers(space, w_obj, pto)
         w_obj.mutated(None)
 
 @cpython_api([PyObject, PyObject], PyObject, header='genericaliasobject.h')
