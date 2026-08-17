@@ -26,6 +26,11 @@ try:
 except ImportError:
     _testinternalcapi = None
 import _imp
+try:
+    import _testcapi
+except ImportError:
+    class _testcapi:
+        pass
 
 from test.support import os_helper
 from test.support import (
@@ -1697,6 +1702,8 @@ class CircularImportTests(unittest.TestCase):
             unwritable.x = 42
 
 
+@unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
+@unittest.skipUnless(hasattr(_testcapi, "run_in_subinterp_with_config"), "requires run_in_subinterp_with_config")
 class SubinterpImportTests(unittest.TestCase):
 
     RUN_KWARGS = dict(
