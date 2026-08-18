@@ -21,7 +21,7 @@ from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, rais
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.interpreter.pymonitoring import (
-    fire2, fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
+    fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
     RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
     should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK,
     should_fire_local, fire_local3, JUMP, BRANCH)
@@ -279,9 +279,9 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                if should_fire(ec.space, PY_RETURN):
-                    fire3(ec.space, PY_RETURN, self.pycode, intmask(self.last_instr),
-                          self.peekvalue())
+                if should_fire_local(ec.space, pycode, PY_RETURN):
+                    fire_local3(ec.space, PY_RETURN, pycode, pycode,
+                                intmask(self.last_instr), self.peekvalue())
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
@@ -1300,9 +1300,10 @@ class __extend__(pyframe.PyFrame):
             w_value = self.popvalue()
             w_value = AsyncGenValueWrapper(w_value)
             self.pushvalue(w_value)
-        if should_fire(self.space, PY_YIELD):
-            fire3(self.space, PY_YIELD, self.pycode, intmask(self.last_instr),
-                  self.peekvalue())
+        code = self.getcode()
+        if should_fire_local(self.space, code, PY_YIELD):
+            fire_local3(self.space, PY_YIELD, code, code,
+                        intmask(self.last_instr), self.peekvalue())
         raise Yield
 
     def next_yield_from(self, w_yf, w_inputvalue_or_err):
@@ -1326,9 +1327,10 @@ class __extend__(pyframe.PyFrame):
             if not e.match(space, space.w_StopIteration):
                 raise
             self._report_stopiteration_sometimes(w_yf, e)
-            if should_fire(space, STOP_ITERATION):
-                fire3(space, STOP_ITERATION, self.pycode,
-                      intmask(self.last_instr), e.get_w_value(space))
+            code = self.getcode()
+            if should_fire_local(space, code, STOP_ITERATION):
+                fire_local3(space, STOP_ITERATION, code, code,
+                            intmask(self.last_instr), e.get_w_value(space))
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
                                              space.newtext("value"))
@@ -1565,13 +1567,16 @@ class __extend__(pyframe.PyFrame):
         # unconditionally (any callable), then route C callables through
         # call_args_and_c_profile if legacy profiling or C_RETURN/C_RAISE
         # monitoring wants to see the C_RETURN/C_RAISE pair.
-        from pypy.interpreter.pymonitoring import should_fire, fire4, w_missing, CALL
-        call_wants_events = should_fire(self.space, CALL)
+        from pypy.interpreter.pymonitoring import (
+            should_fire_local, fire_local4, w_missing, CALL)
+        code = self.getcode()
+        call_wants_events = should_fire_local(self.space, code, CALL)
         if call_wants_events:
             w_arg0 = args.firstarg()
             if w_arg0 is None:
                 w_arg0 = w_missing(self.space)
-            fire4(self.space, CALL, self.pycode, self.last_instr, w_function, w_arg0)
+            fire_local4(self.space, CALL, code, code, intmask(self.last_instr),
+                        w_function, w_arg0)
         needs_c_wrap = (
             (self.get_is_being_profiled() and function.is_builtin_code(w_function)) or
             (call_wants_events and not function.is_python_function(w_function)))

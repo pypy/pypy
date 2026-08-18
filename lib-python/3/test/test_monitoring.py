@@ -20,7 +20,7 @@ def f1():
 
 def f2():
     len([])
-    sys.getsizeof(0)
+    abs(0)  # PyPy: sys.getsizeof(0) always raises TypeError, unrelated to monitoring
 
 def floop():
     for item in PAIR:

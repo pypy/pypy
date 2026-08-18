@@ -158,6 +158,97 @@ def test_local_events_requires_code_object():
     raises(TypeError, sys.monitoring.set_local_events, 3, "not code", 0)
 
 
+def test_py_start_local_events():
+    # PY_START is in PEP 669's "local events" list, so it must fire from
+    # set_local_events alone, with no matching global set_events call.
+    E = sys.monitoring.events
+    events = []
+
+    def f():
+        pass
+
+    code = f.__code__
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_START, callback)
+        sys.monitoring.set_local_events(3, code, E.PY_START)
+
+        events[:] = []
+        f()
+        assert len(events) == 1
+        assert events[0][0] is code
+    finally:
+        sys.monitoring.set_local_events(3, code, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_py_start_disable():
+    E = sys.monitoring.events
+    events = []
+
+    def f():
+        pass
+
+    code = f.__code__
+
+    def callback(*args):
+        events.append(args)
+        return sys.monitoring.DISABLE
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.PY_START, callback)
+        sys.monitoring.set_events(3, E.PY_START)
+
+        events[:] = []
+        f()
+        f()
+        f()
+        names = [ev for ev in events if ev[0] is code]
+        assert len(names) == 1
+
+        sys.monitoring.restart_events()
+        events[:] = []
+        f()
+        assert len(events) == 1
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_call_disable():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+        return sys.monitoring.DISABLE
+
+    def f(x):
+        return len(x)
+
+    code = f.__code__
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, callback)
+        sys.monitoring.set_local_events(3, code, E.CALL)
+
+        events[:] = []
+        assert f([]) == 0
+        assert f([]) == 0
+        assert f([]) == 0
+        names = [ev for ev in events if ev[0] is code]
+        assert len(names) == 1
+    finally:
+        sys.monitoring.set_local_events(3, code, 0)
+        sys.monitoring.free_tool_id(3)
+
+
 def test_restart_events():
     sys.monitoring.restart_events()
 

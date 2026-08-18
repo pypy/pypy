@@ -152,7 +152,7 @@ def set_events(space, tool_id, event_set):
     state.global_events[tool_id] = event_set
     state.recompute_any_events()
     if state.any_events != old_any_events:
-        # any_events is quasi-immutable/promoted at every fire2/fire3 call
+        # any_events is quasi-immutable/promoted at every fire3/fire4 call
         # site (see pymonitoring.should_fire); writing it already
         # invalidates compiled loops that folded in the old value, but
         # force_all_frames() additionally kicks frames *currently*

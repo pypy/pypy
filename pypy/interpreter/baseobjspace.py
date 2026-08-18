@@ -1245,11 +1245,12 @@ class ObjSpace(object):
         from pypy.interpreter.function import (
             Function, _Method, is_builtin_code, is_python_function)
         from pypy.interpreter.pymonitoring import (
-            should_fire, fire4, w_missing, CALL)
-        call_wants_events = should_fire(self, CALL)
+            should_fire_local, fire_local4, w_missing, CALL)
+        pycode = frame.getcode()
+        call_wants_events = should_fire_local(self, pycode, CALL)
         if call_wants_events:
             w_arg0 = frame.peekvalue(nargs - 1) if nargs > 0 else w_missing(self)
-            fire4(self, CALL, frame.pycode, frame.last_instr, w_func, w_arg0)
+            fire_local4(self, CALL, pycode, pycode, frame.last_instr, w_func, w_arg0)
 
         needs_c_wrap = (
             (frame.get_is_being_profiled() and is_builtin_code(w_func)) or
@@ -1282,25 +1283,26 @@ class ObjSpace(object):
 
     def call_args_and_c_profile(self, frame, w_func, args):
         from pypy.interpreter.pymonitoring import (
-            should_fire, fire4, w_missing, C_RETURN, C_RAISE)
+            should_fire_local, fire4, w_missing, C_RETURN, C_RAISE)
+        pycode = frame.getcode()
         ec = self.getexecutioncontext()
         ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
         except OperationError:
             ec.c_exception_trace(frame, w_func)
-            if should_fire(self, C_RAISE):
+            if should_fire_local(self, pycode, C_RAISE):
                 w_arg0 = args.firstarg()
                 if w_arg0 is None:
                     w_arg0 = w_missing(self)
-                fire4(self, C_RAISE, frame.pycode, frame.last_instr, w_func, w_arg0)
+                fire4(self, C_RAISE, pycode, pycode, frame.last_instr, w_func, w_arg0)
             raise
         ec.c_return_trace(frame, w_func, args)
-        if should_fire(self, C_RETURN):
+        if should_fire_local(self, pycode, C_RETURN):
             w_arg0 = args.firstarg()
             if w_arg0 is None:
                 w_arg0 = w_missing(self)
-            fire4(self, C_RETURN, frame.pycode, frame.last_instr, w_func, w_arg0)
+            fire4(self, C_RETURN, pycode, pycode, frame.last_instr, w_func, w_arg0)
         return w_res
 
     def call_method(self, w_obj, methname, *arg_w):

@@ -105,7 +105,7 @@ def _event_bit(event_id):
 def should_fire(space, event_id):
     """JIT-foldable check: does any tool want this event globally?
 
-    Callers must check this *before* calling fire2/fire3/fire4, not rely
+    Callers must check this *before* calling fire3/fire4, not rely
     on the (non-promoted) check inside those functions -- promoting here
     lets the JIT constant-fold away the call and its argument setup
     entirely when nobody is listening, the same way gettrace() promotes
@@ -125,25 +125,11 @@ def should_fire_any(space, event_mask):
     return any_events & event_mask
 
 
-def fire2(space, event_id, w_code, offset):
-    """Fire a (code, instruction_offset) event, e.g. PY_START/PY_RESUME."""
-    state = space.fromcache(MonitoringState)
-    if state.firing or not (state.any_events >> event_id) & 1:
-        return
-    w_offset = space.newint(offset)
-    for tool_id in range(NUM_TOOLS):
-        if (state.global_events[tool_id] >> event_id) & 1:
-            w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
-            if w_cb is not None:
-                state.firing = True
-                try:
-                    space.call_function(w_cb, w_code, w_offset)
-                finally:
-                    state.firing = False
-
-
 def fire3(space, event_id, w_code, offset, w_extra):
-    """Fire a (code, instruction_offset, extra) event, e.g. PY_RETURN."""
+    """Fire a (code, instruction_offset, extra) event for a non-local
+    event, e.g. PY_UNWIND/PY_THROW/RAISE/RERAISE/EXCEPTION_HANDLED --
+    these aren't in LOCAL_EVENTS, so no set_local_events/DISABLE support.
+    """
     state = space.fromcache(MonitoringState)
     if state.firing or not (state.any_events >> event_id) & 1:
         return
@@ -205,12 +191,13 @@ def should_fire_local_any(space, pycode, event_mask):
 
 
 def should_fire_local(space, pycode, event_id):
-    """Single-event version of should_fire_local_any."""
+    """Single-event version of should_fire_local_any. Applies _event_bit,
+    so should_fire_local(pycode, C_RETURN) correctly checks CALL's bit."""
     state = space.fromcache(MonitoringState)
     global_bits = jit.promote(state.any_events)
     version_tag = jit.promote(pycode.monitoring_version)
     local_bits = _get_local_flags(pycode, version_tag)
-    return ((global_bits | local_bits) >> event_id) & 1
+    return ((global_bits | local_bits) >> _event_bit(event_id)) & 1
 
 
 @jit.unroll_safe
@@ -283,22 +270,67 @@ def fire_local3(space, event_id, w_code, pycode, offset, w_destination):
             state.disabled_codes[pycode] = True
 
 
-def fire4(space, event_id, w_code, offset, w_callable, w_arg0):
-    """Fire a (code, instruction_offset, callable, arg0) event, e.g.
-    CALL/C_RETURN/C_RAISE.  See _event_bit for why C_RETURN/C_RAISE check
-    the CALL bit for "is this enabled", while still looking up (and
-    guarding on) each tool's own C_RETURN/C_RAISE callback slot."""
+@jit.unroll_safe
+def fire_local4(space, event_id, w_code, pycode, offset, w_callable, w_arg0):
+    """Like fire_local, but for CALL's (code, offset, callable, arg0)
+    shape."""
     state = space.fromcache(MonitoringState)
-    check_id = _event_bit(event_id)
-    if state.firing or not (state.any_events >> check_id) & 1:
+    if state.firing:
         return
+    version_tag = jit.promote(pycode.monitoring_version)
+    global_event_bit = (jit.promote(state.any_events) >> event_id) & 1
     w_offset = space.newint(offset)
     for tool_id in range(NUM_TOOLS):
-        if (state.global_events[tool_id] >> check_id) & 1:
-            w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
-            if w_cb is not None:
-                state.firing = True
-                try:
-                    space.call_function(w_cb, w_code, w_offset, w_callable, w_arg0)
-                finally:
-                    state.firing = False
+        local_bit = _get_local_tool_bit(pycode, version_tag, tool_id, event_id)
+        if global_event_bit:
+            global_bit = (state.global_events[tool_id] >> event_id) & 1
+        else:
+            global_bit = 0
+        if not (local_bit | global_bit):
+            continue
+        if _get_disabled(pycode, version_tag, tool_id, offset, event_id):
+            continue
+        w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
+        if w_cb is None:
+            continue
+        state.firing = True
+        try:
+            w_result = space.call_function(w_cb, w_code, w_offset, w_callable, w_arg0)
+        finally:
+            state.firing = False
+        if space.is_w(w_result, w_disable(space)):
+            pycode.monitoring_disable(tool_id, offset, event_id)
+            state.disabled_codes[pycode] = True
+
+
+@jit.unroll_safe
+def fire4(space, event_id, w_code, pycode, offset, w_callable, w_arg0):
+    """Fire C_RETURN/C_RAISE. Neither is independently local/DISABLE-able
+    (not in LOCAL_EVENTS) -- both ride entirely on CALL's enabled-ness
+    and DISABLE state at this location (see _event_bit), checked here via
+    the same version_tag-promoted helpers fire_local4 uses for CALL
+    itself, so a location where CALL is disabled silences these too."""
+    state = space.fromcache(MonitoringState)
+    if state.firing:
+        return
+    version_tag = jit.promote(pycode.monitoring_version)
+    global_call_bit = (jit.promote(state.any_events) >> CALL) & 1
+    w_offset = space.newint(offset)
+    for tool_id in range(NUM_TOOLS):
+        local_bit = _get_local_tool_bit(pycode, version_tag, tool_id, CALL)
+        if global_call_bit:
+            global_bit = (state.global_events[tool_id] >> CALL) & 1
+        else:
+            global_bit = 0
+        if not (local_bit | global_bit):
+            continue
+        if _get_disabled(pycode, version_tag, tool_id, offset, CALL):
+            continue
+        w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
+        if w_cb is None:
+            continue
+        state.firing = True
+        try:
+            space.call_function(w_cb, w_code, w_offset, w_callable, w_arg0)
+        finally:
+            state.firing = False

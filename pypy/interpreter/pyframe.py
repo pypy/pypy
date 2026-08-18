@@ -20,8 +20,9 @@ from pypy.interpreter.error import (
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pymonitoring import (
-    fire2, fire3, should_fire_any, PY_START, PY_RESUME, PY_THROW,
-    FRAME_ENTRY_EVENTS, should_fire_local, fire_local, LINE, INSTRUCTION)
+    fire3, PY_START, PY_RESUME, PY_THROW,
+    FRAME_ENTRY_EVENTS, should_fire_local, should_fire_local_any, fire_local,
+    LINE, INSTRUCTION)
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -323,15 +324,16 @@ class PyFrame(W_Root):
         from pypy.interpreter.pyopcode import SApplicationException
         w_code = self.pycode
         if w_arg_or_err is None:
-            fire2(self.space, PY_START, w_code, 0)
+            fire_local(self.space, PY_START, w_code, w_code, 0)
         elif isinstance(w_arg_or_err, SApplicationException):
             w_exc = w_arg_or_err.operr.get_w_value(self.space)
             fire3(self.space, PY_THROW, w_code, intmask(self.last_instr) + 2,
                   w_exc)
         elif self.last_instr == -1:
-            fire2(self.space, PY_START, w_code, 0)
+            fire_local(self.space, PY_START, w_code, w_code, 0)
         else:
-            fire2(self.space, PY_RESUME, w_code, intmask(self.last_instr) + 2)
+            fire_local(self.space, PY_RESUME, w_code, w_code,
+                       intmask(self.last_instr) + 2)
 
     def _monitor_line_and_instruction(self, pycode):
         # Only called once should_fire_local_any(LINE|INSTRUCTION) already
@@ -370,7 +372,7 @@ class PyFrame(W_Root):
         w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
-            if should_fire_any(self.space, FRAME_ENTRY_EVENTS):
+            if should_fire_local_any(self.space, self.getcode(), FRAME_ENTRY_EVENTS):
                 self._monitor_frame_entry(w_arg_or_err)
             #
             # Execution starts just after the last_instr.  Initially,
