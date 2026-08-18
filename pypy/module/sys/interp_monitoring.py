@@ -167,11 +167,7 @@ def set_events(space, tool_id, event_set):
 def get_local_events(space, tool_id, w_code):
     code = _get_code(space, w_code)
     check_valid_tool(space, tool_id)
-    state = space.fromcache(MonitoringState)
-    per_tool = state.local_events.get(code, None)
-    if per_tool is None:
-        return space.newint(0)
-    return space.newint(per_tool[tool_id])
+    return space.newint(code.monitoring_get_local_events(tool_id))
 
 
 @unwrap_spec(tool_id=int, event_set=int)
@@ -185,24 +181,12 @@ def set_local_events(space, tool_id, w_code, event_set):
     if event_set < 0 or event_set >= (1 << LOCAL_EVENTS):
         raise oefmt(space.w_ValueError, "invalid local event set %s", hex(event_set))
     check_tool_in_use(space, tool_id)
-    state = space.fromcache(MonitoringState)
-    per_tool = state.local_events.get(code, None)
-    if per_tool is None:
-        per_tool = [0] * NUM_TOOLS
-        state.local_events[code] = per_tool
-    per_tool[tool_id] = event_set
     old_local_flags = code.monitoring_local_flags
-    new_local_flags = 0
-    for i in range(NUM_TOOLS):
-        new_local_flags |= per_tool[i]
-    code.monitoring_local_flags = new_local_flags
-    if new_local_flags != old_local_flags:
-        # Same reasoning as set_events: monitoring_local_flags is
-        # quasi-immutable/promoted per-PyCode (pymonitoring.
-        # should_fire_local_any), so writing it already invalidates
-        # loops that folded in the old value; force_all_frames() also
-        # kicks currently-executing compiled frames of this code out
-        # immediately.
+    code.monitoring_set_local_events(tool_id, event_set)
+    if code.monitoring_local_flags != old_local_flags:
+        # bumps code.monitoring_version (see pymonitoring.VersionTag),
+        # invalidating loops that folded in the old value; force_all_frames()
+        # also kicks currently-executing compiled frames out immediately.
         space.getexecutioncontext().force_all_frames()
 
 
