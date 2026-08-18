@@ -326,7 +326,7 @@ class PyFrame(W_Root):
         if w_arg_or_err is None:
             fire_local(self.space, PY_START, w_code, w_code, 0)
         elif isinstance(w_arg_or_err, SApplicationException):
-            w_exc = w_arg_or_err.operr.get_w_value(self.space)
+            w_exc = w_arg_or_err.operr.normalize_exception(self.space)
             fire3(self.space, PY_THROW, w_code, intmask(self.last_instr) + 2,
                   w_exc)
         elif self.last_instr == -1:

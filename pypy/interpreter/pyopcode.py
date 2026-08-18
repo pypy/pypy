@@ -168,11 +168,11 @@ class __extend__(pyframe.PyFrame):
         if attach_tb:
             if should_fire(self.space, RAISE):
                 fire3(self.space, RAISE, self.pycode, intmask(self.last_instr),
-                      operr.get_w_value(self.space))
+                      operr.normalize_exception(self.space))
         else:
             if should_fire(self.space, RERAISE):
                 fire3(self.space, RERAISE, self.pycode, intmask(self.last_instr),
-                      operr.get_w_value(self.space))
+                      operr.normalize_exception(self.space))
 
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
@@ -212,7 +212,7 @@ class __extend__(pyframe.PyFrame):
         self.frame_finished_execution = True  # allows frame.clear() after propagation
         if should_fire(self.space, PY_UNWIND):
             fire3(self.space, PY_UNWIND, self.pycode, intmask(self.last_instr),
-                  operr.get_w_value(self.space))
+                  operr.normalize_exception(self.space))
         if we_are_translated():
             raise operr
         else:
@@ -1327,13 +1327,13 @@ class __extend__(pyframe.PyFrame):
             if not e.match(space, space.w_StopIteration):
                 raise
             self._report_stopiteration_sometimes(w_yf, e)
+            w_exc = e.normalize_exception(space)
             code = self.getcode()
             if should_fire_local(space, code, STOP_ITERATION):
                 fire_local3(space, STOP_ITERATION, code, code,
-                            intmask(self.last_instr), e.get_w_value(space))
+                            intmask(self.last_instr), w_exc)
             try:
-                w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.newtext("value"))
+                w_stop_value = space.getattr(w_exc, space.newtext("value"))
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise

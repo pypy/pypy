@@ -427,14 +427,17 @@ def test_fire_raise_and_exception_handled():
 
         def f():
             try:
-                raise ValueError("boom")
-            except ValueError:
+                1 / 0  # implicitly raised: not yet a normalized instance
+                       # at the point RAISE fires, unlike `raise Foo(...)`
+            except ZeroDivisionError:
                 return "caught"
 
         events[:] = []
         assert f() == "caught"
         names = [ev[0] for ev in events if ev[1] is f.__code__]
         assert names == ['RAISE', 'EXCEPTION_HANDLED']
+        raise_exc = [ev[3] for ev in events if ev[0] == 'RAISE'][0]
+        assert isinstance(raise_exc, ZeroDivisionError)
     finally:
         sys.monitoring.set_events(3, 0)
         sys.monitoring.free_tool_id(3)

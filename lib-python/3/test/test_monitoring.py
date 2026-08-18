@@ -533,7 +533,8 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             start = LineMonitoringTest.test_lines_single.__code__.co_firstlineno
-            self.assertEqual(events, [start+7, 16, start+8])
+            f1_line = f1.__code__.co_firstlineno + 1
+            self.assertEqual(events, [start+7, f1_line, start+8])
         finally:
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
@@ -551,7 +552,10 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             start = LineMonitoringTest.test_lines_loop.__code__.co_firstlineno
-            self.assertEqual(events, [start+7, 23, 24, 23, 24, 23, start+8])
+            for_line = floop.__code__.co_firstlineno + 1
+            pass_line = for_line + 1
+            self.assertEqual(events,
+                [start+7, for_line, pass_line, for_line, pass_line, for_line, start+8])
         finally:
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
@@ -573,7 +577,8 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             sys.monitoring.register_callback(TEST_TOOL2, E.LINE, None)
             start = LineMonitoringTest.test_lines_two.__code__.co_firstlineno
-            expected = [start+10, 16, start+11]
+            f1_line = f1.__code__.co_firstlineno + 1
+            expected = [start+10, f1_line, start+11]
             self.assertEqual(events, expected)
             self.assertEqual(events2, expected)
         finally:
@@ -674,7 +679,6 @@ class TestDisable(MonitoringTestBase, unittest.TestCase):
                 sys.monitoring.register_callback(TEST_TOOL, event, None)
 
 
-    @unittest.skip("PyPy: fix not yet translated, triaging next failure")
     def test_disable_illegal_events(self):
         for event, name in EXCEPT_EVENTS:
             try:
@@ -1219,12 +1223,21 @@ class TestInstallIncrementally(MonitoringTestBase, unittest.TestCase):
     def func2():
         len(())
 
-    MUST_INCLUDE_CI = [
-            ('instruction', 'func2', 2),
-            ('call', 'func2', sys.monitoring.MISSING),
-            ('call', 'len', ()),
-            ('instruction', 'func2', 12),
-            ('instruction', 'func2', 14)]
+    if sys.implementation.name == 'pypy':
+        # no inline-cache padding words
+        MUST_INCLUDE_CI = [
+                ('instruction', 'func2', 2),
+                ('call', 'func2', sys.monitoring.MISSING),
+                ('call', 'len', ()),
+                ('instruction', 'func2', 6),
+                ('instruction', 'func2', 8)]
+    else:
+        MUST_INCLUDE_CI = [
+                ('instruction', 'func2', 2),
+                ('call', 'func2', sys.monitoring.MISSING),
+                ('call', 'len', ()),
+                ('instruction', 'func2', 12),
+                ('instruction', 'func2', 14)]
 
 
 
@@ -1441,6 +1454,7 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('return', None),
             ('line', 'get_events', 11)])
 
+@unittest.skip("PyPy: no LOAD_SUPER_ATTR opcode, super() compiles via plain CALL")
 class TestLoadSuperAttr(CheckEvents):
     RECORDERS = CallRecorder, LineRecorder, CRaiseRecorder, CReturnRecorder
 
