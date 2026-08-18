@@ -23,7 +23,8 @@ from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.interpreter.pymonitoring import (
     fire2, fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
     RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
-    should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK)
+    should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK,
+    should_fire_local, fire_local3, JUMP, BRANCH)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -223,6 +224,14 @@ class __extend__(pyframe.PyFrame):
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
 
+    def _monitor_branch(self, event_id, destination):
+        space = self.space
+        pycode = self.getcode()
+        if should_fire_local(space, pycode, event_id):
+            w_destination = space.newint(intmask(destination))
+            fire_local3(space, event_id, pycode, pycode,
+                        intmask(self.last_instr), w_destination)
+
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
@@ -276,7 +285,9 @@ class __extend__(pyframe.PyFrame):
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+                dest = self.jump_absolute(oparg, next_instr, ec)
+                self._monitor_branch(JUMP, dest)
+                return dest
             elif opcode == opcodedesc.RERAISE.index:
                 return self.RERAISE(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
@@ -1201,10 +1212,10 @@ class __extend__(pyframe.PyFrame):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.cmp_exc_match(w_1, w_2)
-        if res:
-            return next_instr
-        else:
-            return target * 2
+        if not res:
+            next_instr = target * 2
+        self._monitor_branch(BRANCH, next_instr)
+        return next_instr
 
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
@@ -1361,44 +1372,53 @@ class __extend__(pyframe.PyFrame):
 
     def JUMP_FORWARD(self, jumpby, next_instr):
         next_instr += jumpby * 2
+        self._monitor_branch(JUMP, next_instr)
         return next_instr
 
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_IF_TRUE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_FORWARD_IF_NONE(self, jumpby, next_instr):
         w_value = self.popvalue()
         if self.space.is_w(w_value, self.space.w_None):
             next_instr += jumpby * 2
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_FORWARD_IF_NOT_NONE(self, jumpby, next_instr):
         w_value = self.popvalue()
         if not self.space.is_w(w_value, self.space.w_None):
             next_instr += jumpby * 2
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
-        self.popvalue()
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        else:
+            self.popvalue()
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def JUMP_IF_TRUE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
-        self.popvalue()
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        else:
+            self.popvalue()
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
@@ -1419,6 +1439,7 @@ class __extend__(pyframe.PyFrame):
             next_instr += jumpby * 2
         else:
             self.pushvalue(w_nextitem)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def _report_stopiteration_sometimes(self, w_iterator, operr):

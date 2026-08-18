@@ -250,6 +250,39 @@ def fire_local(space, event_id, w_code, pycode, offset):
             state.disabled_codes[pycode] = True
 
 
+@jit.unroll_safe
+def fire_local3(space, event_id, w_code, pycode, offset, w_destination):
+    """Like fire_local, but for BRANCH/JUMP's (code, offset, destination)
+    shape."""
+    state = space.fromcache(MonitoringState)
+    if state.firing:
+        return
+    version_tag = jit.promote(pycode.monitoring_version)
+    global_event_bit = (jit.promote(state.any_events) >> event_id) & 1
+    w_offset = space.newint(offset)
+    for tool_id in range(NUM_TOOLS):
+        local_bit = _get_local_tool_bit(pycode, version_tag, tool_id, event_id)
+        if global_event_bit:
+            global_bit = (state.global_events[tool_id] >> event_id) & 1
+        else:
+            global_bit = 0
+        if not (local_bit | global_bit):
+            continue
+        if _get_disabled(pycode, version_tag, tool_id, offset, event_id):
+            continue
+        w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
+        if w_cb is None:
+            continue
+        state.firing = True
+        try:
+            w_result = space.call_function(w_cb, w_code, w_offset, w_destination)
+        finally:
+            state.firing = False
+        if space.is_w(w_result, w_disable(space)):
+            pycode.monitoring_disable(tool_id, offset, event_id)
+            state.disabled_codes[pycode] = True
+
+
 def fire4(space, event_id, w_code, offset, w_callable, w_arg0):
     """Fire a (code, instruction_offset, callable, arg0) event, e.g.
     CALL/C_RETURN/C_RAISE.  See _event_bit for why C_RETURN/C_RAISE check

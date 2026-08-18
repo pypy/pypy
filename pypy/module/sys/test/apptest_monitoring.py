@@ -779,6 +779,136 @@ def test_disable_per_location():
         sys.monitoring.free_tool_id(4)
 
 
+def test_fire_jump():
+    E = sys.monitoring.events
+    events = []
+
+    def f(n):
+        total = 0
+        i = 0
+        while i < n:
+            total += i
+            i += 1
+        return total
+
+    code = f.__code__
+
+    def callback(c, offset, dest):
+        if c is code:
+            events.append((offset, dest))
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.JUMP, callback)
+        sys.monitoring.set_events(3, E.JUMP)
+
+        events[:] = []
+        assert f(5) == 10
+        assert len(set(events)) == 1
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_branch():
+    E = sys.monitoring.events
+    events = []
+
+    def f(x):
+        if x:
+            return 1
+        else:
+            return 2
+
+    code = f.__code__
+
+    def callback(c, offset, dest):
+        if c is code:
+            events.append(dest)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.BRANCH, callback)
+        sys.monitoring.set_events(3, E.BRANCH)
+
+        events[:] = []
+        assert f(True) == 1
+        assert len(events) == 1
+        dest_true = events[0]
+
+        events[:] = []
+        assert f(False) == 2
+        assert len(events) == 1
+        dest_false = events[0]
+
+        assert dest_true != dest_false
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_branch_for_iter():
+    E = sys.monitoring.events
+    events = []
+
+    def f():
+        total = 0
+        for i in [1, 2, 3]:
+            total += i
+        return total
+
+    code = f.__code__
+
+    def callback(c, offset, dest):
+        if c is code:
+            events.append(dest)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.BRANCH, callback)
+        sys.monitoring.set_events(3, E.BRANCH)
+
+        events[:] = []
+        assert f() == 6
+        assert len(set(events[:3])) == 1
+        assert events[3] != events[0]
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_branch_disable():
+    E = sys.monitoring.events
+    events = []
+
+    def f(n):
+        total = 0
+        i = 0
+        while i < n:
+            total += i
+            i += 1
+        return total
+
+    code = f.__code__
+
+    def callback(c, offset, dest):
+        if c is code:
+            events.append(dest)
+            return sys.monitoring.DISABLE
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.JUMP, callback)
+        sys.monitoring.set_events(3, E.JUMP)
+
+        events[:] = []
+        assert f(5) == 10
+        assert len(events) == 1
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
 def test_all_events():
     sys.monitoring.use_tool_id(3, "test tool")
     sys.monitoring.use_tool_id(4, "test tool 2")
