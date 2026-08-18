@@ -611,8 +611,7 @@ def lookup_error(space, errors):
     return w_err_handler
 
 
-@unwrap_spec(encoding='text_or_none', errors='text_or_none')
-def encode(space, w_obj, encoding=None, errors=None):
+def encode(space, w_obj, w_encoding=None, w_errors=None):
     """encode(obj, [encoding[,errors]]) -> object
 
     Encodes obj using the codec registered for encoding. encoding defaults
@@ -622,6 +621,10 @@ def encode(space, w_obj, encoding=None, errors=None):
     'xmlcharrefreplace' as well as any other name registered with
     codecs.register_error that can handle ValueErrors.
     """
+    encoding = (None if w_encoding is None else
+                space.text_arg_w(w_encoding, 'encode', 'encoding'))
+    errors = (None if w_errors is None else
+              space.text_arg_w(w_errors, 'encode', 'errors'))
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_encoder = space.getitem(lookup_codec(space, encoding), space.newint(0))
@@ -632,8 +635,7 @@ def readbuffer_encode(space, w_data, errors='strict'):
     s = space.getarg_w('s#', w_data)
     return space.newtuple2(space.newbytes(s), space.newint(len(s)))
 
-@unwrap_spec(encoding='text_or_none', errors='text_or_none')
-def decode(space, w_obj, encoding=None, errors=None):
+def decode(space, w_obj, w_encoding=None, w_errors=None):
     from pypy.objspace.std.unicodeobject import W_UnicodeObject
     """decode(obj, [encoding[,errors]]) -> object
 
@@ -644,6 +646,10 @@ def decode(space, w_obj, encoding=None, errors=None):
     as well as any other name registered with codecs.register_error that is
     able to handle ValueErrors.
     """
+    encoding = (None if w_encoding is None else
+                space.text_arg_w(w_encoding, 'decode', 'encoding'))
+    errors = (None if w_errors is None else
+              space.text_arg_w(w_errors, 'decode', 'errors'))
     if encoding is None:
         encoding = space.sys.defaultencoding
     w_decoder = space.getitem(lookup_codec(space, encoding), space.newint(1))

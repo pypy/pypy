@@ -11,6 +11,32 @@ class AppTestCodecs:
         import _codecs
         raises(TypeError, _codecs.register, 1)
 
+    def test_encode_decode_arguments_must_be_str(self):
+        # a supplied None is a type error; an omitted argument is not
+        import codecs
+        e = raises(TypeError, codecs.encode, 'a', 'utf-8', None)
+        assert str(e.value) == (
+            "encode() argument 'errors' must be str, not None")
+        e = raises(TypeError, codecs.encode, 'a', None, None)
+        assert str(e.value) == (
+            "encode() argument 'encoding' must be str, not None")
+        e = raises(TypeError, codecs.encode, 'a', 'utf-8', 1)
+        assert str(e.value) == (
+            "encode() argument 'errors' must be str, not int")
+        e = raises(TypeError, codecs.decode, b'a', 'utf-8', None)
+        assert str(e.value) == (
+            "decode() argument 'errors' must be str, not None")
+        e = raises(TypeError, codecs.decode, b'a', None, None)
+        assert str(e.value) == (
+            "decode() argument 'encoding' must be str, not None")
+        assert codecs.encode('a') == b'a'
+        assert codecs.encode('a', 'utf-8') == b'a'
+        assert codecs.encode('a', 'utf-8', 'strict') == b'a'
+        assert codecs.encode('a', encoding='utf-8') == b'a'
+        assert codecs.decode(b'a') == 'a'
+        assert codecs.decode(b'a', 'utf-8') == 'a'
+        assert codecs.decode(b'a', 'utf-8', 'strict') == 'a'
+
     def test_bigU_codecs(self):
         u = u'\U00010001\U00020002\U00030003\U00040004\U00050005'
         for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be',

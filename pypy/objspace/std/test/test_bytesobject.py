@@ -1062,6 +1062,25 @@ class AppTestBytesObject:
         raises(TypeError, bytes, b'', 'ascii')
         raises(TypeError, bytes, '')
 
+    def test_constructor_encoding_must_be_str(self):
+        # a supplied None is a type error; an omitted argument is not
+        e = raises(TypeError, bytes, (), None)
+        assert str(e.value) == (
+            "bytes() argument 'encoding' must be str, not None")
+        e = raises(TypeError, bytes, 'abc', None)
+        assert str(e.value) == (
+            "bytes() argument 'encoding' must be str, not None")
+        e = raises(TypeError, bytes, (), 1)
+        assert str(e.value) == (
+            "bytes() argument 'encoding' must be str, not int")
+        e = raises(TypeError, bytes, (), 'utf-8', None)
+        assert str(e.value) == (
+            "bytes() argument 'errors' must be str, not None")
+        assert bytes(()) == b''
+        assert bytes('abc', 'utf-8') == b'abc'
+        assert bytes('abc', 'utf-8', 'strict') == b'abc'
+        assert bytes('abc', encoding='utf-8') == b'abc'
+
     def test_constructor_subclass(self):
         class Sub(bytes):
             pass
