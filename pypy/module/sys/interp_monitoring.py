@@ -191,13 +191,26 @@ def set_local_events(space, tool_id, w_code, event_set):
         per_tool = [0] * NUM_TOOLS
         state.local_events[code] = per_tool
     per_tool[tool_id] = event_set
-    # Bookkeeping only for now, see set_events above.
+    old_local_flags = code.monitoring_local_flags
+    new_local_flags = 0
+    for i in range(NUM_TOOLS):
+        new_local_flags |= per_tool[i]
+    code.monitoring_local_flags = new_local_flags
+    if new_local_flags != old_local_flags:
+        # Same reasoning as set_events: monitoring_local_flags is
+        # quasi-immutable/promoted per-PyCode (pymonitoring.
+        # should_fire_local_any), so writing it already invalidates
+        # loops that folded in the old value; force_all_frames() also
+        # kicks currently-executing compiled frames of this code out
+        # immediately.
+        space.getexecutioncontext().force_all_frames()
 
 
 def restart_events(space):
-    # No live per-instruction instrumentation exists yet (see
-    # set_local_events above), so there is nothing to re-arm.
-    pass
+    state = space.fromcache(MonitoringState)
+    for code in state.disabled_codes:
+        code.monitoring_restart_events()
+    state.disabled_codes.clear()
 
 
 def _all_events(space):

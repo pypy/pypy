@@ -21,7 +21,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pymonitoring import (
     fire2, fire3, should_fire_any, PY_START, PY_RESUME, PY_THROW,
-    FRAME_ENTRY_EVENTS)
+    FRAME_ENTRY_EVENTS, should_fire_local, fire_local, LINE, INSTRUCTION)
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -48,6 +48,8 @@ class FrameDebugData(object):
     f_trace_opcodes          = False
     w_locals                 = None
     hidden_operationerr      = None
+    monitor_last_line        = -1     # separate from f_lineno: sys.monitoring's
+    monitor_instr_prev_plus_one = 0   # LINE tracking is independent of settrace's
 
     def __init__(self, pycode, init_lineno=-1):
         self.f_lineno = init_lineno
@@ -330,6 +332,25 @@ class PyFrame(W_Root):
             fire2(self.space, PY_START, w_code, 0)
         else:
             fire2(self.space, PY_RESUME, w_code, intmask(self.last_instr) + 2)
+
+    def _monitor_line_and_instruction(self, pycode):
+        # Only called once should_fire_local_any(LINE|INSTRUCTION) already
+        # said something's watching this code; deliberately independent
+        # of settrace's own d.f_lineno/instr_prev_plus_one (see
+        # sys.monitoring.md section 5: keep the two mechanisms separate).
+        space = self.space
+        last_instr = intmask(self.last_instr)
+        if should_fire_local(space, pycode, INSTRUCTION):
+            fire_local(space, INSTRUCTION, pycode, pycode, last_instr)
+        if should_fire_local(space, pycode, LINE):
+            lineno = pycode._get_lineno_for_pc_tracing(last_instr)
+            if lineno != -1:
+                d = self.getorcreatedebug()
+                if (lineno != d.monitor_last_line or
+                        last_instr < d.monitor_instr_prev_plus_one):
+                    fire_local(space, LINE, pycode, pycode, lineno)
+                d.monitor_last_line = lineno
+                d.monitor_instr_prev_plus_one = last_instr + 1
 
     def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.

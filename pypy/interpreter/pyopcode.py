@@ -22,7 +22,8 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.interpreter.pymonitoring import (
     fire2, fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
-    RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION)
+    RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
+    should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -227,6 +228,9 @@ class __extend__(pyframe.PyFrame):
         while True:
             assert next_instr & 1 == 0
             self.last_instr = intmask(next_instr)
+            pycode = self.getcode()
+            if should_fire_local_any(ec.space, pycode, LOCAL_LINE_INSTRUCTION_MASK):
+                self._monitor_line_and_instruction(pycode)
             if jit.we_are_jitted():
                 _d = self.debugdata
                 if ec.space.reverse_debugging or (

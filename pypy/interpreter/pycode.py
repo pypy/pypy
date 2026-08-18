@@ -103,7 +103,8 @@ class PyCode(eval.Code):
                           "co_linetable",
                           "co_exceptiontable",
                           "w_globals?",
-                          "cell_families[*]"]
+                          "cell_families[*]",
+                          "monitoring_local_flags?"]
 
     def __init__(self, space,  argcount, posonlyargcount, kwonlyargcount,
                      nlocals, stacksize, flags,
@@ -155,6 +156,37 @@ class PyCode(eval.Code):
         self.new_code_hook()
 
         self._linelist = None # lazily initialized list of line numbers
+
+        # sys.monitoring local (per-code) events: OR of every tool's
+        # set_local_events() event_set for this code, kept in sync by
+        # interp_monitoring.set_local_events.  Quasi-immutable + promoted
+        # (see pymonitoring.should_fire_local) so dispatch_bytecode's
+        # per-bytecode LINE/INSTRUCTION check folds to nothing for code
+        # objects nobody's locally monitoring, same as the global gates.
+        self.monitoring_local_flags = 0
+        # lazily-created {(tool_id, instr_offset, event_id): True}; only
+        # consulted once monitoring_local_flags/global events already say
+        # *some* tool wants this event for this code, so a plain dict
+        # (not the elidable/version-tag scheme sketched in sys.monitoring.md
+        # \xa711) is acceptable here -- it adds cost only on top of an
+        # already-expensive real callback dispatch, not on the folded-away
+        # fast path.
+        self.monitoring_disabled = None
+
+    def monitoring_is_disabled(self, tool_id, offset, event_id):
+        d = self.monitoring_disabled
+        if d is None:
+            return False
+        return (tool_id, offset, event_id) in d
+
+    def monitoring_disable(self, tool_id, offset, event_id):
+        d = self.monitoring_disabled
+        if d is None:
+            d = self.monitoring_disabled = {}
+        d[(tool_id, offset, event_id)] = True
+
+    def monitoring_restart_events(self):
+        self.monitoring_disabled = None
 
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:

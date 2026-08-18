@@ -604,6 +604,181 @@ def test_no_events_when_not_registered():
     f()  # should not raise/crash even with monitoring untouched
 
 
+def test_fire_line():
+    E = sys.monitoring.events
+    events = []
+
+    def f():
+        x = 1
+        y = 2
+        return x + y
+
+    code = f.__code__
+
+    def callback(c, lineno):
+        if c is code:
+            events.append(lineno)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.LINE, callback)
+        sys.monitoring.set_events(3, E.LINE)
+
+        events[:] = []
+        assert f() == 3
+        first = code.co_firstlineno
+        assert events == [first + 1, first + 2, first + 3]
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_instruction():
+    E = sys.monitoring.events
+    events = []
+
+    def f():
+        x = 1
+        y = 2
+        return x + y
+
+    code = f.__code__
+
+    def callback(c, offset):
+        if c is code:
+            events.append(offset)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.INSTRUCTION, callback)
+        sys.monitoring.set_events(3, E.INSTRUCTION)
+
+        events[:] = []
+        assert f() == 3
+        # every instruction fires, at least one per line, all distinct
+        # offsets, and covers more locations than LINE alone would
+        assert len(events) >= 3
+        assert len(events) == len(set(events))
+        assert sorted(events) == events
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_local_events_add_not_mask():
+    # "Local events add to global events, but do not mask them."  Tool 3
+    # enables LINE only locally for f's code; tool 4 enables LINE
+    # globally.  f's LINE events must fire for both tools; some other
+    # unrelated code's LINE events must fire only for tool 4 (global),
+    # not tool 3 (local-only, scoped to f).
+    E = sys.monitoring.events
+
+    def f():
+        return 1
+
+    def g():
+        return 2
+
+    events3 = []
+    events4 = []
+
+    def cb3(c, lineno):
+        events3.append(c)
+
+    def cb4(c, lineno):
+        events4.append(c)
+
+    sys.monitoring.use_tool_id(3, "local tool")
+    sys.monitoring.use_tool_id(4, "global tool")
+    try:
+        sys.monitoring.register_callback(3, E.LINE, cb3)
+        sys.monitoring.register_callback(4, E.LINE, cb4)
+        sys.monitoring.set_local_events(3, f.__code__, E.LINE)
+        sys.monitoring.set_events(4, E.LINE)
+
+        events3[:] = []
+        events4[:] = []
+        f()
+        g()
+
+        assert f.__code__ in events3
+        assert g.__code__ not in events3  # local-only tool: f only
+        assert f.__code__ in events4
+        assert g.__code__ in events4      # global tool: everything
+    finally:
+        sys.monitoring.set_events(4, 0)
+        sys.monitoring.set_local_events(3, f.__code__, 0)
+        sys.monitoring.free_tool_id(3)
+        sys.monitoring.free_tool_id(4)
+
+
+def test_disable_per_location():
+    E = sys.monitoring.events
+
+    def f():
+        x = 1
+        y = 2
+        return x + y
+
+    code = f.__code__
+    first = code.co_firstlineno
+    line_calls3 = []
+    instr_calls3 = []
+    line_calls4 = []
+
+    def line_cb3(c, lineno):
+        if c is not code:
+            return
+        line_calls3.append(lineno)
+        if lineno == first + 1:
+            return sys.monitoring.DISABLE
+
+    def instr_cb3(c, offset):
+        if c is code:
+            instr_calls3.append(offset)
+
+    def line_cb4(c, lineno):
+        if c is code:
+            line_calls4.append(lineno)
+
+    sys.monitoring.use_tool_id(3, "t3")
+    sys.monitoring.use_tool_id(4, "t4")
+    try:
+        sys.monitoring.register_callback(3, E.LINE, line_cb3)
+        sys.monitoring.register_callback(3, E.INSTRUCTION, instr_cb3)
+        sys.monitoring.register_callback(4, E.LINE, line_cb4)
+        sys.monitoring.set_events(3, E.LINE | E.INSTRUCTION)
+        sys.monitoring.set_events(4, E.LINE)
+
+        for _ in range(3):
+            f()
+
+        # tool 3's LINE callback disabled itself at the first line after
+        # its first firing -- that line never fires again for tool 3.
+        assert line_calls3.count(first + 1) == 1
+        assert line_calls3.count(first + 2) == 3
+        assert line_calls3.count(first + 3) == 3
+
+        # DISABLE is scoped per (tool, code, offset, event): tool 3's
+        # INSTRUCTION callback at the same location is unaffected...
+        n_instrs_per_call = len(instr_calls3) // 3
+        assert n_instrs_per_call * 3 == len(instr_calls3)
+
+        # ...and tool 4's LINE callback (a different tool) is unaffected.
+        assert line_calls4.count(first + 1) == 3
+
+        sys.monitoring.restart_events()
+        line_calls3[:] = []
+        f()
+        # re-armed: the disabled line fires again right after restart
+        assert line_calls3[0] == first + 1
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.set_events(4, 0)
+        sys.monitoring.free_tool_id(3)
+        sys.monitoring.free_tool_id(4)
+
+
 def test_all_events():
     sys.monitoring.use_tool_id(3, "test tool")
     sys.monitoring.use_tool_id(4, "test tool 2")

@@ -79,6 +79,7 @@ class MonitoringState(object):
         self.global_events = [0] * NUM_TOOLS
         self.any_events = 0
         self.local_events = {}   # PyCode -> [event_set per tool]
+        self.disabled_codes = {}   # PyCode -> True, for restart_events()
         self.firing = False      # reentrancy guard, like ExecutionContext.is_tracing
 
     def recompute_any_events(self):
@@ -157,6 +158,69 @@ def fire3(space, event_id, w_code, offset, w_extra):
                     space.call_function(w_cb, w_code, w_offset, w_extra)
                 finally:
                     state.firing = False
+
+
+LOCAL_LINE_INSTRUCTION_MASK = (1 << LINE) | (1 << INSTRUCTION)
+
+
+def should_fire_local_any(space, pycode, event_mask):
+    """JIT-foldable check: does any tool want any event in event_mask for
+    this code object, either globally or via set_local_events (local
+    events add to global, never mask them -- see sys.monitoring.rst
+    "Per code object events"). Used to gate dispatch_bytecode's per-
+    bytecode LINE/INSTRUCTION check; folds to nothing when neither is
+    active for this code, the same way should_fire folds the coarse
+    events away when nobody's monitoring at all.
+    """
+    state = space.fromcache(MonitoringState)
+    global_bits = jit.promote(state.any_events)
+    local_bits = jit.promote(pycode.monitoring_local_flags)
+    return (global_bits | local_bits) & event_mask
+
+
+def should_fire_local(space, pycode, event_id):
+    """Single-event version of should_fire_local_any."""
+    state = space.fromcache(MonitoringState)
+    global_bits = jit.promote(state.any_events)
+    local_bits = jit.promote(pycode.monitoring_local_flags)
+    return ((global_bits | local_bits) >> event_id) & 1
+
+
+def fire_local(space, event_id, w_code, pycode, offset):
+    """Fire a (code, offset) local event that supports DISABLE, e.g.
+    LINE (offset is actually a line number, but the wire shape is the
+    same: two positional args after the callback lookup) / INSTRUCTION.
+
+    Unlike fire2/fire3/fire4, this is only reached once
+    should_fire_local_any has already said *something* wants this event
+    for this code, so it doesn't need its own promoted fast-reject path
+    -- the per-tool loop below re-derives each tool's *combined*
+    (global | local) bit because a tool can supply either independently.
+    """
+    state = space.fromcache(MonitoringState)
+    if state.firing:
+        return
+    per_code_local = state.local_events.get(pycode, None)
+    w_offset = space.newint(offset)
+    for tool_id in range(NUM_TOOLS):
+        tool_bits = state.global_events[tool_id]
+        if per_code_local is not None:
+            tool_bits |= per_code_local[tool_id]
+        if not (tool_bits >> event_id) & 1:
+            continue
+        w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
+        if w_cb is None:
+            continue
+        if pycode.monitoring_is_disabled(tool_id, offset, event_id):
+            continue
+        state.firing = True
+        try:
+            w_result = space.call_function(w_cb, w_code, w_offset)
+        finally:
+            state.firing = False
+        if space.is_w(w_result, w_disable(space)):
+            pycode.monitoring_disable(tool_id, offset, event_id)
+            state.disabled_codes[pycode] = True
 
 
 def fire4(space, event_id, w_code, offset, w_callable, w_arg0):
