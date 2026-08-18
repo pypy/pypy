@@ -83,7 +83,7 @@ stuff = "nothing"
         assert exc.msg == "unterminated triple-quoted string literal (detected at line 3)"
         assert exc.lineno == 1
         assert exc.offset == 5
-        assert exc.end_lineno == 3
+        assert exc.end_lineno == 1
         for input in ("())", "(()", "((", "))"):
             pytest.raises(SyntaxError, parse, input)
         exc = pytest.raises(SyntaxError, parse, "x = (\n\n(),\n(),").value

@@ -8,6 +8,13 @@ from test.support import script_helper
 from test.support import warnings_helper
 import unittest
 
+if sys.implementation.name == 'pypy':
+    eof_msg = "unexpected end of file (EOF)"
+    eof_suffix = "in multi-line statement"
+else:
+    eof_msg = "unexpected EOF"
+    eof_suffix = "while parsing"
+
 class EOFTestCase(unittest.TestCase):
     def test_EOF_single_quote(self):
         expect = "unterminated string literal (detected at line 1) (<string>, line 1)"
@@ -85,14 +92,14 @@ class EOFTestCase(unittest.TestCase):
 
     @warnings_helper.ignore_warnings(category=SyntaxWarning)
     def test_eof_with_line_continuation(self):
-        expect = "unexpected EOF while parsing (<string>, line 1)"
+        expect = f"{eof_msg} {eof_suffix} (<string>, line 1)"
         with self.assertRaises(SyntaxError) as cm:
             compile('"\\Xhh" \\', '<string>', 'exec')
         self.assertEqual(str(cm.exception), expect)
 
     def test_line_continuation_EOF(self):
         """A continuation at the end of input must be an error; bpo2180."""
-        expect = 'unexpected EOF while parsing (<string>, line 1)'
+        expect = f'{eof_msg} {eof_suffix} (<string>, line 1)'
         with self.assertRaises(SyntaxError) as cm:
             exec('ä = 5\\')
         self.assertEqual(str(cm.exception), expect)
@@ -108,7 +115,7 @@ class EOFTestCase(unittest.TestCase):
         with self.assertRaises(SyntaxError) as cm:
             exec('# coding:latin1\nä = 5\\'.encode('latin1'))
         self.assertEqual(str(cm.exception),
-                         'unexpected EOF while parsing (<string>, line 2)')
+                         f'{eof_msg} {eof_suffix} (<string>, line 2)')
         self.assertEqual(cm.exception.text, 'ä = 5\\\n')
         self.assertEqual(cm.exception.offset, 7)
 
@@ -131,7 +138,7 @@ class EOFTestCase(unittest.TestCase):
             err = err.decode().splitlines()
             self.assertEqual(err[-2:], [
                 '    \\',
-                'SyntaxError: unexpected EOF while parsing'])
+                'SyntaxError: %s %s' % (eof_msg, eof_suffix)])
             self.assertEqual(err[-3][-8:], ', line 1', err)
 
             file_name = script_helper.make_script(temp_dir, 'foo', 'ä = 6\\')
@@ -140,7 +147,7 @@ class EOFTestCase(unittest.TestCase):
             self.assertEqual(err[-3:], [
                 '    ä = 6\\',
                 '          ^',
-                'SyntaxError: unexpected EOF while parsing'])
+                'SyntaxError: %s %s' % (eof_msg, eof_suffix)])
             self.assertEqual(err[-4][-8:], ', line 1', err)
 
             file_name = script_helper.make_script(temp_dir, 'foo',
@@ -151,7 +158,7 @@ class EOFTestCase(unittest.TestCase):
             self.assertEqual(err[-3:], [
                 '    ä = 7\\',
                 '          ^',
-                'SyntaxError: unexpected EOF while parsing'])
+                'SyntaxError: %s %s' % (eof_msg, eof_suffix)])
             self.assertEqual(err[-4][-8:], ', line 2', err)
 
             file_name = script_helper.make_script(temp_dir, 'foo',
@@ -161,7 +168,7 @@ class EOFTestCase(unittest.TestCase):
             self.assertEqual(err[-3:], [
                 '    ä = 8\\',
                 '          ^',
-                'SyntaxError: unexpected EOF while parsing'])
+                'SyntaxError: %s %s' % (eof_msg, eof_suffix)])
             self.assertEqual(err[-4][-8:], ', line 1', err)
 
 

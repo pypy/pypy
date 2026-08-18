@@ -171,7 +171,9 @@ def raise_unterminated_string(
         line = line[:-1]
     if line.endswith("\r"):
         line = line[:-1]
-    raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
+    # the detection line only appears in the message text above; the
+    # error itself is reported as spanning just the starting line
+    raise TokenError(msg, line, lineno, column, tokens, lineno, end_offset)
 
 def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name
