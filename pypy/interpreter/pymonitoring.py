@@ -1,5 +1,6 @@
 from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 
@@ -128,7 +129,8 @@ def should_fire_any(space, event_mask):
 def fire3(space, event_id, w_code, offset, w_extra):
     """Fire a (code, instruction_offset, extra) event for a non-local
     event, e.g. PY_UNWIND/PY_THROW/RAISE/RERAISE/EXCEPTION_HANDLED --
-    these aren't in LOCAL_EVENTS, so no set_local_events/DISABLE support.
+    these aren't in LOCAL_EVENTS, so returning DISABLE from their
+    callback is illegal.
     """
     state = space.fromcache(MonitoringState)
     if state.firing or not (state.any_events >> event_id) & 1:
@@ -136,13 +138,19 @@ def fire3(space, event_id, w_code, offset, w_extra):
     w_offset = space.newint(offset)
     for tool_id in range(NUM_TOOLS):
         if (state.global_events[tool_id] >> event_id) & 1:
-            w_cb = state.callbacks[tool_id * NUM_EVENTS + event_id]
+            idx = tool_id * NUM_EVENTS + event_id
+            w_cb = state.callbacks[idx]
             if w_cb is not None:
                 state.firing = True
                 try:
-                    space.call_function(w_cb, w_code, w_offset, w_extra)
+                    w_result = space.call_function(w_cb, w_code, w_offset, w_extra)
                 finally:
                     state.firing = False
+                if space.is_w(w_result, w_disable(space)):
+                    state.callbacks[idx] = None
+                    raise oefmt(space.w_ValueError,
+                        "Cannot disable %s events. Callback removed.",
+                        EVENT_NAMES[event_id])
 
 
 LOCAL_LINE_INSTRUCTION_MASK = (1 << LINE) | (1 << INSTRUCTION)

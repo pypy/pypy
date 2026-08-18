@@ -152,15 +152,7 @@ def set_events(space, tool_id, event_set):
     state.global_events[tool_id] = event_set
     state.recompute_any_events()
     if state.any_events != old_any_events:
-        # any_events is quasi-immutable/promoted at every fire3/fire4 call
-        # site (see pymonitoring.should_fire); writing it already
-        # invalidates compiled loops that folded in the old value, but
-        # force_all_frames() additionally kicks frames *currently*
-        # executing already-compiled assembly out to the interpreter, the
-        # same way ExecutionContext.settrace() does for w_tracefunc.
-        space.getexecutioncontext().force_all_frames()
-    # Local (per-code) events and DISABLE/JUMP/BRANCH/LINE/INSTRUCTION
-    # instrumentation are later phases -- see sys.monitoring.md.
+        space.getexecutioncontext().force_all_frames(seed_monitor_line=True)
 
 
 @unwrap_spec(tool_id=int)
@@ -184,10 +176,7 @@ def set_local_events(space, tool_id, w_code, event_set):
     old_local_flags = code.monitoring_local_flags
     code.monitoring_set_local_events(tool_id, event_set)
     if code.monitoring_local_flags != old_local_flags:
-        # bumps code.monitoring_version (see pymonitoring.VersionTag),
-        # invalidating loops that folded in the old value; force_all_frames()
-        # also kicks currently-executing compiled frames out immediately.
-        space.getexecutioncontext().force_all_frames()
+        space.getexecutioncontext().force_all_frames(seed_monitor_line=True)
 
 
 def restart_events(space):

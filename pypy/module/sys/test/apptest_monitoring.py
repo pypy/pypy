@@ -249,6 +249,48 @@ def test_call_disable():
         sys.monitoring.free_tool_id(3)
 
 
+def test_disable_illegal_event_raises():
+    # RAISE isn't in LOCAL_EVENTS, so returning DISABLE from its callback
+    # is illegal: CPython raises ValueError and unregisters the callback.
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+        return sys.monitoring.DISABLE
+
+    def f():
+        raise ZeroDivisionError
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.RAISE, callback)
+        sys.monitoring.set_events(3, E.RAISE)
+
+        events[:] = []
+        raised = None
+        try:
+            f()
+        except BaseException as e:
+            raised = e
+        assert isinstance(raised, ValueError)
+        assert len(events) == 1
+
+        # callback was unregistered; a second raise doesn't call it again
+        # or re-raise ValueError -- the original ZeroDivisionError surfaces.
+        events[:] = []
+        raised = None
+        try:
+            f()
+        except BaseException as e:
+            raised = e
+        assert isinstance(raised, ZeroDivisionError)
+        assert events == []
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
 def test_restart_events():
     sys.monitoring.restart_events()
 
@@ -695,33 +737,46 @@ def test_no_events_when_not_registered():
     f()  # should not raise/crash even with monitoring untouched
 
 
-def test_fire_line():
+def test_no_spurious_line_for_already_executing_frame():
+    # set_events(..., E.LINE) is itself a statement on some line of the
+    # *caller* frame (already mid-execution when monitoring turns on).
+    # Monitoring must not retroactively report that already-in-progress
+    # line -- only genuine line transitions after it turned on.
     E = sys.monitoring.events
     events = []
 
-    def f():
-        x = 1
-        y = 2
-        return x + y
+    def cb(code, lineno):
+        events.append((code.co_name, lineno))
 
-    code = f.__code__
+    def func1():
+        line = 1
+        line = 2
+        line = 3
 
-    def callback(c, lineno):
-        if c is code:
-            events.append(lineno)
+    def check_lines():
+        sys.monitoring.use_tool_id(3, "test tool")
+        try:
+            sys.monitoring.register_callback(3, E.LINE, cb)
+            sys.monitoring.set_events(3, E.LINE)
+            func1()
+            sys.monitoring.set_events(3, 0)
+            sys.monitoring.register_callback(3, E.LINE, None)
+        finally:
+            sys.monitoring.set_events(3, 0)
+            sys.monitoring.free_tool_id(3)
 
-    sys.monitoring.use_tool_id(3, "test tool")
-    try:
-        sys.monitoring.register_callback(3, E.LINE, callback)
-        sys.monitoring.set_events(3, E.LINE)
+    events[:] = []
+    check_lines()
+    names = [name for name, lineno in events]
+    # exactly one check_lines LINE event before func1's, and one after --
+    # not two before (the spurious extra would be the set_events(...)
+    # line itself, immediately followed by the func1() line).
+    assert names.count('check_lines') == 2
+    assert names == ['check_lines', 'func1', 'func1', 'func1', 'check_lines']
 
-        events[:] = []
-        assert f() == 3
-        first = code.co_firstlineno
-        assert events == [first + 1, first + 2, first + 3]
-    finally:
-        sys.monitoring.set_events(3, 0)
-        sys.monitoring.free_tool_id(3)
+    first = func1.__code__.co_firstlineno
+    func1_lines = [lineno for name, lineno in events if name == 'func1']
+    assert func1_lines == [first + 1, first + 2, first + 3]
 
 
 def test_fire_instruction():
