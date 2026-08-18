@@ -62,10 +62,12 @@ class TestSlots(HPyTest):
         """)
         point = mod.Point(7, 3)
         self.debug_collect()
-        assert mod.get_destroyed_x() == 0
+        x = mod.get_destroyed_x()
+        assert x == 0, x
         del point
         self.debug_collect()
-        assert mod.get_destroyed_x() == 7
+        x = mod.get_destroyed_x()
+        assert x == 7, x
         self.debug_collect()
         assert mod.get_destroyed_x() == 7
 

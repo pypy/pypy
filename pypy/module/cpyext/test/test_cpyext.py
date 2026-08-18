@@ -236,6 +236,17 @@ def _unwrap_include_dirs(space, w_include_dirs):
         return [space.text_w(s) for s in space.listview(w_include_dirs)]
 
 def debug_collect(space):
+    # Clear the method and the map cache: entries there are plain strong
+    # references (keyed by version_tag) that can keep a type -- and
+    # anything reachable through it -- alive across the collect below,
+    # silently stopping a deleted instance's finalizer from ever firing.
+    # See pypy.module.gc.interp_gc.collect, which does the same before
+    # rgc.collect(), and module/gc/test/test_gc.py:AppTestGcMethodCache
+    # for why. Clearing is O(cache size), not a GC pass, so it's cheap.
+    from pypy.objspace.std.typeobject import MethodCache
+    from pypy.objspace.std.mapdict import MapAttrCache
+    space.fromcache(MethodCache).clear()
+    space.fromcache(MapAttrCache).clear()
     rawrefcount._collect()
     space.user_del_action._run_finalizers()
     rawrefcount._collect()
