@@ -55,6 +55,10 @@ def a2b_base64(space, ascii, strict_mode=0):
                 if strict_mode and i + 1 < len(ascii):
                     raise_Error(space, "Excess data after padding")
                 break      # stop on 'xxx=' or on 'xx=='
+            if strict_mode and quad_pos == 0:
+                # the preceding data already formed complete quads, so
+                # this padding is not needed to fill any partial group
+                raise_Error(space, "Excess padding not allowed")
             last_char_was_a_pad = True
         else:
             n = ord(table_a2b_base64[ord(c)])
