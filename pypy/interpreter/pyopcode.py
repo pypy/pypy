@@ -21,7 +21,8 @@ from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, rais
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.interpreter.pymonitoring import (
-    fire2, fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND)
+    fire2, fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
+    RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -151,6 +152,26 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
+        # RAISE: a fresh exception just escaped a bytecode op (attach_tb
+        # True means this came via the plain 'except OperationError'
+        # branch in handle_bytecode, i.e. not a RERAISE-family opcode).
+        # RERAISE: this dispatch was triggered by RERAISE / a bare
+        # 'raise' with no arguments (attach_tb=False, reraise_lasti set),
+        # mirroring CPython's split between the generic 'error:' label
+        # (monitor_raise) and RERAISE's own goto exception_unwind
+        # (monitor_reraise) in Python/ceval.c. FOR_ITER's ordinary
+        # StopIteration-on-exhaustion never reaches here (it's caught
+        # inline in FOR_ITER itself), so this can't misfire RAISE for
+        # that case.
+        if attach_tb:
+            if should_fire(self.space, RAISE):
+                fire3(self.space, RAISE, self.pycode, intmask(self.last_instr),
+                      operr.get_w_value(self.space))
+        else:
+            if should_fire(self.space, RERAISE):
+                fire3(self.space, RERAISE, self.pycode, intmask(self.last_instr),
+                      operr.get_w_value(self.space))
+
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
         if depth >= 0:
@@ -173,6 +194,9 @@ class __extend__(pyframe.PyFrame):
                 self.pushvalue(self.space.newint(lasti_value))
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
+            if should_fire(self.space, EXCEPTION_HANDLED):
+                fire3(self.space, EXCEPTION_HANDLED, self.pycode,
+                      intmask(target), w_exc)
             return target
 
         # No exception table entry: propagate out of the frame.
@@ -1287,6 +1311,9 @@ class __extend__(pyframe.PyFrame):
             if not e.match(space, space.w_StopIteration):
                 raise
             self._report_stopiteration_sometimes(w_yf, e)
+            if should_fire(space, STOP_ITERATION):
+                fire3(space, STOP_ITERATION, self.pycode,
+                      intmask(self.last_instr), e.get_w_value(space))
             try:
                 w_stop_value = space.getattr(e.get_w_value(space),
                                              space.newtext("value"))

@@ -277,6 +277,141 @@ def test_fire_py_throw():
         sys.monitoring.free_tool_id(3)
 
 
+def test_fire_raise_and_exception_handled():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(name):
+        def cb(*args):
+            events.append((name,) + args)
+        return cb
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.RAISE, callback('RAISE'))
+        sys.monitoring.register_callback(3, E.EXCEPTION_HANDLED, callback('EXCEPTION_HANDLED'))
+        sys.monitoring.set_events(3, E.RAISE | E.EXCEPTION_HANDLED)
+
+        def f():
+            try:
+                raise ValueError("boom")
+            except ValueError:
+                return "caught"
+
+        events[:] = []
+        assert f() == "caught"
+        names = [ev[0] for ev in events if ev[1] is f.__code__]
+        assert names == ['RAISE', 'EXCEPTION_HANDLED']
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_reraise():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(name):
+        def cb(*args):
+            events.append((name,) + args)
+        return cb
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.RAISE, callback('RAISE'))
+        sys.monitoring.register_callback(3, E.RERAISE, callback('RERAISE'))
+        sys.monitoring.set_events(3, E.RAISE | E.RERAISE)
+
+        def f():
+            try:
+                raise ValueError("boom")
+            except ValueError:
+                raise  # bare reraise
+
+        events[:] = []
+        try:
+            f()
+        except ValueError:
+            pass
+        names = [ev[0] for ev in events if ev[1] is f.__code__]
+        # Exactly one RAISE for the fresh `raise ValueError(...)`.  The
+        # bare `raise` fires RERAISE at least once, but CPython's own
+        # exception-table cleanup-handler compilation for the enclosing
+        # `except` block can trigger a second RERAISE as the exception
+        # propagates through cleanup on its way out of `f` -- an
+        # implementation detail of CPython's bytecode compilation for
+        # `except` blocks, not part of PEP 669's contract, and not
+        # necessarily reproduced 1:1 by PyPy's different exception-table
+        # compilation strategy. So assert the count that *is* part of
+        # the contract (>=1) rather than pinning the exact repeat count.
+        assert names[0] == 'RAISE'
+        assert names.count('RAISE') == 1
+        assert names.count('RERAISE') >= 1
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_fire_stop_iteration():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.STOP_ITERATION, callback)
+        sys.monitoring.set_events(3, E.STOP_ITERATION)
+
+        def inner():
+            yield 1
+            return "done"
+
+        def outer():
+            result = yield from inner()
+            yield result
+
+        events[:] = []
+        gen = outer()
+        assert next(gen) == 1
+        assert next(gen) == "done"
+        assert len(events) == 1
+        assert events[0][0] is outer.__code__
+        assert isinstance(events[0][2], StopIteration)
+        assert events[0][2].value == "done"
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_no_stop_iteration_for_plain_for_loop():
+    # Plain `for` exhaustion is a BRANCH event on CPython (Phase 6, not
+    # implemented), not STOP_ITERATION -- STOP_ITERATION is specifically
+    # about the PEP 380 generator-return-via-StopIteration mechanism in
+    # `yield from`/delegation (see sys.monitoring.rst "The STOP_ITERATION
+    # event"). Confirms next_yield_from's firing point doesn't accidentally
+    # also cover ordinary iterator exhaustion.
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.STOP_ITERATION, callback)
+        sys.monitoring.set_events(3, E.STOP_ITERATION)
+
+        events[:] = []
+        for _ in range(3):
+            pass
+        assert events == []
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
 def test_fire_call_python_function():
     E = sys.monitoring.events
     events = []
