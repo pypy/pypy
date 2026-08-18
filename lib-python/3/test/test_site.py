@@ -7,7 +7,7 @@ executing have not been removed.
 import unittest
 import test.support
 from test import support
-from test.support import os_helper
+from test.support import os_helper, check_impl_detail, cpython_only
 from test.support import socket_helper
 from test.support import captured_stderr
 from test.support.os_helper import TESTFN, EnvironmentVarGuard
@@ -322,6 +322,11 @@ class HelperFunctionsTests(unittest.TestCase):
     def test_getsitepackages(self):
         site.PREFIXES = ['xoxo']
         dirs = site.getsitepackages()
+        if check_impl_detail(pypy=True):
+            implementation = 'pypy'
+        else:
+            implementation = 'python'
+        ver = sys.version_info
         if os.sep == '/':
             # OS X, Linux, FreeBSD, etc
             if sys.platlibdir != "lib":
@@ -333,7 +338,7 @@ class HelperFunctionsTests(unittest.TestCase):
             else:
                 self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'lib',
-                                  'python%d.%d' % sys.version_info[:2],
+                                  f'{implementation}{ver[0]}.{ver[1]}',
                                   'site-packages')
             self.assertEqual(dirs[-1], wanted)
         else:
@@ -658,6 +663,7 @@ class _pthFileTests(unittest.TestCase):
         return pth_lines
 
     @support.requires_subprocess()
+    @cpython_only
     def test_underpth_basic(self):
         pth_lines = ['#.', '# ..', *sys.path, '.', '..']
         exe_file = self._create_underpth_exe(pth_lines)
@@ -677,6 +683,7 @@ class _pthFileTests(unittest.TestCase):
         )
 
     @support.requires_subprocess()
+    @cpython_only
     def test_underpth_nosite_file(self):
         libpath = test.support.STDLIB_DIR
         exe_prefix = os.path.dirname(sys.executable)
@@ -701,6 +708,7 @@ class _pthFileTests(unittest.TestCase):
         )
 
     @support.requires_subprocess()
+    @cpython_only
     def test_underpth_file(self):
         libpath = test.support.STDLIB_DIR
         exe_prefix = os.path.dirname(sys.executable)
@@ -721,6 +729,7 @@ class _pthFileTests(unittest.TestCase):
         self.assertTrue(rc, "sys.path is incorrect")
 
     @support.requires_subprocess()
+    @cpython_only
     def test_underpth_dll_file(self):
         libpath = test.support.STDLIB_DIR
         exe_prefix = os.path.dirname(sys.executable)
