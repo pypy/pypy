@@ -682,7 +682,7 @@ class W_BytearrayObject(W_BufferExporter):
             raise oefmt(space.w_ValueError,
                 "__release_buffer__ called with a buffer not obtained "
                 "from this object")
-        w_view.descr_release(space)
+        space.call_method(w_view, 'release')
 
 # ____________________________________________________________
 

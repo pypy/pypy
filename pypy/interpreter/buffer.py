@@ -562,8 +562,10 @@ class DunderReleaseView(NonOwningReleaseView):
         w_mv = self.w_mv
         w_impl = space.lookup(w_exporter, '__release_buffer__')
         if w_impl is not None:
-            if (self.w_base_type is None or
-                    space.is_overloaded(w_exporter, self.w_base_type,
+            w_base_type = self.w_base_type
+            if (w_base_type is None or
+                    # Equivalent to space.is_overloaded() but for a non-constant type
+                    w_impl is not space.lookup_in_type(w_base_type,
                                         '__release_buffer__')):
                 space.get_and_call_function(w_impl, w_exporter, w_mv)
         try:
@@ -573,5 +575,12 @@ class DunderReleaseView(NonOwningReleaseView):
                 raise
             owns_match = False
         if owns_match:
-            w_mv.descr_release(space)
+            # Dispatch via the app-level name, not the interp-level method
+            # directly: w_mv is only known to RPython as W_Root here, and a
+            # direct w_mv.descr_release(space) call would make RPython unify
+            # W_MemoryView.descr_release with unrelated same-named methods
+            # elsewhere (e.g. cffi's W_FFIObject.descr_release, which takes
+            # a cdata argument instead of space) into one incompatible
+            # virtual-call family, breaking translation.
+            space.call_method(w_mv, 'release')
 

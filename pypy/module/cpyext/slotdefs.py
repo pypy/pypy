@@ -440,7 +440,7 @@ class wrap_releasebuffer(W_PyCWrapperObject):
         if w_view.w_get_obj(space) is not w_self:
             raise oefmt(space.w_ValueError,
                 "memoryview's buffer is not this object")
-        w_view.descr_release(space)
+        space.call_method(w_view, 'release')
         return space.w_None
 
 def get_richcmp_func(OP_CONST):
