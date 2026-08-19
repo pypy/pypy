@@ -4588,6 +4588,24 @@
         "arch": "x64",
         "platform": "linux",
         "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-linux64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.gz",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-macos_x86_64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.gz",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-macos_arm64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-win64.zip"
       }
     ]
   }
