@@ -152,7 +152,7 @@ state                            ob_refcnt                             prefix?  
 ===============================  ====================================  =======  =====================
 owned, mortal                    ``FROM_PYPY + n``                     yes      prefix link
 owned, immortal                  ``FROM_PYPY + _Py_IMMORTAL_REFCNT``   yes      prefix link
-prefix-less immortal (statics)   ``_Py_IMMORTAL_REFCNT``               no       State.static_py2w
+prefix-less immortal (static)   ``_Py_IMMORTAL_REFCNT``               no       State.static_py2w
 foreign, mortal                  small ``n``                           no       realize a shadow
 ===============================  ====================================  =======  =====================
 
