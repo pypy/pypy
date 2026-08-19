@@ -1437,6 +1437,13 @@ class __extend__(pyframe.PyFrame):
                 raise
             # iterator exhausted
             self._report_stopiteration_sometimes(w_iterator, e)
+            from pypy.interpreter.generator import GeneratorOrCoroutine
+            if isinstance(w_iterator, GeneratorOrCoroutine):
+                code = self.getcode()
+                if should_fire_local(self.space, code, STOP_ITERATION):
+                    fire_local3(self.space, STOP_ITERATION, code, code,
+                                intmask(self.last_instr),
+                                e.normalize_exception(self.space))
             self.popvalue()
             next_instr += jumpby * 2
         else:

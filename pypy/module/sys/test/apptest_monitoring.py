@@ -522,12 +522,11 @@ def test_fire_stop_iteration():
 
 
 def test_no_stop_iteration_for_plain_for_loop():
-    # Plain `for` exhaustion is a BRANCH event on CPython (Phase 6, not
-    # implemented), not STOP_ITERATION -- STOP_ITERATION is specifically
-    # about the PEP 380 generator-return-via-StopIteration mechanism in
-    # `yield from`/delegation (see sys.monitoring.rst "The STOP_ITERATION
-    # event"). Confirms next_yield_from's firing point doesn't accidentally
-    # also cover ordinary iterator exhaustion.
+    # range()'s exhaustion is a BRANCH event, not STOP_ITERATION -- that's
+    # specifically for PEP 380 generator-return-via-StopIteration (see
+    # sys.monitoring.rst "The STOP_ITERATION event"). A generator-backed
+    # for-loop's exhaustion *does* fire STOP_ITERATION, see
+    # test_stop_iteration_for_generator_for_loop below.
     E = sys.monitoring.events
     events = []
 
@@ -543,6 +542,32 @@ def test_no_stop_iteration_for_plain_for_loop():
         for _ in range(3):
             pass
         assert events == []
+    finally:
+        sys.monitoring.set_events(3, 0)
+        sys.monitoring.free_tool_id(3)
+
+
+def test_stop_iteration_for_generator_for_loop():
+    E = sys.monitoring.events
+    events = []
+
+    def callback(*args):
+        events.append(args)
+
+    def gen():
+        yield 1
+        yield 2
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.STOP_ITERATION, callback)
+        sys.monitoring.set_events(3, E.STOP_ITERATION)
+
+        events[:] = []
+        for _ in gen():
+            pass
+        assert len(events) == 1
+        assert isinstance(events[0][2], StopIteration)
     finally:
         sys.monitoring.set_events(3, 0)
         sys.monitoring.free_tool_id(3)

@@ -342,8 +342,6 @@ class PyFrame(W_Root):
         # sys.monitoring.md section 5: keep the two mechanisms separate).
         space = self.space
         last_instr = intmask(self.last_instr)
-        if should_fire_local(space, pycode, INSTRUCTION):
-            fire_local(space, INSTRUCTION, pycode, pycode, last_instr)
         if should_fire_local(space, pycode, LINE):
             lineno = pycode._get_lineno_for_pc_tracing(last_instr)
             if lineno != -1:
@@ -353,6 +351,8 @@ class PyFrame(W_Root):
                     fire_local(space, LINE, pycode, pycode, lineno)
                 d.monitor_last_line = lineno
                 d.monitor_instr_prev_plus_one = last_instr + 1
+        if should_fire_local(space, pycode, INSTRUCTION):
+            fire_local(space, INSTRUCTION, pycode, pycode, last_instr)
 
     def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
