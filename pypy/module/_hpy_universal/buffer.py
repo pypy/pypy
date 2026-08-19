@@ -50,7 +50,9 @@ def setup_hpybuffer(handles):
                     func = llapi.cts.cast(
                         'HPyFunc_releasebufferproc', self.releasebufferproc)
                     with handles.using(self.w_obj) as h_owner:
-                        func(handles.get_ctx_for_handles(), h_owner, hpybuf)
+                        next_ctx = handles.debug_before_call()
+                        func(next_ctx, h_owner, hpybuf)
+                        handles.debug_after_call(next_ctx)
             self.w_obj = None
 
         def getlength(self):
