@@ -188,6 +188,15 @@ class W_MemoryView(W_BufferExporter):
         mv = view.wrap(space)
         return mv
 
+    @staticmethod
+    @unwrap_spec(flags=int)
+    def descr_from_flags(space, w_type, w_object, flags):
+        """Testing helper (CPython test.support): acquire a buffer from
+        w_object with an arbitrary flags value, instead of the fixed
+        PyBUF_FULL_RO used by the memoryview constructor."""
+        view = space.buffer_w(w_object, flags)
+        return view.wrap(space)
+
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
             if self.view is None:
@@ -748,6 +757,7 @@ W_MemoryView.typedef = TypeDef(
 Create a new memoryview object which references the given object.
 """,
     __new__     = interp2app(W_MemoryView.descr_new_memoryview),
+    _from_flags = interp2app(W_MemoryView.descr_from_flags, as_classmethod=True),
     __eq__      = interp2app(W_MemoryView.descr_eq),
     __getitem__ = interp2app(W_MemoryView.descr_getitem),
     __len__     = interp2app(W_MemoryView.descr_len),

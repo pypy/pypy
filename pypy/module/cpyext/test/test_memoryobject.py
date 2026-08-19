@@ -446,6 +446,69 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
         del inst
         import gc; gc.collect()
 
+    def test_dunder_buffer_and_release_buffer(self):
+        # Exercise __buffer__/__release_buffer__ as Python-callable methods
+        # (PEP 688), exposed via the bf_getbuffer/bf_releasebuffer C slots
+        # -- mirrors CPython's test_buffer.TestPythonBufferProtocol.test_c_buffer,
+        # which uses _testcapi.testBuf (a C type with this exact shape).
+        module = self.import_extension('foo', [
+            ("get_type", "METH_NOARGS", """
+               return PyType_FromSpec(&HeapCTypeWithBuffer2_spec);
+            """),
+            ("get_cnt", "METH_NOARGS", 'return PyLong_FromLong(cnt);'),
+        ], prologue="""
+                static int cnt = 0;
+                typedef struct {
+                    PyObject_HEAD
+                } HeapCTypeWithBuffer2Object;
+
+                static int
+                heapctypewithbuffer2_getbuffer(HeapCTypeWithBuffer2Object *self,
+                                              Py_buffer *view, int flags)
+                {
+                    static char buf[] = "test";
+                    int ret = PyBuffer_FillInfo(
+                        view, (PyObject*)self, (void *)buf, 4, 1, flags);
+                    if (ret == 0)
+                        cnt++;
+                    return ret;
+                }
+
+                static void
+                heapctypewithbuffer2_releasebuffer(HeapCTypeWithBuffer2Object *self,
+                                                  Py_buffer *view)
+                {
+                    cnt--;
+                }
+
+                static PyType_Slot HeapCTypeWithBuffer2_slots[] = {
+                    {Py_bf_getbuffer, heapctypewithbuffer2_getbuffer},
+                    {Py_bf_releasebuffer, heapctypewithbuffer2_releasebuffer},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithBuffer2_spec = {
+                    "HeapCTypeWithBuffer2",
+                    sizeof(HeapCTypeWithBuffer2Object),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithBuffer2_slots
+                };
+                """)
+        HeapCTypeWithBuffer2 = module.get_type()
+        buf = HeapCTypeWithBuffer2()
+        assert module.get_cnt() == 0
+        mv = buf.__buffer__(0)
+        assert isinstance(mv, memoryview)
+        assert mv.tobytes() == b"test"
+        assert module.get_cnt() == 1
+        buf.__release_buffer__(mv)
+        assert module.get_cnt() == 0
+        raises(ValueError, mv.tobytes)
+        # calling it again doesn't cause issues
+        raises(ValueError, buf.__release_buffer__, mv)
+        assert module.get_cnt() == 0
+
 
 # Keep this class last in the file: test_frombuffer and
 # test_class_with___buffer__, if run before AppTestPyBuffer's

@@ -65,8 +65,27 @@ class W_BytearrayObject(W_BufferExporter):
                            ''.join(self._data[self._offset:-1]))
 
     def buffer_w(self, space, flags):
+        # A Python subclass may override __buffer__ or __release_buffer__
+        # (PEP 688); in that case the fast path below must be bypassed so
+        # those overrides are actually consulted.
+        if (space.is_overloaded(self, space.w_bytearray, '__buffer__') or
+                space.is_overloaded(self, space.w_bytearray, '__release_buffer__')):
+            return self._buffer_w_dunder(space, flags, space.w_bytearray)
         self._exports += 1
         return SimpleView(BytearrayBuffer(self), w_obj=self)
+
+    @unwrap_spec(flags=int)
+    def descr_buffer(self, space, flags):
+        # The Python-visible __buffer__: always acquires directly against
+        # this bytearray's own storage (unlike buffer_w, this is also what
+        # a subclass override calls via super().__buffer__()).  The
+        # returned memoryview owns the export, same as a normal
+        # memoryview(bytearray_instance): DunderReleaseView.releasebuffer()
+        # force-releases it once the outer buffer is released, regardless
+        # of whether a __release_buffer__ override calls super().
+        self._exports += 1
+        view = SimpleView(BytearrayBuffer(self), w_obj=self)
+        return view.wrap(space, owns_export=True)
 
     def bf_getbuffer(self, space, view, flags):
         from pypy.interpreter.py_buffer import fill_py_buffer_1d
@@ -649,13 +668,21 @@ class W_BytearrayObject(W_BufferExporter):
         index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
 
-    def descr_releasebuffer(self, w_view):
+    def descr_releasebuffer(self, space, w_view):
         # Called via Python 3.12 __release_buffer__ protocol when a memoryview
         # (or other consumer) releases a buffer exported from this bytearray.
-        if self._exports <= 0:
-            _exports_underflow(compute_unique_id(self), self._exports,
-                               "bytearray descr_releasebuffer: _exports underflow")
-        self._exports -= 1
+        # w_view must be the still-live memoryview this exact object handed
+        # out via __buffer__; otherwise CPython raises ValueError, e.g. a
+        # subclass __buffer__ returning an unrelated memoryview and then
+        # forwarding it to super().__release_buffer__().  Releasing it here
+        # decrements _exports via the owning SimpleView/BytearrayBuffer
+        # chain (descr_buffer created it with owns_export=True).
+        if (not space.isinstance_w(w_view, space.w_memoryview) or
+                w_view.w_get_obj(space) is not self):
+            raise oefmt(space.w_ValueError,
+                "__release_buffer__ called with a buffer not obtained "
+                "from this object")
+        w_view.descr_release(space)
 
 # ____________________________________________________________
 
@@ -1307,6 +1334,7 @@ W_BytearrayObject.typedef = TypeDef(
 
     __getitem__ = interp2app(W_BytearrayObject.descr_getitem,
                              doc=BytearrayDocstrings.__getitem__.__doc__),
+    __buffer__ = interp2app(W_BytearrayObject.descr_buffer),
     __release_buffer__ = interp2app(W_BytearrayObject.descr_releasebuffer),
     capitalize = interp2app(W_BytearrayObject.descr_capitalize,
                             doc=BytearrayDocstrings.capitalize.__doc__),
@@ -1541,9 +1569,11 @@ class BytearrayBuffer(GCBuffer):
         return p
 
     def releasebuffer(self):
-        # Called by internal PyPy code that uses buffer_w() transiently
-        # (e.g. readbuf_w, writebuf_w).  Do NOT call this from the Python
-        # __release_buffer__ path; that path goes through descr_releasebuffer.
+        # Called both by internal PyPy code using buffer_w() transiently
+        # (e.g. readbuf_w, writebuf_w) and, via the owning memoryview's
+        # own release chain, by the Python __release_buffer__ protocol
+        # (descr_releasebuffer calls w_view.descr_release(), which reaches
+        # here since descr_buffer's memoryview owns its export).
         if self.ba._exports <= 0:
             _exports_underflow(compute_unique_id(self.ba), self.ba._exports,
                                "bytearray releasebuffer: _exports underflow")

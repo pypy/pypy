@@ -426,7 +426,22 @@ class wrap_getbuffer(W_PyCWrapperObject):
                                 needs_decref=True,
                                 releasebufferproc = rbp)
             fq.register_finalizer(buf)
-            return buf.wrap(space, owns_export=False)
+            return buf.wrap(space, owns_export=True)
+
+
+class wrap_releasebuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        w_view = __args__.arguments_w[0]
+        if not space.isinstance_w(w_view, space.w_memoryview):
+            raise oefmt(space.w_TypeError, "expected a memoryview object")
+        # w_get_obj() itself raises ValueError if w_view was already
+        # released, matching bytearray's descr_releasebuffer.
+        if w_view.w_get_obj(space) is not w_self:
+            raise oefmt(space.w_ValueError,
+                "memoryview's buffer is not this object")
+        w_view.descr_release(space)
+        return space.w_None
 
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):
@@ -1167,7 +1182,7 @@ slotdefs = eval(slotdefs_str)
 # PyPy addition, was added to CPython 3.12
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", "slot_bf_getbuffer", "wrap_getbuffer", ""),
-    TPSLOT("__release_buffer__", "tp_as_buffer.c_bf_releasebuffer", "slot_bf_releasebuffer", None, ""),
+    TPSLOT("__release_buffer__", "tp_as_buffer.c_bf_releasebuffer", "slot_bf_releasebuffer", "wrap_releasebuffer", ""),
 )
 
 # partial sort to solve some slot conflicts:

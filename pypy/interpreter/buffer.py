@@ -2,7 +2,7 @@ from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.buffer import StringBuffer, SubBuffer, RawBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 
 class BufferInterfaceNotFound(Exception):
     pass
@@ -522,4 +522,56 @@ class NonOwningReleaseView(BufferView):
 
     def new_slice(self, start, step, slicelength):
         return NonOwningReleaseView(self.view.new_slice(start, step, slicelength))
+
+
+class DunderReleaseView(NonOwningReleaseView):
+    """Wraps the BufferView obtained from a memoryview returned by a
+    Python-level __buffer__ override (PEP 688).  On release:
+
+    1. Notifies: calls the exporter's __release_buffer__(mv), passing
+       back the same memoryview that __buffer__ returned.  w_base_type
+       (may be None) is the builtin type, if any, that provides a
+       *default* __release_buffer__ for this exporter (e.g. bytearray);
+       CPython only invokes __release_buffer__ when it resolves to a
+       genuine Python-level override below that builtin, since calling a
+       builtin's own default automatically (nothing was actually
+       overridden) would wrongly complain about an unrelated buffer
+       whenever only __buffer__ was overridden to return something else.
+       w_base_type=None (the generic case, e.g. plain objects) always
+       invokes whatever is found.
+    2. Force-releases mv, but only when it genuinely wraps the exporter's
+       own buffer (mv.obj is w_exporter): CPython does this regardless of
+       what step 1's __release_buffer__ override did (even if it never
+       calls super()), so a builtin exporter's own invariants (e.g.
+       bytearray's resize lock) stay balanced.  When mv wraps something
+       else entirely, nothing is force-released -- the exporter/override
+       is fully responsible for that buffer's lifetime.
+    """
+    _immutable_ = True
+
+    def __init__(self, view, space, w_exporter, w_mv, w_base_type=None):
+        NonOwningReleaseView.__init__(self, view)
+        self.space = space
+        self.w_exporter = w_exporter
+        self.w_mv = w_mv
+        self.w_base_type = w_base_type
+
+    def releasebuffer(self):
+        space = self.space
+        w_exporter = self.w_exporter
+        w_mv = self.w_mv
+        w_impl = space.lookup(w_exporter, '__release_buffer__')
+        if w_impl is not None:
+            if (self.w_base_type is None or
+                    space.is_overloaded(w_exporter, self.w_base_type,
+                                        '__release_buffer__')):
+                space.get_and_call_function(w_impl, w_exporter, w_mv)
+        try:
+            owns_match = w_mv.w_get_obj(space) is w_exporter
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            owns_match = False
+        if owns_match:
+            w_mv.descr_release(space)
 
