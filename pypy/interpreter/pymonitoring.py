@@ -132,6 +132,8 @@ def fire3(space, event_id, w_code, offset, w_extra):
     these aren't in LOCAL_EVENTS, so returning DISABLE from their
     callback is illegal.
     """
+    if w_code.hidden_applevel:
+        return
     state = space.fromcache(MonitoringState)
     if state.firing or not (state.any_events >> event_id) & 1:
         return
@@ -216,6 +218,8 @@ def fire_local(space, event_id, w_code, pycode, offset):
     helpers so a tool-less-or-fully-disabled iteration is dead code the
     JIT can fold away instead of a live MonitoringState dict lookup.
     """
+    if pycode.hidden_applevel:
+        return
     state = space.fromcache(MonitoringState)
     if state.firing:
         return
@@ -249,6 +253,8 @@ def fire_local(space, event_id, w_code, pycode, offset):
 def fire_local3(space, event_id, w_code, pycode, offset, w_destination):
     """Like fire_local, but for BRANCH/JUMP's (code, offset, destination)
     shape."""
+    if pycode.hidden_applevel:
+        return
     state = space.fromcache(MonitoringState)
     if state.firing:
         return
@@ -282,6 +288,8 @@ def fire_local3(space, event_id, w_code, pycode, offset, w_destination):
 def fire_local4(space, event_id, w_code, pycode, offset, w_callable, w_arg0):
     """Like fire_local, but for CALL's (code, offset, callable, arg0)
     shape."""
+    if pycode.hidden_applevel:
+        return
     state = space.fromcache(MonitoringState)
     if state.firing:
         return
@@ -318,6 +326,8 @@ def fire4(space, event_id, w_code, pycode, offset, w_callable, w_arg0):
     and DISABLE state at this location (see _event_bit), checked here via
     the same version_tag-promoted helpers fire_local4 uses for CALL
     itself, so a location where CALL is disabled silences these too."""
+    if pycode.hidden_applevel:
+        return
     state = space.fromcache(MonitoringState)
     if state.firing:
         return

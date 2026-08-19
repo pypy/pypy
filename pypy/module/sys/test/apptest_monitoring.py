@@ -1098,3 +1098,35 @@ def test_all_events():
     finally:
         sys.monitoring.free_tool_id(3)
         sys.monitoring.free_tool_id(4)
+
+
+def test_call_c_return_balance_for_builtin_type_method():
+    # PyPy exposes list.append etc. as a normal method/function object
+    # (cpython_differences.rst "method-types"), not CPython's distinct
+    # builtin_function_or_method -- but it's still not backed by a PyCode,
+    # so CALL/C_RETURN fire for it like any other non-Python callable.
+    E = sys.monitoring.events
+    events = []
+
+    def call_cb(code, offset, callable, arg):
+        events.append(("call", callable))
+
+    def cret_cb(code, offset, callable, arg):
+        events.append(("c_return", callable))
+
+    def f():
+        lst = []
+        lst.append(42)
+
+    sys.monitoring.use_tool_id(3, "test tool")
+    try:
+        sys.monitoring.register_callback(3, E.CALL, call_cb)
+        sys.monitoring.register_callback(3, E.C_RETURN, cret_cb)
+        sys.monitoring.set_events(3, E.CALL | E.C_RETURN | E.C_RAISE)
+        f()
+        sys.monitoring.set_events(3, 0)
+    finally:
+        sys.monitoring.free_tool_id(3)
+
+    append_events = [e for e in events if getattr(e[1], '__name__', None) == 'append']
+    assert [kind for kind, _ in append_events] == ["call", "c_return"]

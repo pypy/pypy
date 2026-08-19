@@ -220,6 +220,14 @@ nested_call.events = [
     "return",
 ]
 
+if sys.implementation.name == 'pypy':
+    # PyPy emits an explicit JUMP_FORWARD to skip the inline exception
+    # table handler, CPython puts it out-of-line
+    just_pass.events = just_pass.events + ["jump"]
+    just_call.events = just_call.events + ["jump"]
+    caught.events = caught.events + ["jump"]
+    nested_call.events = nested_call.events + ["jump"]
+
 PY_CALLABLES = (types.FunctionType, types.MethodType)
 
 class MonitoringEventsBase(MonitoringTestBase):
@@ -279,6 +287,10 @@ DOWN_EVENTS = (E.PY_START, E.PY_RESUME)
 
 from test.profilee import testfunc
 
+@unittest.skipIf(sys.implementation.name == 'pypy',
+    "PyPy: list.append etc. expose as method/function, not "
+    "builtin_function_or_method (cpython_differences.rst 'method-types'), "
+    "so PY_CALLABLES misclassifies them as Python calls")
 class SimulateProfileTest(MonitoringEventsBase, unittest.TestCase):
 
     def test_balanced(self):
@@ -1497,7 +1509,7 @@ class TestBranchAndJumpEvents(CheckEvents):
                 pass
 
 
-        self.check_events(func, recorders = JUMP_BRANCH_AND_LINE_RECORDERS, expected = [
+        pre_try = [
             ('line', 'get_events', 10),
             ('line', 'func', 1),
             ('line', 'func', 2),
@@ -1506,12 +1518,27 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch', 'func', 4, 4),
             ('line', 'func', 5),
             ('line', 'meth', 1),
-            ('jump', 'func', 5, 5),
-            ('jump', 'func', 5, '[offset=114]'),
-            ('branch', 'func', '[offset=120]', '[offset=122]'),
-            ('line', 'get_events', 11)])
+        ]
+        post_try = [
+            ('line', 'get_events', 11),
+        ]
+        if sys.implementation.name == 'pypy':
+            # PyPy emits an explicit JUMP_FORWARD to skip the inline
+            # exception table handler, CPython puts it out-of-line
+            expected = pre_try + [
+                ('jump', 'func', 5, 4),
+                ('line', 'func', 4),
+                ('branch', 'func', 4, 4),
+            ] + post_try
+        else:
+            expected = pre_try + [
+                ('jump', 'func', 5, 5),
+                ('jump', 'func', 5, '[offset=114]'),
+                ('branch', 'func', '[offset=120]', '[offset=122]'),
+            ] + post_try
+        self.check_events(func, recorders = JUMP_BRANCH_AND_LINE_RECORDERS, expected = expected)
 
-        self.check_events(func, recorders = FLOW_AND_LINE_RECORDERS, expected = [
+        pre_try = [
             ('line', 'get_events', 10),
             ('line', 'func', 1),
             ('line', 'func', 2),
@@ -1522,11 +1549,26 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('line', 'func', 5),
             ('line', 'meth', 1),
             ('return', None),
-            ('jump', 'func', 5, 5),
-            ('jump', 'func', 5, '[offset=114]'),
-            ('branch', 'func', '[offset=120]', '[offset=122]'),
+        ]
+        post_try = [
             ('return', None),
-            ('line', 'get_events', 11)])
+            ('line', 'get_events', 11),
+        ]
+        if sys.implementation.name == 'pypy':
+            # PyPy emits an explicit JUMP_FORWARD to skip the inline
+            # exception table handler, CPython puts it out-of-line
+            expected = pre_try + [
+                ('jump', 'func', 5, 4),
+                ('line', 'func', 4),
+                ('branch', 'func', 4, 4),
+            ] + post_try
+        else:
+            expected = pre_try + [
+                ('jump', 'func', 5, 5),
+                ('jump', 'func', 5, '[offset=114]'),
+                ('branch', 'func', '[offset=120]', '[offset=122]'),
+            ] + post_try
+        self.check_events(func, recorders = FLOW_AND_LINE_RECORDERS, expected = expected)
 
 @unittest.skip("PyPy: no LOAD_SUPER_ATTR opcode, super() compiles via plain CALL")
 class TestLoadSuperAttr(CheckEvents):
