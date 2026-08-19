@@ -87,7 +87,7 @@ def test_getsourcelines_dynamic_function_returns_none():
     import types
     code = compile('def f(x): return x', '<string>', 'exec')
     globs = {}
-    exec code in globs
+    exec(code, globs)
     f = globs['f']
     assert getsourcelines(f) is None
 
@@ -98,7 +98,7 @@ def test_getsourcelines_dynamic_function_compile2_works():
     import types
     code = compile2('def f(x): return x', '<string>', 'exec')
     globs = {}
-    exec code in globs
+    exec(code, globs)
     f = globs['f']
     assert getsourcelines(f) == (['def f(x): return x\n'], 1)
 
