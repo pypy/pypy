@@ -52,7 +52,7 @@ def makelong_long_sequences(data, ndigits):
     """
     nbits_hi = ndigits * SHIFT
     nbits_lo = nbits_hi - SHIFT + 1
-    answer = 0L
+    answer = 0
     nbits = 0
     r = data.draw(strategies.integers(0, SHIFT * 2 - 1)) | 1  # force 1 bits to start
     while nbits < nbits_lo:
@@ -121,8 +121,8 @@ def gen_signs(l):
 long_vals_not_too_big = range(17) + [
         37, 39, 50,
         127, 128, 129, 511, 512, 513, sys.maxint, sys.maxint + 1,
-        12345678901234567890L,
-        123456789123456789000000L,
+        12345678901234567890,
+        123456789123456789000000,
 ]
 
 long_vals = long_vals_not_too_big + [
@@ -173,10 +173,10 @@ class TestRLong(object):
                 assert r1.tolong() == r2
 
     def test_int_floordiv(self):
-        x = 1000L
+        x = 1000
         r = rbigint.fromlong(x)
         r2 = r.int_floordiv(10)
-        assert r2.tolong() == 100L
+        assert r2.tolong() == 100
 
         for op1 in gen_signs(long_vals):
             for op2 in signed_int_vals:
@@ -193,7 +193,7 @@ class TestRLong(object):
         # Error pointed out by Armin Rigo
         n = sys.maxint+1
         r = rbigint.fromlong(n)
-        assert r.int_floordiv(int(-n)).tolong() == -1L
+        assert r.int_floordiv(int(-n)).tolong() == -1
 
         for x in int_vals:
             if not x:
@@ -203,15 +203,15 @@ class TestRLong(object):
             res = r.int_floordiv(x)
             res2 = r.int_floordiv(-x)
             res3 = rn.int_floordiv(x)
-            assert res.tolong() == 1L
-            assert res2.tolong() == -1L
-            assert res3.tolong() == -1L
+            assert res.tolong() == 1
+            assert res2.tolong() == -1
+            assert res3.tolong() == -1
 
     def test_floordiv2(self):
         n1 = rbigint.fromlong(sys.maxint + 1)
         n2 = rbigint.fromlong(-(sys.maxint + 1))
-        assert n1.floordiv(n2).tolong() == -1L
-        assert n2.floordiv(n1).tolong() == -1L
+        assert n1.floordiv(n2).tolong() == -1
+        assert n2.floordiv(n1).tolong() == -1
 
     def test_truediv(self):
         for op1 in gen_signs(long_vals_not_too_big):
@@ -322,7 +322,7 @@ class TestRLong(object):
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
 
-                for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696l]):
+                for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696]):
                     if not op3:
                         continue
                     r3 = rl_op1.pow(rl_op2, rbigint.fromlong(op3))
@@ -410,8 +410,8 @@ class TestRLong(object):
         assert x.tolong() == la * lb
 
     def test_mul_bug(self):
-        x = -0x1fffffffffffe00000000000007fffffffffffffffffe0000000000000fffffffffffffc0000000000000003fffffffffff1fffffffffffffffffffff8000000000000000ff80000000000000fffffff000000000000000000000fff800000000000003fffffffffffffffffffffffffffffffe000000000000000000fffffffffffffffffffffffffffffffffffffffffffffc3ffffffffffffff80000000003fffffffffffffe000000000000003fffffffffffffffffffffffffffffffffffffc000000000000000007ffc00000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000fffffffffe0000000000000000000000000000000007ffffffffff8000000000000000000000000007ffffffffe00000000000001ffffffff00000000007fffffffffc0000000000000000000007fffffffffffffe0000000000ffffffffffffffffffffffffffffff0000000000000000000000000000004000000000000000000007fffffffffffffffc00fffffffff80000001fffffffffffe0000000007ffffffffffffffffc000000000000000000000003f00fffffff000000001fffffffffffffffffffffffffffffffffe000000000000003ffffffffffffffc000000000000000000000000000000000000000000000000fffffffffffff8000001ffffffffffffffffffffffffe00000000000003ffffffffffffffffffffffff00000000fffffffffff000000000L
-        y = -0x3fffffffffffc0000000000000000007ffffffffffff800000000000000000001ffffffffffffffc0000000000000000000000ffffffffffffffffffffffffffffc000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000000007fffffffffff000000000000000000000000fffffffffffffffffffffffffffffffffffffffff0000000003e007fffffffffffffffffff80000000000000000003fffffffffc000000000000007fffc0000000007ffffffffffffff0000000000010000000000000001fffffffffffffffffffffffffffffffffe000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000001ffff007fff0000000000000000000000001f000000000001fffffffffffffffffc00000000001fffffffffffffffffffffffffffffffffffffff0000000000000000001ffffffffffff00000000000000000000000000000000000003fffffffff00003fffffffe00000000000000000000ffffffffffffffffffffff800001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000001ffe000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000fffffffffff800000000000000000fffffffffffffffffffe00000000003ffffffffffffffffffffffffffffffffffffffffc000000000000000006000001fffffffe0000000000ffffffffffffffffffffffffff8003fffffffffffffffffffffffffffe0000007fffc0000000000000000000000001ffffffffffffffffffffffffffffffffffff0000000000001fffe00000000000000000000000000000000000000000000000000000003fffffff0000000000007ffffff8000000000000001fffffffffffffffff80001fffffffffffffffffffffffffff800000000000000000001ffffe00000000000000000003fffffffffffffffffffffffff000000000000000fffffffffffffffffffffffffffffc0000000000000003fffffe0000000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000003fff00001ffffffffffffffffffff0000000000001fffffffffffffc0000000000007ffffffffffffffffffffc000000000007fffffffffffffffffff80000000000003ffffffffffffc0000000000000000000000000000000000000000000000ffffe000000000000000000000000000001ffffffffffffffffffffffffffffffffffffe007ffffffffffff000000000000003fffffffffffffffffff800000000000000ff0000000000000000000000000000001ffffffffffffe00000000000007ffffffffffffff8000000000000001ffffffffffffc0000000000007ff000003fffffffffffffffffffffffffffffffffffffe00000007ffffffffffffffffffffe00000007ffffff0000000000000000ffffc00000000000000000ffffffffff8000000000000000fffffe0000000000000000000007fffffffffc000000fe0000000000000000000001ffffff800000000000000001ffffffffff00000000000000000000000000000000000000000000000ffffffffffffffffff000000000000000000000007fffffffffffffc0000fffffffffffffffffffffffffe000003ffffffffffff800000000000001fffffffffffffc000000000000000000000000001fff8000000000000000000000000000fffffffffffffffffffffffff0000000000000000003fe00000003fffffffffffffffff00000000000000ffffffffffe07fffffffffffffffc000000000000000000000003fffffff800000000000000000000003fffffffffffc0000000000000000000000003fffffffffffffffffc0000000000ffffffffffffffffffffffffffffffffffffffffffffffffffe000ffffffffffffffffc000000000000000000000000000000000000000000ffffffffffffffff8000000000000000000000000000000000000000000000000000000000fffffffffffffffc00000000000000003fffffffffffffffffffffffffffffffffffffe00003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000003fffffff00000000007ffffffffffc0007ffffffffe00000ffffc000700000000000000fffffffffff80000000000000000000000L
+        x = -0x1fffffffffffe00000000000007fffffffffffffffffe0000000000000fffffffffffffc0000000000000003fffffffffff1fffffffffffffffffffff8000000000000000ff80000000000000fffffff000000000000000000000fff800000000000003fffffffffffffffffffffffffffffffe000000000000000000fffffffffffffffffffffffffffffffffffffffffffffc3ffffffffffffff80000000003fffffffffffffe000000000000003fffffffffffffffffffffffffffffffffffffc000000000000000007ffc00000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000fffffffffe0000000000000000000000000000000007ffffffffff8000000000000000000000000007ffffffffe00000000000001ffffffff00000000007fffffffffc0000000000000000000007fffffffffffffe0000000000ffffffffffffffffffffffffffffff0000000000000000000000000000004000000000000000000007fffffffffffffffc00fffffffff80000001fffffffffffe0000000007ffffffffffffffffc000000000000000000000003f00fffffff000000001fffffffffffffffffffffffffffffffffe000000000000003ffffffffffffffc000000000000000000000000000000000000000000000000fffffffffffff8000001ffffffffffffffffffffffffe00000000000003ffffffffffffffffffffffff00000000fffffffffff000000000
+        y = -0x3fffffffffffc0000000000000000007ffffffffffff800000000000000000001ffffffffffffffc0000000000000000000000ffffffffffffffffffffffffffffc000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000000007fffffffffff000000000000000000000000fffffffffffffffffffffffffffffffffffffffff0000000003e007fffffffffffffffffff80000000000000000003fffffffffc000000000000007fffc0000000007ffffffffffffff0000000000010000000000000001fffffffffffffffffffffffffffffffffe000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000001ffff007fff0000000000000000000000001f000000000001fffffffffffffffffc00000000001fffffffffffffffffffffffffffffffffffffff0000000000000000001ffffffffffff00000000000000000000000000000000000003fffffffff00003fffffffe00000000000000000000ffffffffffffffffffffff800001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000001ffe000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000fffffffffff800000000000000000fffffffffffffffffffe00000000003ffffffffffffffffffffffffffffffffffffffffc000000000000000006000001fffffffe0000000000ffffffffffffffffffffffffff8003fffffffffffffffffffffffffffe0000007fffc0000000000000000000000001ffffffffffffffffffffffffffffffffffff0000000000001fffe00000000000000000000000000000000000000000000000000000003fffffff0000000000007ffffff8000000000000001fffffffffffffffff80001fffffffffffffffffffffffffff800000000000000000001ffffe00000000000000000003fffffffffffffffffffffffff000000000000000fffffffffffffffffffffffffffffc0000000000000003fffffe0000000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000003fff00001ffffffffffffffffffff0000000000001fffffffffffffc0000000000007ffffffffffffffffffffc000000000007fffffffffffffffffff80000000000003ffffffffffffc0000000000000000000000000000000000000000000000ffffe000000000000000000000000000001ffffffffffffffffffffffffffffffffffffe007ffffffffffff000000000000003fffffffffffffffffff800000000000000ff0000000000000000000000000000001ffffffffffffe00000000000007ffffffffffffff8000000000000001ffffffffffffc0000000000007ff000003fffffffffffffffffffffffffffffffffffffe00000007ffffffffffffffffffffe00000007ffffff0000000000000000ffffc00000000000000000ffffffffff8000000000000000fffffe0000000000000000000007fffffffffc000000fe0000000000000000000001ffffff800000000000000001ffffffffff00000000000000000000000000000000000000000000000ffffffffffffffffff000000000000000000000007fffffffffffffc0000fffffffffffffffffffffffffe000003ffffffffffff800000000000001fffffffffffffc000000000000000000000000001fff8000000000000000000000000000fffffffffffffffffffffffff0000000000000000003fe00000003fffffffffffffffff00000000000000ffffffffffe07fffffffffffffffc000000000000000000000003fffffff800000000000000000000003fffffffffffc0000000000000000000000003fffffffffffffffffc0000000000ffffffffffffffffffffffffffffffffffffffffffffffffffe000ffffffffffffffffc000000000000000000000000000000000000000000ffffffffffffffff8000000000000000000000000000000000000000000000000000000000fffffffffffffffc00000000000000003fffffffffffffffffffffffffffffffffffffe00003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000003fffffff00000000007ffffffffffc0007ffffffffe00000ffffc000700000000000000fffffffffff80000000000000000000000
         xl = rbigint.fromlong(x)
         yl = rbigint.fromlong(y)
         assert xl.mul(yl).tolong() == x * y
@@ -474,13 +474,13 @@ class Test_rbigint(object):
 
     def test_fromdecimalstr(self):
         x = rbigint.fromdecimalstr("12345678901234567890523897987")
-        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tolong() == 12345678901234567890523897987
         assert x.tobool() is True
         x = rbigint.fromdecimalstr("+12345678901234567890523897987")
-        assert x.tolong() == 12345678901234567890523897987L
+        assert x.tolong() == 12345678901234567890523897987
         assert x.tobool() is True
         x = rbigint.fromdecimalstr("-12345678901234567890523897987")
-        assert x.tolong() == -12345678901234567890523897987L
+        assert x.tolong() == -12345678901234567890523897987
         assert x.tobool() is True
         x = rbigint.fromdecimalstr("+0")
         assert x.tolong() == 0
@@ -650,7 +650,7 @@ class Test_rbigint(object):
                 assert result.tolong() == x * y
 
     def test_tofloat(self):
-        x = 12345678901234567890L ** 10
+        x = 12345678901234567890 ** 10
         f1 = rbigint.fromlong(x)
         d = f1.tofloat()
         assert d == float(x)
@@ -702,8 +702,8 @@ class Test_rbigint(object):
         assert null.int_eq(0)
 
     def test_eq_ne(self):
-        x = 5858393919192332223L
-        y = 585839391919233111223311112332L
+        x = 5858393919192332223
+        y = 585839391919233111223311112332
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(-x)
         f3 = rbigint.fromlong(y)
@@ -810,9 +810,9 @@ class Test_rbigint(object):
 
 
     def test_pow_lll(self):
-        x = 10L
-        y = 2L
-        z = 13L
+        x = 10
+        y = 2
+        z = 13
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)
         f3 = rbigint.fromlong(z)
@@ -823,11 +823,11 @@ class Test_rbigint(object):
         assert v.tolong() == pow(x, y, -z)
         #
         f1, f2, f3 = [rbigint.fromlong(i)
-                      for i in (10L, -1L, 42L)]
+                      for i in (10, -1, 42)]
         with pytest.raises(TypeError):
             f1.pow(f2, f3)
         f1, f2, f3 = [rbigint.fromlong(i)
-                      for i in (10L, 5L, 0L)]
+                      for i in (10, 5, 0)]
         with pytest.raises(ValueError):
             f1.pow(f2, f3)
 
@@ -859,8 +859,8 @@ class Test_rbigint(object):
         assert got.eq(expected)
 
     def test_pow_lln(self):
-        x = 10L
-        y = 2L
+        x = 10
+        y = 2
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)
         v = f1.pow(f2)
@@ -888,13 +888,13 @@ class Test_rbigint(object):
     def test_shift(self):
         negative = -23
         masks_list = [int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]
-        for x in gen_signs([3L ** 30L, 5L ** 20L, 7 ** 300, 0L, 1L]):
+        for x in gen_signs([3 ** 30, 5 ** 20, 7 ** 300, 0, 1]):
             f1 = rbigint.fromlong(x)
             with pytest.raises(ValueError):
                 f1.lshift(negative)
             with pytest.raises(ValueError):
                 f1.rshift(negative)
-            for y in [0L, 1L, 32L, 2304L, 11233L, 3 ** 9]:
+            for y in [0, 1, 32, 2304, 11233, 3 ** 9]:
                 res1 = f1.lshift(int(y)).tolong()
                 res2 = f1.rshift(int(y)).tolong()
                 assert res1 == x << y
@@ -907,7 +907,7 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-(1 << 100)).rshift(5).tolong() == -(1 << 100) >> 5
 
         # Chek value accuracy.
-        assert rbigint.fromlong(18446744073709551615L).rshift(1).tolong() == 18446744073709551615L >> 1
+        assert rbigint.fromlong(18446744073709551615).rshift(1).tolong() == 18446744073709551615 >> 1
 
     def test_shift_optimization(self):
         # does not crash with memory error
@@ -936,9 +936,9 @@ class Test_rbigint(object):
             assert f1.rqshift(SHIFT+1).tolong() == x >> (SHIFT+1)
 
     def test_from_list_n_bits(self):
-        for x in ([3L ** 30L, 5L ** 20L, 7 ** 300] +
-                  [1L << i for i in range(130)] +
-                  [(1L << i) - 1L for i in range(130)]):
+        for x in ([3 ** 30, 5 ** 20, 7 ** 300] +
+                  [1 << i for i in range(130)] +
+                  [(1 << i) - 1 for i in range(130)]):
             for nbits in range(1, SHIFT+1):
                 mask = (1 << nbits) - 1
                 lst = []
@@ -1222,7 +1222,7 @@ def test_frombytes_tobytes_int_hypothesis(s, big, signed):
 class TestInternalFunctions(object):
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
-        for x, y in [(1238585838347L, 3), (1234123412311231L, 1231231), (99, 100)]:
+        for x, y in [(1238585838347, 3), (1234123412311231, 1231231), (99, 100)]:
             if y > MASK:
                 continue
             f1 = rbigint.fromlong(x)
@@ -1235,7 +1235,7 @@ class TestInternalFunctions(object):
 
     def test__divrem1(self):
         # signs are not handled in the helpers!
-        x = 1238585838347L
+        x = 1238585838347
         y = 3
         f1 = rbigint.fromlong(x)
         f2 = y
@@ -1243,7 +1243,7 @@ class TestInternalFunctions(object):
         assert (div.tolong(), rem) == divmod(x, y)
 
     def test__muladd1(self):
-        x = 1238585838347L
+        x = 1238585838347
         y = 3
         z = 42
         f1 = rbigint.fromlong(x)
@@ -1253,7 +1253,7 @@ class TestInternalFunctions(object):
         assert prod.tolong() == x * y + z
 
     def test__x_divrem(self):
-        x = 12345678901234567890L
+        x = 12345678901234567890
         for i in range(100):
             y = long(randint(1, 1 << 60))
             y <<= 60
@@ -1284,7 +1284,7 @@ class TestInternalFunctions(object):
             assert rem.tolong() == _rem
 
     def test_divmod(self):
-        x = 12345678901234567890L
+        x = 12345678901234567890
         for i in range(100):
             y = long(randint(0, 1 << 60))
             y <<= 60
@@ -1380,7 +1380,7 @@ class TestInternalFunctions(object):
         assert ret.tolong() == f1.tolong() * f2.tolong()
 
     def test_longlong(self):
-        max = 1L << (r_longlong.BITS-1)
+        max = 1 << (r_longlong.BITS-1)
         f1 = rbigint.fromlong(max-1)    # fits in r_longlong
         f2 = rbigint.fromlong(-max)     # fits in r_longlong
         f3 = rbigint.fromlong(max)      # overflows
@@ -1645,7 +1645,7 @@ class TestHypothesis(object):
     @example(51043991434705027934074467822730751796184773621888706622259209143470502793407446782273075179618477362188870662225920143470502793407446782273075179618477362188870662225920,
              10808)
     @example(17, 257)
-    @example(510439143470502793407446782273075179618477362188870662225920L, 108089693021945158982483698831267549521L)
+    @example(510439143470502793407446782273075179618477362188870662225920, 108089693021945158982483698831267549521)
     def test_divmod_big(self, x, y):
         oldval = HOLDER.DIV_LIMIT
         try:
