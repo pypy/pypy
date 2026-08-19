@@ -188,7 +188,12 @@ class SimpleFinalizationTest(TestBase, unittest.TestCase):
             gc.collect()
             self.assert_del_calls(ids)
             self.assert_survivors(ids)
-            self.assertIsNot(wr(), None)
+            if support.check_impl_detail():
+                # CPython >= 3.4 changed this, but not in all cases
+                # (see the similar test in SelfCycleFinalizationTest).
+                # PyPy cannot tell apart the two cases, so we picked the
+                # cycle behavior, as it is the historical one.
+                self.assertIsNot(wr(), None)
             self.clear_survivors()
             gc.collect()
             self.assert_del_calls(ids)
@@ -369,7 +374,8 @@ class CycleChainFinalizationTest(TestBase, unittest.TestCase):
             ids = [id(s) for s in nodes]
             wrs = [weakref.ref(s) for s in nodes]
             del nodes
-            gc.collect()
+            for cls in classes:   # PyPy: needs several collections for a chain
+                gc.collect()      # of objects all with a __del__()
             self.assert_del_calls(ids)
             self.assert_survivors([])
             self.assertEqual([wr() for wr in wrs], [None] * N)
@@ -377,6 +383,11 @@ class CycleChainFinalizationTest(TestBase, unittest.TestCase):
             self.assert_del_calls(ids)
 
     def check_resurrecting_chain(self, classes):
+        if support.check_impl_detail(pypy=True):
+            self.skipTest("in CPython, in a cycle of objects with __del__(), "
+                          "all the __del__() are called even if some of them "
+                          "resurrect.  In PyPy the recurrection will stop "
+                          "the other objects from being considered as dead.")
         N = len(classes)
         with SimpleBase.test():
             nodes = self.build_chain(classes)

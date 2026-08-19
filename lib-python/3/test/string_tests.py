@@ -1263,7 +1263,10 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, 'abc', '__getitem__', 'def')
 
         for idx_type in ('def', object()):
-            expected_msg = "string indices must be integers, not '{}'".format(type(idx_type).__name__)
+            if sys.implementation.name == 'pypy':
+                expected_msg = "string indices must be integers or slices, not {}".format(type(idx_type).__name__)
+            else:
+                expected_msg = "string indices must be integers, not '{}'".format(type(idx_type).__name__)
             self.checkraises(TypeError, 'abc', '__getitem__', idx_type, expected_msg=expected_msg)
 
     def test_slice(self):
@@ -1505,19 +1508,20 @@ class MixinStrUnicodeUserStringTest:
         # issue 11828
         s = 'hello'
         x = 'x'
-        self.assertRaisesRegex(TypeError, r'^find\(', s.find,
+        #PYPY CHANGE: drop '^' from the regex
+        self.assertRaisesRegex(TypeError, r'find\(', s.find,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^rfind\(', s.rfind,
+        self.assertRaisesRegex(TypeError, r'rfind\(', s.rfind,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^index\(', s.index,
+        self.assertRaisesRegex(TypeError, r'index\(', s.index,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^rindex\(', s.rindex,
+        self.assertRaisesRegex(TypeError, r'rindex\(', s.rindex,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^count\(', s.count,
+        self.assertRaisesRegex(TypeError, r'count\(', s.count,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^startswith\(', s.startswith,
+        self.assertRaisesRegex(TypeError, r'startswith\(', s.startswith,
                                 x, None, None, None)
-        self.assertRaisesRegex(TypeError, r'^endswith\(', s.endswith,
+        self.assertRaisesRegex(TypeError, r'endswith\(', s.endswith,
                                 x, None, None, None)
 
         # issue #15534

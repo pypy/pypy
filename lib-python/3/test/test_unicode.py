@@ -2475,6 +2475,7 @@ class UnicodeTest(string_tests.CommonTest,
         s = 'abc'
         self.assertIs(s.expandtabs(), s)
 
+    @support.cpython_only
     def test_raiseMemError(self):
         asciifields = "nnb"
         compactfields = asciifields + "nP"
@@ -2536,7 +2537,8 @@ class UnicodeTest(string_tests.CommonTest,
     def test_getnewargs(self):
         text = 'abc'
         args = text.__getnewargs__()
-        self.assertIsNot(args[0], text)
+        # PyPy: the objects are the same
+        # self.assertIsNot(args[0], text)
         self.assertEqual(args[0], text)
         self.assertEqual(len(args), 1)
 
