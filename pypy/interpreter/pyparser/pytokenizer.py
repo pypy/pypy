@@ -466,7 +466,7 @@ class Tokenizer(object):
                                  lnum1, start1 + 1, self.lnum)
             prevline = self.lines[self.lines_index - 1]
             raise LineContinuationError(EOF_MULTI_LINE_STATEMENT_ERROR, prevline,
-                             self.lnum - 1, len(prevline) - 1, self.token_list)
+                             self.lnum - 1, len(prevline), self.token_list)
         self.continued = False
 
     def _tokenize_regular(self, line):
@@ -1056,7 +1056,7 @@ def _generate_tokens(lines, flags, filename='<unknown>'):
                                      lnum1, start1 + 1, token_list, lnum)
                 prevline = lines[lines_index - 1]
                 raise TokenError(EOF_MULTI_LINE_STATEMENT_ERROR , prevline,
-                                 lnum - 1, len(prevline) - 1, token_list) # XXX why is the offset 0 here?
+                                 lnum - 1, len(prevline), token_list)
             continued = False
 
         while pos < max:

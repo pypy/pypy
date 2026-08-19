@@ -98,6 +98,11 @@ stuff = "nothing"
         exc = pytest.raises(SyntaxError, parse, "\\").value
         assert exc.msg == "unexpected end of file (EOF) in multi-line statement"
         assert exc.lineno == 1
+        assert exc.offset == 2
+        exc = pytest.raises(SyntaxError, parse, "x = 5\\").value
+        assert exc.msg == "unexpected end of file (EOF) in multi-line statement"
+        assert exc.lineno == 1
+        assert exc.offset == 7
         exc = pytest.raises(SyntaxError, parse, "(x||x").value
         assert exc.msg == "invalid syntax"
         exc = pytest.raises(SyntaxError, parse, "(\nx||x").value
