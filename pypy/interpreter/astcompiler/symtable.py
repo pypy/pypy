@@ -27,6 +27,19 @@ SCOPE_FREE = 4
 SCOPE_CELL = 5
 SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
+# The kinds an annotation scope can have.  They pick the wording of the
+# "<what> cannot be used within <where>" errors, exactly as ste_type does in
+# symtable_raise_if_annotation_block().
+TYPE_PARAM_BLOCK = 0
+TYPE_ALIAS_BLOCK = 1
+TYPE_VAR_BOUND_BLOCK = 2
+
+BLOCK_CONTEXTS = [
+    "the definition of a generic",   # TYPE_PARAM_BLOCK
+    "a type alias",                  # TYPE_ALIAS_BLOCK
+    "a TypeVar bound",               # TYPE_VAR_BOUND_BLOCK
+]
+
 
 class TypeParamsNode(ast.AST):
     """A wrapper node for the type params scope key.
@@ -403,8 +416,10 @@ class AnnotationScope(FunctionScope):
     can_be_optimized = True
     needs_classdict = False
 
-    def __init__(self, name, lineno, col_offset):
+    def __init__(self, name, lineno, col_offset, blocktype):
         FunctionScope.__init__(self, name, lineno, col_offset)
+        # Which kind of annotation scope this is, one of the *_BLOCK values.
+        self.blocktype = blocktype
         # If set, private name used for double-underscore mangling (class name).
         self.private = None
         # Names that should be mangled with self.private (type param names only).
@@ -445,14 +460,18 @@ class AnnotationScope(FunctionScope):
                 self.free_vars.append(name)
                 self.has_free = True
 
+    def not_allowed(self, what, node):
+        self.error("%s cannot be used within %s"
+                   % (what, BLOCK_CONTEXTS[self.blocktype]), node)
+
     def note_yield(self, yield_node):
-        self.error("yield expression cannot be used within an annotation scope", yield_node)
+        self.not_allowed("yield expression", yield_node)
 
     def note_yieldFrom(self, yieldFrom_node):
-        self.error("yield expression cannot be used within an annotation scope", yieldFrom_node)
+        self.not_allowed("yield expression", yieldFrom_node)
 
     def note_await(self, await_node):
-        self.error("await expression cannot be used within an annotation scope", await_node)
+        self.not_allowed("await expression", await_node)
 
 
 class ClassScope(Scope):
@@ -532,12 +551,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Lookup the scope for a given AST node."""
         return self.scopes[scope_node]
 
-    def _push_annotation_scope(self, name, node, scope_node=None):
+    def _push_annotation_scope(self, name, node, blocktype, scope_node=None):
         """Create and push an annotation scope with classdict handling.
 
         Args:
             name: The scope name
             node: The AST node (for lineno/col_offset)
+            blocktype: Which kind of annotation scope, one of the *_BLOCK values
             scope_node: The node to use as key in the scopes dictionary
         """
         # Find the nearest enclosing ClassScope.
@@ -548,7 +568,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         else:
             class_scope = self.scope.class_entry
 
-        scope = AnnotationScope(name, node.lineno, node.col_offset)
+        scope = AnnotationScope(name, node.lineno, node.col_offset, blocktype)
         if class_scope is not None:
             scope.class_entry = class_scope
             scope.needs_classdict = True
@@ -569,7 +589,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """
         type_params_node = TypeParamsNode(node)
         self.type_params_nodes[node] = type_params_node
-        self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
+        self._push_annotation_scope(name + ".<type_params>", node,
+                                    TYPE_PARAM_BLOCK, type_params_node)
 
         # For functions with defaults, register implicit args so LOAD_FAST works.
         # Defaults are evaluated in the outer scope, then passed as args to the
@@ -970,9 +991,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 "assignment expression cannot be used in a comprehension iterable expression",
                 node)
         if isinstance(scope, AnnotationScope):
-            self.error(
-                "named expression cannot be used within an annotation scope",
-                node)
+            scope.not_allowed("named expression", node)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
@@ -1032,8 +1051,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if type_alias.type_params:
             self._enter_typeparam_scope(type_alias, target.id)
 
-        # Create a scope for the value expression (TypeAliasBlock in CPython)
-        self._push_annotation_scope(target.id, type_alias)
+        # Create a scope for the value expression
+        self._push_annotation_scope(target.id, type_alias, TYPE_ALIAS_BLOCK)
 
         type_alias.value.walkabout(self)
 
@@ -1061,7 +1080,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
         # If there's a bound, create a sub-scope for lazy evaluation
         if type_var.bound is not None:
-            self._push_annotation_scope(type_var.name + ".<bound>", type_var)
+            self._push_annotation_scope(type_var.name + ".<bound>", type_var,
+                                        TYPE_VAR_BOUND_BLOCK)
             type_var.bound.walkabout(self)
             self.pop_scope()
 

@@ -582,3 +582,56 @@ def test_generic_class_duplicate_generic_error():
     with raises(TypeError) as excinfo:
         class ClassA[T](Generic[T]): ...
     assert str(excinfo.value) == "Cannot inherit from Generic[...] multiple times."
+
+
+def test_annotation_scope_error_names_its_context():
+    # symtable_raise_if_annotation_block() picks the wording from the kind of
+    # scope the expression sits in, so all three have to be distinguishable.
+    cases = [
+        ("type A[T: (x := 3)] = int", "named expression", "a TypeVar bound"),
+        ("type A[T: (yield 3)] = int", "yield expression", "a TypeVar bound"),
+        ("type A[T: (yield from [])] = int", "yield expression",
+         "a TypeVar bound"),
+        ("type A[T: (await 3)] = int", "await expression", "a TypeVar bound"),
+        ("type A = (x := 3)", "named expression", "a type alias"),
+        ("type A = (yield 3)", "yield expression", "a type alias"),
+        ("type A = (yield from [])", "yield expression", "a type alias"),
+        ("type A = (await 3)", "await expression", "a type alias"),
+        ("class A[T]((x := 3)): ...", "named expression",
+         "the definition of a generic"),
+        ("class A[T]((yield 3)): ...", "yield expression",
+         "the definition of a generic"),
+        ("class A[T]((yield from [])): ...", "yield expression",
+         "the definition of a generic"),
+        ("class A[T]((await 3)): ...", "await expression",
+         "the definition of a generic"),
+    ]
+    for source, what, where in cases:
+        exc = raises(SyntaxError, compile, source, '<test>', 'exec')
+        assert exc.value.msg == "%s cannot be used within %s" % (what, where)
+
+
+def test_type_params_of_a_type_is_writable():
+    class A[T]: pass
+
+    T, = A.__type_params__
+    # type_set_type_params() stores the value unchecked, whatever its type.
+    A.__type_params__ = "whatever"
+    assert A.__type_params__ == "whatever"
+    # Only deletion is rejected.
+    exc = raises(TypeError, delattr, A, '__type_params__')
+    assert str(exc.value) == (
+        "cannot delete '__type_params__' attribute of immutable type 'A'")
+    assert A.__type_params__ == "whatever"
+
+
+def test_type_params_of_a_static_type():
+    # A non-heaptype is rejected before the missing value is looked at, so
+    # deleting reports the "cannot set" wording too.
+    for op in (setattr, delattr):
+        args = (int, '__type_params__', ()) if op is setattr else (
+            int, '__type_params__')
+        exc = raises(TypeError, op, *args)
+        assert str(exc.value) == (
+            "cannot set '__type_params__' attribute of immutable type 'int'")
+    assert int.__type_params__ == ()

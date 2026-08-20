@@ -1123,28 +1123,35 @@ def descr_get__mro__(space, w_type):
 
 def descr_get__type_params__(space, w_type):
     w_type = _check(space, w_type)
-    # CPython special-cases type itself: the getset lives in type's dict, so a
-    # plain lookup would return the descriptor rather than an empty tuple.
+    # type holds the getset in its own dict, so a plain lookup would find the
+    # descriptor instead of an empty tuple (type_get_type_params()).
     if space.is_w(w_type, space.w_type):
         return space.newtuple([])
-    # Look up __type_params__ in the type's dict
-    w_result = w_type.dict_w.get('__type_params__', None)
+    # getdictvalue(), not dict_w, so that a value stored in a mutable cell is
+    # unwrapped.
+    w_result = w_type.getdictvalue(space, '__type_params__')
     if w_result is None:
         return space.newtuple([])  # Default is empty tuple
     return w_result
 
 def descr_set__type_params__(space, w_type, w_value):
     w_type = _check(space, w_type)
-    if not w_type.is_heaptype():
-        raise oefmt(space.w_TypeError,
-                    "can't set %N.__type_params__", w_type)
-    w_type.dict_w['__type_params__'] = w_value
+    # setdictvalue() already rejects a non-heaptype with the wording of
+    # check_set_special_type_attr() and invalidates the version tag.  The value
+    # itself is stored unchecked, whatever its type.
+    w_type.setdictvalue(space, '__type_params__', w_value)
 
 def descr_del__type_params__(space, w_type):
     w_type = _check(space, w_type)
+    # check_set_special_type_attr() tests the type before it tests the missing
+    # value, so a non-heaptype reports the "cannot set" wording even here.
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError,
+                    "cannot set '__type_params__' attribute of immutable "
+                    "type '%N'", w_type)
     raise oefmt(space.w_TypeError,
-                "cannot delete '__type_params__' attribute of immutable type '%N'",
-                w_type)
+                "cannot delete '__type_params__' attribute of immutable "
+                "type '%N'", w_type)
 
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
