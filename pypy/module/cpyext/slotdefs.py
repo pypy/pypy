@@ -792,10 +792,18 @@ def make_bf_getbuffer(space, typedef, name, attr):
 @slot_factory('tp_as_buffer.c_bf_releasebuffer')
 def make_bf_releasebuffer(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
+    name = 'bf_releasebuffer'
+    if space.is_w(w_type, space.w_bytearray):
+        # Native _exports tracking, independent of any __release_buffer__
+        # override a Python subclass may add.
+        @slot_function([PyObject, Py_bufferP], lltype.Void, error=CANNOT_FAIL)
+        @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+        def slot_bf_releasebuffer(space, w_self, view):
+            w_self._release_buffer_w()
+        return slot_bf_releasebuffer
     release_fn = w_type.lookup('__release_buffer__')
     if release_fn is None:
         return None
-    name = 'bf_releasebuffer'
     @slot_function([PyObject, Py_bufferP], lltype.Void, error=CANNOT_FAIL)
     @func_renamer("cpyext_%s_%s" % (name, typedef.name))
     def slot_bf_releasebuffer(space, w_self, view):

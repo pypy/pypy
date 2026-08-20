@@ -569,18 +569,11 @@ class DunderReleaseView(NonOwningReleaseView):
                                         '__release_buffer__')):
                 space.get_and_call_function(w_impl, w_exporter, w_mv)
         try:
-            owns_match = w_mv.w_get_obj(space) is w_exporter
+            owns_match = space.getattr(w_mv, space.newtext('obj')) is w_exporter
         except OperationError as e:
             if not e.match(space, space.w_ValueError):
                 raise
             owns_match = False
         if owns_match:
-            # Dispatch via the app-level name, not the interp-level method
-            # directly: w_mv is only known to RPython as W_Root here, and a
-            # direct w_mv.descr_release(space) call would make RPython unify
-            # W_MemoryView.descr_release with unrelated same-named methods
-            # elsewhere (e.g. cffi's W_FFIObject.descr_release, which takes
-            # a cdata argument instead of space) into one incompatible
-            # virtual-call family, breaking translation.
             space.call_method(w_mv, 'release')
 

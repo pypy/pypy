@@ -255,6 +255,9 @@ class W_Root(object):
     def _readbuf_w_fast(self, space):
         return None
 
+    def _release_buffer_w(self):
+        pass
+
     def _buffer_w_dunder(self, space, flags, w_base_type=None):
         """Generic PEP 688 buffer acquisition: dispatch through the
         Python-level __buffer__/__release_buffer__ dunder methods.  Shared

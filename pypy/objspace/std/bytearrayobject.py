@@ -92,11 +92,14 @@ class W_BytearrayObject(W_BufferExporter):
         self._exports += 1
         fill_py_buffer_1d(view, self, BytearrayBuffer(self), readonly=False)
 
-    def bf_releasebuffer(self, space, view):
+    def _release_buffer_w(self):
         if self._exports <= 0:
             _exports_underflow(compute_unique_id(self), self._exports,
-                               "bytearray bf_releasebuffer: _exports underflow")
+                               "bytearray buffer_w release: _exports underflow")
         self._exports -= 1
+
+    def bf_releasebuffer(self, space, view):
+        self._release_buffer_w()
 
     def _check_exports(self, space):
         if self._exports > 0:
@@ -1569,15 +1572,7 @@ class BytearrayBuffer(GCBuffer):
         return p
 
     def releasebuffer(self):
-        # Called both by internal PyPy code using buffer_w() transiently
-        # (e.g. readbuf_w, writebuf_w) and, via the owning memoryview's
-        # own release chain, by the Python __release_buffer__ protocol
-        # (descr_releasebuffer calls w_view.descr_release(), which reaches
-        # here since descr_buffer's memoryview owns its export).
-        if self.ba._exports <= 0:
-            _exports_underflow(compute_unique_id(self.ba), self.ba._exports,
-                               "bytearray releasebuffer: _exports underflow")
-        self.ba._exports -= 1
+        self.ba._release_buffer_w()
 
     def needs_release(self):
         return True
