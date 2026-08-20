@@ -340,6 +340,15 @@ def ismethoddescriptor(object):
     tests return false from the ismethoddescriptor() test, simply because
     the other tests promise more -- you can, e.g., count on having the
     __func__ attribute (etc) when an object passes ismethod()."""
+    # PYPY: unbound builtin methods accessed via their class (e.g. str.lower,
+    # object.__repr__) have type 'function', like a plain Python function, but
+    # carry __objclass__ and wrap builtin code. Treat them as method
+    # descriptors, like CPython's distinct wrapper_descriptor/method_descriptor
+    # types are.
+    if (_builtin_code_type is not None and isfunction(object) and
+            hasattr(object, '__objclass__') and
+            isinstance(getattr(object, '__code__', None), _builtin_code_type)):
+        return True
     if isclass(object) or ismethod(object) or isfunction(object) or isbuiltin(object):
         # mutual exclusion
         return False

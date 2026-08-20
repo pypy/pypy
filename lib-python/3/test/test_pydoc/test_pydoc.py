@@ -976,6 +976,10 @@ class PydocDocTest(unittest.TestCase):
         # so we need to update __subclasshook__ and __init_subclass__.
         expected['__subclasshook__'] = TestClass.__subclasshook__
         expected['__init_subclass__'] = TestClass.__init_subclass__
+        #PyPy change: object.__new__ is a staticmethod descriptor in PyPy (not a raw
+        # builtin like in CPython); pydoc.allmethods resolves it via getattr, so align.
+        if isinstance(expected.get('__new__'), staticmethod):
+            expected['__new__'] = getattr(object, '__new__')
 
         methods = pydoc.allmethods(TestClass)
         self.assertDictEqual(methods, expected)
@@ -1289,7 +1293,10 @@ class TestDescriptions(unittest.TestCase):
 
         self.assertEqual(pydoc.describe(int | str), 'UnionType')
         doc = pydoc.render_doc(int | str, renderer=pydoc.plaintext)
-        self.assertIn('UnionType in module types object', doc)
+        if sys.implementation.name == "pypy":
+            self.assertIn('UnionType in module _pypy_generic_alias object', doc)
+        else:
+            self.assertIn('UnionType in module types object', doc)
         self.assertIn('\nclass UnionType(builtins.object)', doc)
         if not MISSING_C_DOCSTRINGS:
             self.assertIn(types.UnionType.__doc__.strip().splitlines()[0], doc)

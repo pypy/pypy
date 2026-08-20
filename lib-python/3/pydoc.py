@@ -822,7 +822,12 @@ class HTMLDoc(Doc):
             docloc = ''
         result = self.heading(head, '<a href=".">index</a><br>' + filelink + docloc)
 
-        modules = inspect.getmembers(object, inspect.ismodule)
+        # PYPY: unlike CPython, PyPy sets a module's __builtins__ to the
+        # actual builtins module (not its __dict__), so it shows up here
+        # too; filter it out like the classes/funcs/data lists below do.
+        modules = [(key, value) for key, value in
+                   inspect.getmembers(object, inspect.ismodule)
+                   if visiblename(key, all, object)]
 
         classes, cdict = [], {}
         for key, value in inspect.getmembers(object, inspect.isclass):

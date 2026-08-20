@@ -154,7 +154,8 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
             w_max_item = w_item
             w_max_val = w_compare_with
     if not has_item and not w_max_item:
-        raise oefmt(space.w_ValueError, "arg is an empty sequence")
+        raise oefmt(space.w_ValueError,
+                    "%s() iterable argument is empty", implementation_of)
     return w_max_item
 
 @specialize.arg(3)

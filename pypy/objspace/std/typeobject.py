@@ -1107,10 +1107,13 @@ def descr_set__type_params__(space, w_type, w_value):
     if not w_type.is_heaptype():
         raise oefmt(space.w_TypeError,
                     "can't set %N.__type_params__", w_type)
-    if not space.isinstance_w(w_value, space.w_tuple):
-        raise oefmt(space.w_TypeError,
-                    "__type_params__ must be set to a tuple")
     w_type.dict_w['__type_params__'] = w_value
+
+def descr_del__type_params__(space, w_type):
+    w_type = _check(space, w_type)
+    raise oefmt(space.w_TypeError,
+                "cannot delete '__type_params__' attribute of immutable type '%N'",
+                w_type)
 
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
@@ -1337,7 +1340,8 @@ W_TypeObject.typedef = TypeDef("type",
     __base__ = GetSetProperty(descr__base),
     __mro__ = GetSetProperty(descr_get__mro__),
     __type_params__ = GetSetProperty(descr_get__type_params__,
-                                     descr_set__type_params__),
+                                     descr_set__type_params__,
+                                     descr_del__type_params__),
     __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc, descr_set__doc, cls=W_TypeObject, name='__doc__'),
     __text_signature__=GetSetProperty(type_get_text_signature),
