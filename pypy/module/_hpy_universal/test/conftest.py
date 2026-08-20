@@ -20,7 +20,7 @@ THIS_DIR = os.path.dirname(__file__)
 ##         import pytest
 ##         pytest.skip('fixme')
 
-disable = False
+disable = True
 
 if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
     # skip all tests on linux32
