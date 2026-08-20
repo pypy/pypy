@@ -14,6 +14,8 @@ from test.support import (captured_stdout, requires_debug_ranges,
                           os_helper)
 from test.support.bytecode_helper import BytecodeTestCase
 
+IS_PYPY = sys.implementation.name == 'pypy'
+
 
 def get_tb():
     def _error():
@@ -890,10 +892,15 @@ class DisTestBase(unittest.TestCase):
             res.append(f"{num_rows} row{'s' if num_rows > 1 else ''}\n")
         return "".join(res)
 
+    def strip_resume(self, text):  #No adaptive interpreter on PyPy
+        return re.sub(r'^.*\bRESUME\b.*\n\n?', '', text, flags=re.MULTILINE)
+
     def do_disassembly_compare(self, got, expected, with_offsets=False):
         if not with_offsets:
             self.assert_offsets_increasing(got, 2)
             got = self.strip_offsets(got)
+        if IS_PYPY:
+            expected = self.strip_resume(expected)
         if got != expected:
             got = self.strip_addresses(got)
         self.assertEqual(got, expected)
@@ -1554,9 +1561,9 @@ def jumpy():
 # End fodder for opinfo generation tests
 expected_outer_line = 1
 _line_offset = outer.__code__.co_firstlineno - 1
-code_object_f = outer.__code__.co_consts[1]
+code_object_f = outer.__code__.co_consts[2 if IS_PYPY else 1]
 expected_f_line = code_object_f.co_firstlineno - _line_offset
-code_object_inner = code_object_f.co_consts[1]
+code_object_inner = code_object_f.co_consts[2 if IS_PYPY else 1]
 expected_inner_line = code_object_inner.co_firstlineno - _line_offset
 expected_jumpy_line = 1
 
@@ -1861,6 +1868,7 @@ class InstructionTests(InstructionTestCase):
                 self.assertIsNone(positions.col_offset)
                 self.assertIsNone(positions.end_col_offset)
 
+    @cpython_only  #No adaptive interpreter on PyPy
     @requires_debug_ranges()
     def test_co_positions_with_lots_of_caches(self):
         def roots(a, b, c):

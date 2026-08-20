@@ -3,7 +3,11 @@
 import unittest
 import dis
 import io
-from _testinternalcapi import compiler_codegen, optimize_cfg, assemble_code_object
+#PYPY CHANGE
+try:
+    from _testinternalcapi import compiler_codegen, optimize_cfg, assemble_code_object
+except ImportError:
+    compiler_codegen = optimize_cfg = assemble_code_object = None
 
 _UNSPECIFIED = object()
 
