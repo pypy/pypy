@@ -142,8 +142,7 @@ def test_pytrace():
     output = output.replace('\r\n', '\n')
     assert ('\t<module>:           LOAD_CONST    0 (5)\n'
             '\t<module>:           STORE_NAME    0 (x)\n'
-            '\t<module>:           LOAD_CONST    1 (None)\n'
-            '\t<module>:           RETURN_VALUE    0 \n'
+            '\t<module>:           RETURN_CONST    1 (None)\n'
             '>>>> ') in output
     # '5\n' --- this line sent to stderr
     assert ('\t<module>:           LOAD_NAME    0 (x)\n'
@@ -166,7 +165,6 @@ def test_pytrace_dis_bug():
 \t<module>:           STORE_NAME    1 (i)
 \t<module>:           JUMP_ABSOLUTE    4 (to 8)
 \t<module>:           FOR_ITER    6 (to 20)
-\t<module>:           LOAD_CONST    1 (None)
-\t<module>:           RETURN_VALUE    0 
+\t<module>:           RETURN_CONST    1 (None)
 """ in output
 

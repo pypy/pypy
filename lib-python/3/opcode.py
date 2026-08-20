@@ -224,8 +224,8 @@ name_op('LOAD_GLOBAL', 116)     # Index in name list
 def_op('IS_OP', 117)
 def_op('CONTAINS_OP', 118)
 def_op('RERAISE', 119)
-# def_op('RETURN_CONST', 121)
-# hasconst.append(121)
+def_op('RETURN_CONST', 121)
+hasconst.append(121)
 # def_op('BINARY_OP', 122)
 # jrel_op('SEND', 123)            # Number of words to skip
 def_op('LOAD_FAST', 124)        # Local variable number, no null check

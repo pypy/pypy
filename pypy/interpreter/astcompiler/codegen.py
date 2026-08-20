@@ -3608,7 +3608,7 @@ def view(startblock):
         if block.next_block is not None:
             if (not block.instructions or block.instructions[-1].opcode not in
                     (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE, ops.RETURN_VALUE,
-                        ops.RERAISE, ops.RAISE_VARARGS)):
+                        ops.RETURN_CONST, ops.RERAISE, ops.RAISE_VARARGS)):
                 color = "black"
             else:
                 color = "grey"

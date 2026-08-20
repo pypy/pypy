@@ -239,6 +239,10 @@ class __extend__(pyframe.PyFrame):
             if opcode == opcodedesc.RETURN_VALUE.index:
                 self.frame_finished_execution = True  # for generators
                 raise Return
+            elif opcode == opcodedesc.RETURN_CONST.index:
+                self.pushvalue(self.getconstant_w(oparg))
+                self.frame_finished_execution = True  # for generators
+                raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, next_instr, ec)
             elif opcode == opcodedesc.RERAISE.index:

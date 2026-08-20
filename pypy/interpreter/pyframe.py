@@ -29,7 +29,7 @@ NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
 JUMP_IF_FALSE_OR_POP JUMP_IF_TRUE_OR_POP POP_JUMP_IF_FALSE POP_JUMP_IF_TRUE
 JUMP_IF_NOT_EXC_MATCH JUMP_ABSOLUTE JUMP_FORWARD GET_ITER GET_AITER
 POP_JUMP_FORWARD_IF_NONE POP_JUMP_FORWARD_IF_NOT_NONE
-RETURN_VALUE RERAISE RAISE_VARARGS POP_EXCEPT PUSH_EXC_INFO
+RETURN_VALUE RETURN_CONST RERAISE RAISE_VARARGS POP_EXCEPT PUSH_EXC_INFO
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
@@ -994,7 +994,7 @@ def mark_stacks(code):
             # Handle EXTENDED_ARG: _get_arg reads at byte address i*2
             arg = _get_arg(code.co_code, i * 2)
 
-            if opcode == RETURN_VALUE or opcode == RAISE_VARARGS or opcode == RERAISE:
+            if opcode in (RETURN_VALUE, RETURN_CONST, RAISE_VARARGS, RERAISE):
                 pass  # terminal; no fall-through
             elif opcode == JUMP_FORWARD:
                 j = arg + i + 1   # instruction index

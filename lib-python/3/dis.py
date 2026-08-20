@@ -39,8 +39,8 @@ MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 IS_PYPY = sys.implementation.name == "pypy"
 
 LOAD_CONST = opmap['LOAD_CONST']
+RETURN_CONST = opmap['RETURN_CONST']
 # PYPY: opcodes not (yet) implemented by PyPy; -1 never matches a real opcode
-# RETURN_CONST = -1 ## opmap['RETURN_CONST']
 LOAD_GLOBAL = opmap['LOAD_GLOBAL']
 BINARY_OP = -1 ## opmap['BINARY_OP']
 # JUMP_BACKWARD = -1 ## opmap['JUMP_BACKWARD']

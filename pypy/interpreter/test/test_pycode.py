@@ -17,7 +17,7 @@ def test_dump(space):
     print '>>>\n' + output + '\n<<<'
     assert ' 0 (7)' in output
     assert ' 3 (None)' in output
-    assert ' 14 RETURN_VALUE' in output
+    assert ' 12 RETURN_CONST' in output
 
 
 def test_strong_const_equal(space):

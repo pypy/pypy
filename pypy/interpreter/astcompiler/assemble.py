@@ -172,6 +172,7 @@ class Block(object):
         op = instr.opcode
         if (
                 op == ops.RETURN_VALUE or
+                op == ops.RETURN_CONST or
                 op == ops.RAISE_VARARGS or
                 op == ops.RERAISE
         ):
@@ -621,8 +622,13 @@ class PythonCodeMaker(ast.ASTVisitor):
         self._max_depth = 0
         for block in blocks:
             depth = self._do_stack_depth_walk(block, blocks)
-            if block.auto_inserted_return and depth != 0:
-                self._stacksize_error_pos(depth, blocks, block, None)
+            if block.auto_inserted_return:
+                if block.instructions and block.instructions[-1].opcode == ops.RETURN_CONST:
+                    expected = 1
+                else:
+                    expected = 0
+                if depth != expected:
+                    self._stacksize_error_pos(depth, blocks, block, None)
         return self._max_depth
 
     def _next_stack_depth_walk(self, nextblock, depth, source):
@@ -667,6 +673,10 @@ class PythonCodeMaker(ast.ASTVisitor):
                     break
             elif jump_op == ops.RETURN_VALUE:
                 if depth:
+                    self._stacksize_error_pos(depth, blocks, block, instr)
+                break
+            elif jump_op == ops.RETURN_CONST:
+                if depth != 1:
                     self._stacksize_error_pos(depth, blocks, block, instr)
                 break
             elif jump_op == ops.RAISE_VARARGS:
@@ -795,6 +805,22 @@ class PythonCodeMaker(ast.ASTVisitor):
         # the last reachable block must have cant_add_instructions
         assert last_reachable is not None and last_reachable.cant_add_instructions
 
+    def fuse_return_const(self, blocks):
+        # CPython equivalent: the compiler's peephole pass that fuses a
+        # trailing LOAD_CONST x; RETURN_VALUE into RETURN_CONST x. Jump
+        # targets are per-block (never mid-block), so this is safe
+        # regardless of whether the LOAD_CONST is also the block's first
+        # instruction.
+        for block in blocks:
+            instructions = block.instructions
+            if len(instructions) < 2:
+                continue
+            last = instructions[-1]
+            prev = instructions[-2]
+            if last.opcode == ops.RETURN_VALUE and prev.opcode == ops.LOAD_CONST:
+                instructions[-2:] = [Instruction(ops.RETURN_CONST, prev.arg,
+                                                 last.position_info)]
+
     def apply_static_swaps(self, blocks):
         """Eliminate statically-known SWAP sequences (port of CPython's pass)."""
         for block in blocks:
@@ -835,6 +861,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         # Set the first lineno if it is not already explicitly set.
         if self.first_lineno == -1:
             self.first_lineno = mininum_lineno
+        self.fuse_return_const(blocks)
         size = self._resolve_block_targets(blocks)
         return blocks, size
 
@@ -1543,6 +1570,11 @@ _static_opcode_stack_effects = {
     ops.BEFORE_WITH: 1,
 
     ops.RETURN_VALUE: -1,
+    # Unlike CPython, the interpreter's RETURN_CONST pushes the constant
+    # (see pyopcode.py) to reuse the same Return-unwinding path as
+    # RETURN_VALUE, instead of bypassing the stack entirely -- so, unlike
+    # CPython, this must be declared as a real push for co_stacksize.
+    ops.RETURN_CONST: 1,
     ops.YIELD_VALUE: 0,
     ops.YIELD_FROM: -1,
     ops.COMPARE_OP: -1,

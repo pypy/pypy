@@ -890,7 +890,7 @@ def test_co_lines_off_by_one():
             return 2
         return x
     c = f.__code__.replace(co_firstlineno=1)
-    assert list(c.co_lines()) == [(0, 4, 2), (4, 6, 3), (6, 10, 5), (10, 14, 6)]
+    assert list(c.co_lines()) == [(0, 4, 2), (4, 6, 3), (6, 8, 5), (8, 12, 6)]
 
 def test_co_lines_expr_parens():
     def expr_with_parens(x):

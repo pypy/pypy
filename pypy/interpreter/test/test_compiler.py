@@ -1261,7 +1261,7 @@ class AppTestOptimizer(object):
         finally:
             sys.stdout = so
         output = s.getvalue()
-        assert output.count('LOAD_CONST') == 1
+        assert output.count('LOAD_CONST') + output.count('RETURN_CONST') == 1
 
     def test_constant_name(self):
         import opcode
@@ -1272,7 +1272,7 @@ class AppTestOptimizer(object):
                 assert name not in co.co_names
             co = co.co_code
             op = co[0]
-            assert op == opcode.opmap["LOAD_CONST"]
+            assert op == opcode.opmap["RETURN_CONST"]
 
     def test_and_or_folding(self):
         if not self.is_pypy():

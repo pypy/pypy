@@ -2515,7 +2515,7 @@ else:
 pass; pass; pass; pass; pass; pass; pass
 pass; pass; pass; pass
 pass""", [0, 1, 3, 4, 5, 6])
-        assert len(code.co_code) == 16 # check that the NOPs have been reduced
+        assert len(code.co_code) == 14 # check that the NOPs have been reduced
 
     def test_while_1(self):
         code = self.get_line_numbers("""while 1:
@@ -2724,7 +2724,7 @@ class TestDeadCodeGetsRemoved(TestCompiler):
         space = self.space
         code = compile_with_astcompiler(source, 'exec', space)
         dis3.dis(code)
-        assert len(code.co_code) == 4 # load None, return
+        assert len(code.co_code) == 2 # RETURN_CONST None
         assert len(code.co_consts_w) == 1
 
     st = simple_test
@@ -3115,7 +3115,7 @@ class TestOptimizations:
         return (0, 1)[0]
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+        assert counts == {ops.RETURN_CONST: 1}
 
         source = """def f():
         return (0, 1)[:2]
@@ -3170,7 +3170,7 @@ class TestOptimizations:
             x += 1
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+        assert counts == {ops.RETURN_CONST: 1}
 
     def test_remove_dead_code_after_raise(self):
         source = """def f(x):
@@ -3199,7 +3199,7 @@ class TestOptimizations:
             yield 6
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST:1, ops.RETURN_VALUE: 1}
+        assert counts == {ops.RETURN_CONST: 1}
         #
         space = self.space
         w_generator = space.appexec([], """():
@@ -3427,7 +3427,7 @@ class TestOptimizations:
             return True
         """
         counts = self.count_instructions(source)
-        assert counts[ops.RETURN_VALUE] == 7
+        assert counts[ops.RETURN_CONST] == 7
 
     def test_assert_looks_at_constants(self):
         source = """def assert0():
