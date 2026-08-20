@@ -296,6 +296,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  **kwds):
         "NOT_RPYTHON"
         MovingGCBase.__init__(self, config, **kwds)
+        self._setup_rawrefcount_pyobj_hdr(config)
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
@@ -3161,33 +3162,37 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     rrc_enabled = False
 
-    # ob_pypy_link storage: cpyext branches that need the visible PyObject header to
-    # match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move the link
-    # to a hidden prefix word immediately *before* ob_refcnt, like PyGC_HEAD; their
-    # cpyext allocator reserves that word. Branches that don't need abi3 compatibility
-    # keep the link inline as a regular header field, as PyPy has always done, and
-    # MUST leave this False -- their allocator never reserves a prefix word, so
-    # flipping it on without the matching cpyext change corrupts memory before every
-    # allocation. This is a fixed per-build policy switch, not a runtime toggle like
-    # rrc_enabled above.
-    #
-    # True here because this branch (abi3) does reserve the prefix in its cpyext
-    # allocator -- see pypy/module/cpyext/src/object.c _generic_alloc. Branches
-    # without the matching cpyext change must keep this False.
-    rrc_link_prefix = True
-
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
-    if rrc_link_prefix:
-        PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
-                                  ('ob_pypy_link', lltype.Signed),
-                                  ('ob_refcnt', lltype.Signed))
-    else:
-        PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
-                                  ('ob_refcnt', lltype.Signed),
-                                  ('ob_pypy_link', lltype.Signed))
-    PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
-    PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)   # offset of ob_pypy_link before ob_refcnt, iff rrc_link_prefix
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+    def _setup_rawrefcount_pyobj_hdr(self, config):
+        "NOT_RPYTHON"
+        # ob_pypy_link storage: cpyext builds that need the visible PyObject header
+        # to match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move
+        # the link to a hidden prefix word immediately *before* ob_refcnt, like
+        # PyGC_HEAD; their cpyext allocator reserves that word. Builds that don't
+        # need abi3 compatibility keep the link inline as a regular header field,
+        # as PyPy has always done -- their allocator never reserves a prefix word,
+        # so turning this on without the matching cpyext change corrupts memory
+        # before every allocation.
+        #
+        # translation.rawrefcount_link_prefix is the single source of truth for
+        # this choice; it is False everywhere except where a target explicitly
+        # opts in (see pypy/goal/targetpypystandalone.py, set for the py3.12/abi3
+        # build). rpython.rlib.rawrefcount.RRC_LINK_PREFIX mirrors this value for
+        # its untranslated (test-only) equivalents and must be kept in sync by hand.
+        self.rrc_link_prefix = config.rawrefcount_link_prefix
+        if self.rrc_link_prefix:
+            self.PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                           ('ob_pypy_link', lltype.Signed),
+                                           ('ob_refcnt', lltype.Signed))
+        else:
+            self.PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                           ('ob_refcnt', lltype.Signed),
+                                           ('ob_pypy_link', lltype.Signed))
+        self.PYOBJ_HDR_PTR = lltype.Ptr(self.PYOBJ_HDR)
+        # offset of ob_pypy_link before ob_refcnt, iff rrc_link_prefix
+        self.PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)
 
     def _pyobj(self, pyobjaddr):
         # rffi.cast is an unchecked reinterpret (identical to a plain C cast once

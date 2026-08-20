@@ -45,19 +45,8 @@ else:
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 
-# ob_pypy_link storage: cpyext branches that need the visible PyObject header to
-# match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move the link to
-# a hidden prefix word immediately *before* ob_refcnt, like PyGC_HEAD; their cpyext
-# allocator reserves that word (see pypy/module/cpyext). Branches that don't need
-# abi3 compatibility keep the link inline as a regular header field, as PyPy has
-# always done, and MUST leave this False -- their allocator never reserves a prefix
-# word, so flipping it on without the matching cpyext change corrupts memory before
-# every allocation. Mirrors IncrementalMiniMarkGC.rrc_link_prefix in incminimark.py,
-# which the translated GC uses instead of these untranslated (test-only) equivalents.
-#
-# True here because this branch (abi3) does reserve the prefix in its cpyext
-# allocator -- see pypy/module/cpyext/src/object.c _generic_alloc. Branches
-# without the matching cpyext change must keep this False.
+# Keep in sync with pypy/goal/targetpypystandalone.py and
+# rpython/config/translationoption.py's rawrefcount_link_prefix.
 RRC_LINK_PREFIX = True
 
 _LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
@@ -416,6 +405,7 @@ class Entry(ExtRegistryEntry):
 
 src_dir = py.path.local(__file__).dirpath() / 'src'
 boehm_eci = ExternalCompilationInfo(
+    pre_include_bits       = ['#define RRC_LINK_PREFIX %d' % int(RRC_LINK_PREFIX)],
     post_include_bits     = [(src_dir / 'boehm-rawrefcount.h').read()],
     separate_module_files = [(src_dir / 'boehm-rawrefcount.c')],
 )

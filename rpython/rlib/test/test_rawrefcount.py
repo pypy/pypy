@@ -283,6 +283,7 @@ class TestTranslated(StandaloneTests):
 
         self.config = get_combined_translation_config(translating=True)
         self.config.translation.gc = "incminimark"
+        self.config.translation.rawrefcount_link_prefix = rawrefcount.RRC_LINK_PREFIX
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('OK!\n')
