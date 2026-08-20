@@ -813,13 +813,15 @@ class PythonCodeMaker(ast.ASTVisitor):
         # instruction.
         for block in blocks:
             instructions = block.instructions
-            if len(instructions) < 2:
+            n = len(instructions)
+            if n < 2:
                 continue
-            last = instructions[-1]
-            prev = instructions[-2]
+            last = instructions[n - 1]
+            prev = instructions[n - 2]
             if last.opcode == ops.RETURN_VALUE and prev.opcode == ops.LOAD_CONST:
-                instructions[-2:] = [Instruction(ops.RETURN_CONST, prev.arg,
-                                                 last.position_info)]
+                instructions[n - 2] = Instruction(ops.RETURN_CONST, prev.arg,
+                                                  last.position_info)
+                del instructions[n - 1]
 
     def apply_static_swaps(self, blocks):
         """Eliminate statically-known SWAP sequences (port of CPython's pass)."""

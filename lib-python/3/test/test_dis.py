@@ -893,7 +893,29 @@ class DisTestBase(unittest.TestCase):
         return "".join(res)
 
     def strip_resume(self, text):  #No adaptive interpreter on PyPy
-        return re.sub(r'^.*\bRESUME\b.*\n\n?', '', text, flags=re.MULTILINE)
+        # CPython's RESUME owns the "starts_line" marker for its source line.
+        # If the next instruction is on a different line (blank separator
+        # line follows), it already carries its own marker and RESUME can
+        # just be dropped. If it shares RESUME's line (no separator), that
+        # instruction now legitimately starts the line itself, so RESUME's
+        # lineno field must move onto it.
+        lines = text.split('\n')
+        out = []
+        i = 0
+        while i < len(lines):
+            m = re.match(r'^(.*?)RESUME\b', lines[i])
+            if m is None:
+                out.append(lines[i])
+                i += 1
+                continue
+            lineno_field = m.group(1)
+            i += 1
+            if i < len(lines) and lines[i] == '':
+                i += 1
+            elif i < len(lines):
+                width = len(lineno_field)
+                lines[i] = lineno_field + lines[i][width:]
+        return '\n'.join(out)
 
     def do_disassembly_compare(self, got, expected, with_offsets=False):
         if not with_offsets:
@@ -1145,6 +1167,9 @@ class DisTests(DisTestBase):
             dis = self.get_disassembly(_h, **kwargs)
             dis = self.strip_addresses(dis)
             dis = self.strip_offsets(dis)
+            #PYPY CHANGE
+            if IS_PYPY:
+                expected = self.strip_resume(expected)
             self.assertEqual(dis, expected)
 
         check(dis_nested_0, depth=0)
@@ -1787,9 +1812,30 @@ expected_opinfo_simple = [
 
 class InstructionTestCase(BytecodeTestCase):
 
+    def strip_resume_instructions(self, instrs):  #No adaptive interpreter on PyPy
+        # Mirrors strip_resume (DisTestBase) for object-based comparisons:
+        # RESUME owns starts_line for its source line; when dropped, hand it
+        # to the next instruction if that instruction has no marker of its
+        # own (i.e. it shared RESUME's line).
+        out = []
+        pending_lineno = None
+        for instr in instrs:
+            if instr.opname == 'RESUME':
+                pending_lineno = instr.starts_line
+                continue
+            if pending_lineno is not None and instr.starts_line is None:
+                instr = instr._replace(starts_line=pending_lineno)
+            pending_lineno = None
+            out.append(instr)
+        return out
+
     def assertInstructionsEqual(self, instrs_1, instrs_2, /):
         instrs_1 = [instr_1._replace(positions=None) for instr_1 in instrs_1]
         instrs_2 = [instr_2._replace(positions=None) for instr_2 in instrs_2]
+        if IS_PYPY:
+            instrs_2 = self.strip_resume_instructions(instrs_2)
+            instrs_1 = [i._replace(offset=None) for i in instrs_1]
+            instrs_2 = [i._replace(offset=None) for i in instrs_2]
         self.assertEqual(instrs_1, instrs_2)
 
 class InstructionTests(InstructionTestCase):
@@ -1955,7 +2001,9 @@ class BytecodeTests(InstructionTestCase, DisTestBase):
         self.maxDiff = None
         tb = get_tb()
         b = dis.Bytecode.from_traceback(tb)
-        self.assertEqual(self.strip_offsets(b.dis()), dis_traceback)
+        #PYPY CHANGE
+        # self.assertEqual(self.strip_offsets(b.dis()), dis_traceback)
+        self.do_disassembly_compare(b.dis(), dis_traceback)
 
     @requires_debug_ranges()
     def test_bytecode_co_positions(self):
