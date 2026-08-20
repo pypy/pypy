@@ -6,6 +6,7 @@ Glossary:
 from unittest import TestCase, mock
 import errno
 import os
+import sys
 import tabnanny
 import tokenize
 import tempfile
@@ -222,8 +223,14 @@ class TestCheck(TestCase):
         """
         with TemporaryPyFile(SOURCE_CODES["nannynag_errored"]) as file_path:
             out = f"{file_path!r}: *** Line 3: trouble in tab city! ***\n"
-            out += "offending line: '\\tprint(\"world\")'\n"
-            out += "inconsistent use of tabs and spaces in indentation\n"
+            if sys.implementation.name == "pypy":
+                # PyPy's tokenizer doesn't detect tab/space ambiguity as a
+                # TabError, so tabnanny falls back to its own older check.
+                out += "offending line: '\\tprint(\"world\")\\n'\n"
+                out += "indent not equal e.g. at tab size 1\n"
+            else:
+                out += "offending line: '\\tprint(\"world\")'\n"
+                out += "inconsistent use of tabs and spaces in indentation\n"
 
             tabnanny.verbose = 1
             self.verify_tabnanny_check(file_path, out=out)
@@ -231,7 +238,10 @@ class TestCheck(TestCase):
     def test_when_nannynag_error(self):
         """A python source code file eligible for raising `tabnanny.NannyNag`."""
         with TemporaryPyFile(SOURCE_CODES["nannynag_errored"]) as file_path:
-            out = f"{file_path} 3 '\\tprint(\"world\")'\n"
+            if sys.implementation.name == "pypy":
+                out = f"{file_path} 3 '\\tprint(\"world\")\\n'\n"
+            else:
+                out = f"{file_path} 3 '\\tprint(\"world\")'\n"
             self.verify_tabnanny_check(file_path, out=out)
 
     def test_when_no_file(self):
@@ -340,15 +350,23 @@ class TestCommandLine(TestCase):
     def test_verbose_mode(self):
         """Should display more error information if verbose mode is on."""
         with TemporaryPyFile(SOURCE_CODES["nannynag_errored"]) as path:
-            stdout = textwrap.dedent(
-                "offending line: '\\tprint(\"world\")'"
-            ).strip()
+            if sys.implementation.name == "pypy":
+                # PyPy's tokenizer doesn't detect tab/space ambiguity as a
+                # TabError, so tabnanny falls back to its own older check.
+                line = "offending line: '\\tprint(\"world\")\\n'"
+            else:
+                line = "offending line: '\\tprint(\"world\")'"
+            stdout = textwrap.dedent(line).strip()
             self.validate_cmd("-v", path, stdout=stdout, partial=True)
 
     def test_double_verbose_mode(self):
         """Should display detailed error information if double verbose is on."""
         with TemporaryPyFile(SOURCE_CODES["nannynag_errored"]) as path:
-            stdout = textwrap.dedent(
-                "offending line: '\\tprint(\"world\")'"
-            ).strip()
+            if sys.implementation.name == "pypy":
+                # PyPy's tokenizer doesn't detect tab/space ambiguity as a
+                # TabError, so tabnanny falls back to its own older check.
+                line = "offending line: '\\tprint(\"world\")\\n'"
+            else:
+                line = "offending line: '\\tprint(\"world\")'"
+            stdout = textwrap.dedent(line).strip()
             self.validate_cmd("-vv", path, stdout=stdout, partial=True)

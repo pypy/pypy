@@ -13,6 +13,18 @@ from token import (
     EXACT_TOKEN_TYPES,
 )
 
+
+def _syntax_error(msg, lineno, offset):
+    # tokenize.py's _generate_tokens_from_c_tokenizer reads .msg/.lineno/
+    # .offset off a plain SyntaxError (matching CPython's C tokenizer,
+    # which raises via PyErr_SyntaxLocationObject rather than the 4-tuple
+    # constructor form) and re-raises as tokenize.TokenError.
+    err = SyntaxError(msg)
+    err.lineno = lineno
+    err.offset = offset
+    return err
+
+
 # -- Regex patterns (adapted from tokenize.py) --------------------------------
 
 def _group(*choices): return '(' + '|'.join(choices) + ')'
@@ -515,7 +527,8 @@ def _generate(readline, encoding, extra_tokens):
 
         if contstr:                                    # continued string
             if not line:
-                raise SyntaxError("EOF in multi-line string", (None, strstart))
+                raise _syntax_error("unterminated triple-quoted string literal",
+                                    strstart[0], strstart[1])
             endmatch = endprog.match(line)
             if endmatch:
                 pos = end = endmatch.end(0)
@@ -591,7 +604,7 @@ def _generate(readline, encoding, extra_tokens):
 
         else:                                          # continued statement
             if not line:
-                raise SyntaxError("EOF in multi-line statement", (lnum, 0))
+                raise _syntax_error("unexpected EOF in multi-line statement", lnum, 0)
             continued = 0
 
         while pos < maxpos:
