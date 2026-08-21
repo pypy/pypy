@@ -3123,37 +3123,26 @@ class TestOptimizations:
         # Just checking this doesn't crash out
         self.count_instructions(source)
 
-    def test_const_fold_unicode_subscr(self, monkeypatch):
+    def test_const_fold_unicode_subscr(self):
         source = """def f():
         return "abc"[0]
         """
         counts = self.count_instructions(source)
-        if 0:   # xxx later?
-            assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
+        assert counts == {ops.RETURN_CONST: 1}
 
-        # getitem outside of the BMP should not be optimized
+        # non-BMP subscripts fold too (PEP 393 removed the narrow/wide
+        # build distinction that used to block this).
         source = """def f():
         return "\U00012345"[0]
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
-                          ops.RETURN_VALUE: 1}
+        assert counts == {ops.RETURN_CONST: 1}
 
         source = """def f():
         return "\U00012345abcdef"[3]
         """
         counts = self.count_instructions(source)
-        assert counts == {ops.LOAD_CONST: 2, ops.BINARY_SUBSCR: 1,
-                          ops.RETURN_VALUE: 1}
-
-        monkeypatch.setattr(optimize, "MAXUNICODE", 0xFFFF)
-        source = """def f():
-        return "\uE01F"[0]
-        """
-        counts = self.count_instructions(source)
-        if 0:   # xxx later?
-            assert counts == {ops.LOAD_CONST: 1, ops.RETURN_VALUE: 1}
-        monkeypatch.undo()
+        assert counts == {ops.RETURN_CONST: 1}
 
         # getslice is not yet optimized.
         # Still, check a case which yields the empty string.
@@ -3163,6 +3152,38 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts == {ops.LOAD_CONST: 3, ops.BUILD_SLICE: 1,
                           ops.BINARY_SUBSCR: 1, ops.RETURN_VALUE: 1}
+
+    def test_fold_list_literal_in_membership_test(self):
+        source = """def f():
+        return x in [a, b]
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_LIST not in counts
+        assert ops.BUILD_TUPLE in counts
+
+    def test_fold_empty_list_literal_in_for_loop(self):
+        source = """def f():
+        for x in []:
+            pass
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_LIST not in counts
+
+    def test_fold_list_literal_in_for_loop(self):
+        source = """def f():
+        for x in [a, b]:
+            pass
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_LIST not in counts
+        assert ops.BUILD_TUPLE in counts
+
+    def test_dont_fold_list_literal_with_starred(self):
+        source = """def f():
+        return x in [*a, b]
+        """
+        counts = self.count_instructions(source)
+        assert ops.BUILD_LIST in counts
 
     def test_remove_dead_code(self):
         source = """def f(x):

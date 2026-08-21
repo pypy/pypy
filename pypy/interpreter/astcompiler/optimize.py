@@ -5,7 +5,6 @@ from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib.objectmodel import specialize
 
 
@@ -210,6 +209,35 @@ class OptimizingVisitor(ast.ASTVisitor):
                     return self.new_constant(w_const, binop)
         return binop
 
+    def _fold_iterable_list(self, node):
+        """A list literal used as the right operand of in/not in, or as a
+        for-loop's iterable, never needs to be an actual (mutable) list --
+        change it into a tuple (folding to a constant tuple when possible).
+        Matches CPython's ast_opt.c fold_iter, including its bailout when
+        the list contains a starred element.
+        """
+        if isinstance(node, ast.List) and node.ctx == ast.Load:
+            if node.elts:
+                for elt in node.elts:
+                    if isinstance(elt, ast.Starred):
+                        return node
+            tup = ast.Tuple(node.elts, ast.Load, node.lineno, node.col_offset,
+                            node.end_lineno, node.end_col_offset)
+            return self.visit_Tuple(tup)
+        return node
+
+    def visit_Compare(self, comp):
+        ops = comp.ops
+        if ops:
+            i = len(ops) - 1
+            if ops[i] == ast.In or ops[i] == ast.NotIn:
+                comp.comparators[i] = self._fold_iterable_list(comp.comparators[i])
+        return comp
+
+    def visit_For(self, fr):
+        fr.iter = self._fold_iterable_list(fr.iter)
+        return fr
+
     def visit_UnaryOp(self, unary):
         w_operand = unary.operand.as_constant(self.space, self.compile_info)
         op = unary.op
@@ -348,29 +376,6 @@ class OptimizingVisitor(ast.ASTVisitor):
                         w_const = self.space.getitem(w_obj, w_idx)
                     except OperationError:
                         # Let exceptions propagate at runtime.
-                        return subs
-
-                    # CPython issue5057: if v is unicode, there might
-                    # be differences between wide and narrow builds in
-                    # cases like u'\U00012345'[0].
-                    # Wide builds will return a non-BMP char, whereas
-                    # narrow builds will return a surrogate.  In both
-                    # the cases skip the optimization in order to
-                    # produce compatible pycs.
-                    if (self.space.isinstance_w(w_obj, self.space.w_unicode) and
-                        self.space.isinstance_w(w_const, self.space.w_unicode)):
-                        #unistr = self.space.utf8_w(w_const)
-                        #if len(unistr) == 1:
-                        #    ch = ord(unistr[0])
-                        #else:
-                        #    ch = 0
-                        #if (ch > 0xFFFF or
-                        #    (MAXUNICODE == 0xFFFF and 0xD800 <= ch <= 0xDFFF)):
-                        # --XXX-- for now we always disable optimization of
-                        # u'...'[constant] because the tests above are not
-                        # enough to fix issue5057 (CPython has the same
-                        # problem as of April 24, 2012).
-                        # See test_const_fold_unicode_subscr
                         return subs
 
                     return self.new_constant(w_const, subs)
