@@ -135,6 +135,22 @@ def slot_sq_inplace_concat(space, w_obj1, w_obj2):
 def slot_mp_subscript(space, w_obj1, w_obj2):
     return space.getitem(w_obj1, w_obj2)
 
+@slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+def slot_mp_ass_subscript(space, w_obj, w_key, w_value):
+    if w_value is not None:
+        space.setitem(w_obj, w_key, w_value)
+    else:
+        space.delitem(w_obj, w_key)
+    return 0
+
+@slot_function([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+def slot_sq_ass_item(space, w_obj, index, w_value):
+    if w_value is not None:
+        space.setitem(w_obj, space.newint(index), w_value)
+    else:
+        space.delitem(w_obj, space.newint(index))
+    return 0
+
 @slot_function([PyObject, PyObject], PyObject)
 def slot_tp_getattr_hook(space, w_obj1, w_obj2):
     return space.getattr(w_obj1, w_obj2)

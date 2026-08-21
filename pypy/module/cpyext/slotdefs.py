@@ -495,6 +495,46 @@ def get_slot_tp_function(space, typedef, name, method_name):
         return api_func
 
 
+# PYPY: CPython's built-in types selectively populate tp_as_sequence vs
+# tp_as_mapping item slots per type -- e.g. dict has no sq_item at all,
+# memoryview has sq_item but not sq_ass_item, tuple/bytes/str/range have
+# both get slots but neither set slot. This can't be derived from
+# __getitem__/__setitem__/__delitem__ presence alone (all the generic
+# per-dunder slot filling below has to go on), so hard-code it here to
+# mirror CPython's real PyTypeObject structs 1:1 (checked against CPython
+# 3.11 headers). Types not listed keep the generic dunder-derived behavior.
+# Only covers types that go through update_all_slots_builtin (Py_TPFLAGS_
+# HEAPTYPE unset) -- MixedModule types like array.array/collections.deque
+# are heap types and go through update_all_slots/userslot.py instead.
+# typedef name: (sq_item, sq_ass_item, mp_subscript, mp_ass_subscript)
+ITEM_SLOTS_BY_TYPEDEF_NAME = {
+    'dict':              (False, False, True,  True),
+    'mappingproxy':      (False, False, True,  False),
+    'list':              (True,  True,  True,  True),
+    'bytearray':         (True,  True,  True,  True),
+    'tuple':             (True,  False, True,  False),
+    'bytes':             (True,  False, True,  False),
+    'str':               (True,  False, True,  False),
+    'range':             (True,  False, True,  False),
+    'memoryview':        (True,  False, True,  True),
+}
+
+def _item_slot_allowed(typedef, name):
+    slots = ITEM_SLOTS_BY_TYPEDEF_NAME.get(typedef.name)
+    if slots is None:
+        return True
+    sq_item, sq_ass_item, mp_subscript, mp_ass_subscript = slots
+    if name == 'tp_as_sequence.c_sq_item':
+        return sq_item
+    if name == 'tp_as_sequence.c_sq_ass_item':
+        return sq_ass_item
+    if name == 'tp_as_mapping.c_mp_subscript':
+        return mp_subscript
+    if name == 'tp_as_mapping.c_mp_ass_subscript':
+        return mp_ass_subscript
+    return True
+
+
 def make_unary_slot(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
     slot_fn = w_type.lookup(attr)
@@ -547,6 +587,8 @@ for name in UNARY_SLOTS_INT:
 
 
 def make_binary_slot(space, typedef, name, attr):
+    if not _item_slot_allowed(typedef, name):
+        return
     w_type = space.gettypeobject(typedef)
     slot_fn = w_type.lookup(attr)
     if slot_fn is None:
@@ -578,6 +620,8 @@ for name in BINARY_SLOTS:
 
 
 def make_binary_slot_int(space, typedef, name, attr):
+    if not _item_slot_allowed(typedef, name):
+        return
     w_type = space.gettypeobject(typedef)
     slot_fn = w_type.lookup(attr)
     if slot_fn is None:
@@ -611,21 +655,36 @@ def make_nb_power(space, typedef, name, attr):
 
 @slot_factory('tp_as_mapping.c_mp_ass_subscript')
 def make_sq_set_item(space, typedef, name, attr):
-    w_type = space.gettypeobject(typedef)
-    slot_ass = w_type.lookup(attr)
-    if slot_ass is None:
+    # PYPY: like CPython's slot_mp_ass_subscript, this single C slot serves
+    # both __setitem__ and __delitem__ (dispatched on whether the new value
+    # is NULL). It must be filled in if EITHER is defined -- e.g. memoryview
+    # defines __setitem__ but not __delitem__ (issue 5564): requiring both
+    # left the slot NULL, breaking C code (e.g. Cython-generated) that reads
+    # tp_as_mapping->mp_ass_subscript directly instead of going through
+    # PyObject_SetItem.
+    if not _item_slot_allowed(typedef, name):
         return
+    w_type = space.gettypeobject(typedef)
+    slot_ass = w_type.lookup('__setitem__')
     slot_del = w_type.lookup('__delitem__')
-    if slot_del is None:
+    if slot_ass is None and slot_del is None:
         return
 
     @slot_function([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
     @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
     def slot_func(space, w_self, w_arg1, arg2):
         if arg2:
+            if slot_ass is None:
+                raise oefmt(space.w_TypeError,
+                            "'%T' object does not support item assignment",
+                            w_self)
             w_arg2 = from_ref(space, rffi.cast(PyObject, arg2))
             space.call_function(slot_ass, w_self, w_arg1, w_arg2)
         else:
+            if slot_del is None:
+                raise oefmt(space.w_TypeError,
+                            "'%T' object does not support item deletion",
+                            w_self)
             space.call_function(slot_del, w_self, w_arg1)
         return 0
     return slot_func
@@ -633,6 +692,8 @@ def make_sq_set_item(space, typedef, name, attr):
 
 @slot_factory('tp_as_sequence.c_sq_ass_item')
 def make_sq_ass_item(space, typedef, name, attr):
+    if not _item_slot_allowed(typedef, name):
+        return
     w_type = space.gettypeobject(typedef)
     slot_ass = w_type.lookup(attr)
     if slot_ass is None:

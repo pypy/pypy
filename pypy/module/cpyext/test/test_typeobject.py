@@ -384,6 +384,15 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 Py_INCREF(value);
                 return value;
              '''),
+            ("get_item_slots", "METH_O",
+             """
+                PyTypeObject *tp = Py_TYPE(args);
+                return Py_BuildValue("(iiii)",
+                    tp->tp_as_sequence && tp->tp_as_sequence->sq_item ? 1 : 0,
+                    tp->tp_as_sequence && tp->tp_as_sequence->sq_ass_item ? 1 : 0,
+                    tp->tp_as_mapping && tp->tp_as_mapping->mp_subscript ? 1 : 0,
+                    tp->tp_as_mapping && tp->tp_as_mapping->mp_ass_subscript ? 1 : 0);
+             """),
             ])
         obj = foo.new()
         assert module.read_tp_dict(obj) == foo.fooType.copy
@@ -391,15 +400,27 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(d) is dict
         d["_some_attribute"] = 1
         assert type(obj)._some_attribute == 1
-        del d["_some_attribute"]
 
-        class A(object):
-            pass
-        obj = A()
-        d = module.get_type_dict(obj)
-        assert type(d) is dict
-        d["_some_attribute"] = 1
-        assert type(obj)._some_attribute == 1
+        # (sq_item, sq_ass_item, mp_subscript, mp_ass_subscript), matching
+        # CPython's real PyTypeObject structs
+        expected = {
+            'dict':       (0, 0, 1, 1),
+            'list':       (1, 1, 1, 1),
+            'tuple':      (1, 0, 1, 0),
+            'bytearray':  (1, 1, 1, 1),
+            'bytes':      (1, 0, 1, 0),
+            'str':        (1, 0, 1, 0),
+            'range':      (1, 0, 1, 0),
+            'memoryview': (1, 0, 1, 1),
+        }
+        samples = {
+            'dict': {}, 'list': [], 'tuple': (), 'bytearray': bytearray(1),
+            'bytes': b'x', 'str': 'x', 'range': range(1),
+            'memoryview': memoryview(bytearray(1)),
+        }
+        for name, sample in samples.items():
+            got = module.get_item_slots(sample)
+            assert got == expected[name], (name, got, expected[name])
         del d["_some_attribute"]
 
         d = module.get_type_dict(1)
@@ -411,6 +432,57 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         else:
             assert int._some_attribute == 1
             del d["_some_attribute"]
+
+    def test_heaptype_item_slots(self):
+        module = self.import_extension('foo', [
+            ("get_item_slots", "METH_O",
+             """
+                PyTypeObject *tp = Py_TYPE(args);
+                return Py_BuildValue("(iiii)",
+                    tp->tp_as_sequence && tp->tp_as_sequence->sq_item ? 1 : 0,
+                    tp->tp_as_sequence && tp->tp_as_sequence->sq_ass_item ? 1 : 0,
+                    tp->tp_as_mapping && tp->tp_as_mapping->mp_subscript ? 1 : 0,
+                    tp->tp_as_mapping && tp->tp_as_mapping->mp_ass_subscript ? 1 : 0);
+             """),
+        ])
+
+        class FromList(list):
+            def __getitem__(self, key):
+                return list.__getitem__(self, key)
+            def __setitem__(self, key, value):
+                list.__setitem__(self, key, value)
+
+        class FromDict(dict):
+            def __getitem__(self, key):
+                return dict.__getitem__(self, key)
+            def __setitem__(self, key, value):
+                dict.__setitem__(self, key, value)
+
+        class Plain(object):
+            def __getitem__(self, key):
+                return None
+            def __setitem__(self, key, value):
+                pass
+
+        import array
+        import collections
+        # CPython fills all four slots uniformly for any generic heap type
+        # (Python class, or a MixedModule type like array.array) that
+        # defines __setitem__, regardless of what it inherits from --
+        # except collections.deque, whose real CPython type deliberately
+        # implements only the sequence protocol, not the mapping protocol.
+        expected = {
+            'FromList': (1, 1, 1, 1), 'FromDict': (1, 1, 1, 1),
+            'Plain': (1, 1, 1, 1), 'array': (1, 1, 1, 1),
+            'deque': (1, 1, 0, 0),
+        }
+        samples = {
+            'FromList': FromList(), 'FromDict': FromDict(), 'Plain': Plain(),
+            'array': array.array('b', [0]), 'deque': collections.deque([1]),
+        }
+        for name, sample in samples.items():
+            got = module.get_item_slots(sample)
+            assert got == expected[name], (name, got, expected[name])
 
     def test_custom_allocation(self):
         foo = self.import_module("foo")
