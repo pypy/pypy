@@ -164,6 +164,38 @@ if "__pypy__" in sys.modules:
 else:
     _builtin_code_type = None
 
+# PYPY: names of dunder methods that fill a CPython C-level type slot and
+# are therefore exposed as a distinct 'wrapper_descriptor'/bound
+# 'method-wrapper' (e.g. object().__init__, [].__len__), as opposed to an
+# ordinary 'method_descriptor'/bound 'builtin_function_or_method' (e.g.
+# [].append, object.__reduce__). PyPy has no separate MethodWrapperType, so
+# both show up as a plain bound 'method' wrapping builtin code; use this
+# fixed table (mirrors CPython's static slotdefs list in typeobject.c) to
+# tell the two apart by name.
+_SLOT_WRAPPER_NAMES = frozenset((
+    '__abs__', '__add__', '__aiter__', '__and__', '__anext__', '__await__',
+    '__bool__', '__call__', '__contains__', '__del__', '__delattr__',
+    '__delete__', '__delitem__', '__divmod__', '__eq__', '__float__',
+    '__floordiv__', '__ge__', '__get__', '__getattribute__', '__getitem__',
+    '__gt__', '__hash__', '__iadd__', '__iand__', '__imul__', '__index__',
+    '__init__', '__int__', '__invert__', '__ior__', '__isub__', '__iter__',
+    '__ixor__', '__le__', '__len__', '__lshift__', '__lt__', '__mod__',
+    '__mul__', '__ne__', '__neg__', '__next__', '__or__', '__pos__',
+    '__pow__', '__radd__', '__rand__', '__rdivmod__', '__repr__',
+    '__rfloordiv__', '__rlshift__', '__rmod__', '__rmul__', '__ror__',
+    '__rpow__', '__rrshift__', '__rshift__', '__rsub__', '__rtruediv__',
+    '__rxor__', '__set__', '__setattr__', '__setitem__', '__str__',
+    '__sub__', '__truediv__', '__xor__',
+))
+
+def _is_pypy_slot_wrapper(object):
+    if _builtin_code_type is None or not isinstance(object, types.MethodType):
+        return False
+    if getattr(object, '__name__', None) not in _SLOT_WRAPPER_NAMES:
+        return False
+    code = getattr(getattr(object, '__func__', None), '__code__', None)
+    return isinstance(code, _builtin_code_type)
+
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
 mod_dict = globals()
@@ -531,8 +563,10 @@ def isbuiltin(object):
     if isinstance(object, types.BuiltinFunctionType) or _is_cpyext_function(object):
         return True
     # PYPY: methods with builtin code (e.g. [].append) have type 'method',
-    # not 'builtin_function_or_method'.
-    if _builtin_code_type is not None and isinstance(object, types.MethodType):
+    # not 'builtin_function_or_method'. Slot wrappers (e.g. object().__init__)
+    # are excluded here -- see ismethodwrapper().
+    if (_builtin_code_type is not None and isinstance(object, types.MethodType)
+            and getattr(object, '__name__', None) not in _SLOT_WRAPPER_NAMES):
         code = getattr(getattr(object, '__func__', None), '__code__', None)
         if isinstance(code, _builtin_code_type):
             return True
@@ -542,9 +576,9 @@ def ismethodwrapper(object):
     """Return true if the object is a method wrapper."""
     # PYPY: PyPy has no distinct MethodWrapperType — slot wrappers like
     # object().__str__ and builtin methods like [].append are both 'method'.
-    # Cannot implement correctly; always returns False on PyPy.
+    # Distinguish them by name; see _is_pypy_slot_wrapper.
     if _builtin_code_type is not None:
-        return False
+        return _is_pypy_slot_wrapper(object)
     return isinstance(object, types.MethodWrapperType)
 
 def isroutine(object):

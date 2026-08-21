@@ -619,6 +619,24 @@ def test_method_repr():
                                     A.__qualname__)
     assert repr(A().f).endswith(">>")
 
+def test_builtin_bound_method_repr_no_recursion():
+    # issue 5503: repr() of a bound method wrapping builtin code (e.g. an
+    # unoverridden __init__) must not call repr() on the bound instance,
+    # or a custom __repr__ that inspects such a method recurses forever.
+    class Foo(object):
+        def __repr__(self):
+            return repr(self.__init__)
+    f = Foo()
+    r = repr(f.__init__)
+    assert r.startswith("<built-in method __init__ of Foo object at 0x")
+    assert r.endswith(">")
+
+def test_builtin_bound_method_repr():
+    l = []
+    r = repr(l.append)
+    assert r.startswith("<built-in method append of list object at 0x")
+    assert r.endswith(">")
+
 def test_method_repr_2():
     class ClsA(object):
         def f(self):
