@@ -7,6 +7,8 @@ import unittest
 from test import support
 from test.support.bytecode_helper import BytecodeTestCase, CfgOptimizationTestCase
 
+IS_PYPY = sys.implementation.name == 'pypy'
+
 
 def compile_pattern_with_fast_locals(pattern):
     source = textwrap.dedent(
@@ -117,6 +119,7 @@ class TestTranforms(BytecodeTestCase):
         self.assertInBytecode(f, 'RETURN_CONST', None)
         self.check_lnotab(f)
 
+    @support.cpython_only  #PYPY CHANGE
     def test_while_one(self):
         # Skip over:  LOAD_CONST trueconst  POP_JUMP_IF_FALSE xx
         def f():
@@ -137,7 +140,16 @@ class TestTranforms(BytecodeTestCase):
             ):
             with self.subTest(line=line):
                 code = compile(line,'','single')
-                self.assertInBytecode(code, elem)
+                if IS_PYPY and elem == 'SWAP':
+                    #PYPY CHANGE: pure-Name targets reorder the STORE_NAME
+                    # sequence instead of emitting SWAP -- one fewer instruction
+                    # for the same result, since name/fast stores (unlike
+                    # STORE_ATTR/STORE_SUBSCR) have no order-observable side
+                    # effects.
+                    self.assertNotInBytecode(code, 'SWAP')
+                    self.assertInBytecode(code, 'STORE_NAME')
+                else:
+                    self.assertInBytecode(code, elem)
                 self.assertNotInBytecode(code, 'BUILD_TUPLE')
                 self.assertNotInBytecode(code, 'UNPACK_SEQUENCE')
                 self.check_lnotab(code)
@@ -152,8 +164,19 @@ class TestTranforms(BytecodeTestCase):
             ):
             with self.subTest(line=line):
                 code = compile(line,'','single')
-                self.assertInBytecode(code, 'LOAD_CONST', elem)
-                self.assertNotInBytecode(code, 'BUILD_TUPLE')
+                if IS_PYPY and line == 'a,b,c = 1,2,3':
+                    #PYPY CHANGE: pure-Name targets fold each RHS element
+                    # into its own LOAD_CONST and store directly, instead of
+                    # folding the whole RHS into one tuple constant +
+                    # UNPACK_SEQUENCE -- no BUILD_TUPLE either way, just a
+                    # different (equally valid) instruction shape.
+                    self.assertNotInBytecode(code, 'BUILD_TUPLE')
+                    self.assertNotInBytecode(code, 'UNPACK_SEQUENCE')
+                    for v in elem:
+                        self.assertInBytecode(code, 'LOAD_CONST', v)
+                else:
+                    self.assertInBytecode(code, 'LOAD_CONST', elem)
+                    self.assertNotInBytecode(code, 'BUILD_TUPLE')
                 self.check_lnotab(code)
 
         # Long tuples should be folded too.
@@ -431,12 +454,19 @@ class TestTranforms(BytecodeTestCase):
                 return 5
             return 6
         self.assertNotInBytecode(f, 'JUMP_FORWARD')
-        self.assertNotInBytecode(f, 'JUMP_BACKWARD')
+        if IS_PYPY:
+            #PYPY CHANGE: PyPy never split JUMP_ABSOLUTE into
+            # JUMP_FORWARD/JUMP_BACKWARD, so check the opcode it still uses
+            # for backward jumps.
+            self.assertNotInBytecode(f, 'JUMP_ABSOLUTE')
+        else:
+            self.assertNotInBytecode(f, 'JUMP_BACKWARD')
         returns = [instr for instr in dis.get_instructions(f)
-                          if instr.opname == 'RETURN_VALUE']
+                          if instr.opname in ('RETURN_VALUE', 'RETURN_CONST')]
         self.assertLessEqual(len(returns), 6)
         self.check_lnotab(f)
 
+    @support.cpython_only  #PYPY CHANGE
     def test_make_function_doesnt_bail(self):
         def f():
             def g()->1+1:
@@ -636,6 +666,7 @@ class TestTranforms(BytecodeTestCase):
                     code = compile_pattern_with_fast_locals(pattern)
                     self.assertNotInBytecode(code, "SWAP")
 
+    @unittest.skipIf(IS_PYPY, "unimplemented optimization")  #PYPY CHANGE
     def test_static_swaps_match_sequence(self):
         swaps = {"*_, b, c", "a, *_, c", "a, b, *_"}
         forms = ["{}, {}, {}", "{}, {}, *{}", "{}, *{}, {}", "*{}, {}, {}"]
@@ -690,6 +721,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
             y = x + x
         self.assertInBytecode(f, 'LOAD_FAST')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_unknown_simple(self):
         def f():
             if condition():
@@ -698,6 +730,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST_CHECK')
         self.assertNotInBytecode(f, 'LOAD_FAST')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_unknown_because_del(self):
         def f():
             x = 1
@@ -706,6 +739,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST_CHECK')
         self.assertNotInBytecode(f, 'LOAD_FAST')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_known_because_parameter(self):
         def f1(x):
             print(x)
@@ -732,6 +766,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f5, 'LOAD_FAST')
         self.assertNotInBytecode(f5, 'LOAD_FAST_CHECK')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_known_because_already_loaded(self):
         def f():
             if condition():
@@ -741,6 +776,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST_CHECK')
         self.assertInBytecode(f, 'LOAD_FAST')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_known_multiple_branches(self):
         def f():
             if condition():
@@ -751,6 +787,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST')
         self.assertNotInBytecode(f, 'LOAD_FAST_CHECK')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_unknown_after_error(self):
         def f():
             try:
@@ -762,6 +799,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         # Assert that it doesn't occur in the LOAD_FAST_CHECK branch.
         self.assertInBytecode(f, 'LOAD_FAST_CHECK')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_unknown_after_error_2(self):
         def f():
             try:
@@ -772,6 +810,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST_CHECK')
         self.assertNotInBytecode(f, 'LOAD_FAST')
 
+    @support.cpython_only  #PYPY CHANGE
     def test_load_fast_too_many_locals(self):
         # When there get to be too many locals to analyze completely,
         # later locals are all converted to LOAD_FAST_CHECK, except
@@ -811,6 +850,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, 'LOAD_FAST_CHECK', "a73")
         self.assertInBytecode(f, 'LOAD_FAST', "a73")
 
+    @support.cpython_only  #PYPY CHANGE
     def test_setting_lineno_no_undefined(self):
         code = textwrap.dedent("""\
             def f():
@@ -843,6 +883,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertNotInBytecode(f, "LOAD_FAST_CHECK")
         self.assertEqual(f.__code__.co_code, co_code)
 
+    @support.cpython_only  #PYPY CHANGE
     def test_setting_lineno_one_undefined(self):
         code = textwrap.dedent("""\
             def f():
@@ -877,6 +918,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertNotInBytecode(f, "LOAD_FAST_CHECK")
         self.assertEqual(f.__code__.co_code, co_code)
 
+    @support.cpython_only  #PYPY CHANGE
     def test_setting_lineno_two_undefined(self):
         code = textwrap.dedent("""\
             def f():
@@ -929,6 +971,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertNotInBytecode(f, "LOAD_FAST_CHECK")
         return f
 
+    @support.cpython_only  #PYPY CHANGE
     def test_deleting_local_warns_and_assigns_none(self):
         f = self.make_function_with_no_checks()
         co_code = f.__code__.co_code
@@ -946,6 +989,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertNotInBytecode(f, "LOAD_FAST_CHECK")
         self.assertEqual(f.__code__.co_code, co_code)
 
+    @support.cpython_only  #PYPY CHANGE
     def test_modifying_local_does_not_add_check(self):
         f = self.make_function_with_no_checks()
         def trace(frame, event, arg):
@@ -959,6 +1003,7 @@ class TestMarkingVariablesAsUnKnown(BytecodeTestCase):
         self.assertInBytecode(f, "LOAD_FAST")
         self.assertNotInBytecode(f, "LOAD_FAST_CHECK")
 
+    @support.cpython_only  #PYPY CHANGE
     def test_initializing_local_does_not_add_check(self):
         f = self.make_function_with_no_checks()
         def trace(frame, event, arg):
