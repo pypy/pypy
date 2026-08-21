@@ -127,12 +127,22 @@ class CompilationStepTestCase(unittest.TestCase):
 
 class CodegenTestCase(CompilationStepTestCase):
 
+    #PYPY CHANGE
+    def setUp(self):
+        if compiler_codegen is None:
+            self.skipTest("_testinternalcapi required")
+
     def generate_code(self, ast):
         insts, _ = compiler_codegen(ast, "my_file.py", 0)
         return insts
 
 
 class CfgOptimizationTestCase(CompilationStepTestCase):
+
+    #PYPY CHANGE
+    def setUp(self):
+        if optimize_cfg is None:
+            self.skipTest("_testinternalcapi required")
 
     def get_optimized(self, insts, consts, nlocals=0):
         insts = self.normalize_insts(insts)
@@ -141,6 +151,11 @@ class CfgOptimizationTestCase(CompilationStepTestCase):
         return insts, consts
 
 class AssemblerTestCase(CompilationStepTestCase):
+
+    #PYPY CHANGE
+    def setUp(self):
+        if assemble_code_object is None:
+            self.skipTest("_testinternalcapi required")
 
     def get_code_object(self, filename, insts, metadata):
         co = assemble_code_object(filename, insts, metadata)
