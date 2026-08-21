@@ -214,8 +214,7 @@ class AppTestPosix:
         assert stat.S_ISDIR(st.st_mode)
         st = self.posix.stat(b".")
         assert stat.S_ISDIR(st.st_mode)
-        st = self.posix.stat(bytearray(b"."))
-        assert stat.S_ISDIR(st.st_mode)
+        raises(TypeError, self.posix.stat, bytearray(b"."))
         st = self.posix.lstat(".")
         assert stat.S_ISDIR(st.st_mode)
 
@@ -445,26 +444,11 @@ class AppTestPosix:
         assert u'ca\u2014f\xe9' in result
         raises(OSError, posix.listdir, self.dir_unicode + "NONEXISTENT")
 
-    def test_listdir_memoryview_returns_unicode(self):
-        import sys
-        # XXX unknown why CPython has this behaviour
-
-        # avoid importing stdlib os, copy fsencode instead
-        def fsencode(filename):
-            encoding = sys.getfilesystemencoding()
-            errors = sys.getfilesystemencodeerrors()
-            filename = posix.fspath(filename)  # Does type-checking of `filename`.
-            if isinstance(filename, str):
-                return filename.encode(encoding, errors)
-            else:
-                return filename
-
-
+    def test_listdir_memoryview_rejected(self):
         bytes_dir = self.bytes_dir
         posix = self.posix
-        result1 = posix.listdir(bytes_dir)              # -> list of bytes
-        result2 = posix.listdir(memoryview(bytes_dir))  # -> list of unicodes
-        assert [fsencode(x) for x in result2] == result1
+        posix.listdir(bytes_dir)
+        raises(TypeError, posix.listdir, memoryview(bytes_dir))
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     def test_fdlistdir(self):
@@ -1235,14 +1219,8 @@ class AppTestPosix:
                 assert data == "who cares?"
         finally:
             posix.unlink(dest)
-        posix.symlink(memoryview(bytes_dir + b"/somefile"), dest)
-        try:
-            assert islink(dest)
-            with open(dest) as f:
-                data = f.read()
-                assert data == "who cares?"
-        finally:
-            posix.unlink(dest)
+        raises(TypeError, posix.symlink,
+               memoryview(bytes_dir + b"/somefile"), dest)
 
         dest = bytes_dir + b"_sym"
         posix.symlink(bytes_dir, dest)
@@ -1476,14 +1454,13 @@ class AppTestPosix:
             s2.close()
             s1.close()
 
-        def test_filename_can_be_a_buffer(self):
+        def test_filename_buffer_is_rejected(self):
             import posix, sys
             fsencoding = sys.getfilesystemencoding()
             pdir = (self.pdir + '/file1').encode(fsencoding)
             fd = posix.open(pdir, posix.O_RDONLY)
             posix.close(fd)
-            fd = posix.open(memoryview(pdir), posix.O_RDONLY)
-            posix.close(fd)
+            raises(TypeError, posix.open, memoryview(pdir), posix.O_RDONLY)
 
         def test_getgrouplist(self):
             import posix, getpass

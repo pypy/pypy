@@ -2019,9 +2019,8 @@ class ObjSpace(object):
             self._try_buffer_w(w_obj, self.BUF_FULL_RO)
             if not self.isinstance_w(w_obj, self.w_bytes):
                 tp = self.type(w_obj).name
-                self.warn(self.newtext(
-                    "path should be %s, not %s" % (allowed_types, tp,)),
-                    self.w_DeprecationWarning)
+                raise oefmt(self.w_TypeError,
+                    "expected %s, not %s", allowed_types, tp)
         except BufferInterfaceNotFound:
             from pypy.module.posix.interp_posix import fspath
             w_obj = fspath(self, w_obj)

@@ -192,11 +192,8 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         pass
     else:
         tp = space.type(w_value).name
-        space.warn(space.newtext(
-            "path should be %s, not %s" % (allowed_types, tp,)),
-            space.w_DeprecationWarning)
-        path_b = space.bytesbuf0_w(w_value)
-        return Path(-1, path_b, None, w_value)
+        raise oefmt(space.w_TypeError,
+            "path should be %s, not %s", allowed_types, tp)
 
     # File descriptor case
     if allow_fd:
