@@ -3250,7 +3250,7 @@ class TestOptimizations:
             assert op in counts
 
         for source in (
-            "2 ** 2000",         # constant-folded
+            "2 ** 60",           # constant-folded
             "2 ** -3000",
             "1.001 ** 3000",
             "1 ** 3000.0",

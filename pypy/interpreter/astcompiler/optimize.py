@@ -110,9 +110,10 @@ def _unary_fold(name):
 def _fold_pow(space, w_left, w_right):
     # don't constant-fold if "w_left" and "w_right" are integers and
     # the estimated bit length of the power is unreasonably large
+    # (128 matches CPython's ast_opt.c MAX_INT_SIZE)
     space.appexec([w_left, w_right], """(left, right):
         if isinstance(left, int) and isinstance(right, int):
-            if left.bit_length() * right > 5000:
+            if left.bit_length() * right > 128:
                 raise OverflowError
     """)
     return space.pow(w_left, w_right, space.w_None)
@@ -120,9 +121,10 @@ def _fold_pow(space, w_left, w_right):
 def _fold_lshift(space, w_left, w_right):
     # don't constant-fold if "w_left" and "w_right" are integers and
     # the estimated bit length of the result is unreasonably large
+    # (128 matches CPython's ast_opt.c MAX_INT_SIZE)
     space.appexec([w_left, w_right], """(left, right):
         if isinstance(left, int) and isinstance(right, int):
-            if left.bit_length() + right > 1000:
+            if left.bit_length() + right > 128:
                 raise OverflowError
     """)
     return space.lshift(w_left, w_right)
