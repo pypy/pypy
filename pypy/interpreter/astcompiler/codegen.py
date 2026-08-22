@@ -1645,7 +1645,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(_POP_BLOCK)
         self.use_next_block(normal_exit)
 
-        self.update_position(wih)
+        self.update_position(witem.context_expr)
         # end of body, successful outcome, start cleanup
         self.call_exit_with_nones()
         if is_async:
@@ -1664,7 +1664,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # exc_info.  If falsy: RERAISE 2 propagates.
         with_cleanup = self.new_block()
         self.use_next_block(cleanup)   # resets _stack_depth to cleanup.forced_initial_depth
-        self.update_position(wih)
+        self.update_position(witem.context_expr)
         # Open inner scope for PUSH_EXC_INFO..RERAISE 2; seeds with_cleanup.forced_initial_depth.
         self.emit_jump(_SETUP_CLEANUP, with_cleanup)
         self.emit_op(ops.PUSH_EXC_INFO)
