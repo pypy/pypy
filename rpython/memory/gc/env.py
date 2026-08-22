@@ -97,7 +97,7 @@ def get_total_memory_linux(filename):
     return result
 get_total_memory_linux2 = get_total_memory_linux3 = get_total_memory_linux
 
-def get_total_memory_darwin(result):
+def clamp_total_memory(result):
     debug_start("gc-hardware")
     if result <= 0:
         debug_print("get_total_memory() failed")
@@ -109,6 +109,36 @@ def get_total_memory_darwin(result):
     debug_stop("gc-hardware")
     return result
 
+if sys.platform == 'win32':
+    # MEMORYSTATUSEX is a flat struct (no union), so -- unlike the L2
+    # cache case below -- a direct rffi.CStruct binding is simpler and
+    # safer than an embedded-C helper.
+    MEMORYSTATUSEX = rffi.CStruct(
+        'MEMORYSTATUSEX',
+        ('dwLength', rffi.UINT),
+        ('dwMemoryLoad', rffi.UINT),
+        ('ullTotalPhys', rffi.ULONGLONG),
+        ('ullAvailPhys', rffi.ULONGLONG),
+        ('ullTotalPageFile', rffi.ULONGLONG),
+        ('ullAvailPageFile', rffi.ULONGLONG),
+        ('ullTotalVirtual', rffi.ULONGLONG),
+        ('ullAvailVirtual', rffi.ULONGLONG),
+        ('ullAvailExtendedVirtual', rffi.ULONGLONG),
+        )
+    _GlobalMemoryStatusEx = rffi.llexternal(
+        'GlobalMemoryStatusEx', [lltype.Ptr(MEMORYSTATUSEX)], rffi.INT,
+        compilation_info=ExternalCompilationInfo(includes=["windows.h"],
+                                                  libraries=["kernel32"]),
+        calling_conv='win')
+
+    def get_win32_total_phys_memory():
+        with lltype.scoped_alloc(MEMORYSTATUSEX) as status:
+            status.c_dwLength = rffi.cast(rffi.UINT,
+                                           rffi.sizeof(MEMORYSTATUSEX))
+            if _GlobalMemoryStatusEx(status):
+                return rffi.cast(lltype.Signed, status.c_ullTotalPhys)
+            return -1
+
 
 if sys.platform.startswith('linux'):
     def get_total_memory():
@@ -116,11 +146,15 @@ if sys.platform.startswith('linux'):
 
 elif sys.platform == 'darwin':
     def get_total_memory():
-        return get_total_memory_darwin(get_darwin_sysctl_signed('hw.memsize'))
+        return clamp_total_memory(get_darwin_sysctl_signed('hw.memsize'))
 
 elif 'freebsd' in sys.platform:
     def get_total_memory():
-        return get_total_memory_darwin(get_darwin_sysctl_signed('hw.usermem'))
+        return clamp_total_memory(get_darwin_sysctl_signed('hw.usermem'))
+
+elif sys.platform == 'win32':
+    def get_total_memory():
+        return clamp_total_memory(get_win32_total_phys_memory())
 
 else:
     def get_total_memory():
@@ -448,6 +482,73 @@ def get_L2cache_darwin():
         llop.debug_print(lltype.Void,
             "Warning: cannot find your CPU L2 cache size with sysctl()")
         return -1
+
+
+# ---------- Win32 ----------
+
+if sys.platform == 'win32':
+    # GetLogicalProcessorInformation() reports per-core cache info via a
+    # union inside SYSTEM_LOGICAL_PROCESSOR_INFORMATION; that's awkward to
+    # model with rffi structs, so do the enumeration in a small C helper
+    # instead and only cross the RPython/C boundary with a single integer
+    # result.
+    l2cache_eci = ExternalCompilationInfo(
+        includes=["windows.h"],
+        post_include_bits=["RPY_EXTERN long pypy_get_l2_cache_size(void);"],
+        separate_module_sources=["""
+        long pypy_get_l2_cache_size(void)
+        {
+            DWORD length = 0;
+            DWORD i, count;
+            long best = -1;
+            PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer;
+
+            GetLogicalProcessorInformation(NULL, &length);
+            if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || length == 0)
+                return -1;
+            buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(length);
+            if (buffer == NULL)
+                return -1;
+            if (!GetLogicalProcessorInformation(buffer, &length)) {
+                free(buffer);
+                return -1;
+            }
+            count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+            for (i = 0; i < count; i++) {
+                if (buffer[i].Relationship == RelationCache &&
+                    buffer[i].Cache.Level == 2) {
+                    long size = (long)buffer[i].Cache.Size;
+                    if (size > best)
+                        best = size;
+                }
+            }
+            free(buffer);
+            return best;
+        }
+        """],
+        libraries=["kernel32"],
+        )
+    _pypy_get_l2_cache_size = rffi.llexternal(
+        'pypy_get_l2_cache_size', [], rffi.LONG,
+        compilation_info=l2cache_eci)
+
+    def get_L2cache_win32():
+        """Try to estimate the best nursery size at run-time, depending
+        on the machine we are running on.
+        """
+        debug_start("gc-hardware")
+        L2cache = rffi.cast(lltype.Signed, _pypy_get_l2_cache_size())
+        debug_print("L2cache =", L2cache)
+        debug_stop("gc-hardware")
+
+        if L2cache > 0:
+            return L2cache
+        else:
+            # Print a top-level warning even in non-debug builds
+            llop.debug_print(lltype.Void,
+                "Warning: cannot find your CPU L2 cache size with "
+                "GetLogicalProcessorInformation()")
+            return -1
 
 
 # --------------------
