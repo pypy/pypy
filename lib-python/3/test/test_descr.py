@@ -1275,7 +1275,7 @@ order (MRO) for bases """
         self.assertEqual(Counted.counter, 0)
 
         # Test lookup leaks [SF bug 572567]
-        if hasattr(gc, 'get_objects'):
+        if hasattr(gc, 'get_objects') and support.check_impl_detail(pypy=False):
             class G(object):
                 def __eq__(self, other):
                     return False
@@ -1785,7 +1785,8 @@ order (MRO) for bases """
         self.assertEqual(b.foo, 3)
         self.assertEqual(b.__class__, D)
 
-    @unittest.expectedFailure
+    #@unittest.expectedFailure --- on CPython.  On PyPy, the test passes
+    @support.impl_detail(cpython=False)
     def test_bad_new(self):
         self.assertRaises(TypeError, object.__new__)
         self.assertRaises(TypeError, object.__new__, '')
@@ -1832,7 +1833,8 @@ order (MRO) for bases """
         object.__init__(A(3))
         self.assertRaises(TypeError, object.__init__, A(3), 5)
 
-    @unittest.expectedFailure
+    # Does not fail on PyPy
+    # @unittest.expectedFailure
     def test_restored_object_new(self):
         class A(object):
             def __new__(cls, *args, **kwargs):
@@ -2078,7 +2080,8 @@ order (MRO) for bases """
             ("__reversed__", reversed, empty_seq, set(), {}),
             ("__length_hint__", list, zero, set(),
              {"__iter__" : iden, "__next__" : stop}),
-            ("__sizeof__", sys.getsizeof, zero, set(), {}),
+            # PyPy: no sys.getsizeof
+            # ("__sizeof__", sys.getsizeof, zero, set(), {}),
             ("__instancecheck__", do_isinstance, return_true, set(), {}),
             ("__missing__", do_dict_missing, some_number,
              set(("__class__",)), {}),
@@ -2256,7 +2259,8 @@ order (MRO) for bases """
         except TypeError as msg:
             self.assertIn("weak reference", str(msg))
         else:
-            self.fail("weakref.ref(no) should be illegal")
+            if support.check_impl_detail(pypy=False):
+                self.fail("weakref.ref(no) should be illegal")
         class Weak(object):
             __slots__ = ['foo', '__weakref__']
         yes = Weak()
@@ -3408,7 +3412,8 @@ order (MRO) for bases """
             except TypeError:
                 pass
             else:
-                self.fail("%r's __dict__ can be modified" % cls)
+                if support.check_impl_detail(pypy=False):
+                    self.fail("%r's __dict__ can be modified" % cls)
 
         # Modules also disallow __dict__ assignment
         class Module1(types.ModuleType, Base):
@@ -4416,6 +4421,7 @@ order (MRO) for bases """
         except TypeError:
             self.fail("setattr through direct base types should be legal")
 
+    @support.impl_detail("this is only unsafe on CPython")
     def test_carloverre_multi_inherit_invalid(self):
         class A(type):
             def __setattr__(cls, key, value):
@@ -4832,22 +4838,26 @@ order (MRO) for bases """
             type(list).__dict__["__doc__"].__set__(list, "blah")
         self.assertIn("cannot set '__doc__' attribute of immutable type 'list'", str(cm.exception))
 
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, AttributeError)) as cm:
             type(X).__dict__["__doc__"].__delete__(X)
         self.assertIn("cannot delete '__doc__' attribute of immutable type 'X'", str(cm.exception))
         self.assertEqual(X.__doc__, "banana")
 
     def test_qualname(self):
         descriptors = [str.lower, complex.real, float.real, int.__add__]
-        types = ['method', 'member', 'getset', 'wrapper']
+        if sys.implementation.name == 'pypy':
+            types = ['function', 'getset_descriptor', 'getset_descriptor', 'function']
+        else:
+            types = ['method_descriptor', 'member_descriptor', 'getset_descriptor', 'wrapper_descriptor']
 
         # make sure we have an example of each type of descriptor
         for d, n in zip(descriptors, types):
-            self.assertEqual(type(d).__name__, n + '_descriptor')
+            self.assertEqual(type(d).__name__, n)
 
-        for d in descriptors:
-            qualname = d.__objclass__.__qualname__ + '.' + d.__name__
-            self.assertEqual(d.__qualname__, qualname)
+        if sys.implementation.name != 'pypy':
+            for d in descriptors:
+                qualname = d.__objclass__.__qualname__ + '.' + d.__name__
+                self.assertEqual(d.__qualname__, qualname)
 
         self.assertEqual(str.lower.__qualname__, 'str.lower')
         self.assertEqual(complex.real.__qualname__, 'complex.real')
@@ -4856,11 +4866,12 @@ order (MRO) for bases """
 
         class X:
             pass
-        with self.assertRaises(TypeError):
+        # PYPY: raises AttributeError
+        with self.assertRaises((TypeError, AttributeError)):
             del X.__qualname__
 
-        self.assertRaises(TypeError, type.__dict__['__qualname__'].__set__,
-                          str, 'Oink')
+        with self.assertRaises((TypeError, AttributeError)):
+            type.__dict__['__qualname__'].__set__(str, 'Oink')
 
         global Y
         class Y:
@@ -5123,6 +5134,8 @@ class AAAPTypesLongInitTest(unittest.TestCase):
 
 
 class MiscTests(unittest.TestCase):
+    # XXX PyPy difference: type.__dict__ must use str keys
+    @support.cpython_only
     def test_type_lookup_mro_reference(self):
         # Issue #14199: _PyType_Lookup() has to keep a strong reference to
         # the type MRO because it may be modified during the lookup, if
