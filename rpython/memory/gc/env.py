@@ -456,34 +456,33 @@ def get_L2cache_darwin():
 # ---------- Win32 ----------
 
 if sys.platform == 'win32':
-    # MEMORYSTATUSEX is a flat struct (no union), so -- unlike the L2
-    # cache case below -- a direct rffi.CStruct binding is simpler and
-    # safer than an embedded-C helper.
-    MEMORYSTATUSEX = rffi.CStruct(
-        'MEMORYSTATUSEX',
-        ('dwLength', rffi.UINT),
-        ('dwMemoryLoad', rffi.UINT),
-        ('ullTotalPhys', rffi.ULONGLONG),
-        ('ullAvailPhys', rffi.ULONGLONG),
-        ('ullTotalPageFile', rffi.ULONGLONG),
-        ('ullAvailPageFile', rffi.ULONGLONG),
-        ('ullTotalVirtual', rffi.ULONGLONG),
-        ('ullAvailVirtual', rffi.ULONGLONG),
-        ('ullAvailExtendedVirtual', rffi.ULONGLONG),
+    # MEMORYSTATUSEX is a real struct defined by windows.h; mirroring it
+    # with our own rffi.CStruct of the same name conflicts with the SDK's
+    # definition at link/compile time. Like the L2 cache case below, do the
+    # struct handling in a small C helper and only cross the RPython/C
+    # boundary with a single integer result.
+    totalmem_eci = ExternalCompilationInfo(
+        includes=["windows.h"],
+        post_include_bits=[
+            "RPY_EXTERN long long pypy_get_total_phys_memory(void);"],
+        separate_module_sources=["""
+        long long pypy_get_total_phys_memory(void)
+        {
+            MEMORYSTATUSEX status;
+            status.dwLength = sizeof(status);
+            if (GlobalMemoryStatusEx(&status))
+                return (long long)status.ullTotalPhys;
+            return -1;
+        }
+        """],
+        libraries=["kernel32"],
         )
-    _GlobalMemoryStatusEx = rffi.llexternal(
-        'GlobalMemoryStatusEx', [lltype.Ptr(MEMORYSTATUSEX)], rffi.INT,
-        compilation_info=ExternalCompilationInfo(includes=["windows.h"],
-                                                  libraries=["kernel32"]),
-        calling_conv='win')
+    _pypy_get_total_phys_memory = rffi.llexternal(
+        'pypy_get_total_phys_memory', [], rffi.LONGLONG,
+        compilation_info=totalmem_eci)
 
     def get_win32_total_phys_memory():
-        with lltype.scoped_alloc(MEMORYSTATUSEX) as status:
-            status.c_dwLength = rffi.cast(rffi.UINT,
-                                           rffi.sizeof(MEMORYSTATUSEX))
-            if _GlobalMemoryStatusEx(status):
-                return rffi.cast(lltype.Signed, status.c_ullTotalPhys)
-            return -1
+        return rffi.cast(lltype.Signed, _pypy_get_total_phys_memory())
 
     # GetLogicalProcessorInformation() reports per-core cache info via a
     # union inside SYSTEM_LOGICAL_PROCESSOR_INFORMATION; that's awkward to
