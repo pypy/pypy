@@ -5,7 +5,6 @@ from rpython.memory.gc.test.test_direct import BaseDirectGCTest
 from rpython.rlib import rawrefcount
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-from rpython.rlib.rawrefcount import PyObjectS, PyObject
 
 # The prefix relocation trips two untranslated-only fakeaddress/ll2ctypes limits:
 # a symbolic link (a moved object's address) can't round-trip through the raw prefix,
@@ -23,6 +22,20 @@ S.become(lltype.GcStruct('S',
 
 class TestRawRefCount(BaseDirectGCTest):
     GCClass = IncrementalMiniMarkGC
+    # TestRawRefCountNoPrefix below reruns everything here with the opposite
+    # rawrefcount_link_prefix mode -- both must actually be exercised, since
+    # rpython.rlib.rawrefcount (used directly by this file) and self.gc (built
+    # from BaseDirectGCTest's generic, prefix-less-by-default config) each
+    # need to agree on the same mode or link reads/writes land at different
+    # offsets. See the "must be kept in sync by hand" note in rawrefcount.py.
+    link_prefix = True
+
+    def setup_method(self, meth):
+        BaseDirectGCTest.setup_method(self, meth)
+        rawrefcount.configure(self.link_prefix)
+        class _Config(object):
+            rawrefcount_link_prefix = self.link_prefix
+        self.gc._setup_rawrefcount_pyobj_hdr(_Config())
 
     def _collect(self, major, expected_trigger=0):
         if major:
@@ -308,3 +321,7 @@ class TestRawRefCount(BaseDirectGCTest):
     def test_rawrefcount_next_dead_robust_against_non_init(self):
         # does not crash despite not calling init
         assert not self.gc.rawrefcount_next_dead()
+
+
+class TestRawRefCountNoPrefix(TestRawRefCount):
+    link_prefix = False

@@ -14,35 +14,37 @@ class W_Root(object):
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
 
-from rpython.rlib.rawrefcount import PyObjectS, PyObject
-
 
 class TestRawRefCount:
+    # Matches this module's historical default; TestRawRefCountNoPrefix below
+    # reruns every test here with the opposite rawrefcount_link_prefix mode.
+    link_prefix = True
 
     def setup_method(self, meth):
+        rawrefcount.configure(self.link_prefix)
         rawrefcount.init()
 
     def test_create_link_pypy(self):
         p = W_Root(42)
         ob = rawrefcount._pyobject_alloc()
-        assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == lltype.nullptr(rawrefcount.PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == None
         rawrefcount.create_link_pypy(p, ob)
         assert ob.c_ob_refcnt == 0
         ob.c_ob_refcnt += REFCNT_FROM_PYPY_LIGHT
-        assert rawrefcount.from_obj(PyObject, p) == ob
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
         assert rawrefcount.to_obj(W_Root, ob) == p
         rawrefcount._ob_free(ob)
 
     def test_create_link_pyobj(self):
         p = W_Root(42)
         ob = rawrefcount._pyobject_alloc()
-        assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == lltype.nullptr(rawrefcount.PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == None
         rawrefcount.create_link_pyobj(p, ob)
         assert ob.c_ob_refcnt == 0
         ob.c_ob_refcnt += REFCNT_FROM_PYPY
-        assert rawrefcount.from_obj(PyObject, p) == lltype.nullptr(PyObjectS)
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == lltype.nullptr(rawrefcount.PyObjectS)
         assert rawrefcount.to_obj(W_Root, ob) == p
         rawrefcount._ob_free(ob)
 
@@ -78,7 +80,7 @@ class TestRawRefCount:
         assert ob is not None and p is not None
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
-        assert rawrefcount.from_obj(PyObject, p) == ob
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
         rawrefcount._ob_free(ob)
 
     def test_collect_p_keepalive_w_root(self):
@@ -94,7 +96,7 @@ class TestRawRefCount:
         assert ob is not None
         assert rawrefcount._p_list == [ob]
         assert rawrefcount.to_obj(W_Root, ob) == p
-        assert rawrefcount.from_obj(PyObject, p) == ob
+        assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
         rawrefcount._ob_free(ob)
 
     def test_collect_o_dies(self):
@@ -111,9 +113,9 @@ class TestRawRefCount:
         ob = wr_ob()
         assert ob is not None
         assert trigger == [1]
-        assert rawrefcount.next_dead(PyObject) == ob
-        assert rawrefcount.next_dead(PyObject) == lltype.nullptr(PyObjectS)
-        assert rawrefcount.next_dead(PyObject) == lltype.nullptr(PyObjectS)
+        assert rawrefcount.next_dead(rawrefcount.PyObject) == ob
+        assert rawrefcount.next_dead(rawrefcount.PyObject) == lltype.nullptr(rawrefcount.PyObjectS)
+        assert rawrefcount.next_dead(rawrefcount.PyObject) == lltype.nullptr(rawrefcount.PyObjectS)
         assert rawrefcount._o_list == []
         assert wr_p() is None
         assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # tag kept + pending ref
@@ -222,9 +224,17 @@ class TestRawRefCount:
         rawrefcount._ob_free(ob)
 
 
+class TestRawRefCountNoPrefix(TestRawRefCount):
+    link_prefix = False
+
+
 class TestTranslated(StandaloneTests):
 
     def test_full_translation(self):
+        # Explicit, not leftover state from another test's configure() call:
+        # translation bakes in whichever mode is current right now.
+        rawrefcount.configure(True)
+
         class State:
             pass
         state = State()
@@ -238,7 +248,7 @@ class TestTranslated(StandaloneTests):
             ob = rawrefcount._pyobject_alloc()
             rawrefcount.create_link_pypy(p, ob)
             ob.c_ob_refcnt += REFCNT_FROM_PYPY
-            assert rawrefcount.from_obj(PyObject, p) == ob
+            assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
             assert rawrefcount.to_obj(W_Root, ob) == p
             return ob, p
 
@@ -261,13 +271,13 @@ class TestTranslated(StandaloneTests):
             if state.seen != [1]:
                 print "OB NOT COLLECTED"
                 return 1
-            if rawrefcount.next_dead(PyObject) != ob:
+            if rawrefcount.next_dead(rawrefcount.PyObject) != ob:
                 print "NEXT_DEAD != OB"
                 return 1
             if ob.c_ob_refcnt != REFCNT_FROM_PYPY + 1:
                 print "next_dead().ob_refcnt != REFCNT_FROM_PYPY + 1"
                 return 1
-            if rawrefcount.next_dead(PyObject) != lltype.nullptr(PyObjectS):
+            if rawrefcount.next_dead(rawrefcount.PyObject) != lltype.nullptr(rawrefcount.PyObjectS):
                 print "NEXT_DEAD second time != NULL"
                 return 1
             if rawrefcount.to_obj(W_Root, ob) is not None:

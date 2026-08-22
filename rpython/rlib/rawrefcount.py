@@ -45,27 +45,29 @@ else:
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 
-# Keep in sync with pypy/goal/targetpypystandalone.py and
-# rpython/config/translationoption.py's rawrefcount_link_prefix.
-RRC_LINK_PREFIX = True
-
 _LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
 _LINK_PREFIX = 16   # padded to 16 so body (ob_refcnt) keeps malloc's 16-byte alignment
 
-if RRC_LINK_PREFIX:
+
+class _PrefixHelpers:
+    "Test-only PyObject layout matching translation.rawrefcount_link_prefix=True."
+
     def _ob_link_get(ob):
         base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
         return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
+    _ob_link_get = staticmethod(_ob_link_get)
 
     def _ob_link_set(ob, value):
         base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
         rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
+    _ob_link_set = staticmethod(_ob_link_set)
 
     def _ob_free(ob, track_allocation=True):
         # free the whole allocation, which starts at the hidden prefix.  Address
         # arithmetic (not ptradd) so ll2ctypes maps the base back to the malloc.
         base = rffi.cast(rffi.VOIDP, rffi.cast(lltype.Signed, ob) - _LINK_PREFIX)
         lltype.free(base, flavor='raw', track_allocation=track_allocation)
+    _ob_free = staticmethod(_ob_free)
 
     # Canonical test PyObject: the visible CPython header.  ob_pypy_link is NOT a
     # field here -- it lives in the hidden prefix reserved by _pyobject_alloc,
@@ -85,20 +87,28 @@ if RRC_LINK_PREFIX:
 
     def _pyobject_alloc(track_allocation=True, immortal=False):
         "Allocate a PyObjectS with the hidden link prefix reserved (see pyobj_raw_alloc)."
-        full = lltype.malloc(_PyObjectPrefixedS, flavor='raw', zero=True,
+        full = lltype.malloc(_PrefixHelpers._PyObjectPrefixedS, flavor='raw', zero=True,
                              immortal=immortal,
                              track_allocation=track_allocation and not immortal)
-        return rffi.cast(PyObject, rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
+        return rffi.cast(_PrefixHelpers.PyObject,
+                         rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
+    _pyobject_alloc = staticmethod(_pyobject_alloc)
 
-else:
+
+class _NoPrefixHelpers:
+    "Test-only PyObject layout matching translation.rawrefcount_link_prefix=False."
+
     def _ob_link_get(ob):
         return ob.c_ob_pypy_link
+    _ob_link_get = staticmethod(_ob_link_get)
 
     def _ob_link_set(ob, value):
         ob.c_ob_pypy_link = value
+    _ob_link_set = staticmethod(_ob_link_set)
 
     def _ob_free(ob, track_allocation=True):
         lltype.free(ob, flavor='raw', track_allocation=track_allocation)
+    _ob_free = staticmethod(_ob_free)
 
     # Canonical test PyObject: ob_pypy_link is a plain header field, PyPy's
     # traditional (pre-abi3) layout -- no hidden prefix.
@@ -109,9 +119,41 @@ else:
 
     def _pyobject_alloc(track_allocation=True, immortal=False):
         "Allocate a PyObjectS; ob_pypy_link is just a field, no hidden prefix."
-        return lltype.malloc(PyObjectS, flavor='raw', zero=True,
+        return lltype.malloc(_NoPrefixHelpers.PyObjectS, flavor='raw', zero=True,
                              immortal=immortal,
                              track_allocation=track_allocation and not immortal)
+    _pyobject_alloc = staticmethod(_pyobject_alloc)
+
+
+def get_helpers(link_prefix):
+    "Return the _PrefixHelpers/_NoPrefixHelpers namespace for the given mode."
+    return _PrefixHelpers if link_prefix else _NoPrefixHelpers
+
+
+def configure(link_prefix):
+    """Rebind this module's PyObjectS/PyObject/_pyobject_alloc/_ob_link_get/
+    _ob_link_set/_ob_free to the given mode.  Test-only: no translated code
+    reads these module-level names (rpython.memory.gc.incminimark has its own
+    independent, config-driven implementation of the same layout choice).
+    """
+    global RRC_LINK_PREFIX, PyObjectS, PyObject
+    global _ob_link_get, _ob_link_set, _ob_free, _pyobject_alloc
+    RRC_LINK_PREFIX = link_prefix
+    h = get_helpers(link_prefix)
+    PyObjectS = h.PyObjectS
+    PyObject = h.PyObject
+    _ob_link_get = h._ob_link_get
+    _ob_link_set = h._ob_link_set
+    _ob_free = h._ob_free
+    _pyobject_alloc = h._pyobject_alloc
+
+
+# Same declared default as rpython/config/translationoption.py's
+# rawrefcount_link_prefix BoolOption.  Callers that need the branch-specific
+# (or test-parametrized) value must call configure() explicitly rather than
+# relying on this default -- see pypy/goal/targetpypystandalone.py for the
+# one target that opts into True.
+configure(False)
 
 
 def _build_pypy_link(p):

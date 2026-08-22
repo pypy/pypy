@@ -3,7 +3,7 @@ from hypothesis import given, strategies
 from rpython.tool.udir import udir
 from rpython.rlib import rawrefcount, rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-from rpython.rlib.test.test_rawrefcount import W_Root, PyObject
+from rpython.rlib.test.test_rawrefcount import W_Root
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
 
@@ -258,13 +258,18 @@ def test_random(code):
 class TestBoehmTranslated(StandaloneTests):
 
     def test_full_translation(self):
+        # Explicit, not leftover state from another test's configure() call:
+        # translation bakes in whichever mode is current right now.  boehm's
+        # own C-side rawrefcount support was fixed for the prefix layout
+        # (see rpython/rlib/src/boehm-rawrefcount.c), so match that here.
+        rawrefcount.configure(True)
 
         def make_ob():
             p = W_Root(42)
             ob = rawrefcount._pyobject_alloc()
             rawrefcount.create_link_pypy(p, ob)
             ob.c_ob_refcnt += REFCNT_FROM_PYPY
-            assert rawrefcount.from_obj(PyObject, p) == ob
+            assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
             assert rawrefcount.to_obj(W_Root, ob) == p
             return ob
 
@@ -278,7 +283,7 @@ class TestBoehmTranslated(StandaloneTests):
             rgc.collect()
             deadlist = []
             while True:
-                ob = rawrefcount.next_dead(PyObject)
+                ob = rawrefcount.next_dead(rawrefcount.PyObject)
                 if not ob: break
                 if ob.c_ob_refcnt != 1:
                     print "next_dead().ob_refcnt != 1"
