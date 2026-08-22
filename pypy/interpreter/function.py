@@ -598,6 +598,20 @@ class _Method(W_Root):
 
     def descr_method_repr(self):
         space = self.space
+        # PYPY: CPython's builtin_function_or_method/method-wrapper reprs
+        # use the plain __name__ (not __qualname__) and format the bound
+        # instance's type name and id directly, never calling repr() on it.
+        # Do the same here for Methods wrapping builtin code: unconditionally
+        # calling repr(self.w_instance) can recurse infinitely if that repr
+        # introspects this very method (e.g. via inspect.getfullargspec on
+        # an unoverridden __init__).
+        from pypy.interpreter.gateway import BuiltinCode
+        if (isinstance(self.w_function, Function) and
+                isinstance(self.w_function.getcode(), BuiltinCode)):
+            name = self.w_function.getname(space)
+            classname = space.type(self.w_instance).getname(space)
+            info = 'built-in method %s of %s object' % (name, classname)
+            return self.w_instance.getrepr(space, info)
         w_name = space.findattr(self.w_function, space.newtext('__qualname__'))
         if w_name is None:
             name = self.w_function.getname(self.space)

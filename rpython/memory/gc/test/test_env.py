@@ -1,4 +1,4 @@
-import os, py
+import os, sys, py
 from rpython.memory.gc import env
 from rpython.rlib.rarithmetic import r_uint
 from rpython.tool.udir import udir
@@ -15,18 +15,26 @@ def check_equal(x, y):
     assert x == y
     assert type(x) == type(y)
 
-def test_get_total_memory_darwin():
+def test_clamp_total_memory():
     # this only tests clipping
     BIG = 2 * env.addressable_size
     SMALL = env.addressable_size / 2
-    assert env.addressable_size == env.get_total_memory_darwin(0)
-    assert env.addressable_size == env.get_total_memory_darwin(-1)
-    assert env.addressable_size == env.get_total_memory_darwin(BIG)
-    assert SMALL == env.get_total_memory_darwin(SMALL)
+    assert env.addressable_size == env.clamp_total_memory(0)
+    assert env.addressable_size == env.clamp_total_memory(-1)
+    assert env.addressable_size == env.clamp_total_memory(BIG)
+    assert SMALL == env.clamp_total_memory(SMALL)
 
 def test_get_total_memory():
     # total memory should be at least a megabyte
     assert env.get_total_memory() > 1024*1024
+
+def test_win32_functions_do_not_fail():
+    if sys.platform != 'win32':
+        return
+    L2cache = env.get_L2cache_win32()
+    assert L2cache > 0
+    total = env.get_win32_total_phys_memory()
+    assert total > 1024*1024
 
 def test_read_from_env():
     saved = os.environ

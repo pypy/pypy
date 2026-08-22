@@ -334,6 +334,28 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
                 PyBuffer_Release(&view);
                 return PyLong_FromLong(readonly);
             """),
+            ("has_mp_ass_subscript", "METH_O",
+             """
+                PyTypeObject *tp = Py_TYPE(args);
+                if (tp->tp_as_mapping && tp->tp_as_mapping->mp_ass_subscript)
+                    Py_RETURN_TRUE;
+                Py_RETURN_FALSE;
+             """),
+            ("slice_assign", "METH_O",
+             """
+                PyTypeObject *tp = Py_TYPE(args);
+                PyObject *slice, *value;
+                if (!tp->tp_as_mapping || !tp->tp_as_mapping->mp_ass_subscript) {
+                    PyErr_SetString(PyExc_TypeError,
+                        "'memoryview' object does not support slice assignment");
+                    return NULL;
+                }
+                slice = PySlice_New(PyLong_FromLong(0), PyLong_FromLong(4), NULL);
+                value = PyBytes_FromString("abcd");
+                if (tp->tp_as_mapping->mp_ass_subscript(args, slice, value) < 0)
+                    return NULL;
+                Py_RETURN_NONE;
+             """),
             ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
@@ -348,6 +370,11 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
         foo.test_contiguous(contig)
         ro = foo.get_readonly(b'abc')
         assert ro == 1
+        target = bytearray(8)
+        mv = memoryview(target)
+        assert foo.has_mp_ass_subscript(mv)
+        foo.slice_assign(mv)
+        assert bytes(target) == b'abcd\x00\x00\x00\x00'
         try:
             from _numpypy import multiarray as np
         except ImportError:

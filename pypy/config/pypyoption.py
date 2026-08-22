@@ -99,9 +99,9 @@ if sys.platform == "sunos5":
     if "_cppyy" in working_modules:
         working_modules.remove("_cppyy")  # depends on ctypes
 
-if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
-    # _hpy_universal needs tweaking to work on 32-bit linux
-    working_modules.remove('_hpy_universal')
+# if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+#     # _hpy_universal needs tweaking to work on 32-bit linux
+#     working_modules.remove('_hpy_universal')
 
 #if sys.platform.startswith("linux"):
 #    _mach = os.popen('uname -m', 'r').read().strip()
@@ -193,7 +193,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
 
     BoolOption("hpy_cpyext_API",
                "Enable the HPy/cpyext API in the hpy_universal module",
-               default=True),
+               default=False),
 
     StrOption("platlibdir",
               "Configure the platlibdir at translation time",

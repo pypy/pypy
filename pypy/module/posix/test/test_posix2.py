@@ -896,6 +896,96 @@ class AppTestPosix:
             finally:
                 os.close(fd)
 
+    def test_os_readv(self):
+        os = self.posix
+        if not hasattr(os, 'readv'):
+            skip("no os.readv")
+        fd = os.open(self.path2 + 'test_os_readv', os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'test1tt2t3')
+            os.lseek(fd, 0, 0)
+            buf = [bytearray(i) for i in [5, 3, 2]]
+            assert os.readv(fd, buf) == 10
+            assert [bytes(b) for b in buf] == [b'test1', b'tt2', b't3']
+        finally:
+            os.close(fd)
+
+    def test_os_writev(self):
+        os = self.posix
+        if not hasattr(os, 'writev'):
+            skip("no os.writev")
+        fd = os.open(self.path2 + 'test_os_writev', os.O_RDWR | os.O_CREAT)
+        try:
+            n = os.writev(fd, (b'test1', b'tt2', b't3'))
+            assert n == 10
+            os.lseek(fd, 0, 0)
+            assert os.read(fd, 10) == b'test1tt2t3'
+        finally:
+            os.close(fd)
+
+    def test_os_preadv(self):
+        os = self.posix
+        if not hasattr(os, 'preadv'):
+            skip("no os.preadv")
+        fd = os.open(self.path2 + 'test_os_preadv', os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'test1tt2t3t5t6t6t8')
+            buf = [bytearray(i) for i in [5, 3, 2]]
+            assert os.preadv(fd, buf, 3) == 10
+            assert [bytes(b) for b in buf] == [b't1tt2', b't3t', b'5t']
+        finally:
+            os.close(fd)
+
+    def test_os_pwritev(self):
+        os = self.posix
+        if not hasattr(os, 'pwritev'):
+            skip("no os.pwritev")
+        fd = os.open(self.path2 + 'test_os_pwritev', os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'xx')
+            os.lseek(fd, 0, 0)
+            n = os.pwritev(fd, [b'test1', b'tt2', b't3'], 2)
+            assert n == 10
+            os.lseek(fd, 0, 0)
+            assert os.read(fd, 100) == b'xxtest1tt2t3'
+        finally:
+            os.close(fd)
+
+    def test_os_preadv_flags(self):
+        os = self.posix
+        if not hasattr(os, 'preadv') or not hasattr(os, 'RWF_HIPRI'):
+            skip("no os.preadv or no os.RWF_HIPRI")
+        fd = os.open(self.path2 + 'test_os_preadv_flags', os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'test1tt2t3t5t6t6t8')
+            buf = [bytearray(i) for i in [5, 3, 2]]
+            try:
+                n = os.preadv(fd, buf, 3, os.RWF_HIPRI)
+            except NotImplementedError:
+                skip("preadv2 not available")
+            assert n == 10
+            assert [bytes(b) for b in buf] == [b't1tt2', b't3t', b'5t']
+        finally:
+            os.close(fd)
+
+    def test_os_pwritev_flags(self):
+        os = self.posix
+        if not hasattr(os, 'pwritev') or not hasattr(os, 'RWF_SYNC'):
+            skip("no os.pwritev or no os.RWF_SYNC")
+        fd = os.open(self.path2 + 'test_os_pwritev_flags', os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'xx')
+            os.lseek(fd, 0, 0)
+            try:
+                n = os.pwritev(fd, [b'test1', b'tt2', b't3'], 2, os.RWF_SYNC)
+            except NotImplementedError:
+                skip("pwritev2 not available")
+            assert n == 10
+            os.lseek(fd, 0, 0)
+            assert os.read(fd, 100) == b'xxtest1tt2t3'
+        finally:
+            os.close(fd)
+
     if hasattr(rposix, 'posix_fadvise'):
         def test_os_posix_fadvise(self):
             posix = self.posix
