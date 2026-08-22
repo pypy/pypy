@@ -109,37 +109,6 @@ def clamp_total_memory(result):
     debug_stop("gc-hardware")
     return result
 
-if sys.platform == 'win32':
-    # MEMORYSTATUSEX is a flat struct (no union), so -- unlike the L2
-    # cache case below -- a direct rffi.CStruct binding is simpler and
-    # safer than an embedded-C helper.
-    MEMORYSTATUSEX = rffi.CStruct(
-        'MEMORYSTATUSEX',
-        ('dwLength', rffi.UINT),
-        ('dwMemoryLoad', rffi.UINT),
-        ('ullTotalPhys', rffi.ULONGLONG),
-        ('ullAvailPhys', rffi.ULONGLONG),
-        ('ullTotalPageFile', rffi.ULONGLONG),
-        ('ullAvailPageFile', rffi.ULONGLONG),
-        ('ullTotalVirtual', rffi.ULONGLONG),
-        ('ullAvailVirtual', rffi.ULONGLONG),
-        ('ullAvailExtendedVirtual', rffi.ULONGLONG),
-        )
-    _GlobalMemoryStatusEx = rffi.llexternal(
-        'GlobalMemoryStatusEx', [lltype.Ptr(MEMORYSTATUSEX)], rffi.INT,
-        compilation_info=ExternalCompilationInfo(includes=["windows.h"],
-                                                  libraries=["kernel32"]),
-        calling_conv='win')
-
-    def get_win32_total_phys_memory():
-        with lltype.scoped_alloc(MEMORYSTATUSEX) as status:
-            status.c_dwLength = rffi.cast(rffi.UINT,
-                                           rffi.sizeof(MEMORYSTATUSEX))
-            if _GlobalMemoryStatusEx(status):
-                return rffi.cast(lltype.Signed, status.c_ullTotalPhys)
-            return -1
-
-
 if sys.platform.startswith('linux'):
     def get_total_memory():
         return get_total_memory_linux2('/proc/meminfo')
@@ -487,6 +456,35 @@ def get_L2cache_darwin():
 # ---------- Win32 ----------
 
 if sys.platform == 'win32':
+    # MEMORYSTATUSEX is a flat struct (no union), so -- unlike the L2
+    # cache case below -- a direct rffi.CStruct binding is simpler and
+    # safer than an embedded-C helper.
+    MEMORYSTATUSEX = rffi.CStruct(
+        'MEMORYSTATUSEX',
+        ('dwLength', rffi.UINT),
+        ('dwMemoryLoad', rffi.UINT),
+        ('ullTotalPhys', rffi.ULONGLONG),
+        ('ullAvailPhys', rffi.ULONGLONG),
+        ('ullTotalPageFile', rffi.ULONGLONG),
+        ('ullAvailPageFile', rffi.ULONGLONG),
+        ('ullTotalVirtual', rffi.ULONGLONG),
+        ('ullAvailVirtual', rffi.ULONGLONG),
+        ('ullAvailExtendedVirtual', rffi.ULONGLONG),
+        )
+    _GlobalMemoryStatusEx = rffi.llexternal(
+        'GlobalMemoryStatusEx', [lltype.Ptr(MEMORYSTATUSEX)], rffi.INT,
+        compilation_info=ExternalCompilationInfo(includes=["windows.h"],
+                                                  libraries=["kernel32"]),
+        calling_conv='win')
+
+    def get_win32_total_phys_memory():
+        with lltype.scoped_alloc(MEMORYSTATUSEX) as status:
+            status.c_dwLength = rffi.cast(rffi.UINT,
+                                           rffi.sizeof(MEMORYSTATUSEX))
+            if _GlobalMemoryStatusEx(status):
+                return rffi.cast(lltype.Signed, status.c_ullTotalPhys)
+            return -1
+
     # GetLogicalProcessorInformation() reports per-core cache info via a
     # union inside SYSTEM_LOGICAL_PROCESSOR_INFORMATION; that's awkward to
     # model with rffi structs, so do the enumeration in a small C helper
