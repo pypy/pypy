@@ -395,6 +395,14 @@ class BaseGCTransformer(object):
         # this assumes a non-moving GC.  Moving GCs need to override this
         hop.rename('cast_ptr_to_int')
 
+    def gct_gc_get_stats(self, hop):
+        # GCs that don't track any stats (e.g. refcounting, boehm) report
+        # "unknown" as 0; framework.py overrides this for GCs that do.
+        op = hop.spaceop
+        hop.genop("same_as",
+                  [rmodel.inputconst(lltype.Signed, 0)],
+                  resultvar=op.result)
+
     def gct_gc_heap_stats(self, hop):
         from rpython.memory.gc.base import ARRAY_TYPEID_MAP
 
