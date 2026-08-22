@@ -10,6 +10,11 @@ if PYTHON3 is not None:
     PYTHON3 = str(PYTHON3)
 HOST_IS_PY3 = sys.version_info[0] > 2
 APPLEVEL_FN = 'apptest_*.py'
+POSIX_ONLY_TEST_FILES = (
+    'fcntl/test/apptest_fcntl.py',
+    '_posixsubprocess/test/apptest_subprocess.py',
+    '_posixsubprocess/test/test_ztranslation.py',
+)
 
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
@@ -258,4 +263,8 @@ def pytest_ignore_collect(path, config):
     if (config.getoption('direct_apptest') and not path.isdir()
             and not path.fnmatch(APPLEVEL_FN)):
         return True
+    if os.name != 'posix' and not path.isdir():
+        posixpath = str(path).replace(os.sep, '/')
+        if posixpath.endswith(POSIX_ONLY_TEST_FILES):
+            return True
     return path.check(link=1)
