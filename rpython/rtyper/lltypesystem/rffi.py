@@ -785,6 +785,16 @@ UNSIGNEDP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
 
 # various type mapping
 
+def _alloc_buffer_nonlarge_max():
+    # Indirection so tests can force alloc_buffer()'s large-object skip path
+    # (by monkeypatching this function) without a full translation --
+    # rgc.get_stats() only dispatches to the real GC when called from
+    # translated code; untranslated it raises NotImplementedError.
+    if not we_are_translated():
+        return 0
+    return rgc.get_stats(rgc.NONLARGE_MAX)
+_alloc_buffer_nonlarge_max._always_inline_ = 'try'
+
 # conversions between str and char*
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
@@ -961,6 +971,15 @@ def make_string_mappings(strtype):
         allows for the process to be performed without an extra copy.
         Make sure to call keep_buffer_alive_until_here on the returned values.
         """
+        nonlarge_max = _alloc_buffer_nonlarge_max()
+        if nonlarge_max > 0 and count > nonlarge_max:
+            # 'count' is big enough that the GC will allocate it through its
+            # large-object path, which never produces a movable/pinnable
+            # object -- can_move() below is guaranteed False.  Skip straight
+            # to the raw buffer instead of allocating (and immediately
+            # discarding) a full-size GC string just to learn that.
+            raw_buf = lltype.malloc(TYPEP.TO, count, flavor='raw')
+            return raw_buf, lltype.nullptr(STRTYPE), 3
         new_buf = mallocfn(count)
         pinned = 0
         fallback = False
@@ -993,7 +1012,11 @@ def make_string_mappings(strtype):
         The returned string will be truncated to needed_size.
         """
         assert allocated_size >= needed_size
-        if allocated_size != needed_size:
+        if case_num == 3:
+            # alloc_buffer never allocated a gc_buf at all; nothing to shrink
+            gc_buf = mallocfn(needed_size)
+            case_num = 2
+        elif allocated_size != needed_size:
             from rpython.rtyper.lltypesystem.lloperation import llop
             if llop.shrink_array(lltype.Bool, gc_buf, needed_size):
                 pass     # now 'gc_buf' is smaller
@@ -1015,7 +1038,7 @@ def make_string_mappings(strtype):
         keepalive_until_here(gc_buf)
         if case_num == 1:
             rgc.unpin(gc_buf)
-        if case_num == 2:
+        if case_num == 2 or case_num == 3:
             lltype.free(raw_buf, flavor='raw')
 
     # char* -> str, with an upper bound on the length in case there is no \x00

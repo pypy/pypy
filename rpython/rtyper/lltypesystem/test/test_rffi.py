@@ -985,6 +985,26 @@ def test_scoped_nonmoving_unicodebuffer():
         with py.test.raises(IndexError):
             buf[3]
 
+def test_alloc_buffer_skips_gc_buf_when_large():
+    # Exercises alloc_buffer()'s case_num==3 path (see _alloc_buffer_nonlarge_max
+    # in rffi.py): above the GC's large-object threshold, no GC string is
+    # allocated up front, only a raw buffer. rgc.get_stats() only works when
+    # called from translated code, so tests force the path by monkeypatching
+    # the indirection instead of translating.
+    import rpython.rtyper.lltypesystem.rffi as rffi_module
+    d = 'x' * 100
+    orig = rffi_module._alloc_buffer_nonlarge_max
+    rffi_module._alloc_buffer_nonlarge_max = lambda: 8
+    try:
+        with scoped_alloc_buffer(len(d)) as s:
+            assert s.case_num == 3
+            for i in range(len(d)):
+                s.raw[i] = d[i]
+            result = s.str(len(d))
+        assert result == d
+    finally:
+        rffi_module._alloc_buffer_nonlarge_max = orig
+
 def test_wcharp2utf8n():
     w = 'hello\x00\x00\x00\x00'
     u, i = wcharp2utf8n(w, len(w))
