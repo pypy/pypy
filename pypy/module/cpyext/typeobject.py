@@ -315,34 +315,9 @@ def warn_missing_slot(space, method_name, slot_name, w_type):
             print "missing slot %r/%r, discovered on %r" % (
                 method_name, slot_name, w_type.getname(space))
 
-# PYPY: collections.deque goes through this heap-type path (like a Python
-# class) since it carries Py_TPFLAGS_HEAPTYPE, but unlike a generic Python
-# class -- and unlike CPython's own real deque -- it would otherwise get
-# the mapping protocol filled in alongside the sequence protocol just
-# because it defines __getitem__/__setitem__/__delitem__. CPython's real
-# deque has no mapping protocol at all (no slicing, no arbitrary keys):
-# checked against CPython 3.11 headers, only its sequence slots
-# (sq_length/sq_item/sq_ass_item) are non-NULL. This can't be derived from
-# dunder presence, which is all update_all_slots has to go on, so hard-code
-# the exception here.
-def _is_deque_type(space, w_type):
-    w_module = w_type.get_module()
-    return (w_module is not None
-            and space.text_w(w_module) == '_collections'
-            and w_type.name == 'deque')
-
-DEQUE_MAPPING_SLOTS_SUPPRESSED = (
-    'tp_as_mapping.c_mp_length',
-    'tp_as_mapping.c_mp_subscript',
-    'tp_as_mapping.c_mp_ass_subscript',
-)
-
 def update_all_slots(space, w_type, pto):
     # fill slots in pto
-    suppress_mapping = _is_deque_type(space, w_type)
     for method_name, slot_name, slot_names, slot_apifunc in slotdefs_for_tp_slots:
-        if suppress_mapping and slot_name in DEQUE_MAPPING_SLOTS_SUPPRESSED:
-            continue
         slot_func_helper = None
         w_descr = w_type.dict_w.get(method_name, None)
         if w_descr:
