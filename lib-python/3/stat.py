@@ -162,7 +162,12 @@ def filemode(mode):
                 perm.append(char)
                 break
         else:
-            perm.append("-")
+            # PYPY CHANGE
+            # perm.append("-")
+            if not perm:
+                perm.append("?")
+            else:
+                perm.append("-")
     return "".join(perm)
 
 
