@@ -119,6 +119,119 @@ def or_with_implicit_return():
     assert got == [2, 3, 5, 2]
 
 
+def test_finally_lineno_wrong():
+    ns = {}
+    exec("""def f(x): # 1
+    def f(func):
+        return func
+    return f
+
+@f(1)
+def finally_wrong_lineno():
+    try: # 8
+        return print(1) # 9
+    finally:
+        print(2) # 11
+    print(3) # 12
+import dis
+co = finally_wrong_lineno.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+""", ns)
+    assert ns['x'] == [8, 9, 11]
+
+
+def test_lineno1_eval_bug():
+    ns = {}
+    exec("""c = compile('z', '<string>', 'eval')
+import dis
+x = [lineno for addr, lineno in dis.findlinestarts(c)]
+""", ns)
+    assert ns['x'] == [1]
+
+
+def test_with_lineno_wrong():
+    ns = {}
+    exec("""def with_wrong_lineno():
+    with ABC():
+        g()
+import dis
+co = with_wrong_lineno.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+""", ns)
+    assert ns['x'] == [2, 3, 2]
+
+
+def test_bug_lnotab():
+    ns = {}
+    exec("""
+def buggy_lnotab():
+    for i in x:
+
+
+
+
+
+
+
+        1
+x = [c for c in buggy_lnotab.__code__.co_lnotab]
+""", ns)
+    assert ns['x'] == [0, 1, 8, 8, 2, 248]
+
+
+def test_lnotab_backwards_in_expr():
+    ns = {}
+    exec("""
+def expr_lines(x):
+    return (x +
+        1)
+x = [c for c in expr_lines.__code__.co_lnotab]
+""", ns)
+    assert ns['x'] == [0, 1, 2, 1, 2, 255]
+
+
+def test_lineno_docstring_class():
+    ns = {}
+    exec("""
+def expr_lines(x):
+    class A:
+        "abc"
+x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
+""", ns)
+    assert ns['x'] == [8, 1]
+
+
+def test_lineno_funcdef():
+    ns = {}
+    exec('''def f():
+    @decorator
+    def my_function(
+        x=x
+    ):
+        pass
+x = [c for c in f.__code__.co_lnotab]
+''', ns)
+    assert ns['x'] == [0, 1, 2, 2, 2, 255, 6, 255, 2, 1]
+
+
+def test_lineno_crash():
+    ns = {}
+    exec('''
+def ie(c, r, fg, cc):
+    tc = True if cc is False else c in Cc and r in Rc
+    if tc:
+        (print("wut") if fg is not None
+         else None)
+import dis
+co = ie.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+''', ns)
+    assert ns['x'] == [3, 4, 5, 6, 4]
+
+
 def test_compile_ast_object_pep695_type_alias():
     # PEP 695 TypeAlias test
     from _ast import PyCF_ONLY_AST
@@ -173,7 +286,6 @@ def f():          # line 1
     # Check both share the context expression's position either way.
     is_load_none = lambda i: i.opname == 'LOAD_CONST' and i.argval is None
     assert _position_of(src, is_load_none) == (2, 2, 9, 12)
-    assert _position_of(src, lambda i: i.opname == 'RETURN_VALUE') == (2, 2, 9, 12)
     assert _position_of(src, lambda i: i.opname == 'RETURN_VALUE') == (2, 2, 9, 12)
 
 

@@ -2088,110 +2088,11 @@ def g():
             'unindent does not match any outer indentation level',
             ('<string>', 3, 2, ' y\n', None, None)) # XXX this could be , 3, 2 as well
 
-    def test_finally_lineno_wrong(self):
-        func = """def f(x): # 1
-    def f(func):
-        return func
-    return f
-
-@f(1)
-def finally_wrong_lineno():
-    try: # 8
-        return print(1) # 9
-    finally:
-        print(2) # 11
-    print(3) # 12
-import dis
-co = finally_wrong_lineno.__code__
-linestarts = list(dis.findlinestarts(co))
-x = [lineno for addr, lineno in linestarts]
-    """
-        self.st(func, "x", [8, 9, 11])
-
-    def test_lineno1_eval_bug(self):
-        func = """c = compile('z', '<string>', 'eval')
-import dis
-x = [lineno for addr, lineno in dis.findlinestarts(c)]
-"""
-        self.st(func, "x", [1])
-
-    def test_with_lineno_wrong(self):
-        func = """def with_wrong_lineno():
-    with ABC():
-        g()
-import dis
-co = with_wrong_lineno.__code__
-linestarts = list(dis.findlinestarts(co))
-x = [lineno for addr, lineno in linestarts]
-    """
-        self.st(func, "x", [2, 3, 2])
-
-
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
         self.error_test("while 0: lambda x, x: 1", SyntaxError)
         self.error_test("if 0:\n if 0:\n  [x async for x in b]", SyntaxError)
         self.error_test("[(i, j) for i in range(5) for j in range(5) if True or (i:=10)]", SyntaxError)
-
-    def test_bug_lnotab(self):
-        func = """
-def buggy_lnotab():
-    for i in x:
-
-
-
-
-
-
-
-        1
-x = [c for c in buggy_lnotab.__code__.co_lnotab]
-"""
-        self.st(func, "x", [0, 1, 8, 8, 2, 248])
-
-    def test_lnotab_backwards_in_expr(self):
-        func = """
-def expr_lines(x):
-    return (x +
-        1)
-x = [c for c in expr_lines.__code__.co_lnotab]
-"""
-        self.st(func, "x", [0, 1, 2, 1, 2, 255])
-
-    def test_lineno_docstring_class(self):
-        func = """
-def expr_lines(x):
-    class A:
-        "abc"
-x = [c for c in expr_lines.__code__.co_consts[1].co_lnotab]
-"""
-        self.st(func, "x", [8, 1])
-
-    def test_lineno_funcdef(self):
-        func = '''def f():
-    @decorator
-    def my_function(
-        x=x
-    ):
-        pass
-x = [c for c in f.__code__.co_lnotab]
-'''
-        self.st(func, 'x', [0, 1, 2, 2, 2, 255, 6, 255, 2, 1])
-
-    def test_lineno_crash(self):
-        func = '''
-def ie(c, r, fg, cc):
-    tc = True if cc is False else c in Cc and r in Rc
-    if tc:
-        (print("wut") if fg is not None
-         else None)
-import dis
-co = ie.__code__
-linestarts = list(dis.findlinestarts(co))
-x = [lineno for addr, lineno in linestarts]
-'''
-        self.st(func, 'x', [3, 4, 5, 6, 4])
-
 
     def test_revdb_metavar(self):
         self.error_test("7 * $0", SyntaxError)
