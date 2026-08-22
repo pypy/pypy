@@ -73,3 +73,30 @@ def test_super_error_message():
     with raises(TypeError) as info:
         super(1, int)
     assert str(info.value) == "super() argument 1 must be a type, not int"
+
+
+def test_property_subclass_prefers_explicit_doc():
+    # bpo-41287: subclasses of property used to ignore the doc=
+    # constructor argument in favor of the class's own docstring.
+    class PropertySub(property):
+        """This is a subclass of property"""
+
+    assert PropertySub(doc="explicit doc").__doc__ == "explicit doc"
+
+
+def test_property_getter_doc_survives_explicit_doc_reassignment():
+    # explicit `p.__doc__ = ...` must not clear the getter_doc flag;
+    # only a fresh __init__ (via a getter()/setter()/deleter() copy) does
+    def getter2(self):
+        """doc 2"""
+        return 2
+
+    def getter3(self):
+        """doc 3"""
+        return 3
+
+    p = property(getter2, None, None, None)
+    p.__doc__ = "user"
+    p2 = p.getter(getter3)
+    assert p.__doc__ == "user"
+    assert p2.__doc__ == "doc 3"

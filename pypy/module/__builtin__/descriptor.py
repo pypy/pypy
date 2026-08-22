@@ -190,18 +190,34 @@ class W_Property(W_Root):
         self.w_fget = w_fget
         self.w_fset = w_fset
         self.w_fdel = w_fdel
-        self.w_doc = w_doc
+        self.w_name = None
         self.getter_doc = False
+        w_prop_doc = None
         # our __doc__ comes from the getter if we don't have an explicit one
-        if (space.is_w(self.w_doc, space.w_None) and
-            not space.is_w(self.w_fget, space.w_None)):
+        if not space.is_w(w_doc, space.w_None):
+            w_prop_doc = w_doc
+        elif not space.is_w(self.w_fget, space.w_None):
             w_getter_doc = space.findattr(self.w_fget, space.newtext('__doc__'))
-            if w_getter_doc is not None:
-                if type(self) is W_Property:
-                    self.w_doc = w_getter_doc
-                else:
-                    space.setattr(self, space.newtext('__doc__'), w_getter_doc)
+            if w_getter_doc is not None and not space.is_w(w_getter_doc,
+                                                             space.w_None):
+                w_prop_doc = w_getter_doc
                 self.getter_doc = True
+
+        if w_prop_doc is None:
+            w_prop_doc = space.w_None
+        if type(self) is W_Property:
+            self.w_doc = w_prop_doc
+        else:
+            # If this is a property subclass, put __doc__ in the dict or
+            # designated slot of the subclass instance instead, otherwise
+            # it gets shadowed by __doc__ in the class's dict.
+            try:
+                space.setattr(self, space.newtext('__doc__'), w_prop_doc)
+            except OperationError as e:
+                if not e.match(space, space.w_AttributeError) or self.getter_doc:
+                    raise
+                # historically, silently dropped this doc assignment when
+                # the getter had no docstring of its own to fall back on
 
     def _properror(self, space, w_obj, kind):
         qualname = space.type(w_obj).qualname
@@ -251,7 +267,6 @@ class W_Property(W_Root):
 
     def set_doc(self, space, w_doc):
         self.w_doc = w_doc
-        self.getter_doc = False
 
     def _copy(self, space, w_getter=None, w_setter=None, w_deleter=None):
         if w_getter is None:
