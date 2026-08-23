@@ -1276,5 +1276,13 @@ slotdefs_for_wrappers = unrolling_iterable(
     [(x.method_name, x.slot_names, x.wrapper_class, x.doc)
      for x in slotdefs])
 
+# Same entries as slotdefs_for_wrappers, back to front: used where a later
+# entry must be allowed to overwrite an earlier one (resync_slot_wrappers),
+# so that the mapping-vs-sequence precedence still comes out the same way
+# as the first-wins traversal in _add_operators.
+slotdefs_for_wrappers_reversed = unrolling_iterable(
+    list(reversed([(x.method_name, x.slot_names, x.wrapper_class, x.doc)
+                    for x in slotdefs])))
+
 if __name__ == "__main__":
     print slotdefs_str

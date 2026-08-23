@@ -1337,8 +1337,14 @@ class AppTestSlots(AppTestCpythonExtensionBase):
            ("new_obj", "METH_NOARGS",
             '''
                 PyObject *obj;
-                obj = PyObject_New(PyObject, &Foo_Type);
+                obj = PyObject_GC_New(PyObject, &Foo_Type);
+                PyObject_GC_Track(obj);
                 return obj;
+            '''
+            ),
+           ("new_heap_obj", "METH_NOARGS",
+            '''
+                return PyObject_CallNoArgs(HeapFoo_Type);
             '''
             )], prologue='''
             #if PY_MAJOR_VERSION > 2
@@ -1359,17 +1365,71 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 }
                 return 0;
             }
+            static PyObject*
+            sq_item(PyObject *self, Py_ssize_t i)
+            {
+                return Py_BuildValue("s", "sq_item_called");
+            }
+            static int
+            sq_ass_item(PyObject *self, Py_ssize_t i, PyObject *value)
+            {
+                PyErr_SetString(PyExc_ValueError, "sq_ass_item called");
+                return -1;
+            }
+            static int
+            foo_traverse(PyObject *self, visitproc visit, void *arg)
+            {
+                return 0;
+            }
+            static int
+            foo_clear(PyObject *self)
+            {
+                return 0;
+            }
             PyMappingMethods tp_as_mapping;
+            PySequenceMethods tp_as_sequence;
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
                 "foo.foo",
             };
+            /* Same four slot functions, but wired up on a heap type built
+               via PyType_FromSpec -- like Cython does for a cdef class
+               defining both __getitem__ and __setitem__. */
+            static PyType_Slot HeapFoo_slots[] = {
+                {Py_mp_subscript, (void*)mp_subscript},
+                {Py_mp_ass_subscript, (void*)mp_ass_subscript},
+                {Py_sq_item, (void*)sq_item},
+                {Py_sq_ass_item, (void*)sq_ass_item},
+                {0, 0},
+            };
+            static PyType_Spec HeapFoo_spec = {
+                "foo.HeapFoo",
+                sizeof(PyObject),
+                0,
+                Py_TPFLAGS_DEFAULT,
+                HeapFoo_slots,
+            };
+            static PyObject *HeapFoo_Type;
             ''', more_init = '''
-                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC;
                 Foo_Type.tp_as_mapping = &tp_as_mapping;
+                Foo_Type.tp_as_sequence = &tp_as_sequence;
+                Foo_Type.tp_traverse = foo_traverse;
+                Foo_Type.tp_clear = foo_clear;
                 tp_as_mapping.mp_subscript = (binaryfunc)mp_subscript;
                 tp_as_mapping.mp_ass_subscript = mp_ass_subscript;
+                tp_as_sequence.sq_item = sq_item;
+                tp_as_sequence.sq_ass_item = sq_ass_item;
                 if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+                HeapFoo_Type = PyType_FromSpec(&HeapFoo_spec);
+                if (HeapFoo_Type == NULL) INITERROR;
+                /* Cython calls PyType_Modified() after attaching a type
+                   from its cross-module "common types" cache -- a
+                   legitimate, documented pattern. This must not disturb
+                   the mapping-vs-sequence precedence of __getitem__/
+                   __setitem__ established by PyType_Ready/PyType_FromSpec. */
+                PyType_Modified(&Foo_Type);
+                PyType_Modified((PyTypeObject*)HeapFoo_Type);
             ''')
         obj = module.new_obj()
         assert obj[100] == 42
@@ -1380,6 +1440,16 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(ZeroDivisionError, obj.__setitem__, 5, None)
         res = obj.__setitem__('foo', None)
         assert res is None
+
+        # prefer the mapping slot over the sequence slot
+        obj = module.new_obj()
+        assert obj['a'] == 42
+        obj['a'] = 1  # must not raise (would raise ValueError if sq_ass_item won)
+
+        # same check, but on a heap type built via PyType_FromSpec
+        obj = module.new_heap_obj()
+        assert obj['a'] == 42
+        obj['a'] = 1
 
     def test_sq_contains_ass_item(self):
         module = self.import_extension('foo', [

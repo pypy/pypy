@@ -35,7 +35,8 @@ from pypy.module.cpyext.pyobject import (
     make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, decref, as_pyobj, incref, CPyExtDictTerminator)
 from pypy.module.cpyext.slotdefs import (
-    slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
+    slotdefs_for_tp_slots, slotdefs_for_wrappers, slotdefs_for_wrappers_reversed,
+    get_slot_tp_function,
     llslot)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
@@ -1464,7 +1465,7 @@ def resync_slot_wrappers(space, w_type, pto):
 
     base = pto.c_tp_base
     hash_not_impl = llslot(space, PyObject_HashNotImplemented)
-    for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
+    for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers_reversed:
         if wrapper_class is None:
             continue
         if len(slot_names) == 1:
