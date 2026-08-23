@@ -787,10 +787,8 @@ UNSIGNEDP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
 
 def _alloc_buffer_nonlarge_max():
     # Indirection so tests can force alloc_buffer()'s large-object skip path
-    # (by monkeypatching this function) without a full translation --
-    # rgc.get_stats() only dispatches to the real GC when called from
-    # translated code; untranslated it raises NotImplementedError.
-    if not we_are_translated():
+    # (by monkeypatching this function) without a full translation.
+    if not we_are_translated_to_c():
         return 0
     return rgc.get_stats(rgc.NONLARGE_MAX)
 _alloc_buffer_nonlarge_max._always_inline_ = 'try'
