@@ -272,6 +272,11 @@ class BaseIntegralFormattingTest:
         raises(ValueError, format, self.i(3), '_,d')
         raises(ValueError, format, self.i(3), ',_d')
 
+    def test_non_ascii_digit_spec(self):
+        # A single multi-byte-utf8 non-ASCII digit passes str.isdigit() but
+        # not int(); it must not be silently skipped as a fill char and
+        # accepted as a valid (empty) spec.
+        raises(ValueError, format, self.i(5), u"\xb2")
 
     def test_c(self):
         a = self.i(ord("a"))
@@ -388,6 +393,10 @@ class AppTestFloatFormatting:
 
     def test_digit_separator_underscore(self):
         assert format(-1234., "012_f") == "-1_234.000000"
+
+    def test_non_ascii_digit_spec(self):
+        raises(ValueError, format, 1.5, u"\xb2")
+        raises(ValueError, format, 1.5, u".\xb2f")
 
     def test_locale(self):
         import locale

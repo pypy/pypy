@@ -473,7 +473,7 @@ def make_formatting_class(for_unicode):
                 after_i = rutf8.next_codepoint_pos(spec, i)
             else:
                 after_i = i + 1
-            if length - i >= 2 and self._is_alignment(spec[after_i]):
+            if after_i < length and self._is_alignment(spec[after_i]):
                 self._align = spec[after_i]
                 self._fill_char = spec[i:after_i]
                 got_fill_char = True
