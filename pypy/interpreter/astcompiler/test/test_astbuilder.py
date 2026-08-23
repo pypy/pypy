@@ -547,7 +547,7 @@ class TestAstBuilding:
         input = "def f(a=b, c): pass"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
-        assert excinfo.value.msg == "non-default argument follows default argument"
+        assert excinfo.value.msg == "parameter without a default follows parameter with a default"
         input = "def f((x)=23): pass"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)

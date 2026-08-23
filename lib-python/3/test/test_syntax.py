@@ -25,6 +25,10 @@ it.  (Maybe we should enable the ellipsis option for these tests.)
 
 In ast.c, syntax errors are raised by calling ast_error().
 
+PyPy-specific changes:
+- replace 'invalid syntax' with "invalid character '$' (U+0024)" when '$' appears
+- replace 'invalid syntax' with 'expected ':' in 'match x x:'
+
 Errors from set_context():
 
 >>> obj.None = 1
@@ -302,13 +306,13 @@ SyntaxError: invalid syntax
 ...     case y:
 ...        3 $ 3
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: invalid character '$' (U+0024)
 
 >>> match x:
 ...     case $:
 ...        ...
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: invalid character '$' (U+0024)
 
 >>> match ...:
 ...     case {**rest, "key": value}:
@@ -870,7 +874,7 @@ uses a single data structure to keep track of try-finally and loops,
 so we need to be sure that a break is actually inside a loop.  If it
 isn't, there should be a syntax error.
 
-   >>> try:
+   >>> try:          # doctest: +ELLIPSIS
    ...     print(1)
    ...     break
    ...     print(2)
@@ -878,7 +882,7 @@ isn't, there should be a syntax error.
    ...     print(3)
    Traceback (most recent call last):
      ...
-   SyntaxError: 'break' outside loop
+   SyntaxError: 'break' ...
 
 Misuse of the nonlocal and global statement can lead to a few unique syntax errors.
 
@@ -1145,7 +1149,7 @@ Missing ':' before suites:
    ...   case list():
    ...       pass
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: expected ':'
 
    >>> match x:
    ...   case list()
@@ -1281,19 +1285,19 @@ Custom error message for try block mixing except and except*
 Ensure that early = are not matched by the parser as invalid comparisons
    >>> f(2, 4, x=34); 1 $ 2
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
    >>> dict(x=34); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
    >>> dict(x=34, (x for x in range 10), 1); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
    >>> dict(x=34, x=1, y=2); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
 Incomplete dictionary literals
 
@@ -1325,7 +1329,7 @@ Incomplete dictionary literals
 
    >>> {1} $
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
    # Ensure that the error is not raised for invalid expressions
 
@@ -1335,7 +1339,7 @@ Incomplete dictionary literals
 
    >>> {1: $, 2: 3}
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: invalid character '$' (U+0024)
 
 Specialized indentation errors:
 
@@ -1627,7 +1631,7 @@ SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
 
 >>> {z=3}
 Traceback (most recent call last):
-SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?
+SyntaxError: ':' expected after dictionary key
 
 >>> from t import x,
 Traceback (most recent call last):
@@ -1904,26 +1908,20 @@ x: *b
 
 Invalid bytes literals:
 
-   >>> b"Ā"
+   >>> b"Ā"  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"Ā"
-        ^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
-   >>> b"абвгде"
+   >>> b"абвгде"  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"абвгде"
-        ^^^^^^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
-   >>> b"abc ъющый"  # first 3 letters are ascii
+   >>> b"abc ъющый"  # first 3 letters are ascii  # doctest: +ELLIPSIS
    Traceback (most recent call last):
       ...
-       b"abc ъющый"
-        ^^^^^^^^^^^
-   SyntaxError: bytes can only contain ASCII literal characters
+   SyntaxError: bytes can only contain ASCII literal characters...
 
 Invalid expressions in type scopes:
 
@@ -2013,6 +2011,7 @@ Invalid expressions in type scopes:
 """
 
 import re
+import sys
 import doctest
 import textwrap
 import unittest
@@ -2143,7 +2142,10 @@ class SyntaxTestCase(unittest.TestCase):
                           "outside function")
 
     def test_break_outside_loop(self):
-        msg = "outside loop"
+        if sys.implementation.name == 'pypy':
+            msg = "not properly in loop"
+        else:
+            msg = "outside loop"
         self._check_error("break", msg, lineno=1)
         self._check_error("if 0: break", msg, lineno=1)
         self._check_error("if 0: break\nelse:  x=1", msg, lineno=1)
@@ -2366,7 +2368,7 @@ def func2():
         self._check_error("A.\u018a\\ ",
                           "unexpected character after line continuation character")
         self._check_error("A.\u03bc\\\n",
-                          "unexpected EOF while parsing")
+                          "unexpected end of file")
 
     def test_error_parenthesis(self):
         for paren in "([{":

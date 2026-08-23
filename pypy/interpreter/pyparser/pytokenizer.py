@@ -2,7 +2,7 @@ from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError, UnusedAsciiSymbolError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
@@ -10,6 +10,14 @@ from rpython.rlib import rutf8, objectmodel
 
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
+# these are not valid Python operators, but the DFA still recognizes them as
+# single-char OP tokens: '`' always defers to the parser (which reports
+# generic "invalid syntax", matching CPython); '?' and '$' also defer while
+# inside f-string interpolation (letting the parser raise its own more
+# specific error there, e.g. f"{$}"), but must still be rejected right away
+# by the tokenizer everywhere else
+UNUSED_ASCII_SYMBOLS = '?$`'
+INVALID_OUTSIDE_FSTRING = '?$'
 ALNUMCHARS = NAMECHARS + NUMCHARS
 EXTENDED_ALNUMCHARS = ALNUMCHARS + '-.'
 WHITESPACES = ' \t\n\r\v\f'
@@ -143,7 +151,7 @@ def verify_identifier(token, line, lnum, start, token_list, flags, filename='<un
             raise_invalid_unicode_char(ch, line, lnum, start + pos, token_list)
         pos = it.get_pos()
 
-def raise_invalid_unicode_char(code, line, lnum, start, token_list):
+def raise_invalid_unicode_char(code, line, lnum, start, token_list, exc_class=TokenError):
     from pypy.module.unicodedata.interp_ucd import unicodedb
     # valid utf-8, but it gives a unicode char that cannot
     # be used in identifiers
@@ -156,7 +164,7 @@ def raise_invalid_unicode_char(code, line, lnum, start, token_list):
     else:
         msg = "invalid character '%s' (U+%s)" % (
             rutf8.unichr_as_utf8(code), h)
-    raise TokenError(msg, line, lnum, start + 1, token_list)
+    raise exc_class(msg, line, lnum, start + 1, token_list)
 
 def raise_unterminated_string(
     is_triple_quoted, line, lineno, column, tokens, end_lineno, end_offset, f_string=False
@@ -179,7 +187,7 @@ def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name
             ord(ch) >= 0x80)    # unicode
 
-def raise_unknown_character(line, start, lnum, token_list, flags, filename='<unknown>'):
+def raise_unknown_character(line, start, lnum, token_list, flags, filename='<unknown>', exc_class=TokenError):
     from pypy.module.unicodedata.interp_ucd import unicodedb
     code = ord(line[start])
     if code < 128:
@@ -189,7 +197,7 @@ def raise_unknown_character(line, start, lnum, token_list, flags, filename='<unk
             raise bad_utf8("line", line, lnum, start + 1,
                            token_list, flags, filename)
         code = rutf8.codepoint_at_pos(line, start)
-    raise_invalid_unicode_char(code, line, lnum, start, token_list)
+    raise_invalid_unicode_char(code, line, lnum, start, token_list, exc_class)
 
 DUMMY_DFA = automata.DFA([], [])
 
@@ -628,6 +636,9 @@ class Tokenizer(object):
             self._add_token(tokens.REVDBMETAVAR, token,
                                self.lnum, start, line, self.lnum, self.pos)
             self.last_comment = ''
+        elif token in INVALID_OUTSIDE_FSTRING and not self._in_fstring_interpolation():
+            raise_unknown_character(line, start, self.lnum, self.token_list, self.flags,
+                                     exc_class=UnusedAsciiSymbolError)
         else:
             if token == ':=' and self._in_fstring_interpolation() and len(self.parenstack) == self.state.level:
                 # Special case for := inside f-string interpolation
@@ -881,7 +892,9 @@ def generate_tokens(lines, flags, filename='<unknown>'):
     try:
         token_list2 = t.tokenize_lines(orig_lines[:])
     except TokenError as err2:
-        if not objectmodel.we_are_translated() and all(
+        # the legacy _generate_tokens doesn't scope UnusedAsciiSymbolError to
+        # f-string interpolation, so it never raises here for these
+        if not objectmodel.we_are_translated() and not isinstance(err2, UnusedAsciiSymbolError) and all(
             t.token_type != tokens.FSTRING_START for t in err2.tokens
         ):
             assert err1 is not None

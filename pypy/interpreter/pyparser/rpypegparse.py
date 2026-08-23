@@ -5020,7 +5020,7 @@ class PythonParser(Parser):
         if invalid_parameters_helper:
             a = self.param_no_default()
             if a:
-                return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a )
+                return self . raise_syntax_error_known_location ( "parameter without a default follows parameter with a default" , a )
         self._index = mark
         _loop0_172 = self._loop0_172()
         a = self.expect_type(10)
@@ -5173,7 +5173,7 @@ class PythonParser(Parser):
         if invalid_lambda_parameters_helper:
             a = self.lambda_param_no_default()
             if a:
-                return self . raise_syntax_error_known_location ( "non-default argument follows default argument" , a )
+                return self . raise_syntax_error_known_location ( "parameter without a default follows parameter with a default" , a )
         self._index = mark
         _loop0_189 = self._loop0_189()
         a = self.expect_type(10)
@@ -5556,9 +5556,9 @@ class PythonParser(Parser):
         if a:
             literal = self.expect_type(19)
             if literal:
-                _tmp_225 = self._tmp_225()
-                if _tmp_225:
-                    return self . raise_syntax_error ( "expected one or more exception types" )
+                b = self._tmp_225()
+                if b:
+                    return self . raise_syntax_error_known_location ( "expected one or more exception types" , b )
         self._index = mark
         return None
 
@@ -5933,7 +5933,7 @@ class PythonParser(Parser):
         self._index = mark
         a = self.expression()
         if a:
-            b = self.expect_type(22)
+            b = self.expect_type(25)
             if b:
                 return self . raise_syntax_error_known_location ( "':' expected after dictionary key" , b )
         self._index = mark
