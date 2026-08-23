@@ -3181,7 +3181,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # opts in (see pypy/goal/targetpypystandalone.py, set for the py3.12/abi3
         # build). rpython.rlib.rawrefcount.RRC_LINK_PREFIX mirrors this value for
         # its untranslated (test-only) equivalents and must be kept in sync by hand.
-        self.rrc_link_prefix = config.rawrefcount_link_prefix
+        self.rrc_link_prefix = getattr(config, 'rawrefcount_link_prefix', False)
         if self.rrc_link_prefix:
             self.PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
                                            ('ob_pypy_link', lltype.Signed),
