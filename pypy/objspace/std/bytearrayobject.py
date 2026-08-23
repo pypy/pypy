@@ -249,8 +249,32 @@ class W_BytearrayObject(W_BufferExporter):
                     space.text_arg_w(w_encoding, 'bytearray', 'encoding'))
         errors = (None if w_errors is None else
                   space.text_arg_w(w_errors, 'bytearray', 'errors'))
-        data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]
-        data += "\0"
+        count = -1
+        if (w_source is not None and encoding is None and errors is None and
+                space.type(w_source) is not space.w_bytes and
+                not space.isinstance_w(w_source, space.w_unicode)):
+            # bytearray(n): fill the list in bulk.  going through
+            # newbytesdata_w() would allocate and zero a throwaway n-byte
+            # bytes object only to memcopy it into the list.  see issue 5567.
+            # this also puts __index__ ahead of __bytes__, which is what
+            # CPython's bytearray (unlike bytes) does.
+            try:
+                count = space.getindex_w(w_source, space.w_OverflowError)
+            except OperationError as e:
+                if not e.match(space, space.w_TypeError):
+                    raise
+            else:
+                if count < 0:
+                    raise oefmt(space.w_ValueError, "negative count")
+        if count >= 0:
+            data = ['\0'] * (count + 1)
+        else:
+            # note: list(str) is rtyped to a bulk copy, while a per-character
+            # loop (list comprehension, append) is not - and this list type
+            # supports raw pointers, which makes appending even more
+            # expensive.  see issue 5567.
+            data = list(newbytesdata_w(space, w_source, encoding, errors))
+            data.append("\0")
         self._data = resizable_list_supporting_raw_ptr(data)
         self._offset = 0
         _tweak_for_tests(self)
