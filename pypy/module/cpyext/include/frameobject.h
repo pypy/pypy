@@ -13,6 +13,11 @@ typedef struct _frame {
     int f_lineno;
 } PyFrameObject;
 
+/* PyPy does not split the frame object into a boxed PyFrameObject and an
+   unboxed _PyInterpreterFrame the way CPython 3.11+ does: PyFrameObject
+   already plays both roles, so the two types are simply aliased here. */
+typedef PyFrameObject _PyInterpreterFrame;
+
 #define PyFrame_Check(op) Py_IS_TYPE((op), &PyFrame_Type)
 
 #ifdef __cplusplus

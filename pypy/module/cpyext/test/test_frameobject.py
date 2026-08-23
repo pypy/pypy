@@ -203,15 +203,52 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromLong(num);
              """),
+            ("frame_unstable_getcode", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return (PyObject *)PyUnstable_InterpreterFrame_GetCode((_PyInterpreterFrame *)args);
+             """),
+            ("frame_unstable_getlasti", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                int lasti = PyUnstable_InterpreterFrame_GetLasti((_PyInterpreterFrame *)args);
+                if (lasti < 0) {
+                    assert(lasti == -1);
+                    Py_RETURN_NONE;
+                }
+                return PyLong_FromLong(lasti);
+             """),
+            ("frame_unstable_getline", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                int num = PyUnstable_InterpreterFrame_GetLine((_PyInterpreterFrame *)args);
+                if (num < 0) {
+                    Py_RETURN_NONE;
+                }
+                return PyLong_FromLong(num);
+             """),
             ])
         import sys
         frame = sys._getframe()
-        assert frame.f_locals == module.frame_getlocals(frame) 
-        assert frame.f_globals == module.frame_getglobals(frame) 
+        assert frame.f_locals == module.frame_getlocals(frame)
+        assert frame.f_globals == module.frame_getglobals(frame)
         assert frame.f_builtins == module.frame_getbuiltins(frame)
-        lasti = module.frame_getlasti(frame) 
+        lasti = module.frame_getlasti(frame)
         assert abs(frame.f_lasti - lasti) < 40
         assert frame.f_lineno == module.frame_getlinenumber(frame)
+        assert frame.f_code == module.frame_unstable_getcode(frame)
+        unstable_lasti = module.frame_unstable_getlasti(frame)
+        assert abs(frame.f_lasti - unstable_lasti) < 40
+        assert frame.f_lineno == module.frame_unstable_getline(frame)
 
         def getgenframe():
             yield sys._getframe()

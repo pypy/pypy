@@ -152,3 +152,21 @@ def PyThreadState_GetFrame(space, tstate):
     ec = space.getexecutioncontext()
     caller = ec.gettopframe_nohidden()
     return caller
+
+# PyPy has no separate _PyInterpreterFrame struct (see include/frameobject.h),
+# so these behave identically to the PyFrame_Get* functions above.
+@cpython_api([PyFrameObject], PyCodeObject)
+def PyUnstable_InterpreterFrame_GetCode(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.getcode()
+
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+def PyUnstable_InterpreterFrame_GetLasti(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    w_lasti = frame.fget_f_lasti(space)
+    return space.int_w(w_lasti)
+
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+def PyUnstable_InterpreterFrame_GetLine(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_last_lineno()
