@@ -388,9 +388,10 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop(name, [_unspec_p(hop, v_p), _unspec_ob(hop, v_ob)])
         #
-        if hop.rtyper.annotator.translator.config.translation.gc == "boehm":
-            c_func = hop.inputconst(lltype.typeOf(func_boehm_eci),
-                                    func_boehm_eci)
+        config = hop.rtyper.annotator.translator.config
+        if config.translation.gc == "boehm":
+            func_eci = _func_boehm_eci(config.translation.rawrefcount_link_prefix)
+            c_func = hop.inputconst(lltype.typeOf(func_eci), func_eci)
             hop.genop('direct_call', [c_func])
 
 
@@ -446,9 +447,20 @@ class Entry(ExtRegistryEntry):
         return _spec_ob(hop, v_ob)
 
 src_dir = py.path.local(__file__).dirpath() / 'src'
-boehm_eci = ExternalCompilationInfo(
-    pre_include_bits       = ['#define RRC_LINK_PREFIX %d' % int(RRC_LINK_PREFIX)],
-    post_include_bits     = [(src_dir / 'boehm-rawrefcount.h').read()],
-    separate_module_files = [(src_dir / 'boehm-rawrefcount.c')],
-)
-func_boehm_eci = rffi.llexternal_use_eci(boehm_eci)
+
+def _boehm_eci(link_prefix):
+    # Not memoized on the module-level RRC_LINK_PREFIX (test-only, see
+    # configure() above): the real translated value is
+    # config.translation.rawrefcount_link_prefix, only known at rtyping
+    # time, and it must match the layout incminimark/cpyext actually use.
+    return ExternalCompilationInfo(
+        pre_include_bits       = ['#define RRC_LINK_PREFIX %d' % int(link_prefix)],
+        post_include_bits     = [(src_dir / 'boehm-rawrefcount.h').read()],
+        separate_module_files = [(src_dir / 'boehm-rawrefcount.c')],
+    )
+
+_func_boehm_ecis = {link_prefix: rffi.llexternal_use_eci(_boehm_eci(link_prefix))
+                    for link_prefix in (False, True)}
+
+def _func_boehm_eci(link_prefix):
+    return _func_boehm_ecis[link_prefix]
