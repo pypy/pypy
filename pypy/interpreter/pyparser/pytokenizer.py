@@ -529,8 +529,9 @@ class Tokenizer(object):
            (initial == '.' and token != '.' and token != '...')):
             # ordinary number
             self._add_token(tokens.NUMBER, token, self.lnum, start, line, self.lnum, end)
-            _maybe_raise_number_error(token, line, self.lnum, start, end, self.token_list)
-            _maybe_raise_invalid_float_exponent(line, self.lnum, start, self.max, self.token_list)
+            warned = _maybe_raise_number_error(token, line, self.lnum, start, end, self.token_list)
+            if not warned:
+                _maybe_raise_invalid_float_exponent(line, self.lnum, start, self.max, self.token_list)
             self.last_comment = ''
         elif initial in '\r\n':
             if not self.parenstack:
@@ -1080,8 +1081,9 @@ def _generate_tokens(lines, flags, filename='<unknown>'):
                    (initial == '.' and token != '.' and token != '...')):
                     # ordinary number
                     token_list.append(Token(tokens.NUMBER, token, lnum, start, line, lnum, end, level=len(parenstack)))
-                    _maybe_raise_number_error(token, line, lnum, start, end, token_list)
-                    _maybe_raise_invalid_float_exponent(line, lnum, start, max, token_list)
+                    warned = _maybe_raise_number_error(token, line, lnum, start, end, token_list)
+                    if not warned:
+                        _maybe_raise_invalid_float_exponent(line, lnum, start, max, token_list)
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
@@ -1348,6 +1350,10 @@ def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
                 raise_invalid_unicode_char(code, line, lnum, end, token_list)
         raise HardTokenError("invalid %s literal" % kind,
                          line, lnum, start + 1, token_list, lnum, end + 2)
+    # if we already warned about "<number>else", the 'e' is not the start
+    # of a float exponent, so the caller must not also run
+    # _maybe_raise_invalid_float_exponent on it
+    return warn
 
 
 def _get_next_or_nul(line, end):

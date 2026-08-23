@@ -41,6 +41,17 @@ def test_warning_decimal():
     assert issubclass(w[0].category, SyntaxWarning)
     assert w[0].lineno == 1
 
+def test_warning_decimal_before_else():
+    # "else" is the only keyword starting with 'e'/'E', so a decimal
+    # literal directly followed by it is ambiguous with a float exponent
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = eval("1 if 1else 0")
+    assert result == 1
+    assert len(w) == 1
+    assert str(w[0].message) == "invalid decimal literal"
+    assert issubclass(w[0].category, SyntaxWarning)
+
     # Compiling with a SyntaxError may or may not emit the warning first
     # depending on the implementation (CPython does, PyPy does not).
     with warnings.catch_warnings(record=True) as w:
@@ -48,6 +59,19 @@ def test_warning_decimal():
             warnings.simplefilter("always")
             compile("0x1for 2 a b c", "fn", "exec")
     assert len(w) in (0, 1)
+
+def test_warn_is_with_literal_names_type():
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        compile("x is 1", "fn", "eval")
+    assert len(w) == 1
+    assert str(w[0].message) == '"is" with \'int\' literal. Did you mean "=="?'
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        compile("x is not (1, 2)", "fn", "eval")
+    assert len(w) == 1
+    assert str(w[0].message) == '"is not" with \'tuple\' literal. Did you mean "!="?'
 
 def test_warn_assert_tuple():
     for sourceline in ["assert(False, 'abc')", "assert(x, 'abc')"]:

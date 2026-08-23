@@ -1826,40 +1826,57 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(end)
             self._stack_depth = saved_depth  # restore: result is on stack
 
-    def _is_literal(self, node):
-        # to-do(isidentical): maybe include list, dict, sets?
-        if not isinstance(node, ast.Constant):
-            return False
-
-        for singleton in [
-            self.space.w_None,
-            self.space.w_True,
-            self.space.w_False,
-            self.space.w_Ellipsis
-        ]:
-            if self.space.is_w(node.value, singleton):
-                return False
-
-        return True
+    def _literal_type_name(self, node):
+        # returns the type name to report for the "is"/"is not" literal
+        # warning, or None if `node` isn't a literal for this purpose
+        if isinstance(node, ast.Constant):
+            for singleton in [
+                self.space.w_None,
+                self.space.w_True,
+                self.space.w_False,
+                self.space.w_Ellipsis
+            ]:
+                if self.space.is_w(node.value, singleton):
+                    return None
+            return self.space.type(node.value).name
+        elif isinstance(node, ast.Tuple):
+            return "tuple"
+        elif isinstance(node, ast.List) or isinstance(node, ast.ListComp):
+            return "list"
+        elif isinstance(node, ast.Dict) or isinstance(node, ast.DictComp):
+            return "dict"
+        elif isinstance(node, ast.Set) or isinstance(node, ast.SetComp):
+            return "set"
+        elif isinstance(node, ast.GeneratorExp):
+            return "generator"
+        elif isinstance(node, ast.Lambda):
+            return "function"
+        elif isinstance(node, ast.JoinedStr) or isinstance(node, ast.FormattedValue):
+            return "str"
+        return None
 
     def _check_compare(self, node):
         left = node.left
         for i in range(min(len(node.ops), len(node.comparators))):
             op = node.ops[i]
             right = node.comparators[i]
-            if op in (ast.Is, ast.IsNot) and (self._is_literal(left) or self._is_literal(right)):
-                if op is ast.Is:
-                    operator, replacement = "is", "=="
-                else:
-                    operator, replacement = "is not", "!="
-                misc.syntax_warning(
-                    self.space,
-                    '"%s" with a literal. Did you mean "%s"?'
-                    % (operator, replacement),
-                    self.compile_info.filename,
-                    node.lineno,
-                    node.col_offset
-                )
+            if op in (ast.Is, ast.IsNot):
+                left_type = self._literal_type_name(left)
+                right_type = self._literal_type_name(right)
+                if left_type is not None or right_type is not None:
+                    if op is ast.Is:
+                        operator, replacement = "is", "=="
+                    else:
+                        operator, replacement = "is not", "!="
+                    typename = left_type if left_type is not None else right_type
+                    misc.syntax_warning(
+                        self.space,
+                        '"%s" with \'%s\' literal. Did you mean "%s"?'
+                        % (operator, typename, replacement),
+                        self.compile_info.filename,
+                        node.lineno,
+                        node.col_offset
+                    )
             left = right
 
     def _optimize_comparator(self, op, node):
