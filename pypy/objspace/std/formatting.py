@@ -491,6 +491,14 @@ def make_formatter_subclass(do_unicode):
                 w_value = self.space.repr(w_value)
                 self.std_wp(self.space.utf8_w(w_value))
 
+        if not do_unicode:
+            def fmt_i(self, w_value):
+                # on bytes/bytearray, CPython's error message normalizes
+                # %i to %d (unlike on str, where %i is kept as-is)
+                "i% formatting"
+                r = int_num_helper(self.space, w_value)
+                self.std_wp_int(r)
+
         def fmt_a(self, w_value):
             from pypy.objspace.std.unicodeobject import ascii_from_object
             w_value = ascii_from_object(self.space, w_value)

@@ -512,6 +512,17 @@ def test_numeric_bytes():
     assert b"<%#4x>" % 10 == b"< 0xa>"
     assert b"<%04X>" % 10 == b"<000A>"
 
+def test_percent_i_error_uses_d():
+    # CPython normalizes %i to %d in this error message on bytes
+    # (bytesobject.c's formatlong()), but keeps %i as-is on str
+    # (unicodeobject.c's mainformatlong() does not normalize it)
+    with raises(TypeError) as info:
+        b'%i' % 2j
+    assert str(info.value).startswith("%d format:")
+    with raises(TypeError) as info:
+        '%i' % 2j
+    assert str(info.value).startswith("%i format:")
+
 def test_char_bytes():
     assert b"<%c>" % 48 == b"<0>"
     assert b"<%c>" % b"?" == b"<?>"

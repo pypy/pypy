@@ -21,7 +21,7 @@ from test.support import import_helper
 from test.support import warnings_helper
 import test.string_tests
 import test.list_tests
-from test.support import bigaddrspacetest, MAX_Py_ssize_t
+from test.support import bigaddrspacetest, MAX_Py_ssize_t, cpython_only
 from test.support.script_helper import assert_python_failure
 
 
@@ -1118,6 +1118,7 @@ class BytesTest(BaseBytesTest, unittest.TestCase):
                               BytesSubclass(b'abc'))
 
     # Test PyBytes_FromFormat()
+    @cpython_only
     def test_from_format(self):
         ctypes = import_helper.import_module('ctypes')
         _testcapi = import_helper.import_module('_testcapi')
@@ -1508,6 +1509,7 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         b += bytes(2)  # Append exactly the number of deleted bytes
         del b          # Free memory buffer, allowing pydebug verification
 
+    @test.support.cpython_only
     def test_del_expand(self):
         # Reducing the size should not expand the buffer (issue #23985)
         b = bytearray(10)
@@ -1725,6 +1727,8 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         self.assertEqual(b, b"")
         self.assertEqual(c, b"")
 
+    @test.support.impl_detail(
+        "resizing semantics of CPython rely on refcounting")
     def test_resize_forbidden(self):
         # #4509: can't resize a bytearray when there are buffer exports, even
         # if it wouldn't reallocate the underlying buffer.
