@@ -518,17 +518,16 @@ def inherit_special(space, pto, w_obj, base_pto):
             if not pto.c_tp_descr_get or pto.c_tp_descr_get == base_pto.c_tp_descr_get:
                 flags |= Py_TPFLAGS_METHOD_DESCRIPTOR
 
-    # Inherit Py_TPFLAGS_HAVE_VECTORCALL for non-heap static types that do
+    # Inherit Py_TPFLAGS_HAVE_VECTORCALL (heap or non-heap) for types that do
     # not override tp_vectorcall_offset or tp_call.
     # Note: inherit_slots runs after inherit_special, so a zero offset here
     # means "not overridden" and will be inherited from base.
-    if not (flags & Py_TPFLAGS_HEAPTYPE):
-        if widen(base_pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL:
-            same_offset = (pto.c_tp_vectorcall_offset == 0 or
-                           pto.c_tp_vectorcall_offset == base_pto.c_tp_vectorcall_offset)
-            if (same_offset
-                    and (not pto.c_tp_call or pto.c_tp_call == base_pto.c_tp_call)):
-                flags |= Py_TPFLAGS_HAVE_VECTORCALL
+    if widen(base_pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL:
+        same_offset = (pto.c_tp_vectorcall_offset == 0 or
+                       pto.c_tp_vectorcall_offset == base_pto.c_tp_vectorcall_offset)
+        if (same_offset
+                and (not pto.c_tp_call or pto.c_tp_call == base_pto.c_tp_call)):
+            flags |= Py_TPFLAGS_HAVE_VECTORCALL
 
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
@@ -857,6 +856,60 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         decref(space, base_object_pyo)
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return pto
+
+def cpyext_vectorcall_call_changed(space, w_type):
+    """Called right after '__call__' was set or deleted directly on w_type
+    (i.e. w_type.dict_w already reflects the change). Mirrors CPython's
+    update_one_slot/update_subclasses: recomputes Py_TPFLAGS_HAVE_VECTORCALL
+    for w_type and every transitive subclass that already has a
+    materialized cpyext PyTypeObject.
+
+    A cpyext type's own concrete tp_call is exposed as a '__call__' entry
+    that _add_operators put directly into its dict_w (a W_PyCWrapperObject
+    wrapping the C function pointer) - this is indistinguishable from a
+    "real" override by mere presence in dict_w, so the two cases can't be
+    told apart just by checking "is '__call__' in my own dict_w". Instead,
+    resolve '__call__' the same way a call would (MRO lookup via .lookup()):
+    if that still finds a W_PyCWrapperObject, some concrete C tp_call is
+    still in effect (whether it's this type's own or inherited unchanged
+    from a closer-in-MRO ancestor) and vectorcall eligibility is left as-is;
+    otherwise the effective call now goes through the generic per-instance
+    slot_tp_call dispatch and the flag must be cleared. Using MRO lookup
+    (rather than raw dict_w checks) means a subclass that shadows '__call__'
+    with its own concrete wrapper - and thus everything below it - is
+    naturally left untouched even though we still recurse into it.
+    """
+    if not space.config.objspace.usemodules.cpyext:
+        return
+    _cpyext_vectorcall_recompute_one(space, w_type)
+    for w_sub in w_type.get_subclasses():
+        cpyext_vectorcall_call_changed(space, w_sub)
+
+def cpyext_have_vectorcall_flag(space, w_type):
+    """Non-forcing peek at Py_TPFLAGS_HAVE_VECTORCALL for w_type.__flags__.
+    Only reports the flag if w_type already has a materialized cpyext
+    PyTypeObject (e.g. from an instantiation or another C-API call) -
+    never materializes one just to answer this, since a pto built from a
+    not-yet-fully-set-up type would be permanently wrong (ptos are cached
+    for the object's lifetime), and forcing it on every __flags__ read
+    would be a surprising, unrequested side effect."""
+    pto = rffi.cast(PyTypeObjectPtr, w_type._cpyext_as_pyobj(space))
+    if not pto:
+        return 0
+    return widen(pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL
+
+def _cpyext_vectorcall_recompute_one(space, w_type):
+    from pypy.module.cpyext.methodobject import W_PyCWrapperObject
+    pto = rffi.cast(PyTypeObjectPtr, w_type._cpyext_as_pyobj(space))
+    if not pto:
+        return
+    flags = widen(pto.c_tp_flags)
+    if not (flags & Py_TPFLAGS_HAVE_VECTORCALL):
+        return
+    w_call = w_type.lookup('__call__')
+    if isinstance(w_call, W_PyCWrapperObject) and w_call.method_name == '__call__':
+        return
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, flags & ~Py_TPFLAGS_HAVE_VECTORCALL)
 
 def type_reattach(space, w_type):
     """Called when the w_type base class or bases has been changed, need to

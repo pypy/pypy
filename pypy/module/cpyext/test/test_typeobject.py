@@ -2652,9 +2652,22 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # test_vectorcall_flag: derived static type should inherit Py_TPFLAGS_HAVE_VECTORCALL
         assert module.MethodDescriptorBase.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
         assert module.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+
+        # Mutable heap types should inherit Py_TPFLAGS_HAVE_VECTORCALL,
+        # but should lose it when __call__ is overridden
         class MethodDescriptorHeap(module.MethodDescriptorBase):
             pass
+        MethodDescriptorHeap()
+        assert MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL
+        MethodDescriptorHeap.__call__ = lambda *a: None
         assert not (MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
+
+        # Mutable heap types should not inherit Py_TPFLAGS_HAVE_VECTORCALL if
+        # they define __call__ directly
+        class MethodDescriptorHeap2(module.MethodDescriptorBase):
+            def __call__(self):
+                pass
+        assert not (MethodDescriptorHeap2.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
 
         # test_method_descriptor_flag: Py_TPFLAGS_METHOD_DESCRIPTOR on C extension types
         Py_TPFLAGS_METHOD_DESCRIPTOR = 1 << 17
@@ -2672,6 +2685,126 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert res == [1, 2]
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
+
+    def test_vectorcall_flag_cascade_subclass(self):
+        # Setting __call__ on a superclass should clear Py_TPFLAGS_HAVE_VECTORCALL
+        # on it and on every subclass that didn't define its own tp_call/__call__ -
+        # but not on subclasses that have their own vectorcall support.
+        # This only checks the flag bookkeeping, not the actual call dispatch
+        # (i.e. what calling the instances returns) - see test_vectorcall.
+        module = self.import_extension('foo_vc_cascade', [
+            ("make_vectorcall_class", "METH_VARARGS",
+             '''
+                PyObject *base_obj = NULL;
+                PyTypeObject *base;
+                PyType_Spec spec;
+                if (!PyArg_ParseTuple(args, "|O", &base_obj))
+                    return NULL;
+                if (base_obj == NULL) {
+                    base = &PyBaseObject_Type;
+                } else if (!PyType_Check(base_obj)) {
+                    PyErr_SetString(PyExc_TypeError, "expected a type");
+                    return NULL;
+                } else {
+                    base = (PyTypeObject *)base_obj;
+                }
+                vectorcallclass_members[0].offset = base->tp_basicsize;
+                spec.name = "foo_vc_cascade.VectorcallClass";
+                spec.basicsize = (int)(base->tp_basicsize + sizeof(vectorcallfunc));
+                spec.itemsize = 0;
+                spec.flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_VECTORCALL |
+                             Py_TPFLAGS_BASETYPE;
+                spec.slots = vectorcallclass_slots;
+                return PyType_FromSpecWithBases(&spec, (PyObject *)base);
+             '''),
+            ("has_vectorcall_flag", "METH_O",
+             '''
+                if (!PyType_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "expected a type");
+                    return NULL;
+                }
+                return PyBool_FromLong(
+                    PyType_HasFeature((PyTypeObject *)args, Py_TPFLAGS_HAVE_VECTORCALL));
+             '''),
+            ],
+            prologue='''
+                #include <structmember.h>
+
+                static PyObject *
+                vectorcallclass_tpcall(PyObject *self, PyObject *args, PyObject *kwargs) {
+                    return PyUnicode_FromString("tp_call");
+                }
+
+                static PyObject *
+                vectorcallclass_vectorcall(PyObject *callable, PyObject *const *args,
+                                            size_t nargsf, PyObject *kwnames) {
+                    return PyUnicode_FromString("vectorcall");
+                }
+
+                static PyObject *
+                vectorcallclass_set_vectorcall(PyObject *self, PyObject *type_obj) {
+                    PyTypeObject *type;
+                    if (!PyType_Check(type_obj)) {
+                        PyErr_SetString(PyExc_TypeError, "expected a type");
+                        return NULL;
+                    }
+                    type = (PyTypeObject *)type_obj;
+                    if (!PyObject_TypeCheck(self, type)) {
+                        PyErr_SetString(PyExc_TypeError, "expected instance of type");
+                        return NULL;
+                    }
+                    if (!type->tp_vectorcall_offset) {
+                        PyErr_SetString(PyExc_TypeError, "type has no vectorcall offset");
+                        return NULL;
+                    }
+                    *(vectorcallfunc*)((char*)self + type->tp_vectorcall_offset) = (
+                        vectorcallclass_vectorcall);
+                    Py_RETURN_NONE;
+                }
+
+                static PyMethodDef vectorcallclass_methods[] = {
+                    {"set_vectorcall", vectorcallclass_set_vectorcall, METH_O},
+                    {NULL, NULL}
+                };
+
+                static PyMemberDef vectorcallclass_members[] = {
+                    {"__vectorcalloffset__", T_PYSSIZET, 0, READONLY},
+                    {NULL}
+                };
+
+                static PyType_Slot vectorcallclass_slots[] = {
+                    {Py_tp_call, vectorcallclass_tpcall},
+                    {Py_tp_members, vectorcallclass_members},
+                    {Py_tp_methods, vectorcallclass_methods},
+                    {0},
+                };
+            ''')
+
+        SuperType = module.make_vectorcall_class()
+        class DerivedType(SuperType):
+            pass
+
+        # Derived types with their own vectorcall support should be unaffected
+        UnaffectedType1 = module.make_vectorcall_class(DerivedType)
+        UnaffectedType2 = module.make_vectorcall_class(SuperType)
+
+        assert issubclass(UnaffectedType1, DerivedType)
+        assert issubclass(UnaffectedType2, SuperType)
+
+        # Initial state: all four have the flag
+        assert module.has_vectorcall_flag(SuperType)
+        assert module.has_vectorcall_flag(DerivedType)
+        assert module.has_vectorcall_flag(UnaffectedType1)
+        assert module.has_vectorcall_flag(UnaffectedType2)
+
+        # Setting __call__ on SuperType should clear the flag on SuperType and
+        # DerivedType (which inherits tp_call unchanged), but not on the
+        # Unaffected* types (which have their own vectorcall support)
+        SuperType.__call__ = lambda self: "custom"
+        assert not module.has_vectorcall_flag(SuperType)
+        assert not module.has_vectorcall_flag(DerivedType)
+        assert module.has_vectorcall_flag(UnaffectedType1)
+        assert module.has_vectorcall_flag(UnaffectedType2)
 
     def test_dictoffset_struct_field_sync(self):
         # https://github.com/pypy/pypy/issues/5515 -- a tp_new that

@@ -440,6 +440,10 @@ class W_TypeObject(W_Root):
                 return True
         self.mutated(name)
         self.dict_w[name] = w_value
+        if (name == '__call__' and self.flag_cpytype and
+                space.config.objspace.usemodules.cpyext):
+            from pypy.module.cpyext.typeobject import cpyext_vectorcall_call_changed
+            cpyext_vectorcall_call_changed(space, self)
         return True
 
     def deldictvalue(self, space, key):
@@ -454,6 +458,10 @@ class W_TypeObject(W_Root):
             return False
         else:
             self.mutated(key)
+            if (key == '__call__' and self.flag_cpytype and
+                    space.config.objspace.usemodules.cpyext):
+                from pypy.module.cpyext.typeobject import cpyext_vectorcall_call_changed
+                cpyext_vectorcall_call_changed(space, self)
             return True
 
     def lookup(self, name):
@@ -892,6 +900,9 @@ class W_TypeObject(W_Root):
             flags |= PATMA_SEQUENCE
         if self.flag_method_descriptor:
             flags |= 1 << 17  # Py_TPFLAGS_METHOD_DESCRIPTOR
+        if self.flag_cpytype and self.space.config.objspace.usemodules.cpyext:
+            from pypy.module.cpyext.typeobject import cpyext_have_vectorcall_flag
+            flags |= cpyext_have_vectorcall_flag(self.space, self)
         return flags
 
 def descr__new__(space, w_typetype, __args__):
