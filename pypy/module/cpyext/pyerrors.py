@@ -87,6 +87,14 @@ def PyErr_SetObject(space, w_type, w_value):
 def pyerr_setobject(space, w_type, w_value):
     state = space.fromcache(State)
     operr = OperationError(w_type, w_value)
+    # Normalize eagerly when the exception is set
+    # A normalization failure (e.g. a broken __subclasscheck__) must be
+    # caught here: it becomes the new current exception
+    try:
+        operr.normalize_exception(space)
+    except OperationError as e:
+        state.set_exception(e)
+        return
     operr.record_context(space, space.getexecutioncontext())
     state.set_exception(operr)
 
@@ -208,7 +216,17 @@ def PyErr_Restore(space, py_type, py_value, py_traceback):
     if w_type is None:
         state.clear_exception()
         return
-    state.set_exception(OperationError(w_type, w_value, w_traceback))
+    operr = OperationError(w_type, w_value, w_traceback)
+    if w_value is None or not space.is_w(space.type(w_value), w_type):
+        # Normalize eagerly here
+        # A normalization failure must be caught here and it becomes the new
+        # current exception.
+        try:
+            operr.normalize_exception(space)
+        except OperationError as e:
+            state.set_exception(e)
+            return
+    state.set_exception(operr)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_NormalizeException(space, exc_p, val_p, tb_p):

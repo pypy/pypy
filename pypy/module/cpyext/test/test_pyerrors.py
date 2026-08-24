@@ -45,8 +45,12 @@ class TestExceptions(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_ValueError
         state = space.fromcache(State)
         operror = state.get_exception()
-        assert space.eq_w(operror.get_w_value(space),
-                          space.wrap("a value"))
+        # PyErr_SetObject normalizes eagerly (CPython 3.12+ semantics):
+        # get_w_value() is already a ValueError instance, not the raw
+        # string that was passed in.
+        w_value = operror.get_w_value(space)
+        assert space.isinstance_w(w_value, space.w_ValueError)
+        assert space.eq_w(space.str(w_value), space.wrap("a value"))
 
         api.PyErr_Clear()
 
@@ -55,7 +59,10 @@ class TestExceptions(BaseApiTest):
         state = space.fromcache(State)
         operror = state.get_exception()
         assert space.eq_w(operror.w_type, space.w_KeyError)
-        assert space.eq_w(operror.get_w_value(space), space.w_None)
+        # Eagerly normalized: get_w_value() is a KeyError() instance,
+        # not None.
+        w_value = operror.get_w_value(space)
+        assert space.isinstance_w(w_value, space.w_KeyError)
         api.PyErr_Clear()
 
         api.PyErr_NoMemory()
@@ -270,21 +277,20 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              PyErr_Fetch(&type, &val, &tb);
              if (type != PyExc_TypeError)
                  Py_RETURN_FALSE;
-             if (!PyUnicode_Check(val))
-                 Py_RETURN_FALSE;
-             /* Normalize */
-             PyErr_NormalizeException(&type, &val, &tb);
-             if (type != PyExc_TypeError)
-                 Py_RETURN_FALSE;
-             if ((PyObject*)Py_TYPE(val) != PyExc_TypeError)
-                 Py_RETURN_FALSE;
-
-             /* Normalize again */
-             PyErr_NormalizeException(&type, &val, &tb);
-             if (type != PyExc_TypeError)
+             /* CPython 3.12+ normalizes eagerly when the exception is
+                set, so by the time Fetch returns, val is already a
+                TypeError instance, not the raw message string. */
+             if (PyUnicode_Check(val))
                  Py_RETURN_FALSE;
              if ((PyObject*)Py_TYPE(val) != PyExc_TypeError)
                  Py_RETURN_FALSE;
+             {
+                 PyObject *s = PyObject_Str(val);
+                 int ok = s && PyUnicode_CompareWithASCIIString(s, "message") == 0;
+                 Py_XDECREF(s);
+                 if (!ok)
+                     Py_RETURN_FALSE;
+             }
 
              PyErr_Restore(type, val, tb);
              PyErr_Clear();

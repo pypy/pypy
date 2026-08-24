@@ -1139,6 +1139,19 @@ def make_wrapper_second_level(space, argtypesw, restype,
                     print >>sys.stderr, " DONE"
             except OperationError as e:
                 failed = True
+                # Normalize eagerly here too: most cpyext-implemented
+                # functions raise via oefmt(), which is lazy (get_w_value
+                # returns plain text, not an instantiated exception) until
+                # normalized.  Without this, an exception raised by e.g.
+                # PyList_GetItem and then inspected via PyErr_Fetch would
+                # still show the CPython<3.12 unnormalized shape.  Skip the
+                # (non-trivial: it dispatches through __subclasscheck__ and
+                # can re-touch the traceback) work if already normalized.
+                if not space.is_w(space.type(e.get_w_value(space)), e.w_type):
+                    try:
+                        e.normalize_exception(space)
+                    except OperationError as e2:
+                        e = e2
                 state.set_exception(e)
             except BaseException as e:
                 failed = True
