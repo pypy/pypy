@@ -1677,6 +1677,7 @@ class FwalkTests(WalkTests):
     @unittest.skipIf(
         support.is_android, "dup return value is unpredictable on Android"
     )
+    @support.cpython_only
     def test_fd_finalization(self):
         # Check that close()ing the fwalk() generator closes FDs
         def getfd():
@@ -4872,6 +4873,7 @@ class ForkTests(unittest.TestCase):
         self.assertEqual(err.decode("utf-8"), "")
         self.assertEqual(out.decode("utf-8"), "")
 
+    @support.cpython_only
     def test_fork_at_finalization(self):
         code = """if 1:
             import atexit

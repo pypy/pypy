@@ -2,7 +2,7 @@ from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError, UnusedAsciiSymbolError
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
@@ -10,14 +10,6 @@ from rpython.rlib import rutf8, objectmodel
 
 NAMECHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_'
 NUMCHARS = '0123456789'
-# these are not valid Python operators, but the DFA still recognizes them as
-# single-char OP tokens: '`' always defers to the parser (which reports
-# generic "invalid syntax", matching CPython); '?' and '$' also defer while
-# inside f-string interpolation (letting the parser raise its own more
-# specific error there, e.g. f"{$}"), but must still be rejected right away
-# by the tokenizer everywhere else
-UNUSED_ASCII_SYMBOLS = '?$`'
-INVALID_OUTSIDE_FSTRING = '?$'
 ALNUMCHARS = NAMECHARS + NUMCHARS
 EXTENDED_ALNUMCHARS = ALNUMCHARS + '-.'
 WHITESPACES = ' \t\n\r\v\f'
@@ -636,9 +628,6 @@ class Tokenizer(object):
             self._add_token(tokens.REVDBMETAVAR, token,
                                self.lnum, start, line, self.lnum, self.pos)
             self.last_comment = ''
-        elif token in INVALID_OUTSIDE_FSTRING and not self._in_fstring_interpolation():
-            raise_unknown_character(line, start, self.lnum, self.token_list, self.flags,
-                                     exc_class=UnusedAsciiSymbolError)
         else:
             if token == ':=' and self._in_fstring_interpolation() and len(self.parenstack) == self.state.level:
                 # Special case for := inside f-string interpolation
@@ -892,9 +881,7 @@ def generate_tokens(lines, flags, filename='<unknown>'):
     try:
         token_list2 = t.tokenize_lines(orig_lines[:])
     except TokenError as err2:
-        # the legacy _generate_tokens doesn't scope UnusedAsciiSymbolError to
-        # f-string interpolation, so it never raises here for these
-        if not objectmodel.we_are_translated() and not isinstance(err2, UnusedAsciiSymbolError) and all(
+        if not objectmodel.we_are_translated() and all(
             t.token_type != tokens.FSTRING_START for t in err2.tokens
         ):
             assert err1 is not None

@@ -146,11 +146,6 @@ class LineContinuationError(TokenError):
     """A line-continuation backslash that runs into EOF; the eval/exec layer
     formats the message depending on the mode."""
 
-class UnusedAsciiSymbolError(TokenError):
-    """One of '?$`': tokenized as an OP inside f-string interpolation (so the
-    parser can raise its own more specific f-string error message) but
-    rejected right away as an invalid character everywhere else."""
-
 class TokenIndentationError(IndentationError):
 
     def __init__(self, msg, line, lineno, column, tokens):
