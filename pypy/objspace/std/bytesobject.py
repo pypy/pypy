@@ -459,6 +459,12 @@ class W_BytesObject(W_AbstractBytesObject):
         space.check_buf_flags(flags, True)
         fill_py_buffer_1d(view, self, StringBuffer(self._value), readonly=True)
 
+    @unwrap_spec(flags=int)
+    def descr_buffer(self, space, flags):
+        space.check_buf_flags(flags, True)
+        view = SimpleView(StringBuffer(self._value), w_obj=self)
+        return view.wrap(space, owns_export=True)
+
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
         #return W_Buffer(StringBuffer(self._value))
@@ -921,6 +927,7 @@ W_BytesObject.typedef = TypeDef(
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
 
     __bytes__ = interp2app(W_BytesObject.descr_bytes),
+    __buffer__ = interp2app(W_BytesObject.descr_buffer),
 
     capitalize = interpindirect2app(W_AbstractBytesObject.descr_capitalize),
     center = interpindirect2app(W_AbstractBytesObject.descr_center),

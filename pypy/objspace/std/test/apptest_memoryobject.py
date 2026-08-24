@@ -352,3 +352,19 @@ def test_struct_unpack_from_cast_memoryview_slice():
     assert result == (1,)
 
 
+def test_bytes_dunder_buffer_direct():
+    b = b"hello"
+    mv = b.__buffer__(0)
+    assert type(mv) is memoryview
+    assert mv.tobytes() == b"hello"
+    assert mv.readonly
+
+
+def test_memoryview_dunder_buffer_direct():
+    orig = memoryview(b"hello")
+    mv = orig.__buffer__(0)
+    assert type(mv) is memoryview
+    assert mv is not orig
+    assert mv.tobytes() == b"hello"
+
+

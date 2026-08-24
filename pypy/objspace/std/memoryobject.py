@@ -179,6 +179,11 @@ class W_MemoryView(W_BufferExporter):
         # Py_buffer from this memoryview must not decrement it.
         pass
 
+    @unwrap_spec(flags=int)
+    def descr_buffer(self, space, flags):
+        self._check_buffer_flags(space, flags)
+        return NonOwningReleaseView(self.view).wrap(space, owns_export=False)
+
     @staticmethod
     def descr_new_memoryview(space, w_subtype, w_object):
         if isinstance(w_object, W_MemoryView):
@@ -774,6 +779,7 @@ Create a new memoryview object which references the given object.
     tolist      = interp2app(W_MemoryView.descr_tolist),
     toreadonly  = interp2app(W_MemoryView.descr_toreadonly),
     release     = interp2app(W_MemoryView.descr_release),
+    __buffer__  = interp2app(W_MemoryView.descr_buffer),
     __release_buffer__ = interp2app(W_MemoryView.descr_release_buffer),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
