@@ -1298,6 +1298,10 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_PyFloat_InitState'),
         [], lltype.Void,
         compilation_info=eci, _nowrapper=True)
+    state.C.PyVectorcall_Call = rffi.llexternal(
+        mangle_name(prefix, 'PyVectorcall_Call'),
+        [PyObject, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
 
     if we_are_translated():
         eci_flags = eci

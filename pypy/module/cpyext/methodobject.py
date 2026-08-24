@@ -1,5 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
+from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -12,7 +14,8 @@ from pypy.objspace.std.typeobject import W_TypeObject, extract_doc, extract_txts
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS, METH_METHOD,
-    PyObject, bootstrap_function, cpython_api, generic_cpy_call,
+    PyObject, PyTypeObjectPtr, Py_TPFLAGS_HAVE_VECTORCALL,
+    bootstrap_function, cpython_api, generic_cpy_call,
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
     PyObjectP, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
@@ -28,6 +31,22 @@ PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
 PyCMethod = cts.gettype('PyCMethod')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 PyCMethodObject = cts.gettype('PyCMethodObject*')
+VectorcallFunc = cts.gettype('vectorcallfunc')
+
+def get_vectorcall_func(py_callable):
+    """Return the per-instance vectorcallfunc for py_callable if its type
+    supports vectorcall (Py_TPFLAGS_HAVE_VECTORCALL set, tp_vectorcall_offset
+    nonzero) and the pointer stored there is non-NULL; else a null pointer,
+    signalling "fall back to tp_call" - mirrors PyVectorcall_Call
+    (pypy/module/cpyext/src/call.c)."""
+    pto = rffi.cast(PyTypeObjectPtr, py_callable.c_ob_type)
+    if not (widen(pto.c_tp_flags) & Py_TPFLAGS_HAVE_VECTORCALL):
+        return lltype.nullptr(VectorcallFunc.TO)
+    offset = pto.c_tp_vectorcall_offset
+    if offset <= 0:
+        return lltype.nullptr(VectorcallFunc.TO)
+    loc = rffi.ptradd(cts.cast("char *", py_callable), offset)
+    return cts.cast("vectorcallfunc *", loc)[0]
 
 @bootstrap_function
 def init_functionobject(space):
@@ -643,6 +662,18 @@ def PyVectorcall_NARGS(n):
 @cts.decl("PyObject *PyObject_Vectorcall(PyObject *, PyObject *const *, "
           "size_t, PyObject *)")
 def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+    nargsf = n
+    py_func = as_pyobj(space, w_func)
+    func = get_vectorcall_func(py_func)
+    if func:
+        if w_argnames is None:
+            py_argnames = lltype.nullptr(PyObject.TO)
+        else:
+            py_argnames = as_pyobj(space, w_argnames)
+        result = generic_cpy_call(space, func, py_func, py_args, nargsf, py_argnames)
+        keepalive_until_here(w_func)
+        keepalive_until_here(w_argnames)
+        return result
 
     if w_argnames is None:
         n_kwargs = -1

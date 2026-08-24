@@ -2726,6 +2726,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 return PyBool_FromLong(
                     PyType_HasFeature((PyTypeObject *)args, Py_TPFLAGS_HAVE_VECTORCALL));
              '''),
+            ("pyobject_vectorcall", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args;
+                PyObject **stack;
+                Py_ssize_t nargs;
+                if (!PyArg_ParseTuple(args, "OO", &func, &func_args))
+                    return NULL;
+                if (!PyTuple_Check(func_args)) {
+                    PyErr_SetString(PyExc_TypeError, "args must be a tuple");
+                    return NULL;
+                }
+                stack = ((PyTupleObject *)func_args)->ob_item;
+                nargs = PyTuple_GET_SIZE(func_args);
+                return PyObject_Vectorcall(func, stack, nargs, NULL);
+             '''),
             ],
             prologue='''
                 #include <structmember.h>
@@ -2797,6 +2812,18 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.has_vectorcall_flag(UnaffectedType1)
         assert module.has_vectorcall_flag(UnaffectedType2)
 
+        # SuperType's tp_call and its actual (per-instance) vectorcall
+        # function are different C functions - set_vectorcall() pokes the
+        # vectorcall one directly into the instance without ever touching
+        # tp_call. Both plain calls and the raw PyObject_Vectorcall C-API
+        # entry point must prefer vectorcall over tp_call once it's set.
+        instance = SuperType()
+        assert instance() == "tp_call"
+        assert module.pyobject_vectorcall(instance, ()) == "tp_call"
+        instance.set_vectorcall(SuperType)
+        assert instance() == "vectorcall"
+        assert module.pyobject_vectorcall(instance, ()) == "vectorcall"
+
         # Setting __call__ on SuperType should clear the flag on SuperType and
         # DerivedType (which inherits tp_call unchanged), but not on the
         # Unaffected* types (which have their own vectorcall support)
@@ -2805,6 +2832,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert not module.has_vectorcall_flag(DerivedType)
         assert module.has_vectorcall_flag(UnaffectedType1)
         assert module.has_vectorcall_flag(UnaffectedType2)
+        assert instance() == "custom"
 
     def test_dictoffset_struct_field_sync(self):
         # https://github.com/pypy/pypy/issues/5515 -- a tp_new that

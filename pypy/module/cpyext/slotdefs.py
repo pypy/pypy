@@ -20,11 +20,11 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext import userslot
 from pypy.module.cpyext.buffer import CBuffer, CPyBuffer, fq
 from pypy.module.cpyext.methodobject import (W_PyCWrapperObject, tuple_from_args_w,
-                                             w_kwargs_from_args)
+                                             w_kwargs_from_args, get_vectorcall_func)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.argument import Arguments
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize, not_rpython
+from rpython.rlib.objectmodel import specialize, not_rpython, keepalive_until_here
 from rpython.tool.sourcetools import func_renamer
 from rpython.flowspace.model import Constant
 from rpython.flowspace.specialcase import register_flow_sc
@@ -231,12 +231,29 @@ class wrap_descr_delete(W_PyCWrapperObject):
 
 class wrap_call(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        func = self.get_func_to_call()
-        func_target = rffi.cast(ternaryfunc, func)
+        # A type's tp_call and its actual (possibly per-instance) vectorcall
+        # function can be two different C functions - e.g. a per-instance
+        # vectorcallfunc set after the fact via a raw memory write at
+        # tp_vectorcall_offset, without tp_call ever changing. Only when a
+        # non-NULL vectorcall function is confirmed present do we delegate
+        # to PyVectorcall_Call (which will find that same pointer and use
+        # it) - PyVectorcall_Call itself raises instead of falling back to
+        # tp_call when tp_vectorcall_offset is set but the per-instance
+        # pointer happens to still be NULL, so that check can't be skipped.
+        py_self = as_pyobj(space, w_self)
+        vectorcall_func = get_vectorcall_func(py_self)
+        keepalive_until_here(w_self)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
         try:
-            ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
+            if vectorcall_func:
+                state = space.fromcache(State)
+                ret = generic_cpy_call(space, state.C.PyVectorcall_Call,
+                                        w_self, py_args, w_kwargs)
+            else:
+                func = self.get_func_to_call()
+                func_target = rffi.cast(ternaryfunc, func)
+                ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
         finally:
             decref(space, py_args)
         return ret

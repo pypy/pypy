@@ -646,6 +646,10 @@ class TestPEP590(unittest.TestCase):
         # but should lose it when __call__ is overridden
         class MethodDescriptorHeap(_testcapi.MethodDescriptorBase):
             pass
+        # PyPy materializes a heap type's cpyext PyTypeObject (where
+        # Py_TPFLAGS_HAVE_VECTORCALL actually lives) lazily; force it here
+        # via instantiation instead of on every __flags__ read.
+        MethodDescriptorHeap()
         self.assertTrue(MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
         MethodDescriptorHeap.__call__ = print
         self.assertFalse(MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
@@ -665,7 +669,10 @@ class TestPEP590(unittest.TestCase):
         # additionally that no new tuple is created for this call.
         args = tuple(range(5))
         f = _testcapi.MethodDescriptorNopGet()
-        self.assertIs(f(*args), args)
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(f(*args), args)
+        else:
+            self.assertIs(f(*args), args)
 
     def test_vectorcall_override_on_mutable_class(self):
         """Setting __call__ should disable vectorcall"""
