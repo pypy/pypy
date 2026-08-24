@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["array", "itertools"]}
+# spaceconfig = {"usemodules": ["array", "itertools", "_locale"]}
 
 import pytest
 
@@ -62,6 +62,9 @@ def test_codesize():
 
 
 def test_opcodes():
+    import sys
+    if '__pypy__' not in sys.builtin_module_names:
+        skip("_sre.OPCODES is a PyPy-only extension")
     import _sre
     assert _sre.OPCODES[:4] == 'failure success any any_all'.split()
 
@@ -641,3 +644,346 @@ def test_search_releases_buffer():
     s[:] = b'xyz'
     assert m.group() == b'xyz'
     assert m2.group() == b''
+
+
+# ---------------------------------------------------------------------------
+# Opcode-level tests for the SRE matching engine.
+# ---------------------------------------------------------------------------
+
+def _sre_opcodes():
+    from sre_constants import OPCODES, ATCODES, CHCODES, MAXREPEAT
+    O = {op.name.lower(): int(op) for op in OPCODES}
+    AT = {at.name.lower(): int(at) for at in ATCODES}
+    CH = {ch.name.lower(): int(ch) for ch in CHCODES}
+    return O, AT, CH, MAXREPEAT
+
+def _encode_literal(O, string):
+    opcodes = []
+    for c in string:
+        opcodes.extend([O["literal"], ord(c)])
+    return opcodes
+
+def _opcode_search(opcodes, string, groups=0):
+    import _sre
+    pattern = _sre.compile("ignore", 0, opcodes, groups, {}, ())
+    return pattern.search(string)
+
+def _opcode_match(opcodes, strings, groups=0):
+    if isinstance(strings, str):
+        strings = [strings]
+    for string in strings:
+        assert _opcode_search(opcodes, string, groups)
+
+def _opcode_no_match(opcodes, strings, groups=0):
+    if isinstance(strings, str):
+        strings = [strings]
+    for string in strings:
+        assert not _opcode_search(opcodes, string, groups)
+
+def _void_locale():
+    import locale
+    locale.setlocale(locale.LC_ALL, (None, None))
+
+
+def test_opcode_length_optimization():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    pattern = "bla"
+    opcodes = [O["info"], 4, 0, len(pattern), MAXREPEAT] \
+        + _encode_literal(O, pattern) + [O["success"]]
+    _opcode_no_match(opcodes, ["b", "bl", "ab"])
+
+def test_opcode_literal():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "bla") + [O["success"]]
+    _opcode_no_match(opcodes, ["bl", "blu"])
+    _opcode_match(opcodes, ["bla", "blab", "cbla", "bbla"])
+
+def test_opcode_not_literal():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") \
+        + [O["not_literal"], ord("a"), O["success"]]
+    _opcode_match(opcodes, ["bx", "ababy"])
+    _opcode_no_match(opcodes, ["ba", "jabadu"])
+
+def test_opcode_unknown():
+    pytest.raises(RuntimeError, _opcode_search, [55555], "b")
+
+def test_opcode_at_beginning():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    for atname in ["at_beginning", "at_beginning_string"]:
+        opcodes = [O["at"], AT[atname]] \
+            + _encode_literal(O, "bla") + [O["success"]]
+        _opcode_match(opcodes, "bla")
+        _opcode_no_match(opcodes, "abla")
+
+def test_opcode_at_beginning_line():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["at"], AT["at_beginning_line"]] \
+        + _encode_literal(O, "bla") + [O["success"]]
+    _opcode_match(opcodes, ["bla", "x\nbla"])
+    _opcode_no_match(opcodes, ["abla", "abla\nubla"])
+
+def test_opcode_at_end():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "bla") \
+        + [O["at"], AT["at_end"], O["success"]]
+    _opcode_match(opcodes, ["bla", "bla\n"])
+    _opcode_no_match(opcodes, ["blau", "abla\nblau"])
+
+def test_opcode_at_end_line():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "bla") \
+        + [O["at"], AT["at_end_line"], O["success"]]
+    _opcode_match(opcodes, ["bla\n", "bla\nx", "bla"])
+    _opcode_no_match(opcodes, ["blau"])
+
+def test_opcode_at_end_string():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "bla") \
+        + [O["at"], AT["at_end_string"], O["success"]]
+    _opcode_match(opcodes, "bla")
+    _opcode_no_match(opcodes, ["blau", "bla\n"])
+
+def test_opcode_at_boundary():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    for atname in "at_boundary", "at_loc_boundary", "at_uni_boundary":
+        opcodes = _encode_literal(O, "bla") \
+            + [O["at"], AT[atname], O["success"]]
+        _opcode_match(opcodes, ["bla", "bla ha", "bla,x"])
+        _opcode_no_match(opcodes, ["blaja", ""])
+        opcodes = [O["at"], AT[atname]] \
+            + _encode_literal(O, "bla") + [O["success"]]
+        assert _opcode_search(opcodes, "bla")
+        _opcode_no_match(opcodes, "")
+
+def test_opcode_at_non_boundary():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    for atname in "at_non_boundary", "at_loc_non_boundary", "at_uni_non_boundary":
+        opcodes = _encode_literal(O, "bla") \
+            + [O["at"], AT[atname], O["success"]]
+        assert _opcode_search(opcodes, "blan")
+        _opcode_no_match(opcodes, ["bla ja", "bla"])
+
+def test_opcode_at_loc_boundary():
+    import locale
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    try:
+        _void_locale()
+        opcodes1 = _encode_literal(O, "bla") \
+            + [O["at"], AT["at_loc_boundary"], O["success"]]
+        opcodes2 = _encode_literal(O, "bla") \
+            + [O["at"], AT["at_loc_non_boundary"], O["success"]]
+        assert _opcode_search(opcodes1, "bla\xFC")
+        _opcode_no_match(opcodes2, "bla\xFC")
+        oldlocale = locale.setlocale(locale.LC_ALL)
+        locale.setlocale(locale.LC_ALL, "de_DE")
+        _opcode_no_match(opcodes1, "bla\xFC")
+        assert _opcode_search(opcodes2, "bla\xFC")
+        locale.setlocale(locale.LC_ALL, oldlocale)
+    except locale.Error:
+        skip("locale error")
+
+def test_opcode_at_uni_boundary():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    UPPER_PI = "Π"
+    LOWER_PI = "π"
+    opcodes = _encode_literal(O, "bl") + [O["any"], O["at"],
+        AT["at_uni_boundary"], O["success"]]
+    _opcode_match(opcodes, ["bla ha", "bl%s ja" % UPPER_PI])
+    _opcode_no_match(opcodes, ["bla%s" % LOWER_PI])
+    opcodes = _encode_literal(O, "bl") + [O["any"], O["at"],
+        AT["at_uni_non_boundary"], O["success"]]
+    _opcode_match(opcodes, ["blaha", "bl%sja" % UPPER_PI])
+
+def test_opcode_category_loc_word():
+    import locale
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    try:
+        _void_locale()
+        opcodes1 = _encode_literal(O, "b") \
+            + [O["in"], 4, O["category"], CH["category_loc_word"],
+               O["failure"], O["success"]]
+        opcodes2 = _encode_literal(O, "b") \
+            + [O["in"], 4, O["category"], CH["category_loc_not_word"],
+               O["failure"], O["success"]]
+        assert not _opcode_search(opcodes1, "b\xFC")
+        assert _opcode_search(opcodes2, "b\xFC")
+        locale.setlocale(locale.LC_ALL, "de_DE")
+        assert _opcode_search(opcodes1, "b\xFC")
+        assert not _opcode_search(opcodes2, "b\xFC")
+        _void_locale()
+    except locale.Error:
+        skip("locale error")
+
+def test_opcode_any():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["any"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["b a", "bla", "bboas"])
+    _opcode_no_match(opcodes, ["b\na", "oba", "b"])
+
+def test_opcode_any_all():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["any_all"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["b a", "bla", "bboas", "b\na"])
+    _opcode_no_match(opcodes, ["oba", "b"])
+
+def test_opcode_in_failure():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in"], 2, O["failure"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_no_match(opcodes, ["ba", "bla"])
+
+def test_opcode_in_literal():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in"], 6] \
+        + _encode_literal(O, "la") + [O["failure"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["bla", "baa", "blbla"])
+    _opcode_no_match(opcodes, ["ba", "bja", "blla"])
+
+def test_opcode_in_category():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in"], 6, O["category"],
+        CH["category_digit"], O["category"], CH["category_space"],
+        O["failure"]] + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["b1a", "b a", "b4b\tas"])
+    _opcode_no_match(opcodes, ["baa", "b5"])
+
+def test_opcode_in_charset_ucs2():
+    import _sre
+    if _sre.CODESIZE != 2:
+        return
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    # charset bitmap for characters "l" and "h"
+    bitmap = 6 * [0] + [4352] + 9 * [0]
+    opcodes = _encode_literal(O, "b") + [O["in"], 19, O["charset"]] \
+        + bitmap + [O["failure"]] + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["bla", "bha", "blbha"])
+    _opcode_no_match(opcodes, ["baa", "bl"])
+
+def test_opcode_in_range():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in"], 5, O["range"],
+        ord("1"), ord("9"), O["failure"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["b1a", "b56b7aa"])
+    _opcode_no_match(opcodes, ["baa", "b5"])
+
+def test_opcode_in_negate():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in"], 7, O["negate"]] \
+        + _encode_literal(O, "la") + [O["failure"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["b1a", "bja", "bubua"])
+    _opcode_no_match(opcodes, ["bla", "baa", "blbla"])
+
+def test_opcode_literal_ignore():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") \
+        + [O["literal_ignore"], ord("a"), O["success"]]
+    _opcode_match(opcodes, ["ba", "bA"])
+    _opcode_no_match(opcodes, ["bb", "bu"])
+
+def test_opcode_not_literal_ignore():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    UPPER_PI = "Π"
+    opcodes = _encode_literal(O, "b") \
+        + [O["not_literal_ignore"], ord("a"), O["success"]]
+    _opcode_match(opcodes, ["bb", "bu", "b%s" % UPPER_PI])
+    _opcode_no_match(opcodes, ["ba", "bA"])
+
+def test_opcode_in_ignore():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") + [O["in_ignore"], 8] \
+        + _encode_literal(O, "abc") + [O["failure"]] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, ["baa", "bAa", "bbbBa"])
+    _opcode_no_match(opcodes, ["ba", "bja", "blla"])
+
+def test_opcode_info():
+    # a bare JUMP (outside of a BRANCH/GROUPREF_EXISTS construct) is not
+    # valid SRE bytecode, so unlike the old opcode this only covers INFO
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "b") \
+        + [O["info"], 4, 0, 0, MAXREPEAT] \
+        + _encode_literal(O, "a") + [O["success"]]
+    _opcode_match(opcodes, "ba")
+
+def test_opcode_branch():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["branch"], 7] + _encode_literal(O, "ab") \
+        + [O["jump"], 9, 7] + _encode_literal(O, "cd") \
+        + [O["jump"], 2, O["failure"], O["success"]]
+    _opcode_match(opcodes, ["ab", "cd"])
+    _opcode_no_match(opcodes, ["aacas", "ac", "bla"])
+
+def test_opcode_repeat_one():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["repeat_one"], 6, 1, MAXREPEAT] + _encode_literal(O, "a") \
+        + [O["success"]] + _encode_literal(O, "ab") + [O["success"]]
+    _opcode_match(opcodes, ["aab", "aaaab"])
+    _opcode_no_match(opcodes, ["ab", "a"])
+
+def test_opcode_min_repeat_one():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["min_repeat_one"], 5, 1, MAXREPEAT, O["any"]] \
+        + [O["success"]] + _encode_literal(O, "b") + [O["success"]]
+    _opcode_match(opcodes, ["aab", "ardb", "bb"])
+    _opcode_no_match(opcodes, ["b"])
+
+def test_opcode_repeat_maximizing():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["repeat"], 5, 1, MAXREPEAT] + _encode_literal(O, "a") \
+        + [O["max_until"]] + _encode_literal(O, "b") + [O["success"]]
+    _opcode_match(opcodes, ["ab", "aaaab", "baabb"])
+    _opcode_no_match(opcodes, ["aaa", "", "ac"])
+
+def test_opcode_max_until_zero_width_match():
+    # re.compile won't compile prospective zero-width matches (all of
+    # them?), so we can only produce an example by directly constructing
+    # bytecodes.
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["repeat"], 10, 1, MAXREPEAT, O["repeat_one"],
+        6, 0, MAXREPEAT] + _encode_literal(O, "a") + [O["success"],
+        O["max_until"], O["success"]]
+    _opcode_match(opcodes, ["ab", "bb"])
+    assert "" == _opcode_search(opcodes, "bb").group(0)
+
+def test_opcode_repeat_minimizing():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["repeat"], 4, 1, MAXREPEAT, O["any"],
+        O["min_until"]] + _encode_literal(O, "b") + [O["success"]]
+    _opcode_match(opcodes, ["ab", "aaaab", "baabb"])
+    _opcode_no_match(opcodes, ["b"])
+    assert "aab" == _opcode_search(opcodes, "aabb").group(0)
+
+def test_opcode_groupref():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["mark"], 0, O["any"], O["mark"], 1] \
+        + _encode_literal(O, "a") + [O["groupref"], 0, O["success"]]
+    _opcode_match(opcodes, ["bab", "aaa", "dad"], groups=1)
+    _opcode_no_match(opcodes, ["ba", "bad", "baad"], groups=1)
+
+def test_opcode_groupref_ignore():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = [O["mark"], 0, O["any"], O["mark"], 1] \
+        + _encode_literal(O, "a") + [O["groupref_ignore"], 0, O["success"]]
+    _opcode_match(opcodes, ["bab", "baB", "Dad"], groups=1)
+    _opcode_no_match(opcodes, ["ba", "bad", "baad"], groups=1)
+
+def test_opcode_assert():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "a") + [O["assert"], 5, 0] \
+        + _encode_literal(O, "b") + [O["success"], O["success"]]
+    assert "a" == _opcode_search(opcodes, "ab").group(0)
+    _opcode_no_match(opcodes, ["a", "aa"])
+
+def test_opcode_assert_not():
+    O, AT, CH, MAXREPEAT = _sre_opcodes()
+    opcodes = _encode_literal(O, "a") + [O["assert_not"], 5, 0] \
+        + _encode_literal(O, "b") + [O["success"], O["success"]]
+    assert "a" == _opcode_search(opcodes, "ac").group(0)
+    _opcode_match(opcodes, ["a"])
+    _opcode_no_match(opcodes, ["ab"])

@@ -15,20 +15,20 @@ def encode_literal(string):
         opcodes.extend([OPCODES["literal"], ord(character)])
     return opcodes
 
-def assert_match(opcodes, strings):
-    assert_something_about_match(lambda x: x, opcodes, strings)
+def assert_match(opcodes, strings, groups=0):
+    assert_something_about_match(lambda x: x, opcodes, strings, groups)
 
-def assert_no_match(opcodes, strings):
-    assert_something_about_match(lambda x: not x, opcodes, strings)
+def assert_no_match(opcodes, strings, groups=0):
+    assert_something_about_match(lambda x: not x, opcodes, strings, groups)
 
-def assert_something_about_match(assert_modifier, opcodes, strings):
+def assert_something_about_match(assert_modifier, opcodes, strings, groups=0):
     if isinstance(strings, str):
         strings = [strings]
     for string in strings:
-        assert assert_modifier(search(opcodes, string))
+        assert assert_modifier(search(opcodes, string, groups))
 
-def search(opcodes, string):
-    pattern = _sre.compile("ignore", 0, opcodes, 0, {}, None)
+def search(opcodes, string, groups=0):
+    pattern = _sre.compile("ignore", 0, opcodes, groups, {}, ())
     return pattern.search(string)
 
 def void_locale():

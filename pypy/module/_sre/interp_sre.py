@@ -15,7 +15,9 @@ from rpython.rlib.rstring import StringBuilder
 #
 # Constants and exposed functions
 
-from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8, rsre_constants as consts
+from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8
+from rpython.rlib.rsre import rsre_constants as consts
+from pypy.module._sre import rsre_validate
 from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unicode_db
 
 from rpython.rlib.rsre.rpy.sre_constants import OPCODES
@@ -632,16 +634,19 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
     else:
         sublist_w.append(slice_w(space, ctx, start, end, space.w_None))
 
+def SRE_Pattern__new__(space, w_subtype, __args__):
+    raise oefmt(space.w_TypeError,
+                "cannot create 're.Pattern' instances")
+
 @unwrap_spec(flags=int, groups=int, w_groupindex=WrappedDefault(None),
              w_indexgroup=WrappedDefault(None))
-def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
+def _sre_compile(space, w_pattern, flags, w_code,
               groups=0, w_groupindex=None, w_indexgroup=None):
     n = space.len_w(w_code)
     code = [intmask(space.uint_w(space.getitem(w_code, space.newint(i))))
             for i in range(n)]
     #
-    w_srepat = space.allocate_instance(W_SRE_Pattern, w_subtype)
-    srepat = space.interp_w(W_SRE_Pattern, w_srepat)
+    srepat = W_SRE_Pattern()
     srepat.space = space
     # Type check
     if not (space.is_none(w_pattern) or
@@ -650,6 +655,9 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
         space.release_py_buffer(view)
     srepat.w_pattern = w_pattern      # the original uncompiled pattern
     srepat.flags = flags
+    if not rsre_validate.validate(code, groups):
+        raise OperationError(space.w_RuntimeError,
+                              space.newtext("invalid SRE code"))
     # note: we assume that the app-level is caching SRE_Pattern objects,
     # so that we don't need to do it here.  Creating new SRE_Pattern
     # objects all the time would be bad for the JIT, which relies on the
@@ -658,7 +666,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup
-    return w_srepat
+    return srepat
 
 
 W_SRE_Pattern.typedef = TypeDef(
