@@ -1,6 +1,7 @@
 "Test the functionality of Python classes implementing operators."
 
 import unittest
+from test import support
 
 
 testmeths = [
@@ -516,7 +517,8 @@ class ClassTests(unittest.TestCase):
             '__ge__', '__getattribute__', '__getstate__', '__gt__', '__hash__',
             '__init__', '__init_subclass__', '__le__', '__lt__', '__ne__',
             '__new__', '__reduce__', '__reduce_ex__', '__repr__',
-            '__setattr__', '__sizeof__', '__str__', '__subclasshook__'
+            # '__setattr__', '__sizeof__', '__str__', '__subclasshook__'
+            '__setattr__', '__str__', '__subclasshook__'  # PYPY CHANGE
         )
         for name in methods:
             with self.subTest(name):
@@ -648,6 +650,7 @@ class ClassTests(unittest.TestCase):
         a = A(hash(A.f)^(-1))
         hash(a.f)
 
+    @support.cpython_only
     def testSetattrWrapperNameIntern(self):
         # Issue #25794: __setattr__ should intern the attribute name
         class A:
