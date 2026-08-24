@@ -17,7 +17,7 @@ that these wrapped-negative values compare as the huge magnitudes
 they actually represent instead of as small (or negative) ones.
 """
 
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.rsre import rsre_constants as consts
 from rpython.rlib.rsre.rsre_char import MAXREPEAT, MAXGROUPS, BIG_ENDIAN
 
@@ -93,17 +93,18 @@ def _validate_charset(code, pos, end):
             pos += offset
         elif op == consts.OPCODE_BIGCHARSET:
             count, pos = _get_arg(code, pos, end)
-            offset = 256 // 4        # 256 block-index bytes, 4 per word
-            if offset > end - pos:
+            offset1 = 256 // 4        # 256 block-index bytes, 4 per word
+            if offset1 > end - pos:
                 _fail()
             for i in range(256):
                 if r_uint(_bigcharset_blockindex_byte(code, pos, i)) >= r_uint(count):
                     _fail()
-            pos += offset
-            offset = int(r_uint(count) * r_uint(32 // 4))
-            if r_uint(offset) > r_uint(end - pos):
+            pos += offset1
+            # XXX can this overflow?
+            offset2 = r_uint(count) * r_uint(32 // 4)
+            if offset2 > r_uint(end - pos):
                 _fail()
-            pos += offset
+            pos += intmask(offset2)
         elif op == consts.OPCODE_CATEGORY:
             arg, pos = _get_arg(code, pos, end)
             if r_uint(arg) >= r_uint(NUM_CATEGORY_CODES):
