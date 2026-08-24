@@ -180,24 +180,40 @@ VMPROFSTACK.become(rffi.CStruct("vmprof_stack_s",
 
 
 vmprof_tl_stack = rthread.ThreadLocalField(PVMPROFSTACK, "vmprof_tl_stack")
+# Per-thread freelist of VMPROFSTACK nodes popped off vmprof_tl_stack by
+# leave_code but not free()'d, so enter_code can reuse them instead of
+# malloc'ing again. Nodes only ever move between this list and the active
+# vmprof_tl_stack chain; the total pool per thread grows to that thread's
+# peak call depth and then stops allocating.
+vmprof_tl_freelist = rthread.ThreadLocalField(PVMPROFSTACK, "vmprof_tl_freelist")
 do_use_eci = rffi.llexternal_use_eci(
     ExternalCompilationInfo(includes=['vmprof_stack.h'],
                             include_dirs = [SRC]))
 
+def _pop_freelist_or_malloc():
+    s = vmprof_tl_freelist.get_or_make_raw()
+    if s:
+        vmprof_tl_freelist.setraw(s.c_next)
+        return s
+    return lltype.malloc(VMPROFSTACK, flavor='raw')
+
+@jit.dont_look_inside
 def enter_code(unique_id):
     do_use_eci()
-    s = lltype.malloc(VMPROFSTACK, flavor='raw')
+    s = _pop_freelist_or_malloc()
     s.c_next = vmprof_tl_stack.get_or_make_raw()
     s.c_value = unique_id
     s.c_kind = VMPROF_CODE_TAG
     vmprof_tl_stack.setraw(s)
     return s
 
+@jit.dont_look_inside
 def leave_code(s):
     if not we_are_translated():
         assert vmprof_tl_stack.getraw() == s
     vmprof_tl_stack.setraw(s.c_next)
-    lltype.free(s, flavor='raw')
+    s.c_next = vmprof_tl_freelist.get_or_make_raw()
+    vmprof_tl_freelist.setraw(s)
 
 #
 # JIT notes:
