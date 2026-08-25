@@ -13,11 +13,9 @@ _get_code = lambda frame, w_arg_or_err: frame.pycode
 _decorator = rvmprof.vmprof_execute_code("pypy", _get_code, W_Root)
 my_execute_frame = _decorator(PyFrame.execute_frame)
 
-
-class __extend__(PyFrame):
-    def execute_frame(self, w_arg_or_err=None):
-        # indirection for the optional arguments
-        return my_execute_frame(self, w_arg_or_err)
+# All call sites pass exactly w_arg_or_err (None when omitted), so this
+# can be bound as PyFrame.execute_frame directly.
+PyFrame.execute_frame = my_execute_frame
 
 
 def _safe(s):
