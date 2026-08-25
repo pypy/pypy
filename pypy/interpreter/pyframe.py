@@ -254,7 +254,7 @@ class PyFrame(W_Root):
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
         else:
-            return self.execute_frame()
+            return self.execute_frame(None)
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):

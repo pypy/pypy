@@ -2,6 +2,7 @@ from pypy.tool import stdlib_opcode as pythonopcode
 from rpython.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyframe import PyFrame
+from pypy.interpreter.pyopcode import SApplicationException
 from pypy.module._continuation.interp_continuation import (
     State, global_state, build_sthread, pre_switch, post_switch,
     get_result, geterror)
@@ -81,7 +82,11 @@ def resume_trampoline_callback(h, arg):
                 ec.topframeref = frame.f_backref
                 #
                 try:
-                    w_result = frame.execute_frame(w_result, operr)
+                    if operr is None:
+                        w_arg_or_err = w_result
+                    else:
+                        w_arg_or_err = SApplicationException(operr)
+                    w_result = frame.execute_frame(w_arg_or_err)
                     operr = None
                 except OperationError as e:
                     w_result = None
