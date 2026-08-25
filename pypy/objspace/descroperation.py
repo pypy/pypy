@@ -66,13 +66,14 @@ def raiseattrerror(space, w_obj, w_name, w_descr=None):
         raise oefmt(space.w_AttributeError,
                     "'%T' object attribute %R is read-only", w_obj, w_name)
 
+@always_inline
 def get_attribute_name(space, w_obj, w_name):
-    try:
-        return space.text_w(w_name)
-    except OperationError as e:
-        if e.match(space, space.w_UnicodeEncodeError):
-            raiseattrerror(space, w_obj, w_name)
-        raise
+    # w_name is always a valid str/unicode by this point: internal string
+    # storage is always-utf8, so space.text_w() cannot raise
+    # UnicodeEncodeError (unlike in the past, when it could encode to a
+    # possibly-narrower internal representation). w_obj is unused, but kept
+    # in the signature to match the shape callers expect.
+    return space.text_w(w_name)
 
 @always_inline
 def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
