@@ -1,5 +1,5 @@
 class AppTestFilterPickle:
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = dict(usemodules=['_struct'])
 
     def test_filter_unpickle(self):
         """Test just the unpickling."""

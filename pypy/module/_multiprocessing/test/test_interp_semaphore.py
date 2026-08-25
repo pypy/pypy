@@ -3,15 +3,15 @@ import time
 import sys
 from rpython.rlib.rgil import yield_thread
 from pypy.interpreter.gateway import interp2app
-from pypy.module.thread.os_lock import _set_sentinel
-from pypy.module.thread.os_thread import start_new_thread
+from pypy.module._thread.os_lock import _set_sentinel
+from pypy.module._thread.os_thread import start_new_thread
 from pypy.module._multiprocessing.interp_semaphore import (
     create_semaphore, delete_semaphore, W_SemLock, sem_unlink)
 
 
 @pytest.mark.skipif(sys.platform == 'win32', reason='hangs on win32')
 @pytest.mark.parametrize('spaceconfig', [
-    {'usemodules': ['_multiprocessing', 'thread']}])
+    {'usemodules': ['_multiprocessing', '_thread']}])
 @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
 def test_semlock_release(space):
     # trigger the setup() code in time.moduledef

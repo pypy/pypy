@@ -9,9 +9,9 @@ from rpython.rlib.objectmodel import not_rpython
 class ThreadLocals:
     """Pseudo thread-local storage, for 'space.threadlocals'.
     This is not really thread-local at all; the intention is that the PyPy
-    implementation of the 'thread' module knows how to provide a real
+    implementation of the '_thread' module knows how to provide a real
     implementation for this feature, and patches 'space.threadlocals' when
-    'thread' is initialized.
+    '_thread' is initialized.
     """
     _immutable_fields_ = ['_value?']
     _value = None

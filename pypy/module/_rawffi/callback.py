@@ -100,7 +100,7 @@ class W_CallbackPtr(W_DataInstance):
         # CPython (but only when creating a callback; on CPython it occurs
         # as soon as we import _ctypes)
         if space.config.translation.thread:
-            from pypy.module.thread.os_thread import setup_threads
+            from pypy.module._thread.os_thread import setup_threads
             setup_threads(space)
 
     def free(self):

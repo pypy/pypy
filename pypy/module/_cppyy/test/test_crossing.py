@@ -59,7 +59,7 @@ def compile_extension_module(space, modname, **kwds):
         [], eci,
         outputfilename=str(dirname/modname),
         standalone=False)
-    from pypy.module.imp.importing import get_so_extension
+    from pypy.module._imp.importing import get_so_extension
     pydname = soname.new(purebasename=modname, ext=get_so_extension(space))
     soname.rename(pydname)
     return str(pydname)
@@ -106,7 +106,7 @@ class AppTestCrossing:
             mod = compile_extension_module(space, name, **kwds)
 
             # explicitly load the module as a CDLL rather than as a module
-            from pypy.module.imp.importing import get_so_extension
+            from pypy.module._imp.importing import get_so_extension
             fullmodname = os.path.join(
                 os.path.dirname(mod), name + get_so_extension(space))
             return space.newtext(fullmodname)

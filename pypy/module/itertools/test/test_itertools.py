@@ -1107,7 +1107,7 @@ class AppTestItertools26(object):
 
 
 class AppTestItertools27(object):
-    spaceconfig = {"usemodules": ['itertools', 'struct', 'binascii']}
+    spaceconfig = {"usemodules": ['itertools', '_struct', 'binascii']}
 
     def test_compress(self):
         import itertools

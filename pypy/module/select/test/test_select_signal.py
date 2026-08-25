@@ -3,7 +3,7 @@ import sys
 
 class AppTestSelectSignal:
     spaceconfig = {
-        "usemodules": ['select', 'time', 'signal'],
+        "usemodules": ['select', 'time', '_signal'],
     }
 
     @pytest.mark.skipif(sys.platform=="win32", reason="not supported on windows")

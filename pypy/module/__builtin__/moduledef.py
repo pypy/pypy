@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import module
 from pypy.interpreter.mixedmodule import MixedModule
-import pypy.module.imp.importing
+import pypy.module._imp.importing
 
 # put builtins here that should be optimized somehow
 
@@ -66,7 +66,7 @@ class Module(MixedModule):
         'exec'          : 'compiling.exec_',
         '__build_class__': 'compiling.build_class',
 
-        '__import__'    : 'pypy.module.imp.importing.importhook',
+        '__import__'    : 'pypy.module._imp.importing.importhook',
 
         'range'         : 'functional.W_Range',
         'enumerate'     : 'functional.W_Enumerate',

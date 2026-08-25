@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["_socket", "_weakref", "array", "struct", "select", "unicodedata"]}
+# spaceconfig = {"usemodules": ["_socket", "_weakref", "array", "_struct", "select", "unicodedata"]}
 import os
 import sys
 import pytest

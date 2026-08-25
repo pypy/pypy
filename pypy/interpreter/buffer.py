@@ -82,14 +82,14 @@ class BufferView(object):
         return False
 
     def value_from_bytes(self, space, s):
-        from pypy.module.struct.formatiterator import UnpackFormatIterator
+        from pypy.module._struct.formatiterator import UnpackFormatIterator
         buf = StringBuffer(s)
         fmtiter = UnpackFormatIterator(space, buf)
         fmtiter.interpret(self.getformat())
         return fmtiter.result_w[0]
 
     def bytes_from_value(self, space, w_val):
-        from pypy.module.struct.formatiterator import PackFormatIterator
+        from pypy.module._struct.formatiterator import PackFormatIterator
         itemsize = self.getitemsize()
         buf = MutableStringBuffer(itemsize)
         fmtiter = PackFormatIterator(space, buf, [w_val])

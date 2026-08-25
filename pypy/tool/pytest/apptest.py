@@ -22,13 +22,7 @@ pypyroot = os.path.dirname(pypydir)
 
 
 RENAMED_USEMODULES = {
-    '_winreg': 'winreg',
-    'exceptions': 'builtins',
-    'struct': '_struct',
-    'thread': '_thread',
-    'operator': '_operator',
-    'signal': '_signal',
-    'imp': '_imp'}
+    'exceptions': 'builtins'}
 if sys.platform == 'win32':
     RENAMED_USEMODULES['posix'] = 'nt'
 

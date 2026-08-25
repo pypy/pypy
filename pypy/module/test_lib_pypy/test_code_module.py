@@ -2,7 +2,7 @@ import py
 
 
 class AppTestCodeModule:
-    spaceconfig = {'usemodules': ['struct']}
+    spaceconfig = {'usemodules': ['_struct']}
 
     def w_get_interp(self):
         import code

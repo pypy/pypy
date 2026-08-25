@@ -9,7 +9,7 @@ win32_untranslated ="not config.option.runappdirect and sys.platform == 'win32'"
 win32_reason = "fileno may come from different runtimes depending on current compiler"
 
 class AppTestJitLog(object):
-    spaceconfig = {'usemodules': ['_jitlog', 'struct']}
+    spaceconfig = {'usemodules': ['_jitlog', '_struct']}
 
     def setup_class(cls):
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__jitlog.1')))

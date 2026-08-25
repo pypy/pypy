@@ -90,12 +90,12 @@ def main_(argv=None):
         error.RECORD_INTERPLEVEL_TRACEBACK = True
     # --allworkingmodules takes really long to start up, but can be forced on
     config.objspace.suggest(allworkingmodules=False)
-    config.objspace.usemodules.struct = True
+    config.objspace.usemodules._struct = True
     if config.objspace.allworkingmodules:
         pypyoption.enable_allworkingmodules(config)
     if config.objspace.usemodules._continuation:
         config.translation.continuation = True
-    if config.objspace.usemodules.thread:
+    if config.objspace.usemodules._thread:
         config.translation.thread = True
 
     # create the object space

@@ -11,7 +11,7 @@ def teardown_module(mod):
             os.unlink(i)
 
 class AppTestFcntl:
-    spaceconfig = dict(usemodules=('fcntl', 'array', 'struct', 'termios',
+    spaceconfig = dict(usemodules=('fcntl', 'array', '_struct', 'termios',
                                    'select', 'time'))
 
     def setup_class(cls):

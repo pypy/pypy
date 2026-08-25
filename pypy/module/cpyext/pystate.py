@@ -51,14 +51,14 @@ def PyEval_RestoreThread(space, tstate):
 def PyEval_InitThreads(space):
     if not space.config.translation.thread:
         raise NoThreads
-    from pypy.module.thread import os_thread
+    from pypy.module._thread import os_thread
     os_thread.setup_threads(space)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyEval_ThreadsInitialized(space):
     if not space.config.translation.thread:
         return 0
-    from pypy.module.thread import os_thread
+    from pypy.module._thread import os_thread
     return int(os_thread.threads_initialized(space))
 
 # XXX: might be generally useful
@@ -427,7 +427,7 @@ def PyOS_AfterFork(space):
     to be called."""
     if not space.config.translation.thread:
         return
-    from pypy.module.thread import os_thread
+    from pypy.module._thread import os_thread
     try:
         os_thread.reinit_threads(space)
     except OperationError as e:

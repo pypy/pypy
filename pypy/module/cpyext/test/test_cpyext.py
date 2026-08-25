@@ -75,7 +75,7 @@ class SpaceCompiler(SystemCompilationInfo):
 
 
 def get_cpyext_info(space):
-    from pypy.module.imp.importing import get_so_extension
+    from pypy.module._imp.importing import get_so_extension
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':
@@ -143,9 +143,9 @@ class CpyextLeak(leakfinder.MallocMismatch):
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = {"usemodules" : ['cpyext', 'thread', 'struct', 'array',
+    spaceconfig = {"usemodules" : ['cpyext', '_thread', '_struct', 'array',
                                    'itertools', 'time', 'binascii',
-                                   'mmap', 'signal',
+                                   'mmap', '_signal',
                                    '_cffi_backend',
                                    ],
                    "objspace.disable_entrypoints_in_cffi": True}

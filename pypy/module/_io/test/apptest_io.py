@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules" : ["_locale", "array", "struct", "_multibytecodec"]}
+# spaceconfig = {"usemodules" : ["_locale", "array", "_struct", "_multibytecodec"]}
 import _io
 import array
 

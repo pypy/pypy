@@ -126,7 +126,7 @@ class __extend__(pyframe.PyFrame):
                 # xxx this is a hack.  It allows bytecode_trace() to
                 # call a signal handler which raises, and catch the
                 # raised exception immediately.  See test_alarm_raise in
-                # pypy/module/signal/test/test_signal.py.  Without the
+                # pypy/module/_signal/test/test_signal.py.  Without the
                 # next four lines, if an external call (like
                 # socket.accept()) is interrupted by a signal, it raises
                 # an exception carrying EINTR which arrives here,
@@ -1224,7 +1224,7 @@ class __extend__(pyframe.PyFrame):
                 (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
             return space.getitem(space.sys.get('modules'), w_fullname)
         except OperationError:
-            from pypy.module.imp.importing import (is_spec_initializing,
+            from pypy.module._imp.importing import (is_spec_initializing,
                 get_path, get_spec, is_spec_uninitialized_submodule)
 
             w_pkgpath = get_path(space, w_module)

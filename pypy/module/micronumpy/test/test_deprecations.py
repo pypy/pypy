@@ -5,7 +5,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestDeprecations(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
 
     def test_getitem(self):
         import numpy as np

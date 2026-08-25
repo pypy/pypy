@@ -1,7 +1,7 @@
 import sys
 
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.imp.importing import get_pyc_magic
+from pypy.module._imp.importing import get_pyc_magic
 from rpython.rlib import rtime
 
 

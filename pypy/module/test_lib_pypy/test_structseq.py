@@ -3,7 +3,7 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 class AppTestStructseq:
 
-    spaceconfig = dict(usemodules=('binascii', 'struct',))
+    spaceconfig = dict(usemodules=('binascii', '_struct',))
 
     def setup_class(cls):
         cls.w__structseq = cls.space.appexec(

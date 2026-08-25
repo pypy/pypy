@@ -52,7 +52,7 @@ def test_stdio_missing_at_shutdown(space):
 
 class AppTestAppSysTests:
     spaceconfig = {
-        "usemodules": ["thread"],
+        "usemodules": ["_thread"],
     }
 
     def setup_class(cls):
@@ -326,7 +326,7 @@ class AppTestPlatlibdirNotDefault:
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
-        "usemodules": ["struct"],
+        "usemodules": ["_struct"],
     }
 
     def setup_class(cls):

@@ -13,7 +13,7 @@ from rpython.rlib import rlocale
 from pypy.tool.option import make_objspace
 from pypy import pypydir
 from rpython.rlib import rthread
-from pypy.module.thread import os_thread
+from pypy.module._thread import os_thread
 from pypy.module.sys.version import CPYTHON_VERSION
 
 thisdir = py.path.local(__file__).dirpath()
@@ -181,13 +181,13 @@ def get_additional_entrypoints(space, w_initstdio):
 
     @entrypoint_highlevel('main', [], c_name='pypy_init_threads')
     def pypy_init_threads():
-        if not space.config.objspace.usemodules.thread:
+        if not space.config.objspace.usemodules._thread:
             return
         os_thread.setup_threads(space)
 
     @entrypoint_highlevel('main', [], c_name='pypy_thread_attach')
     def pypy_thread_attach():
-        if not space.config.objspace.usemodules.thread:
+        if not space.config.objspace.usemodules._thread:
             return
         os_thread.setup_threads(space)
         os_thread.bootstrapper.acquire(space, None, None)
@@ -308,18 +308,18 @@ class PyPyTarget(object):
             config.translation.libname = str(libdir.join(pythonlib))
 
         if config.translation.thread:
-            config.objspace.usemodules.thread = True
-        elif config.objspace.usemodules.thread:
+            config.objspace.usemodules._thread = True
+        elif config.objspace.usemodules._thread:
             try:
                 config.translation.thread = True
             except ConflictConfigError:
                 # If --allworkingmodules is given, we reach this point
                 # if threads cannot be enabled (e.g. they conflict with
                 # something else).  In this case, we can try setting the
-                # usemodules.thread option to False again.  It will
+                # usemodules._thread option to False again.  It will
                 # cleanly fail if that option was set to True by the
                 # command-line directly instead of via --allworkingmodules.
-                config.objspace.usemodules.thread = False
+                config.objspace.usemodules._thread = False
 
         if config.translation.continuation:
             config.objspace.usemodules._continuation = True

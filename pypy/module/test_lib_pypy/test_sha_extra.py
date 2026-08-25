@@ -8,7 +8,7 @@ from pypy.module.test_lib_pypy.support import import_lib_pypy
 
 
 class AppTestSHA:
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('_struct',))
 
     def setup_class(cls):
         cls.w__sha = import_lib_pypy(cls.space, '_sha1')
@@ -43,7 +43,7 @@ class AppTestSHA:
 
 
 class AppTestSHA256:
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('_struct',))
 
     def setup_class(cls):
         cls.w__sha256 = import_lib_pypy(cls.space, '_sha256')
@@ -55,7 +55,7 @@ class AppTestSHA256:
 
 
 class AppTestSHA512:
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('_struct',))
 
     def setup_class(cls):
         cls.w__sha512 = import_lib_pypy(cls.space, '_sha512')

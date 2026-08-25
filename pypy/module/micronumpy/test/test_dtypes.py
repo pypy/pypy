@@ -15,7 +15,7 @@ class BaseAppTestDtypes(BaseNumpyAppTest):
         cls.w_ptr_size = cls.space.wrap(ptr_size)
 
 class AppTestDtypes(BaseAppTestDtypes):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
 
     def test_typeinfo(self):
         import numpy as np
@@ -1087,7 +1087,7 @@ class AppTestStrUnicodeDtypes(BaseNumpyAppTest):
         assert repr(d) == "dtype('S1')"
 
 class AppTestRecordDtypes(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)
         if option.runappdirect:

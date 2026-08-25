@@ -28,8 +28,8 @@ def load_embedded_cffi_module(space, version, init_struct):
             "cffi embedded module has got unknown version tag %s",
             hex(version))
     #
-    if space.config.objspace.usemodules.thread:
-        from pypy.module.thread import os_thread
+    if space.config.objspace.usemodules._thread:
+        from pypy.module._thread import os_thread
         os_thread.setup_threads(space)
     #
     name = rffi.charp2str(init_struct.name)

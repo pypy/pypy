@@ -1,5 +1,5 @@
 class AppTestMapPickle:
-    spaceconfig = dict(usemodules=['struct'])
+    spaceconfig = dict(usemodules=['_struct'])
 
     def test_map_pickle(self):
         """Pickle a map with one sequence."""

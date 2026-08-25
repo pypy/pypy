@@ -4,7 +4,7 @@ from rpython.rlib import rvmprof
 from rpython.tool.udir import udir
 
 class AppTestVMProf(object):
-    spaceconfig = {'usemodules': ['_vmprof', 'struct']}
+    spaceconfig = {'usemodules': ['_vmprof', '_struct']}
 
     def setup_class(cls):
         cls.w_tmpfilename = cls.space.wrap(str(udir.join('test__vmprof.1')))

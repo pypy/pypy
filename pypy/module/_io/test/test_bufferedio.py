@@ -464,7 +464,7 @@ class AppTestBufferedReader:
 
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
-    spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
+    spaceconfig = dict(usemodules=['_io', '_thread', 'time'])
     if os.name != 'nt':
         spaceconfig['usemodules'].append('fcntl')
 
@@ -511,7 +511,7 @@ class AppTestBufferedReaderOnRevDB(AppTestBufferedReader):
 
 
 class AppTestBufferedWriter:
-    spaceconfig = dict(usemodules=['_io', 'thread'])
+    spaceconfig = dict(usemodules=['_io', '_thread'])
 
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
@@ -1055,7 +1055,7 @@ class AppTestMaxBuffer:
 
 
 class TestNonReentrantLock:
-    spaceconfig = dict(usemodules=['thread'])
+    spaceconfig = dict(usemodules=['_thread'])
 
     def test_trylock(self, space):
         lock = interp_bufferedio.TryLock(space)

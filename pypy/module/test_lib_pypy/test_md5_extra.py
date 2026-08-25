@@ -25,7 +25,7 @@ def compare_host(message, d2, d2h):
 
 class TestMD5Update:
 
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('_struct',))
 
     def setup_class(cls):
         if cls.runappdirect:
@@ -88,7 +88,7 @@ class TestMD5Update:
 class AppTestMD5Compare:
     """Compare pure Python MD5 against Python's std. lib. version."""
 
-    spaceconfig = dict(usemodules=('struct',))
+    spaceconfig = dict(usemodules=('_struct',))
 
     def setup_class(cls):
         from pypy.interpreter import gateway

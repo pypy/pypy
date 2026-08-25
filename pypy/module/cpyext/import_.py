@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
-from pypy.module.imp import importing
+from pypy.module._imp import importing
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @cpython_api([PyObject], PyObject)
@@ -92,7 +92,7 @@ def PyImport_AddModule(space, name):
     PyImport_ImportModule() or one of its variants to import a module.
     Package structures implied by a dotted name for name are not created if
     not already present."""
-    from pypy.module.imp.importing import check_sys_modules_w
+    from pypy.module._imp.importing import check_sys_modules_w
     modulename = rffi.charp2str(name)
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):
@@ -170,14 +170,14 @@ def _PyImport_AcquireLock(space):
     in different threads to return with a partially loaded module.
     These calls are serialized by the global interpreter lock."""
     try:
-        space.call_method(space.getbuiltinmodule('imp'), 'acquire_lock')
+        space.call_method(space.getbuiltinmodule('_imp'), 'acquire_lock')
     except OperationError as e:
         e.write_unraisable(space, "_PyImport_AcquireLock")
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def _PyImport_ReleaseLock(space):
     try:
-        space.call_method(space.getbuiltinmodule('imp'), 'release_lock')
+        space.call_method(space.getbuiltinmodule('_imp'), 'release_lock')
         return 1
     except OperationError as e:
         e.write_unraisable(space, "_PyImport_ReleaseLock")

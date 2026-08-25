@@ -1,6 +1,6 @@
 import sys
 
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 
 class AppTestMinimal:
     spaceconfig = dict(usemodules=['__pypy__'])
@@ -14,7 +14,7 @@ class AppTestMinimal:
 
 
 class AppTestThreadSignal(GenericTestThread):
-    spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal', 'time'])
+    spaceconfig = dict(usemodules=['__pypy__', '_thread', '_signal', 'time'])
 
     def test_exit_twice(self):
         import __pypy__, _thread
@@ -104,7 +104,7 @@ class AppTestThreadSignal(GenericTestThread):
 
 
 class AppTestThreadSignalLock:
-    spaceconfig = dict(usemodules=['__pypy__', 'thread', 'signal'])
+    spaceconfig = dict(usemodules=['__pypy__', '_thread', '_signal'])
 
     def setup_class(cls):
         if (not cls.runappdirect):

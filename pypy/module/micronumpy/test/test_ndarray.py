@@ -203,7 +203,7 @@ class TestNumArrayDirect(object):
 
 
 class AppTestNumArray(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
 
     def w_CustomIndexObject(self, index):
         class CustomIndexObject(object):
@@ -3943,7 +3943,7 @@ class AppTestRepr(BaseNumpyAppTest):
 
 
 class AppTestRecordDtype(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
 
     def test_zeros(self):
         from numpy import zeros, void
