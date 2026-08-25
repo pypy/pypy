@@ -28,7 +28,7 @@ def collect_one_testdir(testdirs, reldir, tests):
         testdirs.append(reldir)
 
 def get_test_driver(testdir):
-    if "jit/backend/aarch64" in testdir and IS_PYPY_MACOS_ARM64:
+    if IS_PYPY_MACOS_ARM64:
         return ["--jit", "off",  pytestpath]
     return [pytestpath]
 
