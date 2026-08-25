@@ -198,8 +198,8 @@ def _pop_freelist_or_malloc():
         vmprof_tl_freelist.setraw(s.c_next)
         return s
     s = lltype.malloc(VMPROFSTACK, flavor='raw')
-    if not we_are_translated() and id(s) in leakfinder.ALLOCATED:
-        leakfinder.remember_free(s)
+    if not we_are_translated() and id(s._obj0) in leakfinder.ALLOCATED:
+        leakfinder.remember_free(s._obj0)
     return s
 
 @jit.dont_look_inside
