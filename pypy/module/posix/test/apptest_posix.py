@@ -1,3 +1,4 @@
+# spaceconfig = {"usemodules": ["_signal"]}
 import pytest
 
 try:
@@ -43,6 +44,79 @@ if hasattr(os, "fork"):
         assert os.WIFEXITED(status1)
         res = os.WEXITSTATUS(status1)
         assert res == 13
+
+    def test_fork_warns_when_threads_active():
+        # avoid importing 'threading'/'warnings' (expensive untranslated):
+        # use _thread directly, and register a minimal stand-in module
+        # under sys.modules['warnings'] with just enough of the real
+        # warnings module's interface (_showwarnmsg + WarningMessage) for
+        # _warnings.warn() to report through instead of writing to stderr.
+        import _thread
+        import _warnings
+        import _signal
+        import sys
+        import time
+
+        # fork()+threads is inherently hang-prone (that's the whole point
+        # of the warning under test); bound the worst case so a stuck run
+        # fails loudly instead of hanging the rest of the test suite.
+        def on_alarm(sig, frame):
+            raise RuntimeError("test_fork_warns_when_threads_active timed out")
+        old_alarm_handler = _signal.signal(_signal.SIGALRM, on_alarm)
+        _signal.alarm(10)
+        try:
+            ready = _thread.allocate_lock()
+            ready.acquire()
+            stop = []
+            def background_thread():
+                ready.release()
+                # bounded (~5s) so it self-terminates even if something odd
+                # happens to thread scheduling around the fork() below
+                for _ in range(500):
+                    if stop:
+                        break
+                    time.sleep(0.01)
+
+            _thread.start_new(background_thread, ())
+            ready.acquire()  # wait until the thread actually started
+
+            class FakeWarningMessage:
+                def __init__(self, message, category, filename, lineno,
+                             file=None, line=None, source=None):
+                    self.message = message
+                    self.category = category
+
+            captured = []
+            class FakeWarningsModule:
+                WarningMessage = FakeWarningMessage
+                def _showwarnmsg(self, msg):
+                    captured.append(msg)
+
+            old_filters = _warnings.filters[:]
+            old_warnings_mod = sys.modules.get('warnings')
+            sys.modules['warnings'] = FakeWarningsModule()
+            _warnings.filters.insert(0, ('always', None, DeprecationWarning, None, 0))
+            _warnings._filters_mutated()
+            try:
+                pid = os.fork()
+                if pid == 0:
+                    os._exit(0)
+            finally:
+                if old_warnings_mod is not None:
+                    sys.modules['warnings'] = old_warnings_mod
+                else:
+                    del sys.modules['warnings']
+                _warnings.filters[:] = old_filters
+                _warnings._filters_mutated()
+                stop.append(1)
+
+            assert len(captured) == 1
+            assert captured[0].category is DeprecationWarning
+            assert 'fork' in str(captured[0].message)
+            os.waitpid(pid, 0)
+        finally:
+            _signal.alarm(0)
+            _signal.signal(_signal.SIGALRM, old_alarm_handler)
 
 
 def test_cpu_count():

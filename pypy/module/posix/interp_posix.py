@@ -1554,6 +1554,72 @@ def run_fork_hooks(where, space):
     for hook in get_fork_hooks(where):
         hook(space)
 
+def _count_os_threads():
+    # best-effort, like CPython's warn_about_fork_with_threads: Linux
+    # /proc/self/stat's 20th field is the process' current thread count.
+    # Returns 0 (unknown) on any failure or on non-Linux platforms.
+    if not _LINUX:
+        return 0
+    try:
+        fd = os.open('/proc/self/stat', os.O_RDONLY, 0)
+    except OSError:
+        return 0
+    try:
+        data = os.read(fd, 512)
+    except OSError:
+        return 0
+    finally:
+        os.close(fd)
+    # comm (field 2) is parenthesized and may itself contain spaces/parens;
+    # skip past its closing paren before splitting the remaining fields
+    idx = data.rfind(')')
+    if idx < 0:
+        return 0
+    fields = data[idx + 2:].split(' ')
+    # fields[0] is 'state' (field 3 overall); num_threads is field 20
+    # overall, i.e. index 20 - 3 == 17 here
+    if len(fields) <= 17:
+        return 0
+    try:
+        return int(fields[17])
+    except ValueError:
+        return 0
+
+def _count_threading_threads(space):
+    # fallback used when the OS-level count above isn't available: only
+    # counts threads known to the 'threading' module, and only if it was
+    # already imported
+    w_modules = space.sys.get('modules')
+    w_threading = space.finditem_str(w_modules, 'threading')
+    if w_threading is None:
+        return 0
+    try:
+        w_active = space.getattr(w_threading, space.newtext('_active'))
+        w_limbo = space.getattr(w_threading, space.newtext('_limbo'))
+        return space.len_w(w_active) + space.len_w(w_limbo)
+    except OperationError as e:
+        if e.async(space):
+            raise
+        return 0
+
+def _warn_about_fork_with_threads(space, name):
+    count = _count_os_threads()
+    if count <= 0:
+        count = _count_threading_threads(space)
+    if count > 1:
+        try:
+            space.warn(
+                space.newtext(
+                    "This process is multi-threaded, use of %s() may "
+                    "lead to deadlocks in the child." % name),
+                space.w_DeprecationWarning)
+        except OperationError as e:
+            # like CPython's PyErr_Clear() here: this is a best-effort
+            # warning, never let it (e.g. a filterwarnings('error')) turn
+            # fork()/forkpty() itself into a failure
+            if e.async(space):
+                raise
+
 def _run_forking_function(space, kind):
     run_fork_hooks('before', space)
     try:
@@ -1576,6 +1642,8 @@ def _run_forking_function(space, kind):
         os_thread.reinit_threads(space)
         run_fork_hooks('child', space)
     else:
+        name = "fork" if kind == "F" else "forkpty"
+        _warn_about_fork_with_threads(space, name)
         run_fork_hooks('parent', space)
     return pid, master_fd
 
