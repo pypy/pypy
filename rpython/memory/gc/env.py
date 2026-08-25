@@ -490,7 +490,7 @@ if sys.platform == 'win32':
     # instead and only cross the RPython/C boundary with a single integer
     # result.
     l2cache_eci = ExternalCompilationInfo(
-        includes=["windows.h"],
+        includes=["windows.h", "stdlib.h"],
         post_include_bits=["RPY_EXTERN long pypy_get_l2_cache_size(void);"],
         separate_module_sources=["""
         long pypy_get_l2_cache_size(void)
