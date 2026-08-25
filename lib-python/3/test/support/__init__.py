@@ -43,6 +43,7 @@ __all__ = [
     "requires_limited_api", "requires_specialization",
     # sys
     "MS_WINDOWS", "is_jython", "is_android", "is_emscripten", "is_wasi",
+    "is_pypy",
     "is_apple_mobile", "check_impl_detail", "unix_shell", "setswitchinterval",
     # os
     "get_pagesize",
@@ -545,6 +546,7 @@ else:
 # have subprocess or fork support.
 is_emscripten = sys.platform == "emscripten"
 is_wasi = sys.platform == "wasi"
+is_pypy = sys.implementation.name == "pypy"
 
 # Apple mobile platforms (iOS/tvOS/watchOS) are POSIX-like but do not
 # have subprocess or fork support.

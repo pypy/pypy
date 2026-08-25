@@ -8,7 +8,7 @@ import textwrap
 from copy import copy
 
 from test.support import (
-    captured_stdout, PythonSymlink, requires_subprocess, is_wasi
+    captured_stdout, PythonSymlink, requires_subprocess, is_wasi, is_pypy
 )
 from test.support.import_helper import import_module
 from test.support.os_helper import (TESTFN, unlink, skip_unless_symlink,
@@ -154,9 +154,14 @@ class TestSysConfig(unittest.TestCase):
         # before bpo-45413, here we assert the posix_venv scheme does not regress
         binpath = 'bin'
         incpath = 'include'
-        libpath = os.path.join('lib',
-                               'python%d.%d' % sys.version_info[:2],
-                               'site-packages')
+        if is_pypy:
+            libpath = os.path.join('lib',
+                                   'pypy%d.%d' % sys.version_info[:2],
+                                   'site-packages')
+        else:
+            libpath = os.path.join('lib',
+                                   'python%d.%d' % sys.version_info[:2],
+                                   'site-packages')
 
         # Resolve the paths in an imaginary venv/ directory
         binpath = os.path.join('venv', binpath)
@@ -348,6 +353,7 @@ class TestSysConfig(unittest.TestCase):
         # XXX more platforms to tests here
 
     @unittest.skipIf(is_wasi, "Incompatible with WASI mapdir and OOT builds")
+    @unittest.skipIf(is_pypy, "Incompatible with PyPy")
     def test_get_config_h_filename(self):
         config_h = sysconfig.get_config_h_filename()
         self.assertTrue(os.path.isfile(config_h), config_h)
@@ -457,6 +463,7 @@ class TestSysConfig(unittest.TestCase):
         self.assertEqual(my_platform, test_platform)
 
     @unittest.skipIf(is_wasi, "Incompatible with WASI mapdir and OOT builds")
+    @unittest.skipIf(is_pypy, "Incompatible with PyPy")
     def test_srcdir(self):
         # See Issues #15322, #15364.
         srcdir = sysconfig.get_config_var('srcdir')
@@ -588,6 +595,7 @@ class TestSysConfig(unittest.TestCase):
 
 class MakefileTests(unittest.TestCase):
 
+    @unittest.skipIf(is_pypy, "Incompatible with PyPy")
     @unittest.skipIf(sys.platform.startswith('win'),
                      'Test is not Windows compatible')
     @unittest.skipIf(is_wasi, "Incompatible with WASI mapdir and OOT builds")
