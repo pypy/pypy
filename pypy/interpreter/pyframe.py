@@ -116,6 +116,7 @@ class PyFrame(W_Root):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         self.initialize_frame_scopes(outer_func, code)
+    __init__._always_inline_ = True
 
     def getdebug(self):
         return self.debugdata
