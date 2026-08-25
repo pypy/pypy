@@ -73,6 +73,14 @@ def get_attribute_name(space, w_obj, w_name):
     # UnicodeEncodeError (unlike in the past, when it could encode to a
     # possibly-narrower internal representation). w_obj is unused, but kept
     # in the signature to match the shape callers expect.
+    #
+    # fast path: skip text_w()'s isinstance_w() check and polymorphic
+    # w_name.text_w() dispatch for the common case of a plain str (str
+    # subclasses are still W_UnicodeObject at this level, same shortcut
+    # ObjSpace.is_true() uses for W_BoolObject).
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    if type(w_name) is W_UnicodeObject:
+        return w_name._utf8
     return space.text_w(w_name)
 
 @always_inline
