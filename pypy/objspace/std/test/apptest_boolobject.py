@@ -58,3 +58,26 @@ def test_convert_to_bool():
 def test_from_bytes():
     assert bool.from_bytes(b"", 'little') is False
     assert bool.from_bytes(b"dasijldjs" * 157, 'little') is True
+
+def test_invert_deprecated():
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        false = False
+        assert ~false == -1
+    assert len(w) == 1
+    assert issubclass(w[0].category, DeprecationWarning)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        true = True
+        assert ~true == -2
+    assert len(w) == 1
+    assert issubclass(w[0].category, DeprecationWarning)
+
+    # constant folding at compile time must also warn
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        assert eval("~False") == -1
+    assert len(w) == 1
+    assert issubclass(w[0].category, DeprecationWarning)
