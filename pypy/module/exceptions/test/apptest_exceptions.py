@@ -779,6 +779,54 @@ def test_compile_stage_error_has_no_text():
         else:
             assert False, "expected SyntaxError"
 
+def test_future_import_errors_point_at_feature_name():
+    # CPython's future_check_features() (Python/future.c) attaches these
+    # errors to the offending alias node, not the whole ImportFrom
+    # statement - matches test_future_stmt.test_future's badfuture3/8/9.
+    src = '"""doc"""\nfrom __future__ import nested_scopes\nfrom __future__ import rested_snopes\n'
+    try:
+        compile(src, 'badsyntax_future3.py', 'exec')
+    except SyntaxError as e:
+        assert e.lineno == 3
+        assert e.offset == 24
+    else:
+        assert False, "expected SyntaxError"
+
+    src = '"""doc"""\n\nfrom __future__ import *\n'
+    try:
+        compile(src, 'badsyntax_future8.py', 'exec')
+    except SyntaxError as e:
+        assert e.lineno == 3
+        assert e.offset == 24
+    else:
+        assert False, "expected SyntaxError"
+
+    src = '"""doc"""\n\nfrom __future__ import nested_scopes, braces\n'
+    try:
+        compile(src, 'badsyntax_future9.py', 'exec')
+    except SyntaxError as e:
+        assert e.lineno == 3
+        assert e.offset == 39
+    else:
+        assert False, "expected SyntaxError"
+
+def test_future_import_not_at_beginning_str_has_single_line():
+    # a future import spanning multiple physical lines (continuation) must
+    # still report "line N" (singular, first line only) in str(), matching
+    # CPython's SyntaxError_str which never uses end_lineno - not "lines N-M"
+    src = ('"""doc"""\n\n'
+           'from __future__ import nested_scopes; import string; from __future__ import \\\n'
+           '     nested_scopes\n')
+    try:
+        compile(src, 'badsyntax_future7.py', 'exec')
+    except SyntaxError as e:
+        assert e.lineno == 3
+        assert e.end_lineno == 4
+        assert 'badsyntax_future7.py, line 3' in str(e)
+        assert 'lines 3-4' not in str(e)
+    else:
+        assert False, "expected SyntaxError"
+
 def test_assert_raise_points_at_condition():
     # the AssertionError-raising instruction carries the position of the assert
     # condition, so the traceback caret highlights it (PEP 657)

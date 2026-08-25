@@ -880,11 +880,7 @@ class W_SyntaxError(W_Exception):
             buffer = self.msg
             have_filename = type(self.filename) is str
             if type(self.lineno) is int:
-                if (type(self.end_lineno) is int and
-                       self.end_lineno > self.lineno):
-                    lineno = 'lines %d-%d' % (self.lineno, self.end_lineno)
-                else:
-                    lineno = 'line %d' % (self.lineno,)
+                lineno = 'line %d' % (self.lineno,)
             if have_filename:
                 import os
                 fname = os.path.basename(self.filename or "???")
