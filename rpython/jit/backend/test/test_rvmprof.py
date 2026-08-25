@@ -43,6 +43,11 @@ class BaseRVMProfTest(object):
         del _get_vmprof().use_weaklist
 
 
+    @py.test.mark.dont_track_allocations(
+        "enter_code's freelist nodes reached via meta_interp's genuinely "
+        "JIT-compiled tier go through the backend's own vmprof_tl_stack "
+        "codegen, not cintf.enter_code, so they're never freed within a "
+        "single test even though nothing is actually leaked")
     def test_simple(self):
         visited, llfn, CodeObj, get_code_fn, get_name = self.misc
         driver = jit.JitDriver(greens=['code'], reds=['c', 'i', 'n', 'codes'])
