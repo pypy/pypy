@@ -250,7 +250,7 @@ class PyFrame(W_Root):
             from pypy.interpreter.generator import GeneratorIterator
             return GeneratorIterator(self)
         else:
-            return self.execute_frame()
+            return self.execute_frame(None, None)
 
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
