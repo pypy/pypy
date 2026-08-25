@@ -13,11 +13,9 @@ _get_code = lambda frame, w_inputvalue, operr: frame.pycode
 _decorator = rvmprof.vmprof_execute_code("pypy", _get_code, W_Root)
 my_execute_frame = _decorator(PyFrame.execute_frame)
 
-
-class __extend__(PyFrame):
-    def execute_frame(self, w_inputvalue=None, operr=None):
-        # indirection for the optional arguments
-        return my_execute_frame(self, w_inputvalue, operr)
+# All call sites pass exactly (w_inputvalue, operr), using None for the
+# omitted ones, so this can be bound as PyFrame.execute_frame directly.
+PyFrame.execute_frame = my_execute_frame
 
 
 def _safe(s):
