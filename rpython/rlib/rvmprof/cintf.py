@@ -12,7 +12,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.config.translationoption import get_translation_config
 from rpython.jit.backend import detect_cpu
 
@@ -191,6 +191,7 @@ do_use_eci = rffi.llexternal_use_eci(
     ExternalCompilationInfo(includes=['vmprof_stack.h'],
                             include_dirs = [SRC]))
 
+@always_inline
 def _pop_freelist_or_malloc():
     s = vmprof_tl_freelist.get_or_make_raw()
     if s:
