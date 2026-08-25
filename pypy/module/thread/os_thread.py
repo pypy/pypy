@@ -190,6 +190,11 @@ printed unless the exception is SystemExit."""
     return space.newint_from_size_t(ident)
 
 
+def _is_main_interpreter(space):
+    """Return True if the current interpreter is the main Python interpreter."""
+    # PyPy has no support for subinterpreters, so this is always True.
+    return space.w_True
+
 def get_ident(space):
     """Return a non-zero integer that uniquely identifies the current thread
 amongst other threads that exist simultaneously.

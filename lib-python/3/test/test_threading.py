@@ -1138,6 +1138,7 @@ class ThreadTests(BaseTestCase):
         self.assertEqual(out, b'')
         self.assertEqual(err, b'')
 
+    @support.impl_detail(pypy=False)
     def test_start_new_thread_at_finalization(self):
         code = """if 1:
             import _thread

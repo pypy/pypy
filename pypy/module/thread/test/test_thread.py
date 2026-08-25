@@ -9,6 +9,10 @@ class AppTestThread(GenericTestThread):
         import _thread
         assert _thread.error is RuntimeError   # uh, since CPython 3.3
 
+    def test_is_main_interpreter(self):
+        import _thread
+        assert _thread._is_main_interpreter() is True
+
     def test_start_new_thread(self):
         import _thread
         feedback = []
