@@ -4,7 +4,7 @@ import pytest
 
 class AppTestCodecs:
     spaceconfig = {
-        "usemodules": ['unicodedata', 'struct', 'binascii', '_warnings'],
+        "usemodules": ['unicodedata', '_struct', 'binascii', '_warnings'],
     }
 
     def test_register_noncallable(self):

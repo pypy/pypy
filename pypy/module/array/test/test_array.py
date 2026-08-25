@@ -3,7 +3,7 @@ import pytest
 
 
 class AppTestArray(object):
-    spaceconfig = {'usemodules': ['array', 'struct', 'binascii']}
+    spaceconfig = {'usemodules': ['array', '_struct', 'binascii']}
 
     def setup_class(cls):
         cls.w_array = cls.space.appexec([], """():
@@ -1161,7 +1161,7 @@ class AppTestArray(object):
         import gc; gc.collect()
 
 class AppTestArrayReconstructor:
-    spaceconfig = dict(usemodules=('array', 'struct'))
+    spaceconfig = dict(usemodules=('array', '_struct'))
 
     def test_error(self):
         import array

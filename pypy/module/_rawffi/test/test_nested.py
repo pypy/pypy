@@ -1,5 +1,5 @@
 class AppTestNested:
-    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+    spaceconfig = dict(usemodules=['_rawffi', '_struct'])
 
     def test_inspect_structure(self):
         import _rawffi, struct

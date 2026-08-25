@@ -158,21 +158,21 @@ def find_frozen(space, w_name):
 #__________________________________________________________________
 
 def lock_held(space):
-    if space.config.objspace.usemodules.thread:
+    if space.config.objspace.usemodules._thread:
         return space.newbool(importing.getimportlock(space).lock_held_by_anyone())
     else:
         return space.w_False
 
 def acquire_lock(space):
-    if space.config.objspace.usemodules.thread:
+    if space.config.objspace.usemodules._thread:
         importing.getimportlock(space).acquire_lock()
 
 def release_lock(space):
-    if space.config.objspace.usemodules.thread:
+    if space.config.objspace.usemodules._thread:
         importing.getimportlock(space).release_lock(silent_after_fork=False)
 
 def reinit_lock(space):
-    if space.config.objspace.usemodules.thread:
+    if space.config.objspace.usemodules._thread:
         importing.getimportlock(space).reinit_lock()
 
 @unwrap_spec(pathname='fsencode')

@@ -1,7 +1,7 @@
 from pypy.module._thread.test.support import GenericTestThread
 
 class AppTestFork(GenericTestThread):
-    spaceconfig = dict(usemodules=GenericTestThread.spaceconfig['usemodules'] + ('imp',))
+    spaceconfig = dict(usemodules=GenericTestThread.spaceconfig['usemodules'] + ('_imp',))
 
     def test_fork_with_thread(self):
         # XXX This test depends on a multicore machine, as busy_thread must

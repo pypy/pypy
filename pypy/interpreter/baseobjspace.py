@@ -670,7 +670,7 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions',
+        bootstrap_modules = set(('sys', '_imp', 'builtins', 'exceptions',
                                  'zipimport', '_frozen_importlib'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
@@ -815,7 +815,7 @@ class ObjSpace(object):
         """Return an interp-level Lock object if threads are enabled,
         and a dummy object if they are not."""
         from rpython.rlib import rthread
-        if not self.config.objspace.usemodules.thread:
+        if not self.config.objspace.usemodules._thread:
             return rthread.dummy_lock
         # hack: we can't have prebuilt locks if we're translating.
         # In this special situation we should just not lock at all

@@ -19,7 +19,7 @@ else:
     canSaveKey = len(ret) > 0
 
 class AppTestHKey:
-    spaceconfig = dict(usemodules=('_winreg',))
+    spaceconfig = dict(usemodules=('winreg',))
 
     def test_repr(self):
         import winreg
@@ -27,7 +27,7 @@ class AppTestHKey:
         assert str(k) == "<PyHKEY:0x123>"
 
 class AppTestFfi:
-    spaceconfig = dict(usemodules=('_winreg',))
+    spaceconfig = dict(usemodules=('winreg',))
 
     def setup_class(cls):
         import _winreg as winreg

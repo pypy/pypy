@@ -3,7 +3,7 @@ Tests for the struct module implemented at interp-level in pypy/module/_struct.
 """
 
 class AppTestFastPath(object):
-    spaceconfig = dict(usemodules=['array', 'struct', '__pypy__'])
+    spaceconfig = dict(usemodules=['array', '_struct', '__pypy__'])
 
     def setup_class(cls):
         from rpython.rlib.rstruct import standardfmttable

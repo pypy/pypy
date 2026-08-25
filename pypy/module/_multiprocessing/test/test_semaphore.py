@@ -7,9 +7,9 @@ from pypy.module._multiprocessing.interp_semaphore import (
 
 
 class AppTestSemaphore:
-    spaceconfig = dict(usemodules=('_multiprocessing', 'thread',
-                                   'signal', 'select',
-                                   'binascii', 'struct', '_posixsubprocess'))
+    spaceconfig = dict(usemodules=('_multiprocessing', '_thread',
+                                   '_signal', 'select',
+                                   'binascii', '_struct', '_posixsubprocess'))
 
     if sys.platform == 'win32':
         spaceconfig['usemodules'] += ('_rawffi', '_cffi_backend')

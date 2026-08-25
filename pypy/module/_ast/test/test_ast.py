@@ -4,7 +4,7 @@ import py
 
 class AppTestAST:
     spaceconfig = {
-        "usemodules": ['struct', 'binascii'],
+        "usemodules": ['_struct', 'binascii'],
     }
 
     def setup_class(cls):

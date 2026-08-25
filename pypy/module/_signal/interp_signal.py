@@ -87,7 +87,7 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     def startup(self, space):
         # this is translated
-        if space.config.objspace.usemodules.thread:
+        if space.config.objspace.usemodules._thread:
             from rpython.rlib import rgil
             rgil.invoke_after_thread_switch(self._after_thread_switch)
 

@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["_posixsubprocess", "signal", "fcntl", "select", "time", "struct"]}
+# spaceconfig = {"usemodules": ["_posixsubprocess", "_signal", "fcntl", "select", "time", "_struct"]}
 import pytest
 
 _posixsubprocess = pytest.importorskip('_posixsubprocess')

@@ -122,7 +122,7 @@ def get_float_repr_style(space):
     return space.newtext("short")
 
 def get_thread_info(space):
-    if not space.config.objspace.usemodules.thread:
+    if not space.config.objspace.usemodules._thread:
         return None
     from rpython.rlib import rthread
     w_version = space.w_None

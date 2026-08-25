@@ -2,7 +2,7 @@
 Tests for the struct module implemented at interp-level in pypy/module/_struct.
 """
 
-# spaceconfig = {"usemodules": ["struct", "__pypy__"]}
+# spaceconfig = {"usemodules": ["_struct", "__pypy__"]}
 import struct
 from __pypy__ import bytebuffer
 

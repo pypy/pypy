@@ -42,7 +42,7 @@ def teardown_module(mod):
     interp_bz2.INITIAL_BUFFER_SIZE = mod.OLD_SMALLCHUNK
 
 class AppTestBZ2Compressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
+    spaceconfig = dict(usemodules=('_bz2', 'time', '_struct'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.newbytes(TEXT)
@@ -118,7 +118,7 @@ class AppTestBZ2Compressor(CheckAllocation):
 
 
 class AppTestBZ2Decompressor(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'time', 'struct'))
+    spaceconfig = dict(usemodules=('_bz2', 'time', '_struct'))
 
     def setup_class(cls):
         cls.w_TEXT = cls.space.newbytes(TEXT)

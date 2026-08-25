@@ -5,7 +5,7 @@ if os.name != 'posix':
     py.test.skip('crypt module only available on unix')
 
 class AppTestCrypt: 
-    spaceconfig = dict(usemodules=['crypt'])
+    spaceconfig = dict(usemodules=['_crypt'])
 
     def test_crypt(self):
         import crypt 

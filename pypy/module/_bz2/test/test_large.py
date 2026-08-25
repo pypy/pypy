@@ -2,7 +2,7 @@ import py
 
 
 class AppTestBZ2File:
-    spaceconfig = dict(usemodules=('bz2',))
+    spaceconfig = dict(usemodules=('_bz2',))
 
     def setup_class(cls):
         if not cls.runappdirect:

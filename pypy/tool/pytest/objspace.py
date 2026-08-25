@@ -28,7 +28,7 @@ def gettestobjspace(**kwds):
 def maketestobjspace(config=None):
     if config is None:
         config = make_config(option)
-    if config.objspace.usemodules.thread:
+    if config.objspace.usemodules._thread:
         config.translation.thread = True
     config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)

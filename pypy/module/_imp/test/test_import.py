@@ -200,7 +200,7 @@ def _teardown(space, w_saved_modules):
 
 class AppTestImport(BaseFSEncodeTest):
     spaceconfig = {
-        "usemodules": ['_md5', 'time', 'struct'],
+        "usemodules": ['_md5', 'time', '_struct'],
     }
 
     def setup_class(cls):
@@ -1007,7 +1007,7 @@ def test_PYTHONPATH_takes_precedence(space):
 
 class AppTestImportHooks(object):
     spaceconfig = {
-        "usemodules": ['struct', 'itertools', 'time'],
+        "usemodules": ['_struct', 'itertools', 'time'],
     }
 
     def setup_class(cls):

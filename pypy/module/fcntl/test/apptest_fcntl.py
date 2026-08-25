@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["fcntl", "struct", "array", "select", "time"]}
+# spaceconfig = {"usemodules": ["fcntl", "_struct", "array", "select", "time"]}
 
 import os
 import sys

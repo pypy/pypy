@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules" : ["binascii", "time", "struct", "unicodedata"]}
+# spaceconfig = {"usemodules" : ["binascii", "time", "_struct", "unicodedata"]}
 import os
 import sys
 from random import random

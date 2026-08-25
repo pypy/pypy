@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules" : ["_collections", "struct"]}
+# spaceconfig = {"usemodules" : ["_collections", "_struct"]}
 
 from _collections import deque
 from pytest import raises

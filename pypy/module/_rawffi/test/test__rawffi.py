@@ -7,7 +7,7 @@ from pypy.module._rawffi.tracker import Tracker
 import os, sys, py
 
 class AppTestFfi(object):
-    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+    spaceconfig = dict(usemodules=['_rawffi', '_struct'])
 
     def prepare_c_example():
         from rpython.tool.udir import udir
@@ -1315,7 +1315,7 @@ class AppTestFfi(object):
         n.free()
 
 class AppTestAutoFree:
-    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+    spaceconfig = dict(usemodules=['_rawffi', '_struct'])
 
     def setup_class(cls):
         cls.w_sizes_and_alignments = cls.space.wrap(dict(

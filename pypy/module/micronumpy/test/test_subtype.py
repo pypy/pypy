@@ -2,7 +2,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestSupport(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii", "mmap"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii", "mmap"])
 
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)

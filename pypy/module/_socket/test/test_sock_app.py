@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 @pytest.fixture
 def spaceconfig():
-    return {'usemodules': ['_socket', 'array', 'struct', 'unicodedata']}
+    return {'usemodules': ['_socket', 'array', '_struct', 'unicodedata']}
 
 @pytest.fixture
 def w_socket(space):

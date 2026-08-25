@@ -143,9 +143,9 @@ class CpyextLeak(leakfinder.MallocMismatch):
 
 class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
-    spaceconfig = {"usemodules" : ['cpyext', 'thread', 'struct', 'array',
+    spaceconfig = {"usemodules" : ['cpyext', '_thread', '_struct', 'array',
                                    'itertools', 'time', 'binascii',
-                                   'mmap', 'signal',
+                                   'mmap', '_signal',
                                    '_cffi_backend',
                                    ],
                    "objspace.disable_entrypoints_in_cffi": True}

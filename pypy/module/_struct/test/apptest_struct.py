@@ -2,7 +2,7 @@
 Tests for the struct module implemented at interp-level in pypy/module/_struct.
 """
 
-# spaceconfig = {"usemodules": ["struct", "array"]}
+# spaceconfig = {"usemodules": ["_struct", "array"]}
 import struct
 import sys
 

@@ -2,7 +2,7 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestScalar(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "binascii", "struct"])
+    spaceconfig = dict(usemodules=["micronumpy", "binascii", "_struct"])
 
     def test_integer_types(self):
         import numpy as np

@@ -70,7 +70,7 @@ class AppTestDeque:
 
 class AppTestDequeExtra:
 
-    spaceconfig = dict(usemodules=('binascii', 'struct',))
+    spaceconfig = dict(usemodules=('binascii', '_struct',))
 
     def setup_class(cls):
         cls.w_collections = import_lib_pypy(cls.space, '_collections')

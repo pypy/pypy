@@ -3,7 +3,7 @@ import signal as cpy_signal
 from pypy.tool.pytest.objspace import gettestobjspace
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
-USEMODULES = ['posix', 'signal']
+USEMODULES = ['posix', '_signal']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -44,7 +44,7 @@ class TestCheckSignals:
 
 class AppTestSignal:
     spaceconfig = {
-        "usemodules": ['signal', 'time', '_socket'] + (['fcntl'] if os.name != 'nt' else []),
+        "usemodules": ['_signal', 'time', '_socket'] + (['fcntl'] if os.name != 'nt' else []),
     }
 
     def setup_class(cls):
@@ -318,7 +318,7 @@ class AppTestSignal:
 
 
 class AppTestSignalSocket:
-    spaceconfig = dict(usemodules=['signal', '_socket'])
+    spaceconfig = dict(usemodules=['_signal', '_socket'])
 
     def test_alarm_raise(self):
         try:
@@ -349,7 +349,7 @@ class AppTestSignalSocket:
 
 @pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestItimer:
-    spaceconfig = dict(usemodules=['signal'])
+    spaceconfig = dict(usemodules=['_signal'])
 
     def test_itimer_real(self):
         import _signal as signal
@@ -375,7 +375,7 @@ class AppTestItimer:
 
 @pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestPThread:
-    spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
+    spaceconfig = dict(usemodules=['_signal', '_thread', 'time'])
 
     def test_pthread_kill(self):
         import _signal as signal

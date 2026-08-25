@@ -106,7 +106,7 @@ class AppTestCopy:
 class AppTestPickle:
     version = 0
     spaceconfig = {
-        "usemodules": ['_continuation', 'struct', 'binascii'],
+        "usemodules": ['_continuation', '_struct', 'binascii'],
         "continuation": True,
     }
 

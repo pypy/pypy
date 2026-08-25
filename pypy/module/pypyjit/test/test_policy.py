@@ -54,7 +54,7 @@ def test_pypy_module():
     assert pypypolicy.look_inside_pypy_module('__builtin__.functional')
     assert pypypolicy.look_inside_pypy_module('__builtin__.descriptor')
     assert pypypolicy.look_inside_pypy_module('exceptions.interp_exceptions')
-    for modname in 'pypyjit', 'signal', 'micronumpy', 'math', 'imp':
+    for modname in 'pypyjit', '_signal', 'micronumpy', 'math', '_imp':
         assert pypypolicy.look_inside_pypy_module(modname)
         assert pypypolicy.look_inside_pypy_module(modname + '.foo')
     assert not pypypolicy.look_inside_pypy_module('pypyjit.interp_resop')

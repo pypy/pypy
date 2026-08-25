@@ -3,7 +3,7 @@
 import pytest
 import sys
 
-# spaceconfig = {"usemodules": ["time", "struct", "binascii", "signal"]}
+# spaceconfig = {"usemodules": ["time", "_struct", "binascii", "_signal"]}
 
 try:
     import nt as posix

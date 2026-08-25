@@ -137,11 +137,9 @@ def test_apptest_spaceconfig(testdir):
 def test_rename_module():
     from pypy.tool.pytest.apptest import _rename_module
     assert _rename_module("sys") == "sys"
+    assert _rename_module("exceptions") == "builtins"
     if sys.platform == "win32":
-        assert _rename_module("_winreg") == "winreg"
-    assert _rename_module("struct") == "_struct"
-    assert _rename_module("operator") == "_operator"
-    assert _rename_module("signal") == "_signal"
+        assert _rename_module("posix") == "nt"
 
 def test_apptest_skipif(testdir):
     setpypyconftest(testdir)

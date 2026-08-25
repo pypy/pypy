@@ -94,7 +94,7 @@ class RealizeCache:
 
     def __enter__(self):
         # This is a simple recursive lock implementation
-        if self.space.config.objspace.usemodules.thread:
+        if self.space.config.objspace.usemodules._thread:
             from rpython.rlib import rthread
             #
             tid = rthread.get_ident()
@@ -110,7 +110,7 @@ class RealizeCache:
     def __exit__(self, *args):
         assert self.rec_level > 0
         self.rec_level -= 1
-        if self.space.config.objspace.usemodules.thread:
+        if self.space.config.objspace.usemodules._thread:
             from rpython.rlib import rthread
             #
             tid = rthread.get_ident()

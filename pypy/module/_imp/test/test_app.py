@@ -8,7 +8,7 @@ class AppTestImpModule:
     # cpyext or _cffi_backend is required for _imp.create_dynamic()
     # use _cffi_backend since it is difficult to import cpyext untranslated
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'time', 'struct',
+        'usemodules': ['binascii', '_imp', 'time', '_struct',
                        '_cffi_backend'],
     }
 

@@ -4,7 +4,7 @@ from pypy.module._rawffi.tracker import Tracker
 
 
 class AppTestTracker:
-    spaceconfig = dict(usemodules=['_rawffi', 'struct'])
+    spaceconfig = dict(usemodules=['_rawffi', '_struct'])
 
     def setup_class(cls):
         #

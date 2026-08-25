@@ -16,15 +16,15 @@ all_modules = [p.basename for p in modulepath.listdir()
 
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
-    "itertools", "_frozen_importlib", "operator", "_locale", "struct",
-    "thread", "__pypy__", "zipimport", "_opcode",
+    "itertools", "_frozen_importlib", "_operator", "_locale", "_struct",
+    "_thread", "__pypy__", "zipimport", "_opcode",
 ])
 if sys.platform == "win32":
-    essential_modules.add("_winreg")
+    essential_modules.add("winreg")
 
 default_modules = essential_modules.copy()
 default_modules.update([
-    "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
+    "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "_imp",
     "itertools", "math", "cmath", "_sre", "_pickle_support",
     "token", "_ast", "_random",
     "_string", "_testing", "time", "_abc", "_pickle",
@@ -35,14 +35,14 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "pwd",
-    "select", "_lsprof", "signal", "_rawffi", "termios",
-    "zlib", "bz2", "_md5", "_minimal_curses",
+    "select", "_lsprof", "_signal", "_rawffi", "termios",
+    "zlib", "_bz2", "_md5", "_minimal_curses",
     "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", # "_cppyy", "micronumpy",
     "_jitlog", # "_hpy_universal"
-    # "_hashlib", "crypt"
+    # "_hashlib", "_crypt"
 ])
 
 import rpython.rlib.rvmprof.cintf
@@ -52,7 +52,7 @@ if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
 
 translation_modules = default_modules.copy()
 translation_modules.update([
-    "fcntl", "time", "select", "signal", "_rawffi", "zlib", "struct",
+    "fcntl", "time", "select", "_signal", "_rawffi", "zlib", "_struct",
     "array", "binascii",
     # the following are needed for pyrepl (and hence for the
     # interactive prompt/pdb)
@@ -68,7 +68,7 @@ reverse_debugger_disable_modules = set([
 #     check or something)
 if sys.platform == "win32":
     # unix only modules
-    for name in ["crypt", "fcntl", "pwd", "termios", "_minimal_curses",
+    for name in ["_crypt", "fcntl", "pwd", "termios", "_minimal_curses",
                  "_posixsubprocess"]:
         if name in working_modules:
             working_modules.remove(name)
@@ -84,7 +84,7 @@ if sys.platform == "win32":
     default_modules.add("_locale")
 
     # needed to invoke MSVC
-    translation_modules.update(["thread", "_winreg", "_cffi_backend"])
+    translation_modules.update(["_thread", "winreg", "_cffi_backend"])
 
     # not ported yet
     if IS_64_BITS:
@@ -111,8 +111,8 @@ if sys.platform == "sunos5":
 
 module_dependencies = {
     '_multiprocessing': [('objspace.usemodules.time', True),
-                         ('objspace.usemodules.thread', True)],
-    '_cffi_backend': [('objspace.usemodules.thread', True)],
+                         ('objspace.usemodules._thread', True)],
+    '_cffi_backend': [('objspace.usemodules._thread', True)],
     'cpyext': [('objspace.usemodules.array', True)],
     '_cppyy': [('objspace.usemodules.cpyext', True)],
     'vmprof': [('objspace.usemodules.cpyext', True)], # for PyFrame_GetCode
@@ -122,7 +122,7 @@ module_suggests = {
     # the reason you want _rawffi is for ctypes, which
     # itself needs the interp-level struct module
     # because 'P' is missing from the app-level one
-    "_rawffi": [("objspace.usemodules.struct", True)],
+    "_rawffi": [("objspace.usemodules._struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext,main")],
 }
 if sys.platform == "win32":

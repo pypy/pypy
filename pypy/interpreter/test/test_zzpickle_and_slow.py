@@ -72,7 +72,7 @@ def _detach_helpers(space):
 
 class AppTestInterpObjectPickling:
     spaceconfig = {
-        "usemodules": ["struct", "binascii"]
+        "usemodules": ["_struct", "binascii"]
     }
     def setup_class(cls):
         runappdirect = py.test.config.option.runappdirect
@@ -547,7 +547,7 @@ class XAppTestGeneratorCloning:
 class XAppTestFramePickling(object):
     pytestmark = py.test.mark.skipif("config.option.runappdirect")
     spaceconfig = {
-        "usemodules": ["struct"]
+        "usemodules": ["_struct"]
     }
 
     def setup_class(cls):

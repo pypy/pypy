@@ -3,7 +3,7 @@ from pypy.conftest import option
 
 
 class AppTestObjectDtypes(BaseNumpyAppTest):
-    spaceconfig = dict(usemodules=["micronumpy", "struct", "binascii"])
+    spaceconfig = dict(usemodules=["micronumpy", "_struct", "binascii"])
 
     def setup_class(cls):
         BaseNumpyAppTest.setup_class.im_func(cls)

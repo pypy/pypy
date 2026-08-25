@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["signal"]}
+# spaceconfig = {"usemodules": ["_signal"]}
 import sys
 
 
