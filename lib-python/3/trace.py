@@ -182,7 +182,9 @@ class CoverageResults:
         """Return True if the filename does not refer to a file
         we want to have reported.
         """
-        return filename.startswith('<') and filename.endswith('>')
+        # PyPy modification: PyPy's frozen-module pseudo filenames look
+        # like '<builtin>/frozen modname', without a closing '>'
+        return filename.startswith('<')
 
     def update(self, other):
         """Merge in the data from another CoverageResults"""

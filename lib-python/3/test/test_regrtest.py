@@ -1802,6 +1802,7 @@ class ArgsTestCase(BaseTestCase):
         # --fail-env-changed must catch unraisable exception.
         # The exception must be displayed even if sys.stderr is redirected.
         code = textwrap.dedent(r"""
+            import gc
             import unittest
             import weakref
             from test.support import captured_stderr
@@ -1820,6 +1821,8 @@ class ArgsTestCase(BaseTestCase):
                         # call weakref_callback() which logs
                         # an unraisable exception
                         obj = None
+                        # PyPy modification: force collection
+                        gc.collect()
                     self.assertEqual(stderr.getvalue(), '')
         """)
         testname = self.create_test(code=code)
@@ -2139,7 +2142,9 @@ class ArgsTestCase(BaseTestCase):
             use_environment = (support.is_emscripten or support.is_wasi)
 
             class WorkerTests(unittest.TestCase):
-                @unittest.skipUnless(get_config is None, 'need get_config()')
+                # https://github.com/python/cpython/issues/148487: upstream
+                # had this backwards (gh-148507 fixes it upstream)
+                @unittest.skipIf(get_config is None, 'need get_config()')
                 def test_config(self):
                     config = get_config()['config']
                     # -u option
