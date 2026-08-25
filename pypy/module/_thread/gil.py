@@ -8,9 +8,9 @@ Global Interpreter Lock.
 # from time to time, using the periodic action GILReleaseAction.
 
 from rpython.rlib import rthread, rgil
-from pypy.module.thread.error import wrap_thread_error
+from pypy.module._thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import PeriodicAsyncAction
-from pypy.module.thread.threadlocals import OSThreadLocals
+from pypy.module._thread.threadlocals import OSThreadLocals
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""

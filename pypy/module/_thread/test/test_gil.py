@@ -1,5 +1,5 @@
 import time
-from pypy.module.thread import gil
+from pypy.module._thread import gil
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import rgil

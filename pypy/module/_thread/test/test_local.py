@@ -1,4 +1,4 @@
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 
 
 class AppTestLocal(GenericTestThread):
@@ -128,7 +128,7 @@ class AppTestLocal(GenericTestThread):
         done.append('shutdown')
 
 def test_local_caching():
-    from pypy.module.thread.os_local import Local
+    from pypy.module._thread.os_local import Local
     class FakeSpace:
         def getexecutioncontext(self):
             return self.ec

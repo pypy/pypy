@@ -75,7 +75,7 @@ class SpaceCompiler(SystemCompilationInfo):
 
 
 def get_cpyext_info(space):
-    from pypy.module.imp.importing import get_so_extension
+    from pypy.module._imp.importing import get_so_extension
     state = space.fromcache(State)
     api_library = state.api_lib
     if sys.platform == 'win32':

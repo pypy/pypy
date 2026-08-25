@@ -1,7 +1,7 @@
 from __future__ import with_statement
 import py
 import sys, os
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 from rpython.translator.c.test.test_genc import compile
 from platform import machine
 

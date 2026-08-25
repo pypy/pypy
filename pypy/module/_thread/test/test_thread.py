@@ -1,5 +1,5 @@
 import thread, time
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 import pytest
 
 class AppTestThread(GenericTestThread):

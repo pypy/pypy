@@ -23,8 +23,8 @@ def test_property():
     assert pypypolicy.look_inside_function(W_Property.get.im_func)
 
 def test_thread_local():
-    from pypy.module.thread.os_local import Local
-    from pypy.module.thread.os_thread import get_ident
+    from pypy.module._thread.os_local import Local
+    from pypy.module._thread.os_thread import get_ident
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
     assert pypypolicy.look_inside_function(get_ident)
 
@@ -37,7 +37,7 @@ def test_io():
     assert pypypolicy.look_inside_function(W_BytesIO.seek_w.im_func)
 
 def test_thread():
-    from pypy.module.thread.os_lock import Lock
+    from pypy.module._thread.os_lock import Lock
     assert pypypolicy.look_inside_function(Lock.descr_lock_acquire.im_func)
 
 def test_select():

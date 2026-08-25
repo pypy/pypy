@@ -643,7 +643,7 @@ class ObjSpace(object):
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
-        from pypy.module.imp.moduledef import Module
+        from pypy.module._imp.moduledef import Module
         w_name = self.newtext('_imp')
         mod = Module(self, w_name)
         mod.install()
@@ -773,7 +773,7 @@ class ObjSpace(object):
                 return ec
         else:
             # translated case follows.  self.threadlocals is either from
-            # 'pypy.interpreter.miscutils' or 'pypy.module.thread.threadlocals'.
+            # 'pypy.interpreter.miscutils' or 'pypy.module._thread.threadlocals'.
             # the result is assumed to be non-null: enter_thread() was called
             # by space.startup().
             ec = self.threadlocals.get_ec()

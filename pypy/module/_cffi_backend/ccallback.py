@@ -82,7 +82,7 @@ class W_ExternPython(W_CData):
         # some other non-Pythonic thread.  This is the same as cffi on
         # CPython, or ctypes.
         if space.config.translation.thread:
-            from pypy.module.thread.os_thread import setup_threads
+            from pypy.module._thread.os_thread import setup_threads
             setup_threads(space)
 
     def getfunctype(self):

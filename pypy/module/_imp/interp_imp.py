@@ -1,4 +1,4 @@
-from pypy.module.imp import importing
+from pypy.module._imp import importing
 from rpython.rlib import streamio
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
@@ -102,7 +102,7 @@ def is_frozen(space, w_name):
 
 def use_frozen(space):
     """private function that allows never using frozen modules"""
-    from pypy.module.imp.state import State
+    from pypy.module._imp.state import State
     state = space.fromcache(State)
     override = state.override_frozen_modules
     if override > 0:

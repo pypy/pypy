@@ -16,7 +16,7 @@ class Module(MixedModule):
 
     def install(self):
         """NOT_RPYTHON"""
-        from pypy.module.imp import interp_imp
+        from pypy.module._imp import interp_imp
 
         super(Module, self).install()
         space = self.space

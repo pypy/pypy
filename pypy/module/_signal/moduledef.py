@@ -54,7 +54,7 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON"
-        from pypy.module.signal import interp_signal
+        from pypy.module._signal import interp_signal
         MixedModule.__init__(self, space, *args)
         # add the signal-checking callback as an action on the space
         space.check_signal_action = interp_signal.CheckSignalAction(space)

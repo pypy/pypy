@@ -29,7 +29,7 @@ def load_embedded_cffi_module(space, version, init_struct):
             hex(version))
     #
     if space.config.objspace.usemodules.thread:
-        from pypy.module.thread import os_thread
+        from pypy.module._thread import os_thread
         os_thread.setup_threads(space)
     #
     name = rffi.charp2str(init_struct.name)

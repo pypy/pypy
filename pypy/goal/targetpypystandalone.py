@@ -13,7 +13,7 @@ from rpython.rlib import rlocale
 from pypy.tool.option import make_objspace
 from pypy import pypydir
 from rpython.rlib import rthread
-from pypy.module.thread import os_thread
+from pypy.module._thread import os_thread
 from pypy.module.sys.version import CPYTHON_VERSION
 
 thisdir = py.path.local(__file__).dirpath()

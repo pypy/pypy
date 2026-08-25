@@ -3,8 +3,8 @@ import time
 import sys
 from rpython.rlib.rgil import yield_thread
 from pypy.interpreter.gateway import interp2app
-from pypy.module.thread.os_lock import _set_sentinel
-from pypy.module.thread.os_thread import start_new_thread
+from pypy.module._thread.os_lock import _set_sentinel
+from pypy.module._thread.os_thread import start_new_thread
 from pypy.module._multiprocessing.interp_semaphore import (
     create_semaphore, delete_semaphore, W_SemLock, sem_unlink)
 

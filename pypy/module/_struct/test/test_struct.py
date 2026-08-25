@@ -1,5 +1,5 @@
 """
-Tests for the struct module implemented at interp-level in pypy/module/struct.
+Tests for the struct module implemented at interp-level in pypy/module/_struct.
 """
 
 class AppTestFastPath(object):

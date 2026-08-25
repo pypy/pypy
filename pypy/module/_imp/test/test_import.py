@@ -13,7 +13,7 @@ import pytest
 import sys, os
 import tempfile, marshal
 
-from pypy.module.imp import importing
+from pypy.module._imp import importing
 
 from pypy import conftest
 
@@ -1226,7 +1226,7 @@ class AppTestImportlibMagic:
     }
 
     def setup_class(cls):
-        from pypy.module.imp.interp_imp import get_magic
+        from pypy.module._imp.interp_imp import get_magic
         cls.w_magic = get_magic(cls.space)
 
     def test_magic(self):

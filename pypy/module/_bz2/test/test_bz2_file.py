@@ -5,13 +5,13 @@ if os.name == "nt":
     from pytest import skip
     skip("bz2 module is not available on Windows")
 
-from pypy.module.bz2.test.support import CheckAllocation
+from pypy.module._bz2.test.support import CheckAllocation
 import random
 
 import py
 
 from pypy.interpreter import gateway
-from pypy.module.bz2.test.support import CheckAllocation
+from pypy.module._bz2.test.support import CheckAllocation
 
 
 def setup_module(mod):

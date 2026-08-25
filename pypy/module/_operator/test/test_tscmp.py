@@ -1,4 +1,4 @@
-from pypy.module.operator.tscmp import pypy_tscmp
+from pypy.module._operator.tscmp import pypy_tscmp
 
 class TestTimingSafeCompare:
     def test_tscmp_neq(self):

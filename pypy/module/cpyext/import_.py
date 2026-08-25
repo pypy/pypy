@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
-from pypy.module.imp import importing
+from pypy.module._imp import importing
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @cpython_api([PyObject], PyObject)
@@ -92,7 +92,7 @@ def PyImport_AddModule(space, name):
     PyImport_ImportModule() or one of its variants to import a module.
     Package structures implied by a dotted name for name are not created if
     not already present."""
-    from pypy.module.imp.importing import check_sys_modules_w
+    from pypy.module._imp.importing import check_sys_modules_w
     modulename = rffi.charp2str(name)
     w_mod = check_sys_modules_w(space, modulename)
     if not w_mod or space.is_w(w_mod, space.w_None):

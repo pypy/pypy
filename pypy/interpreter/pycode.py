@@ -32,7 +32,7 @@ def unpack_text_tuple(space, w_str_tuple):
 
 
 # Magic numbers for the bytecode version in code objects.
-# See comments in pypy/module/imp/importing.
+# See comments in pypy/module/_imp/importing.
 cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 
 # we compute the magic number in a similar way to CPython, but we use a

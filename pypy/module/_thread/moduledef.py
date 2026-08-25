@@ -32,7 +32,7 @@ class Module(MixedModule):
 
     def __init__(self, space, *args):
         "NOT_RPYTHON: patches space.threadlocals to use real threadlocals"
-        from pypy.module.thread import gil
+        from pypy.module._thread import gil
         MixedModule.__init__(self, space, *args)
         prev_ec = space.threadlocals.get_ec()
         space.threadlocals = gil.GILThreadLocals(space)
@@ -41,5 +41,5 @@ class Module(MixedModule):
             space.threadlocals._set_ec(prev_ec)
 
         from pypy.module.posix.interp_posix import add_fork_hook
-        from pypy.module.thread.os_thread import reinit_threads
+        from pypy.module._thread.os_thread import reinit_threads
         add_fork_hook('child', reinit_threads)

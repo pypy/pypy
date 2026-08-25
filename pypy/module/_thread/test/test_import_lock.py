@@ -1,5 +1,5 @@
 from rpython.tool.udir import udir
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 
 
 class AppTestThread(GenericTestThread):
@@ -86,7 +86,7 @@ class AppTestThread(GenericTestThread):
 
 class TestImportLock:
     def test_lock(self, space, monkeypatch):
-        from pypy.module.imp.importing import getimportlock, importhook
+        from pypy.module._imp.importing import getimportlock, importhook
 
         # Reset the import lock OS mutex in case a thread from a prior test
         # is still holding it (the space is shared across tests via _SPACECACHE).

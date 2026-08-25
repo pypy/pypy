@@ -4,7 +4,7 @@ Python locks, based on true threading locks provided by the OS.
 
 import time
 from rpython.rlib import rthread
-from pypy.module.thread.error import wrap_thread_error
+from pypy.module._thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -12,7 +12,7 @@ from pypy.interpreter.error import oefmt
 from rpython.rlib.rarithmetic import r_longlong, ovfcheck, ovfcheck_float_to_longlong
 
 # Force the declaration of the type 'thread.LockType' for RPython
-#import pypy.module.thread.rpython.exttable
+#import pypy.module._thread.rpython.exttable
 
 LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS - 1) - 1)
 TIMEOUT_MAX = LONGLONG_MAX

@@ -1572,7 +1572,7 @@ def _run_forking_function(space, kind):
             pass
         raise wrap_oserror(space, e, eintr_retry=False)
     if pid == 0:
-        from pypy.module.thread import os_thread
+        from pypy.module._thread import os_thread
         os_thread.reinit_threads(space)
         run_fork_hooks('child', space)
     else:

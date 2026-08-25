@@ -810,7 +810,7 @@ def _run_watch(space, prog):
 ActionFlag._ticker_revdb_count = -1
 
 class RDBSignalActionFlag(AbstractActionFlag):
-    # Used instead of pypy.module.signal.interp_signal.SignalActionFlag
+    # Used instead of pypy.module._signal.interp_signal.SignalActionFlag
     # when we have reverse-debugging.  That other class would work too,
     # but inefficiently: it would generate two words of data per bytecode.
     # This class is tweaked to generate one byte per _SIG_TICKER_COUNT

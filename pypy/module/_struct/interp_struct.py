@@ -10,7 +10,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import make_weakref_descr
-from pypy.module.struct.formatiterator import (
+from pypy.module._struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
 

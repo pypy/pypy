@@ -153,7 +153,7 @@ def add_module(space, w_name):
 # as an attempt to avoid failure of 'from x import y' if module x is
 # still being executed in another thread.
 
-# This logic is tested in pypy.module.thread.test.test_import_lock.
+# This logic is tested in pypy.module._thread.test.test_import_lock.
 
 class ImportRLock:
 

@@ -5,8 +5,8 @@ Thread support based on OS-level threads.
 import os
 from signal import SIGINT
 from rpython.rlib import rthread
-from pypy.module.thread.error import wrap_thread_error
-from pypy.module.signal.interp_signal import check_signum_in_range
+from pypy.module._thread.error import wrap_thread_error
+from pypy.module._signal.interp_signal import check_signum_in_range
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, Arguments
 

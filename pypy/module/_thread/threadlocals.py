@@ -2,7 +2,7 @@ import weakref
 from rpython.rlib import rthread, rshrinklist
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_ulonglong
-from pypy.module.thread.error import wrap_thread_error
+from pypy.module._thread.error import wrap_thread_error
 from pypy.interpreter.executioncontext import ExecutionContext
 
 
@@ -101,7 +101,7 @@ class OSThreadLocals:
 
     def leave_thread(self, space):
         "Notification that the current thread is about to stop."
-        from pypy.module.thread.os_local import thread_is_stopping
+        from pypy.module._thread.os_local import thread_is_stopping
         ec = self.get_ec()
         if ec is not None:
             try:
@@ -182,7 +182,7 @@ class AutoFreeECWrapper(object):
         self.ident = rthread.get_ident()
 
     def __del__(self):
-        from pypy.module.thread.os_local import thread_is_stopping
+        from pypy.module._thread.os_local import thread_is_stopping
         # this is always called in another thread: the thread
         # referenced by 'self.ec' has finished at that point, and
         # we're just after the GC which finds no more references to

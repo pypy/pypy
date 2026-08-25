@@ -1,4 +1,4 @@
-from pypy.module.thread.test.support import GenericTestThread
+from pypy.module._thread.test.support import GenericTestThread
 
 class AppTestFork(GenericTestThread):
     spaceconfig = dict(usemodules=GenericTestThread.spaceconfig['usemodules'] + ('imp',))

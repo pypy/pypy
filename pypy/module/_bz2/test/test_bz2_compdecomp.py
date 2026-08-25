@@ -8,8 +8,8 @@ import py
 import glob
 import bz2
 
-from pypy.module.bz2.test.support import CheckAllocation
-from pypy.module.bz2 import interp_bz2
+from pypy.module._bz2.test.support import CheckAllocation
+from pypy.module._bz2 import interp_bz2
 from pypy.interpreter import gateway
 
 HUGE_OK = False

@@ -1,7 +1,7 @@
 import os
 import py
 import pytest
-from pypy.module.bz2.interp_bz2 import W_BZ2Decompressor, INITIAL_BUFFER_SIZE
+from pypy.module._bz2.interp_bz2 import W_BZ2Decompressor, INITIAL_BUFFER_SIZE
 
 if os.name == "nt":
     pytest.skip("bz2 module is not available on Windows")
