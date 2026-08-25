@@ -784,9 +784,11 @@ class ReferencesTestCase(TestBase):
         gc.collect()
         self.assertEqual(alist, [])
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_ref_creation(self):
         self.check_gc_during_creation(weakref.ref)
 
+    @support.impl_detail(pypy=False)
     def test_gc_during_proxy_creation(self):
         self.check_gc_during_creation(weakref.proxy)
 
@@ -1239,6 +1241,7 @@ class MappingTestCase(TestBase):
     def test_weak_valued_len_cycles(self):
         self.check_len_cycles(weakref.WeakValueDictionary, lambda k: (1, k))
 
+    @support.impl_detail(pypy=False)
     def check_len_race(self, dict_type, cons):
         # Extended sanity checks for len() in the face of cyclic collection
         self.addCleanup(gc.set_threshold, *gc.get_threshold())
@@ -1698,6 +1701,7 @@ class MappingTestCase(TestBase):
         self.assertIs(type(tmp4), weakref.WeakValueDictionary)
 
         del a
+        gc_collect()  # For PyPy or other GCs.
         self.assertNotIn(2, tmp1)
         self.assertNotIn(2, tmp2)
         self.assertNotIn(1, tmp3)
@@ -1750,6 +1754,7 @@ class MappingTestCase(TestBase):
         self.assertIs(type(tmp4), weakref.WeakKeyDictionary)
 
         del o1
+        gc_collect()  # For PyPy or other GCs.
         self.assertNotIn(4, tmp1.values())
         self.assertNotIn(4, tmp2.values())
         self.assertNotIn(1, tmp3.values())
