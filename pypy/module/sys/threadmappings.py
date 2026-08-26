@@ -40,15 +40,12 @@ def _current_exceptions(space):
     for thread_ident, ec in ecs.items():
         operror = ec.sys_exc_info()
         if not operror:
-            space.setitem(w_result,
-                          space.newint_from_size_t(thread_ident),
-                          space.newtuple([space.w_None] * 3))
+            w_exc = space.w_None
         else:
-            space.setitem(w_result,
-                          space.newint_from_size_t(thread_ident),
-                          space.newtuple([operror.w_type,
-                                          operror.get_w_value(space),
-                                          operror.get_w_traceback(space)]))
+            w_exc = operror.get_w_value(space)
+        space.setitem(w_result,
+                      space.newint_from_size_t(thread_ident),
+                      w_exc)
     return w_result
 
 
