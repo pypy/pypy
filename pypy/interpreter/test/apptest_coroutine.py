@@ -430,6 +430,18 @@ def test_async_yield_athrow_send_after_exception():
     raises(ValueError, athrow_coro.send, None)
     raises(RuntimeError, athrow_coro.send, None)
 
+def test_async_gen_3_arg_deprecation_warning():
+    async def ag():
+        yield 123
+
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter("always")
+        x = ag().athrow(GeneratorExit, GeneratorExit(), None)
+    assert len(l) == 1
+    assert issubclass(l[0].category, DeprecationWarning)
+    assert "athrow()" in str(l[0].message)
+    raises(GeneratorExit, x.send, None)
+
 def test_async_yield_athrow_throw():
     async def ag():
         yield 42

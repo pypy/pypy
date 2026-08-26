@@ -688,8 +688,21 @@ class AsyncGenerator(GeneratorOrCoroutine):
         self.init_hooks()
         return AsyncGenASend(self, w_arg)
 
-    def descr_athrow(self, w_type, w_val=None, w_tb=None):
+    def descr_athrow(self, __args__):
         self.init_hooks()
+        space = self.space
+        args_w = __args__.arguments_w
+        if not args_w:
+            raise oefmt(space.w_TypeError,
+                "athrow() missing 1 required positional argument: 'type'")
+        if len(args_w) > 1:
+            space.warn(space.newtext(
+                "the (type, exc, tb) signature of athrow() is deprecated, "
+                "use the single-arg signature instead."),
+                space.w_DeprecationWarning)
+        w_type = args_w[0]
+        w_val = args_w[1] if len(args_w) > 1 else None
+        w_tb = args_w[2] if len(args_w) > 2 else None
         return AsyncGenAThrow(self, w_type, w_val, w_tb)
 
     def descr_aclose(self):
