@@ -234,15 +234,17 @@ class PegParser(object):
                 raise
             if (isinstance(e, error.TokenError) and
                     compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT):
+                is_unterminated_literal = isinstance(e, error.UnterminatedStringError)
+                is_triple_quoted = (
+                    is_unterminated_literal and e.is_triple_quoted)
                 single_quote_finalized = (
-                    pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg and
+                    is_unterminated_literal and not is_triple_quoted and
                     not textsrc.endswith('\\') and
                     not textsrc.endswith('\\\n') and
                     not textsrc.endswith('\\\r') and
                     not textsrc.endswith('\\\r\n'))
                 if not single_quote_finalized and (
-                        pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
-                        pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                        is_unterminated_literal or
                         'was never closed' in e.msg or
                         pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg):
                     e.msg = "incomplete input"

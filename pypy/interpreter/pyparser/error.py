@@ -146,6 +146,15 @@ class LineContinuationError(TokenError):
     """A line-continuation backslash that runs into EOF; the eval/exec layer
     formats the message depending on the mode."""
 
+class UnterminatedStringError(TokenError):
+    """A string/f-string literal that runs into EOF without a closing quote."""
+    def __init__(self, msg, line, lineno, column, tokens, end_lineno,
+                 end_offset, is_triple_quoted, is_fstring):
+        TokenError.__init__(self, msg, line, lineno, column, tokens,
+                            end_lineno, end_offset)
+        self.is_triple_quoted = is_triple_quoted
+        self.is_fstring = is_fstring
+
 class TokenIndentationError(IndentationError):
 
     def __init__(self, msg, line, lineno, column, tokens):

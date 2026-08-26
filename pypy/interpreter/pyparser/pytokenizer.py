@@ -2,7 +2,7 @@ from pypy.interpreter.pyparser import automata
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
-from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError
+from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError, StructuralTokenError, LineContinuationError, HardTokenError, UnterminatedStringError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
     triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
@@ -17,8 +17,6 @@ TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
 UNTERMINATED_STRING_ERROR = "unterminated %s%sstring literal (detected at line %s)"
-TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
-SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 MAXLEVEL = 200
@@ -173,7 +171,8 @@ def raise_unterminated_string(
         line = line[:-1]
     # the detection line only appears in the message text above; the
     # error itself is reported as spanning just the starting line
-    raise TokenError(msg, line, lineno, column, tokens, lineno, end_offset)
+    raise UnterminatedStringError(msg, line, lineno, column, tokens, lineno,
+                                  end_offset, is_triple_quoted, f_string)
 
 def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name

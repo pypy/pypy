@@ -150,7 +150,7 @@ def decode_unicode_str(space, encoding, s, rawmode, astbuilder=None, token=None,
                 return space.newutf8(s[ps:q], length)
             substr = decode_unicode_utf8(space, s, ps, q)
 
-        r = decode_unicode_escape(space, substr, astbuilder, token)
+        r = decode_unicode_escape(space, substr, astbuilder, token, ps)
         v, length, pos = r
         return space.newutf8(v, length)
     except OperationError as e:
@@ -275,7 +275,7 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
     return buf, first_escape_error_char
 
 
-def decode_unicode_escape(space, string, astbuilder, token):
+def decode_unicode_escape(space, string, astbuilder, token, ps=0):
     from pypy.interpreter.unicodehelper import str_decode_unicode_escape
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
@@ -291,8 +291,31 @@ def decode_unicode_escape(space, string, astbuilder, token):
             msg = "invalid octal escape sequence '\\%s'" % first_escape_error_char
         else:
             msg = "invalid escape sequence '\\%s'" % first_escape_error_char
-        astbuilder.deprecation_warn(msg, token)
+        err_lineno, err_col_offset = _find_escape_position(
+            token, ps, string, "\\" + first_escape_error_char)
+        astbuilder.deprecation_warn(msg, token, err_lineno, err_col_offset)
     return s, ulen, blen
+
+
+def _find_escape_position(token, ps, substr, escape_text):
+    """Locate `escape_text` (e.g. "\\q") inside substr, and translate that
+    into a (lineno, col_offset) pointing just past the backslash - matching
+    CPython's 2-column caret span for invalid escape sequence warnings."""
+    escape_index = substr.find(escape_text)
+    if escape_index < 0:
+        # Shouldn't happen, but fall back to the token's own start position.
+        return token.lineno, token.column + 1
+    lineno = token.lineno
+    col = token.column + ps
+    i = 0
+    while i < escape_index:
+        if substr[i] == '\n':
+            lineno += 1
+            col = 0
+        else:
+            col += 1
+        i += 1
+    return lineno, col + 1
 
 def isxdigit(ch):
     return (ch >= '0' and ch <= '9' or

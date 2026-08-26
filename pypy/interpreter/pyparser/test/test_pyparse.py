@@ -694,6 +694,11 @@ class TestIncompleteInput(object):
     def test_triplequote(self):
         msg = self.check_incomplete("a = '''\nabc\def")
 
+    def test_triplequote_fstring(self):
+        # an unterminated triple-quoted f-string must also be reported as
+        # "incomplete input", just like a plain triple-quoted string above.
+        self.check_incomplete('a = f"""')
+
     def test_augmented_assignment(self):
         msg = self.check_error("(y for y in (1,2)) += 10")
         assert "'generator expression'" in msg

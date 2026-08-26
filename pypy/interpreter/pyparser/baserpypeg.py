@@ -319,8 +319,12 @@ class Parser:
             self.raise_indentation_error("unexpected indent")
         self.raise_syntax_error_known_location("invalid syntax", tok)
 
-    def deprecation_warn(self, msg, tok):
-        """Emit a DeprecationWarning (used for invalid escape sequences in strings)."""
+    def deprecation_warn(self, msg, tok, err_lineno=-1, err_col_offset=-1):
+        """Emit a DeprecationWarning (used for invalid escape sequences in strings).
+
+        err_lineno/err_col_offset, if given, pinpoint the escape sequence itself
+        (matching CPython's 2-column caret span) instead of the whole token.
+        """
         if self.call_invalid_rules:
             # The call_invalid_rules pass is purely for generating better error
             # messages. Suppress warnings here to avoid emitting duplicates:
@@ -333,12 +337,13 @@ class Parser:
             w_category = space.w_SyntaxWarning
         else:
             w_category = space.w_DeprecationWarning
+        warn_lineno = tok.lineno if err_lineno == -1 else err_lineno
         try:
             warn_explicit(
                 space, space.newtext(msg),
                 w_category,
                 space.newtext(self.compile_info.filename),
-                tok.lineno,
+                warn_lineno,
                 space.w_None,
                 space.w_None,
                 space.w_None,
@@ -346,8 +351,13 @@ class Parser:
                 )
         except error.OperationError as e:
             if e.match(space, w_category):
-                start_lineno, start_col_offset = self.extract_pos_start(tok)
-                end_lineno, end_col_offset = self.extract_pos_end(tok)
+                if err_lineno != -1:
+                    start_lineno = end_lineno = err_lineno
+                    start_col_offset = err_col_offset - 1
+                    end_col_offset = err_col_offset + 1
+                else:
+                    start_lineno, start_col_offset = self.extract_pos_start(tok)
+                    end_lineno, end_col_offset = self.extract_pos_end(tok)
                 self._raise_syntax_error(msg, start_lineno, start_col_offset,
                                          end_lineno, end_col_offset)
             else:
