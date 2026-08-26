@@ -172,10 +172,16 @@ printed unless the exception is SystemExit."""
     setup_threads(space)
     if not space.isinstance_w(w_args, space.w_tuple):
         raise oefmt(space.w_TypeError, "2nd arg must be a tuple")
-    if w_kwargs is not None and not space.isinstance_w(w_kwargs, space.w_dict):
+    if w_kwargs is None:
+        w_kw = space.w_None
+    elif not space.isinstance_w(w_kwargs, space.w_dict):
         raise oefmt(space.w_TypeError, "optional 3rd arg must be a dictionary")
+    else:
+        w_kw = w_kwargs
     if not space.is_true(space.callable(w_callable)):
         raise oefmt(space.w_TypeError, "first arg must be callable")
+
+    space.audit("_thread.start_new_thread", [w_callable, w_args, w_kw])
 
     args = Arguments.frompacked(space, w_args, w_kwargs)
     bootstrapper.acquire(space, w_callable, args)

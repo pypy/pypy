@@ -33,12 +33,14 @@ def dump(space, w_data, w_f, version=Py_MARSHAL_VERSION):
 def dumps(space, w_data, version=Py_MARSHAL_VERSION):
     """Return the string that would have been written to a file
 by dump(data, file)."""
+    space.audit("marshal.dumps", [w_data, space.newint(version)])
     m = StringMarshaller(space, version)
     m.dump_w_obj(w_data)
     return space.newbytes(m.get_value())
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""
+    space.audit("marshal.load", [])
     reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
@@ -49,6 +51,7 @@ def load(space, w_f):
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
 ignored."""
+    space.audit("marshal.loads", [w_str])
     return _loads(space, w_str)
 
 def _loads(space, w_str, hidden_applevel=False):
