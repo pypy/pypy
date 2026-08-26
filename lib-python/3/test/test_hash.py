@@ -8,6 +8,7 @@ import os
 import sys
 import unittest
 from test.support.script_helper import assert_python_ok
+from test.support import impl_detail, check_impl_detail
 from collections.abc import Hashable
 
 IS_64BIT = sys.maxsize > 2**32
@@ -294,10 +295,12 @@ class StrHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_long = repr('abcdefghijk')
     repr_ucs2 = repr('äú∑ℇ')
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(""), 0)
 
+    @impl_detail("hash(ucs2) differs on PyPy if unichar is 4 bytes", pypy=False)
     @skip_unless_internalhash
     def test_ucs2_string(self):
         h = self.get_expected_hash(3, 6)
@@ -310,6 +313,7 @@ class BytesHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_ = repr(b'abc')
     repr_long = repr(b'abcdefghijk')
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(b""), 0)
@@ -319,6 +323,7 @@ class MemoryviewHashRandomizationTests(StringlikeHashRandomizationTests,
     repr_ = "memoryview(b'abc')"
     repr_long = "memoryview(b'abcdefghijk')"
 
+    @impl_detail("hash('') != 0 on PyPy", pypy=False)
     @skip_unless_internalhash
     def test_empty_string(self):
         self.assertEqual(hash(memoryview(b"")), 0)
