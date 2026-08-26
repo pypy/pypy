@@ -454,7 +454,7 @@ def gamma(x):
         return r
     if absx > 200.:
         if x < 0.:
-            return 0. / -_sinpi(x)
+            return 0. / _sinpi(x)
         else:
             raise OverflowError("math range error")
     y = absx + _lanczos_g_minus_half
