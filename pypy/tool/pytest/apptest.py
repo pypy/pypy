@@ -21,20 +21,22 @@ class AppError(Exception):
 
 
 class AppTestMethod(py.test.collect.Function):
-    def _prunetraceback(self, traceback):
+    def _prunetraceback(self, excinfo):
         # a runaway recursion can produce a traceback with hundreds of
         # repeated frames, which is fine to inspect when running a single
         # test in isolation but floods the log when running a whole suite
         # (e.g. on the buildbot). Cap it in that case, unless the recursion
         # itself is the only thing selected to run.
         if len(self.session.items) > 1:
+            traceback = excinfo.traceback
             recursionindex = traceback.recursionindex()
             if recursionindex is not None:
-                return traceback[:recursionindex + 1]
-            maxentries = 100
-            if len(traceback) > maxentries:
-                return traceback[:maxentries]
-        return traceback
+                # list.__getslice__ (py2) would silently downgrade this to
+                # a plain list, breaking traceback.recursionindex() calls
+                # later on; wrap explicitly to keep the Traceback type.
+                excinfo.traceback = py.code.Traceback(traceback[:recursionindex + 1])
+            elif len(traceback) > 100:
+                excinfo.traceback = py.code.Traceback(traceback[:100])
 
     def execute_appex(self, space, target, *args):
         self.space = space
