@@ -1364,7 +1364,6 @@ W_TypeObject.typedef = TypeDef("type",
                                          descr_set___abstractmethods__,
                                          descr_del___abstractmethods__),
     __subclasses__ = gateway.interp2app(descr___subclasses__),
-    __weakref__ = weakref_descr,
     __instancecheck__ = gateway.interp2app(type_isinstance),
     __subclasscheck__ = gateway.interp2app(type_issubtype),
 
