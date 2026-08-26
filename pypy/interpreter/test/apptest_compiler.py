@@ -709,3 +709,566 @@ def test_asterror_has_line_without_file():
     with raises(SyntaxError) as excinfo:
         compile(code, 'not a file!', 'exec')
     assert excinfo.value.text == "a/2 = 5\n"
+
+def test_scope_unoptimized_clash1():
+    # mostly taken from test_scope.py
+    raises(SyntaxError, compile, """if 1:
+        def unoptimized_clash1(strip):
+            def f(s):
+                from string import *
+                return strip(s) # ambiguity: free or local
+            return f""", '', 'exec')
+
+def test_scope_unoptimized_clash1_b():
+    # as far as I can tell, this case can be handled correctly
+    # by the interpreter so a SyntaxError is not required, but
+    # let's give one anyway for "compatibility"...
+
+    # mostly taken from test_scope.py
+    raises(SyntaxError, compile, """if 1:
+        def unoptimized_clash1(strip):
+            def f():
+                from string import *
+                return s # ambiguity: free or local (? no, global or local)
+            return f""", '', 'exec')
+
+def test_scope_exec_in_nested():
+    raises(SyntaxError, compile, """if 1:
+        def unoptimized_clash1(x):
+            def f():
+                exec "z=3"
+                return x
+            return f""", '', 'exec')
+
+def test_scope_exec_with_nested_free():
+    raises(SyntaxError, compile, """if 1:
+        def unoptimized_clash1(x):
+            exec "z=3"
+            def f():
+                return x
+            return f""", '', 'exec')
+
+def test_scope_importstar_in_nested():
+    raises(SyntaxError, compile, """if 1:
+        def unoptimized_clash1(x):
+            def f():
+                from string import *
+                return x
+            return f""", '', 'exec')
+
+def test_scope_importstar_with_nested_free():
+    raises(SyntaxError, compile, """if 1:
+        def clash(x):
+            from string import *
+            def f(s):
+                return strip(s)
+            return f""", '', 'exec')
+
+def test_try_except_finally():
+    compile("""
+def f():
+    try:
+       1/0
+    except ZeroDivisionError:
+       pass
+    finally:
+       return 3
+""", '', 'exec')
+    compile("""
+def f():
+    try:
+        1/0
+    except:
+        pass
+    else:
+        pass
+    finally:
+        return 2
+""", '', 'exec')
+
+def test_toplevel_docstring():
+    glob = {}
+    loc = {}
+    exec(compile('"spam"; "bar"; x=5', '<hello>', 'exec'), glob, loc)
+    assert loc['x'] == 5
+    assert loc['__doc__'] == "spam"
+    #
+    glob = {}
+    loc = {}
+    exec(compile('"spam"; "bar"; x=5', '<hello>', 'single'), glob, loc)
+    assert loc['x'] == 5
+    assert loc.get('__doc__') is None   # "spam" is not a docstring
+
+def test_barestringstmts_disappear():
+    code = compile('"a"\n"b"\n"c"\n', '<hello>', 'exec')
+    # "a" should show up as a docstring, but "b" and "c" should not
+    assert "b" not in code.co_consts
+    assert "c" not in code.co_consts
+
+def test_unicodeliterals():
+    raises(SyntaxError, eval, "u'\\Ufffffffe'")
+    raises(SyntaxError, eval, "u'\\Uffffffff'")
+    raises(SyntaxError, eval, "u'\\U%08x'" % 0x110000)
+
+def test_unicode_docstring():
+    code = compile('"hello"\n', '<hello>', 'exec')
+    assert code.co_consts[0] == "hello"
+    assert type(code.co_consts[0]) is str
+
+def test_argument_handling():
+    for expr in 'lambda a,a:0', 'lambda a,a=1:0', 'lambda a=1,a=1:0':
+        raises(SyntaxError, eval, expr)
+
+    for code in ('def f(a, a): pass', 'def f(a = 0, a = 1): pass',
+                 'def f(a): global a; a = 1'):
+        raises(SyntaxError, compile, code, '', 'exec')
+
+def test_argument_order():
+    code = 'def f(a=1, (b, c)): pass'
+    raises(SyntaxError, compile, code, '', 'exec')
+
+def test_debug_assignment():
+    code = '__debug__ = 1'
+    raises(SyntaxError, compile, code, '', 'single')
+
+def test_return_in_generator():
+    code = 'def f():\n return None\n yield 19\n'
+    compile(code, '', 'single')
+
+def test_yield_in_finally():
+    code ='def f():\n try:\n  yield 19\n finally:\n  pass\n'
+    compile(code, '', 'single')
+
+def test_none_assignment():
+    stmts = [
+        'None = 0',
+        'None += 0',
+        '__builtins__.None = 0',
+        'def None(): pass',
+        'class None: pass',
+        '(a, None) = 0, 0',
+        'for None in range(10): pass',
+        'def f(None): pass',
+    ]
+    for stmt in stmts:
+        stmt += '\n'
+        for kind in 'single', 'exec':
+            raises(SyntaxError, compile, stmt, '', kind)
+
+def test_import():
+    succeed = [
+        'import sys',
+        'import os, sys',
+        'from __future__ import nested_scopes, generators',
+        'from __future__ import (nested_scopes,\ngenerators)',
+        'from __future__ import (nested_scopes,\ngenerators,)',
+        'from __future__ import (\nnested_scopes,\ngenerators)',
+        'from __future__ import(\n\tnested_scopes,\n\tgenerators)',
+        'from __future__ import(\n\t\nnested_scopes)',
+        'from sys import stdin, stderr, stdout',
+        'from sys import (stdin, stderr,\nstdout)',
+        'from sys import (stdin, stderr,\nstdout,)',
+        'from sys import (stdin\n, stderr, stdout)',
+        'from sys import (stdin\n, stderr, stdout,)',
+        'from sys import stdin as si, stdout as so, stderr as se',
+        'from sys import (stdin as si, stdout as so, stderr as se)',
+        'from sys import (stdin as si, stdout as so, stderr as se,)',
+        ]
+    fail = [
+        'import (os, sys)',
+        'import (os), (sys)',
+        'import ((os), (sys))',
+        'import (sys',
+        'import sys)',
+        'import (os,)',
+        'from (sys) import stdin',
+        'from __future__ import (nested_scopes',
+        'from __future__ import nested_scopes)',
+        'from __future__ import nested_scopes,\ngenerators',
+        'from sys import (stdin',
+        'from sys import stdin)',
+        'from sys import stdin, stdout,\nstderr',
+        'from sys import stdin si',
+        'from sys import stdin,'
+        'from sys import (*)',
+        'from sys import (stdin,, stdout, stderr)',
+        'from sys import (stdin, stdout),',
+        ]
+    for stmt in succeed:
+        compile(stmt, 'tmp', 'exec')
+    for stmt in fail:
+        raises(SyntaxError, compile, stmt, 'tmp', 'exec')
+
+def test_future_error_offset():
+    # points at the offending feature name, not the whole statement - see
+    # test_future_import_errors_point_at_feature_name in apptest_exceptions.py
+    with raises(SyntaxError) as excinfo:
+        compile("from __future__ import bogus", "tmp", "exec")
+    assert excinfo.value.offset == 24
+
+def test_globals_warnings():
+    import warnings
+    for code in ('''
+def wrong1():
+    a = 1
+    b = 2
+    global a
+    global b
+''', '''
+def wrong2():
+    print x
+    global x
+''', '''
+def wrong3():
+    print x
+    x = 2
+    global x
+'''):
+        warnings.filterwarnings('error', module="<tmp>")
+        try:
+            raises(SyntaxError, compile, code, '<tmp>', 'exec')
+        finally:
+            warnings.resetwarnings()
+
+def test_no_warning_run():
+    import warnings
+    for code in ['''
+def testing():
+    __class__ = 0
+    def f():
+        nonlocal __class__
+        __class__ = 42
+    f()
+    return __class__
+''', '''
+class Y:
+    class X:
+        nonlocal __class__
+        __class__ = 42
+    assert locals()['__class__'] == 42
+    # ^^^ but at the same place, reading '__class__' gives a NameError
+    # in CPython 3.5.2.  Looks like a bug to me
+def testing():
+    return 42
+''', '''
+class Y:
+    def f():
+        __class__
+    __class__ = 42
+def testing():
+    return Y.__dict__['__class__']
+''', '''
+class X:
+    foobar = 42
+    def f(self):
+        return __class__.__dict__['foobar']
+def testing():
+    return X().f()
+''',
+        ]:
+        warnings.filterwarnings('error', module="<tmp>")
+        try:
+            pycode = compile(code, '<tmp>', 'exec')
+        finally:
+            warnings.resetwarnings()
+        d = {}
+        exec(pycode, d, d)
+        res = d['testing']()
+        assert res == 42
+
+def test_firstlineno():
+    snippet = '''
+def f(): "line 2"
+if 3 and \\
+   (4 and
+      5):
+    def g(): "line 6"
+fline = f.__code__.co_firstlineno
+gline = g.__code__.co_firstlineno
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['fline'] == 2
+    assert d['gline'] == 6
+
+def test_firstlineno_decorators():
+    snippet = '''
+def foo(x): return x
+@foo       # line 3
+@foo       # line 4
+def f():   # line 5
+    pass   # line 6
+fline = f.__code__.co_firstlineno
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['fline'] == 3
+
+def test_firstlineno_decorators_class():
+    snippet = '''
+def foo(x): return x
+def f():
+    @foo       # line 4
+    @foo       # line 5
+    class AWrong:
+        pass   # line 7
+Aline = f.__code__.co_consts[1].co_firstlineno
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['Aline'] == 4
+
+def test_mangling():
+    snippet = '''
+__g = "42"
+class X(object):
+    def __init__(self, u):
+        self.__u = u
+    def __f(__self, __n):
+        global __g
+        __NameError = NameError
+        try:
+            yield "found: " + __g
+        except __NameError as __e:
+            yield "not found: " + str(__e)
+        del __NameError
+        for __i in range(__self.__u * __n):
+            yield locals()
+result = X(2)
+assert not hasattr(result, "__f")
+result = list(result._X__f(3))
+assert len(result) == 7
+assert result[0].startswith("not found: ")
+for d in result[1:]:
+    for key, value in d.items():
+        assert not key.startswith('__')
+'''
+    d = {}
+    exec(snippet, d, d)
+
+def test_ellipsis():
+    snippet = '''
+d = {}
+d[...] = 12
+assert next(iter(d)) is Ellipsis
+'''
+    d = {}
+    exec(snippet, d, d)
+    snip = "d[. . .]"
+    raises(SyntaxError, compile, snip, '<test>', 'exec')
+
+def test_chained_access_augassign():
+    snippet = '''
+class R(object):
+   count = 0
+c = 0
+for i in [0,1,2]:
+    c += 1
+r = R()
+for i in [0,1,2]:
+    r.count += 1
+c += r.count
+l = [0]
+for i in [0,1,2]:
+    l[0] += 1
+c += l[0]
+l = [R()]
+for i in [0]:
+    l[0].count += 1
+c += l[0].count
+r.counters = [0]
+for i in [0,1,2]:
+    r.counters[0] += 1
+c += r.counters[0]
+r = R()
+f = lambda : r
+for i in [0,1,2]:
+    f().count += 1
+c += f().count
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['c'] == 16
+
+def test_augassign_with_tuple_subscript():
+    snippet = '''
+class D(object):
+    def __getitem__(self, key):
+        assert key == self.lastkey
+        return self.lastvalue
+    def __setitem__(self, key, value):
+        self.lastkey = key
+        self.lastvalue = value
+def one(return_me=[1]):
+    return return_me.pop()
+d = D()
+a = 15
+d[1,2+a,3:7,...,1,] = 6
+d[one(),17,slice(3,7),...,1] *= 7
+result = d[1,17,3:7,Ellipsis,1]
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['result'] == 42
+
+def test_continue_in_finally():
+    snippet = '''
+def test():
+    for abc in range(10):
+        try: pass
+        finally:
+            continue       # 'continue' inside 'finally'
+
+test()
+'''
+    exec(snippet, {})
+
+def test_continue_in_nested_finally():
+    snippet = '''
+def test():
+    for abc in range(10):
+        try: pass
+        finally:
+            try:
+                continue       # 'continue' inside 'finally'
+            except:
+                pass
+test()
+'''
+    exec(snippet, {})
+
+def test_really_nested_stuff():
+    snippet = '''
+def f(self):
+    def get_nested_class():
+        self
+        class Test(object):
+            def _STOP_HERE_(self):
+                return _STOP_HERE_(self)
+    get_nested_class()
+f(42)
+'''
+    exec(snippet, {})
+    # assert did not crash
+
+def test_free_vars_across_class():
+    snippet = '''
+def f(x):
+    class Test(object):
+        def meth(self):
+            return x + 1
+    return Test()
+res = f(42).meth()
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['res'] == 43
+
+def test_pick_global_names():
+    snippet = '''
+def f(x):
+    def g():
+        global x
+        def h():
+            return x
+        return h()
+    return g()
+x = "global value"
+res = f("local value")
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['res'] == "global value"
+
+def test_method_and_var():
+    snippet = '''
+def f():
+    method_and_var = "var"
+    class Test(object):
+        def method_and_var(self):
+            return "method"
+        def test(self):
+            return method_and_var
+    return Test().test()
+res = f()
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['res'] == "var"
+
+def test_yield_from():
+    snippet = '''
+def f():
+    def generator2():
+        yield 8
+    def generator():
+        yield from generator2()
+    return next(generator())
+res = f()
+'''
+    d = {}
+    exec(snippet, d, d)
+    assert d['res'] == 8
+
+def test_dont_inherit_flag():
+    # this test checks that compile() don't inherit the __future__ flags
+    # of the hosting code.
+    ns = {}
+    exec('''
+from __future__ import barry_as_FLUFL
+# not a syntax error inside the exec!
+exec(compile('x = 1 != 2', '?', 'exec', 0, 1))
+''', ns)
+    assert ns['x']
+
+def test_dont_inherit_across_import(tmpdir):
+    import os
+    tmpdir = str(tmpdir)
+    with open(os.path.join(tmpdir, 'test_dont_inherit_across_import.py'), 'w') as f:
+        f.write('x = 1 != 2\n')
+    copy = sys.path[:]
+    sys.path.insert(0, tmpdir)
+    ns = {}
+    try:
+        exec('''
+from __future__ import barry_as_FLUFL
+from test_dont_inherit_across_import import x
+''', ns)
+    finally:
+        sys.path[:] = copy
+    assert ns['x']
+
+def test_filename_in_syntaxerror():
+    with raises(SyntaxError) as excinfo:
+        compile("""if 1:
+        'unmatched_quote
+        """, 'hello_world', 'exec')
+    assert 'hello_world' in str(excinfo.value)
+
+def test_del_None():
+    snippet = '''if 1:
+    try:
+        del None
+    except NameError:
+        pass
+'''
+    raises(SyntaxError, compile, snippet, '<tmp>', 'exec')
+
+def test_from_future_import():
+    source = """from __future__ import with_statement
+with somtehing as stuff:
+    pass
+        """
+    code = compile(source, '<filename>', 'exec')
+    assert code.co_filename == '<filename>'
+
+    code = compile(source, '<filename2>', 'exec')
+    assert code.co_filename == '<filename2>'
+
+def test_assign_to_yield():
+    code = 'def f(): (yield bar) += y'
+    raises(SyntaxError, compile, code, '', 'single')
+
+def test_invalid_genexp():
+    code = 'dict(a = i for i in xrange(10))'
+    raises(SyntaxError, compile, code, '', 'single')
