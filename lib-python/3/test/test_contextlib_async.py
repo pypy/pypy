@@ -547,8 +547,11 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         ('__exit__', 'return self.run_coroutine(self.__aexit__(*exc_details))'),
         ('run_coroutine', 'raise exc'),
         ('run_coroutine', 'raise exc'),
-        # PyPy addition
-        ('__step', 'result = coro.send(None)'),
+        # PyPy addition: pypy has no _asyncio C accelerator, so falls back to
+        # the pure-Python Task, whose __step delegates the actual send() to
+        # __step_run_and_handle_result (added when asyncio/tasks.py's __step
+        # was split upstream)
+        ('__step_run_and_handle_result', 'result = coro.send(None)'),
         ('__aexit__', 'raise exc_details[1]'),
         ('__aexit__', 'cb_suppress = cb(*exc_details)'),
     ]

@@ -34,6 +34,7 @@ class defaultdict(dict):
             if key not in self:
                 self[key] = other[key]
 
+# PYPY CHANGE: Remove  '__sizeof__'
 test_1 = """
 
 Here's the new type at work:
@@ -202,7 +203,6 @@ You can get the information from the list type:
      '__rmul__',
      '__setattr__',
      '__setitem__',
-     '__sizeof__',
      '__str__',
      '__subclasshook__',
      'append',
