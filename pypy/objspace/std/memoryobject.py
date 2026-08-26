@@ -95,6 +95,14 @@ class W_MemoryView(W_BufferExporter):
         self._hash = -1
         self.flags = 0
         self._init_flags()
+        # Set (only) on the memoryview handed to a __release_buffer__
+        # override for an exporter with no genuine __buffer__ override
+        # of its own (PEP 688): forbids acquiring a new buffer export
+        # from it (new memoryview / cast / toreadonly / slice /
+        # __buffer__), since the underlying buffer may be invalidated
+        # as soon as __release_buffer__ returns.  Direct data access
+        # (e.g. tobytes) is unaffected.
+        self.restricted = False
 
     def _finalize_(self):
         self.descr_release(None)
@@ -114,8 +122,14 @@ class W_MemoryView(W_BufferExporter):
     def getformat(self):
         return self.view.getformat()
 
+    def _check_restricted(self, space):
+        if self.restricted:
+            raise oefmt(space.w_ValueError,
+                        "cannot create new view on restricted memoryview")
+
     def _check_buffer_flags(self, space, flags):
         self._check_released(space)
+        self._check_restricted(space)
         if self.getndim() > MEMORYVIEW_MAX_DIM:
             raise oefmt(space.w_ValueError,
                 "memoryview: number of dimensions must not exceed %d, got %d",
@@ -188,6 +202,7 @@ class W_MemoryView(W_BufferExporter):
     def descr_new_memoryview(space, w_subtype, w_object):
         if isinstance(w_object, W_MemoryView):
             w_object._check_released(space)
+            w_object._check_restricted(space)
             return W_MemoryView.copy(w_object)
         view = space.buffer_w(w_object, space.BUF_FULL_RO)
         mv = view.wrap(space)
@@ -249,6 +264,7 @@ class W_MemoryView(W_BufferExporter):
     def descr_toreadonly(self, space):
         'Return a readonly version of the memoryview.'
         self._check_released(space)
+        self._check_restricted(space)
         if self.view.readonly:
             return W_MemoryView(self.view, owns_export=False)
         view = ReadonlyWrapper(self.view)
@@ -338,6 +354,7 @@ class W_MemoryView(W_BufferExporter):
                     raise oefmt(space.w_NotImplementedError,
                                 "multi-dimensional sub-views are not implemented")
             elif is_slice:
+                self._check_restricted(space)
                 return self.view.new_slice(start, step, slicelength).wrap(
                     space, owns_export=False)
         elif is_multiindex(space, w_index):
@@ -570,6 +587,7 @@ class W_MemoryView(W_BufferExporter):
     def descr_cast(self, space, w_format, w_shape=None):
         'Cast a memoryview to a new format or shape.'
         self._check_released(space)
+        self._check_restricted(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):
             raise oefmt(space.w_TypeError,

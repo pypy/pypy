@@ -271,8 +271,16 @@ class W_Root(object):
                                                    space.newint(flags))
             if space.isinstance_w(w_result, space.w_memoryview):
                 view = w_result.buffer_w(space, flags)
+                # Is __buffer__ itself just the builtin default (e.g.
+                # bytearray's own), as opposed to a genuine Python-level
+                # override?  Only in the former case does CPython mark
+                # the memoryview handed to __release_buffer__ as
+                # restricted (see DunderReleaseView.releasebuffer()).
+                buffer_is_default = (
+                    w_base_type is not None and
+                    w_impl is space.lookup_in_type(w_base_type, '__buffer__'))
                 return DunderReleaseView(view, space, self, w_result,
-                                         w_base_type)
+                                         w_base_type, buffer_is_default)
         raise BufferInterfaceNotFound
 
     def bytes_w(self, space):

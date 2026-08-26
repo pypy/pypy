@@ -546,15 +546,24 @@ class DunderReleaseView(NonOwningReleaseView):
        bytearray's resize lock) stay balanced.  When mv wraps something
        else entirely, nothing is force-released -- the exporter/override
        is fully responsible for that buffer's lifetime.
+
+    buffer_is_default indicates __buffer__ itself is just the builtin
+    default (not a genuine Python-level override): only then is mv
+    marked .restricted for the duration of the __release_buffer__ call,
+    forbidding new buffer exports from it (CPython does the same only
+    when it had to synthesize mv itself, rather than handing back
+    whatever a real __buffer__ override returned).
     """
     _immutable_ = True
 
-    def __init__(self, view, space, w_exporter, w_mv, w_base_type=None):
+    def __init__(self, view, space, w_exporter, w_mv, w_base_type=None,
+                 buffer_is_default=False):
         NonOwningReleaseView.__init__(self, view)
         self.space = space
         self.w_exporter = w_exporter
         self.w_mv = w_mv
         self.w_base_type = w_base_type
+        self.buffer_is_default = buffer_is_default
 
     def releasebuffer(self):
         space = self.space
@@ -562,12 +571,19 @@ class DunderReleaseView(NonOwningReleaseView):
         w_mv = self.w_mv
         w_impl = space.lookup(w_exporter, '__release_buffer__')
         if w_impl is not None:
+            from pypy.objspace.std.memoryobject import W_MemoryView
+            assert isinstance(w_mv, W_MemoryView)
             w_base_type = self.w_base_type
             if (w_base_type is None or
                     # Equivalent to space.is_overloaded() but for a non-constant type
                     w_impl is not space.lookup_in_type(w_base_type,
                                         '__release_buffer__')):
-                space.get_and_call_function(w_impl, w_exporter, w_mv)
+                if self.buffer_is_default:
+                    w_mv.restricted = True
+                try:
+                    space.get_and_call_function(w_impl, w_exporter, w_mv)
+                finally:
+                    w_mv.restricted = False
         try:
             owns_match = space.getattr(w_mv, space.newtext('obj')) is w_exporter
         except OperationError as e:

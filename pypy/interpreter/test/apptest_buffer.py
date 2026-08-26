@@ -98,6 +98,41 @@ def test_original_release_then_slice_gc():
     assert b == bytearray(b'hello!?')
 
 
+def test_release_saves_reference():
+    # matches CPython's test_buffer.py::test_release_saves_reference: while
+    # __release_buffer__ is running, the memoryview it receives must reject
+    # new buffer exports (new memoryview / cast / toreadonly / slice /
+    # explicit __buffer__ call) with ValueError, even though direct data
+    # access (tobytes) on it still works.
+    import pytest
+
+    smuggled_buffer = None
+
+    class C(bytearray):
+        def __release_buffer__(s, buffer):
+            with pytest.raises(ValueError):
+                memoryview(buffer)
+            with pytest.raises(ValueError):
+                buffer.cast("b")
+            with pytest.raises(ValueError):
+                buffer.toreadonly()
+            with pytest.raises(ValueError):
+                buffer[:1]
+            with pytest.raises(ValueError):
+                buffer.__buffer__(0)
+            nonlocal smuggled_buffer
+            smuggled_buffer = buffer
+            assert buffer.tobytes() == b"hello"
+            super(C, s).__release_buffer__(buffer)
+
+    c = C(b"hello")
+    with memoryview(c) as mv:
+        assert mv.tobytes() == b"hello"
+    c.clear()
+    with pytest.raises(ValueError):
+        smuggled_buffer.tobytes()
+
+
 def test_strided_double_slice_tobytes():
     # issue 5231: slicing an already-strided memoryview must offset by the
     # parent's step, so tobytes() matches element-by-element indexing.
