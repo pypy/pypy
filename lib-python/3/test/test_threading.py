@@ -1733,6 +1733,9 @@ class ThreadingExceptionTests(BaseTestCase):
         self.assertEqual(out, b'')
         self.assertNotIn("Unhandled exception", err.decode())
 
+    @support.impl_detail('PyPy recursion limit is approximate, not exact '
+                         'Python frames; this test hangs instead of '
+                         'aborting (see pypy/pypy#5520)', pypy=False)
     def test_print_exception_gh_102056(self):
         # This used to crash. See gh-102056.
         script = r"""if True:

@@ -263,14 +263,16 @@ class TestIsInstanceIsSubclass(unittest.TestCase):
         self.assertEqual(True, issubclass(int, (int, (float, int))))
         self.assertEqual(True, issubclass(str, (str, (Child, str))))
 
-    @support.impl_detail('PyPy recursion limit is approximate', pypy=False)
+    @support.impl_detail('PyPy recursion limit is approximate '
+                         '(see pypy/pypy#5520)', pypy=False)
     def test_subclass_recursion_limit(self):
         # make sure that issubclass raises RecursionError before the C stack is
         # blown
         with support.infinite_recursion():
             self.assertRaises(RecursionError, blowstack, issubclass, str, str)
 
-    @support.impl_detail('PyPy recursion limit is approximate', pypy=False)
+    @support.impl_detail('PyPy recursion limit is approximate '
+                         '(see pypy/pypy#5520)', pypy=False)
     def test_isinstance_recursion_limit(self):
         # make sure that issubclass raises RecursionError before the C stack is
         # blown
