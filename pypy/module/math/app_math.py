@@ -291,20 +291,17 @@ def lcm(*integers):
     import math
     if not integers:
         return 1
-    if len(integers) == 1:
-        return abs(index(integers[0]))
-    if len(integers) == 2:
-        a, b = integers
-        a, b = index(a), index(b)
-        if a == 0 or b == 0:
-            return 0
-        return abs(a // math.gcd(a, b) * b)
-    res = index(integers[0])
-    if res == 0:
-        return res
+    # every argument must be validated via index(), even once the
+    # running result is already known to be 0 - matches CPython's
+    # math_lcm(), which always calls PyNumber_Index(args[i]) before
+    # checking "res == zero"
+    res = abs(index(integers[0]))
     for i in range(1, len(integers)):
-        v = index(integers[i])
+        v = abs(index(integers[i]))
+        if res == 0:
+            continue
         if v == 0:
-            return 0
-        res = abs(res // math.gcd(res, v) * v)
+            res = 0
+            continue
+        res = res // math.gcd(res, v) * v
     return res

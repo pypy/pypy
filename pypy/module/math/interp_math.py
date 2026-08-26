@@ -3,6 +3,8 @@ import sys
 
 from rpython.rlib import rfloat
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.longlong2float import float2longlong, longlong2float
+from rpython.rtyper.lltypesystem.rffi import r_ulonglong, cast, LONGLONG, ULONGLONG
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
@@ -763,11 +765,70 @@ def gcd_two(space, w_a, w_b):
         g = rbigint.gcd_binary(a, b)
         return space.newint(g)
 
-def nextafter(space, w_a, w_b):
-    """ Return the next floating-point value after x towards y. """
+def _nextafter_steps(x, y, usteps):
+    """Return the floating-point value 'usteps' (a r_ulonglong) steps
+    after x towards y.  Mirrors CPython's math_nextafter_impl (Modules/
+    mathmodule.c), which walks the raw bit pattern of x towards y's,
+    since libm's nextafter() only supports a single step.
+    """
+    if usteps == 0:
+        return x
+    if math.isnan(x):
+        return x
+    if math.isnan(y):
+        return y
+    ux = cast(ULONGLONG, float2longlong(x))
+    uy = cast(ULONGLONG, float2longlong(y))
+    if ux == uy:
+        return x
+    sign_bit = r_ulonglong(1) << 63
+    ax = ux & ~sign_bit
+    ay = uy & ~sign_bit
+    if (ux ^ uy) & sign_bit:
+        # opposite signs: ax + ay can never overflow, since their most
+        # significant bit isn't set
+        if ax + ay <= usteps:
+            return y
+        elif ax < usteps:
+            result = (uy & sign_bit) | (usteps - ax)
+            return longlong2float(cast(LONGLONG, result))
+        else:
+            return longlong2float(cast(LONGLONG, ux - usteps))
+    elif ax > ay:
+        if ax - ay >= usteps:
+            return longlong2float(cast(LONGLONG, ux - usteps))
+        else:
+            return y
+    else:
+        if ay - ax >= usteps:
+            return longlong2float(cast(LONGLONG, ux + usteps))
+        else:
+            return y
+
+@unwrap_spec(w_steps=WrappedDefault(None))
+def nextafter(space, w_a, w_b, __kwonly__, w_steps):
+    """nextafter(x, y, *, steps=None)
+
+    Return the floating-point value the given number of steps after x
+    towards y.  If steps is not specified or is None, it defaults to 1.
+
+    Raises a TypeError, if x or y is not a double, or if steps is not
+    an integer.
+    Raises ValueError if steps is negative.
+    """
     a = _get_double(space, w_a)
     b = _get_double(space, w_b)
-    return space.newfloat(rfloat.nextafter(a, b))
+    if space.is_none(w_steps):
+        return space.newfloat(rfloat.nextafter(a, b))
+    steps = space.bigint_w(space.index(w_steps))
+    if steps.get_sign() < 0:
+        raise oefmt(space.w_ValueError,
+                    "steps must be a non-negative integer")
+    try:
+        usteps = r_ulonglong(steps.toulonglong())
+    except OverflowError:
+        usteps = r_ulonglong(2 ** 64 - 1)
+    return space.newfloat(_nextafter_steps(a, b, usteps))
 
 def ulp(space, w_x):
     """Return the value of the least significant bit of the

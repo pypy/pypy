@@ -94,6 +94,45 @@ def test_perm():
 
     assert perm(A(), 2) == perm(4, 2)
 
+def test_lcm():
+    from math import lcm
+    assert lcm() == 1
+    assert lcm(120) == 120
+    assert lcm(-120) == 120
+    assert lcm(120, 84) == 840
+    assert lcm(120, 0, 84) == 0
+    assert lcm(120, 84, 0) == 0
+    assert lcm(0) == 0
+
+    class A:
+        def __index__(self):
+            return 4
+    assert lcm(A(), 6) == 12
+
+    # every argument must be validated, even past an earlier zero
+    with pytest.raises(TypeError):
+        lcm(120, 0, 84.0)
+    with pytest.raises(TypeError):
+        lcm(0, 84.0)
+    with pytest.raises(TypeError):
+        lcm(84.0)
+
+def test_gamma_sign_of_zero():
+    from math import gamma, copysign
+    # gh-cases: gamma() underflowing to zero for large negative
+    # non-integer arguments must produce a zero of the correct sign
+    cases = [
+        (-201.0001, 1.0),
+        (-202.9999, -1.0),
+        (-1000.5, -1.0),
+        (-1000000000.3, -1.0),
+        (-4503599627370495.5, 1.0),
+    ]
+    for x, sign in cases:
+        r = gamma(x)
+        assert r == 0.0
+        assert copysign(1.0, r) == sign
+
 def test_hypot_many_args():
     from math import hypot
     args = math.e, math.pi, math.sqrt(2.0), math.gamma(3.5), math.sin(2.1), 1e48, 2e-47
@@ -142,6 +181,35 @@ def test_nextafter():
     assert math.isnan(math.nextafter(NAN, 1.0))
     assert math.isnan(math.nextafter(1.0, NAN))
     assert math.isnan(math.nextafter(NAN, NAN))
+
+def test_nextafter_steps():
+    INF = float("inf")
+
+    assert math.nextafter(1.0, -INF, steps=1) == float.fromhex('0x1.fffffffffffffp-1')
+    assert math.nextafter(1.0, INF, steps=1) == float.fromhex('0x1.0000000000001p+0')
+    assert math.nextafter(1.0, -INF, steps=3) == float.fromhex('0x1.ffffffffffffdp-1')
+    assert math.nextafter(1.0, INF, steps=3) == float.fromhex('0x1.0000000000003p+0')
+
+    # x == y: y is returned, for any number of steps
+    for steps in range(1, 5):
+        assert math.nextafter(2.0, 2.0, steps=steps) == 2.0
+        r = math.nextafter(-0.0, +0.0, steps=steps)
+        assert r == 0.0 and math.copysign(1, r) == 1.0
+        r = math.nextafter(+0.0, -0.0, steps=steps)
+        assert r == 0.0 and math.copysign(1, r) == -1.0
+
+    # steps=0 is a no-op, steps=None is the same as omitting it
+    assert math.nextafter(1.0, INF, steps=0) == 1.0
+    assert math.nextafter(1.0, INF, steps=None) == math.nextafter(1.0, INF)
+
+    # a huge step count overflowing 64 bits is clamped, not an error, and
+    # is more than enough to cross all the way from 1.0 to -inf
+    assert math.nextafter(1.0, -INF, steps=10**20) == -INF
+
+    with pytest.raises(ValueError):
+        math.nextafter(1.0, INF, steps=-1)
+    with pytest.raises(TypeError):
+        math.nextafter(1.0, INF, steps=1.5)
 
 def test_ulp():
     INF = float("inf")
