@@ -62,7 +62,8 @@ def test_importerror_name_from():
 
 
 def test_importerror_from_import_sets_name_from():
-    exc = raises(ImportError, "from sys import bluchbluchblah")
+    with raises(ImportError) as exc:
+        from sys import bluchbluchblah
     assert exc.value.name == 'sys'
     assert exc.value.name_from == 'bluchbluchblah'
 

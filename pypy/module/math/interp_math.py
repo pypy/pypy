@@ -827,7 +827,7 @@ def nextafter(space, w_a, w_b, __kwonly__, w_steps):
     try:
         usteps = r_ulonglong(steps.toulonglong())
     except OverflowError:
-        usteps = r_ulonglong(2 ** 64 - 1)
+        usteps = r_ulonglong(-1)
     return space.newfloat(_nextafter_steps(a, b, usteps))
 
 def ulp(space, w_x):
