@@ -39,6 +39,11 @@ from test.support import socket_helper
 from test.support import threading_helper
 from test.support import warnings_helper
 
+if sys.implementation.name == 'pypy':
+    def noop(*args):
+        return []
+    gc.get_threshold = noop
+    gc.set_threshold = noop
 
 # Skip tests if _multiprocessing wasn't built.
 _multiprocessing = import_helper.import_module('_multiprocessing')
@@ -3998,12 +4003,15 @@ class _TestHeap(BaseTestCase):
         while blocks:
             blocks.pop()
 
+        support.gc_collect() # for PyPy and other GCs
+
         self.assertEqual(heap._n_frees, heap._n_mallocs)
         self.assertEqual(len(heap._pending_free_blocks), 0)
         self.assertEqual(len(heap._arenas), 0)
         self.assertEqual(len(heap._allocated_blocks), 0, heap._allocated_blocks)
         self.assertEqual(len(heap._len_to_seq), 0)
 
+    @test.support.cpython_only
     def test_free_from_gc(self):
         # Check that freeing of blocks by the garbage collector doesn't deadlock
         # (issue #12352).
