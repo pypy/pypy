@@ -179,8 +179,19 @@ class FakeObjSpace(ObjSpace):
                 list_w = [w_some_obj(), w_some_obj()]
                 w_obj.lstorage = w_obj.strategy.erase(list_w)
 
+        def build_memoryview():
+            # this is needed for code that interacts directly with
+            # std.memoryobject.W_MemoryView after an isinstance check (e.g.
+            # the __release_buffer__ support in interpreter/buffer.py), even
+            # though FakeObjSpace.newmemoryview() never really constructs
+            # one. Call the real constructor so the annotator sees types for
+            # all of W_MemoryView's attributes.
+            from pypy.objspace.std.memoryobject import W_MemoryView
+            W_MemoryView(SimpleView(StringBuffer("foobar")))
+
         self._seen_extras.append(build_slice)
         self._seen_extras.append(attach_list_strategy)
+        self._seen_extras.append(build_memoryview)
 
     def _freeze_(self):
         return True

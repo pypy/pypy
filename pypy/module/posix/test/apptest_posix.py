@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules": ["_signal"]}
+# spaceconfig = {"usemodules": ["signal"]}
 import pytest
 
 try:
