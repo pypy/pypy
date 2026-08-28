@@ -341,21 +341,30 @@ class W_MemoryView(W_BufferExporter):
         self._check_released(space)
         is_slice = space.isinstance_w(w_index, space.w_slice)
         if is_slice or space.lookup(w_index, '__index__'):
+            view = self.view
             start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
             # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
-            self._check_released(space)
             if step == 0:  # index only
+                # Re-validate here (gh-92888): decoding the index may have
+                # run arbitrary code (e.g. __index__) that released self.
+                self._check_released(space)
                 dim = self.getndim()
                 if dim == 0:
                     raise oefmt(space.w_TypeError, "invalid indexing of 0-dim memory")
                 elif dim == 1:
-                    return self.view.w_getitem(space, start)
+                    return view.w_getitem(space, start)
                 else:
                     raise oefmt(space.w_NotImplementedError,
                                 "multi-dimensional sub-views are not implemented")
             elif is_slice:
+                # Unlike the index case, don't re-check released: the new
+                # slice is built from `view`, captured before decoding the
+                # index, so it stays valid (and independently reference the
+                # buffer) even if a callback released self in the meantime --
+                # matching CPython, which grabs the child view's own buffer
+                # reference before evaluating the slice bounds.
                 self._check_restricted(space)
-                return self.view.new_slice(start, step, slicelength).wrap(
+                return view.new_slice(start, step, slicelength).wrap(
                     space, owns_export=False)
         elif is_multiindex(space, w_index):
             return self._getitem_tuple_indexed(space, w_index)

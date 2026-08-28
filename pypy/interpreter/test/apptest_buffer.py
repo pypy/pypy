@@ -97,6 +97,28 @@ def test_original_release_then_slice_gc():
     b.append(ord('?'))
     assert b == bytearray(b'hello!?')
 
+    # matches CPython's test_memoryview.py::test_use_released_memory: a
+    # __index__ callback that releases the memoryview mid-slice must not
+    # break the resulting slice, since it is built from the buffer view
+    # captured before the index was decoded.  Plain (non-slice) indexing,
+    # by contrast, must re-check released-ness after decoding the index
+    # and raise.
+    size = 128
+
+    class MyIndex:
+        def __index__(self):
+            m.release()
+            return 4
+
+    m = memoryview(bytearray(b'\xff' * size))
+    raises(ValueError, lambda: m[MyIndex()])
+
+    m = memoryview(bytearray(b'\xff' * size))
+    assert list(m[:MyIndex()]) == [255] * 4
+
+    m = memoryview(bytearray(b'\xff' * size))
+    assert list(m[MyIndex():8]) == [255] * 4
+
 
 def test_release_saves_reference():
     # matches CPython's test_buffer.py::test_release_saves_reference: while
