@@ -238,7 +238,12 @@ class ArrayDefNode(NodeWithDependencies):
 
     def access_expr(self, baseexpr, index):
         return '%s.items[%s]' % (baseexpr, index)
-    access_expr_varindex = access_expr
+
+    def access_expr_varindex(self, baseexpr, index):
+        # decay '.items' to a pointer before indexing, like RPyItem in
+        # support.h, so clang/gcc -Warray-bounds can't "prove" a false
+        # out-of-bounds access from the RPY_VARLENGTH placeholder bound
+        return '(&%s.items[0])[%s]' % (baseexpr, index)
 
     def ptr_access_expr(self, baseexpr, index, dummy=False):
         assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
