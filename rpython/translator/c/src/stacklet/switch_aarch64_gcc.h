@@ -94,7 +94,14 @@ static void *slp_switch(void *(*save_state)(void*, void*),
       [save_state]"r"(save_state),
       [extra]"r"(extra)
     : "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9",
-      "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17", "x18",
+      "x10", "x11", "x12", "x13", "x14", "x15", "x16", "x17",
+#ifndef __APPLE__
+      /* Apple reserves x18 as a platform register: the compiler never
+         allocates it, so listing it as clobbered is both redundant and
+         triggers -Winline-asm.  The asm body above still saves and restores
+         x18, so its value is preserved across the switch either way. */
+      "x18",
+#endif
       "memory", "cc", "x30"  // x30==lr
   );
   return result;
