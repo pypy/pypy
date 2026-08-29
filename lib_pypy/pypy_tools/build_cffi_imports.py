@@ -185,6 +185,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
         env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
         env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
+    elif sys.platform == 'darwin':
+        # reserve extra room in the Mach-O load commands so that
+        # make_portable()'s later 'install_name_tool -add_rpath' can grow
+        # them without needing to relink; newer linkers (Xcode 15+) leave
+        # less default padding than older ones did
+        env = os.environ.copy()
+        env['LDFLAGS'] = '-Wl,-headerpad_max_install_names ' + env.get('LDFLAGS', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
