@@ -1440,7 +1440,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert isinstance(first, ast.alias)
         star_import = len(imp.names) == 1 and first.name == "*"
         # Various error checking for future imports.
-        if imp.module == "__future__":
+        if imp.module == "__future__" and imp.level == 0:
             last_line, last_offset = self.compile_info.last_future_import
             if imp.lineno > last_line or \
                     imp.lineno == last_line and imp.col_offset > last_offset:

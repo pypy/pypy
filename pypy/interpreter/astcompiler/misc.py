@@ -49,7 +49,7 @@ def parse_future(space, tree, feature_flags):
                 else:
                     have_docstring = True
         elif isinstance(stmt, ast.ImportFrom):
-            if stmt.module == "__future__":
+            if stmt.module == "__future__" and stmt.level == 0:
                 future_lineno = stmt.lineno
                 future_column = stmt.col_offset
                 for alias in stmt.names:

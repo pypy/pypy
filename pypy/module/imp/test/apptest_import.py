@@ -341,3 +341,17 @@ def test_magic():
     import _imp
     from importlib import _bootstrap_external
     assert _bootstrap_external.MAGIC_NUMBER == _imp.get_magic()
+
+
+def test_barry_as_bdfl_relative_import():
+    # ported from lib-python/3/test/test_flufl.py: a *relative* import of
+    # __future__ (i.e. "from .__future__ import ...") is not a real
+    # __future__ statement and must not enable barry_as_FLUFL.
+    code = "from .__future__ import barry_as_FLUFL;2 {0} 3"
+    compile(code.format('!='), '<FLUFL test>', 'exec')
+    excinfo = raises(SyntaxError, compile, code.format('<>'), '<BDFL test>', 'exec')
+    assert '<BDFL test>' in str(excinfo.value)
+    assert '2 <> 3' in excinfo.value.text
+    assert excinfo.value.filename == '<BDFL test>'
+    assert excinfo.value.lineno == 1
+    assert excinfo.value.offset == len(code) - 4
