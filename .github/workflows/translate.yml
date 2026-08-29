@@ -131,17 +131,17 @@ jobs:
       run: |
         set -o pipefail
         case "${{ runner.os }}" in
-          Windows) PYPY_C=pypy/goal/pypy*-c.exe ;;
-          *)       PYPY_C=pypy/goal/pypy*-c ;;
+          Windows) PYPY_C=pypy/goal/pypy*-c.exe; PORTABLE="" ;;
+          *)       PYPY_C=pypy/goal/pypy*-c;      PORTABLE="--make-portable" ;;
         esac
         if [ -n "$CONTAINER" ]; then
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             "$CONTAINER" \
-            bash -c "./$PYPY_C pypy/tool/release/package.py --make-portable --target=."
+            bash -c "./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=."
         else
-          ./$PYPY_C pypy/tool/release/package.py --make-portable --target=.
+          ./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=.
         fi
 
     - name: upload
