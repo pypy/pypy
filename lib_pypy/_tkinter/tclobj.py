@@ -29,6 +29,38 @@ class TypeCache(object):
             self.BigNumType = typePtr
 
 
+def _cesu8_surrogate_pair(r, pos):
+    # Tries to match a complete CESU-8-encoded high+low surrogate pair
+    # (each half individually byte-escaped by 'surrogateescape') starting
+    # at r[pos], returning the recombined astral character or None if
+    # r[pos:pos + 6] isn't such a pair (e.g. an unpaired surrogate half,
+    # which CPython leaves as its individual escaped bytes).
+    #
+    # High surrogates U+d800 - U+dbff are encoded as \xed\xa0\x80 - \xed\xaf\xbf.
+    if ord(r[pos + 0]) != 0xdced:
+        return None
+    ch2 = ord(r[pos + 1])
+    if not (0xdca0 <= ch2 <= 0xdcaf):
+        return None
+    ch3 = ord(r[pos + 2])
+    if not (0xdc80 <= ch3 <= 0xdcbf):
+        return None
+    high = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
+    if not (0xd800 <= high <= 0xdbff):
+        return None
+    # Low surrogates U+DC00 - U+DFFF are encoded as \xed\xb0\x80 - \xed\xbf\xbf
+    if ord(r[pos + 3]) != 0xdced:
+        return None
+    ch2 = ord(r[pos + 4])
+    if not (0xdcb0 <= ch2 <= 0xdcbf):
+        return None
+    ch3 = ord(r[pos + 5])
+    if not (0xdc80 <= ch3 <= 0xdcbf):
+        return None
+    low = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
+    return chr((((high & 0x03ff) << 10) | (low & 0x03ff)) + 0x10000)
+
+
 def FromTclString(s):
     try:
         return s.decode('utf-8')
@@ -44,32 +76,17 @@ def FromTclString(s):
                 result.append(r[prevpos:])
                 return "".join(result)
 
-            assert pos + 6 <= len(r)
             result.append(r[prevpos:pos])
-            # High surrogates U+d800 - U+dbff are encoded as
-            # \xed\xa0\x80 - \xed\xaf\xbf.
-            ch1 = ord(r[pos + 0])
-            assert ch1 == 0xdced
-            ch2 = ord(r[pos + 1])
-            assert 0xdca0 <= ch2 <= 0xdcaf
-            ch3 = ord(r[pos + 2])
-            assert 0xdc80 <= ch3 <= 0xdcbf
-            high = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
-            # Low surrogates U+DC00 - U+DFFF are encoded as
-            # \xed\xb0\x80 - \xed\xbf\xbf
-            ch1 = ord(r[pos + 3])
-            assert ch1 == 0xdced
-            ch2 = ch5 = ord(r[pos + 4])
-            assert 0xdcb0 <= ch2 <= 0xdcbf
-            ch3 = ch6 = ord(r[pos + 5])
-            assert 0xdc80 <= ch3 <= 0xdcbf
-            low = 0xd000 | ((ch2 & 0x3f) << 6) | (ch3 & 0x3f)
-            assert 0xd800 <= high <= 0xdbff # valid high surrogate
-            # combine to chararcter
-            res = chr((((high & 0x03ff) << 10) | (low & 0x03ff)) + 0x10000)
-            result.append(res)
-            prevpos = pos + 6
-    return s
+            pair = None
+            if pos + 6 <= len(r):
+                pair = _cesu8_surrogate_pair(r, pos)
+            if pair is not None:
+                result.append(pair)
+                prevpos = pos + 6
+            else:
+                # unpaired surrogate half: leave this one escaped group as-is
+                result.append(r[pos:pos + 3])
+                prevpos = pos + 3
 
 
 # Only when tklib.HAVE_WIDE_INT_TYPE.
@@ -219,7 +236,7 @@ class Tcl_Obj(object):
     def __str__(self):
         if self._string and isinstance(self._string, str):
             return self._string
-        return tkffi.string(tklib.Tcl_GetString(self._value)).decode('utf-8')
+        return FromTclString(tkffi.string(tklib.Tcl_GetString(self._value)))
 
     def __repr__(self):
         return "<%s object at 0x%x>" % (
@@ -241,6 +258,6 @@ class Tcl_Obj(object):
             length = tkffi.new("int*")
             s = tklib.Tcl_GetStringFromObj(self._value, length)
             value = tkffi.buffer(s, length[0])[:]
-            value = value.decode('utf-8')
+            value = FromTclString(value)
             self._string = value
         return self._string
