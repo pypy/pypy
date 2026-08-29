@@ -244,7 +244,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
     pypy3 = str(pypy_c)
-    env = os.environ
+    env = os.environ.copy()
     if sys.platform == 'win32':
         externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
         # Needed for buildbot builds. On conda this is not needed. 
@@ -267,6 +267,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             return list(cffi_build_scripts.items())
         include_path = stdout.strip()
         env['CFLAGS'] = ' '.join(('-fPIC', '-I' + include_path, env.get('CFLAGS', '')))
+    if sys.platform == 'darwin':
+        # reserve extra room in the Mach-O load commands so that
+        # make_portable()'s later 'install_name_tool -add_rpath' can grow
+        # them without needing to relink; newer linkers (Xcode 15+) leave
+        # less default padding than older ones did
+        env['LDFLAGS'] = '-Wl,-headerpad_max_install_names ' + env.get('LDFLAGS', '')
     status, stdout, stderr = run_subprocess(pypy3, ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(pypy3, ['-m', 'ensurepip'])
