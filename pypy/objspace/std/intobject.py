@@ -1035,7 +1035,7 @@ def _new_baseint(space, w_value, w_base=None):
                         raise
                     raise oefmt(
                         space.w_TypeError,
-                        "__trunc__ returned non-Integral (type '%T')",
+                        "__trunc__ returned non-Integral (type %T)",
                         w_obj
                     )
             assert isinstance(w_obj, W_AbstractIntObject)

@@ -1601,6 +1601,7 @@ class LongTest(unittest.TestCase):
                 self.assertEqual(n**2,
                     (1 << (2 * bitlen)) - (1 << (bitlen + 1)) + 1)
 
+    @support.cpython_only
     def test___sizeof__(self):
         self.assertEqual(int.__itemsize__, sys.int_info.sizeof_digit)
 

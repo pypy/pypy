@@ -578,6 +578,8 @@ class W_MemoryView(W_BufferExporter):
             size = rffi.sizeof(rffi.FLOAT)
         elif f == 'd':
             size = rffi.sizeof(rffi.DOUBLE)
+        elif f == 'e':
+            size = rffi.sizeof(rffi.FLOAT) // 2
         elif f == '?':
             size = rffi.sizeof(rffi.CHAR)
         elif f == 'P':
@@ -705,7 +707,7 @@ class W_MemoryView(W_BufferExporter):
             return None
 
         chars = ['c', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q',
-                 'Q', 'n', 'N', 'f', 'd', '?', 'P']
+                 'Q', 'n', 'N', 'f', 'd', 'e', '?', 'P']
         for c in unrolling_iterable(chars):
             if c == format:
                 if nat:
