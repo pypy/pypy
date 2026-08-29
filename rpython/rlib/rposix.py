@@ -786,14 +786,16 @@ if not _WIN32:
     dirent_config = rffi_platform.configure(CConfig)
     DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
+    # XXX macro=True is hack to make sure we get the correct kind of
+    # dirent struct (which depends on defines); opendir/fdopendir need it
+    # too, otherwise on macOS/x86_64 they can bind to the legacy 32-bit
+    # inode symbol while readdir() reads the stream in 64-bit-inode mode
     c_opendir = external('opendir',
-        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.CCHARP], DIRP, macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
     c_fdopendir = external('fdopendir',
-        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.INT], DIRP, macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
     c_rewinddir = external('rewinddir',
         [DIRP], lltype.Void, releasegil=False)
-    # XXX macro=True is hack to make sure we get the correct kind of
-    # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)

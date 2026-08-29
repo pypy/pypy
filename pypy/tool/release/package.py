@@ -433,6 +433,8 @@ def create_package(basedir, options, _fake=False):
             # make the package portable by adding rpath=$ORIGIN/..lib,
             # bundling dependencies
             if options.make_portable:
+                if ARCH == 'win32':
+                    raise ValueError('--make-portable is not supported on windows')
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
