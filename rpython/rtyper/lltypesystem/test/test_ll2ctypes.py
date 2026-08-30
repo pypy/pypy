@@ -1521,6 +1521,36 @@ class TestLL2Ctypes(object):
             lltype.Signed, compilation_info=eci, natural_arity=1)
         assert variadic_sum(3, 1, 20, 300) == 321
 
+    def test_variadic_call_pointer_arg(self):
+        # a variadic argument that is already a ctypes object (a pointer)
+        # must not be wrapped again, like with fcntl() on macos
+        c_source = py.code.Source("""
+        #include <stdarg.h>
+        #include <string.h>
+
+        long variadic_strlen(long n, ...) {
+            va_list ptr;
+            long res = 0;
+            va_start(ptr, n);
+            for (int i = 0; i < n; i++) {
+                res += strlen(va_arg(ptr, char *));
+            }
+            va_end(ptr);
+            return res;
+        }
+        """)
+        eci = ExternalCompilationInfo(
+            separate_module_sources=[c_source],
+            post_include_bits=[
+            'RPY_EXTERN long variadic_strlen(long n, ...);'
+            ])
+        variadic_strlen = rffi.llexternal('variadic_strlen',
+            [lltype.Signed, rffi.CCHARP, rffi.VOIDP],
+            lltype.Signed, compilation_info=eci, natural_arity=1)
+        with rffi.scoped_str2charp("foo") as p1:
+            with rffi.scoped_str2charp("barbaz") as p2:
+                assert variadic_strlen(2, p1, rffi.cast(rffi.VOIDP, p2)) == 9
+
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
