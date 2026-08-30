@@ -110,6 +110,13 @@ def _ensure_initialised_color():
         raise error("must call start_color() first")
 
 
+def _check_short(value):
+    if value < -32768:
+        raise OverflowError("signed short integer is less than minimum")
+    if value > 32767:
+        raise OverflowError("signed short integer is greater than maximum")
+
+
 def _check_ERR(code, fname):
     if code != lib.ERR:
         return None
@@ -190,12 +197,6 @@ def _mk_w_return_val(method_name, rettype=None):
     return _execute
 
 
-def _chtype(ch):
-    ret = int(ffi.cast("chtype", ch))
-    if ret != ffi.cast("long long", ch) or isinstance(ch, int) and ch > sys.maxsize:
-        raise OverflowError(f"{ch} cannot be converted to 'chtype'")
-    return ret
-
 def _bytestype(text):
     if isinstance(text, bytes):
         return text
@@ -210,24 +211,28 @@ def _convert_to_chtype(win, obj):
         value = ord(obj)
     elif isinstance(obj, str):
         if len(obj) != 1:
-            raise TypeError("expect bytes or str of length 1 or int, "
-                            "got a str of length %d", len(obj))
+            raise TypeError("expect bytes or str of length 1, or int, "
+                            "got a str of length %d" % len(obj))
         value = ord(obj)
-        if (128 < value):
+        if 128 < value:
             if win:
                 encoding = win.encoding
             else:
                 encoding = screen_encoding
             b = obj.encode(encoding)
-            if len(bytes) == 1:
-                value = ord(b)
+            if len(b) == 1:
+                value = b[0]
             else:
-                OverflowError("byte doesn't fit in chtype")
+                raise OverflowError("byte doesn't fit in chtype")
     elif isinstance(obj, int):
         value = obj
     else:
-        raise TypeError('expect bytes or str of length 1, or int, got %s' % type(obj))
-    return value
+        raise TypeError('expect bytes or str of length 1, or int, got %s'
+                        % type(obj).__name__)
+    ch = int(ffi.cast("chtype", value))
+    if ch != value:
+        raise OverflowError("byte doesn't fit in chtype")
+    return ch
 
 def _convert_to_string(win, obj):
     if isinstance(obj, str):
@@ -351,7 +356,7 @@ class Window(object):
     def addch(self, y, x, ch, attr=None):
         if attr is None:
             attr = lib.A_NORMAL
-        ch = _chtype(ch)
+        ch = _convert_to_chtype(self, ch)
 
         if y is not None:
             code = lib.mvwaddch(self._win, y, x, ch | attr)
@@ -390,7 +395,7 @@ class Window(object):
     def bkgd(self, ch, attr=None):
         if attr is None:
             attr = lib.A_NORMAL
-        return _check_ERR(lib.wbkgd(self._win, _chtype(ch) | attr), "bkgd")
+        return _check_ERR(lib.wbkgd(self._win, _convert_to_chtype(self, ch) | attr), "bkgd")
 
     attroff = _mk_w_no_return("wattroff")
     attron = _mk_w_no_return("wattron")
@@ -399,13 +404,15 @@ class Window(object):
     def bkgdset(self, ch, attr=None):
         if attr is None:
             attr = lib.A_NORMAL
-        lib.wbkgdset(self._win, _chtype(ch) | attr)
+        lib.wbkgdset(self._win, _convert_to_chtype(self, ch) | attr)
         return None
 
     def border(self, ls=0, rs=0, ts=0, bs=0, tl=0, tr=0, bl=0, br=0):
         lib.wborder(self._win,
-                    _chtype(ls), _chtype(rs), _chtype(ts), _chtype(bs),
-                    _chtype(tl), _chtype(tr), _chtype(bl), _chtype(br))
+                    _convert_to_chtype(self, ls), _convert_to_chtype(self, rs),
+                    _convert_to_chtype(self, ts), _convert_to_chtype(self, bs),
+                    _convert_to_chtype(self, tl), _convert_to_chtype(self, tr),
+                    _convert_to_chtype(self, bl), _convert_to_chtype(self, br))
         return None
 
     def box(self, *args):
@@ -464,7 +471,7 @@ class Window(object):
     def echochar(self, ch, attr=None):
         if attr is None:
             attr = lib.A_NORMAL
-        ch = _chtype(ch)
+        ch = _convert_to_chtype(self, ch)
 
         if lib._m_ispad(self._win):
             code = lib.pechochar(self._win, ch | attr)
@@ -540,7 +547,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def hline(self, y, x, ch, n, attr=None):
-        ch = _chtype(ch)
+        ch = _convert_to_chtype(self, ch)
         if attr is None:
             attr = lib.A_NORMAL
         if y is not None:
@@ -549,7 +556,7 @@ class Window(object):
 
     @_argspec(1, 1, 2)
     def insch(self, y, x, ch, attr=None):
-        ch = _chtype(ch)
+        ch = _convert_to_chtype(self, ch)
         if attr is None:
             attr = lib.A_NORMAL
         if y is not None:
@@ -708,7 +715,7 @@ class Window(object):
 
     @_argspec(2, 1, 2)
     def vline(self, y, x, ch, n, attr=None):
-        ch = _chtype(ch)
+        ch = _convert_to_chtype(self, ch)
         if attr is None:
             attr = lib.A_NORMAL
         if y is not None:
@@ -731,7 +738,9 @@ class Window(object):
     @encoding.deleter
     def encoding(self):
         raise TypeError('encoding may not be deleted')
-        
+
+
+window = Window
 
 beep = _mk_no_return("beep")
 def_prog_mode = _mk_no_return("def_prog_mode")
@@ -1093,12 +1102,16 @@ def update_lines_cols():
 
 def resizeterm(lines, columns):
     _ensure_initialised()
+    _check_short(lines)
+    _check_short(columns)
     _check_ERR(lib.resizeterm(lines, columns), "resizeterm")
     update_lines_cols()
 
 
 def resize_term(lines, columns):
     _ensure_initialised()
+    _check_short(lines)
+    _check_short(columns)
     _check_ERR(lib.resize_term(lines, columns), "resize_term")
     update_lines_cols()
 
@@ -1157,12 +1170,12 @@ def typeahead(fd):
 
 def unctrl(ch):
     _ensure_initialised()
-    return ffi.string(lib.unctrl(_chtype(ch)))
+    return ffi.string(lib.unctrl(_convert_to_chtype(None, ch)))
 
 
 def ungetch(ch):
     _ensure_initialised()
-    return _check_ERR(lib.ungetch(_chtype(ch)), "ungetch")
+    return _check_ERR(lib.ungetch(_convert_to_chtype(None, ch)), "ungetch")
 
 
 def unget_wch(ch):

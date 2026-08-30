@@ -1030,6 +1030,7 @@ class TestCurses(unittest.TestCase):
                                msg='userptr should fail since not set'):
             p.userptr()
 
+    @cpython_only
     @requires_curses_func('panel')
     def test_userptr_memory_leak(self):
         w = curses.newwin(10, 10)
@@ -1158,6 +1159,7 @@ class TestCurses(unittest.TestCase):
         with self.assertRaises(TypeError):
             del stdscr.encoding
 
+    @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
     def test_issue21088(self):
