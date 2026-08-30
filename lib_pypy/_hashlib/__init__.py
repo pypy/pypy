@@ -38,12 +38,15 @@ def get_errstr():
 
 
 def new(name, string=b'', usedforsecurity=True):
-    if string:
+    try:
+        buf = ffi.from_buffer(string)
+    except TypeError:
+        buf = None
+    if buf is not None and len(buf):
         # Fast one-shot path: one C call, no EVP_MD_CTX allocation, no ffi.gc.
         name_lower = str(name).lower()
         py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
         dtype = py_digest_by_name(name_lower, py_ht)
-        buf = ffi.from_buffer(string)
         digest_size = lib.EVP_MD_size(dtype)
         md = ffi.new("unsigned char[]", digest_size)
         if lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL):
