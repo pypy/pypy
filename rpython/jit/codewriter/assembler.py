@@ -38,6 +38,7 @@ class Assembler(object):
         self.setup(ssarepr.name)
         if num_regs is not None:
             self.count_regs.update(num_regs)
+            self.check_num_regs()
         ssarepr._insns_pos = []
         for insn in ssarepr.insns:
             ssarepr._insns_pos.append(len(self.code))
@@ -261,6 +262,17 @@ class Assembler(object):
                 target = self.label_positions[switchlabel.name]
                 as_dict[key] = target
             descr.attach(as_dict)
+
+    def check_num_regs(self):
+        # Limitation of the number of registers, from the single-byte
+        # encoding.  This has to be checked before writing the instructions:
+        # emit_reg() would otherwise chr() an index above 255, and
+        # check_result() below only runs once that has already happened.
+        # The bound is 255 and not 256 because JitCode.setup() stores the
+        # count itself in a single character.
+        for kind in KINDS:
+            assert self.count_regs[kind] <= 255, (
+                "too many %s registers: %d" % (kind, self.count_regs[kind]))
 
     def check_result(self):
         # Limitation of the number of registers, from the single-byte encoding
