@@ -881,11 +881,19 @@ def test_create_alg():
 
 def test_create_qipcrtr():
     import _socket
+    import errno
     if not hasattr(_socket, 'AF_QIPCRTR'):
         pytest.skip('No AF_QIPCRTR on this platform')
     sock = None
     try:
-        sock = _socket.socket(_socket.AF_QIPCRTR, _socket.SOCK_DGRAM)
+        try:
+            sock = _socket.socket(_socket.AF_QIPCRTR, _socket.SOCK_DGRAM)
+        except OSError as e:
+            if e.errno == errno.EAFNOSUPPORT:
+                # the qrtr kernel module isn't loaded on this machine,
+                # even though the AF_QIPCRTR constant is defined
+                pytest.skip('AF_QIPCRTR not supported by the running kernel')
+            raise
         assert sock.getsockname()[1] == 0
         sock.bind((sock.getsockname()[0], 0))
         assert sock.getsockname()[1] != 0
