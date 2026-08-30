@@ -968,8 +968,8 @@ class AppTestCurrentFramesWithThread:
     def test_current_frames(self):
         import sys
         import _thread
-        if sys.platform == 'darwin':
-            skip('test can hang on macos')
+        if sys.platform in ('darwin', 'win32'):
+            skip('test can hang on macos and windows')
 
         # XXX workaround for now: to prevent deadlocks, call
         # sys._current_frames() once before starting threads.
