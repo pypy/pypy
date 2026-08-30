@@ -21,7 +21,8 @@ def load_tests(loader, tests, pattern):
         for modname in ['datetime', '_datetime', '_strptime']:
             sys.modules.pop(modname, None)
 
-    test_modules = [pure_tests, fast_tests]
+    # PyPy change: add the if clause
+    test_modules = [pure_tests, fast_tests] if fast_tests else [pure_tests]
     test_suffixes = ["_Pure", "_Fast"]
     # XXX(gb) First run all the _Pure tests, then all the _Fast tests.  You might
     # not believe this, but in spite of all the sys.modules trickery running a _Pure

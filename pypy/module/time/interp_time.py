@@ -6,8 +6,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.time.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
-from pypy.module._codecs.locale import (
-    str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
+from pypy.module._codecs.locale import str_decode_locale_surrogateescape
 from pypy import pypydir
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
@@ -181,7 +180,7 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
 cts.parse_source(src)
 
 compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
-_includes = ["time.h", os.path.join(my_dir, "time_module.h")]
+_includes = ["time.h", "wchar.h", os.path.join(my_dir, "time_module.h")]
 compile_extra.append("-DSIZEOF_TIME_T=%d" % rffi.sizeof(rffi.TIME_T))
 compile_extra.append("-DSIZEOF_LONG_LONG=%d" % rffi.sizeof(rffi.LONGLONG))
 compile_extra.append("-DSIZEOF_LONG=%d" % rffi.sizeof(rffi.LONG))
@@ -495,8 +494,8 @@ if _WIN:
     _SetWaitableTimerEx = rwin32.winexternal('SetWaitableTimerEx',
             [rwin32.HANDLE, rffi.CArrayPtr(rffi.LONGLONG), rffi.LONG, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP, rffi.ULONG], rwin32.BOOL)
 else:
-    c_strftime = external('strftime',
-                      [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+    c_strftime = external('wcsftime',
+                      [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
                       rffi.SIZE_T)
 
 if rtime.HAVE_NANOSLEEP:
@@ -1142,29 +1141,25 @@ def strftime(space, format, w_tup=None):
     rffi.setintfield(buf_value, "c_tm_year",
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
-    i = 1024
-    passthrough = False
     if _WIN:
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
 
-        # wcharp with track_allocation=True
-        format_for_call = rffi.utf82wcharp(
-                    format, codepoints_in_utf8(format))
-    else:
-        try:
-            format_for_call = utf8_encode_locale_surrogateescape(
-                    format, codepoints_in_utf8(format))
-        except UnicodeEncodeError:
-            format_for_call = format
-            passthrough = True
+    # Use wcsftime(), not strftime(): it operates on whole wide characters,
+    # so unlike the byte-oriented strftime() it never needs to round-trip
+    # non-ASCII format text (or its output, e.g. a localized month name)
+    # through a locale byte encoding -- avoiding both the ambiguity of
+    # which locale category those bytes are even encoded in, and the risk
+    # of misdecoding unrelated bytes (e.g. surrogate-escaped bytes that
+    # happen to form valid UTF-8) as a real character.  This also matches
+    # what CPython does on POSIX (it uses wcsftime() whenever the libc
+    # provides it, which in practice is unconditionally on Linux/macOS).
+    format_for_call = rffi.utf82wcharp(format, codepoints_in_utf8(format))
     try:
+        i = 1024
         while True:
-            if _WIN:
-                outbuf = lltype.malloc(rffi.CWCHARP.TO, i, flavor='raw')
-            else:
-                outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
+            outbuf = lltype.malloc(rffi.CWCHARP.TO, i, flavor='raw')
             try:
                 with rposix.SuppressIPH():
                     buflen = c_strftime(outbuf, i, format_for_call, buf_value)
@@ -1176,22 +1171,13 @@ def strftime(space, format, w_tup=None):
                     # More likely, the format yields an empty result,
                     # e.g. an empty format, or %Z when the timezone
                     # is unknown.
-                    if _WIN:
-                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
-                    else:
-                        result = rffi.charp2strn(outbuf, intmask(buflen))
-                        if passthrough:
-                            decoded = result
-                            size = codepoints_in_utf8(result)
-                        else:
-                            decoded, size = str_decode_locale_surrogateescape(result)
+                    decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     return space.newutf8(decoded, size)
             finally:
                 lltype.free(outbuf, flavor='raw')
             i += i
     finally:
-        if _WIN:
-            rffi.free_wcharp(format_for_call)
+        rffi.free_wcharp(format_for_call)
 
 def _monotonic_impl(space, w_info):
     with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:

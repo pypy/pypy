@@ -685,3 +685,10 @@ def test_match_args():
     import time
     assert time.struct_time.__match_args__ == ('tm_year', 'tm_mon', 'tm_mday', 'tm_hour', 'tm_min', 'tm_sec', 'tm_wday', 'tm_yday', 'tm_isdst')
 
+
+def test_strftime_surrogateescaped_bytes_do_not_recombine():
+    import time
+    t = time.localtime(192039127)
+    assert time.strftime('\udcf0\udc9f\udc90\udc8d', t) == '\udcf0\udc9f\udc90\udc8d'
+    assert time.strftime('🐍', t) == '🐍'
+
