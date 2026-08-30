@@ -440,16 +440,15 @@ def test_repr_roundtrip():
 def test_neg():
     assert -(1+6j) == -1-6j
 
-def test_file():
+def test_file(tmpdir):
     import os
-    import tempfile
 
     a = 3.33+4.43j
     b = 5.1+2.3j
 
     fo = None
     try:
-        pth = tempfile.mktemp()
+        pth = os.path.join(tmpdir, "complex_test_file")
         fo = open(pth, "w")
         print(a, b, file=fo)
         fo.close()
