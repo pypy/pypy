@@ -102,7 +102,7 @@ def _sha256(filename):
     return dgst.hexdigest()
 
 
-def _build_dependency(name, patches=[]):
+def _build_dependency(name, patches=[], env=None):
     import shutil
     from rpython.tool.runsubprocess import run_subprocess
 
@@ -160,12 +160,13 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
-    env = os.environ
+    if env is None:
+        env = os.environ
     if sys.platform == 'darwin':
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
         if target:
             # override the value for building support libraries
-            env = os.environ.copy()
+            env = env.copy()
             env['MACOSX_DEPLOYMENT_TARGET'] = target
             print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
         
@@ -301,7 +302,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
-            status, stdout, stderr = _build_dependency(key)
+            status, stdout, stderr = _build_dependency(key, env=env)
             if status != 0: # or key in ("_ssl"):
                 print("stdout:")
                 print(stdout.decode('utf-8'))
