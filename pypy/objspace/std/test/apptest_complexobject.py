@@ -180,6 +180,10 @@ def test_pow():
     b = pow(1, -1.j)
     assert repr(b.imag) == "-0.0"
 
+    # gh-113841: possible undefined division by 0 in _Py_c_pow()
+    x, y = 9j, 33j**3
+    raises(OverflowError, lambda: x**y)
+
 
 def test_boolcontext():
     for i in range(100):
@@ -343,6 +347,17 @@ def test_constructor_bad_error_message():
     err = raises(TypeError, complex, 1, {}).value
     assert "float" not in str(err)
     assert str(err) == "complex() second argument must be a number, not 'dict'"
+
+def test_second_arg_does_not_use_complex_method():
+    class WithComplex:
+        def __init__(self, value):
+            self.value = value
+        def __complex__(self):
+            return self.value
+
+    err = raises(TypeError, complex, 0, WithComplex(4.25 + 0j)).value
+    assert str(err) == (
+        "complex() second argument must be a number, not 'WithComplex'")
 
 def test_error_messages():
     with raises(ZeroDivisionError) as err:

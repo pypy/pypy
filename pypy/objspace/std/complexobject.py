@@ -143,13 +143,11 @@ def unpackcomplex(space, w_complex, allow_subclass=False, firstarg=True):
         return (w_complex.realval, w_complex.imagval)
     if allow_subclass and isinstance(w_complex, W_ComplexObject):
         return (w_complex.realval, w_complex.imagval)
-    #
-    # test for a '__complex__' method, and call it if found.
     w_z = None
-    w_method = space.lookup(w_complex, '__complex__')
-    if w_method is not None:
-        w_z = space.get_and_call_function(w_method, w_complex)
-    #
+    if firstarg:
+        w_method = space.lookup(w_complex, '__complex__')
+        if w_method is not None:
+            w_z = space.get_and_call_function(w_method, w_complex)
     if w_z is not None:
         # __complex__() must return a complex
         if isinstance(w_z, W_ComplexObject):
@@ -211,7 +209,7 @@ def c_pow(x, y):
         at = math.atan2(a_i, a_r)
         phase = at * b_r 
         if b_i != 0.0:
-            len /= math.exp(at * b_i)
+            len *= math.exp(-(at * b_i))
             phase += b_i * math.log(vabs)
         try:
             rr = len * math.cos(phase)
