@@ -2,7 +2,7 @@ import py, sys
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
-from rpython.jit.codewriter.format import assert_format
+from rpython.jit.codewriter.format import assert_format, format_assembler
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
@@ -155,6 +155,7 @@ class TestFlatten:
             compute_liveness(ssarepr)
         if expected is not None:
             assert_format(ssarepr, expected)
+        return format_assembler(ssarepr)
 
     def test_simple(self):
         def f(n):
@@ -630,6 +631,29 @@ class TestFlatten:
             L1:
             raise $<* struct object>
         """, transform=True, liveness=True)
+
+    def test_ovfcheck_reraise_caught_again_in_the_same_function(self):
+        # catching it a second time needs a class check on the exception, so
+        # the link reaches generate_last_exc() instead of the shortcut in
+        # make_exception_link() above.  int_add_jump_if_ovf jumps without
+        # writing the exception slots, so the exception has to be a constant
+        # here too.  Not a full expectation: the class check brings in a
+        # residual call whose arguments print as symbolics.
+        def f(i, j):
+            try:
+                try:
+                    return ovfcheck(j + i)
+                except OverflowError:
+                    raise
+            except OverflowError:
+                return 3
+        asm = self.encoding_test(f, [7, 2], None, transform=True,
+                                 liveness=True)
+        assert 'int_add_jump_if_ovf' in asm
+        assert 'last_exception' not in asm
+        assert 'last_exc_value' not in asm
+        assert 'int_copy $' in asm
+        assert 'ref_copy $' in asm
 
     def test_residual_call_raising(self):
         @dont_look_inside
