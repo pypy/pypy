@@ -393,6 +393,81 @@ class TestMisc(BaseTestPyPyC):
         # to "abort: vable escape"
         assert len(loops) == 1
 
+    def test_monitoring_counting_callback(self):
+        src = """
+        import sys
+
+        def main(n):
+            calls = 0
+
+            def callback(code, line):
+                nonlocal calls
+                calls += 1
+
+            def f(n):
+                total = 0
+                while n:
+                    total += n  # ID: monitored
+                    n -= 1
+                return total
+
+            tool_id = 3
+            events = sys.monitoring.events
+            sys.monitoring.use_tool_id(tool_id, "pypyjit test")
+            sys.monitoring.register_callback(tool_id, events.LINE, callback)
+            sys.monitoring.set_local_events(tool_id, f.__code__, events.LINE)
+            try:
+                return f(n), calls
+            finally:
+                sys.monitoring.set_local_events(tool_id, f.__code__, 0)
+                sys.monitoring.register_callback(tool_id, events.LINE, None)
+                sys.monitoring.free_tool_id(tool_id)
+        """
+
+        log = self.run(src, [300])
+        assert log.result == (300 * 301 // 2, 903)
+        loop, = log.loops_by_id("monitored")
+        assert loop.match("""
+            guard_not_invalidated(descr=...)
+            p0 = force_token()
+            i0 = getfield_gc_i(p1, descr=<.*W_IntObject.inst_intval .*>)
+            setfield_gc(_, 1, descr=<.*MonitoringState.inst_firing .*>)
+            i1 = int_add_ovf(i0, 1)
+            guard_no_overflow(descr=...)
+            setfield_gc(p2, _, descr=<.*monitor_last_line .*>)
+            setfield_gc(_, 0, descr=<.*MonitoringState.inst_firing .*>)
+            setfield_gc(p2, _, descr=<.*monitor_instr_prev_plus_one .*>)
+            i2 = int_is_true(i3)
+            guard_true(i2, descr=...)
+            p3 = force_token()
+            setfield_gc(_, 1, descr=<.*MonitoringState.inst_firing .*>)
+            i4 = int_add_ovf(i1, 1)
+            guard_no_overflow(descr=...)
+            setfield_gc(p2, _, descr=<.*monitor_last_line .*>)
+            setfield_gc(_, 0, descr=<.*MonitoringState.inst_firing .*>)
+            setfield_gc(p2, _, descr=<.*monitor_instr_prev_plus_one .*>)
+            i5 = int_add_ovf(i6, i3)
+            guard_no_overflow(descr=...)
+            p4 = force_token()
+            setfield_gc(_, 1, descr=<.*MonitoringState.inst_firing .*>)
+            setfield_gc(p2, _, descr=<.*monitor_instr_prev_plus_one .*>)
+            i7 = int_add_ovf(i4, 1)
+            guard_no_overflow(descr=...)
+            setfield_gc(p2, _, descr=<.*monitor_last_line .*>)
+            setfield_gc(_, 0, descr=<.*MonitoringState.inst_firing .*>)
+            setfield_gc(p2, _, descr=<.*monitor_instr_prev_plus_one .*>)
+            i8 = int_sub_ovf(i3, 1)
+            guard_no_overflow(descr=...)
+            i9 = getfield_raw_i(_, descr=...)
+            setfield_gc(p2, _, descr=<.*monitor_instr_prev_plus_one .*>)
+            i10 = int_lt(i9, 0)
+            guard_false(i10, descr=...)
+            p5 = new_with_vtable(descr=...)
+            setfield_gc(p5, i7, descr=<.*W_IntObject.inst_intval .*>)
+            setfield_gc(_, p5, descr=<.*Cell.inst_w_value .*>)
+            jump(..., descr=...)
+        """)
+
     def test_forward_jump_absolute_doesnt_start_loops(self):
         def main():
             def f(x):
