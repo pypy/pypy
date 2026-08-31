@@ -389,10 +389,10 @@ CConfig.sockaddr_nl = platform.Struct('struct sockaddr_nl',
 
 CConfig.sockaddr_alg = platform.Struct('struct sockaddr_alg',
                                          [('salg_family', rffi.INT),
-                                          ('salg_type', rffi.CFixedArray(rffi.CHAR, 14)),
+                                          ('salg_type', rffi.CFixedArray(rffi.UCHAR, 14)),
                                           ('salg_feat', rffi.SHORT),
                                           ('salg_mask', rffi.SHORT),
-                                          ('salg_name', rffi.CFixedArray(rffi.CHAR, 64)),
+                                          ('salg_name', rffi.CFixedArray(rffi.UCHAR, 64)),
                                          ], ifdef='AF_ALG')
 
 CConfig.sockaddr_qrtr = platform.Struct('struct sockaddr_qrtr',
