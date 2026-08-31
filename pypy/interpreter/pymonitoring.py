@@ -177,30 +177,47 @@ class VersionTag(object):
     changes, so it's safe to promote and read inside @jit.elidable code."""
 
 
-@jit.elidable
-def _get_local_flags(pycode, version_tag):
-    return pycode.monitoring_local_flags
+class CodeMonitoringState(object):
+    _immutable_fields_ = ['version?']
+
+    def __init__(self):
+        self.version = VersionTag()
+        self.local_events = None
+        self.local_flags = 0
+        self.disabled = None
+
+    def changed(self):
+        self.version = VersionTag()
 
 
 @jit.elidable
-def _tool_has_local_event(pycode, version_tag, tool_id, event_id):
-    per_tool = pycode.monitoring_local_events
+def _get_local_flags(monitoring, version_tag):
+    return monitoring.local_flags
+
+
+@jit.elidable
+def _tool_has_local_event(monitoring, version_tag, tool_id, event_id):
+    per_tool = monitoring.local_events
     if per_tool is None:
         return 0
     return _event_is_set(per_tool[tool_id], event_id)
 
 
 @jit.elidable
-def _get_disabled(pycode, version_tag, tool_id, offset, event_id):
-    d = pycode.monitoring_disabled
+def _get_disabled(monitoring, version_tag, tool_id, offset, event_id):
+    d = monitoring.disabled
     if d is None:
         return False
     return (tool_id, offset, event_id) in d
 
 
 def is_disabled(pycode, tool_id, offset, event_id):
-    version_tag = jit.promote(pycode.monitoring_version)
-    return _get_disabled(pycode, version_tag, tool_id, offset, event_id)
+    monitoring = jit.promote(pycode.monitoring_state)
+    if monitoring is None:
+        return False
+    version_tag = jit.promote(monitoring.version)
+    return _get_disabled(
+        monitoring, version_tag, tool_id, offset, event_id)
 
 
 def should_fire_local_any(space, pycode, event_mask):
@@ -208,8 +225,12 @@ def should_fire_local_any(space, pycode, event_mask):
     or locally (local events add to global, never mask them)."""
     state = space.fromcache(MonitoringState)
     global_bits = jit.promote(state.any_events)
-    version_tag = jit.promote(pycode.monitoring_version)
-    local_bits = _get_local_flags(pycode, version_tag)
+    monitoring = jit.promote(pycode.monitoring_state)
+    if monitoring is None:
+        local_bits = 0
+    else:
+        version_tag = jit.promote(monitoring.version)
+        local_bits = _get_local_flags(monitoring, version_tag)
     return (global_bits | local_bits) & event_mask
 
 
@@ -218,8 +239,12 @@ def should_fire_local(space, pycode, event_id):
     _control_event_id, so C_RETURN/C_RAISE correctly check CALL's bit."""
     state = space.fromcache(MonitoringState)
     global_bits = jit.promote(state.any_events)
-    version_tag = jit.promote(pycode.monitoring_version)
-    local_bits = _get_local_flags(pycode, version_tag)
+    monitoring = jit.promote(pycode.monitoring_state)
+    if monitoring is None:
+        local_bits = 0
+    else:
+        version_tag = jit.promote(monitoring.version)
+        local_bits = _get_local_flags(monitoring, version_tag)
     return _event_is_set(
         global_bits | local_bits, _control_event_id(event_id))
 
@@ -237,14 +262,19 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
     state = space.fromcache(MonitoringState)
     if state.firing:
         return
-    version_tag = jit.promote(pycode.monitoring_version)
+    monitoring = jit.promote(pycode.monitoring_state)
+    if monitoring is not None:
+        version_tag = jit.promote(monitoring.version)
     control_event_id = _control_event_id(event_id)
     any_global = _event_is_set(
         jit.promote(state.any_events), control_event_id)
     w_offset = space.newint(offset)
     for tool_id in range(NUM_TOOLS):
-        local_enabled = _tool_has_local_event(
-            pycode, version_tag, tool_id, control_event_id)
+        if monitoring is None:
+            local_enabled = 0
+        else:
+            local_enabled = _tool_has_local_event(
+                monitoring, version_tag, tool_id, control_event_id)
         if any_global:
             global_enabled = _event_is_set(
                 state.global_events[tool_id], control_event_id)
@@ -252,8 +282,9 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
             global_enabled = 0
         if not (local_enabled | global_enabled):
             continue
-        if _get_disabled(
-                pycode, version_tag, tool_id, offset, control_event_id):
+        if (monitoring is not None and
+                _get_disabled(monitoring, version_tag, tool_id, offset,
+                              control_event_id)):
             continue
         w_cb = state.callbacks[callback_index(tool_id, event_id)]
         if w_cb is None:

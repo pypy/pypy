@@ -169,9 +169,9 @@ def set_local_events(space, tool_id, w_code, event_set):
     if event_set < 0 or event_set >= (1 << LOCAL_EVENTS):
         raise oefmt(space.w_ValueError, "invalid local event set %s", hex(event_set))
     check_tool_in_use(space, tool_id)
-    old_local_flags = code.monitoring_local_flags
+    old_local_flags = code.monitoring_get_local_flags()
     code.monitoring_set_local_events(tool_id, event_set)
-    if code.monitoring_local_flags != old_local_flags:
+    if code.monitoring_get_local_flags() != old_local_flags:
         space.getexecutioncontext().force_all_frames(seed_monitor_line=True)
 
 
