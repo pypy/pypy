@@ -28,8 +28,8 @@ def make_decode_never_raise(space):
         assert startingpos >= 0
         assert endingpos >= 0
         s= space.bytes_w(w_s)
-        ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
-        return ''.join(ux), endingpos, 'b', '', w_s
+        ux = ['\\x' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
+        return ''.join(ux), endingpos, 'b', s, w_s
     return decode_never_raise
 
 @specialize.memo()
