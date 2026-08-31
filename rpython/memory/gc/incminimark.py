@@ -3151,6 +3151,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return intmask(self.nursery_size)
         elif stats_no == rgc.TOTAL_GC_TIME:
             return int(self.total_gc_time * 1000)
+        elif stats_no == rgc.NONLARGE_MAX:
+            return intmask(self.nonlarge_max)
         return 0
 
 

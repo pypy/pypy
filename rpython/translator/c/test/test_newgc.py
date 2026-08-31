@@ -1859,7 +1859,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                 gc.disable()
                 assert not gc.isenabled()
             # try to trigger a major collection
-            N = 1000 # this should be enough, increase if not
+            N = 1300 # this should be enough, increase if not
             lst = []
             for i in range(N):
                 lst.append(chr(i%256) * (1024*1024))

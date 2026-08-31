@@ -5,7 +5,7 @@ name: Rpython Unit Tests
 
 # Note: this action will only run if there are changes to one of:
 #  - rpython folder
-#  - .github folder
+#  - this workflow file
 #  - pytest.py
 # add more items to `paths` if we missed some!
 
@@ -15,13 +15,13 @@ on:
     paths:
         - "rpython/**/*"
         - "pytest.py"
-        - ".github/**/*"
+        - ".github/workflows/rpython-unit-tests.yml"
   pull_request:
     branches: [ "main", "py3.[0-9]+" ]
     paths:
       - "rpython/**/*"
       - "pytest.py"
-      - ".github/**/*"
+      - ".github/workflows/rpython-unit-tests.yml"
   workflow_dispatch:
 
 # Limit tests to latest commit on branches other than main
@@ -84,6 +84,8 @@ jobs:
       run: |
         brew install bdw-gc binutils gettext
         pypy -m pip install vmprof
+        echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"
+
     - name: Install Windows dependencies
       if: ${{ matrix.platform == 'win64' }}
       env:

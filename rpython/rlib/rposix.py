@@ -786,14 +786,16 @@ if not _WIN32:
     dirent_config = rffi_platform.configure(CConfig)
     DIRENT = dirent_config['DIRENT']
     DIRENTP = lltype.Ptr(DIRENT)
+    # XXX macro=True is hack to make sure we get the correct kind of
+    # dirent struct (which depends on defines); opendir/fdopendir need it
+    # too, otherwise on macOS/x86_64 they can bind to the legacy 32-bit
+    # inode symbol while readdir() reads the stream in 64-bit-inode mode
     c_opendir = external('opendir',
-        [rffi.CCHARP], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.CCHARP], DIRP, macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
     c_fdopendir = external('fdopendir',
-        [rffi.INT], DIRP, save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.INT], DIRP, macro=True, save_err=rffi.RFFI_SAVE_ERRNO)
     c_rewinddir = external('rewinddir',
         [DIRP], lltype.Void, releasegil=False)
-    # XXX macro=True is hack to make sure we get the correct kind of
-    # dirent struct (which depends on defines)
     c_readdir = external('readdir', [DIRP], DIRENTP,
                          macro=True, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_closedir = external('closedir', [DIRP], rffi.INT, releasegil=False)
@@ -2191,6 +2193,7 @@ if not _WIN32:
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
         AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
+        AT_SYMLINK_FOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_FOLLOW')
         AT_EACCESS = rffi_platform.DefinedConstantInteger('AT_EACCESS')
         AT_REMOVEDIR = rffi_platform.DefinedConstantInteger('AT_REMOVEDIR')
         AT_EMPTY_PATH = rffi_platform.DefinedConstantInteger('AT_EMPTY_PATH')
@@ -2620,10 +2623,12 @@ if HAVE_LINKAT:
         """Thin wrapper around linkat(2) with an interface similar to
         Python3's os.link()
         """
+        # linkat() does not follow symlinks by default, the flag is
+        # AT_SYMLINK_FOLLOW and not AT_SYMLINK_NOFOLLOW
         if follow_symlinks:
-            flag = 0
+            flag = AT_SYMLINK_FOLLOW
         else:
-            flag = AT_SYMLINK_NOFOLLOW
+            flag = 0
         error = c_linkat(src_dir_fd, src, dst_dir_fd, dst, flag)
         handle_posix_error('linkat', error)
 

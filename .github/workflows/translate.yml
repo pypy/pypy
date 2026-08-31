@@ -13,13 +13,44 @@ permissions:
 jobs:
   build:
 
-    name: build on ${{ matrix.os }}${{ matrix.revdb && ' (with RevDB)' || '' }}
-    runs-on: ${{ matrix.os }}
+    name: build on ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
-        revdb: [false, true]
+        platform: [linux64, linux64-revdb, linux32, arm64, macos-x86_64, macos-arm64, win64]
+        include:
+          - platform: linux64
+            runner: ubuntu-24.04
+            # Container from the pypy/pypy-ci repo (buildworker_x86_64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:61ba2d5fcd68bfe76d99a40ae52c30e88cde919ca40fe65ea24bd34b820e3165
+            arch: x86
+          - platform: linux64-revdb
+            runner: ubuntu-24.04
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:61ba2d5fcd68bfe76d99a40ae52c30e88cde919ca40fe65ea24bd34b820e3165
+            arch: x86
+            revdb: true
+          - platform: linux32
+            runner: ubuntu-24.04
+            # Container from the pypy/pypy-ci repo (buildworker_i686:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_i686@sha256:5bec0450459eccc503ee3dc2448a5d207c085ab267477c78fbca6eba1d64b984
+            arch: x86
+          - platform: arm64
+            runner: ubuntu-24.04-arm
+            # Container from the pypy/pypy-ci repo (buildworker_aarch64:latest as of 2026-07-22)
+            container: ghcr.io/pypy/buildworker_aarch64@sha256:39e5c08e54bfb55bb730b5618bed52ec72a13165d08090e973fd8737276a2526
+            arch: arm64
+          - platform: macos-x86_64
+            runner: macos-15-intel
+            arch: x86
+            localbase: /usr/local
+          - platform: macos-arm64
+            runner: macos-latest
+            arch: arm64
+            localbase: /opt/homebrew
+          - platform: win64
+            runner: windows-latest
+            arch: win64
 
     steps:
     - uses: actions/checkout@v7
@@ -27,34 +58,97 @@ jobs:
         fetch-depth: 1
 
     - name: Set up PyPy 2.7
+      if: ${{ !matrix.container }}
       uses: actions/setup-python@v6
       with:
         python-version: "pypy-2.7-v7.3.23"
         cache: 'pip' # caching pip dependencies
 
-    - name: install system dependencies
+    - name: install Linux system dependencies
+      if: ${{ !matrix.container && runner.os == 'Linux' }}
       uses: awalsh128/cache-apt-pkgs-action@latest
       with:
         packages: libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
         version: 1.0
 
-    - name: run objspace unit tests
+    - name: install macOS dependencies
+      if: ${{ runner.os == 'macOS' }}
       run: |
-        pypy -m pip install -r requirements.txt
-        pypy pytest.py pypy/objspace -v -m "not flaky"
+        brew install bdw-gc binutils gettext pkg-config openssl@3 sqlite gdbm tcl-tk xz ncurses expat bzip2
+        echo "PYPY_LOCALBASE=${{ matrix.localbase }}" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> "$GITHUB_ENV"
+        echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"
+
+    - name: install Windows dependencies
+      if: ${{ matrix.platform == 'win64' }}
+      env:
+        PYTHONPATH: .
+      run: pypy get_externals.py
+
+    - name: run objspace unit tests
+      env:
+        CONTAINER: ${{ matrix.container }}
+      shell: bash
+      run: |
+        set -o pipefail
+        if [ -n "$CONTAINER" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$CONTAINER" \
+            bash -c 'pypy -m pip install -r requirements.txt && pypy pytest.py pypy/objspace -v -m "not flaky"'
+        else
+          pypy -m pip install -r requirements.txt
+          pypy pytest.py pypy/objspace -v -m "not flaky"
+        fi
 
     - name: translate
+      env:
+        CONTAINER: ${{ matrix.container }}
+      shell: bash
       run: |
-        pypy rpython/bin/rpython ${{ matrix.revdb && '-O2 --revdb' || '-Ojit' }} pypy/goal/targetpypystandalone.py
-        mv pypy*-c libpypy*-c.so pypy/goal/
+        set -o pipefail
+        OPTS="${{ matrix.revdb && '-O2 --revdb' || '-Ojit' }}"
+        if [ -n "$CONTAINER" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$CONTAINER" \
+            pypy rpython/bin/rpython $OPTS pypy/goal/targetpypystandalone.py
+        else
+          pypy rpython/bin/rpython $OPTS pypy/goal/targetpypystandalone.py
+        fi
+        case "${{ runner.os }}" in
+          Windows) mv pypy*-c.exe libpypy*-c.dll pypy/goal/ ;;
+          macOS)   mv pypy*-c libpypy*-c.dylib pypy/goal/ ;;
+          *)       mv pypy*-c libpypy*-c.so pypy/goal/ ;;
+        esac
 
     - name: package
+      env:
+        CONTAINER: ${{ matrix.container }}
+      shell: bash
       run: |
-        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable --target=.
+        set -o pipefail
+        case "${{ runner.os }}" in
+          Windows) PYPY_C=pypy/goal/pypy*-c.exe; PORTABLE="" ;;
+          *)       PYPY_C=pypy/goal/pypy*-c;      PORTABLE="--make-portable" ;;
+        esac
+        if [ -n "$CONTAINER" ]; then
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            "$CONTAINER" \
+            bash -c "./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=."
+        else
+          ./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=.
+        fi
 
     - name: upload
       if: success() || failure()
       uses: actions/upload-artifact@v7.0.0
       with:
-        name: pypy-ci-build-${{ matrix.os }}${{ matrix.revdb && '-revdb' || '' }}
-        path: ./pypy-nightly.tar.bz2
+        name: pypy-ci-build-${{ matrix.platform }}
+        path: |
+          ./pypy-nightly.tar.gz
+          ./pypy-nightly.zip

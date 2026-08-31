@@ -53,22 +53,28 @@ double _PyPy_dg_stdnan(int sign);
  */
 #  define RPyCHECK(x)           ((x)?(void)0:RPyAbort())
 #  define RPyField(ptr, name)   ((RPyCHECK(ptr), (ptr))->name)
+   /* decay '->items' to a pointer before indexing: 'items' is declared
+    * with a fixed placeholder bound (RPY_VARLENGTH, the struct-hack for
+    * a variable-length array), but the actual allocation is usually
+    * bigger; indexing through the field directly lets GCC/clang's
+    * -Warray-bounds "prove" a false out-of-bounds access from the
+    * placeholder bound alone. */
 #  define RPyItem(array, index)                                             \
      ((RPyCHECK((index) >= 0 && (index) < (array)->length),                 \
-      (array))->items[index])
+      (&(array)->items[0]))[index])
 #  define RPyFxItem(ptr, index, fixedsize)                                  \
      ((RPyCHECK((ptr) != NULL && (index) >= 0 && (index) < (fixedsize)),    \
       (ptr))[index])
 #  define RPyNLenItem(array, index)                                         \
-     ((RPyCHECK((array) != NULL && (index) >= 0), (array))->items[index])
+     ((RPyCHECK((array) != NULL && (index) >= 0), (&(array)->items[0]))[index])
 #  define RPyBareItem(array, index)                                         \
      ((RPyCHECK((array) != NULL && (index) >= 0), (array))[index])
 
 #else
 #  define RPyField(ptr, name)                ((ptr)->name)
-#  define RPyItem(array, index)              ((array)->items[index])
+#  define RPyItem(array, index)              ((&(array)->items[0])[index])
 #  define RPyFxItem(ptr, index, fixedsize)   ((ptr)[index])
-#  define RPyNLenItem(array, index)          ((array)->items[index])
+#  define RPyNLenItem(array, index)          ((&(array)->items[0])[index])
 #  define RPyBareItem(array, index)          ((array)[index])
 #endif /* RPY_LL_ASSERT || RPY_SANDBOXED */
 

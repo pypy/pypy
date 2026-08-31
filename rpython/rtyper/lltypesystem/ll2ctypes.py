@@ -1346,6 +1346,18 @@ class LL2CtypesCallable(object):
                                     self.natural_arity)
         return ctypes.cast(cfunc, ctypes.c_void_p).value
 
+def _convert_variadic_arg(CTYPE, cvalue):
+    # ctypes only knows the declared types of the first 'natural_arity'
+    # arguments; the variadic ones are passed as-is, so they must already be
+    # ctypes objects of the right type.  Integers and floats need to be
+    # wrapped, but lltype2ctypes() returns a ctypes object for pointers:
+    # those must be cast, wrapping them would build a pointer-to-pointer.
+    if isinstance(cvalue, CTYPE):
+        return cvalue
+    if isinstance(cvalue, (ctypes._Pointer, ctypes.Array)):
+        return ctypes.cast(cvalue, CTYPE)
+    return CTYPE(cvalue)
+
 def get_ctypes_trampoline(FUNCTYPE, cfunc, natural_arity=-1):
     RESULT = FUNCTYPE.RESULT
     container_arguments = []
@@ -1367,7 +1379,8 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc, natural_arity=-1):
                 if i in container_arguments:
                     cvalue = cvalue.contents
                 if natural_arity > 0 and i >= natural_arity:
-                    cvalue = cfunc.extraargs[i - natural_arity](cvalue)
+                    cvalue = _convert_variadic_arg(
+                        cfunc.extraargs[i - natural_arity], cvalue)
                 cargs.append(cvalue)
         _callback_exc_info = None
         _restore_c_errno()

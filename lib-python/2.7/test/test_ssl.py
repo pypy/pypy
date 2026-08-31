@@ -1440,7 +1440,7 @@ class SSLErrorTests(unittest.TestCase):
     def test_subclass(self):
         # Check that the appropriate SSLError subclass is raised
         # (this only tests one of them)
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         with closing(socket.socket()) as s:
             s.bind(("127.0.0.1", 0))
             s.listen(5)

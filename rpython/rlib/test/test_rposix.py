@@ -600,6 +600,23 @@ def test_symlinkat(tmpdir):
     finally:
         os.close(dirfd)
 
+@rposix_requires('linkat')
+def test_linkat(tmpdir):
+    # issue 5545: linkat() takes AT_SYMLINK_FOLLOW, not AT_SYMLINK_NOFOLLOW
+    tmpdir.join('file').write('text')
+    os.symlink('file', str(tmpdir.join('symlink')))
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        rposix.linkat('symlink', 'hardlink_to_target', dirfd, dirfd,
+                      follow_symlinks=True)
+        rposix.linkat('symlink', 'hardlink_to_symlink', dirfd, dirfd,
+                      follow_symlinks=False)
+    finally:
+        os.close(dirfd)
+    assert not os.path.islink(str(tmpdir.join('hardlink_to_target')))
+    assert os.path.islink(str(tmpdir.join('hardlink_to_symlink')))
+    assert os.readlink(str(tmpdir.join('hardlink_to_symlink'))) == 'file'
+
 @rposix_requires('renameat')
 def test_renameat(tmpdir):
     tmpdir.join('file').write('text')
