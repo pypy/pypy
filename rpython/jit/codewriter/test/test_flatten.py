@@ -874,6 +874,7 @@ class TestFlatten:
             (rffi.SIGNEDCHAR, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SIGNEDCHAR, rffi.LONG, ""),
             (rffi.SIGNEDCHAR, rffi.ULONG, ulong_cast),
+            (rffi.SIGNEDCHAR, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.UCHAR, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.UCHAR, rffi.UCHAR, ""),
@@ -881,6 +882,7 @@ class TestFlatten:
             (rffi.UCHAR, rffi.USHORT, ""),
             (rffi.UCHAR, rffi.LONG, ""),
             (rffi.UCHAR, rffi.ULONG, ""),
+            (rffi.UCHAR, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.SHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.SHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -888,6 +890,7 @@ class TestFlatten:
             (rffi.SHORT, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SHORT, rffi.LONG, ""),
             (rffi.SHORT, rffi.ULONG, ulong_cast),
+            (rffi.SHORT, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.USHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.USHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -961,6 +964,17 @@ class TestFlatten:
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
+
+    def test_force_cast_char_to_bool(self):
+        # lltype.Char is (size 1, unsigned), and so is Bool itself, so the
+        # "the target type already includes the source range" shortcut must
+        # not be allowed to skip the 0/1 normalization here
+        def f(n):
+            return rffi.cast(lltype.Bool, n)
+        self.encoding_test(f, [rffi.cast(lltype.Char, 42)], """
+            int_is_true %i0 -> %i1
+            int_return %i1
+        """, transform=True)
 
     def test_force_cast_pointer(self):
         def h(p):
