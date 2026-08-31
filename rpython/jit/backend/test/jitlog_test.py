@@ -19,8 +19,13 @@ class LoggerTest(LLJitMixin):
             enable_jitlog = lambda: rjitlog.enable_jitlog(fileno)
             f = self.run_sample_loop(enable_jitlog)
             self.meta_interp(f, [10, 0])
-            # meta_interp calls jitlog.finish which closes the file descriptor
-            # rfile.close()
+            # jitlog.finish closed the fd, but rfile is still holding an int
+            # handle and its __del__ will close it. Proactively close it here to
+            # prevent gc closing some arbitrary reuse of the fd int
+            try:
+                rfile.close()
+            except IOError:
+                pass
 
         assert os.path.exists(file.strpath)
         with file.open('rb') as f:
