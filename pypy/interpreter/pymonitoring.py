@@ -192,11 +192,13 @@ class CodeMonitoringState(object):
 
 @jit.elidable
 def _get_local_flags(monitoring, version_tag):
+    assert version_tag is monitoring.version
     return monitoring.local_flags
 
 
 @jit.elidable
 def _tool_has_local_event(monitoring, version_tag, tool_id, event_id):
+    assert version_tag is monitoring.version
     per_tool = monitoring.local_events
     if per_tool is None:
         return 0
@@ -205,6 +207,7 @@ def _tool_has_local_event(monitoring, version_tag, tool_id, event_id):
 
 @jit.elidable
 def _get_disabled(monitoring, version_tag, tool_id, offset, event_id):
+    assert version_tag is monitoring.version
     d = monitoring.disabled
     if d is None:
         return False
@@ -263,8 +266,6 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
     if state.firing:
         return
     monitoring = jit.promote(pycode.monitoring_state)
-    if monitoring is not None:
-        version_tag = jit.promote(monitoring.version)
     control_event_id = _control_event_id(event_id)
     any_global = _event_is_set(
         jit.promote(state.any_events), control_event_id)
@@ -273,6 +274,7 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
         if monitoring is None:
             local_enabled = 0
         else:
+            version_tag = jit.promote(monitoring.version)
             local_enabled = _tool_has_local_event(
                 monitoring, version_tag, tool_id, control_event_id)
         if any_global:
