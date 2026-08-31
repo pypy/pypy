@@ -15,6 +15,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rlib.rtime import (TIMEVAL,
                     HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
+from rpython.rlib.rutf8 import Utf8StringBuilder, codepoints_in_utf8
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.tool.cparser import CTypeSpace
@@ -1120,14 +1121,13 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
-@unwrap_spec(format='text0')
+@unwrap_spec(format='text')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
 
     Convert a time tuple to a string according to a format specification.
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
-    from rpython.rlib.rutf8 import codepoints_in_utf8
     buf_value = _gettmarg(space, w_tup)
     _checktm(space, buf_value)
 
@@ -1146,6 +1146,23 @@ def strftime(space, format, w_tup=None):
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
 
+    # wcsftime(), like strftime(), treats the format string as
+    # NUL-terminated, so an embedded NUL would silently truncate it.
+    # Process each NUL-free chunk separately and glue the results back
+    # together with the NUL characters that were in between.
+    chunks = format.split('\x00')
+    if len(chunks) == 1:
+        return _strftime1(space, buf_value, format)
+    builder = Utf8StringBuilder()
+    for i, chunk in enumerate(chunks):
+        if i > 0:
+            builder.append('\x00')
+        w_chunk = _strftime1(space, buf_value, chunk)
+        chunk_utf8, chunk_len = space.utf8_len_w(w_chunk)
+        builder.append_utf8(chunk_utf8, chunk_len)
+    return space.newutf8(builder.build(), builder.getlength())
+
+def _strftime1(space, buf_value, format):
     # Use wcsftime(), not strftime(): it operates on whole wide characters,
     # so unlike the byte-oriented strftime() it never needs to round-trip
     # non-ASCII format text (or its output, e.g. a localized month name)

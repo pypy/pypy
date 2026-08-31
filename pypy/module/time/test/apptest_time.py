@@ -447,8 +447,9 @@ def test_strftime():
     else:
         assert time.strftime('%f') == '%f'
         expected_year = '0'
-    with raises(ValueError):
-        time.strftime("%Y\0", tt)
+    # embedded NUL characters must not truncate the format string
+    # (CPython gh-124531)
+    assert time.strftime("%Y\0", tt) == time.strftime("%Y", tt) + '\0'
 
     expected_formatted_date = expected_year + ' 01 01 00 00 00 1 001'
     assert time.strftime("%Y %m %d %H %M %S %w %j", (0,) * 9) == expected_formatted_date
