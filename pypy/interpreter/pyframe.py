@@ -20,8 +20,9 @@ from pypy.interpreter.error import (
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pymonitoring import (
-    fire3, PY_START, PY_RESUME, PY_THROW,
-    FRAME_ENTRY_EVENTS, should_fire_local, should_fire_local_any, fire_local,
+    dispatch_global_event, PY_START, PY_RESUME, PY_THROW,
+    FRAME_ENTRY_EVENTS, should_fire_local, should_fire_local_any,
+    dispatch_code_event,
     LINE, INSTRUCTION)
 from pypy.tool import stdlib_opcode
 
@@ -324,16 +325,17 @@ class PyFrame(W_Root):
         from pypy.interpreter.pyopcode import SApplicationException
         w_code = self.pycode
         if w_arg_or_err is None:
-            fire_local(self.space, PY_START, w_code, w_code, 0)
+            dispatch_code_event(self.space, PY_START, w_code, 0)
         elif isinstance(w_arg_or_err, SApplicationException):
             w_exc = w_arg_or_err.operr.normalize_exception(self.space)
-            fire3(self.space, PY_THROW, w_code, intmask(self.last_instr) + 2,
-                  w_exc)
+            dispatch_global_event(
+                self.space, PY_THROW, w_code, intmask(self.last_instr) + 2,
+                w_exc)
         elif self.last_instr == -1:
-            fire_local(self.space, PY_START, w_code, w_code, 0)
+            dispatch_code_event(self.space, PY_START, w_code, 0)
         else:
-            fire_local(self.space, PY_RESUME, w_code, w_code,
-                       intmask(self.last_instr) + 2)
+            dispatch_code_event(self.space, PY_RESUME, w_code,
+                                intmask(self.last_instr) + 2)
 
     def _monitor_line_and_instruction(self, pycode):
         # Only called once should_fire_local_any(LINE|INSTRUCTION) already
@@ -348,11 +350,11 @@ class PyFrame(W_Root):
                 d = self.getorcreatedebug()
                 if (lineno != d.monitor_last_line or
                         last_instr < d.monitor_instr_prev_plus_one):
-                    fire_local(space, LINE, pycode, pycode, lineno)
+                    dispatch_code_event(space, LINE, pycode, lineno)
                 d.monitor_last_line = lineno
                 d.monitor_instr_prev_plus_one = last_instr + 1
         if should_fire_local(space, pycode, INSTRUCTION):
-            fire_local(space, INSTRUCTION, pycode, pycode, last_instr)
+            dispatch_code_event(space, INSTRUCTION, pycode, last_instr)
 
     def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
@@ -1136,5 +1138,3 @@ def _get_arg(code, addr):
         if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
             raise ValueError("fix me please!")
     return oparg
-
-

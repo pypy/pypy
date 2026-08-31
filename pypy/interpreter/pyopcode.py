@@ -21,10 +21,10 @@ from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, rais
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.interpreter.pymonitoring import (
-    fire3, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
+    dispatch_global_event, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
     RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
     should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK,
-    should_fire_local, fire_local3, JUMP, BRANCH)
+    should_fire_local, dispatch_code_event, JUMP, BRANCH)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -167,12 +167,14 @@ class __extend__(pyframe.PyFrame):
         # that case.
         if attach_tb:
             if should_fire(self.space, RAISE):
-                fire3(self.space, RAISE, self.pycode, intmask(self.last_instr),
-                      operr.normalize_exception(self.space))
+                dispatch_global_event(
+                    self.space, RAISE, self.pycode, intmask(self.last_instr),
+                    operr.normalize_exception(self.space))
         else:
             if should_fire(self.space, RERAISE):
-                fire3(self.space, RERAISE, self.pycode, intmask(self.last_instr),
-                      operr.normalize_exception(self.space))
+                dispatch_global_event(
+                    self.space, RERAISE, self.pycode, intmask(self.last_instr),
+                    operr.normalize_exception(self.space))
 
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
@@ -197,8 +199,9 @@ class __extend__(pyframe.PyFrame):
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
             if should_fire(self.space, EXCEPTION_HANDLED):
-                fire3(self.space, EXCEPTION_HANDLED, self.pycode,
-                      intmask(target), w_exc)
+                dispatch_global_event(
+                    self.space, EXCEPTION_HANDLED, self.pycode,
+                    intmask(target), w_exc)
             return target
 
         # No exception table entry: propagate out of the frame.
@@ -211,8 +214,9 @@ class __extend__(pyframe.PyFrame):
             self.last_instr = reraise_lasti
         self.frame_finished_execution = True  # allows frame.clear() after propagation
         if should_fire(self.space, PY_UNWIND):
-            fire3(self.space, PY_UNWIND, self.pycode, intmask(self.last_instr),
-                  operr.normalize_exception(self.space))
+            dispatch_global_event(
+                self.space, PY_UNWIND, self.pycode, intmask(self.last_instr),
+                operr.normalize_exception(self.space))
         if we_are_translated():
             raise operr
         else:
@@ -229,8 +233,9 @@ class __extend__(pyframe.PyFrame):
         pycode = self.getcode()
         if should_fire_local(space, pycode, event_id):
             w_destination = space.newint(intmask(destination))
-            fire_local3(space, event_id, pycode, pycode,
-                        intmask(self.last_instr), w_destination)
+            dispatch_code_event(
+                space, event_id, pycode, intmask(self.last_instr),
+                w_destination)
 
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
@@ -280,8 +285,9 @@ class __extend__(pyframe.PyFrame):
 
             if opcode == opcodedesc.RETURN_VALUE.index:
                 if should_fire_local(ec.space, pycode, PY_RETURN):
-                    fire_local3(ec.space, PY_RETURN, pycode, pycode,
-                                intmask(self.last_instr), self.peekvalue())
+                    dispatch_code_event(
+                        ec.space, PY_RETURN, pycode, intmask(self.last_instr),
+                        self.peekvalue())
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
@@ -1302,8 +1308,9 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_value)
         code = self.getcode()
         if should_fire_local(self.space, code, PY_YIELD):
-            fire_local3(self.space, PY_YIELD, code, code,
-                        intmask(self.last_instr), self.peekvalue())
+            dispatch_code_event(
+                self.space, PY_YIELD, code, intmask(self.last_instr),
+                self.peekvalue())
         raise Yield
 
     def next_yield_from(self, w_yf, w_inputvalue_or_err):
@@ -1330,8 +1337,9 @@ class __extend__(pyframe.PyFrame):
             w_exc = e.normalize_exception(space)
             code = self.getcode()
             if should_fire_local(space, code, STOP_ITERATION):
-                fire_local3(space, STOP_ITERATION, code, code,
-                            intmask(self.last_instr), w_exc)
+                dispatch_code_event(
+                    space, STOP_ITERATION, code, intmask(self.last_instr),
+                    w_exc)
             try:
                 w_stop_value = space.getattr(w_exc, space.newtext("value"))
             except OperationError as e:
@@ -1441,9 +1449,10 @@ class __extend__(pyframe.PyFrame):
             if isinstance(w_iterator, GeneratorOrCoroutine):
                 code = self.getcode()
                 if should_fire_local(self.space, code, STOP_ITERATION):
-                    fire_local3(self.space, STOP_ITERATION, code, code,
-                                intmask(self.last_instr),
-                                e.normalize_exception(self.space))
+                    dispatch_code_event(
+                        self.space, STOP_ITERATION, code,
+                        intmask(self.last_instr),
+                        e.normalize_exception(self.space))
             self.popvalue()
             next_instr += jumpby * 2
         else:
@@ -1575,15 +1584,16 @@ class __extend__(pyframe.PyFrame):
         # call_args_and_c_profile if legacy profiling or C_RETURN/C_RAISE
         # monitoring wants to see the C_RETURN/C_RAISE pair.
         from pypy.interpreter.pymonitoring import (
-            should_fire_local, fire_local4, w_missing, CALL)
+            should_fire_local, dispatch_code_event, w_missing, CALL)
         code = self.getcode()
         call_wants_events = should_fire_local(self.space, code, CALL)
         if call_wants_events:
             w_arg0 = args.firstarg()
             if w_arg0 is None:
                 w_arg0 = w_missing(self.space)
-            fire_local4(self.space, CALL, code, code, intmask(self.last_instr),
-                        w_function, w_arg0)
+            dispatch_code_event(
+                self.space, CALL, code, intmask(self.last_instr),
+                w_function, w_arg0)
         needs_c_wrap = (
             (self.get_is_being_profiled() and function.is_builtin_code(w_function)) or
             (call_wants_events and not function.is_python_function(w_function)))
