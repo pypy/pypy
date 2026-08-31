@@ -6,7 +6,8 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.pymonitoring import (
     MonitoringState, NUM_TOOLS, NUM_EVENTS, LOCAL_EVENTS, UNGROUPED_EVENTS,
-    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS,
+    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS, callback_index,
+    _event_is_set,
     W_MonitoringSentinel, w_disable, w_missing)
 
 
@@ -53,6 +54,16 @@ def _popcount(x):
         x &= x - 1
         count += 1
     return count
+
+
+def _normalize_c_call_events(space, event_set):
+    if (event_set & C_RETURN_EVENTS and
+            event_set & C_CALL_EVENTS != C_CALL_EVENTS):
+        raise oefmt(space.w_ValueError,
+            "cannot set C_RETURN or C_RAISE events independently")
+    # C_RETURN/C_RAISE are never stored/reported as independent bits; they
+    # ride on the CALL bit instead.
+    return event_set & ~C_RETURN_EVENTS
 
 
 def check_valid_tool(space, tool_id):
@@ -113,7 +124,7 @@ def register_callback(space, tool_id, event, w_func):
     from pypy.module.sys.vm import audit
     audit(space, "sys.monitoring.register_callback", [w_func])
     state = space.fromcache(MonitoringState)
-    idx = tool_id * NUM_EVENTS + event_id
+    idx = callback_index(tool_id, event_id)
     w_old = state.callbacks[idx]
     state.callbacks[idx] = None if space.is_none(w_func) else w_func
     if w_old is None:
@@ -133,12 +144,7 @@ def set_events(space, tool_id, event_set):
     check_valid_tool(space, tool_id)
     if event_set < 0 or event_set >= (1 << NUM_EVENTS):
         raise oefmt(space.w_ValueError, "invalid event set %s", hex(event_set))
-    if (event_set & C_RETURN_EVENTS) and (event_set & C_CALL_EVENTS) != C_CALL_EVENTS:
-        raise oefmt(space.w_ValueError,
-            "cannot set C_RETURN or C_RAISE events independently")
-    # C_RETURN/C_RAISE are never stored/reported as independent bits --
-    # they ride on the CALL bit instead (see pymonitoring._event_bit).
-    event_set &= ~C_RETURN_EVENTS
+    event_set = _normalize_c_call_events(space, event_set)
     check_tool_in_use(space, tool_id)
     state = space.fromcache(MonitoringState)
     old_any_events = state.any_events
@@ -159,10 +165,7 @@ def get_local_events(space, tool_id, w_code):
 def set_local_events(space, tool_id, w_code, event_set):
     code = _get_code(space, w_code)
     check_valid_tool(space, tool_id)
-    if (event_set & C_RETURN_EVENTS) and (event_set & C_CALL_EVENTS) != C_CALL_EVENTS:
-        raise oefmt(space.w_ValueError,
-            "cannot set C_RETURN or C_RAISE events independently")
-    event_set &= ~C_RETURN_EVENTS
+    event_set = _normalize_c_call_events(space, event_set)
     if event_set < 0 or event_set >= (1 << LOCAL_EVENTS):
         raise oefmt(space.w_ValueError, "invalid local event set %s", hex(event_set))
     check_tool_in_use(space, tool_id)
@@ -185,7 +188,7 @@ def _all_events(space):
     for e in range(UNGROUPED_EVENTS):
         tools = 0
         for tool_id in range(NUM_TOOLS):
-            if (state.global_events[tool_id] >> e) & 1:
+            if _event_is_set(state.global_events[tool_id], e):
                 tools |= 1 << tool_id
         if tools:
             space.setitem(w_res, space.newtext(EVENT_NAMES[e]), space.newint(tools))
