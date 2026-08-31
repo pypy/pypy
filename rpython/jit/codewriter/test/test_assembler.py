@@ -221,6 +221,21 @@ def test_num_regs():
     assert jitcode.num_regs_r() == 28
     assert jitcode.num_regs_f() == 0
 
+def test_num_regs_too_many():
+    # a register index is one byte and JitCode.setup() stores the count in
+    # one character, so 255 is the most there can be.  Without the check in
+    # assemble(), 256 reaches JitCode.setup()'s own bare assert and 257 dies
+    # in emit_reg() with "chr() arg not in range(256)"
+    def assemble(n):
+        assembler = Assembler()
+        ssarepr = SSARepr("test")
+        ssarepr.insns = [('int_return', Register('int', n - 1))]
+        return assembler.assemble(ssarepr, num_regs={'int': n})
+    assert assemble(255).num_regs_i() == 255
+    for n in [256, 257]:
+        e = py.test.raises(AssertionError, assemble, n)
+        assert 'too many int registers: %d' % n in str(e.value)
+
 def test_liveness():
     ssarepr = SSARepr("test")
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)

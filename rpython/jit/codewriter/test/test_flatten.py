@@ -2,7 +2,7 @@ import py, sys
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.flatten import flatten_graph, reorder_renaming_list
 from rpython.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
-from rpython.jit.codewriter.format import assert_format
+from rpython.jit.codewriter.format import assert_format, format_assembler
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractDescr
@@ -155,6 +155,7 @@ class TestFlatten:
             compute_liveness(ssarepr)
         if expected is not None:
             assert_format(ssarepr, expected)
+        return format_assembler(ssarepr)
 
     def test_simple(self):
         def f(n):
@@ -631,6 +632,29 @@ class TestFlatten:
             raise $<* struct object>
         """, transform=True, liveness=True)
 
+    def test_ovfcheck_reraise_caught_again_in_the_same_function(self):
+        # catching it a second time needs a class check on the exception, so
+        # the link reaches generate_last_exc() instead of the shortcut in
+        # make_exception_link() above.  int_add_jump_if_ovf jumps without
+        # writing the exception slots, so the exception has to be a constant
+        # here too.  Not a full expectation: the class check brings in a
+        # residual call whose arguments print as symbolics.
+        def f(i, j):
+            try:
+                try:
+                    return ovfcheck(j + i)
+                except OverflowError:
+                    raise
+            except OverflowError:
+                return 3
+        asm = self.encoding_test(f, [7, 2], None, transform=True,
+                                 liveness=True)
+        assert 'int_add_jump_if_ovf' in asm
+        assert 'last_exception' not in asm
+        assert 'last_exc_value' not in asm
+        assert 'int_copy $' in asm
+        assert 'ref_copy $' in asm
+
     def test_residual_call_raising(self):
         @dont_look_inside
         def g(i, j):
@@ -850,6 +874,7 @@ class TestFlatten:
             (rffi.SIGNEDCHAR, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SIGNEDCHAR, rffi.LONG, ""),
             (rffi.SIGNEDCHAR, rffi.ULONG, ulong_cast),
+            (rffi.SIGNEDCHAR, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.UCHAR, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.UCHAR, rffi.UCHAR, ""),
@@ -857,6 +882,7 @@ class TestFlatten:
             (rffi.UCHAR, rffi.USHORT, ""),
             (rffi.UCHAR, rffi.LONG, ""),
             (rffi.UCHAR, rffi.ULONG, ""),
+            (rffi.UCHAR, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.SHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.SHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -864,6 +890,7 @@ class TestFlatten:
             (rffi.SHORT, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SHORT, rffi.LONG, ""),
             (rffi.SHORT, rffi.ULONG, ulong_cast),
+            (rffi.SHORT, lltype.Bool, "int_is_true %i0 -> %i1"),
 
             (rffi.USHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.USHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -937,6 +964,17 @@ class TestFlatten:
                     expectedstr = '\n'.join(expected)
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
+
+    def test_force_cast_char_to_bool(self):
+        # lltype.Char is (size 1, unsigned), and so is Bool itself, so the
+        # "the target type already includes the source range" shortcut must
+        # not be allowed to skip the 0/1 normalization here
+        def f(n):
+            return rffi.cast(lltype.Bool, n)
+        self.encoding_test(f, [rffi.cast(lltype.Char, 42)], """
+            int_is_true %i0 -> %i1
+            int_return %i1
+        """, transform=True)
 
     def test_force_cast_pointer(self):
         def h(p):

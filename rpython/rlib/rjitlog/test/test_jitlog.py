@@ -63,8 +63,16 @@ class TestLogger(object):
             log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
             op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
             log_trace.write([], [op])
-            #the next line will close the 'fd', instead of logger.finish()
-            rfile.close()
+            # teardown closes the fd and clears the C-level 'enabled' flag,
+            # which otherwise makes a later test's setup_once() skip its init
+            jl.jitlog_teardown()
+            # rfile is still holding the fd int and its __del__ will close it.
+            # Proactively close it here to prevent gc closing some arbitrary
+            # reuse of the fd int
+            try:
+                rfile.close()
+            except IOError:
+                pass
         binary = file.read()
         is_32bit = chr(sys.maxint == 2**31-1)
         assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
@@ -138,8 +146,16 @@ class TestLogger(object):
             op = ResOperation(rop.CALL_ASSEMBLER_I, [], descr=looptoken)
             log_trace.write([], [op])
             jl.redirect_assembler(looptoken, newlooptoken, 0x1234)
-            #the next line will close the 'fd', instead of logger.finish()
-            rfile.close()
+            # teardown closes the fd and clears the C-level 'enabled' flag,
+            # which otherwise makes a later test's setup_once() skip its init
+            jl.jitlog_teardown()
+            # rfile is still holding the fd int and its __del__ will close it.
+            # Proactively close it here to prevent gc closing some arbitrary
+            # reuse of the fd int
+            try:
+                rfile.close()
+            except IOError:
+                pass
         binary = file.read()
         opnum = jl.encode_le_16bit(rop.CALL_ASSEMBLER_I)
         id_looptoken = compute_unique_id(looptoken)
