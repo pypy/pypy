@@ -74,6 +74,7 @@ jobs:
     - name: install macOS dependencies
       if: ${{ runner.os == 'macOS' }}
       run: |
+        brew untap aws/tap || true
         brew install bdw-gc binutils gettext pkg-config openssl@3 sqlite gdbm tcl-tk xz ncurses expat bzip2
         echo "PYPY_LOCALBASE=${{ matrix.localbase }}" >> "$GITHUB_ENV"
         echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> "$GITHUB_ENV"

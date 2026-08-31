@@ -151,7 +151,7 @@ class GraphFlattener(object):
             and link.last_exc_value not in link.args):
             self.make_return(link.args)     # optimization only
             return
-        self.insert_renamings(link)
+        self.insert_renamings(link, handling_ovf)
         self.make_bytecode_block(link.target, handling_ovf)
 
     def make_exception_link(self, link, handling_ovf):
@@ -303,7 +303,7 @@ class GraphFlattener(object):
                 self.emitline('-live-')
                 self.make_link(switch, handling_ovf)
 
-    def insert_renamings(self, link):
+    def insert_renamings(self, link, handling_ovf):
         renamings = {}
         lst = [(self.getcolor(v), self.getcolor(link.target.inputargs[i]))
                for i, v in enumerate(link.args)
@@ -331,13 +331,30 @@ class GraphFlattener(object):
                         self.emitline('%s_pop' % kind, "->", w)
                     else:
                         self.emitline('%s_copy' % kind, v, "->", w)
-        self.generate_last_exc(link, link.target.inputargs)
+        self.generate_last_exc(link, link.target.inputargs, handling_ovf)
 
-    def generate_last_exc(self, link, inputargs):
+    def generate_last_exc(self, link, inputargs, handling_ovf):
         # Write 'last_exc_xxx' operations that load the last exception
         # directly into the locations specified by 'inputargs'.  This
         # must be done at the end of the link renamings.
         if link.last_exception is link.last_exc_value is None:
+            return
+        if handling_ovf:
+            # this link is reached by int_xxx_jump_if_ovf, which jumps
+            # without writing the exception slots, so read a constant
+            # OverflowError instead of reading them
+            exc_data = self.cpu.rtyper.exceptiondata
+            ll_ovf = exc_data.get_standard_ll_exc_instance_by_class(
+                OverflowError)
+            c_class = Constant(ll_ovf.typeptr,
+                               concretetype=lltype.typeOf(ll_ovf.typeptr))
+            c_inst = Constant(ll_ovf, concretetype=lltype.typeOf(ll_ovf))
+            for v, w in zip(link.args, inputargs):
+                if v is link.last_exception:
+                    self.emitline("int_copy", c_class, "->", self.getcolor(w))
+            for v, w in zip(link.args, inputargs):
+                if v is link.last_exc_value:
+                    self.emitline("ref_copy", c_inst, "->", self.getcolor(w))
             return
         for v, w in zip(link.args, inputargs):
             if v is link.last_exception:

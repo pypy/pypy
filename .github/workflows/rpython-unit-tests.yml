@@ -24,10 +24,9 @@ on:
       - ".github/workflows/rpython-unit-tests.yml"
   workflow_dispatch:
 
-# Limit tests to latest commit on branches other than main
 concurrency:
   group: ${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -82,6 +81,7 @@ jobs:
     - name: Install macOS dependencies
       if: ${{ startsWith(matrix.runner, 'macos') }}
       run: |
+        brew untap aws/tap || true
         brew install bdw-gc binutils gettext
         pypy -m pip install vmprof
         echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"

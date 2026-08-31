@@ -1435,6 +1435,14 @@ class Transformer(object):
         assert size1 <= rffi.sizeof(lltype.Signed)
         assert size2 <= rffi.sizeof(lltype.Signed)
 
+        # a Bool destination always needs the 0/1 normalization, so it must
+        # be handled before the range checks below: Bool is itself (size 1,
+        # unsigned), so for a UCHAR or Char source the "target type includes
+        # the source range" test succeeds and no operation would be emitted,
+        # leaving the raw byte to be used as a Bool
+        if v_result.concretetype is lltype.Bool:
+            return [SpaceOperation('int_is_true', [v_arg], v_result)]
+
         # the target type is LONG or ULONG
         if size2 == rffi.sizeof(lltype.Signed):
             return
@@ -1447,9 +1455,7 @@ class Transformer(object):
             return
 
         result = []
-        if v_result.concretetype is lltype.Bool:
-            result.append(SpaceOperation('int_is_true', [v_arg], v_result))
-        elif min2:
+        if min2:
             c_bytes = Constant(size2, lltype.Signed)
             result.append(SpaceOperation('int_signext', [v_arg, c_bytes],
                                          v_result))

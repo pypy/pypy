@@ -7,7 +7,8 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, generic_new_descr, interp_attrproperty,
     interp_attrproperty_w)
 from pypy.module._codecs import interp_codecs
-from pypy.module._io.interp_iobase import W_IOBase, convert_size, trap_eintr
+from pypy.module._io.interp_iobase import (
+    W_IOBase, TryLock, convert_size, trap_eintr)
 from pypy.module.posix.interp_posix import device_encoding
 from rpython.rlib.rarithmetic import intmask, r_uint, r_ulonglong
 from rpython.rlib.rbigint import rbigint
@@ -563,6 +564,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.w_encoder = None
         self.w_decoder = None
 
+        self.lock = TryLock(space)
         self.decoded = DecodeBuffer()
         self.pending_bytes = None   # list of bytes objects waiting to be
                                     # written, or NULL
@@ -957,10 +959,11 @@ class W_TextIOWrapper(W_TextIOBase):
         size = convert_size(space, w_size)
         self._writeflush(space)
 
-        if size < 0:
-            return self._read_all(space)
-        else:
-            return self._read(space, size)
+        with self.lock:
+            if size < 0:
+                return self._read_all(space)
+            else:
+                return self._read(space, size)
 
     def _read_all(self, space):
         w_bytes = space.call_method(self.w_buffer, "read")
@@ -1010,7 +1013,8 @@ class W_TextIOWrapper(W_TextIOBase):
             raise oefmt(space.w_TypeError,
                         "'NoneType' object cannot be interpreted as an integer")
         limit = convert_size(space, w_limit)
-        text, lgt = self._readline(space, limit)
+        with self.lock:
+            text, lgt = self._readline(space, limit)
         return space.newutf8(text, lgt)
 
     def _readline(self, space, limit):

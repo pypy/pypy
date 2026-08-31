@@ -1473,8 +1473,9 @@ class ObjSpace(object):
             with open(cachename, 'rb') as f:
                 w_bin = self.newbytes(f.read())
                 w_code = interp_marshal._loads(self, w_bin, hidden_applevel)
-        except IOError:
-            # must (re)compile the source
+        except (IOError, OperationError):
+            # must (re)compile the source: the cache file is missing, or it
+            # is stale/corrupted
             ec = self.getexecutioncontext()
             if ast_transform:
                 c = self.createcompiler()
