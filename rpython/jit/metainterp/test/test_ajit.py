@@ -4208,6 +4208,34 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(10)
         self.check_resops(call_i=2)  # two calls to f, both get removed by the backend
 
+    def test_record_known_result_ref(self):
+        # the elidable function returns a GC pointer, so this goes through
+        # record_known_result_r rather than record_known_result_i
+        class W(object):
+            def __init__(self, x):
+                self.x = x
+        cache = [W(i) for i in range(20)]
+
+        @elidable
+        def f(x):
+            return cache[x]
+
+        def call_f(x):
+            w = f(x)
+            record_known_result(w, f, x)
+            return w.x
+
+        myjitdriver = JitDriver(greens=[], reds=['x', 'res'])
+        def main(x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += call_f(x)
+                x -= 1
+            return res
+        res = self.meta_interp(main, [10], backendopt=True)
+        assert res == main(10)
+
 
     def test_record_exact_value(self):
         class A(object):
