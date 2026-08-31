@@ -81,6 +81,7 @@ jobs:
     - name: Install macOS dependencies
       if: ${{ startsWith(matrix.runner, 'macos') }}
       run: |
+        brew untap aws/tap || true
         brew install bdw-gc binutils gettext
         pypy -m pip install vmprof
         echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"
