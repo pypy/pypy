@@ -213,14 +213,32 @@ class CodeMonitoringState(object):
     @jit.elidable
     def _is_disabled(self, version_tag, tool_id, offset, event_id):
         assert version_tag is self.version
-        d = self.disabled
-        if d is None:
+        per_event = self.disabled
+        if per_event is None:
             return False
-        return (tool_id, offset, event_id) in d
+        disabled_tools = per_event[event_id]
+        if disabled_tools is None:
+            return False
+        assert offset >= 0 and offset & 1 == 0
+        tools = ord(disabled_tools[offset >> 1])
+        return tools & (1 << tool_id)
 
     def is_disabled(self, tool_id, offset, event_id):
         version_tag = jit.promote(self.version)
         return self._is_disabled(version_tag, tool_id, offset, event_id)
+
+    def disable(self, tool_id, offset, event_id, codeunit_count):
+        assert offset >= 0 and offset & 1 == 0
+        per_event = self.disabled
+        if per_event is None:
+            per_event = self.disabled = [None] * LOCAL_EVENTS
+        disabled_tools = per_event[event_id]
+        if disabled_tools is None:
+            disabled_tools = per_event[event_id] = ['\x00'] * codeunit_count
+        index = offset >> 1
+        tools = ord(disabled_tools[index]) | (1 << tool_id)
+        disabled_tools[index] = chr(tools)
+        self.changed()
 
 
 def is_disabled(pycode, tool_id, offset, event_id):
@@ -257,8 +275,18 @@ def should_fire_local(space, pycode, event_id):
         global_bits | local_bits, _control_event_id(event_id))
 
 
-@jit.unroll_safe
 def dispatch_code_event(space, event_id, pycode, offset, *args_w):
+    _dispatch_code_event(space, event_id, pycode, offset, offset, args_w)
+
+
+def dispatch_line_event(space, pycode, instruction_offset, line):
+    _dispatch_code_event(
+        space, LINE, pycode, line, instruction_offset, ())
+
+
+@jit.unroll_safe
+def _dispatch_code_event(space, event_id, pycode, callback_offset,
+                         instruction_offset, args_w):
     """Fire an event whose enabled state is local to a code object.
 
     The callback receives (code, offset, *args_w). C_RETURN/C_RAISE use
@@ -274,7 +302,7 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
     control_event_id = _control_event_id(event_id)
     any_global = _event_is_set(
         jit.promote(state.any_events), control_event_id)
-    w_offset = space.newint(offset)
+    w_offset = space.newint(callback_offset)
     for tool_id in range(NUM_TOOLS):
         if monitoring is None:
             local_enabled = 0
@@ -289,7 +317,8 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
         if not (local_enabled | global_enabled):
             continue
         if (monitoring is not None and
-                monitoring.is_disabled(tool_id, offset, control_event_id)):
+                monitoring.is_disabled(
+                    tool_id, instruction_offset, control_event_id)):
             continue
         w_cb = state.callbacks[callback_index(tool_id, event_id)]
         if w_cb is None:
@@ -301,5 +330,6 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
             state.firing = False
         if (_event_can_be_disabled(event_id) and
                 space.is_w(w_result, w_disable(space))):
-            pycode.monitoring_disable(tool_id, offset, event_id)
+            pycode.monitoring_disable(
+                tool_id, instruction_offset, event_id)
             state.disabled_codes[pycode] = True

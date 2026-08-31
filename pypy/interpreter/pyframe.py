@@ -22,7 +22,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pymonitoring import (
     dispatch_global_event, PY_START, PY_RESUME, PY_THROW,
     FRAME_ENTRY_EVENTS, should_fire_local, should_fire_local_any,
-    dispatch_code_event,
+    dispatch_code_event, dispatch_line_event,
     LINE, INSTRUCTION)
 from pypy.tool import stdlib_opcode
 
@@ -350,7 +350,7 @@ class PyFrame(W_Root):
                 d = self.getorcreatedebug()
                 if (lineno != d.monitor_last_line or
                         last_instr < d.monitor_instr_prev_plus_one):
-                    dispatch_code_event(space, LINE, pycode, lineno)
+                    dispatch_line_event(space, pycode, last_instr, lineno)
                 d.monitor_last_line = lineno
                 d.monitor_instr_prev_plus_one = last_instr + 1
         if should_fire_local(space, pycode, INSTRUCTION):

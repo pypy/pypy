@@ -205,11 +205,7 @@ class PyCode(eval.Code):
 
     def monitoring_disable(self, tool_id, offset, event_id):
         state = self._get_or_create_monitoring_state()
-        d = state.disabled
-        if d is None:
-            d = state.disabled = {}
-        d[(tool_id, offset, event_id)] = True
-        state.changed()
+        state.disable(tool_id, offset, event_id, len(self.co_code) >> 1)
 
     def monitoring_restart_events(self):
         state = self.monitoring_state
