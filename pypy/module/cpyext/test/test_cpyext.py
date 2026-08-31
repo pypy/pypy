@@ -579,6 +579,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
     def test_load_dynamic(self):
         import sys
+        import importlib.machinery, importlib.util
         body = """
         static struct PyModuleDef moduledef = {
             PyModuleDef_HEAD_INIT,
@@ -591,8 +592,6 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         foo = self.import_module(name='foo', body=body, use_imp=True)
         assert 'foo' in sys.modules
         del sys.modules['foo']
-        # replaces imp.load_dynamic('foo', foo.__file__), removed in 3.12
-        import importlib.machinery, importlib.util
         loader = importlib.machinery.ExtensionFileLoader('foo', foo.__file__)
         spec = importlib.util.spec_from_file_location(
             'foo', foo.__file__, loader=loader)
@@ -600,7 +599,12 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         sys.modules['foo'] = foo2
         loader.exec_module(foo2)
         assert 'foo' in sys.modules
-        assert foo.__dict__ == foo2.__dict__
+        foodict = foo.__dict__.copy()
+        foo2dict = foo2.__dict__.copy()
+        for key in ("__loader__", "__spec__"):
+            foodict.pop(key)
+            foo2dict.pop(key)
+        assert foodict == foo2dict, "foo %s foo2 %s" % (str(foodict), str(foo2dict))
 
     def test_InitModule4_dotted(self):
         """

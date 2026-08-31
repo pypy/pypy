@@ -329,10 +329,9 @@ def test_classcell_overwrite():
             namespace['__classcell__'] = cell
             return super().__new__(cls, name, bases, namespace)
 
-    raises(TypeError, '''if 1:
+    with raises(TypeError):
         class A(metaclass=Meta, cell=object()):
             pass
-    ''')
 
 def test_classcell_wrong_cell():
     # Pointing the cell reference at the wrong class is prohibited
@@ -346,11 +345,10 @@ def test_classcell_wrong_cell():
     class A(metaclass=Meta):
         pass
 
-    raises(TypeError, '''if 1:
+    with raises(TypeError):
         class A(metaclass=Meta):
             def f(self):
                 return __class__
-    ''')
 
 def test_class_mro():
     test_class = None
