@@ -17,7 +17,7 @@ import unittest
 from datetime import date, datetime, time, timedelta, timezone
 from functools import cached_property
 
-from test.support import MISSING_C_DOCSTRINGS
+from test.support import MISSING_C_DOCSTRINGS, cpython_only
 from test.test_zoneinfo import _support as test_support
 from test.test_zoneinfo._support import OS_ENV_LOCK, TZPATH_TEST_LOCK, ZoneInfoTestBase
 from test.support.import_helper import import_module, CleanImport
@@ -1915,6 +1915,7 @@ class CTestModule(TestModule):
     module = c_zoneinfo
 
 
+@cpython_only
 class ExtensionBuiltTest(unittest.TestCase):
     """Smoke test to ensure that the C and Python extensions are both tested.
 
