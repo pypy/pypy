@@ -1,4 +1,4 @@
-import py
+import pytest
 
 from rpython.flowspace.model import SpaceOperation, Constant, Variable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -158,7 +158,8 @@ def test_guess_call_kind_refuses_the_errno_helpers():
     cc = CallControl()
     for funcptr in [rposix._get_errno, rposix._set_errno]:
         op = SpaceOperation('direct_call', [Constant(funcptr)], Variable())
-        py.test.raises(AssertionError, cc.guess_call_kind, op)
+        with pytest.raises(AssertionError):
+            cc.guess_call_kind(op)
 
 # ____________________________________________________________
 
@@ -185,7 +186,7 @@ def test_get_jitcode(monkeypatch):
 # ____________________________________________________________
 
 def test_jit_force_virtualizable_effectinfo():
-    py.test.skip("XXX add a test for CallControl.getcalldescr() -> EF_xxx")
+    pytest.skip("XXX add a test for CallControl.getcalldescr() -> EF_xxx")
 
 def test_releases_gil_analyzer():
     from rpython.jit.backend.llgraph.runner import LLGraphCPU
@@ -246,7 +247,7 @@ def test_random_effects_on_stacklet_switch():
         from rpython.rlib._rffi_stacklet import switch, handle
     except CompilationError as e:
         if "Unsupported platform!" in e.out:
-            py.test.skip("Unsupported platform!")
+            pytest.skip("Unsupported platform!")
         else:
             raise e
     @jit.dont_look_inside
@@ -269,7 +270,7 @@ def test_no_random_effects_for_rotateLeft():
     from rpython.rlib.rarithmetic import r_uint
 
     if r_uint.BITS == 32:
-        py.test.skip("64-bit only")
+        pytest.skip("64-bit only")
 
     from rpython.rlib.rmd5 import _rotateLeft
     def f(n, m):
@@ -345,7 +346,8 @@ def test_elidable_kinds():
 
     call_op = f_graph.startblock.operations[4]
     assert call_op.opname == 'direct_call'
-    excinfo = py.test.raises(Exception, cc.getcalldescr, call_op)
+    with pytest.raises(Exception) as excinfo:
+        cc.getcalldescr(call_op)
     lines = excinfo.value.args[0].splitlines()
     assert "f5" in lines[2]
     assert "effect" in lines[3]
@@ -368,7 +370,8 @@ def test_raise_elidable_no_result():
     [f_graph] = [x for x in res if x.func is fancy_graph_name]
     call_op = f_graph.startblock.operations[0]
     assert call_op.opname == 'direct_call'
-    x = py.test.raises(Exception, cc.getcalldescr, call_op, calling_graph=f_graph)
+    with pytest.raises(Exception) as x:
+        cc.getcalldescr(call_op, calling_graph=f_graph)
     assert "fancy_graph_name" in str(x.value)
 
 def test_can_or_cannot_collect():
