@@ -6,7 +6,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.pymonitoring import (
     MonitoringState, NUM_TOOLS, NUM_EVENTS, LOCAL_EVENTS, UNGROUPED_EVENTS,
-    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS, callback_index,
+    EVENT_NAMES, C_RETURN_EVENTS, C_CALL_EVENTS,
     _event_is_set,
     W_MonitoringSentinel, w_disable, w_missing)
 
@@ -124,9 +124,8 @@ def register_callback(space, tool_id, event, w_func):
     from pypy.module.sys.vm import audit
     audit(space, "sys.monitoring.register_callback", [w_func])
     state = space.fromcache(MonitoringState)
-    idx = callback_index(tool_id, event_id)
-    w_old = state.callbacks[idx]
-    state.callbacks[idx] = None if space.is_none(w_func) else w_func
+    w_callback = None if space.is_none(w_func) else w_func
+    w_old = state.set_callback(tool_id, event_id, w_callback)
     if w_old is None:
         return space.w_None
     return w_old

@@ -72,11 +72,12 @@ def w_missing(space):
 
 
 class MonitoringState(object):
-    _immutable_fields_ = ['any_events?']
+    _immutable_fields_ = ['any_events?', 'callbacks_version?']
 
     def __init__(self, space):
         self.tool_names = [None] * NUM_TOOLS
         self.callbacks = [None] * (NUM_TOOLS * NUM_EVENTS)
+        self.callbacks_version = VersionTag()
         self.global_events = [0] * NUM_TOOLS
         self.any_events = 0
         self.disabled_codes = {}   # PyCode -> True, for restart_events()
@@ -87,6 +88,24 @@ class MonitoringState(object):
         for tool_id in range(NUM_TOOLS):
             any_events |= self.global_events[tool_id]
         self.any_events = any_events
+
+    @jit.elidable
+    def _get_callback(self, version_tag, index):
+        assert version_tag is self.callbacks_version
+        return self.callbacks[index]
+
+    def get_callback(self, tool_id, event_id):
+        version_tag = jit.promote(self.callbacks_version)
+        index = callback_index(tool_id, event_id)
+        return self._get_callback(version_tag, index)
+
+    def set_callback(self, tool_id, event_id, w_callback):
+        index = callback_index(tool_id, event_id)
+        w_old = self.callbacks[index]
+        if w_old is not w_callback:
+            self.callbacks[index] = w_callback
+            self.callbacks_version = VersionTag()
+        return w_old
 
 
 def _event_is_set(event_set, event_id):
@@ -153,8 +172,7 @@ def dispatch_global_event(space, event_id, w_code, offset, w_extra):
     w_offset = space.newint(offset)
     for tool_id in range(NUM_TOOLS):
         if _event_is_set(state.global_events[tool_id], event_id):
-            idx = callback_index(tool_id, event_id)
-            w_cb = state.callbacks[idx]
+            w_cb = state.get_callback(tool_id, event_id)
             if w_cb is not None:
                 state.firing = True
                 try:
@@ -162,7 +180,7 @@ def dispatch_global_event(space, event_id, w_code, offset, w_extra):
                 finally:
                     state.firing = False
                 if space.is_w(w_result, w_disable(space)):
-                    state.callbacks[idx] = None
+                    state.set_callback(tool_id, event_id, None)
                     raise oefmt(space.w_ValueError,
                         "Cannot disable %s events. Callback removed.",
                         EVENT_NAMES[event_id])
@@ -276,17 +294,17 @@ def should_fire_local(space, pycode, event_id):
 
 
 def dispatch_code_event(space, event_id, pycode, offset, *args_w):
-    _dispatch_code_event(space, event_id, pycode, offset, offset, args_w)
+    _dispatch_code_event(space, event_id, pycode, offset, offset, *args_w)
 
 
 def dispatch_line_event(space, pycode, instruction_offset, line):
     _dispatch_code_event(
-        space, LINE, pycode, line, instruction_offset, ())
+        space, LINE, pycode, line, instruction_offset)
 
 
 @jit.unroll_safe
 def _dispatch_code_event(space, event_id, pycode, callback_offset,
-                         instruction_offset, args_w):
+                         instruction_offset, *args_w):
     """Fire an event whose enabled state is local to a code object.
 
     The callback receives (code, offset, *args_w). C_RETURN/C_RAISE use
@@ -320,7 +338,7 @@ def _dispatch_code_event(space, event_id, pycode, callback_offset,
                 monitoring.is_disabled(
                     tool_id, instruction_offset, control_event_id)):
             continue
-        w_cb = state.callbacks[callback_index(tool_id, event_id)]
+        w_cb = state.get_callback(tool_id, event_id)
         if w_cb is None:
             continue
         state.firing = True
