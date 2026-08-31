@@ -391,6 +391,16 @@ class AppTestBuiltinApp:
         # a case that runs till the end
         assert list(iter(count(), 100)) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
+    def test_iter_callable_sentinel_pickle(self):
+        # 'int' is a picklable, module-level callable; a locally-defined
+        # class would itself be unpicklable and confound this test, which
+        # is really about the iterator's own __module__/pickle identity.
+        import pickle
+        it = iter(int, 5)
+        assert type(it).__module__ == 'builtins'
+        pickle.dumps(it, 0)
+        pickle.dumps(it, 0)
+
     def test_enumerate(self):
         import sys
         seq = range(2,4)

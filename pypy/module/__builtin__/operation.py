@@ -141,12 +141,20 @@ iter_sentinel = gateway.applevel('''
                 raise StopIteration
             return result
 
+        def __reduce__(self):
+            if self._exhausted:
+                return (iter, ((),))
+            return (iter, (self._callable, self._sentinel))
+
     def iter_sentinel(callable_, sentinel):
         if not callable(callable_):
             raise TypeError('iter(v, w): v must be callable')
         return _CallableIterator(callable_, sentinel)
 
-''', filename=__file__).interphook("iter_sentinel")
+''', filename=__file__,
+    # ApplevelClass.__init__ defaults modname to '__builtin__' (py2-ism);
+    # remove this once that default becomes 'builtins'.
+    modname='builtins').interphook("iter_sentinel")
 
 def iter(space, w_collection_or_callable, w_sentinel=None):
     """iter(collection) -> iterator over the elements of the collection.
