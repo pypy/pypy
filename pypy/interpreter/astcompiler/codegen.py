@@ -896,6 +896,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.push_frame_block(F_FOR_LOOP, start, end)
         saved_depth = self._stack_depth
         fr.iter.walkabout(self)
+        # walkabout() (via update_pos_expr) restores position_info to
+        # whatever it was before visiting fr.iter, so GET_ITER/FOR_ITER
+        # need their own explicit update to keep the iterable's position
+        # (matching CPython) instead of inheriting the whole for-loop's.
+        self.update_position(fr.iter)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
         self.emit_jump(ops.FOR_ITER, cleanup)
@@ -919,6 +924,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_end = self.new_block()
 
         fr.iter.walkabout(self)
+        # see the comment in visit_For about restoring the iterable's
+        # position after walkabout() undoes it
+        self.update_position(fr.iter)
         self.emit_op(ops.GET_AITER)
 
         self.use_next_block(b_start)
@@ -2197,6 +2205,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             if gen_index > 0:
                 iter.walkabout(self)
+                # see the comment in visit_For about restoring the
+                # iterable's position after walkabout() undoes it
+                self.update_position(iter)
                 self.emit_op(ops.GET_ITER)
             start = self.new_block()
             if_cleanup = self.new_block()
@@ -2229,6 +2240,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert isinstance(gen, ast.comprehension)
         if gen_index > 0:
             gen.iter.walkabout(self)
+            # see the comment in visit_For about restoring the iterable's
+            # position after walkabout() undoes it
+            self.update_position(gen.iter)
             self.emit_op(ops.GET_AITER)
 
         self.use_next_block(b_start)
@@ -2279,6 +2293,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         first_comp = node.get_generators()[0]
         assert isinstance(first_comp, ast.comprehension)
         first_comp.iter.walkabout(self)
+        # see the comment in visit_For about restoring the iterable's
+        # position after walkabout() undoes it
+        self.update_position(first_comp.iter)
         if first_comp.is_async:
             self.emit_op(ops.GET_AITER)
         else:

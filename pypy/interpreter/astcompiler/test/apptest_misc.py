@@ -116,7 +116,7 @@ def test_compile_nonascii_char_in_bytes_error():
 def test_decorator_error_lineno():
     # The traceback for a failing decorator should point to the decorator
     # line, not the def line. See https://github.com/pypy/pypy/issues/5213
-    import traceback
+    import sys
 
     def dec_error(func):
         raise TypeError("boom")
@@ -124,24 +124,26 @@ def test_decorator_error_lineno():
         return func
 
     def applydecs():
-        @dec_error      # line 12 relative to start of applydecs body
+        @dec_error      # line 1 relative to co_firstlineno of applydecs
         @dec_fine
         def g(): pass
 
     try:
         applydecs()
     except TypeError:
-        tb = traceback.extract_tb(__import__('sys').exc_info()[2])
+        tb = sys.exc_info()[2]
     else:
         assert False, "expected TypeError"
 
     # find the frame for applydecs
-    frame = [f for f in tb if f.name == 'applydecs']
-    assert len(frame) == 1, frame
-    # The line text should be the decorator, not the def
-    assert frame[0].line is not None
-    assert frame[0].line.strip().startswith('@dec_error'), (
-        "expected decorator line, got: %r" % frame[0].line)
+    while tb is not None and tb.tb_frame.f_code.co_name != 'applydecs':
+        tb = tb.tb_next
+    assert tb is not None, "no frame for applydecs in traceback"
+    # The reported line should be the decorator, not the def
+    co = tb.tb_frame.f_code
+    assert tb.tb_lineno == co.co_firstlineno + 1, (
+        "expected the @dec_error line, got line %d relative to def" %
+        (tb.tb_lineno - co.co_firstlineno))
 
 
 def test_decorated_function_store_on_def_line():

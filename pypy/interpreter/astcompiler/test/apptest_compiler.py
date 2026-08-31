@@ -289,6 +289,47 @@ def f():          # line 1
     assert _position_of(src, lambda i: i.opname == 'RETURN_VALUE') == (2, 2, 9, 12)
 
 
+def test_for_loop_iter_exception_position():
+    # Exceptions raised from __iter__() or __next__() while running a
+    # for-loop should be attributed to the iterable expression's own line,
+    # not to the whole for-loop (which would span down into the body, e.g.
+    # to the "pass" line below).
+    class BrokenIter:
+        def __init__(self, next_raises=False, iter_raises=False):
+            self.next_raises = next_raises
+            self.iter_raises = iter_raises
+        def __iter__(self):
+            if self.iter_raises:
+                raise ValueError
+            return self
+        def __next__(self):
+            if self.next_raises:
+                raise ValueError
+            raise StopIteration
+
+    def next_raises():
+        try:
+            for x in BrokenIter(next_raises=True):
+                pass
+        except Exception as e:
+            return e
+
+    def iter_raises():
+        try:
+            for x in BrokenIter(iter_raises=True):
+                pass
+        except Exception as e:
+            return e
+
+    for func in (next_raises, iter_raises):
+        exc = func()
+        tb = exc.__traceback__
+        code = tb.tb_frame.f_code
+        lineno, end_lineno, col, end_col = list(code.co_positions())[tb.tb_lasti // 2]
+        assert lineno == code.co_firstlineno + 2
+        assert end_lineno == code.co_firstlineno + 2
+
+
 def test_exception_table_after_early_return_block():
     values = {}
 
