@@ -52,6 +52,16 @@ class TestUnicodeObject:
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == "10"
 
+    def test_decode_never_raise(self, space):
+        from pypy.interpreter import unicodehelper as uh
+        decode_never_raise = uh.make_decode_never_raise(space)
+        value = 'missing\xff.so'
+        w_value = space.newbytes(value)
+        result, lgt, pos = uh.str_decode_utf8(
+            space, value, w_value, 'replace', True,
+            decode_never_raise, True)
+        assert result == 'missing\\xFF.so'
+
     def test_listview_ascii(self):
         w_str = self.space.newutf8('abcd', 4)
         assert self.space.listview_ascii(w_str) == list("abcd")
