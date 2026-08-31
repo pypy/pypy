@@ -1,11 +1,17 @@
 #encoding: utf-8
-# spaceconfig = {"usemodules" : ["_locale", "array"]}
+# spaceconfig = {"usemodules" : ["_locale", "array", "thread"]}
 from pytest import raises
 import _io
 import os
 import sys
 import array
 import codecs
+import pytest
+
+@pytest.fixture
+def tempfile(tmpdir):
+    tempfile = (tmpdir / 'tempfile').ensure()
+    return str(tempfile)
 
 def test_constructor():
     
@@ -814,3 +820,35 @@ def test_bug_write_during_flush():
     tw.write("b" * CHUNK_SIZE)
     tw.flush()
     assert b''.join(tw.buffer.writes) == b"abcdefc" + b"b" * CHUNK_SIZE
+
+
+def test_concurrent_next_at_eof(tempfile):
+    # https://github.com/pypy/pypy/issues/5575
+    # Two threads iterating the same TextIOWrapper over a real fd can race
+    # inside the decode buffer when the underlying read() releases the GIL,
+    # especially right at EOF where DecodeBuffer.reset() nulls out its state.
+    import _thread
+    import time
+
+    with _io.open(tempfile, 'wb') as w:
+        w.write(b"line\n")
+    f = _io.TextIOWrapper(_io.BufferedReader(_io.FileIO(tempfile, "r")))
+    it = iter(f)
+
+    done = []
+
+    def worker():
+        for _ in range(10):
+            try:
+                next(it)
+            except Exception:
+                pass
+        done.append(1)
+
+    _thread.start_new_thread(worker, ())
+    _thread.start_new_thread(worker, ())
+    deadline = time.time() + 15.0
+    while len(done) < 2:
+        assert time.time() < deadline, "worker threads hung (see issue 5575)"
+        time.sleep(0.001)
+    f.close()

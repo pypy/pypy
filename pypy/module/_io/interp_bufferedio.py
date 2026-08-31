@@ -16,9 +16,8 @@ from rpython.rlib.objectmodel import import_from_mixin, try_inline, keepalive_un
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.module._io.interp_iobase import (
-    W_IOBase, DEFAULT_BUFFER_SIZE, convert_size, trap_eintr,
+    W_IOBase, DEFAULT_BUFFER_SIZE, TryLock, convert_size, trap_eintr,
     check_readable_w, check_writable_w, check_seekable_w)
-from rpython.rlib import rthread
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
@@ -36,28 +35,6 @@ def make_write_blocking_error(space, written):
         space.newtext("write could not complete without blocking"),
         space.newint(written))
     return OperationError(space.w_BlockingIOError, w_value)
-
-
-class TryLock(object):
-    "A Lock that raises RuntimeError when acquired twice by the same thread"
-    def __init__(self, space):
-        ## XXX cannot free a Lock?
-        ## if self.lock:
-        ##     self.lock.free()
-        self.lock = space.allocate_lock()
-        self.owner = 0
-        self.operr = oefmt(space.w_RuntimeError, "reentrant call")
-
-    def __enter__(self):
-        if not self.lock.acquire(False):
-            if self.owner == rthread.get_ident():
-                raise self.operr
-            self.lock.acquire(True)
-        self.owner = rthread.get_ident()
-
-    def __exit__(self,*args):
-        self.owner = 0
-        self.lock.release()
 
 
 class BlockingIOError(Exception):

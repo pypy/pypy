@@ -6,10 +6,32 @@ from pypy.interpreter.typedef import (
     make_weakref_descr, unwrap_spec)
 from pypy.interpreter.gateway import interp2app
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib import rweakref, rweaklist
+from rpython.rlib import rweakref, rweaklist, rthread
 
 
 DEFAULT_BUFFER_SIZE = 8192
+
+
+class TryLock(object):
+    "A Lock that raises RuntimeError when acquired twice by the same thread"
+    def __init__(self, space):
+        ## XXX cannot free a Lock?
+        ## if self.lock:
+        ##     self.lock.free()
+        self.lock = space.allocate_lock()
+        self.owner = 0
+        self.operr = oefmt(space.w_RuntimeError, "reentrant call")
+
+    def __enter__(self):
+        if not self.lock.acquire(False):
+            if self.owner == rthread.get_ident():
+                raise self.operr
+            self.lock.acquire(True)
+        self.owner = rthread.get_ident()
+
+    def __exit__(self,*args):
+        self.owner = 0
+        self.lock.release()
 
 def convert_size(space, w_size):
     if space.is_none(w_size) or w_size is None:
