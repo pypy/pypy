@@ -189,38 +189,45 @@ class CodeMonitoringState(object):
     def changed(self):
         self.version = VersionTag()
 
+    @jit.elidable
+    def _get_local_flags(self, version_tag):
+        assert version_tag is self.version
+        return self.local_flags
 
-@jit.elidable
-def _get_local_flags(monitoring, version_tag):
-    assert version_tag is monitoring.version
-    return monitoring.local_flags
+    def get_local_flags(self):
+        version_tag = jit.promote(self.version)
+        return self._get_local_flags(version_tag)
 
+    @jit.elidable
+    def _tool_has_local_event(self, version_tag, tool_id, event_id):
+        assert version_tag is self.version
+        per_tool = self.local_events
+        if per_tool is None:
+            return 0
+        return _event_is_set(per_tool[tool_id], event_id)
 
-@jit.elidable
-def _tool_has_local_event(monitoring, version_tag, tool_id, event_id):
-    assert version_tag is monitoring.version
-    per_tool = monitoring.local_events
-    if per_tool is None:
-        return 0
-    return _event_is_set(per_tool[tool_id], event_id)
+    def tool_has_local_event(self, tool_id, event_id):
+        version_tag = jit.promote(self.version)
+        return self._tool_has_local_event(version_tag, tool_id, event_id)
 
+    @jit.elidable
+    def _is_disabled(self, version_tag, tool_id, offset, event_id):
+        assert version_tag is self.version
+        d = self.disabled
+        if d is None:
+            return False
+        return (tool_id, offset, event_id) in d
 
-@jit.elidable
-def _get_disabled(monitoring, version_tag, tool_id, offset, event_id):
-    assert version_tag is monitoring.version
-    d = monitoring.disabled
-    if d is None:
-        return False
-    return (tool_id, offset, event_id) in d
+    def is_disabled(self, tool_id, offset, event_id):
+        version_tag = jit.promote(self.version)
+        return self._is_disabled(version_tag, tool_id, offset, event_id)
 
 
 def is_disabled(pycode, tool_id, offset, event_id):
     monitoring = jit.promote(pycode.monitoring_state)
     if monitoring is None:
         return False
-    version_tag = jit.promote(monitoring.version)
-    return _get_disabled(
-        monitoring, version_tag, tool_id, offset, event_id)
+    return monitoring.is_disabled(tool_id, offset, event_id)
 
 
 def should_fire_local_any(space, pycode, event_mask):
@@ -232,8 +239,7 @@ def should_fire_local_any(space, pycode, event_mask):
     if monitoring is None:
         local_bits = 0
     else:
-        version_tag = jit.promote(monitoring.version)
-        local_bits = _get_local_flags(monitoring, version_tag)
+        local_bits = monitoring.get_local_flags()
     return (global_bits | local_bits) & event_mask
 
 
@@ -246,8 +252,7 @@ def should_fire_local(space, pycode, event_id):
     if monitoring is None:
         local_bits = 0
     else:
-        version_tag = jit.promote(monitoring.version)
-        local_bits = _get_local_flags(monitoring, version_tag)
+        local_bits = monitoring.get_local_flags()
     return _event_is_set(
         global_bits | local_bits, _control_event_id(event_id))
 
@@ -274,9 +279,8 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
         if monitoring is None:
             local_enabled = 0
         else:
-            version_tag = jit.promote(monitoring.version)
-            local_enabled = _tool_has_local_event(
-                monitoring, version_tag, tool_id, control_event_id)
+            local_enabled = monitoring.tool_has_local_event(
+                tool_id, control_event_id)
         if any_global:
             global_enabled = _event_is_set(
                 state.global_events[tool_id], control_event_id)
@@ -285,8 +289,7 @@ def dispatch_code_event(space, event_id, pycode, offset, *args_w):
         if not (local_enabled | global_enabled):
             continue
         if (monitoring is not None and
-                _get_disabled(monitoring, version_tag, tool_id, offset,
-                              control_event_id)):
+                monitoring.is_disabled(tool_id, offset, control_event_id)):
             continue
         w_cb = state.callbacks[callback_index(tool_id, event_id)]
         if w_cb is None:
