@@ -1,3 +1,4 @@
+from rpython.rlib.rbigint import bit_length_int
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -54,14 +55,6 @@ def _popcount(x):
     return count
 
 
-def _bit_length(x):
-    n = 0
-    while x:
-        x >>= 1
-        n += 1
-    return n
-
-
 def check_valid_tool(space, tool_id):
     if tool_id < 0 or tool_id >= NUM_TOOLS:
         raise oefmt(space.w_ValueError,
@@ -114,7 +107,7 @@ def register_callback(space, tool_id, event, w_func):
     if _popcount(event) != 1:
         raise oefmt(space.w_ValueError,
             "The callback can only be set for one event at a time")
-    event_id = _bit_length(event) - 1
+    event_id = bit_length_int(event) - 1
     if event_id < 0 or event_id >= NUM_EVENTS:
         raise oefmt(space.w_ValueError, "invalid event %d", event)
     from pypy.module.sys.vm import audit
