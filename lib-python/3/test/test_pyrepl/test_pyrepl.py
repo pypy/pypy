@@ -43,6 +43,8 @@ class ReplTestCase(TestCase):
         *,
         cmdline_args: list[str] | None = None,
         cwd: str | None = None,
+        timeout: float = SHORT_TIMEOUT,
+        exit_on_output: str | None = None,
     ) -> tuple[str, int]:
         temp_dir = None
         if cwd is None:
@@ -50,7 +52,12 @@ class ReplTestCase(TestCase):
             cwd = temp_dir.name
         try:
             return self._run_repl(
-                repl_input, env=env, cmdline_args=cmdline_args, cwd=cwd
+                repl_input,
+                env=env,
+                cmdline_args=cmdline_args,
+                cwd=cwd,
+                timeout=timeout,
+                exit_on_output=exit_on_output,
             )
         finally:
             if temp_dir is not None:
@@ -63,6 +70,8 @@ class ReplTestCase(TestCase):
         env: dict | None,
         cmdline_args: list[str] | None,
         cwd: str,
+        timeout: float,
+        exit_on_output: str | None,
     ) -> tuple[str, int]:
         assert pty
         master_fd, slave_fd = pty.openpty()
@@ -100,7 +109,7 @@ class ReplTestCase(TestCase):
         os.write(master_fd, repl_input.encode("utf-8"))
 
         output = []
-        while select.select([master_fd], [], [], SHORT_TIMEOUT)[0]:
+        while select.select([master_fd], [], [], timeout)[0]:
             try:
                 data = os.read(master_fd, 1024).decode("utf-8")
                 if not data:
@@ -108,6 +117,11 @@ class ReplTestCase(TestCase):
             except OSError:
                 break
             output.append(data)
+            if exit_on_output is not None:
+                output = ["".join(output)]
+                if exit_on_output in output[0]:
+                    process.kill()
+                    break
         else:
             os.close(master_fd)
             process.kill()
@@ -115,7 +129,7 @@ class ReplTestCase(TestCase):
 
         os.close(master_fd)
         try:
-            exit_code = process.wait(timeout=SHORT_TIMEOUT)
+            exit_code = process.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
             process.kill()
             exit_code = process.wait()
@@ -1055,6 +1069,66 @@ class TestPasteEvent(TestCase):
         self.assertEqual(output, input_code)
 
 
+class TestPyReplCtrlD(TestCase):
+    """Test Ctrl+D behavior in pyrepl to match the traditional REPL."""
+
+    def prepare_reader(self, events):
+        console = FakeConsole(events)
+        config = ReadlineConfig(readline_completer=None)
+        return ReadlineAlikeReader(console=console, config=config)
+
+    def test_ctrl_d_empty_line(self):
+        events = [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))]
+        reader = self.prepare_reader(events)
+        with self.assertRaises(EOFError):
+            multiline_input(reader)
+
+    def test_ctrl_d_multiline_with_new_line(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    pass\n"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertTrue(reader.finished)
+        self.assertEqual("def f():\n    pass\n", "".join(reader.buffer))
+
+    def test_ctrl_d_multiline_middle_of_line(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    hello world"),
+            [Event(evt="key", data="left", raw=bytearray(b"\x1bOD"))] * 5,
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertFalse(reader.finished)
+        self.assertEqual("def f():\n    hello orld", "".join(reader.buffer))
+
+    def test_ctrl_d_multiline_end_of_line_no_newline(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    hello"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertFalse(reader.finished)
+        self.assertEqual("def f():\n    hello", "".join(reader.buffer))
+
+    def test_ctrl_d_single_line_middle_of_line(self):
+        events = itertools.chain(
+            code_to_events("hello"),
+            [Event(evt="key", data="left", raw=bytearray(b"\x1bOD"))],
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertEqual("hell", "".join(reader.buffer))
+
+    def test_ctrl_d_single_line_end_no_newline(self):
+        events = itertools.chain(
+            code_to_events("hello"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertEqual("hello", "".join(reader.buffer))
+
+
 @skipUnless(pty, "requires pty")
 class TestDumbTerminal(ReplTestCase):
     @skipIf(is_pypy, "pypy errors differently")
@@ -1264,6 +1338,31 @@ class TestMain(ReplTestCase):
         self.assertIn("spam", output)
         self.assertNotEqual(pathlib.Path(hfile.name).stat().st_size, 0)
 
+    def test_history_survives_crash(self):
+        env = os.environ.copy()
+
+        with tempfile.NamedTemporaryFile() as hfile:
+            env["PYTHON_HISTORY"] = hfile.name
+
+            output, exit_code = self.run_repl("1\n2\n3\nexit()\n", env=env)
+            self.assertEqual(exit_code, 0)
+
+            commands = "spam\nimport time\n0xcafe\ntime.sleep(1000)\nquit\n"
+            output, exit_code = self.run_repl(
+                commands, env=env, exit_on_output="51966"
+            )
+            self.assertNotEqual(exit_code, 0)
+
+            history = pathlib.Path(hfile.name).read_text()
+            self.assertIn("2", history)
+            self.assertIn("exit()", history)
+            self.assertIn("spam", history)
+            self.assertIn("import time", history)
+            # History is written after each command's output is printed. The
+            # command triggering process termination may not yet be written.
+            self.assertNotIn("sleep", history)
+            self.assertNotIn("quit", history)
+
     @force_not_colorized
     def test_correct_filename_in_syntaxerrors(self):
         env = os.environ.copy()
@@ -1311,6 +1410,10 @@ class TestMain(ReplTestCase):
                         self.assertIn("in x3", output)
                         self.assertIn("in <module>", output)
 
+    # This regression test and its ``value.lineno is not None`` fix were
+    # introduced in CPython 3.13.  PyPy's Python 3.12 code.py does not include
+    # that later maintenance fix yet.
+    @skipIf(is_pypy, "requires the CPython 3.13 null-byte code.py fix")
     def test_null_byte(self):
         output, exit_code = self.run_repl("\x00\nexit()\n")
         self.assertEqual(exit_code, 0)

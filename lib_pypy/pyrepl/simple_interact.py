@@ -32,8 +32,9 @@ import os
 import sys
 import code
 import ast
+import warnings
 
-from .readline import _get_reader, multiline_input
+from .readline import _get_reader, append_history_file, multiline_input
 
 TYPE_CHECKING = False
 
@@ -128,7 +129,9 @@ def run_multiline_interactive_console(
         reader.history.pop()  # skip internal commands in history
         command = REPL_COMMANDS[statement]
         if callable(command):
-            command()
+            # Make sure that history does not change because of commands
+            with reader.suspend_history(), reader.suspend_colorization():
+                command()
             return True
 
         if isinstance(command, str):
@@ -163,6 +166,10 @@ def run_multiline_interactive_console(
             linecache._register_code(input_name, statement, "<stdin>")  # type: ignore[attr-defined]
             more = console.push(_strip_final_indent(statement), filename=input_name, _symbol="single")  # type: ignore[call-arg]
             assert not more
+            try:
+                append_history_file()
+            except (FileNotFoundError, PermissionError, OSError) as e:
+                warnings.warn(f"failed to open the history file for writing: {e}")
             input_n += 1
         except KeyboardInterrupt:
             r = _get_reader()

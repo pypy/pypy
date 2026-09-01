@@ -11,7 +11,11 @@ import pytest
 try:
     from pexpect import spawn
 except ImportError:
-    pytest.skip(allow_module_level=True)
+    try:
+        pytest.skip("pexpect is not installed", allow_module_level=True)
+    except TypeError:
+        # PyPy's bundled pytest predates allow_module_level.
+        pytest.skip("pexpect is not installed")
 
 @contextmanager
 def start_repl(extra_env=dict(), explicit_pyrepl=True, colors=False):

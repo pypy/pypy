@@ -6,6 +6,8 @@ COLORIZE = True
 
 
 class ANSIColors:
+    BOLD = "\x1b[1m"
+    BOLD_BLUE = "\x1b[1;34m"
     BOLD_GREEN = "\x1b[1;32m"
     BOLD_MAGENTA = "\x1b[1;35m"
     BOLD_RED = "\x1b[1;31m"
@@ -15,6 +17,29 @@ class ANSIColors:
     RED = "\x1b[31m"
     RESET = "\x1b[0m"
     YELLOW = "\x1b[33m"
+
+
+def set_theme(t=None):
+    global theme
+    if t is not None:
+        theme = t
+        return
+    theme = {
+        "PROMPT": ANSIColors.BOLD_MAGENTA,
+        "KEYWORD": ANSIColors.BOLD_BLUE,
+        "KEYWORD_CONSTANT": ANSIColors.BOLD_BLUE,
+        "BUILTIN": "\x1b[36m",
+        "COMMENT": ANSIColors.RED,
+        "STRING": ANSIColors.GREEN,
+        "NUMBER": ANSIColors.YELLOW,
+        "OP": ANSIColors.RESET,
+        "DEFINITION": ANSIColors.BOLD,
+        "SOFT_KEYWORD": ANSIColors.BOLD_BLUE,
+        "RESET": ANSIColors.RESET,
+    }
+
+
+set_theme()
 
 
 NoColors = ANSIColors()

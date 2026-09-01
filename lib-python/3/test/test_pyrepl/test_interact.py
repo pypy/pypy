@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 from textwrap import dedent
 
-from test.support import force_not_colorized
+from test.support import force_not_colorized, is_pypy
 
 from pyrepl.console import InteractiveColoredConsole
 from pyrepl.simple_interact import _more_lines
@@ -122,6 +122,10 @@ SyntaxError: duplicate argument 'x' in function definition"""
             console.runsource(source)
             mock_showsyntaxerror.assert_called_once()
 
+    # This regression test and its ``value.lineno is not None`` fix were
+    # introduced in CPython 3.13.  PyPy's Python 3.12 code.py does not include
+    # that later maintenance fix yet.
+    @unittest.skipIf(is_pypy, "requires the CPython 3.13 null-byte code.py fix")
     def test_runsource_survives_null_bytes(self):
         console = InteractiveColoredConsole()
         source = "\x00\n"
