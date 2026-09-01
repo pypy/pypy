@@ -320,6 +320,11 @@ int sqlite3_complete(const char *sql);
 
 int sqlite3_limit(sqlite3*, int, int);
 
+int sqlite3_db_config(sqlite3*, int, ...);
+
+#define SQLITE_DBCONFIG_ENABLE_FKEY ...
+#define SQLITE_DBCONFIG_ENABLE_TRIGGER ...
+
 void *sqlite3_malloc(int);
 void *sqlite3_malloc64(sqlite3_uint64);
 void sqlite3_free(void*);
@@ -473,9 +478,29 @@ if SQLITE3_VERSION >= 3010000:
 #define SQLITE_IOERR_AUTH ...
 """)
 
+if SQLITE3_VERSION >= 3012002:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_ENABLE_FTS3_TOKENIZER ...
+""")
+
+if SQLITE3_VERSION >= 3013000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION ...
+""")
+
 if SQLITE3_VERSION >= 3014001:
     _ffi.cdef("""
 #define SQLITE_OK_LOAD_PERMANENTLY ...
+""")
+
+if SQLITE3_VERSION >= 3016000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE ...
+""")
+
+if SQLITE3_VERSION >= 3020000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_ENABLE_QPSG ...
 """)
 
 if SQLITE3_VERSION >= 3021000:
@@ -491,12 +516,14 @@ if SQLITE3_VERSION >= 3022000:
 #define SQLITE_ERROR_RETRY ...
 #define SQLITE_READONLY_CANTINIT ...
 #define SQLITE_READONLY_DIRECTORY ...
+#define SQLITE_DBCONFIG_TRIGGER_EQP ...
 """)
 
 if SQLITE3_VERSION >= 3024000:
     _ffi.cdef("""
 #define SQLITE_CORRUPT_SEQUENCE ...
 #define SQLITE_LOCKED_VTAB ...
+#define SQLITE_DBCONFIG_RESET_DATABASE ...
 """)
 
 if SQLITE3_VERSION >= 3025000:
@@ -505,11 +532,35 @@ if SQLITE3_VERSION >= 3025000:
 #define SQLITE_ERROR_SNAPSHOT ...
 """)
 
+if SQLITE3_VERSION >= 3026000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_DEFENSIVE ...
+""")
+
+if SQLITE3_VERSION >= 3028000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_WRITABLE_SCHEMA ...
+""")
+
+if SQLITE3_VERSION >= 3029000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_DQS_DDL ...
+#define SQLITE_DBCONFIG_DQS_DML ...
+#define SQLITE_DBCONFIG_LEGACY_ALTER_TABLE ...
+""")
+
+if SQLITE3_VERSION >= 3030000:
+    _ffi.cdef("""
+#define SQLITE_DBCONFIG_ENABLE_VIEW ...
+""")
+
 if SQLITE3_VERSION >= 3031000:
     _ffi.cdef("""
 #define SQLITE_CANTOPEN_SYMLINK ...
 #define SQLITE_CONSTRAINT_PINNED ...
 #define SQLITE_OK_SYMLINK ...
+#define SQLITE_DBCONFIG_LEGACY_FILE_FORMAT ...
+#define SQLITE_DBCONFIG_TRUSTED_SCHEMA ...
 """)
 
 if SQLITE3_VERSION >= 3032000:
@@ -574,7 +625,9 @@ _ffi.set_source("_sqlite3_cffi", SOURCE, **extra_args)
 
 
 if __name__ == "__main__":
-    _ffi.compile()
+    # always build next to this script (lib_pypy/), regardless of the
+    # caller's current working directory
+    _ffi.compile(tmpdir=os.path.dirname(os.path.abspath(__file__)))
     if sys.platform == 'win32':
         # copy dlls from externals to the pwd
         # maybe we should link to libraries instead of the dlls
