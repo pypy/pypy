@@ -54,8 +54,6 @@ def c_compile(cfilenames, outputfilename,
     include_dirs = include_dirs or []
     libraries = libraries or []
     library_dirs = library_dirs or []
-    if sys.platform == 'win32':
-        link_extra = link_extra + ['/DEBUG']  # generate .pdb file
     if sys.platform == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):

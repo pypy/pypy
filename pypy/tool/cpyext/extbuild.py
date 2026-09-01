@@ -1,8 +1,20 @@
 import hashlib
 import os
 import sys
+import time
 import py
 from pypy import pypydir
+
+# In -A mode each test runs in its own subprocess (see
+# pypy/tool/pytest/apptest.py:run_with_python), and pytest's output
+# capturing swallows stdout/stderr of passing tests. So profiling data
+# is appended as one line per call to the file named by this env var,
+# instead of printed, so it survives across subprocesses.
+_PROFILE_LOG = os.environ.get('CPYEXT_PROFILE_COMPILE')
+
+def _profile_log(kind, modname, elapsed):
+    with open(_PROFILE_LOG, 'a') as f:
+        f.write('%s %s %.4f %d\n' % (kind, modname, elapsed, os.getpid()))
 
 if os.name != 'nt':
     so_ext = 'so'
@@ -72,7 +84,11 @@ class SystemCompilationInfo(object):
             self.extra_libs, source_files, source_strings)
         cached = _compiled_module_cache.get(cache_key)
         if cached is not None and os.path.exists(cached):
+            if _PROFILE_LOG:
+                _profile_log('hit', modname, 0.0)
             return cached
+        if _PROFILE_LOG:
+            start = time.time()
         dirname = self.get_builddir(name=modname)
         if source_strings:
             assert not source_files
@@ -83,6 +99,8 @@ class SystemCompilationInfo(object):
             link_extra=self.link_extra,
             include_dirs=all_include_dirs,
             libraries=self.extra_libs)
+        if _PROFILE_LOG:
+            _profile_log('miss', modname, time.time() - start)
         pydname = soname.new(purebasename=modname, ext=self.ext)
         soname.rename(pydname)
         result = str(pydname)

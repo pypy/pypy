@@ -300,14 +300,9 @@ class ExtensionCompiler:
                 '/Od',
                 '/WX',               # turn warnings into errors (all, for now)
                 # '/Wall',           # this is too aggressive, makes windows itself fail
-                '/Zi',
                 '-D_CRT_SECURE_NO_WARNINGS', # something about _snprintf and _snprintf_s
-                '/FS',               # Since the tests run in parallel
             ]
-            link_args = [
-                '/DEBUG',
-                '/LTCG',
-            ]
+            link_args = []
         else:
             compile_args = [
                 '-g', '-O0',
