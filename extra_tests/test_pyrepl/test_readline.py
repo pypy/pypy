@@ -64,3 +64,29 @@ def test_insert_text_leading_tab():
     """
     readline.insert_text("\t")
     assert readline.get_line_buffer() == "\t"
+
+
+def test_append_history_file_only_writes_new_entries(tmpdir):
+    history_file = str(tmpdir / "history")
+    old_history = [
+        readline.get_history_item(i)
+        for i in range(1, readline.get_current_history_length() + 1)
+    ]
+    old_history_length = readline.get_history_length()
+    old_persisted_history_length = readline._wrapper.persisted_history_length
+    try:
+        readline.clear_history()
+        readline.set_history_length(0)
+
+        readline.add_history("first")
+        readline.append_history_file(history_file)
+        readline.add_history("second\nline")
+        readline.append_history_file(history_file)
+
+        assert (tmpdir / "history").read("rb") == b"first\nsecond\r\nline\n"
+    finally:
+        readline.clear_history()
+        for entry in old_history:
+            readline.add_history(entry)
+        readline.set_history_length(old_history_length)
+        readline._wrapper.persisted_history_length = old_persisted_history_length

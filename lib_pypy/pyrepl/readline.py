@@ -89,6 +89,7 @@ __all__ = [
     "set_pre_input_hook",
     "set_startup_hook",
     "write_history_file",
+    "append_history_file",
     # ---- multiline extensions ----
     "multiline_input",
 ]
@@ -431,6 +432,7 @@ class _ReadlineWrapper:
     f_out: int = -1
     reader: ReadlineAlikeReader | None = field(default=None, repr=False)
     saved_history_length: int = -1
+    persisted_history_length: int = 0
     startup_hook: Callback | None = None
     pre_input_hook: Callback | None = None
     config: ReadlineConfig = field(default_factory=ReadlineConfig, repr=False)
@@ -561,6 +563,7 @@ class _ReadlineWrapper:
                         del buffer[:]
                     if line:
                         history.append(line)
+        self.persisted_history_length = self.get_current_history_length()
 
     def write_history_file(self, filename: str = gethistoryfile()) -> None:
         maxlength = self.saved_history_length
@@ -570,8 +573,22 @@ class _ReadlineWrapper:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
 
+    def append_history_file(self, filename: str = gethistoryfile()) -> None:
+        reader = self.get_reader()
+        saved_length = self.persisted_history_length
+        length = self.get_current_history_length() - saved_length
+        history = reader.get_trimmed_history(length)
+        with open(
+            os.path.expanduser(filename), "a", encoding="utf-8", newline="\n"
+        ) as f:
+            for entry in history:
+                entry = entry.replace("\n", "\r\n")  # multiline history support
+                f.write(entry + "\n")
+        self.persisted_history_length = saved_length + length
+
     def clear_history(self) -> None:
         del self.get_reader().history[:]
+        self.persisted_history_length = 0
 
     def get_history_item(self, index: int) -> str | None:
         history = self.get_reader().history
@@ -645,6 +662,7 @@ set_history_length = _wrapper.set_history_length
 get_current_history_length = _wrapper.get_current_history_length
 read_history_file = _wrapper.read_history_file
 write_history_file = _wrapper.write_history_file
+append_history_file = _wrapper.append_history_file
 clear_history = _wrapper.clear_history
 get_history_item = _wrapper.get_history_item
 remove_history_item = _wrapper.remove_history_item
