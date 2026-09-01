@@ -494,7 +494,8 @@ class BaseTestGenerateGuards(BaseTest):
         value1 = IntBound(1, 10)
         box = InputArgInt()
         guards = []
-        value1.make_guards(box, guards, FakeOptimizer(self.cpu), known_upper=10)
+        value1.make_guards_with_known_upper(
+            box, guards, FakeOptimizer(self.cpu), 10)
         expected = """
         [i0]
         i1 = int_ge(i0, 1)

@@ -1261,7 +1261,10 @@ class IntBound(AbstractInfo):
                        self.tvalue, self.tmask)
         return res
 
-    def make_guards(self, box, guards, optimizer, known_upper=MAXINT):
+    def make_guards(self, box, guards, optimizer):
+        self.make_guards_with_known_upper(box, guards, optimizer, MAXINT)
+
+    def make_guards_with_known_upper(self, box, guards, optimizer, known_upper):
         """
         Generates guards from the information we have about the numbers this
         abstract integer contains.
