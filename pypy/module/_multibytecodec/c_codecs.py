@@ -198,20 +198,20 @@ pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
 pypy_cjk_enc_copystate = llexternal('pypy_cjk_enc_copystate',
                                     [ENCODEBUF_P, ENCODEBUF_P], lltype.Void)
 _pypy_cjk_enc_getstate = llexternal('pypy_cjk_enc_getstate',
-                                    [ENCODEBUF_P, rffi.CCHARP], lltype.Void)
+                                    [ENCODEBUF_P, rffi.UCHARP], lltype.Void)
 _pypy_cjk_enc_setstate = llexternal('pypy_cjk_enc_setstate',
-                                    [ENCODEBUF_P, rffi.CCHARP], lltype.Void)
+                                    [ENCODEBUF_P, rffi.UCHARP], lltype.Void)
 
 def enc_getstate(encodebuf):
     """Return the 8-byte codec state as a byte string."""
     with rffi.scoped_alloc_buffer(8) as buf:
-        _pypy_cjk_enc_getstate(encodebuf, rffi.cast(rffi.CCHARP, buf.raw))
+        _pypy_cjk_enc_getstate(encodebuf, rffi.cast(rffi.UCHARP, buf.raw))
         return buf.str(8)
 
 def enc_setstate(encodebuf, state8):
     """Restore the 8-byte codec state from a byte string."""
     with rffi.scoped_str2charp(state8) as buf:
-        _pypy_cjk_enc_setstate(encodebuf, buf)
+        _pypy_cjk_enc_setstate(encodebuf, rffi.cast(rffi.UCHARP, buf))
 
 MBENC_FLUSH = 1
 MBENC_RESET = 2
