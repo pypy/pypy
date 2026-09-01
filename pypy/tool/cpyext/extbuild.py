@@ -1,3 +1,4 @@
+import hashlib
 import os
 import sys
 import py
@@ -7,6 +8,29 @@ if os.name != 'nt':
     so_ext = 'so'
 else:
     so_ext = 'dll'
+
+# Process-lifetime cache of compiled extension modules, keyed by a hash of
+# their source content and compile/link flags. Helps repeat compiles within
+# a single test and -A mode, which has no higher-level cache of its own.
+_compiled_module_cache = {}
+
+def _compile_cache_key(modname, include_dirs, compile_extra, link_extra,
+        libraries, source_files, source_strings):
+    h = hashlib.sha256()
+    h.update(modname.encode('utf-8'))
+    include_dirs = sorted(str(d) for d in include_dirs)
+    for part in (include_dirs, compile_extra or [], link_extra or [],
+            libraries or []):
+        for item in part:
+            h.update(str(item).encode('utf-8'))
+    if source_strings:
+        for s in source_strings:
+            h.update(str(s).encode('utf-8'))
+    else:
+        for fname in source_files:
+            with open(str(fname), 'rb') as f:
+                h.update(f.read())
+    return h.hexdigest()
 
 HERE = py.path.local(pypydir) / 'module' / 'cpyext' / 'test'
 
@@ -42,6 +66,13 @@ class SystemCompilationInfo(object):
         """
         include_dirs = include_dirs or []
         modname = name.split('.')[-1]
+        all_include_dirs = self.include_extra + include_dirs
+        cache_key = _compile_cache_key(
+            modname, all_include_dirs, self.compile_extra, self.link_extra,
+            self.extra_libs, source_files, source_strings)
+        cached = _compiled_module_cache.get(cache_key)
+        if cached is not None and os.path.exists(cached):
+            return cached
         dirname = self.get_builddir(name=modname)
         if source_strings:
             assert not source_files
@@ -50,11 +81,13 @@ class SystemCompilationInfo(object):
         soname = c_compile(source_files, outputfilename=str(dirname / modname),
             compile_extra=self.compile_extra,
             link_extra=self.link_extra,
-            include_dirs=self.include_extra + include_dirs,
+            include_dirs=all_include_dirs,
             libraries=self.extra_libs)
         pydname = soname.new(purebasename=modname, ext=self.ext)
         soname.rename(pydname)
-        return str(pydname)
+        result = str(pydname)
+        _compiled_module_cache[cache_key] = result
+        return result
 
     def import_module(self, name, init=None, body='', filename=None,
                       include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
@@ -182,8 +215,6 @@ def c_compile(cfilenames, outputfilename,
     include_dirs = include_dirs or []
     libraries = libraries or []
     library_dirs = library_dirs or []
-    if sys.platform == 'win32':
-        link_extra = link_extra + ['/DEBUG']  # generate .pdb file
     if sys.platform == 'darwin':
         # support Fink & Darwinports
         for s in ('/sw/', '/opt/local/'):
