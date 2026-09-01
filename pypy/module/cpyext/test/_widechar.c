@@ -6,17 +6,13 @@
 static PyObject *
 test_widechar(PyObject *self)
 {
-    const wchar_t invalid[1] = {(wchar_t)0x110000u};
     PyObject *wide;
 
-    wide = PyUnicode_FromUnicode(NULL, 1);
+    wide = PyUnicode_New(1, 0x10ffff);
     if (wide == NULL)
         return NULL;
-    _Py_COMP_DIAG_PUSH
-    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-    PyUnicode_AS_UNICODE(wide)[0] = invalid[0];
-    _Py_COMP_DIAG_POP
-    if (_PyUnicode_Ready(wide) < 0) {
+    if (PyUnicode_WriteChar(wide, 0, (Py_UCS4)0x110000u) < 0) {
+        Py_DECREF(wide);
         return NULL;
     }
     return wide;

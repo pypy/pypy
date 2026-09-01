@@ -1015,55 +1015,6 @@ convertsimple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
         break;
     }
 
-    case 'u': /* raw unicode buffer (Py_UNICODE *) */
-    case 'Z': /* raw unicode buffer or None */
-    {
-        if (PyErr_WarnFormat(PyExc_DeprecationWarning, 1,
-                "getargs: The '%c' format is deprecated. Use 'U' instead.", c)) {
-            RETURN_ERR_OCCURRED;
-        }
-        Py_UNICODE **p = va_arg(*p_va, Py_UNICODE **);
-
-        if (*format == '#') {
-            /* "u#" or "Z#" */
-            REQUIRE_PY_SSIZE_T_CLEAN;
-            Py_ssize_t *psize = va_arg(*p_va, Py_ssize_t*);
-
-            if (c == 'Z' && arg == Py_None) {
-                *p = NULL;
-                *psize = 0;
-            }
-            else if (PyUnicode_Check(arg)) {
-                Py_ssize_t len;
-                *p = PyUnicode_AsUnicodeAndSize(arg, &len);
-                if (*p == NULL)
-                    RETURN_ERR_OCCURRED;
-                *psize = len;
-            }
-            else
-                return converterr(c == 'Z' ? "str or None" : "str",
-                                  arg, msgbuf, bufsize);
-            format++;
-        } else {
-            /* "u" or "Z" */
-            if (c == 'Z' && arg == Py_None)
-                *p = NULL;
-            else if (PyUnicode_Check(arg)) {
-                Py_ssize_t len;
-                *p = PyUnicode_AsUnicodeAndSize(arg, &len);
-                if (*p == NULL)
-                    RETURN_ERR_OCCURRED;
-                if (wcslen(*p) != (size_t)len) {
-                    PyErr_SetString(PyExc_ValueError, "embedded null character");
-                    RETURN_ERR_OCCURRED;
-                }
-            } else
-                return converterr(c == 'Z' ? "str or None" : "str",
-                                  arg, msgbuf, bufsize);
-        }
-        break;
-    }
-
     case 'e': {/* encoded string */
         char **buffer;
         const char *encoding;

@@ -3,7 +3,7 @@ import pytest
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.unicodeobject import (
-    Py_UNICODE, PyUnicodeObject, new_empty_unicode)
+    Py_UNICODE, PyUnicodeObject, _new_compact_unicode)
 from pypy.module.cpyext.api import (PyObjectP, PyObject, 
                            Py_CLEANUP_SUPPORTED, INTP_real)
 from pypy.module.cpyext.pyobject import decref, from_ref
@@ -19,22 +19,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  return PyUnicode_FromStringAndSize(
                      "Hello world<should not be included>", 11);
              """),
-            ("test_GetSize", "METH_NOARGS",
-             """
-                 PyObject* s = PyUnicode_FromString("Hello world");
-                 int result = 0;
-
-                 _Py_COMP_DIAG_PUSH
-                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-                 if(PyUnicode_GetSize(s) != 11) {
-                     result = -PyUnicode_GetSize(s);
-                 }
-                 _Py_COMP_DIAG_POP
-                 if(s->ob_type->tp_basicsize != sizeof(PyUnicodeObject))
-                     result = s->ob_type->tp_basicsize;
-                 Py_DECREF(s);
-                 return PyLong_FromLong(result);
-             """),
             ("test_GetLength", "METH_NOARGS",
              """
                  PyObject* s = PyUnicode_FromString("Hello world");
@@ -45,17 +29,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  }
                  Py_DECREF(s);
                  return PyLong_FromLong(result);
-             """),
-            ("test_GetSize_exception", "METH_NOARGS",
-             """
-                 PyObject* f = PyFloat_FromDouble(1.0);
-                 _Py_COMP_DIAG_PUSH
-                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-                 PyUnicode_GetSize(f);
-                 _Py_COMP_DIAG_POP
-
-                 Py_DECREF(f);
-                 return NULL;
              """),
              ("test_is_unicode", "METH_VARARGS",
              """
@@ -131,16 +104,22 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
              """),
              ("unicode", "METH_O",
              """
-                Py_ssize_t size;
-                wchar_t *buf = PyUnicode_AsUnicodeAndSize(args, &size);
-                return PyUnicode_FromUnicode(buf, size);
+                Py_ssize_t size = PyUnicode_GetLength(args);
+                wchar_t *buf = PyMem_Malloc((size + 1) * sizeof(wchar_t));
+                PyObject *result;
+                if (buf == NULL)
+                    return PyErr_NoMemory();
+                size = PyUnicode_AsWideChar(args, buf, size + 1);
+                if (size < 0) {
+                    PyMem_Free(buf);
+                    return NULL;
+                }
+                result = PyUnicode_FromWideChar(buf, size);
+                PyMem_Free(buf);
+                return result;
              """),
             ])
         assert module.get_hello1() == u'Hello world'
-        assert module.test_GetSize() == 0
-        raises(TypeError, module.test_GetSize_exception)
-
-        # XXX: needs a test where it differs from GetSize
         assert module.test_GetLength() == 0
 
         assert module.test_is_unicode(u"")
@@ -208,24 +187,15 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("getunicode", "METH_NOARGS",
              """
-                 PyObject *s, *t;
-                 Py_UNICODE* c;
+                 PyObject *s;
 
-                 s = PyUnicode_FromUnicode(NULL, 4);
+                 s = PyUnicode_New(4, 0xe9);
                  if (s == NULL)
                     return NULL;
-                 t = PyUnicode_FromUnicode(NULL, 3);
-                 if (t == NULL)
-                    return NULL;
-                 Py_DECREF(t);
-                 _Py_COMP_DIAG_PUSH
-                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-                 c = PyUnicode_AsUnicode(s);
-                 _Py_COMP_DIAG_POP
-                 c[0] = 'a';
-                 c[1] = 0xe9;
-                 c[2] = 0x00;
-                 c[3] = 'c';
+                 if (PyUnicode_WriteChar(s, 0, 'a') < 0) return NULL;
+                 if (PyUnicode_WriteChar(s, 1, 0xe9) < 0) return NULL;
+                 if (PyUnicode_WriteChar(s, 2, 0x00) < 0) return NULL;
+                 if (PyUnicode_WriteChar(s, 3, 'c') < 0) return NULL;
                  return s;
              """),
             ])
@@ -252,24 +222,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicode_macros(self):
         """The PyUnicode_* macros cast, and calls expecting that build."""
         module = self.import_extension('foo', [
-             ("test_macro_invocations", "METH_NOARGS",
-             """
-                PyObject* o = PyUnicode_FromString("");
-                PyUnicodeObject* u = (PyUnicodeObject*)o;
-
-                _Py_COMP_DIAG_PUSH
-                _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-                PyUnicode_GET_SIZE(u);
-                PyUnicode_GET_SIZE(o);
-
-                PyUnicode_GET_DATA_SIZE(u);
-                PyUnicode_GET_DATA_SIZE(o);
-
-                PyUnicode_AS_UNICODE(o);
-                PyUnicode_AS_UNICODE(u);
-                _Py_COMP_DIAG_POP
-                return o;
-             """),
              ("test_ISWHITESPACE", "METH_O",
              """
                 Py_UCS4 *ucs4 = PyUnicode_AsUCS4Copy(args);
@@ -285,7 +237,6 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 return PyLong_FromLong(result);
              """),
             ])
-        assert module.test_macro_invocations() == u''
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,
                      0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008,
@@ -617,7 +568,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             #pytest.skip('only for sizeof(wchar)==4')
             return
         exc = raises((SystemError, ValueError), m.test_widechar)
-        assert 'not in range [U+0000; U+10ffff]' in str(exc.value), str(exc.value)
+        assert 'character out of range' in str(exc.value), str(exc.value)
 
     def test_AsUTFNString(self):
         module = self.import_extension('foo', [
@@ -964,16 +915,7 @@ class TestUnicode(BaseApiTest):
         )
         assert encoding == space.unwrap(w_default_encoding)
 
-    def test_AS(self, space):
-        word = space.wrap(u'spam')
-        array = rffi.cast(rffi.CWCHARP, PyUnicode_AsUnicodeAndSize(space, word, None))
-        array2 = PyUnicode_AsUnicodeAndSize(space, word, None)
-        for (i, char) in enumerate(space.utf8_w(word)):
-            assert array[i] == char
-            assert array2[i] == char
-        with raises_w(space, TypeError):
-            PyUnicode_AsUnicodeAndSize(space, space.newbytes('spam'), None)
-
+    def test_AsEncoded(self, space):
         utf_8 = rffi.str2charp('utf-8')
         encoded = PyUnicode_AsEncodedString(space, space.wrap(u'späm'),
                                                 utf_8, None)
@@ -1022,25 +964,26 @@ class TestUnicode(BaseApiTest):
             assert w_res is w_res2
 
     def test_unicode_resize(self, space):
-        py_uni = new_empty_unicode(space, 10)
+        py_uni = _new_compact_unicode(space, 10, 0x61)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
-        buf = get_wbuffer(py_uni)
-        buf[0] = u'a'
-        buf[1] = u'b'
-        buf[2] = u'c'
+        data = cts.cast('char *', get_data(py_uni))
+        data[0] = 'a'
+        data[1] = 'b'
+        data[2] = 'c'
         ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 3)
-        py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert get_wsize(py_uni) == 3
-        assert get_wbuffer(py_uni)[1] == u'b'
-        assert get_wbuffer(py_uni)[3] == u'\x00'
+        py_uni = ar[0]
+        assert get_len(py_uni) == 3
+        data = cts.cast('char *', get_data(py_uni))
+        assert data[1] == 'b'
+        assert data[3] == '\x00'
         # the same for growing
-        ar[0] = rffi.cast(PyObject, py_uni)
         PyUnicode_Resize(space, ar, 10)
-        py_uni = rffi.cast(PyUnicodeObject, ar[0])
-        assert get_wsize(py_uni) == 10
-        assert get_wbuffer(py_uni)[1] == 'b'
-        assert get_wbuffer(py_uni)[10] == '\x00'
+        py_uni = ar[0]
+        assert get_len(py_uni) == 10
+        data = cts.cast('char *', get_data(py_uni))
+        assert data[1] == 'b'
+        assert data[10] == '\x00'
         decref(space, ar[0])
         lltype.free(ar, flavor='raw')
 
@@ -1386,20 +1329,22 @@ class TestUnicode(BaseApiTest):
         w_x = space.wrap(u"abcd\u0660")
         count1 = space.int_w(space.len(w_x))
         target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
+        x_chunk = lltype.malloc(rffi.CWCHARP.TO, count1 + 1, flavor='raw')
+        PyUnicode_AsWideChar(space, as_pyobj(space, w_x), x_chunk, count1 + 1)
 
-        x_chunk = PyUnicode_AsUnicodeAndSize(space, w_x, None)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, 4)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
 
         assert space.eq_w(w_y, space.wrap(u"abcd"))
 
-        size = get_wsize(as_pyobj(space, w_x))
+        size = count1
         Py_UNICODE_COPY(space, target_chunk, x_chunk, size)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, size))
 
         assert space.eq_w(w_y, w_x)
 
         lltype.free(target_chunk, flavor='raw')
+        lltype.free(x_chunk, flavor='raw')
 
     def test_ascii_codec(self, space):
         s = 'abcdefg'
@@ -1537,9 +1482,10 @@ class TestUnicode(BaseApiTest):
 
     def test_Ready(self, space):
         def as_py_uni(val):
-            py_obj = new_empty_unicode(space, len(val))
+            typedescr = get_typedescr(space.w_unicode.layout.typedef)
+            py_obj = typedescr.allocate(space, space.w_unicode, itemcount=len(val))
             w_obj = space.wrap(val)
-            # calls _PyUnicode_Ready
+            # canonicalizes the object via _readify
             unicode_attach(space, py_obj, w_obj)
             return py_obj
 

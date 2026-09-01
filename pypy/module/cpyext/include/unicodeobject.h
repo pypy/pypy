@@ -148,14 +148,12 @@ static inline unsigned int PyUnicode_CHECK_INTERNED(PyObject *op) {
 #  define PyUnicode_CHECK_INTERNED(op) PyUnicode_CHECK_INTERNED(_PyObject_CAST(op))
 #endif
 
-/* Fast check to determine whether an object is ready. Equivalent to:
-   PyUnicode_IS_COMPACT(op) || _PyUnicodeObject_CAST(op)->data.any */
-static inline unsigned int PyUnicode_IS_READY(PyObject *op) {
-    return _PyASCIIObject_CAST(op)->state.ready;
+/* For backward compatibility. PyPy's unicode objects are always in their
+   canonical representation once they exist. */
+static inline unsigned int PyUnicode_IS_READY(PyObject* Py_UNUSED(op)) {
+    return 1;
 }
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_IS_READY(op) PyUnicode_IS_READY(_PyObject_CAST(op))
-#endif
+#define PyUnicode_IS_READY(op) PyUnicode_IS_READY(_PyObject_CAST(op))
 
 /* Return true if the string contains only ASCII characters, or 0 if not. The
    string may be compact (PyUnicode_IS_COMPACT_ASCII) or not, but must be
@@ -187,10 +185,6 @@ static inline int PyUnicode_IS_COMPACT_ASCII(PyObject *op) {
 #endif
 
 enum PyUnicode_Kind {
-/* String contains only wstr byte characters.  This is only possible
-   when the string was created with a legacy API and _PyUnicode_Ready()
-   has not been called yet.  */
-    PyUnicode_WCHAR_KIND = 0,
 /* Return values of the PyUnicode_KIND() function: */
     PyUnicode_1BYTE_KIND = 1,
     PyUnicode_2BYTE_KIND = 2,
@@ -350,122 +344,13 @@ static inline Py_UCS4 PyUnicode_MAX_CHAR_VALUE(PyObject *op)
 
 /* === Public API ========================================================= */
 
-/* PyUnicode_READY() does less work than _PyUnicode_Ready() in the best
-   case.  If the canonical representation is not yet set, it will still call
-   _PyUnicode_Ready().
-   Returns 0 on success and -1 on errors. */
-
-/* In CPython this is a static inlined function. On PyPy, because we generate
- * and mangle the _PyUnicode_Ready function, and the generated declaration
- * appears in pypy_decls.h which is 'include'ed after this file, we cannot use
- * the static inline method and must make it a macro
- */
-#define PyUnicode_READY(op)                        \
-    (assert(PyUnicode_Check(op)),                       \
-     (PyUnicode_IS_READY(op) ?                          \
-      0 : _PyUnicode_Ready((PyObject *)(op))))
-
-/* 
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_READY(op) PyUnicode_READY(_PyObject_CAST(op))
-#endif
-*/
-
-/* --- Legacy deprecated API ---------------------------------------------- */
-
-/* Return a read-only pointer to the Unicode object's internal
-   Py_UNICODE buffer.
-   If the wchar_t/Py_UNICODE representation is not yet available, this
-   function will calculate it. */
-Py_DEPRECATED(3.3) PyAPI_FUNC(Py_UNICODE *) PyUnicode_AsUnicode(
-    PyObject *unicode           /* Unicode object */
-    );
-
-
-/* Fast access macros */
-
-Py_DEPRECATED(3.3)
-static inline Py_ssize_t PyUnicode_WSTR_LENGTH(PyObject *op)
+/* For backward compatibility. PyPy's unicode objects are always in their
+   canonical representation once they exist, so this always succeeds. */
+static inline int PyUnicode_READY(PyObject* Py_UNUSED(op))
 {
-    if (PyUnicode_IS_COMPACT_ASCII(op)) {
-        return _PyASCIIObject_CAST(op)->length;
-    }
-    else {
-        return _PyCompactUnicodeObject_CAST(op)->wstr_length;
-    }
+    return 0;
 }
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_WSTR_LENGTH(op) PyUnicode_WSTR_LENGTH(_PyObject_CAST(op))
-#endif
-
-/* Returns the deprecated Py_UNICODE representation's size in code units
-   (this includes surrogate pairs as 2 units).
-   If the Py_UNICODE representation is not available, it will be computed
-   on request.  Use PyUnicode_GET_LENGTH() for the length in code points. */
-
-Py_DEPRECATED(3.3)
-static inline Py_ssize_t PyUnicode_GET_SIZE(PyObject *op)
-{
-    _Py_COMP_DIAG_PUSH
-    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-    if (_PyASCIIObject_CAST(op)->wstr == _Py_NULL) {
-        (void)PyUnicode_AsUnicode(op);
-        assert(_PyASCIIObject_CAST(op)->wstr != _Py_NULL);
-    }
-    return PyUnicode_WSTR_LENGTH(op);
-    _Py_COMP_DIAG_POP
-}
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_GET_SIZE(op) PyUnicode_GET_SIZE(_PyObject_CAST(op))
-#endif
-
-Py_DEPRECATED(3.3)
-static inline Py_ssize_t PyUnicode_GET_DATA_SIZE(PyObject *op)
-{
-    _Py_COMP_DIAG_PUSH
-    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-    return PyUnicode_GET_SIZE(op) * Py_UNICODE_SIZE;
-    _Py_COMP_DIAG_POP
-}
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_GET_DATA_SIZE(op) PyUnicode_GET_DATA_SIZE(_PyObject_CAST(op))
-#endif
-
-/* Alias for PyUnicode_AsUnicode().  This will create a wchar_t/Py_UNICODE
-   representation on demand.  Using this macro is very inefficient now,
-   try to port your code to use the new PyUnicode_*BYTE_DATA() macros or
-   use PyUnicode_WRITE() and PyUnicode_READ(). */
-
-Py_DEPRECATED(3.3)
-static inline Py_UNICODE* PyUnicode_AS_UNICODE(PyObject *op)
-{
-    wchar_t *wstr = _PyASCIIObject_CAST(op)->wstr;
-    if (wstr != _Py_NULL) {
-        return wstr;
-    }
-
-    _Py_COMP_DIAG_PUSH
-    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-    return PyUnicode_AsUnicode(op);
-    _Py_COMP_DIAG_POP
-}
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_AS_UNICODE(op) PyUnicode_AS_UNICODE(_PyObject_CAST(op))
-#endif
-
-Py_DEPRECATED(3.3)
-static inline const char* PyUnicode_AS_DATA(PyObject *op)
-{
-    _Py_COMP_DIAG_PUSH
-    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-    Py_UNICODE *data = PyUnicode_AS_UNICODE(op);
-    // In C++, casting directly PyUnicode* to const char* is not valid
-    return _Py_STATIC_CAST(const char*, _Py_STATIC_CAST(const void*, data));
-    _Py_COMP_DIAG_POP
-}
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
-#  define PyUnicode_AS_DATA(op) PyUnicode_AS_DATA(_PyObject_CAST(op))
-#endif
+#define PyUnicode_READY(op) PyUnicode_READY(_PyObject_CAST(op))
 
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03030000
 /* Get the length of the Unicode object. */
@@ -511,13 +396,6 @@ PyAPI_FUNC(int) _PyUnicode_IsLinebreak(
     );
 
 /* end of cpython/unicodeobject.h, back to ./unicodeobject.h */
-
-/* Get the number of Py_UNICODE units in the
-   string representation. */
-
-Py_DEPRECATED(3.3) PyAPI_FUNC(Py_ssize_t) PyUnicode_GetSize(
-    PyObject *unicode           /* Unicode object */
-    );
 
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(
     const char *format,   /* ASCII-encoded string  */

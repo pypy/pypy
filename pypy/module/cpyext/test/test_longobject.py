@@ -331,13 +331,20 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("from_unicode", "METH_O",
              """
-                 _Py_COMP_DIAG_PUSH
-                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-                 Py_UNICODE* u = PyUnicode_AsUnicode(args);
-                 _Py_COMP_DIAG_POP
-                 return Py_BuildValue("NN",
+                 Py_ssize_t size = PyUnicode_GetLength(args);
+                 wchar_t *u = PyMem_Malloc((size + 1) * sizeof(wchar_t));
+                 PyObject *result;
+                 if (u == NULL)
+                     return PyErr_NoMemory();
+                 if (PyUnicode_AsWideChar(args, u, size + 1) < 0) {
+                     PyMem_Free(u);
+                     return NULL;
+                 }
+                 result = Py_BuildValue("NN",
                      PyLong_FromUnicode(u, 6, 10),
                      PyLong_FromUnicode(u, 6, 16));
+                 PyMem_Free(u);
+                 return result;
              """),
             ])
         # A string with arabic digits. 'BAD' is after the 6th character.
