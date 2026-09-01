@@ -376,6 +376,15 @@ class TestReaderInColor(ScreenEqualMixin, TestCase):
         reader, _ = handle_all_events(code_to_events(code))
         self.assert_screen_equal(reader, expected)
 
+    def test_syntax_highlighting_incomplete_string_another_line(self):
+        code = 'def unfinished(\n    arg: str = "still typing'
+        expected = (
+            '{k}def{z} {d}unfinished{z}{o}({z}\n'
+            '    arg{o}:{z} {b}str{z} {o}={z} {s}"still typing{z}'
+        ).format(**_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)
+
     def test_syntax_highlighting_incomplete_multiline_string(self):
         code = "def f():\n    '''Still writing\n    the docstring"
         expected = (
@@ -418,10 +427,21 @@ class TestReaderInColor(ScreenEqualMixin, TestCase):
         self.assert_screen_equal(reader, expected)
 
     def test_syntax_highlighting_literal_braces_in_fstrings(self):
-        code = 'f"{{"\nf"}}"\nf"{{{0}}}"\nf"{ {0} }"'
+        code = (
+            'f"{{"\n'
+            'f"}}"\n'
+            'f"a{{b"\n'
+            'f"a}}b"\n'
+            'f"a{{b}}c"\n'
+            'f"{{{0}}}"\n'
+            'f"{ {0} }"'
+        )
         expected = (
             '{s}f"{z}{s}<<{z}{s}"{z}\n'
             '{s}f"{z}{s}>>{z}{s}"{z}\n'
+            '{s}f"{z}{s}a<<{z}{s}b{z}{s}"{z}\n'
+            '{s}f"{z}{s}a>>{z}{s}b{z}{s}"{z}\n'
+            '{s}f"{z}{s}a<<{z}{s}b>>{z}{s}c{z}{s}"{z}\n'
             '{s}f"{z}{s}<<{z}{o}<{z}{n}0{z}{o}>{z}{s}>>{z}{s}"{z}\n'
             '{s}f"{z}{o}<{z} {o}<{z}{n}0{z}{o}>{z} {o}>{z}{s}"{z}'
         ).format(**_syntax_colors).replace("<", "{").replace(">", "}")

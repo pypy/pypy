@@ -80,3 +80,27 @@ class TestUtils(TestCase):
                     for color in gen_colors(code)
                 ]
                 self.assertEqual(actual, expected)
+
+    def test_soft_keyword_after_multiline_case(self):
+        code = "match value:\n    case (\n        1\n    ):\n        pass\n    case 2:"
+        highlighted_cases = [
+            (code[color.span.start:color.span.end + 1], color.tag)
+            for color in gen_colors(code)
+            if code[color.span.start:color.span.end + 1] == "case"
+        ]
+        self.assertEqual(
+            highlighted_cases,
+            [("case", "SOFT_KEYWORD"), ("case", "SOFT_KEYWORD")],
+        )
+
+    def test_type_soft_keyword_and_builtin(self):
+        code = "type type = type[type]"
+        highlighted_types = [
+            color.tag
+            for color in gen_colors(code)
+            if code[color.span.start:color.span.end + 1] == "type"
+        ]
+        self.assertEqual(
+            highlighted_types,
+            ["SOFT_KEYWORD", "BUILTIN", "BUILTIN", "BUILTIN"],
+        )
