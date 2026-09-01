@@ -1,13 +1,24 @@
 import itertools
 import functools
 import rlcompleter
+from textwrap import dedent
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from .support import handle_all_events, handle_events_narrow_console, code_to_events, prepare_reader
-from test.support import import_helper
+from .support import (ScreenEqualMixin, handle_all_events,
+                      handle_events_narrow_console, code_to_events,
+                      prepare_reader)
+from test.support import cpython_only, force_colorized_test_class, import_helper
 from pyrepl.console import Event
 from pyrepl.reader import Reader
+from _colorize import theme
+
+
+_overrides = {"RESET": "z", "SOFT_KEYWORD": "K"}
+_syntax_colors = {
+    _overrides.get(name, name[0].lower()): value
+    for name, value in theme.items()
+}
 
 
 class TestReader(TestCase):
@@ -313,3 +324,88 @@ class TestReader(TestCase):
         reader, _ = handle_all_events(events, prepare_reader=completing_reader)
 
         self.assert_screen_equals(reader, f"{code}a")
+
+
+@force_colorized_test_class
+class TestReaderInColor(ScreenEqualMixin, TestCase):
+    def test_syntax_highlighting_basic(self):
+        code = dedent("""\
+            import re, sys
+            def funct(case: str = sys.platform) -> None:
+                match case:
+                    case "web": print("online")
+                    case _: print('other', len(case))
+            type Alias = list[int]
+            """)
+        expected = dedent("""\
+            {k}import{z} re{o},{z} sys
+            {k}def{z} {d}funct{z}{o}({z}case{o}:{z} {b}str{z} {o}={z} sys{o}.{z}platform{o}){z} {o}->{z} {k}None{z}{o}:{z}
+                {K}match{z} case{o}:{z}
+                    {K}case{z} {s}"web"{z}{o}:{z} {b}print{z}{o}({z}{s}"online"{z}{o}){z}
+                    {K}case{z} {K}_{z}{o}:{z} {b}print{z}{o}({z}{s}'other'{z}{o},{z} {b}len{z}{o}({z}case{o}){z}{o}){z}
+            {K}type{z} Alias {o}={z} {b}list{z}{o}[{z}{b}int{z}{o}]{z}
+            """).format(**_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, code, clean=True)
+        self.assert_screen_equal(reader, expected)
+
+    def test_syntax_highlighting_incomplete_string_first_line(self):
+        code = 'def unfinished(arg: str = "still typing'
+        expected = (
+            '{k}def{z} {d}unfinished{z}{o}({z}arg{o}:{z} {b}str{z} '
+            '{o}={z} {s}"still typing{z}'
+        ).format(**_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)
+
+    def test_syntax_highlighting_incomplete_multiline_string(self):
+        code = "def f():\n    '''Still writing\n    the docstring"
+        expected = (
+            "{k}def{z} {d}f{z}{o}({z}{o}){z}{o}:{z}\n"
+            "    {s}'''Still writing{z}\n"
+            "{s}    the docstring{z}"
+        ).format(**_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)
+
+    @cpython_only
+    def test_syntax_highlighting_incomplete_fstring(self):
+        code = dedent("""\
+            def unfinished_function():
+                var = f"Single-quote but {
+                1
+                +
+                1
+                } multi-line!
+            """)
+        expected = dedent("""\
+            {k}def{z} {d}unfinished_function{z}{o}({z}{o}){z}{o}:{z}
+                var {o}={z} {s}f"{z}{s}Single-quote but {z}{o}{OB}{z}
+                {n}1{z}
+                {o}+{z}
+                {n}1{z}
+                {o}{CB}{z}{s} multi-line!{z}
+            """).format(OB="{", CB="}", **_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)
+
+    def test_syntax_highlighting_indentation_error(self):
+        code = "def f():\n    value = 1\n   oops"
+        expected = (
+            "{k}def{z} {d}f{z}{o}({z}{o}){z}{o}:{z}\n"
+            "    value {o}={z} {n}1{z}\n"
+            "   oops"
+        ).format(**_syntax_colors)
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)
+
+    def test_syntax_highlighting_literal_braces_in_fstrings(self):
+        code = 'f"{{"\nf"}}"\nf"{{{0}}}"\nf"{ {0} }"'
+        expected = (
+            '{s}f"{z}{s}<<{z}{s}"{z}\n'
+            '{s}f"{z}{s}>>{z}{s}"{z}\n'
+            '{s}f"{z}{s}<<{z}{o}<{z}{n}0{z}{o}>{z}{s}>>{z}{s}"{z}\n'
+            '{s}f"{z}{o}<{z} {o}<{z}{n}0{z}{o}>{z} {o}>{z}{s}"{z}'
+        ).format(**_syntax_colors).replace("<", "{").replace(">", "}")
+        reader, _ = handle_all_events(code_to_events(code))
+        self.assert_screen_equal(reader, expected)

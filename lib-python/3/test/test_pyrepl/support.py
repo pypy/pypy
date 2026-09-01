@@ -7,6 +7,15 @@ from unittest.mock import MagicMock
 from pyrepl.console import Console, Event
 from pyrepl.readline import ReadlineAlikeReader, ReadlineConfig
 from pyrepl.simple_interact import _strip_final_indent
+from pyrepl.utils import ANSI_ESCAPE_SEQUENCE
+
+
+class ScreenEqualMixin:
+    def assert_screen_equal(self, reader, expected, clean=False):
+        actual = reader.screen
+        if clean:
+            actual = [ANSI_ESCAPE_SEQUENCE.sub("", line) for line in actual]
+        self.assertListEqual(actual, expected.split("\n"))
 
 
 def multiline_input(reader: ReadlineAlikeReader, namespace: dict | None = None):

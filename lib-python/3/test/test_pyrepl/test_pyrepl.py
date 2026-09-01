@@ -1311,6 +1311,10 @@ class TestMain(ReplTestCase):
                         self.assertIn("in x3", output)
                         self.assertIn("in <module>", output)
 
+    # This regression test and its ``value.lineno is not None`` fix were
+    # introduced in CPython 3.13.  PyPy's Python 3.12 code.py does not include
+    # that later maintenance fix yet.
+    @skipIf(is_pypy, "requires the CPython 3.13 null-byte code.py fix")
     def test_null_byte(self):
         output, exit_code = self.run_repl("\x00\nexit()\n")
         self.assertEqual(exit_code, 0)

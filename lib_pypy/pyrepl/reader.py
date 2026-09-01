@@ -26,11 +26,11 @@ import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 import unicodedata
-from _colorize import can_colorize, ANSIColors  # type: ignore[import-not-found]
+import _colorize  # type: ignore[import-not-found]
 
 
 from . import commands, console, input
-from .utils import ANSI_ESCAPE_SEQUENCE, wlen, str_width
+from .utils import ANSI_ESCAPE_SEQUENCE, gen_colors, str_width
 from .trace import trace
 
 
@@ -40,34 +40,49 @@ if False:
     from .types import Callback, SimpleContextManager, KeySpec, CommandName
 
 
-def disp_str(buffer: str) -> tuple[str, list[int]]:
+def disp_str(buffer: str, colors=None, start_index=0) -> tuple[list[str], list[int]]:
     """disp_str(buffer:string) -> (string, [int])
 
     Return the string that should be the printed representation of
     |buffer| and a list detailing where the characters of |buffer|
     get used up.  E.g.:
 
-    >>> disp_str(chr(3))
-    ('^C', [1, 0])
+    The strings in the first result correspond one-to-one with source
+    characters. ANSI styling is attached to those strings and therefore does
+    not affect cursor positions or wrapping.
 
     """
     b: list[int] = []
     s: list[str] = []
-    for c in buffer:
+    while colors and colors[0].span.end < start_index:
+        colors.pop(0)
+    pre_color = ""
+    if colors and colors[0].span.start < start_index:
+        pre_color = _colorize.theme[colors[0].tag]
+    for i, c in enumerate(buffer, start_index):
+        if colors and colors[0].span.start == i:
+            pre_color = _colorize.theme[colors[0].tag]
         if c == '\x1a':
-            s.append(c)
+            rendered = c
             b.append(2)
         elif ord(c) < 128:
-            s.append(c)
+            rendered = c
             b.append(1)
         elif unicodedata.category(c).startswith("C"):
-            c = r"\u%04x" % ord(c)
-            s.append(c)
-            b.extend([0] * (len(c) - 1))
+            rendered = r"\u%04x" % ord(c)
+            b.append(len(rendered))
         else:
-            s.append(c)
+            rendered = c
             b.append(str_width(c))
-    return "".join(s), b
+        post_color = ""
+        if colors and colors[0].span.end == i:
+            post_color = _colorize.theme["RESET"]
+            colors.pop(0)
+        s.append(pre_color + rendered + post_color)
+        pre_color = ""
+    if buffer and colors and colors[0].span.start < i < colors[0].span.end:
+        s[-1] += _colorize.theme["RESET"]
+    return s, b
 
 
 # syntax classes:
@@ -309,7 +324,7 @@ class Reader:
         self.screeninfo = [(0, [])]
         self.cxy = self.pos2xy()
         self.lxy = (self.pos, 0)
-        self.can_colorize = can_colorize()
+        self.can_colorize = _colorize.can_colorize()
 
         self.last_refresh_cache.screeninfo = self.screeninfo
         self.last_refresh_cache.pos = self.pos
@@ -347,6 +362,7 @@ class Reader:
 
         prompt_from_cache = (offset and self.buffer[offset - 1] != "\n")
 
+        colors = list(gen_colors(self.get_unicode())) if self.can_colorize else None
         lines = "".join(self.buffer[offset:]).split("\n")
 
         cursor_found = False
@@ -375,16 +391,16 @@ class Reader:
                 screeninfo.append((0, []))
             pos -= ll + 1
             prompt, lp = self.process_prompt(prompt)
-            l, l2 = disp_str(line)
-            wrapcount = (wlen(l) + lp) // self.console.width
+            chars, l2 = disp_str(line, colors, offset)
+            wrapcount = (sum(l2) + lp) // self.console.width
             if wrapcount == 0:
                 offset += ll + 1  # Takes all of the line plus the newline
                 last_refresh_line_end_offsets.append(offset)
-                screen.append(prompt + l)
+                screen.append(prompt + "".join(chars))
                 screeninfo.append((lp, l2))
             else:
                 i = 0
-                while l:
+                while chars:
                     prelen = lp if i == 0 else 0
                     index_to_wrap_before = 0
                     column = 0
@@ -394,7 +410,7 @@ class Reader:
                         index_to_wrap_before += 1
                         column += character_width
                     pre = prompt if i == 0 else ""
-                    if len(l) > index_to_wrap_before:
+                    if len(chars) > index_to_wrap_before:
                         offset += index_to_wrap_before
                         post = "\\"
                         after = [1]
@@ -403,9 +419,9 @@ class Reader:
                         post = ""
                         after = []
                     last_refresh_line_end_offsets.append(offset)
-                    screen.append(pre + l[:index_to_wrap_before] + post)
+                    screen.append(pre + "".join(chars[:index_to_wrap_before]) + post)
                     screeninfo.append((prelen, l2[:index_to_wrap_before] + after))
-                    l = l[index_to_wrap_before:]
+                    chars = chars[index_to_wrap_before:]
                     l2 = l2[index_to_wrap_before:]
                     i += 1
         self.screeninfo = screeninfo
@@ -548,7 +564,7 @@ class Reader:
             prompt = self.ps1
 
         if self.can_colorize:
-            prompt = f"{ANSIColors.BOLD_MAGENTA}{prompt}{ANSIColors.RESET}"
+            prompt = f"{_colorize.theme['PROMPT']}{prompt}{_colorize.theme['RESET']}"
         return prompt
 
     def push_input_trans(self, itrans: input.KeymapTranslator) -> None:

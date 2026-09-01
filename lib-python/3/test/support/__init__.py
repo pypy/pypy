@@ -59,6 +59,11 @@ __all__ = [
     "LOOPBACK_TIMEOUT", "INTERNET_TIMEOUT", "SHORT_TIMEOUT", "LONG_TIMEOUT",
     "Py_DEBUG", "EXCEEDS_RECURSION_LIMIT", "C_RECURSION_LIMIT",
     "skip_on_s390x",
+    "force_not_colorized",
+    "force_colorized",
+    "force_colorized_test_class",
+    "force_not_colorized_test_class",
+    "initialized_with_pyrepl",
     "BrokenIter",
     ]
 
@@ -1352,6 +1357,79 @@ def swap_attr(obj, attr, new_val):
         finally:
             if hasattr(obj, attr):
                 delattr(obj, attr)
+
+
+# PyPy-specific compatibility backport from the post-3.12 test.support.
+#
+# PyPy vendors a newer version of CPython's pyrepl and its tests on top of the
+# Python 3.12 standard library.  Those newer tests use force_not_colorized(),
+# which was added to CPython's test.support after 3.12.  Keep the helper here,
+# rather than modifying the imported tests, so they stay close to their
+# upstream versions and can reliably suppress ANSI escapes in exact-output
+# assertions.
+@contextlib.contextmanager
+def _force_color(color):
+    import _colorize
+    from .os_helper import EnvironmentVarGuard
+
+    with (
+        swap_attr(_colorize, "can_colorize", lambda: color),
+        EnvironmentVarGuard() as env,
+    ):
+        env.unset("FORCE_COLOR", "NO_COLOR", "PYTHON_COLORS")
+        env.set("FORCE_COLOR" if color else "NO_COLOR", "1")
+        yield
+
+
+def force_not_colorized(func):
+    """Force colorization off while running a test."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with _force_color(False):
+            return func(*args, **kwargs)
+    return wrapper
+
+
+def force_colorized(func):
+    """Force colorization on while running a test."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        with _force_color(True):
+            return func(*args, **kwargs)
+    return wrapper
+
+
+def _force_colorized_test_class(cls, color):
+    original_setUpClass = cls.setUpClass
+
+    @classmethod
+    @functools.wraps(cls.setUpClass)
+    def new_setUpClass(cls):
+        cls.enterClassContext(_force_color(color))
+        original_setUpClass()
+
+    cls.setUpClass = new_setUpClass
+    return cls
+
+
+def force_colorized_test_class(cls):
+    """Force colorization on for an entire test class."""
+    return _force_colorized_test_class(cls, True)
+
+
+def force_not_colorized_test_class(cls):
+    """Force colorization off for an entire test class."""
+    return _force_colorized_test_class(cls, False)
+
+
+def initialized_with_pyrepl():
+    """Detect whether pyrepl was used during Python initialization."""
+    # The newer upstream test uses the implementation detail that CPython's
+    # pyrepl startup makes __main__ a Python module with a __file__.  On PyPy
+    # this remains false, which is the expected result asserted by the ported
+    # test.
+    return hasattr(sys.modules["__main__"], "__file__")
+# End PyPy-specific compatibility backport.
 
 @contextlib.contextmanager
 def swap_item(obj, item, new_val):
