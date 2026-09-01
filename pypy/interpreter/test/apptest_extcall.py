@@ -46,7 +46,7 @@ def test_non_function_callable_uses_repr():
     assert str(exc_info.value).startswith('None argument after **')
 
 
-def test_id_takes_no_keyword_arguments():
+def test_list_takes_no_keyword_arguments():
     with pytest.raises(TypeError) as exc_info:
-        id(1, **{'foo': 1})
-    assert 'takes no keyword arguments' in str(exc_info.value)
+        list(**{'foo': 1})
+    assert str(exc_info.value) == "list() takes no keyword arguments"
