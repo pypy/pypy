@@ -20,6 +20,11 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
+from pypy.interpreter.pymonitoring import (
+    dispatch_global_event, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
+    RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
+    should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK,
+    should_fire_local, dispatch_code_event, JUMP, BRANCH)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -149,6 +154,28 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
+        # RAISE: a fresh exception just escaped a bytecode op (attach_tb
+        # True means this came via the plain 'except OperationError'
+        # branch in handle_bytecode, i.e. not a RERAISE-family opcode).
+        # RERAISE: this dispatch was triggered by RERAISE / a bare
+        # 'raise' with no arguments (attach_tb=False, reraise_lasti set),
+        # mirroring CPython's split between the generic 'error:' label
+        # (monitor_raise) and RERAISE's own goto exception_unwind
+        # (monitor_reraise) in Python/ceval.c. FOR_ITER's ordinary
+        # StopIteration-on-exhaustion never reaches here (it's caught
+        # inline in FOR_ITER itself), so this can't misfire RAISE for
+        # that case.
+        if attach_tb:
+            if should_fire(self.space, RAISE):
+                dispatch_global_event(
+                    self.space, RAISE, self.pycode, intmask(self.last_instr),
+                    operr.normalize_exception(self.space))
+        else:
+            if should_fire(self.space, RERAISE):
+                dispatch_global_event(
+                    self.space, RERAISE, self.pycode, intmask(self.last_instr),
+                    operr.normalize_exception(self.space))
+
         entry = self.getcode().lookup_exceptiontable(self.last_instr)
         target, depth, lasti = entry
         if depth >= 0:
@@ -171,6 +198,10 @@ class __extend__(pyframe.PyFrame):
                 self.pushvalue(self.space.newint(lasti_value))
             w_exc = operr.normalize_exception(self.space)
             self.pushvalue(w_exc)
+            if should_fire(self.space, EXCEPTION_HANDLED):
+                dispatch_global_event(
+                    self.space, EXCEPTION_HANDLED, self.pycode,
+                    intmask(target), w_exc)
             return target
 
         # No exception table entry: propagate out of the frame.
@@ -182,6 +213,10 @@ class __extend__(pyframe.PyFrame):
         if reraise_lasti >= 0:
             self.last_instr = reraise_lasti
         self.frame_finished_execution = True  # allows frame.clear() after propagation
+        if should_fire(self.space, PY_UNWIND):
+            dispatch_global_event(
+                self.space, PY_UNWIND, self.pycode, intmask(self.last_instr),
+                operr.normalize_exception(self.space))
         if we_are_translated():
             raise operr
         else:
@@ -193,11 +228,23 @@ class __extend__(pyframe.PyFrame):
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
 
+    def _monitor_branch(self, event_id, destination):
+        space = self.space
+        pycode = self.getcode()
+        if should_fire_local(space, pycode, event_id):
+            w_destination = space.newint(intmask(destination))
+            dispatch_code_event(
+                space, event_id, pycode, intmask(self.last_instr),
+                w_destination)
+
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
             assert next_instr & 1 == 0
             self.last_instr = intmask(next_instr)
+            pycode = self.getcode()
+            if should_fire_local_any(ec.space, pycode, LOCAL_LINE_INSTRUCTION_MASK):
+                self._monitor_line_and_instruction(pycode)
             if jit.we_are_jitted():
                 _d = self.debugdata
                 if ec.space.reverse_debugging or (
@@ -237,6 +284,10 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
+                if should_fire_local(ec.space, pycode, PY_RETURN):
+                    dispatch_code_event(
+                        ec.space, PY_RETURN, pycode, intmask(self.last_instr),
+                        self.peekvalue())
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.RETURN_CONST.index:
@@ -244,7 +295,9 @@ class __extend__(pyframe.PyFrame):
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
-                return self.jump_absolute(oparg, next_instr, ec)
+                dest = self.jump_absolute(oparg, next_instr, ec)
+                self._monitor_branch(JUMP, dest)
+                return dest
             elif opcode == opcodedesc.RERAISE.index:
                 return self.RERAISE(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
@@ -1169,10 +1222,10 @@ class __extend__(pyframe.PyFrame):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
         res = self.cmp_exc_match(w_1, w_2)
-        if res:
-            return next_instr
-        else:
-            return target * 2
+        if not res:
+            next_instr = target * 2
+        self._monitor_branch(BRANCH, next_instr)
+        return next_instr
 
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
@@ -1257,6 +1310,11 @@ class __extend__(pyframe.PyFrame):
             w_value = self.popvalue()
             w_value = AsyncGenValueWrapper(w_value)
             self.pushvalue(w_value)
+        code = self.getcode()
+        if should_fire_local(self.space, code, PY_YIELD):
+            dispatch_code_event(
+                self.space, PY_YIELD, code, intmask(self.last_instr),
+                self.peekvalue())
         raise Yield
 
     def next_yield_from(self, w_yf, w_inputvalue_or_err):
@@ -1280,9 +1338,14 @@ class __extend__(pyframe.PyFrame):
             if not e.match(space, space.w_StopIteration):
                 raise
             self._report_stopiteration_sometimes(w_yf, e)
+            w_exc = e.normalize_exception(space)
+            code = self.getcode()
+            if should_fire_local(space, code, STOP_ITERATION):
+                dispatch_code_event(
+                    space, STOP_ITERATION, code, intmask(self.last_instr),
+                    w_exc)
             try:
-                w_stop_value = space.getattr(e.get_w_value(space),
-                                             space.newtext("value"))
+                w_stop_value = space.getattr(w_exc, space.newtext("value"))
             except OperationError as e:
                 if not e.match(space, space.w_AttributeError):
                     raise
@@ -1323,44 +1386,53 @@ class __extend__(pyframe.PyFrame):
 
     def JUMP_FORWARD(self, jumpby, next_instr):
         next_instr += jumpby * 2
+        self._monitor_branch(JUMP, next_instr)
         return next_instr
 
     def POP_JUMP_IF_FALSE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_IF_TRUE(self, target, next_instr, ec):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_FORWARD_IF_NONE(self, jumpby, next_instr):
         w_value = self.popvalue()
         if self.space.is_w(w_value, self.space.w_None):
             next_instr += jumpby * 2
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def POP_JUMP_FORWARD_IF_NOT_NONE(self, jumpby, next_instr):
         w_value = self.popvalue()
         if not self.space.is_w(w_value, self.space.w_None):
             next_instr += jumpby * 2
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
-        self.popvalue()
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        else:
+            self.popvalue()
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def JUMP_IF_TRUE_OR_POP(self, target, next_instr, ec):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
-            return self.jump_absolute(target, next_instr, ec)
-        self.popvalue()
+            next_instr = self.jump_absolute(target, next_instr, ec)
+        else:
+            self.popvalue()
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def GET_ITER(self, oparg, next_instr):
@@ -1377,10 +1449,19 @@ class __extend__(pyframe.PyFrame):
                 raise
             # iterator exhausted
             self._report_stopiteration_sometimes(w_iterator, e)
+            from pypy.interpreter.generator import GeneratorOrCoroutine
+            if isinstance(w_iterator, GeneratorOrCoroutine):
+                code = self.getcode()
+                if should_fire_local(self.space, code, STOP_ITERATION):
+                    dispatch_code_event(
+                        self.space, STOP_ITERATION, code,
+                        intmask(self.last_instr),
+                        e.normalize_exception(self.space))
             self.popvalue()
             next_instr += jumpby * 2
         else:
             self.pushvalue(w_nextitem)
+        self._monitor_branch(BRANCH, next_instr)
         return next_instr
 
     def _report_stopiteration_sometimes(self, w_iterator, operr):
@@ -1487,11 +1568,7 @@ class __extend__(pyframe.PyFrame):
         w_function  = self.popvalue()
         args = self.argument_factory(arguments, keyword_names_w, keywords_w, None, None,
                                      w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
+        w_result = self._call_args_monitored(w_function, args)
         self.pushvalue(w_result)
 
     def CALL_FUNCTION_EX(self, has_kwarg, next_instr):
@@ -1502,12 +1579,31 @@ class __extend__(pyframe.PyFrame):
         w_function = self.popvalue()
         args = self.argument_factory(
             [], None, None, w_star=w_args, w_starstar=w_kwargs, w_function=w_function)
-        if self.get_is_being_profiled() and function.is_builtin_code(w_function):
-            w_result = self.space.call_args_and_c_profile(self, w_function,
-                                                          args)
-        else:
-            w_result = self.space.call_args(w_function, args)
+        w_result = self._call_args_monitored(w_function, args)
         self.pushvalue(w_result)
+
+    def _call_args_monitored(self, w_function, args):
+        # Shared by CALL_FUNCTION_KW/CALL_FUNCTION_EX: fire CALL
+        # unconditionally (any callable), then route C callables through
+        # call_args_and_c_profile if legacy profiling or C_RETURN/C_RAISE
+        # monitoring wants to see the C_RETURN/C_RAISE pair.
+        from pypy.interpreter.pymonitoring import (
+            should_fire_local, dispatch_code_event, w_missing, CALL)
+        code = self.getcode()
+        call_wants_events = should_fire_local(self.space, code, CALL)
+        if call_wants_events:
+            w_arg0 = args.firstarg()
+            if w_arg0 is None:
+                w_arg0 = w_missing(self.space)
+            dispatch_code_event(
+                self.space, CALL, code, intmask(self.last_instr),
+                w_function, w_arg0)
+        needs_c_wrap = (
+            (self.get_is_being_profiled() and function.is_builtin_code(w_function)) or
+            (call_wants_events and not function.is_python_function(w_function)))
+        if needs_c_wrap:
+            return self.space.call_args_and_c_profile(self, w_function, args)
+        return self.space.call_args(w_function, args)
 
     @jit.unroll_safe
     def MAKE_FUNCTION(self, oparg, next_instr):

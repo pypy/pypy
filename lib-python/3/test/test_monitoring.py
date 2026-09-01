@@ -20,7 +20,7 @@ def f1():
 
 def f2():
     len([])
-    sys.getsizeof(0)
+    abs(0)  # PyPy: sys.getsizeof(0) always raises TypeError, unrelated to monitoring
 
 def floop():
     for item in PAIR:
@@ -220,6 +220,14 @@ nested_call.events = [
     "return",
 ]
 
+if sys.implementation.name == 'pypy':
+    # PyPy emits an explicit JUMP_FORWARD to skip the inline exception
+    # table handler, CPython puts it out-of-line
+    just_pass.events = just_pass.events + ["jump"]
+    just_call.events = just_call.events + ["jump"]
+    caught.events = caught.events + ["jump"]
+    nested_call.events = nested_call.events + ["jump"]
+
 PY_CALLABLES = (types.FunctionType, types.MethodType)
 
 class MonitoringEventsBase(MonitoringTestBase):
@@ -279,6 +287,10 @@ DOWN_EVENTS = (E.PY_START, E.PY_RESUME)
 
 from test.profilee import testfunc
 
+@unittest.skipIf(sys.implementation.name == 'pypy',
+    "PyPy: list.append etc. expose as method/function, not "
+    "builtin_function_or_method (cpython_differences.rst 'method-types'), "
+    "so PY_CALLABLES misclassifies them as Python calls")
 class SimulateProfileTest(MonitoringEventsBase, unittest.TestCase):
 
     def test_balanced(self):
@@ -533,7 +545,8 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             start = LineMonitoringTest.test_lines_single.__code__.co_firstlineno
-            self.assertEqual(events, [start+7, 16, start+8])
+            f1_line = f1.__code__.co_firstlineno + 1
+            self.assertEqual(events, [start+7, f1_line, start+8])
         finally:
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
@@ -551,7 +564,10 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             start = LineMonitoringTest.test_lines_loop.__code__.co_firstlineno
-            self.assertEqual(events, [start+7, 23, 24, 23, 24, 23, start+8])
+            for_line = floop.__code__.co_firstlineno + 1
+            pass_line = for_line + 1
+            self.assertEqual(events,
+                [start+7, for_line, pass_line, for_line, pass_line, for_line, start+8])
         finally:
             sys.monitoring.set_events(TEST_TOOL, 0)
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
@@ -573,7 +589,8 @@ class LineMonitoringTest(MonitoringTestBase, unittest.TestCase):
             sys.monitoring.register_callback(TEST_TOOL, E.LINE, None)
             sys.monitoring.register_callback(TEST_TOOL2, E.LINE, None)
             start = LineMonitoringTest.test_lines_two.__code__.co_firstlineno
-            expected = [start+10, 16, start+11]
+            f1_line = f1.__code__.co_firstlineno + 1
+            expected = [start+10, f1_line, start+11]
             self.assertEqual(events, expected)
             self.assertEqual(events2, expected)
         finally:
@@ -1064,19 +1081,37 @@ class TestLineAndInstructionEvents(CheckEvents):
             line2 = 2
             line3 = 3
 
-        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = [
-            ('line', 'get_events', 10),
-            ('line', 'func1', 1),
-            ('instruction', 'func1', 2),
-            ('instruction', 'func1', 4),
-            ('line', 'func1', 2),
-            ('instruction', 'func1', 6),
-            ('instruction', 'func1', 8),
-            ('line', 'func1', 3),
-            ('instruction', 'func1', 10),
-            ('instruction', 'func1', 12),
-            ('instruction', 'func1', 14),
-            ('line', 'get_events', 11)])
+        if sys.implementation.name == 'pypy':
+            # no RESUME opcode, no RETURN_CONST fusion
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func1', 1),
+                ('instruction', 'func1', 0),
+                ('instruction', 'func1', 2),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 4),
+                ('instruction', 'func1', 6),
+                ('line', 'func1', 3),
+                ('instruction', 'func1', 8),
+                ('instruction', 'func1', 10),
+                ('instruction', 'func1', 12),
+                ('instruction', 'func1', 14),
+                ('line', 'get_events', 11)]
+        else:
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func1', 1),
+                ('instruction', 'func1', 2),
+                ('instruction', 'func1', 4),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 6),
+                ('instruction', 'func1', 8),
+                ('line', 'func1', 3),
+                ('instruction', 'func1', 10),
+                ('instruction', 'func1', 12),
+                ('instruction', 'func1', 14),
+                ('line', 'get_events', 11)]
+        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = expected)
 
     def test_c_call(self):
 
@@ -1085,22 +1120,43 @@ class TestLineAndInstructionEvents(CheckEvents):
             [].append(2)
             line3 = 3
 
-        self.check_events(func2, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = [
-            ('line', 'get_events', 10),
-            ('line', 'func2', 1),
-            ('instruction', 'func2', 2),
-            ('instruction', 'func2', 4),
-            ('line', 'func2', 2),
-            ('instruction', 'func2', 6),
-            ('instruction', 'func2', 8),
-            ('instruction', 'func2', 28),
-            ('instruction', 'func2', 30),
-            ('instruction', 'func2', 38),
-            ('line', 'func2', 3),
-            ('instruction', 'func2', 40),
-            ('instruction', 'func2', 42),
-            ('instruction', 'func2', 44),
-            ('line', 'get_events', 11)])
+        if sys.implementation.name == 'pypy':
+            # no RESUME opcode, no inline-cache padding, no RETURN_CONST
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func2', 1),
+                ('instruction', 'func2', 0),
+                ('instruction', 'func2', 2),
+                ('line', 'func2', 2),
+                ('instruction', 'func2', 4),
+                ('instruction', 'func2', 6),
+                ('instruction', 'func2', 8),
+                ('instruction', 'func2', 10),
+                ('instruction', 'func2', 12),
+                ('line', 'func2', 3),
+                ('instruction', 'func2', 14),
+                ('instruction', 'func2', 16),
+                ('instruction', 'func2', 18),
+                ('instruction', 'func2', 20),
+                ('line', 'get_events', 11)]
+        else:
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func2', 1),
+                ('instruction', 'func2', 2),
+                ('instruction', 'func2', 4),
+                ('line', 'func2', 2),
+                ('instruction', 'func2', 6),
+                ('instruction', 'func2', 8),
+                ('instruction', 'func2', 28),
+                ('instruction', 'func2', 30),
+                ('instruction', 'func2', 38),
+                ('line', 'func2', 3),
+                ('instruction', 'func2', 40),
+                ('instruction', 'func2', 42),
+                ('instruction', 'func2', 44),
+                ('line', 'get_events', 11)]
+        self.check_events(func2, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = expected)
 
     def test_try_except(self):
 
@@ -1112,28 +1168,56 @@ class TestLineAndInstructionEvents(CheckEvents):
                 line = 5
             line = 6
 
-        self.check_events(func3, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = [
-            ('line', 'get_events', 10),
-            ('line', 'func3', 1),
-            ('instruction', 'func3', 2),
-            ('line', 'func3', 2),
-            ('instruction', 'func3', 4),
-            ('instruction', 'func3', 6),
-            ('line', 'func3', 3),
-            ('instruction', 'func3', 8),
-            ('instruction', 'func3', 18),
-            ('instruction', 'func3', 20),
-            ('line', 'func3', 4),
-            ('instruction', 'func3', 22),
-            ('line', 'func3', 5),
-            ('instruction', 'func3', 24),
-            ('instruction', 'func3', 26),
-            ('instruction', 'func3', 28),
-            ('line', 'func3', 6),
-            ('instruction', 'func3', 30),
-            ('instruction', 'func3', 32),
-            ('instruction', 'func3', 34),
-            ('line', 'get_events', 11)])
+        if sys.implementation.name == 'pypy':
+            # no RESUME opcode, no RETURN_CONST, extra except-cleanup instr
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func3', 1),
+                ('instruction', 'func3', 0),
+                ('line', 'func3', 2),
+                ('instruction', 'func3', 2),
+                ('instruction', 'func3', 4),
+                ('line', 'func3', 3),
+                ('instruction', 'func3', 6),
+                ('instruction', 'func3', 8),
+                ('instruction', 'func3', 10),
+                ('line', 'func3', 4),
+                ('instruction', 'func3', 12),
+                ('line', 'func3', 5),
+                ('instruction', 'func3', 14),
+                ('instruction', 'func3', 16),
+                ('instruction', 'func3', 18),
+                ('instruction', 'func3', 20),
+                ('line', 'func3', 6),
+                ('instruction', 'func3', 30),
+                ('instruction', 'func3', 32),
+                ('instruction', 'func3', 34),
+                ('instruction', 'func3', 36),
+                ('line', 'get_events', 11)]
+        else:
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func3', 1),
+                ('instruction', 'func3', 2),
+                ('line', 'func3', 2),
+                ('instruction', 'func3', 4),
+                ('instruction', 'func3', 6),
+                ('line', 'func3', 3),
+                ('instruction', 'func3', 8),
+                ('instruction', 'func3', 18),
+                ('instruction', 'func3', 20),
+                ('line', 'func3', 4),
+                ('instruction', 'func3', 22),
+                ('line', 'func3', 5),
+                ('instruction', 'func3', 24),
+                ('instruction', 'func3', 26),
+                ('instruction', 'func3', 28),
+                ('line', 'func3', 6),
+                ('instruction', 'func3', 30),
+                ('instruction', 'func3', 32),
+                ('instruction', 'func3', 34),
+                ('line', 'get_events', 11)]
+        self.check_events(func3, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = expected)
 
     def test_with_restart(self):
         def func1():
@@ -1141,35 +1225,42 @@ class TestLineAndInstructionEvents(CheckEvents):
             line2 = 2
             line3 = 3
 
-        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = [
-            ('line', 'get_events', 10),
-            ('line', 'func1', 1),
-            ('instruction', 'func1', 2),
-            ('instruction', 'func1', 4),
-            ('line', 'func1', 2),
-            ('instruction', 'func1', 6),
-            ('instruction', 'func1', 8),
-            ('line', 'func1', 3),
-            ('instruction', 'func1', 10),
-            ('instruction', 'func1', 12),
-            ('instruction', 'func1', 14),
-            ('line', 'get_events', 11)])
+        if sys.implementation.name == 'pypy':
+            # no RESUME opcode, no RETURN_CONST fusion
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func1', 1),
+                ('instruction', 'func1', 0),
+                ('instruction', 'func1', 2),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 4),
+                ('instruction', 'func1', 6),
+                ('line', 'func1', 3),
+                ('instruction', 'func1', 8),
+                ('instruction', 'func1', 10),
+                ('instruction', 'func1', 12),
+                ('instruction', 'func1', 14),
+                ('line', 'get_events', 11)]
+        else:
+            expected = [
+                ('line', 'get_events', 10),
+                ('line', 'func1', 1),
+                ('instruction', 'func1', 2),
+                ('instruction', 'func1', 4),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 6),
+                ('instruction', 'func1', 8),
+                ('line', 'func1', 3),
+                ('instruction', 'func1', 10),
+                ('instruction', 'func1', 12),
+                ('instruction', 'func1', 14),
+                ('line', 'get_events', 11)]
+
+        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = expected)
 
         sys.monitoring.restart_events()
 
-        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = [
-            ('line', 'get_events', 10),
-            ('line', 'func1', 1),
-            ('instruction', 'func1', 2),
-            ('instruction', 'func1', 4),
-            ('line', 'func1', 2),
-            ('instruction', 'func1', 6),
-            ('instruction', 'func1', 8),
-            ('line', 'func1', 3),
-            ('instruction', 'func1', 10),
-            ('instruction', 'func1', 12),
-            ('instruction', 'func1', 14),
-            ('line', 'get_events', 11)])
+        self.check_events(func1, recorders = LINE_AND_INSTRUCTION_RECORDERS, expected = expected)
 
 class TestInstallIncrementally(MonitoringTestBase, unittest.TestCase):
 
@@ -1218,12 +1309,21 @@ class TestInstallIncrementally(MonitoringTestBase, unittest.TestCase):
     def func2():
         len(())
 
-    MUST_INCLUDE_CI = [
-            ('instruction', 'func2', 2),
-            ('call', 'func2', sys.monitoring.MISSING),
-            ('call', 'len', ()),
-            ('instruction', 'func2', 12),
-            ('instruction', 'func2', 14)]
+    if sys.implementation.name == 'pypy':
+        # no inline-cache padding words
+        MUST_INCLUDE_CI = [
+                ('instruction', 'func2', 2),
+                ('call', 'func2', sys.monitoring.MISSING),
+                ('call', 'len', ()),
+                ('instruction', 'func2', 6),
+                ('instruction', 'func2', 8)]
+    else:
+        MUST_INCLUDE_CI = [
+                ('instruction', 'func2', 2),
+                ('call', 'func2', sys.monitoring.MISSING),
+                ('call', 'len', ()),
+                ('instruction', 'func2', 12),
+                ('instruction', 'func2', 14)]
 
 
 
@@ -1409,7 +1509,7 @@ class TestBranchAndJumpEvents(CheckEvents):
                 pass
 
 
-        self.check_events(func, recorders = JUMP_BRANCH_AND_LINE_RECORDERS, expected = [
+        pre_try = [
             ('line', 'get_events', 10),
             ('line', 'func', 1),
             ('line', 'func', 2),
@@ -1418,12 +1518,27 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('branch', 'func', 4, 4),
             ('line', 'func', 5),
             ('line', 'meth', 1),
-            ('jump', 'func', 5, 5),
-            ('jump', 'func', 5, '[offset=114]'),
-            ('branch', 'func', '[offset=120]', '[offset=122]'),
-            ('line', 'get_events', 11)])
+        ]
+        post_try = [
+            ('line', 'get_events', 11),
+        ]
+        if sys.implementation.name == 'pypy':
+            # PyPy emits an explicit JUMP_FORWARD to skip the inline
+            # exception table handler, CPython puts it out-of-line
+            expected = pre_try + [
+                ('jump', 'func', 5, 4),
+                ('line', 'func', 4),
+                ('branch', 'func', 4, 4),
+            ] + post_try
+        else:
+            expected = pre_try + [
+                ('jump', 'func', 5, 5),
+                ('jump', 'func', 5, '[offset=114]'),
+                ('branch', 'func', '[offset=120]', '[offset=122]'),
+            ] + post_try
+        self.check_events(func, recorders = JUMP_BRANCH_AND_LINE_RECORDERS, expected = expected)
 
-        self.check_events(func, recorders = FLOW_AND_LINE_RECORDERS, expected = [
+        pre_try = [
             ('line', 'get_events', 10),
             ('line', 'func', 1),
             ('line', 'func', 2),
@@ -1434,12 +1549,28 @@ class TestBranchAndJumpEvents(CheckEvents):
             ('line', 'func', 5),
             ('line', 'meth', 1),
             ('return', None),
-            ('jump', 'func', 5, 5),
-            ('jump', 'func', 5, '[offset=114]'),
-            ('branch', 'func', '[offset=120]', '[offset=122]'),
+        ]
+        post_try = [
             ('return', None),
-            ('line', 'get_events', 11)])
+            ('line', 'get_events', 11),
+        ]
+        if sys.implementation.name == 'pypy':
+            # PyPy emits an explicit JUMP_FORWARD to skip the inline
+            # exception table handler, CPython puts it out-of-line
+            expected = pre_try + [
+                ('jump', 'func', 5, 4),
+                ('line', 'func', 4),
+                ('branch', 'func', 4, 4),
+            ] + post_try
+        else:
+            expected = pre_try + [
+                ('jump', 'func', 5, 5),
+                ('jump', 'func', 5, '[offset=114]'),
+                ('branch', 'func', '[offset=120]', '[offset=122]'),
+            ] + post_try
+        self.check_events(func, recorders = FLOW_AND_LINE_RECORDERS, expected = expected)
 
+@unittest.skip("PyPy: no LOAD_SUPER_ATTR opcode, super() compiles via plain CALL")
 class TestLoadSuperAttr(CheckEvents):
     RECORDERS = CallRecorder, LineRecorder, CRaiseRecorder, CReturnRecorder
 

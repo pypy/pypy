@@ -320,7 +320,7 @@ class ExecutionContext(object):
         self.profilefunc = func
         self.w_profilefuncarg = w_arg
 
-    def force_all_frames(self, is_being_profiled=False):
+    def force_all_frames(self, is_being_profiled=False, seed_monitor_line=False):
         # "Force" all frames in the sense of the jit, and optionally
         # set the flag 'is_being_profiled' on them.  A forced frame is
         # one out of which the jit will exit: if it is running so far,
@@ -329,10 +329,19 @@ class ExecutionContext(object):
         # GUARD_NOT_FORCED operation, and so fall back to interpreted
         # execution.  (We get this effect simply by reading the f_back
         # field of all frames, during the loop below.)
+        #
+        # seed_monitor_line avoids a spurious LINE event for the line a
+        # frame is already midway through when monitoring turns on.
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
                 frame.getorcreatedebug().is_being_profiled = True
+            if seed_monitor_line:
+                lineno = frame.getcode()._get_lineno_for_pc_tracing(frame.last_instr)
+                if lineno != -1:
+                    d = frame.getorcreatedebug()
+                    d.monitor_last_line = lineno
+                    d.monitor_instr_prev_plus_one = frame.last_instr + 1
             frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):

@@ -746,9 +746,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             next_block = block.next_block
             if (next_block and not block.cant_add_instructions and
                     next_block.marked == 1 and next_block.instructions):
-                next_first_op = next_block.instructions[0]
-                if next_first_op.is_setup_pseudo_code(next_first_op.opcode):
-                    next_block.instructions[0].update_position_if_not_set(prev_position)
+                next_block.instructions[0].update_position_if_not_set(prev_position)
 
     def guarantee_lineno_for_exits(self, blocks):
         # CPython equivalent: guarantee_lineno_for_exits (compile.c).

@@ -103,7 +103,8 @@ class PyCode(eval.Code):
                           "co_linetable",
                           "co_exceptiontable",
                           "w_globals?",
-                          "cell_families[*]"]
+                          "cell_families[*]",
+                          "monitoring_state?"]
 
     def __init__(self, space,  argcount, posonlyargcount, kwonlyargcount,
                      nlocals, stacksize, flags,
@@ -155,6 +156,62 @@ class PyCode(eval.Code):
         self.new_code_hook()
 
         self._linelist = None # lazily initialized list of line numbers
+
+        # Allocated lazily if local events or DISABLE are used for this code.
+        self.monitoring_state = None
+
+    def _get_or_create_monitoring_state(self):
+        state = self.monitoring_state
+        if state is None:
+            from pypy.interpreter.pymonitoring import CodeMonitoringState
+            state = self.monitoring_state = CodeMonitoringState()
+        return state
+
+    def monitoring_get_local_events(self, tool_id):
+        state = self.monitoring_state
+        if state is None:
+            return 0
+        per_tool = state.local_events
+        if per_tool is None:
+            return 0
+        return per_tool[tool_id]
+
+    def monitoring_get_local_flags(self):
+        state = self.monitoring_state
+        if state is None:
+            return 0
+        return state.local_flags
+
+    def monitoring_set_local_events(self, tool_id, event_set):
+        from pypy.interpreter.pymonitoring import NUM_TOOLS
+        state = self.monitoring_state
+        if state is None:
+            if event_set == 0:
+                return
+            state = self._get_or_create_monitoring_state()
+        per_tool = state.local_events
+        if per_tool is None:
+            if event_set == 0:
+                return
+            per_tool = state.local_events = [0] * NUM_TOOLS
+        elif per_tool[tool_id] == event_set:
+            return
+        per_tool[tool_id] = event_set
+        new_flags = 0
+        for i in range(len(per_tool)):
+            new_flags |= per_tool[i]
+        state.local_flags = new_flags
+        state.changed()
+
+    def monitoring_disable(self, tool_id, offset, event_id):
+        state = self._get_or_create_monitoring_state()
+        state.disable(tool_id, offset, event_id, len(self.co_code) >> 1)
+
+    def monitoring_restart_events(self):
+        state = self.monitoring_state
+        if state is not None and state.disabled is not None:
+            state.disabled = None
+            state.changed()
 
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:
@@ -751,4 +808,3 @@ def _convert_const(space, w_a):
         return space.newfrozenset(elements_w)
     # use id for the rest
     return space.id(w_a)
-

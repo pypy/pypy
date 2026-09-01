@@ -19,6 +19,11 @@ from pypy.interpreter.error import (
     OperationError, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.pymonitoring import (
+    dispatch_global_event, PY_START, PY_RESUME, PY_THROW,
+    FRAME_ENTRY_EVENTS, should_fire_local, should_fire_local_any,
+    dispatch_code_event, dispatch_line_event,
+    LINE, INSTRUCTION)
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
@@ -45,6 +50,8 @@ class FrameDebugData(object):
     f_trace_opcodes          = False
     w_locals                 = None
     hidden_operationerr      = None
+    monitor_last_line        = -1     # separate from f_lineno: sys.monitoring's
+    monitor_instr_prev_plus_one = 0   # LINE tracking is independent of settrace's
 
     def __init__(self, pycode, init_lineno=-1):
         self.f_lineno = init_lineno
@@ -315,6 +322,41 @@ class PyFrame(W_Root):
         else:
             return r_uint(0)
 
+    def _monitor_frame_entry(self, w_arg_or_err):
+        from pypy.interpreter.pyopcode import SApplicationException
+        w_code = self.pycode
+        if w_arg_or_err is None:
+            dispatch_code_event(self.space, PY_START, w_code, 0)
+        elif isinstance(w_arg_or_err, SApplicationException):
+            w_exc = w_arg_or_err.operr.normalize_exception(self.space)
+            dispatch_global_event(
+                self.space, PY_THROW, w_code, intmask(self.last_instr) + 2,
+                w_exc)
+        elif self.last_instr == -1:
+            dispatch_code_event(self.space, PY_START, w_code, 0)
+        else:
+            dispatch_code_event(self.space, PY_RESUME, w_code,
+                                intmask(self.last_instr) + 2)
+
+    def _monitor_line_and_instruction(self, pycode):
+        # Only called once should_fire_local_any(LINE|INSTRUCTION) already
+        # said something's watching this code; deliberately independent
+        # of settrace's own d.f_lineno/instr_prev_plus_one (see
+        # sys.monitoring.md section 5: keep the two mechanisms separate).
+        space = self.space
+        last_instr = intmask(self.last_instr)
+        if should_fire_local(space, pycode, LINE):
+            lineno = pycode._get_lineno_for_pc_tracing(last_instr)
+            if lineno != -1:
+                d = self.getorcreatedebug()
+                if (lineno != d.monitor_last_line or
+                        last_instr < d.monitor_instr_prev_plus_one):
+                    dispatch_line_event(space, pycode, last_instr, lineno)
+                d.monitor_last_line = lineno
+                d.monitor_instr_prev_plus_one = last_instr + 1
+        if should_fire_local(space, pycode, INSTRUCTION):
+            dispatch_code_event(space, INSTRUCTION, pycode, last_instr)
+
     def execute_frame(self, w_arg_or_err=None):
         """Execute this frame.  Main entry point to the interpreter.
         'w_arg_or_err' is non-None iff we are starting or resuming
@@ -333,6 +375,8 @@ class PyFrame(W_Root):
         w_exitvalue = self.space.w_None
         try:
             executioncontext.call_trace(self)
+            if should_fire_local_any(self.space, self.getcode(), FRAME_ENTRY_EVENTS):
+                self._monitor_frame_entry(w_arg_or_err)
             #
             # Execution starts just after the last_instr.  Initially,
             # last_instr is -1.  After a generator suspends it points to
@@ -1095,5 +1139,3 @@ def _get_arg(code, addr):
         if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
             raise ValueError("fix me please!")
     return oparg
-
-
