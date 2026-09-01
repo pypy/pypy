@@ -1,9 +1,38 @@
 from unittest import TestCase
 
-from pyrepl.utils import gen_colors, prev_next_window
+from pyrepl.utils import gen_colors, prev_next_window, str_width, wlen
 
 
 class TestUtils(TestCase):
+    def test_str_width(self):
+        for character in [
+            "a", "1", "_", "!", "\x1a", "\u263a", "\uffb9",
+            "é", "\N{LATIN SMALL LETTER E WITH CEDILLA}", "\u00ad",
+        ]:
+            with self.subTest(character=character):
+                self.assertEqual(str_width(character), 1)
+
+        for character in [
+            "\N{COMBINING ACUTE ACCENT}",
+            "\N{ZERO WIDTH JOINER}",
+        ]:
+            with self.subTest(character=character):
+                self.assertEqual(str_width(character), 0)
+
+        for character in [chr(99989), chr(99999)]:
+            self.assertEqual(str_width(character), 2)
+
+    def test_wlen(self):
+        for character in ["a", "b", "1", "!", "_"]:
+            self.assertEqual(wlen(character), 1)
+        self.assertEqual(wlen("\x1a"), 2)
+        self.assertEqual(wlen(chr(3800)), 1)
+        self.assertEqual(wlen(chr(4352)), 2)
+        self.assertEqual(wlen("hello"), 5)
+        self.assertEqual(wlen("hello\x1a"), 7)
+        self.assertEqual(wlen("e\N{COMBINING ACUTE ACCENT}"), 1)
+        self.assertEqual(wlen("a\N{ZERO WIDTH JOINER}b"), 2)
+
     def test_prev_next_window(self):
         expected = [
             (None, 1, 2),

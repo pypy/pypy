@@ -5,11 +5,16 @@ import re
 import token as T
 import tokenize
 import unicodedata
+import _colorize  # type: ignore[import-not-found]
 
 from io import StringIO
 from typing import Iterator, NamedTuple
 
+from .types import CharBuffer, CharWidths
+
 ANSI_ESCAPE_SEQUENCE = re.compile(r"\x1b\[[ -@]*[A-~]")
+ZERO_WIDTH_BRACKET = re.compile(r"\x01.*?\x02")
+ZERO_WIDTH_TRANS = str.maketrans({"\x01": "", "\x02": ""})
 IDENTIFIERS_AFTER = {"def", "class"}
 KEYWORD_CONSTANTS = {"True", "False", "None"}
 BUILTINS = {str(name) for name in dir(builtins) if not name.startswith("_")}
@@ -168,6 +173,11 @@ def prev_next_window(iterable):
 def str_width(c: str) -> int:
     if ord(c) < 128:
         return 1
+    if unicodedata.combining(c):
+        return 0
+    category = unicodedata.category(c)
+    if category == "Cf" and c != "\u00ad":
+        return 0
     w = unicodedata.east_asian_width(c)
     if w in ('N', 'Na', 'H', 'A'):
         return 1
@@ -175,9 +185,58 @@ def str_width(c: str) -> int:
 
 
 def wlen(s: str) -> int:
-    if len(s) == 1:
+    if len(s) == 1 and s != "\x1a":
         return str_width(s)
     length = sum(str_width(i) for i in s)
     # remove lengths of any escape sequences
     sequence = ANSI_ESCAPE_SEQUENCE.findall(s)
-    return length - sum(len(i) for i in sequence)
+    return length - sum(len(i) for i in sequence) + s.count("\x1a")
+
+
+def unbracket(s: str, including_content: bool = False) -> str:
+    if including_content:
+        return ZERO_WIDTH_BRACKET.sub("", s)
+    return s.translate(ZERO_WIDTH_TRANS)
+
+
+def disp_str(
+    buffer: str, colors: list[ColorSpan] | None = None, start_index: int = 0
+) -> tuple[CharBuffer, CharWidths]:
+    """Convert source into one rendered cell and display width per character."""
+    chars: CharBuffer = []
+    char_widths: CharWidths = []
+    if not buffer:
+        return chars, char_widths
+
+    while colors and colors[0].span.end < start_index:
+        colors.pop(0)
+    pre_color = ""
+    if colors and colors[0].span.start < start_index:
+        pre_color = _colorize.theme[colors[0].tag]
+
+    for i, c in enumerate(buffer, start_index):
+        if colors and colors[0].span.start == i:
+            pre_color = _colorize.theme[colors[0].tag]
+        if c == "\x1a":
+            rendered = c
+            char_widths.append(2)
+        elif ord(c) < 128:
+            rendered = c
+            char_widths.append(1)
+        elif unicodedata.category(c).startswith("C"):
+            rendered = r"\u%04x" % ord(c)
+            char_widths.append(len(rendered))
+        else:
+            rendered = c
+            char_widths.append(str_width(c))
+
+        post_color = ""
+        if colors and colors[0].span.end == i:
+            post_color = _colorize.theme["RESET"]
+            colors.pop(0)
+        chars.append(pre_color + rendered + post_color)
+        pre_color = ""
+
+    if colors and colors[0].span.start < i < colors[0].span.end:
+        chars[-1] += _colorize.theme["RESET"]
+    return chars, char_widths

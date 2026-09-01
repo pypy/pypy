@@ -1,5 +1,5 @@
-from pyrepl.reader import Reader, disp_str
-from pyrepl.utils import gen_colors
+from pyrepl.reader import Reader
+from pyrepl.utils import disp_str, gen_colors
 
 
 def highlighted_parts(source):
