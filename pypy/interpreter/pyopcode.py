@@ -2222,9 +2222,16 @@ def exception_group_match(space, w_eg, w_typ):
         w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
         return w_wrapped, space.w_None
     elif space.isinstance_w(w_eg, w_BaseExceptionGroup):
-        w_tup = space.call_method(w_eg, 'split', w_typ)
-        w_match, w_rest = space.unpackiterable(w_tup, 2)
-        return w_match, w_rest
+        w_pair = space.call_method(w_eg, 'split', w_typ)
+        if not space.is_w(space.type(w_pair), space.w_tuple):
+            raise oefmt(space.w_TypeError,
+                        "%T.split must return a tuple, not %T", w_eg, w_pair)
+        items_w = space.fixedview(w_pair)
+        if len(items_w) < 2:
+            raise oefmt(space.w_TypeError,
+                        "%T.split must return a 2-tuple, got tuple of size %d",
+                        w_eg, len(items_w))
+        return items_w[0], items_w[1]
     else:
         return space.w_None, space.w_None
 

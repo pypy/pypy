@@ -49,21 +49,26 @@ class TestInvalidExceptStar(unittest.TestCase):
 
 
 class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
+    # PYPY: msg varies by failure
     MSG = (r"'break', 'continue' and 'return'"
            r" cannot appear in an except\* block")
 
-    def check_invalid(self, src):
-        with self.assertRaisesRegex(SyntaxError, self.MSG):
+    def check_invalid(self, src, msg):
+        with self.assertRaisesRegex(SyntaxError, msg):
             compile(textwrap.dedent(src), "<string>", "exec")
 
     def test_break_in_except_star(self):
+        if sys.implementation.name == 'pypy':
+            msg = r"'break' cannot appear in an except\* block"
+        else:
+            msg = self.msg
         self.check_invalid(
             """
             try:
                 raise ValueError
             except* Exception as e:
                 break
-            """)
+            """, msg)
 
         self.check_invalid(
             """
@@ -73,7 +78,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                 except* Exception as e:
                     if i == 2:
                         break
-            """)
+            """, msg)
 
         self.check_invalid(
             """
@@ -85,10 +90,14 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                         break
                 finally:
                     return 0
-            """)
+            """, msg)
 
 
     def test_continue_in_except_star_block_invalid(self):
+        if sys.implementation.name == 'pypy':
+            msg = r"'continue' cannot appear in an except\* block"
+        else:
+            msg = self.msg
         self.check_invalid(
             """
             for i in range(5):
@@ -96,7 +105,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     raise ValueError
                 except* Exception as e:
                     continue
-            """)
+            """, msg)
 
         self.check_invalid(
             """
@@ -106,7 +115,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                 except* Exception as e:
                     if i == 2:
                         continue
-            """)
+            """, msg)
 
         self.check_invalid(
             """
@@ -118,9 +127,13 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                         continue
                 finally:
                     return 0
-            """)
+            """, msg)
 
     def test_return_in_except_star_block_invalid(self):
+        if sys.implementation.name == 'pypy':
+            msg = r"'return' cannot appear in an except\* block"
+        else:
+            msg = self.msg
         self.check_invalid(
             """
             def f():
@@ -128,7 +141,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     raise ValueError
                 except* Exception as e:
                     return 42
-            """)
+            """, msg)
 
         self.check_invalid(
             """
@@ -139,7 +152,7 @@ class TestBreakContinueReturnInExceptStarBlock(unittest.TestCase):
                     return 42
                 finally:
                     finished = True
-            """)
+            """, msg)
 
     def test_break_continue_in_except_star_block_valid(self):
         try:

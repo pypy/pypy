@@ -37,10 +37,13 @@ def subgroup(self, condition):
     exceptions = []
     for exc in self.exceptions:
         if isinstance(exc, BaseExceptionGroup):
-            subgroup = exc.subgroup(condition)
-            if subgroup is not None:
-                exceptions.append(subgroup)
-            if subgroup is not exc:
+            # recurse via the plain function, not exc.subgroup(), so that a
+            # subclass overriding subgroup() cannot affect this internal
+            # structural recursion
+            sub = subgroup(exc, condition)
+            if sub is not None:
+                exceptions.append(sub)
+            if sub is not exc:
                 modified = True
         elif condition(exc):
             exceptions.append(exc)
@@ -65,7 +68,10 @@ def split(self, condition):
     nonmatching_exceptions = []
     for exc in self.exceptions:
         if isinstance(exc, BaseExceptionGroup):
-            matching, nonmatching = exc.split(condition)
+            # recurse via the plain function, not exc.split(), so that a
+            # subclass overriding split() cannot affect this internal
+            # structural recursion
+            matching, nonmatching = split(exc, condition)
             if matching is not None:
                 matching_exceptions.append(matching)
             if nonmatching is not None:
@@ -152,8 +158,10 @@ def _exception_group_projection(eg, keep_list):
     for keep in keep_list:
         _collect_eg_leafs(keep, resultset)
 
+    # call the plain function, not eg.split(), so a subclass overriding
+    # split() cannot affect this internal reraise bookkeeping
     # TODO: maybe don't construct rest eg
-    split_match, _ = eg.split(lambda element: element in resultset)
+    split_match, _ = split(eg, lambda element: element in resultset)
 
     return split_match
 

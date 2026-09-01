@@ -552,6 +552,52 @@ def test_deep_subgroup():
     with pytest.raises(RecursionError):
         e.subgroup(TypeError)
 
+def test_except_star_bad_split_func():
+    class BadEG1(ExceptionGroup):
+        def split(self, *args):
+            return "NOT A 2-TUPLE!"
+
+    class BadEG2(ExceptionGroup):
+        def split(self, *args):
+            return ("NOT A 2-TUPLE!",)
+
+    with pytest.raises(TypeError, match=r"split must return a tuple, not str"):
+        try:
+            raise BadEG1("eg", [OSError(123), ValueError(456)])
+        except* ValueError:
+            pass
+        except* OSError:
+            pass
+
+    with pytest.raises(TypeError, match=r"split must return a 2-tuple, got tuple of size 1"):
+        try:
+            raise BadEG2("eg", [OSError(123), ValueError(456)])
+        except* ValueError:
+            pass
+        except* OSError:
+            pass
+
+def test_except_star_weird_split_tuple_len_gt_2():
+    # we allow tuples of length > 2 for backwards compatibility
+    class WeirdEG(ExceptionGroup):
+        def split(self, *args):
+            return super().split(*args) + ("anything", 123456, None)
+
+    try:
+        raise WeirdEG("eg", [OSError(123), ValueError(456)])
+    except* OSError as e:
+        oeg = e
+    except* ValueError as e:
+        veg = e
+
+    assert oeg.message == "eg"
+    assert [type(e) for e in oeg.exceptions] == [OSError]
+    assert oeg.exceptions[0].args == (123,)
+
+    assert veg.message == "eg"
+    assert [type(e) for e in veg.exceptions] == [ValueError]
+    assert veg.exceptions[0].args == (456,)
+
 def test_subgroup_copies_cause_etc():
     e = ExceptionGroup("23", [TypeError(), ValueError()])
     e.__notes__ = ['hello']
