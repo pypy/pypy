@@ -2,7 +2,6 @@ import contextlib
 import os
 import sys
 import textwrap
-import tracemalloc
 import unittest
 from unittest.mock import patch
 from test.support.script_helper import (assert_python_ok, assert_python_failure,
@@ -15,6 +14,11 @@ try:
     import _testcapi
 except ImportError:
     _testcapi = None
+
+try:
+    import tracemalloc
+except ImportError:
+    raise unittest.SkipTest("tracemalloc is required")
 
 
 DEFAULT_DOMAIN = 0
