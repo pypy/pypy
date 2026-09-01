@@ -1055,6 +1055,66 @@ class TestPasteEvent(TestCase):
         self.assertEqual(output, input_code)
 
 
+class TestPyReplCtrlD(TestCase):
+    """Test Ctrl+D behavior in pyrepl to match the traditional REPL."""
+
+    def prepare_reader(self, events):
+        console = FakeConsole(events)
+        config = ReadlineConfig(readline_completer=None)
+        return ReadlineAlikeReader(console=console, config=config)
+
+    def test_ctrl_d_empty_line(self):
+        events = [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))]
+        reader = self.prepare_reader(events)
+        with self.assertRaises(EOFError):
+            multiline_input(reader)
+
+    def test_ctrl_d_multiline_with_new_line(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    pass\n"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertTrue(reader.finished)
+        self.assertEqual("def f():\n    pass\n", "".join(reader.buffer))
+
+    def test_ctrl_d_multiline_middle_of_line(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    hello world"),
+            [Event(evt="key", data="left", raw=bytearray(b"\x1bOD"))] * 5,
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertFalse(reader.finished)
+        self.assertEqual("def f():\n    hello orld", "".join(reader.buffer))
+
+    def test_ctrl_d_multiline_end_of_line_no_newline(self):
+        events = itertools.chain(
+            code_to_events("def f():\n    hello"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertFalse(reader.finished)
+        self.assertEqual("def f():\n    hello", "".join(reader.buffer))
+
+    def test_ctrl_d_single_line_middle_of_line(self):
+        events = itertools.chain(
+            code_to_events("hello"),
+            [Event(evt="key", data="left", raw=bytearray(b"\x1bOD"))],
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertEqual("hell", "".join(reader.buffer))
+
+    def test_ctrl_d_single_line_end_no_newline(self):
+        events = itertools.chain(
+            code_to_events("hello"),
+            [Event(evt="key", data="\x04", raw=bytearray(b"\x04"))],
+        )
+        reader, _ = handle_all_events(events)
+        self.assertEqual("hello", "".join(reader.buffer))
+
+
 @skipUnless(pty, "requires pty")
 class TestDumbTerminal(ReplTestCase):
     @skipIf(is_pypy, "pypy errors differently")

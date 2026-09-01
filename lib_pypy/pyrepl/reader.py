@@ -84,7 +84,7 @@ default_keymap: tuple[tuple[KeySpec, CommandName], ...] = tuple(
         (r"\C-w", "unix-word-rubout"),
         (r"\C-x\C-u", "upcase-region"),
         (r"\C-y", "yank"),
-        (r"\C-z", "suspend"), 
+        *(() if sys.platform == "win32" else ((r"\C-z", "suspend"), )),
         (r"\M-b", "backward-word"),
         (r"\M-c", "capitalize-word"),
         (r"\M-d", "kill-word"),
@@ -119,6 +119,7 @@ default_keymap: tuple[tuple[KeySpec, CommandName], ...] = tuple(
         (r"\<right>", "right"),
         (r"\C-\<right>", "forward-word"),
         (r"\<delete>", "delete"),
+        (r"\x1b[3~", "delete"),
         (r"\<backspace>", "backspace"),
         (r"\M-\<backspace>", "backward-kill-word"),
         (r"\<end>", "end-of-line"),  # was 'end'
