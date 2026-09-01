@@ -269,6 +269,15 @@ translation_optiondescription = OptionDescription(
 
     BoolOption("split_gc_address_space",
                "Ensure full separation of GC and non-GC pointers", default=False),
+    BoolOption("rawrefcount_link_prefix",
+               "Store cpyext's rawrefcount ob_pypy_link in a hidden prefix word "
+               "before ob_refcnt, instead of as a regular PyObject header field. "
+               "Needed so PyObject's visible layout matches CPython's {ob_refcnt, "
+               "ob_type} exactly (abi3 wheel loading); must only be set by a "
+               "target whose cpyext allocator actually reserves that prefix word "
+               "(see pypy/module/cpyext/src/object.c _generic_alloc) -- turning "
+               "it on otherwise corrupts memory on every PyObject allocation.",
+               default=False),
     BoolOption("reverse_debugger",
                "Give an executable that writes a log file for reverse debugging",
                default=False, cmdline='--revdb',

@@ -1250,14 +1250,18 @@ def attach_c_functions(space, eci, prefix):
         [rffi.VOIDP], lltype.Void,
         compilation_info=eci,
         _nowrapper=True)
+    # prefix-aware object free (subtracts the hidden ob_pypy_link prefix); the default
+    # tp_free for cpyext objects, and the remap target for a spec's PyObject_Free
+    state.C.PyObject_GC_Del = rffi.llexternal(
+        mangle_name(prefix, 'PyObject_GC_Del'),
+        [rffi.VOIDP], lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True)
     state.C.PyType_GenericAlloc = rffi.llexternal(
         mangle_name(prefix, 'PyType_GenericAlloc'),
         [PyTypeObjectPtr, Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
-    state.C._PyPy_int_dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_int_dealloc'), [PyObject], lltype.Void,
-        compilation_info=eci, _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
         mangle_name(prefix, 'PyTuple_New'),
         [Py_ssize_t], PyObject,
@@ -1515,12 +1519,15 @@ class StaticObjectBuilder(object):
     def attach_all(self, space):
         # this is RPython, called once in pypy-c when it imports cpyext
         from pypy.module.cpyext.typeobject import finish_type_1, finish_type_2
-        from pypy.module.cpyext.pyobject import track_reference
+        from pypy.module.cpyext.pyobject import track_static_reference
         #
         static_pyobjs = self.get_static_pyobjs()
         static_objs_w = self.static_objs_w
+        # Static objects are immortal and exempt from the ob_pypy_link prefix: they
+        # are mapped out-of-band (constant tables + _Py_IMMORTAL_REFCNT) rather
+        # than rawrefcount-linked.  See rawrefcount.rst.
         for i in range(len(static_objs_w)):
-            track_reference(space, static_pyobjs[i], static_objs_w[i])
+            track_static_reference(space, static_pyobjs[i], static_objs_w[i])
         #
         self.cpyext_type_init = []
         attached_objs = []

@@ -63,7 +63,7 @@ Environment variables can be used to fine-tune the following parameters:
 import sys
 import os
 import time
-from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup
+from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, llgroup, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.llmemory import raw_malloc_usage
 from rpython.memory.gc.base import GCBase, MovingGCBase
@@ -296,6 +296,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                  **kwds):
         "NOT_RPYTHON"
         MovingGCBase.__init__(self, config, **kwds)
+        self._setup_rawrefcount_pyobj_hdr(config)
         assert small_request_threshold % WORD == 0
         self.read_from_env = read_from_env
         self.nursery_size = nursery_size
@@ -3162,14 +3163,49 @@ class IncrementalMiniMarkGC(MovingGCBase):
     rrc_enabled = False
 
     _ADDRARRAY = lltype.Array(llmemory.Address, hints={'nolength': True})
-    PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
-                              ('ob_refcnt', lltype.Signed),
-                              ('ob_pypy_link', lltype.Signed))
-    PYOBJ_HDR_PTR = lltype.Ptr(PYOBJ_HDR)
     RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
+    def _setup_rawrefcount_pyobj_hdr(self, config):
+        "NOT_RPYTHON"
+        # ob_pypy_link storage: cpyext builds that need the visible PyObject header
+        # to match CPython's {ob_refcnt, ob_type} exactly (abi3 wheel loading) move
+        # the link to a hidden prefix word immediately *before* ob_refcnt, like
+        # PyGC_HEAD; their cpyext allocator reserves that word. Builds that don't
+        # need abi3 compatibility keep the link inline as a regular header field,
+        # as PyPy has always done -- their allocator never reserves a prefix word,
+        # so turning this on without the matching cpyext change corrupts memory
+        # before every allocation.
+        #
+        # translation.rawrefcount_link_prefix is the single source of truth for
+        # this choice; it is False everywhere except where a target explicitly
+        # opts in (see pypy/goal/targetpypystandalone.py, set for the py3.12/abi3
+        # build). rpython.rlib.rawrefcount.RRC_LINK_PREFIX mirrors this value for
+        # its untranslated (test-only) equivalents and must be kept in sync by hand.
+        self.rrc_link_prefix = getattr(config, 'rawrefcount_link_prefix', False)
+        if self.rrc_link_prefix:
+            self.PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                           ('ob_pypy_link', lltype.Signed),
+                                           ('ob_refcnt', lltype.Signed))
+        else:
+            self.PYOBJ_HDR = lltype.Struct('GCHdr_PyObject',
+                                           ('ob_refcnt', lltype.Signed),
+                                           ('ob_pypy_link', lltype.Signed))
+        self.PYOBJ_HDR_PTR = lltype.Ptr(self.PYOBJ_HDR)
+        # offset of ob_pypy_link before ob_refcnt, iff rrc_link_prefix
+        self.PYOBJ_LINK_PREFIX = rffi.sizeof(lltype.Signed)
+
     def _pyobj(self, pyobjaddr):
-        return llmemory.cast_adr_to_ptr(pyobjaddr, self.PYOBJ_HDR_PTR)
+        # rffi.cast is an unchecked reinterpret (identical to a plain C cast once
+        # translated). Needed in both modes: the test-only allocator in
+        # rpython.rlib.rawrefcount hands out a "visible header" type (PyObjectS)
+        # that's deliberately a separate lltype Struct from PYOBJ_HDR even when
+        # they happen to have the same shape (link_prefix=False), so the stricter
+        # llmemory.cast_adr_to_ptr -- which structurally validates the pointer's
+        # origin type only in the untranslated fakeaddress simulation -- would
+        # reject it despite the bytes lining up correctly.
+        prefix = self.PYOBJ_LINK_PREFIX if self.rrc_link_prefix else 0
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobjaddr), -prefix)
+        return rffi.cast(self.PYOBJ_HDR_PTR, base)
 
     def rawrefcount_init(self, dealloc_trigger_callback):
         # see pypy/doc/discussion/rawrefcount.rst
@@ -3322,11 +3358,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def _rrc_free(self, pyobject):
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
         from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
-        from rpython.rlib.rawrefcount import _Py_IMMORTAL_REFCNT
+        from rpython.rlib.rawrefcount import refcnt_is_immortal
         #
         rc = self._pyobj(pyobject).ob_refcnt
-        if rc == _Py_IMMORTAL_REFCNT:
-            ll_assert(False, "rrc: immortal pyobj freed; immortal support incomplete")
+        if refcnt_is_immortal(rc):
+            ll_assert(False, "rrc: immortal pyobj must never be freed")
         elif rc >= REFCNT_FROM_PYPY_LIGHT:
             rc -= REFCNT_FROM_PYPY_LIGHT
             if rc == 0:
@@ -3339,20 +3375,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(rc >= REFCNT_FROM_PYPY, "refcount underflow?")
             ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
-            rc -= REFCNT_FROM_PYPY
             self._pyobj(pyobject).ob_pypy_link = 0
-            if rc == 0:
+            # The tag is permanent (never subtracted); the object is dead only
+            # once nothing but the bare tag is left.  lxml and others expect
+            # tp_dealloc to fire at once, else a bogus raw pointer stays usable
+            # (a later Py_INCREF/Py_DECREF would call tp_dealloc a second time).
+            if rc == REFCNT_FROM_PYPY:
                 self.rrc_dealloc_pending.append(pyobject)
-                # an object with refcnt == 0 cannot stay around waiting
-                # for its deallocator to be called.  Some code (lxml)
-                # expects that tp_dealloc is called immediately when
-                # the refcnt drops to 0.  If it isn't, we get some
-                # uncleared raw pointer that can still be used to access
-                # the object; but (PyObject *)raw_pointer is then bogus
-                # because after a Py_INCREF()/Py_DECREF() on it, its
-                # tp_dealloc is also called!
-                rc = 1
-            self._pyobj(pyobject).ob_refcnt = rc
+                self._pyobj(pyobject).ob_refcnt = rc + 1
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):

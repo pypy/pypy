@@ -12,14 +12,148 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import UINT_MAX
 
-REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
-REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+# Immortality lives in the LOW bits of ob_refcnt, orthogonal to the
+# REFCNT_FROM_PYPY "has prefix" tag in the high bits (see the table in
+# pypy/doc/discussion/rawrefcount.rst).  _Py_IMMORTAL_REFCNT is CPython 3.12's
+# value on both widths (UINT_MAX on 64-bit, UINT_MAX >> 2 on 32-bit); the tag
+# is placed above the immortal field so that an immortalized owned object,
+# ob_refcnt = REFCNT_FROM_PYPY + _Py_IMMORTAL_REFCNT, keeps both patterns
+# intact.  On 32-bit the immortal field is 30 bits wide, which forces
+# REFCNT_FROM_PYPY up to bit 30 and squeezes REFCNT_FROM_PYPY_LIGHT (a region
+# never actually created in pypy3, only exercised by rawrefcount's own tests).
+# Prefix-less immortals (bare statics) carry exactly _Py_IMMORTAL_REFCNT and
+# are mapped out-of-band (cpyext State.static_py2w/static_w2py).
+# Py_INCREF/Py_DECREF and the interp-level incref/decref no-op on immortals,
+# so the value never drifts.
 if sys.maxint > 2**32:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX)
+    REFCNT_FROM_PYPY       = sys.maxint // 4 + 1
+    REFCNT_FROM_PYPY_LIGHT = REFCNT_FROM_PYPY + (sys.maxint // 2 + 1)
+    _Py_IMMORTAL_REFCNT    = rffi.cast(lltype.Signed, UINT_MAX)
+    def refcnt_is_immortal(rc):
+        # CPython's 64-bit check: bit 31 (the sign of the low 32 bits) is set
+        return (rc & (1 << 31)) != 0
 else:
-    _Py_IMMORTAL_REFCNT  = rffi.cast(lltype.Signed, UINT_MAX >> 2)
+    REFCNT_FROM_PYPY       = 0x40000000
+    REFCNT_FROM_PYPY_LIGHT = 0x70000000
+    _Py_IMMORTAL_REFCNT    = rffi.cast(lltype.Signed, UINT_MAX >> 2)
+    def refcnt_is_immortal(rc):
+        # mask-equality instead of CPython's plain equality, so the check also
+        # catches REFCNT_FROM_PYPY-tagged immortals; identical to CPython for
+        # untagged (foreign) objects
+        return (rc & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
+
+
+_LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
+_LINK_PREFIX = 16   # padded to 16 so body (ob_refcnt) keeps malloc's 16-byte alignment
+
+
+class _PrefixHelpers:
+    "Test-only PyObject layout matching translation.rawrefcount_link_prefix=True."
+
+    def _ob_link_get(ob):
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
+        return rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0]
+    _ob_link_get = staticmethod(_ob_link_get)
+
+    def _ob_link_set(ob, value):
+        base = rffi.ptradd(rffi.cast(rffi.CCHARP, ob), -_LINK_OFFSET)
+        rffi.cast(rffi.CArrayPtr(lltype.Signed), base)[0] = value
+    _ob_link_set = staticmethod(_ob_link_set)
+
+    def _ob_free(ob, track_allocation=True):
+        # free the whole allocation, which starts at the hidden prefix.  Address
+        # arithmetic (not ptradd) so ll2ctypes maps the base back to the malloc.
+        base = rffi.cast(rffi.VOIDP, rffi.cast(lltype.Signed, ob) - _LINK_PREFIX)
+        lltype.free(base, flavor='raw', track_allocation=track_allocation)
+    _ob_free = staticmethod(_ob_free)
+
+    # Canonical test PyObject: the visible CPython header.  ob_pypy_link is NOT a
+    # field here -- it lives in the hidden prefix reserved by _pyobject_alloc,
+    # reached at ob-8.
+    PyObjectS = lltype.Struct('PyObjectS',
+                              ('c_ob_refcnt', lltype.Signed),
+                              ('c_ob_type', lltype.Signed))
+    PyObject = lltype.Ptr(PyObjectS)
+
+    # Allocation layout: padding, then the hidden link word, then the visible
+    # PyObjectS.  Handing back a pointer to .body reserves the prefix at
+    # body-_LINK_PREFIX, matching pyobj_raw_alloc.
+    _PyObjectPrefixedS = lltype.Struct('_PyObjectPrefixedS',
+                                       ('pad', lltype.Signed),
+                                       ('ob_pypy_link', lltype.Signed),
+                                       ('body', PyObjectS))
+
+    def _pyobject_alloc(track_allocation=True, immortal=False):
+        "Allocate a PyObjectS with the hidden link prefix reserved (see pyobj_raw_alloc)."
+        full = lltype.malloc(_PrefixHelpers._PyObjectPrefixedS, flavor='raw', zero=True,
+                             immortal=immortal,
+                             track_allocation=track_allocation and not immortal)
+        return rffi.cast(_PrefixHelpers.PyObject,
+                         rffi.cast(lltype.Signed, full) + _LINK_PREFIX)
+    _pyobject_alloc = staticmethod(_pyobject_alloc)
+
+
+class _NoPrefixHelpers:
+    "Test-only PyObject layout matching translation.rawrefcount_link_prefix=False."
+
+    def _ob_link_get(ob):
+        return ob.c_ob_pypy_link
+    _ob_link_get = staticmethod(_ob_link_get)
+
+    def _ob_link_set(ob, value):
+        ob.c_ob_pypy_link = value
+    _ob_link_set = staticmethod(_ob_link_set)
+
+    def _ob_free(ob, track_allocation=True):
+        lltype.free(ob, flavor='raw', track_allocation=track_allocation)
+    _ob_free = staticmethod(_ob_free)
+
+    # Canonical test PyObject: ob_pypy_link is a plain header field, PyPy's
+    # traditional (pre-abi3) layout -- no hidden prefix.
+    PyObjectS = lltype.Struct('PyObjectS',
+                              ('c_ob_refcnt', lltype.Signed),
+                              ('c_ob_pypy_link', lltype.Signed))
+    PyObject = lltype.Ptr(PyObjectS)
+
+    def _pyobject_alloc(track_allocation=True, immortal=False):
+        "Allocate a PyObjectS; ob_pypy_link is just a field, no hidden prefix."
+        return lltype.malloc(_NoPrefixHelpers.PyObjectS, flavor='raw', zero=True,
+                             immortal=immortal,
+                             track_allocation=track_allocation and not immortal)
+    _pyobject_alloc = staticmethod(_pyobject_alloc)
+
+
+def get_helpers(link_prefix):
+    "Return the _PrefixHelpers/_NoPrefixHelpers namespace for the given mode."
+    return _PrefixHelpers if link_prefix else _NoPrefixHelpers
+
+
+def configure(link_prefix):
+    """Rebind this module's PyObjectS/PyObject/_pyobject_alloc/_ob_link_get/
+    _ob_link_set/_ob_free to the given mode.  Test-only: no translated code
+    reads these module-level names (rpython.memory.gc.incminimark has its own
+    independent, config-driven implementation of the same layout choice).
+    """
+    global RRC_LINK_PREFIX, PyObjectS, PyObject
+    global _ob_link_get, _ob_link_set, _ob_free, _pyobject_alloc
+    RRC_LINK_PREFIX = link_prefix
+    h = get_helpers(link_prefix)
+    PyObjectS = h.PyObjectS
+    PyObject = h.PyObject
+    _ob_link_get = h._ob_link_get
+    _ob_link_set = h._ob_link_set
+    _ob_free = h._ob_free
+    _pyobject_alloc = h._pyobject_alloc
+
+
+# Same declared default as rpython/config/translationoption.py's
+# rawrefcount_link_prefix BoolOption.  Callers that need the branch-specific
+# (or test-parametrized) value must call configure() explicitly rather than
+# relying on this default -- see pypy/goal/targetpypystandalone.py for the
+# one target that opts into True.
+configure(False)
 
 
 def _build_pypy_link(p):
@@ -50,8 +184,8 @@ def create_link_pypy(p, ob):
     #print 'create_link_pypy\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(p)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(p))
     _pypy2ob[p] = ob
     _pypy2ob_rev[ob._obj] = p
     _p_list.append(ob)
@@ -63,8 +197,8 @@ def create_link_pyobj(p, ob):
     #print 'create_link_pyobj\n\t%s\n\t%s' % (p, ob)
     assert p not in _pypy2ob
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(p)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(p))
     _o_list.append(ob)
 
 @not_rpython
@@ -72,8 +206,8 @@ def mark_deallocating(marker, ob):
     """mark the PyObject as deallocating, by storing 'marker'
     inside its ob_pypy_link field"""
     assert ob._obj not in _pypy2ob_rev
-    assert not ob.c_ob_pypy_link
-    ob.c_ob_pypy_link = _build_pypy_link(marker)
+    assert not _ob_link_get(ob)
+    _ob_link_set(ob, _build_pypy_link(marker))
 
 @not_rpython
 def from_obj(OB_PTR_TYPE, p):
@@ -86,7 +220,7 @@ def from_obj(OB_PTR_TYPE, p):
 
 @not_rpython
 def to_obj(Class, ob):
-    link = ob.c_ob_pypy_link
+    link = _ob_link_get(ob)
     if link == 0:
         return None
     p = _adr2pypy[link]
@@ -99,18 +233,14 @@ def next_dead(OB_PTR_TYPE):
     but cannot immediately dispose of them (it doesn't know how to call
     e.g. tp_dealloc(), and anyway calling it immediately would cause all
     sorts of bugs).  So instead, it stores them in an internal list,
-    initially with refcnt == 1.  This pops the next item off this list.
+    initially with refcnt == REFCNT_FROM_PYPY + 1.  This pops the next item off
+    this list.
     """
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
     ob = _d_list.pop()
     assert lltype.typeOf(ob) == OB_PTR_TYPE
     return ob
-
-def _immortal_not_supported():
-    raise AssertionError(
-        "rawrefcount: immortal pyobj (ob_refcnt == _Py_IMMORTAL_REFCNT) "
-        "encountered but immortal support is incomplete")
 
 @not_rpython
 def _collect(track_allocation=True):
@@ -120,10 +250,10 @@ def _collect(track_allocation=True):
     """
     def detach(ob, wr_list):
         assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
-        assert ob.c_ob_pypy_link
-        p = _adr2pypy[ob.c_ob_pypy_link]
+        assert _ob_link_get(ob)
+        p = _adr2pypy[_ob_link_get(ob)]
         assert p is not None
-        _adr2pypy[ob.c_ob_pypy_link] = None
+        _adr2pypy[_ob_link_get(ob)] = None
         wr_list.append((ob, weakref.ref(p)))
         return p
 
@@ -131,9 +261,8 @@ def _collect(track_allocation=True):
     wr_p_list = []
     new_p_list = []
     for ob in reversed(_p_list):
-        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-            _immortal_not_supported()
-            new_p_list.append(ob)
+        if refcnt_is_immortal(ob.c_ob_refcnt):
+            new_p_list.append(ob)   # immortal: never dies
         elif ob.c_ob_refcnt not in (REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT):
             new_p_list.append(ob)
         else:
@@ -148,9 +277,8 @@ def _collect(track_allocation=True):
     wr_o_list = []
     new_o_list = []
     for ob in reversed(_o_list):
-        if ob.c_ob_refcnt == _Py_IMMORTAL_REFCNT:
-            _immortal_not_supported()
-            new_o_list.append(ob)
+        if refcnt_is_immortal(ob.c_ob_refcnt):
+            new_o_list.append(ob)   # immortal: never dies
         else:
             detach(ob, wr_o_list)
     _o_list = Ellipsis
@@ -163,25 +291,21 @@ def _collect(track_allocation=True):
         assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
         p = wr()
         if p is not None:
-            assert ob.c_ob_pypy_link
-            _adr2pypy[ob.c_ob_pypy_link] = p
+            assert _ob_link_get(ob)
+            _adr2pypy[_ob_link_get(ob)] = p
             final_list.append(ob)
             return p
         else:
-            ob.c_ob_pypy_link = 0
+            _ob_link_set(ob, 0)
             if ob.c_ob_refcnt >= REFCNT_FROM_PYPY_LIGHT:
                 ob.c_ob_refcnt -= REFCNT_FROM_PYPY_LIGHT
-                ob.c_ob_pypy_link = 0
                 if ob.c_ob_refcnt == 0:
-                    lltype.free(ob, flavor='raw',
-                                track_allocation=track_allocation)
+                    _ob_free(ob, track_allocation=track_allocation)
             else:
                 assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
-                ob.c_ob_refcnt -= REFCNT_FROM_PYPY
-                ob.c_ob_pypy_link = 0
-                if ob.c_ob_refcnt == 0:
-                    ob.c_ob_refcnt = 1
+                if ob.c_ob_refcnt == REFCNT_FROM_PYPY:
+                    ob.c_ob_refcnt += 1
                     _d_list.append(ob)
             return None
 
@@ -194,7 +318,7 @@ def _collect(track_allocation=True):
     for p, ob in _pypy2ob.items():
         assert ob._obj not in _pypy2ob_rev
         _pypy2ob_rev[ob._obj] = p
-    _o_list = []
+    _o_list = new_o_list
     for ob, wr in wr_o_list:
         attach(ob, wr, _o_list)
 
@@ -264,9 +388,10 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         hop.genop(name, [_unspec_p(hop, v_p), _unspec_ob(hop, v_ob)])
         #
-        if hop.rtyper.annotator.translator.config.translation.gc == "boehm":
-            c_func = hop.inputconst(lltype.typeOf(func_boehm_eci),
-                                    func_boehm_eci)
+        config = hop.rtyper.annotator.translator.config
+        if config.translation.gc == "boehm":
+            func_eci = _func_boehm_eci(config.translation.rawrefcount_link_prefix)
+            c_func = hop.inputconst(lltype.typeOf(func_eci), func_eci)
             hop.genop('direct_call', [c_func])
 
 
@@ -322,8 +447,20 @@ class Entry(ExtRegistryEntry):
         return _spec_ob(hop, v_ob)
 
 src_dir = py.path.local(__file__).dirpath() / 'src'
-boehm_eci = ExternalCompilationInfo(
-    post_include_bits     = [(src_dir / 'boehm-rawrefcount.h').read()],
-    separate_module_files = [(src_dir / 'boehm-rawrefcount.c')],
-)
-func_boehm_eci = rffi.llexternal_use_eci(boehm_eci)
+
+def _boehm_eci(link_prefix):
+    # Not memoized on the module-level RRC_LINK_PREFIX (test-only, see
+    # configure() above): the real translated value is
+    # config.translation.rawrefcount_link_prefix, only known at rtyping
+    # time, and it must match the layout incminimark/cpyext actually use.
+    return ExternalCompilationInfo(
+        pre_include_bits       = ['#define RRC_LINK_PREFIX %d' % int(link_prefix)],
+        post_include_bits     = [(src_dir / 'boehm-rawrefcount.h').read()],
+        separate_module_files = [(src_dir / 'boehm-rawrefcount.c')],
+    )
+
+_func_boehm_ecis = {link_prefix: rffi.llexternal_use_eci(_boehm_eci(link_prefix))
+                    for link_prefix in (False, True)}
+
+def _func_boehm_eci(link_prefix):
+    return _func_boehm_ecis[link_prefix]

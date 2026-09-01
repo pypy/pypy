@@ -11,9 +11,13 @@
 
 #include "Python.h"
 
+#define PyTuple_MAXSAVESIZE     0
 /* Speed optimization to avoid frequent malloc/free of small tuples */
 #ifndef PyTuple_MAXSAVESIZE
-#define PyTuple_MAXSAVESIZE     20  /* Largest tuple to save on free list */
+/* Free-list disabled for PyPy: reusing a pooled tuple is not an allocation and would
+   have to re-tag the refcnt outside an allocation, violating the prefix contract.
+   Every tuple is allocated (and tagged) through _generic_alloc instead. */
+#define PyTuple_MAXSAVESIZE     0
 #endif
 #ifndef PyTuple_MAXFREELIST
 #define PyTuple_MAXFREELIST  2000  /* Maximum number of tuples of each size to save */

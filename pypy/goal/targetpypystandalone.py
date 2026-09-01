@@ -355,6 +355,10 @@ class PyPyTarget(object):
                     " --withoutmod-cpyext' with other GCs.  (It almost"
                     " works with Boehm, the fix should be quick)")
 
+        # The main and py3.11 branches never set this option, so it stays at
+        # its default (False) there.
+        config.translation.rawrefcount_link_prefix = True
+
         config.translating = True
 
         import translate

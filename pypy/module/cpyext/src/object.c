@@ -42,6 +42,30 @@ _PyObject_InitVar(PyVarObject *op, PyTypeObject *typeobj, Py_ssize_t size)
 extern void _PyPy_Free(void *ptr);
 extern void *_PyPy_Malloc(Py_ssize_t size);
 
+/* ob_pypy_link is stored in a hidden prefix word immediately before the visible
+   PyObject header (see include/cpyext_object.h), so the header matches CPython for
+   abi3.  Every PyObject allocation reserves this prefix and hands out a pointer past
+   it; PyObject_GC_Del (and the default tp_free) release it.  Internal only -- never
+   exposed to extensions.  Similar to PyGC_HEAD in CPython. */
+#define _PyPy_LINK_PREFIX  (sizeof(Py_ssize_t))
+#define _PyPy_LINK(op)     (((Py_ssize_t *)(op))[-1])
+
+/* Refcount tag constants -- MUST match rpython/rlib/rawrefcount.py exactly.
+   REFCNT_FROM_PYPY is the permanent "this PyObject has a prefix" tag applied
+   at allocation; an object is owned iff ob_refcnt >= REFCNT_FROM_PYPY.  It
+   sits above the _Py_IMMORTAL_REFCNT field (low 32 bits on 64-bit, low 30 on
+   32-bit), so immortality (checked with _Py_IsImmortal, see include/object.h)
+   is orthogonal to the tag: an immortalized owned object has
+   ob_refcnt == REFCNT_FROM_PYPY + _Py_IMMORTAL_REFCNT.
+   See pypy/doc/discussion/rawrefcount.rst. */
+#if SIZEOF_VOID_P > 4
+#define _PyPy_REFCNT_FROM_PYPY        ((Py_ssize_t)(PY_SSIZE_T_MAX / 4 + 1))
+#define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)(_PyPy_REFCNT_FROM_PYPY + (PY_SSIZE_T_MAX / 2 + 1)))
+#else
+#define _PyPy_REFCNT_FROM_PYPY        ((Py_ssize_t)0x40000000)
+#define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)0x70000000)
+#endif
+
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -73,9 +97,36 @@ void
 _Py_Dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
-    /* this is the same as rawrefcount.mark_deallocating() */
-    obj->ob_pypy_link = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
+    /* Only owned objects (refcnt >= REFCNT_FROM_PYPY here) have a prefix link word
+       to mark.  Foreign objects -- bare-allocated by an extension, refcnt below the
+       tag -- have no prefix; writing it would corrupt the heap word before them. */
+    if (obj->ob_refcnt >= _PyPy_REFCNT_FROM_PYPY)
+        _PyPy_LINK(obj) = (Py_ssize_t)_pypy_rawrefcount_w_marker_deallocating;
     pto->tp_dealloc(obj);
+}
+
+/* Py_INCREF/Py_DECREF route here (see include/object.h) so the REFCNT_FROM_PYPY tag
+   and the prefix stay out of extension-visible code.  Deallocation fires on either
+   condition: refcnt hits 0 (foreign/untagged) or refcnt falls to the bare tag with no
+   w_obj left (owned, no C refs, ob_pypy_link == 0).  The prefix is only read once
+   refcnt == REFCNT_FROM_PYPY, which a foreign object never reaches. */
+void
+_Py_IncRef(PyObject *op)
+{
+    if (_Py_IsImmortal(op))
+        return;   /* immortal: refcnt pinned */
+    op->ob_refcnt++;
+}
+
+void
+_Py_DecRef(PyObject *op)
+{
+    if (_Py_IsImmortal(op))
+        return;   /* immortal: refcnt pinned, never freed */
+    if (--op->ob_refcnt == 0)
+        _Py_Dealloc(op);
+    else if (op->ob_refcnt == _PyPy_REFCNT_FROM_PYPY && _PyPy_LINK(op) == 0)
+        _Py_Dealloc(op);
 }
 
 #ifdef CPYEXT_TESTS
@@ -92,7 +143,7 @@ void
 _Py_object_dealloc(PyObject *obj)
 {
     PyTypeObject *pto;
-    assert(obj->ob_refcnt == 0);
+    assert(obj->ob_refcnt == 0 || obj->ob_refcnt == _PyPy_REFCNT_FROM_PYPY);
     pto = obj->ob_type;
     pto->tp_free(obj);
     if (pto->tp_flags & Py_TPFLAGS_HEAPTYPE)
@@ -155,8 +206,7 @@ _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
     if (type->tp_itemsize)
         ((PyVarObject*)pyobj)->ob_size = nitems;
 
-    pyobj->ob_refcnt = 1;
-    /* pyobj->ob_pypy_link should get assigned very quickly */
+    pyobj->ob_refcnt = _PyPy_REFCNT_FROM_PYPY;
     pyobj->ob_type = type;
     return pyobj;
 }
@@ -172,7 +222,7 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
     PyObject *py_obj = _generic_alloc(type, nitems);
     if (!py_obj)
         return (PyVarObject*)PyErr_NoMemory();
-    
+
     if (type->tp_itemsize == 0)
         return (PyVarObject*)PyObject_INIT(py_obj, type);
     else
@@ -317,8 +367,7 @@ _Py_NewReference(PyObject *op)
 #ifdef Py_REF_DEBUG
     _Py_RefTotal++;
 #endif
-    Py_SET_REFCNT(op, 1);
-    ((PyObject *)(op))->ob_pypy_link = 0;
+    op->ob_refcnt++;
 #ifdef Py_TRACE_REFS
     _Py_AddToAllObjects(op, 1);
 #endif

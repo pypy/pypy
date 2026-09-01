@@ -3,8 +3,7 @@ from hypothesis import given, strategies
 from rpython.tool.udir import udir
 from rpython.rlib import rawrefcount, rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
-from rpython.rlib.test.test_rawrefcount import W_Root, PyObject, PyObjectS
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rlib.test.test_rawrefcount import W_Root
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
 
@@ -14,7 +13,7 @@ def compile_test(basename):
         os.path.abspath(os.path.join(__file__))))
     srcdir = os.path.join(srcdir, 'src')
 
-    err = os.system("cd '%s' && gcc -Werror -lgc -I%s -o %s %s.c"
+    err = os.system("cd '%s' && gcc -Werror -I%s -o %s %s.c -lgc"
                     % (udir, srcdir, basename, basename))
     return err
 
@@ -259,19 +258,23 @@ def test_random(code):
 class TestBoehmTranslated(StandaloneTests):
 
     def test_full_translation(self):
+        # Explicit, not leftover state from another test's configure() call:
+        # translation bakes in whichever mode is current right now.  boehm's
+        # own C-side rawrefcount support was fixed for the prefix layout
+        # (see rpython/rlib/src/boehm-rawrefcount.c), so match that here.
+        rawrefcount.configure(True)
 
         def make_ob():
             p = W_Root(42)
-            ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
+            ob = rawrefcount._pyobject_alloc()
             rawrefcount.create_link_pypy(p, ob)
             ob.c_ob_refcnt += REFCNT_FROM_PYPY
-            assert rawrefcount.from_obj(PyObject, p) == ob
+            assert rawrefcount.from_obj(rawrefcount.PyObject, p) == ob
             assert rawrefcount.to_obj(W_Root, ob) == p
             return ob
 
         prebuilt_p = W_Root(-42)
-        prebuilt_ob = lltype.malloc(PyObjectS, flavor='raw', zero=True,
-                                    immortal=True)
+        prebuilt_ob = rawrefcount._pyobject_alloc(immortal=True)
 
         def entry_point(argv):
             rawrefcount.create_link_pypy(prebuilt_p, prebuilt_ob)
@@ -280,7 +283,7 @@ class TestBoehmTranslated(StandaloneTests):
             rgc.collect()
             deadlist = []
             while True:
-                ob = rawrefcount.next_dead(PyObject)
+                ob = rawrefcount.next_dead(rawrefcount.PyObject)
                 if not ob: break
                 if ob.c_ob_refcnt != 1:
                     print "next_dead().ob_refcnt != 1"
@@ -298,11 +301,12 @@ class TestBoehmTranslated(StandaloneTests):
                     return 1
                 oblist.remove(ob)
             print "OK!"
-            lltype.free(ob, flavor='raw')
+            rawrefcount._ob_free(ob)
             return 0
 
         self.config = get_combined_translation_config(translating=True)
         self.config.translation.gc = "boehm"
+        self.config.translation.rawrefcount_link_prefix = rawrefcount.RRC_LINK_PREFIX
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('OK!\n')

@@ -3748,3 +3748,74 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class Sub(Repro):
             pass
         assert module.is_gc(Sub)
+
+    # messes with leak detection, leave at the end of the tests
+    def test_nanobind2_tp_traverse(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import gc
+        import sys
+        if sys.implementation.name == 'pypy':
+            skip("tp_traverse not yet implemented in PyPy")
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+        # Create an unreferenced cycle
+        a = module.wrapper()
+        a.nested = a
+        del a
+        for i in range(5):
+            gc.collect()
+        gl = module.global_list
+        assert gl == ['wrapper tp_init called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_traverse called.',
+                      'wrapper tp_clear called.',
+                      'wrapper tp_dealloc called.',
+                     ]
+
+    def test_nanobind2_module_attributes(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        import sys
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        f = module.func()
+        if sys.version_info >= (3, 9) or sys.implementation.name == 'pypy':
+            assert f.__module__   == "my_module"
+        else:
+            assert f.__module__   == "nanobind2"
+        assert f.__name__ == "my_name"
+        assert f.__qualname__ == "my_qualname"
+
+    def test_nanobind2_vectorcall_method(self):
+        # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
+        module = self.import_module(name='nanobind2', filename="nanobind2")
+
+        class A:
+            def __init__(self):
+                self.value = 0
+
+            def my_method(self, *args, **kwargs):
+                self.args = args
+                self.kwargs = kwargs
+                return "success"
+
+        a = A()
+        assert module.method_call(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {}
+        assert module.method_call_kw(a) == "success"
+        assert a.args == (1234,) and a.kwargs == {"foo" : "bar"}
+
+
+        def unbound_method(*args, **kwargs):
+            args_value.update(args)
+            kwargs_value.update(kwargs)
+            return "unbound"
+
+        a.my_method = unbound_method
+        kwargs_value = {}
+        args_value = set()
+
+
+        assert module.method_call(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {}
+        assert module.method_call_kw(a) == "unbound"
+        assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
+
