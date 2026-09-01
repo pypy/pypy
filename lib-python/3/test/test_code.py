@@ -144,7 +144,12 @@ from test.support import (cpython_only,
 from test.support.script_helper import assert_python_ok
 from test.support import threading_helper
 from opcode import opmap, opname
-COPY_FREE_VARS = opmap['COPY_FREE_VARS']
+if sys.implementation.name == 'pypy':
+    # PYPY: COPY_FREE_VARS doesn't exist in PyPy's bytecode; only used by
+    # test_closure_injection below, which is @cpython_only
+    COPY_FREE_VARS = None
+else:
+    COPY_FREE_VARS = opmap['COPY_FREE_VARS']
 
 
 def consts(t):
@@ -356,10 +361,15 @@ class CodeTest(unittest.TestCase):
         foo.__code__ = foo.__code__.replace(
             co_code=b'\xe5' + foo.__code__.co_code[1:])
 
-        msg = "unknown opcode 229"
+        if sys.implementation.name == 'pypy':
+            # PYPY: message is more informative
+            msg = "unknown opcode, ofs=0, code=229, name=foo"
+        else:
+            msg = "unknown opcode 229"
         with self.assertRaisesRegex(SystemError, msg):
             foo()
 
+    @cpython_only  # checks CPython-specific exception bytecodes (PUSH_EXC_INFO etc.)
     @requires_debug_ranges()
     def test_co_positions_artificial_instructions(self):
         import dis
@@ -715,8 +725,16 @@ def bug93662():
 class CodeLocationTest(unittest.TestCase):
 
     def check_positions(self, func):
-        pos1 = list(func.__code__.co_positions())
-        pos2 = list(positions_from_location_table(func.__code__))
+        co = func.__code__
+        pos1 = list(co.co_positions())
+        if sys.implementation.name == 'pypy':
+            # PyPy uses a different co_linetable format; cross-check
+            # co_positions() against co_lines() instead.
+            lines_from_pos = set(l for (l, _, _, _) in pos1 if l is not None)
+            lines_from_table = set(l for (_, _, l) in co.co_lines() if l is not None)
+            self.assertEqual(lines_from_pos, lines_from_table)
+            return
+        pos2 = list(positions_from_location_table(co))
         for l1, l2 in zip(pos1, pos2):
             self.assertEqual(l1, l2)
         self.assertEqual(len(pos1), len(pos2))
@@ -730,6 +748,13 @@ class CodeLocationTest(unittest.TestCase):
         co = func.__code__
         lines1 = [line for _, _, line in co.co_lines()]
         self.assertEqual(lines1, list(dedup(lines1)))
+        if sys.implementation.name == 'pypy':
+            # PyPy uses a different co_linetable format; cross-check
+            # co_lines() against co_positions() instead.
+            lines_from_table = set(l for l in lines1 if l is not None)
+            lines_from_pos = set(l for (l, _, _, _) in co.co_positions() if l is not None)
+            self.assertEqual(lines_from_table, lines_from_pos)
+            return
         lines2 = list(lines_from_postions(positions_from_location_table(co)))
         for l1, l2 in zip(lines1, lines2):
             self.assertEqual(l1, l2)

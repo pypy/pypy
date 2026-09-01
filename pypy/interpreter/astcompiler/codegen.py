@@ -3005,8 +3005,6 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
 
     def _get_code_flags(self):
         flags = 0
-        if not self.cell_vars and not self.free_vars:
-            flags |= consts.CO_NOFREE
         if self.scope.doc_removable:
             flags |= consts.CO_KILL_DOCSTRING
         if self.is_async_seen:
@@ -3044,8 +3042,6 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_VARKEYWORDS
         if scope.doc_removable:
             flags |= consts.CO_KILL_DOCSTRING
-        if not self.cell_vars and not self.free_vars:
-            flags |= consts.CO_NOFREE
         return PythonCodeGenerator._get_code_flags(self) | flags
 
     def _init_argcounts(self, args):

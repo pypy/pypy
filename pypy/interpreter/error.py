@@ -909,10 +909,13 @@ def get_converted_unexpected_exception(space, e):
     ContinueRunningNormally exception from the JIT, which must not end
     up here!
     """
+    from pypy.interpreter.pycode import BytecodeCorruption
     try:
         if not we_are_translated():
             raise
         raise e
+    except BytecodeCorruption as e:
+        return OperationError(space.w_SystemError, space.newtext(e.getmsg()))
     except KeyboardInterrupt:
         return OperationError(space.w_KeyboardInterrupt, space.w_None)
     except MemoryError:

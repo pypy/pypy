@@ -568,7 +568,9 @@ def generic_new_descr(W_Type):
 # Definition of the type's descriptors for all the internal types
 
 from pypy.interpreter.eval import Code
-from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS, W_LineIterator
+from pypy.interpreter.pycode import (
+    PyCode, CO_VARARGS, CO_VARKEYWORDS, CO_KILL_DOCSTRING,
+    CO_YIELD_INSIDE_TRY, W_LineIterator)
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
@@ -635,6 +637,11 @@ def fget_co_flags(space, code): # unwrapping through unwrap_spec
     if sig.has_kwarg():
         flags |= CO_VARKEYWORDS
     return space.newint(flags)
+
+def fget_py_co_flags(space, code):
+    # mask out PyPy-internal-only compiler flags that CPython has no
+    # equivalent of and doesn't expose on co_flags
+    return space.newint(code.co_flags & ~(CO_KILL_DOCSTRING | CO_YIELD_INSIDE_TRY))
 
 def fget_co_consts(space, code): # unwrapping through unwrap_spec
     w_docstring = code.getdocstring(space)
@@ -705,7 +712,7 @@ PyCode.typedef = TypeDef('code',
     co_kwonlyargcount = interp_attrproperty('co_kwonlyargcount', cls=PyCode, wrapfn="newint"),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),
-    co_flags = interp_attrproperty('co_flags', cls=PyCode, wrapfn="newint"),
+    co_flags = GetSetProperty(fget_py_co_flags, cls=PyCode),
     co_code = interp_attrproperty('co_code', cls=PyCode, wrapfn="newbytes"),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
