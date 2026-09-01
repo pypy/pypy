@@ -198,7 +198,7 @@ return next yielded value or raise StopIteration."""
                     jitdriver.jit_merge_point(self=self, frame=frame,
                                               results=results, pycode=pycode)
                     try:
-                        w_result = frame.execute_frame(space.w_None)
+                        w_result = frame.execute_frame(space.w_None, None)
                     except OperationError as e:
                         if not e.match(space, space.w_StopIteration):
                             raise

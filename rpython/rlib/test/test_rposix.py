@@ -600,6 +600,23 @@ def test_symlinkat(tmpdir):
     finally:
         os.close(dirfd)
 
+@rposix_requires('linkat')
+def test_linkat(tmpdir):
+    # issue 5545: linkat() takes AT_SYMLINK_FOLLOW, not AT_SYMLINK_NOFOLLOW
+    tmpdir.join('file').write('text')
+    os.symlink('file', str(tmpdir.join('symlink')))
+    dirfd = os.open(str(tmpdir), os.O_RDONLY)
+    try:
+        rposix.linkat('symlink', 'hardlink_to_target', dirfd, dirfd,
+                      follow_symlinks=True)
+        rposix.linkat('symlink', 'hardlink_to_symlink', dirfd, dirfd,
+                      follow_symlinks=False)
+    finally:
+        os.close(dirfd)
+    assert not os.path.islink(str(tmpdir.join('hardlink_to_target')))
+    assert os.path.islink(str(tmpdir.join('hardlink_to_symlink')))
+    assert os.readlink(str(tmpdir.join('hardlink_to_symlink'))) == 'file'
+
 @rposix_requires('renameat')
 def test_renameat(tmpdir):
     tmpdir.join('file').write('text')
@@ -940,10 +957,11 @@ def test_sched_rr_get_interval():
         # processes with the SCHED_RR scheduler in effect.
         if e.errno != errno.EINVAL:
                 raise
-        pytest.mark.skip("only works on SCHED_RR processes")
+        pytest.skip("only works on SCHED_RR processes")
     assert isinstance(interval, float)
-    # Reasonable constraints, I think.
-    assert interval > 0
+    # Reasonable constraints, I think.  A SCHED_OTHER process (the normal
+    # case) legitimately reports a 0.0 round-robin quantum on Linux.
+    assert interval >= 0
     assert interval < 1.
 
 @pytest.mark.skipif(not hasattr(rposix, 'sched_getscheduler'),

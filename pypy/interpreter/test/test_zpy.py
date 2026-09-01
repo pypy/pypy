@@ -12,7 +12,8 @@ def run(*args, **kwds):
     assert not kwds
     argslist = map(str, args)
     popen = subprocess.Popen(argslist, stdin=subprocess.PIPE,
-                                       stdout=subprocess.PIPE)
+                                       stdout=subprocess.PIPE,
+                                       universal_newlines=True)
     stdout, stderr = popen.communicate(stdin)
     return stdout
 

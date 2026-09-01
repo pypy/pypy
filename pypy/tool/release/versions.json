@@ -7,34 +7,34 @@
     "date": "2026-05-26",
     "files": [
       {
-        "filename": "pypy3.11-v7.3.23-aarch64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-aarch64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-linux32.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux32.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-linux64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-linux64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-macos_x86_64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy3.11-v7.3.23-macos_arm64.tar.bz2",
+        "filename": "pypy3.11-v7.3.23-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.23-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy3.11-v7.3.23-win64.zip",
@@ -52,34 +52,34 @@
     "date": "2026-05-26",
     "files": [
       {
-        "filename": "pypy2.7-v7.3.23-aarch64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-aarch64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-linux32.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux32.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-linux64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-linux64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-macos_x86_64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy2.7-v7.3.23-macos_arm64.tar.bz2",
+        "filename": "pypy2.7-v7.3.23-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy2.7-v7.3.23-win64.zip",
@@ -411,34 +411,34 @@
     "date": "2025-02-26",
     "files": [
       {
-        "filename": "pypy3.10-v7.3.19-aarch64.tar.bz2",
+        "filename": "pypy3.10-v7.3.19-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-aarch64.tar.gz"
       },
       {
-        "filename": "pypy3.10-v7.3.19-linux32.tar.bz2",
+        "filename": "pypy3.10-v7.3.19-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux32.tar.gz"
       },
       {
-        "filename": "pypy3.10-v7.3.19-linux64.tar.bz2",
+        "filename": "pypy3.10-v7.3.19-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux64.tar.gz"
       },
       {
-        "filename": "pypy3.10-v7.3.19-macos_x86_64.tar.bz2",
+        "filename": "pypy3.10-v7.3.19-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy3.10-v7.3.19-macos_arm64.tar.bz2",
+        "filename": "pypy3.10-v7.3.19-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy3.10-v7.3.19-win64.zip",
@@ -777,34 +777,34 @@
     "date": "2024-04-24",
     "files": [
       {
-        "filename": "pypy3.9-v7.3.16-aarch64.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-aarch64.tar.gz"
       },
       {
-        "filename": "pypy3.9-v7.3.16-linux32.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-linux32.tar.gz"
       },
       {
-        "filename": "pypy3.9-v7.3.16-linux64.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-linux64.tar.gz"
       },
       {
-        "filename": "pypy3.9-v7.3.16-macos_x86_64.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy3.9-v7.3.16-macos_arm64.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy3.9-v7.3.16-win64.zip",
@@ -813,10 +813,10 @@
         "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-win64.zip"
       },
       {
-        "filename": "pypy3.9-v7.3.16-s390x.tar.bz2",
+        "filename": "pypy3.9-v7.3.16-s390x.tar.gz",
         "arch": "s390x",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-s390x.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.9-v7.3.16-s390x.tar.gz"
       }
     ]
   },
@@ -1695,34 +1695,34 @@
     "date": "2022-12-29",
     "files": [
       {
-        "filename": "pypy3.8-v7.3.11-aarch64.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-aarch64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-aarch64.tar.gz"
       },
       {
-        "filename": "pypy3.8-v7.3.11-linux32.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-linux32.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-linux32.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-linux32.tar.gz"
       },
       {
-        "filename": "pypy3.8-v7.3.11-linux64.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-linux64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-linux64.tar.gz"
       },
       {
-        "filename": "pypy3.8-v7.3.11-macos_x86_64.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-macos_x86_64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy3.8-v7.3.11-macos_arm64.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-macos_arm64.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy3.8-v7.3.11-win64.zip",
@@ -1731,10 +1731,10 @@
         "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-win64.zip"
       },
       {
-        "filename": "pypy3.8-v7.3.11-s390x.tar.bz2",
+        "filename": "pypy3.8-v7.3.11-s390x.tar.gz",
         "arch": "s390x",
         "platform": "linux",
-        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-s390x.tar.bz2"
+        "download_url": "https://downloads.python.org/pypy/pypy3.8-v7.3.11-s390x.tar.gz"
       }
     ]
   },
@@ -4177,7 +4177,7 @@
         "download_url": "https://downloads.python.org/pypy/pypy3.6-v7.3.3rc1-aarch64.tar.bz2"
       },
       {
-        "filename": "pypy3.6-v7.3.3-linux32rc1.tar.bz2",
+        "filename": "pypy3.6-v7.3.3rc1-linux32.tar.bz2",
         "arch": "i686",
         "platform": "linux",
         "download_url": "https://downloads.python.org/pypy/pypy3.6-v7.3.3rc1-linux32.tar.bz2"
@@ -4195,7 +4195,7 @@
         "download_url": "https://downloads.python.org/pypy/pypy3.6-v7.3.3rc1-osx64.tar.bz2"
       },
       {
-        "filename": "pypy3.6-v7.3.3-win32rc1.zip",
+        "filename": "pypy3.6-v7.3.3rc1-win32.zip",
         "arch": "x86",
         "platform": "win32",
         "download_url": "https://downloads.python.org/pypy/pypy3.6-v7.3.3rc1-win32.zip"
@@ -4440,228 +4440,40 @@
     "latest_pypy": false,
     "files": [
       {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
+        "filename": "pypy-c-jit-latest-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-aarch64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-aarch64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
+        "filename": "pypy-c-jit-latest-linux.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-linux.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-linux.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
+        "filename": "pypy-c-jit-latest-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-linux64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-linux64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-macos_x86_64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-macos_arm64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-macos_arm64.tar.gz"
       },
 	  {
         "filename": "pypy-c-jit-latest-win64.zip",
         "arch": "x64",
         "platform": "win64",
         "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-win64.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/main/pypy-c-jit-latest-s390x.tar.bz2"
-      }
-    ]
-  },
-  {
-    "pypy_version": "nightly",
-    "python_version": "3.7",
-    "stable": false,
-    "latest_pypy": false,
-    "files": [
-      {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
-        "arch": "aarch64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-aarch64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
-        "arch": "i686",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-linux.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
-        "arch": "x64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-linux64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-win64.zip",
-        "arch": "x64",
-        "platform": "win64",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-win64.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-win32.zip",
-        "arch": "x86",
-        "platform": "win32",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-win32.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.7/pypy-c-jit-latest-s390x.tar.bz2"
-      }
-    ]
-  },
-  {
-    "pypy_version": "nightly",
-    "python_version": "3.6",
-    "stable": false,
-    "latest_pypy": false,
-    "files": [
-      {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
-        "arch": "aarch64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.6/pypy-c-jit-latest-aarch64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
-        "arch": "i686",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.6/pypy-c-jit-latest-linux.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
-        "arch": "x64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.6/pypy-c-jit-latest-linux64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-win32.zip",
-        "arch": "x86",
-        "platform": "win32",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.6/pypy-c-jit-latest-win32.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.6/pypy-c-jit-latest-s390x.tar.bz2"
-      }
-    ]
-  },
-  {
-    "pypy_version": "nightly",
-    "python_version": "3.8",
-    "stable": false,
-    "latest_pypy": false,
-    "files": [
-      {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
-        "arch": "aarch64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-aarch64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
-        "arch": "i686",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-linux.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
-        "arch": "x64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-linux64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
-        "arch": "x64",
-        "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-macos_x86_64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
-        "arch": "arm64",
-        "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-macos_arm64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-win64.zip",
-        "arch": "x64",
-        "platform": "win64",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-win64.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.8/pypy-c-jit-latest-s390x.tar.bz2"
-      }
-    ]
-  },
-  {
-    "pypy_version": "nightly",
-    "python_version": "3.9",
-    "stable": false,
-    "latest_pypy": false,
-    "files": [
-      {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
-        "arch": "aarch64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-aarch64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
-        "arch": "i686",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-linux.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
-        "arch": "x64",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-linux64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
-        "arch": "x64",
-        "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-macos_x86_64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
-        "arch": "arm64",
-        "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-macos_arm64.tar.bz2"
-      },
-      {
-        "filename": "pypy-c-jit-latest-win64.zip",
-        "arch": "x64",
-        "platform": "win64",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-win64.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.9/pypy-c-jit-latest-s390x.tar.bz2"
       }
     ]
   },
@@ -4706,12 +4518,6 @@
         "arch": "x64",
         "platform": "win64",
         "download_url": "https://buildbot.pypy.org/nightly/py3.10/pypy-c-jit-latest-win64.zip"
-      },
-      {
-        "filename": "pypy-c-jit-latest-s390x.tar.bz2",
-        "arch": "s390x",
-        "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.10/pypy-c-jit-latest-s390x.tar.bz2"
       }
     ]
   },
@@ -4722,40 +4528,84 @@
     "latest_pypy": false,
     "files": [
       {
-        "filename": "pypy-c-jit-latest-aarch64.tar.bz2",
+        "filename": "pypy-c-jit-latest-aarch64.tar.gz",
         "arch": "aarch64",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-aarch64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-aarch64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-linux.tar.bz2",
+        "filename": "pypy-c-jit-latest-linux.tar.gz",
         "arch": "i686",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-linux.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-linux.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-linux64.tar.bz2",
+        "filename": "pypy-c-jit-latest-linux64.tar.gz",
         "arch": "x64",
         "platform": "linux",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-linux64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-linux64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-macos_x86_64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.gz",
         "arch": "x64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-macos_x86_64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-macos_x86_64.tar.gz"
       },
       {
-        "filename": "pypy-c-jit-latest-macos_arm64.tar.bz2",
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.gz",
         "arch": "arm64",
         "platform": "darwin",
-        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-macos_arm64.tar.bz2"
+        "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-macos_arm64.tar.gz"
       },
       {
         "filename": "pypy-c-jit-latest-win64.zip",
         "arch": "x64",
         "platform": "win64",
         "download_url": "https://buildbot.pypy.org/nightly/py3.11/pypy-c-jit-latest-win64.zip"
+      }
+    ]
+  },
+  {
+    "pypy_version": "nightly",
+    "python_version": "3.12",
+    "stable": false,
+    "latest_pypy": false,
+    "files": [
+      {
+        "filename": "pypy-c-jit-latest-aarch64.tar.gz",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-aarch64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-linux.tar.gz",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-linux.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-linux64.tar.gz",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-linux64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_x86_64.tar.gz",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-macos_x86_64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-macos_arm64.tar.gz",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-macos_arm64.tar.gz"
+      },
+      {
+        "filename": "pypy-c-jit-latest-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://buildbot.pypy.org/nightly/py3.12/pypy-c-jit-latest-win64.zip"
       }
     ]
   }

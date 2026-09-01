@@ -114,9 +114,14 @@ class TestCLibffi(BaseFfiTest):
         # allocation check makes no sense, since we've got GcStructs around
 
     def test_unichar(self):
-        from rpython.rlib.runicode import MAXUNICODE
+        # what matters here is the width of the C-level lltype.UniChar
+        # (i.e. the target's wchar_t), not runicode.MAXUNICODE: that's
+        # the range of code points PyPy's own unicode strings can hold
+        # internally, which is unrelated to wchar_t's size.  On Windows
+        # wchar_t is always 2 bytes (UTF-16), even though MAXUNICODE is
+        # 0x10ffff there.
         wchar = cast_type_to_ffitype(lltype.UniChar)
-        if MAXUNICODE > 65535:
+        if rffi.sizeof(lltype.UniChar) == 4:
             assert wchar is ffi_type_uint32
         else:
             assert wchar is ffi_type_uint16

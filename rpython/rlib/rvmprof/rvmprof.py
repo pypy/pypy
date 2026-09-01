@@ -1,4 +1,5 @@
 import sys, os
+from rpython.tool import leakfinder
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib import jit, rposix, rgc
 from rpython.rlib.rvmprof import cintf
@@ -201,12 +202,23 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
     """
     if _hack_update_stack_untranslated:
         from rpython.rtyper.annlowlevel import llhelper
-        enter_code = llhelper(lltype.Ptr(
+        _enter_code = llhelper(lltype.Ptr(
             lltype.FuncType([lltype.Signed], cintf.PVMPROFSTACK)),
             cintf.enter_code)
-        leave_code = llhelper(lltype.Ptr(
+        _leave_code = llhelper(lltype.Ptr(
             lltype.FuncType([cintf.PVMPROFSTACK], lltype.Void)),
             cintf.leave_code)
+
+        def enter_code(unique_id):
+            s = _enter_code(unique_id)
+            if not we_are_translated():
+                leakfinder.remember_malloc(s)
+            return s
+
+        def leave_code(s):
+            if not we_are_translated():
+                leakfinder.remember_free(s)
+            _leave_code(s)
     else:
         enter_code = cintf.enter_code
         leave_code = cintf.leave_code

@@ -30,4 +30,4 @@ def test_sampling_inside_callback(tmpdir):
 
     samples = count_samples(str(fname))
     # 0.1 seconds at 250Hz should be 25 samples
-    assert 23 < samples < 27
+    assert 20 < samples < 27

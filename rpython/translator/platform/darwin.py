@@ -31,6 +31,15 @@ class Darwin(posix.BasePosix):
               '-fomit-frame-pointer',
               # The parser turns 'const char *const *includes' into 'const const char **includes'
               '-Wno-duplicate-decl-specifier',
+              # libffi (ffi_closure_alloc/free, ffi_prep_cif_var,
+              # ffi_prep_closure_loc) is marked as introduced in macOS 10.15
+              # and pthread_jit_write_protect_np in 11.0, both newer than our
+              # deployment target (DARWIN_VERSION_MIN).  The call sites are
+              # RPython-generated so they cannot be wrapped in a
+              # __builtin_available check; libffi is always present as a system
+              # library and pthread_jit_write_protect_np only runs on arm64
+              # (always macOS 11+), so silence -Wunguarded-availability-new.
+              '-Wno-unguarded-availability-new',
               DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'

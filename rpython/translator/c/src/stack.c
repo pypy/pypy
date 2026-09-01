@@ -57,6 +57,8 @@ static Signed _ll_stack_os_limit(void)
 
 void LL_stack_set_length_fraction(double fraction)
 {
+	char here;
+	char *curptr = &here;
 	Signed length = (Signed)(MAX_STACK_SIZE * fraction);
 	/* sys.setrecursionlimit() scales 'length' linearly (length =
 	   MAX_STACK_SIZE * limit/1000), so a high limit -- e.g.
@@ -74,6 +76,40 @@ void LL_stack_set_length_fraction(double fraction)
 			length = cap;
 	}
 	rpy_stacktoobig.stack_length = length;
+
+	/* Anchor the stack base (the high end) now, while we are presumably
+	   near the top of the stack: this is called early, e.g. from
+	   sys.setrecursionlimit().  Otherwise stack_check()'s lazy base
+	   detection is unreliable on 32-bit: rpy_stacktoobig.stack_end starts
+	   as NULL, so the fast-path test computes (Unsigned)(0 - current),
+	   which on a 32-bit address space (stack near 0xFFFFxxxx) wraps to a
+	   *small* value.  The slow path is then not entered until ~'length'
+	   bytes have already been consumed, anchoring the base 'length' bytes
+	   below the true top and doubling the effective overflow threshold --
+	   enough for a large (clamped) 'length' to still blow past the real OS
+	   stack and segfault before stack_check() ever fires.  We only ever
+	   move the base upward (to a shallower position), so the check can
+	   only become more conservative, never less. */
+	{
+		char *tl;
+		struct pypy_threadlocal_s *tl1;
+		OP_THREADLOCALREF_ADDR(tl);
+		tl1 = (struct pypy_threadlocal_s *)tl;
+		if (tl1->stack_end == NULL || curptr > tl1->stack_end) {
+            /* 'curptr' is the address of a local variable, and on some targets
+             * (seen on aarch64/gcc14) it flags the
+			 *  store as a dangling pointer. */
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdangling-pointer"
+#endif
+			tl1->stack_end = curptr;
+			rpy_stacktoobig.stack_end = curptr;
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ >= 12
+#pragma GCC diagnostic pop
+#endif
+		}
+	}
 }
 
 char LL_stack_too_big_slowpath(Signed current)

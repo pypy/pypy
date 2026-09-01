@@ -172,8 +172,8 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.LDR_ri(r.x11.value, r.sp.value,
                            self.asm.saved_threadlocal_addr + self.current_sp)
             self.mc.LDR_ri(r.ip0.value, r.x11.value, p_errno)
-            self.mc.LDR_ri(r.x11.value, r.x11.value, rpy_errno)
-            self.mc.STR_ri(r.x11.value, r.ip0.value, 0)
+            self.mc.LDR_uint32_ri(r.x11.value, r.x11.value, rpy_errno)
+            self.mc.STRW_ri(r.x11.value, r.ip0.value, 0)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
             # Same, but write zero.
             p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
@@ -181,7 +181,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
                            self.asm.saved_threadlocal_addr + self.current_sp)
             self.mc.LDR_ri(r.ip0.value, r.x11.value, p_errno)
             self.mc.MOVZ_r_u16(r.x11.value, 0, 0)
-            self.mc.STR_ri(r.x11.value, r.ip0.value, 0)
+            self.mc.STRW_ri(r.x11.value, r.ip0.value, 0)
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
@@ -197,8 +197,8 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.LDR_ri(r.x3.value, r.sp.value,
                            self.asm.saved_threadlocal_addr)
             self.mc.LDR_ri(r.ip0.value, r.x3.value, p_errno)
-            self.mc.LDR_ri(r.ip0.value, r.ip0.value, 0)
-            self.mc.STR_ri(r.ip0.value, r.x3.value, rpy_errno)
+            self.mc.LDR_uint32_ri(r.ip0.value, r.ip0.value, 0)
+            self.mc.STRW_ri(r.ip0.value, r.x3.value, rpy_errno)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         # try to reacquire the lock.  The following two values are saved

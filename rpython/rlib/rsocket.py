@@ -1311,6 +1311,13 @@ class RSocket(object):
             if res < 0:
                 raise self.error_handler()
 
+    def setsockopt_None(self, level, option, optlen):
+        res = _c.socketsetsockopt(self.fd, level, option,
+                                  rffi.cast(rffi.VOIDP, 0),
+                                  optlen)
+        if res < 0:
+            raise self.error_handler()
+
     def setsockopt_int(self, level, option, value):
         with lltype.scoped_alloc(rffi.INTP.TO, 1) as flag_p:
             flag_p[0] = rffi.cast(rffi.INT, value)

@@ -12,12 +12,13 @@ from __future__ import print_function
 import os
 import sys
 import time
+import mmap
+import struct
 
 # __________________________________________________________
-# Linux support only for now
+# platform-specific support
 #
-# in case we want to add windows support we could look at pymem: https://pypi.org/project/Pymem/
-# for Mac https://developer.apple.com/documentation/kernel/1402070-mach_vm_write
+# Windows uses the Toolhelp module API, ReadProcessMemory/WriteProcessMemory, and PE sections.
 
 # __________________________________________________________
 # first, some elf support
@@ -38,8 +39,6 @@ import time
 # BSD License
 #
 # adapted for pydrofoil and later PyPy by cfbolz
-
-import struct
 
 class ElfBase(object):
     def _unpack(self, data, is_64bit):
@@ -239,53 +238,129 @@ import cffi
 
 ffi = cffi.FFI()
 
+if sys.platform.startswith('linux'):
+    ffi.cdef("""
+    struct iovec {
+       void* iov_base;
+       size_t iov_len;
+    };
 
-ffi.cdef("""
-struct iovec {
-   void* iov_base;
-   size_t iov_len;
-};
+    typedef int pid_t;
+    long process_vm_readv(pid_t pid,
+                          const struct iovec *local_iov,
+                          unsigned long liovcnt,
+                          const struct iovec *remote_iov,
+                          unsigned long riovcnt,
+                          unsigned long flags);
+    long process_vm_writev(pid_t pid,
+                           const struct iovec *local_iov,
+                           unsigned long liovcnt,
+                           const struct iovec *remote_iov,
+                           unsigned long riovcnt,
+                           unsigned long flags);
+    """)
+    lib = ffi.dlopen(None)
 
-typedef int pid_t;
-long process_vm_readv(pid_t pid,
-                      const struct iovec *local_iov,
-                      unsigned long liovcnt,
-                      const struct iovec *remote_iov,
-                      unsigned long riovcnt,
-                      unsigned long flags);
-long process_vm_writev(pid_t pid,
-                      const struct iovec *local_iov,
-                      unsigned long liovcnt,
-                      const struct iovec *remote_iov,
-                      unsigned long riovcnt,
-                      unsigned long flags);
-""")
-lib = ffi.dlopen(None)
+    def read_memory(pid, address, size):
+        iovec = ffi.new('struct iovec[2]')
+        target = ffi.new('char[]', size)
+        # transfers data to the local process, from the remote process
+        iovec[0].iov_base = target
+        iovec[0].iov_len = size
+        iovec[1].iov_base = ffi.cast('void*', address)
+        iovec[1].iov_len = size
+        result = lib.process_vm_readv(pid, iovec, 1, iovec + 1, 1, 0)
+        if result != size:
+            raise OSError(os.strerror(ffi.errno))
+        return ffi.buffer(target, size)[:]
 
-def read_memory(pid, address, size):
-    iovec = ffi.new('struct iovec[2]')
-    target = ffi.new('char[]', size)
-    # transfers data to the local process, from the remote process
-    iovec[0].iov_base = target
-    iovec[0].iov_len = size
-    iovec[1].iov_base = ffi.cast('void*', address)
-    iovec[1].iov_len = size
-    result = lib.process_vm_readv(pid, iovec, 1, iovec + 1, 1, 0)
-    if result != size:
-        raise OSError(os.strerror(ffi.errno))
-    return ffi.buffer(target, size)[:]
+    def write_memory(pid, address, content):
+        iovec = ffi.new('struct iovec[2]')
+        # transfers data from the local, to the remote process
+        source = ffi.from_buffer(content)
+        iovec[0].iov_base = source
+        iovec[0].iov_len = len(content)
+        iovec[1].iov_base = ffi.cast('void*', address)
+        iovec[1].iov_len = len(content)
+        result = lib.process_vm_writev(pid, iovec, 1, iovec + 1, 1, 0)
+        if result != len(content):
+            raise OSError(os.strerror(ffi.errno))
 
-def write_memory(pid, address, content):
-    iovec = ffi.new('struct iovec[2]')
-    # transfers data from the local, to the remote process
-    source = ffi.from_buffer(content)
-    iovec[0].iov_base = source
-    iovec[0].iov_len = len(content)
-    iovec[1].iov_base = ffi.cast('void*', address)
-    iovec[1].iov_len = len(content)
-    result = lib.process_vm_writev(pid, iovec, 1, iovec + 1, 1, 0)
-    if result != len(content):
-        raise OSError(os.strerror(ffi.errno))
+elif sys.platform == 'win32':
+    ffi.cdef("""
+    typedef unsigned long DWORD;
+    typedef void* HANDLE;
+    typedef int BOOL;
+    typedef unsigned long long SIZE_T;
+    typedef unsigned long long ULONG_PTR;
+
+    HANDLE OpenProcess(DWORD dwDesiredAccess, BOOL bInheritHandle,
+                       DWORD dwProcessId);
+    BOOL CloseHandle(HANDLE hObject);
+    DWORD GetLastError(void);
+    BOOL ReadProcessMemory(HANDLE hProcess, const void* lpBaseAddress,
+                           void* lpBuffer, SIZE_T nSize,
+                           SIZE_T* lpNumberOfBytesRead);
+    BOOL WriteProcessMemory(HANDLE hProcess, void* lpBaseAddress,
+                            const void* lpBuffer, SIZE_T nSize,
+                            SIZE_T* lpNumberOfBytesWritten);
+
+    HANDLE CreateToolhelp32Snapshot(DWORD dwFlags, DWORD dwProcessId);
+
+    typedef struct {
+        DWORD dwSize;
+        DWORD th32ModuleID;
+        DWORD th32ProcessID;
+        DWORD GlblcntUsage;
+        DWORD ProccntUsage;
+        void* modBaseAddr;
+        DWORD modBaseSize;
+        void* hModule;
+        char szModule[256];
+        char szExePath[260];
+    } MODULEENTRY32A;
+
+    BOOL Module32First(HANDLE hSnapshot, MODULEENTRY32A* lpme);
+    BOOL Module32Next(HANDLE hSnapshot, MODULEENTRY32A* lpme);
+    """)
+    kernel32 = ffi.dlopen('kernel32.dll')
+
+    PROCESS_VM_OPERATION = 0x0008
+    PROCESS_VM_READ = 0x0010
+    PROCESS_VM_WRITE = 0x0020
+    PROCESS_QUERY_INFORMATION = 0x0400
+    PROCESS_RIGHTS = (PROCESS_VM_OPERATION | PROCESS_VM_READ |
+                      PROCESS_VM_WRITE | PROCESS_QUERY_INFORMATION)
+    TH32CS_SNAPMODULE = 0x00000008
+    TH32CS_SNAPMODULE32 = 0x00000010
+    INVALID_HANDLE_VALUE = ffi.cast('HANDLE', -1)
+
+    def _windows_error(message):
+        return OSError('%s (GetLastError=%d)' %
+                       (message, kernel32.GetLastError()))
+
+    def read_memory(process, address, size):
+        target = ffi.new('char[]', size)
+        bytes_read = ffi.new('SIZE_T*')
+        if not kernel32.ReadProcessMemory(
+                process, ffi.cast('void*', address), target, size,
+                bytes_read):
+            raise _windows_error('ReadProcessMemory failed at %#x' % address)
+        if bytes_read[0] != size:
+            raise OSError('ReadProcessMemory read %d bytes instead of %d' %
+                          (bytes_read[0], size))
+        return ffi.buffer(target, size)[:]
+
+    def write_memory(process, address, content):
+        source = ffi.new('char[]', content)
+        bytes_written = ffi.new('SIZE_T*')
+        if not kernel32.WriteProcessMemory(
+                process, ffi.cast('void*', address), source, len(content),
+                bytes_written):
+            raise _windows_error('WriteProcessMemory failed at %#x' % address)
+        if bytes_written[0] != len(content):
+            raise OSError('WriteProcessMemory wrote %d bytes instead of %d' %
+                          (bytes_written[0], len(content)))
 
 # __________________________________________________________
 # parsing proc maps
@@ -325,6 +400,112 @@ def _find_file_and_base_addr(pid='self'):
         if map['file_offset'] == 0:
             return map['file'], map['from_']
     assert 0, "no map with file offset 0 found"
+
+
+if sys.platform == 'win32':
+    IMAGE_DOS_SIGNATURE = 0x5A4D       # MZ
+    IMAGE_NT_SIGNATURE = 0x00004550    # PE\0\0
+    IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10B
+    IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20B
+    PYPY_MODULE_NAME = 'libpypy-c.dll'
+    PYPYSIG_SECTION_NAME = 'pypysig'
+
+    def _open_windows_process(pid):
+        process = kernel32.OpenProcess(PROCESS_RIGHTS, False, pid)
+        if process == ffi.NULL:
+            raise _windows_error('OpenProcess failed for PID %d' % pid)
+        return process
+
+    def _find_windows_file_and_base_addr(pid):
+        snapshot = kernel32.CreateToolhelp32Snapshot(
+            TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid)
+        if snapshot == INVALID_HANDLE_VALUE:
+            raise _windows_error(
+                'CreateToolhelp32Snapshot failed for PID %d' % pid)
+
+        try:
+            entry = ffi.new('MODULEENTRY32A*')
+            entry.dwSize = ffi.sizeof('MODULEENTRY32A')
+            if not kernel32.Module32First(snapshot, entry):
+                raise _windows_error('Module32First failed')
+
+            wanted = PYPY_MODULE_NAME.lower()
+            while True:
+                name = ffi.string(entry.szModule).decode('mbcs', 'replace')
+                if name.lower() == wanted:
+                    filename = ffi.string(entry.szExePath).decode(
+                        'mbcs', 'replace')
+                    base_addr = int(ffi.cast('ULONG_PTR',
+                                             entry.modBaseAddr))
+                    return filename, base_addr
+                if not kernel32.Module32Next(snapshot, entry):
+                    break
+        finally:
+            kernel32.CloseHandle(snapshot)
+
+        raise ValueError('module %r not found in PID %d' %
+                         (PYPY_MODULE_NAME, pid))
+
+    def _check_pe_range(file_size, offset, size, what):
+        if offset < 0 or size < 0 or offset + size > file_size:
+            raise ValueError('invalid PE file: %s outside file' % what)
+
+    def _parse_pe_section(mapped_file, file_size, section_name):
+        _check_pe_range(file_size, 0, 64, 'DOS header')
+        e_magic, = struct.unpack_from('<H', mapped_file, 0)
+        if e_magic != IMAGE_DOS_SIGNATURE:
+            raise ValueError('invalid DOS signature: %#x' % e_magic)
+
+        e_lfanew, = struct.unpack_from('<I', mapped_file, 60)
+        _check_pe_range(file_size, e_lfanew, 24, 'NT header')
+        signature, = struct.unpack_from('<I', mapped_file, e_lfanew)
+        if signature != IMAGE_NT_SIGNATURE:
+            raise ValueError('invalid NT signature: %#x' % signature)
+
+        number_of_sections, = struct.unpack_from(
+            '<H', mapped_file, e_lfanew + 6)
+        size_of_optional_header, = struct.unpack_from(
+            '<H', mapped_file, e_lfanew + 20)
+        optional_header_offset = e_lfanew + 4 + 20
+        _check_pe_range(file_size, optional_header_offset,
+                        size_of_optional_header, 'optional header')
+
+        optional_magic, = struct.unpack_from(
+            '<H', mapped_file, optional_header_offset)
+        if optional_magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC:
+            signed_size = 8
+        elif optional_magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC:
+            signed_size = 4
+        else:
+            raise ValueError('unknown PE optional header magic: %#x' %
+                             optional_magic)
+
+        sections_offset = optional_header_offset + size_of_optional_header
+        _check_pe_range(file_size, sections_offset,
+                        number_of_sections * 40, 'section headers')
+
+        target_name = section_name.encode('ascii').ljust(8, b'\x00')[:8]
+        for index in range(number_of_sections):
+            section_offset = sections_offset + index * 40
+            section = mapped_file[section_offset:section_offset + 40]
+            if section[:8] != target_name:
+                continue
+            virtual_size, = struct.unpack_from('<I', section, 8)
+            virtual_address, = struct.unpack_from('<I', section, 12)
+            return virtual_address, virtual_size, signed_size
+
+        raise ValueError('section %r not found in %s' %
+                         (section_name, PYPY_MODULE_NAME))
+
+    def _analyze_windows_pe(filename, section_name):
+        with open(filename, 'rb') as fileobj:
+            mapped_file = mmap.mmap(fileobj.fileno(), 0,
+                                    access=mmap.ACCESS_READ)
+            try:
+                return _parse_pe_section(mapped_file, len(mapped_file),
+                                         section_name)
+            finally:
+                mapped_file.close()
 
 def _check_elf_debuglink(file):
     with open(file, 'rb') as f:
@@ -421,13 +602,30 @@ def _symbolify_all(values):
 # actually starting the debugger
 
 
-COOKIE_OFFSET = struct.calcsize('l')
+if sys.platform == 'win32':
+    SIGNED_FORMAT = '<q' if struct.calcsize('P') == 8 else '<l'
+else:
+    SIGNED_FORMAT = 'l'
+SIGNED_SIZE = struct.calcsize(SIGNED_FORMAT)
+COOKIE_OFFSET = SIGNED_SIZE
 PENDING_CALL_OFFSET = COOKIE_OFFSET + struct.calcsize('cccccccc')
-PATH_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
+PATH_OFFSET = PENDING_CALL_OFFSET + SIGNED_SIZE
 PATH_MAX = 1024
 
 
 def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
+    if sys.platform == 'win32':
+        if symbolname != b'pypysig_counter':
+            raise ValueError('Windows address lookup only supports pypysig_counter')
+        filename, base_addr = _find_windows_file_and_base_addr(pid)
+        section_rva, section_size, signed_size = _analyze_windows_pe(
+            filename, PYPYSIG_SECTION_NAME)
+        if signed_size != SIGNED_SIZE:
+            raise ValueError('target and injector have different Signed sizes')
+        if section_size < PATH_OFFSET + PATH_MAX:
+            raise ValueError('pypysig section is too small')
+        return base_addr + section_rva
+
     file, base_addr = _find_file_and_base_addr(pid)
     origfile = file
     with open(file, 'rb') as f:
@@ -450,29 +648,43 @@ def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
 
 
 def start_debugger(pid, filename, wait=True):
-    if not sys.platform.startswith('linux'):
-        raise ValueError('This works on Linux only so far')
+    if not (sys.platform.startswith('linux') or sys.platform == 'win32'):
+        raise ValueError('This works on Linux and Windows only so far')
     addr = compute_remote_addr(pid)
-    cookie = read_memory(pid, addr + COOKIE_OFFSET, 8)
-    assert cookie == b'pypysigs'
     if not isinstance(filename, bytes):
         raise TypeError('filename must be bytes, not %r' % (type(filename).__name__, ))
     if not len(filename) + 1 < PATH_MAX:
         raise ValueError('path can be at most %s bytes long, not %s' % (PATH_MAX - 1, len(filename)))
     if b'\x00' in filename:
         raise ValueError('filename must not contain null byte')
-    # write the path plus null byte
-    write_memory(pid, addr + PATH_OFFSET, filename + b'\x00')
-    # write a 1 into pypysig_counter.debugger_pending_call
-    write_memory(pid, addr + PENDING_CALL_OFFSET, struct.pack('l', 1))
-    # write a -1 into pypysig_counter.value
-    write_memory(pid, addr, struct.pack('l', -1))
-    if wait:
-        while 1:
-            time.sleep(0.1)
-            value, = struct.unpack('l', read_memory(pid, addr + PENDING_CALL_OFFSET, struct.calcsize('l')))
-            if value == 0:
-                return
+
+    process = None
+    memory_handle = pid
+    if sys.platform == 'win32':
+        process = _open_windows_process(pid)
+        memory_handle = process
+    try:
+        cookie = read_memory(memory_handle, addr + COOKIE_OFFSET, 8)
+        assert cookie == b'pypysigs'
+        # write the path plus null byte
+        write_memory(memory_handle, addr + PATH_OFFSET, filename + b'\x00')
+        # write a 1 into pypysig_counter.debugger_pending_call
+        write_memory(memory_handle, addr + PENDING_CALL_OFFSET,
+                     struct.pack(SIGNED_FORMAT, 1))
+        # write a -1 into pypysig_counter.value
+        write_memory(memory_handle, addr, struct.pack(SIGNED_FORMAT, -1))
+        if wait:
+            while 1:
+                time.sleep(0.1)
+                value, = struct.unpack(
+                    SIGNED_FORMAT,
+                    read_memory(memory_handle,
+                                addr + PENDING_CALL_OFFSET, SIGNED_SIZE))
+                if value == 0:
+                    return
+    finally:
+        if process is not None:
+            kernel32.CloseHandle(process)
 
 def main():
     import argparse
@@ -483,20 +695,26 @@ def main():
     parser.add_argument("--dont-wait", help="dont wait for the other process to run the debug code", action='store_true')
     args = parser.parse_args()
 
-    if not sys.platform.startswith('linux'):
-        parser.error('This works on Linux only so far')
+    if not (sys.platform.startswith('linux') or sys.platform == 'win32'):
+        parser.error('This works on Linux and Windows only so far')
     if args.script:
         start_debugger(args.pid, os.path.realpath(args.script), wait=not args.dont_wait)
     elif args.c:
         if args.dont_wait:
             parser.error("can't pass -c and --dont-wait together")
         import tempfile
-        with tempfile.NamedTemporaryFile(mode='wb') as f:
-            f.write(args.c.encode('utf-8'))
-            f.flush()
+        fd, filename = tempfile.mkstemp(suffix='.py')
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(args.c.encode('utf-8'))
             # make it world-readable, in case we have to use sudo
-            os.chmod(f.name, 0o644)
-            start_debugger(args.pid, f.name, wait=True)
+            os.chmod(filename, 0o644)
+            start_debugger(args.pid, filename, wait=True)
+        finally:
+            try:
+                os.unlink(filename)
+            except OSError:
+                pass
     else:
         parser.error('need to pass either a script or -c')
 

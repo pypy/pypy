@@ -1,5 +1,8 @@
 import py, sys
 from os.path import abspath, commonprefix, dirname
+from pypy.config import pypyoption
+
+disabled = '_cppyy' not in pypyoption.working_modules
 
 THIS_DIR = dirname(__file__)
 
@@ -37,7 +40,6 @@ def pytest_ignore_collect(path, config):
         if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
             return True
 
-disabled = None
 if sys.maxsize > 2**32 and sys.platform == 'win32':
     # cppyy not yet supported on windows 64 bit
     disabled = True

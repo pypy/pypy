@@ -238,7 +238,7 @@ def variousstackdepths_callback(h, arg):
     return h
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType(
-    [rffi.CONST_VOIDP, rffi.CONST_VOIDP], rffi.INT))
+    [rffi.CONST_VOIDP, rffi.CONST_VOIDP], rffi.INT_real))
 qsort = rffi.llexternal('qsort',
                         [llmemory.Address, rffi.SIZE_T, rffi.SIZE_T,
                          QSORT_CALLBACK_PTR],
@@ -249,7 +249,7 @@ def cb_compare_callback(a, b):
     runner.main_h = runner.sthread.switch(runner.main_h)
     assert not runner.sthread.is_empty_handle(runner.main_h)
     runner.steps.append(6)
-    return rffi.cast(rffi.INT, 1)
+    return rffi.cast(rffi.INT_real, 1)
 def cb_stacklet_callback(h, arg):
     runner.steps.append(1)
     while True:

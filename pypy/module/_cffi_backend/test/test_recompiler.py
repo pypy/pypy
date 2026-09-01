@@ -70,8 +70,17 @@ def prepare(space, cdef, module_name, source, w_includes=None,
     if w_extra_source is not None:
         sources.append(space.str_w(w_extra_source))
     kwargs = {}
+    if sys.platform == 'win32':
+        extra = []
+    else:
+        # GCC 14 promotes -Wincompatible-pointer-types from a warning to an error
+        # by default, which breaks cffi's intentionally-mismatched field-check
+        # probes (e.g. test_misdeclared_field_1). Keep it a warning so the module
+        # compiles and cffi's runtime checks can run.
+        extra = ['-Wno-error=incompatible-pointer-types']
     if w_extra_compile_args is not None:
-        kwargs['extra_compile_args'] = space.unwrap(w_extra_compile_args)
+        extra = extra + space.unwrap(w_extra_compile_args)
+    kwargs['extra_compile_args'] = extra
     ext = ffiplatform.get_extension(c_file, module_name,
             include_dirs=[str(rdir)],
             export_symbols=['_cffi_pypyinit_' + base_module_name],
@@ -226,7 +235,9 @@ class AppTestRecompiler:
         vals = ['42', '-42', '0x80000000', '-2147483648',
                 '0', '9223372036854775809ULL',
                 '-9223372036854775807LL']
-        if sys.maxsize <= 2**32:
+        if sys.maxsize <= 2**32 or sys.platform == 'win32':
+            # same ambiguity as on 32-bit systems: on win64 'long' is only
+            # 32 bits wide (LLP64), even though sys.maxsize is 64-bit
             vals.remove('-2147483648')
 
         cdef_lines = ['#define FOO_%d_%d %s' % (i, j, vals[i])
@@ -502,6 +513,9 @@ class AppTestRecompiler:
         assert repr(ffi.cast("e1", 2)) == "<cdata 'e1' 2: AA>"
         #
         import sys
+        if sys.platform == 'win32':
+            skip("MSVC keeps enums as int and truncates oversized values "
+                "instead of widening the underlying type like GCC/Clang")
         ffi, lib = self.prepare(
             "typedef enum { AA=%d } e1;" % sys.maxsize,
             'test_verify_anonymous_enum_with_typedef2',

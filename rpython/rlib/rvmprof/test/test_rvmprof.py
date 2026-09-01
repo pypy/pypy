@@ -1,5 +1,6 @@
 import py, os
 import pytest
+import sys
 import time
 from rpython.tool.udir import udir
 from rpython.rlib import rvmprof
@@ -91,6 +92,13 @@ class RVMProfSamplingTest(RVMProfTest):
     # https://github.com/vmprof/vmprof-python/issues/163
     SAMPLING_INTERVAL = 1/250.0
 
+    # real_time=0 samples with ITIMER_PROF/SIGPROF, which on macOS saturates
+    # somewhere around 100-130 Hz no matter what interval is asked for (at
+    # 250 Hz it delivers less than half the signals), so the sample count can
+    # never match the cpu time. ITIMER_REAL is accurate there, and these tests
+    # are cpu-bound, so wall time is a good stand-in for cpu time.
+    REAL_TIME = int(sys.platform == 'darwin')
+
     @pytest.fixture
     def init(self, tmpdir):
         self.tmpdir = tmpdir
@@ -103,14 +111,27 @@ class RVMProfSamplingTest(RVMProfTest):
         code = self.MyCode('py:code:52:test_enable')
         rvmprof.register_code(code, self.MyCode.get_name)
         fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
-        rvmprof.enable(fd, self.SAMPLING_INTERVAL, memory=memory)
+        rvmprof.enable(fd, self.SAMPLING_INTERVAL, memory=memory,
+                       real_time=self.REAL_TIME)
         start = time.time()
+        cpu_start = os.times()
         res = 0
         while time.time() < start+delta_t:
             res = self.main(code, value)
+        cpu_end = os.times()
         rvmprof.disable()
         os.close(fd)
+        cpu_usec = int((cpu_end[0] + cpu_end[1] -
+                         cpu_start[0] - cpu_start[1]) * 1000000.0)
+        cpu_fd = os.open(self.tmpfilename + '.cpu',
+                          os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
+        os.write(cpu_fd, str(cpu_usec))
+        os.close(cpu_fd)
         return res
+
+    def get_cpu_time(self):
+        with open(self.tmpfilename + '.cpu') as f:
+            return int(f.read()) / 1000000.0
 
     def approx_equal(self, a, b, tolerance=0.15):
         max_diff = (a+b)/2.0 * tolerance
@@ -123,25 +144,28 @@ class TestEnable(RVMProfSamplingTest):
     def main(self, code, count):
         s = 0
         for i in range(count):
-            s += (i << 1)
+            # make this complicated so clang does not optimize it to a
+            # constant expression
+            s = (s + (i << 1)) ^ (s >> 3)
         return s
 
     def test(self):
         from vmprof import read_profile
-        assert self.entry_point(10**4, 0.1, 0) == 99990000
+        assert self.entry_point(10**4, 0.1, 0) == 17697048
         assert self.tmpfile.check()
         self.tmpfile.remove()
         #
-        assert self.rpy_entry_point(10**4, 0.5, 0) == 99990000
+        assert self.rpy_entry_point(10**4, 0.5, 0) == 17697048
+        cpu_time = self.get_cpu_time()
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
         assert tree.name == 'py:code:52:test_enable'
-        assert self.approx_equal(tree.count, 0.5/self.SAMPLING_INTERVAL)
+        assert self.approx_equal(tree.count, cpu_time/self.SAMPLING_INTERVAL)
 
     def test_mem(self):
         from vmprof import read_profile
-        assert self.rpy_entry_point(10**4, 0.5, 1) == 99990000
+        assert self.rpy_entry_point(10**4, 0.5, 1) == 17697048
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
         assert prof.profile_memory

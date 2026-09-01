@@ -225,7 +225,7 @@ def new_stacklet_callback(h, arg):
     try:
         rvmprof.start_sampling()
         frame = self.bottomframe
-        w_result = frame.execute_frame()
+        w_result = frame.execute_frame(None, None)
     except Exception as e:
         global_state.propagate_exception = e
     else:

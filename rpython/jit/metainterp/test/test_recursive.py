@@ -1364,6 +1364,11 @@ class RecursiveTests:
         # code in llinterp and pyjitpl are already jitted. therefore we run the
         # function in a subprocess.
         import subprocess, sys, os
+        if hasattr(sys, 'pypy_version_info'):
+            py.test.skip("crashes obscurely when the host interpreter "
+                          "running this test is PyPy itself, because the "
+                          "llinterp is being pushed even closer to the C "
+                          "stack limit than on CPython")
         env = os.environ.copy()
         env["PYTHONPATH"] = os.pathsep.join(sys.path)
         subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
@@ -1395,4 +1400,26 @@ def tco_doesnt_lead_to_infinite_tracing():
     assert res >= 0
 
 if __name__ == '__main__':
-    tco_doesnt_lead_to_infinite_tracing()
+    import sys
+    import threading
+    # the recursive tracing here goes very deep through nested llinterp
+    # frames (each RPython-level recursion level costs many real Python
+    # stack frames), and the default OS thread stack isn't always enough
+    # -- notably on Windows, where it's commonly only 1MB, vs. 8MB on
+    # Linux.  threading.stack_size() only affects threads started after
+    # it is called (not the main thread), so run the actual test in a
+    # separate thread with an explicitly large stack.
+    failures = []
+    def _run():
+        try:
+            tco_doesnt_lead_to_infinite_tracing()
+        except BaseException:
+            import traceback
+            traceback.print_exc()
+            failures.append(1)
+    threading.stack_size(64 * 1024 * 1024)
+    t = threading.Thread(target=_run)
+    t.start()
+    t.join()
+    if failures:
+        sys.exit(1)

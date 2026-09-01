@@ -16,6 +16,21 @@ try:
 except ImportError:
     py.test.skip("no zlib C library on this machine")
 
+def _zlib_older_than_1_2_12():
+    # zlib gained defalte/inflateStateCheck() in 1.2.12; older versions do
+    # not validate a corrupted z_stream in deflateCopy()/inflateCopy() and
+    # segfault instead of returning Z_STREAM_ERROR.
+    version = rzlib.ZLIB_VERSION
+    if not version:
+        return False
+    try:
+        parts = tuple(int(x) for x in version.split('.')[:3])
+    except ValueError:
+        return False
+    return parts < (1, 2, 12)
+
+zlib_does_not_error_check = _zlib_older_than_1_2_12()
+
 def test_unsigned_to_signed_32bit():
     assert interp_zlib.unsigned_to_signed_32bit(123) == 123
     assert interp_zlib.unsigned_to_signed_32bit(2**31) == -2**31
@@ -315,6 +330,7 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_decompressor)
 
+    @py.test.mark.skipif(zlib_does_not_error_check, reason='zlib < 1.2.12 lacks inflateStateCheck and segfaults')
     def test_cannot_copy_decompressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         decompressor = self.zlib.decompressobj()
@@ -350,7 +366,8 @@ class AppTestZlib(object):
 
         assert (d1 + from_copy) == (d1 + from_compressor)
 
-    @py.test.mark.skipif(rzlib.ZLIB_VERSION in ('1.2.7', '1.2.8', '1.2.3'), reason='does not error check')
+    @py.test.mark.skipif(zlib_does_not_error_check,
+                         reason='zlib < 1.2.12 lacks deflateStateCheck and segfaults')
     def test_cannot_copy_compressor_with_stream_in_inconsistent_state(self):
         if self.runappdirect: skip("can't run with -A")
         compressor = self.zlib.compressobj()

@@ -418,6 +418,8 @@ class MIFrame(object):
         # an operation
         self.metainterp._record_helper_varargs(rop.RECORD_KNOWN_RESULT, None, calldescr, allboxes)
 
+    opimpl_record_known_result_r_ir_v = opimpl_record_known_result_i_ir_v
+
     @arguments("box", "box")
     def opimpl_record_exact_value_r(self, box, const_box):
         return self._record_exact_value(rop.RECORD_EXACT_VALUE_R, box, const_box)

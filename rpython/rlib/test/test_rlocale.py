@@ -4,7 +4,8 @@
 import py, sys
 import locale as cpython_locale
 from rpython.rlib.rlocale import setlocale, LC_ALL, LocaleError, isupper, \
-     islower, isalpha, tolower, isalnum, numeric_formatting, external
+     islower, isalpha, tolower, isalnum, numeric_formatting, external, \
+     libraries as _libintl_libraries
 from rpython.rtyper.lltypesystem import rffi
 
 class TestLocale(object):
@@ -39,6 +40,9 @@ def test_numeric_formatting():
 def test_libintl():
     if sys.platform != "darwin" and not sys.platform.startswith("linux"):
         py.test.skip("there is (maybe) no libintl here")
+    if sys.platform == "darwin" and not _libintl_libraries:
+        py.test.skip("no separate libintl found, and macOS libc has no "
+                      "built-in gettext()")
     _gettext = external('gettext', [rffi.CCHARP], rffi.CCHARP)
     p = rffi.str2charp("1234")
     res = _gettext(p)

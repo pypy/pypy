@@ -393,7 +393,7 @@ class AppTestFloatFormatting:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 
     def test_locale_german(self):
-        import locale, sys
+        import locale
         for name in ['de_DE', 'de_DE.utf8']:
             try:
                 locale.setlocale(locale.LC_NUMERIC, name)
@@ -404,15 +404,9 @@ class AppTestFloatFormatting:
             skip("no german locale")
         x = 1234.567890
         try:
-            if sys.platform != "darwin":
-                assert locale.format('%g', x, grouping=True) == '1.234,57'
-                assert format(x, 'n') == '1.234,57'
-                assert format(12345678901234, 'n') == '12.345.678.901.234'
-            else:
-                # No thousands separator on German in MacOS since 10.4
-                assert locale.format('%g', x, grouping=True) == '1234,57'
-                assert format(x, 'n') == '1234,57'
-                assert format(12345678901234, 'n') == '12345678901234'
+            assert locale.format('%g', x, grouping=True) == '1.234,57'
+            assert format(x, 'n') == '1.234,57'
+            assert format(12345678901234, 'n') == '12.345.678.901.234'
         finally:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 

@@ -938,6 +938,36 @@ class BasicTests:
         res = self.interp_operations(f, [3, 2])
         assert res == 6
 
+    def test_ovf_reraise_caught_again_in_the_same_function(self):
+        # catching it a second time needs a class check on the exception, so
+        # generate_last_exc() emits last_exception/last_exc_value reads right
+        # after int_mul_jump_if_ovf -- which jumps without ever writing those
+        # slots.  Whether the first handler does any work is irrelevant.
+        def f(x, y):
+            try:
+                try:
+                    return ovfcheck(x * y)
+                except OverflowError:
+                    raise
+            except OverflowError:
+                return 3
+
+        def g(x, y):
+            try:
+                try:
+                    return ovfcheck(x * y)
+                except OverflowError:
+                    x += 1
+                    raise
+            except OverflowError:
+                return 3
+
+        for fn in [f, g]:
+            res = self.interp_operations(fn, [sys.maxint, 2])
+            assert res == 3
+            res = self.interp_operations(fn, [3, 2])
+            assert res == 6
+
     def test_int_sub_ovf(self):
         def f(x, y):
             try:
@@ -3246,6 +3276,20 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
 
+    def test_force_cast_to_bool(self):
+        # a cast to Bool has to normalize to 0/1 whatever the source is, and
+        # Bool is itself (size 1, unsigned), so the byte types are the ones
+        # whose range it covers and for which the cast can look like a no-op
+        def f(n):
+            return int(rffi.cast(lltype.Bool, rffi.cast(rffi.UCHAR, n)))
+        def g(n):
+            return int(rffi.cast(lltype.Bool, rffi.cast(rffi.SIGNEDCHAR, n)))
+        for fn in [f, g]:
+            assert self.interp_operations(fn, [0]) == 0
+            assert self.interp_operations(fn, [1]) == 1
+            assert self.interp_operations(fn, [2]) == 1
+            assert self.interp_operations(fn, [200]) == 1
+
     def test_int_signext(self):
         def f(n):
             return rffi.cast(rffi.SIGNEDCHAR, n)
@@ -3259,6 +3303,21 @@ class BasicTests:
         assert res == -35
         res = self.interp_operations(f, [127 - 256 * 29])
         assert res == 127
+
+    def test_getarrayitem_raw_of_gc_pointers_is_refused(self):
+        # there is no getarrayitem_raw_r anywhere: no bhimpl_, no opimpl_, and
+        # resoperation.py spells the operation 'GETARRAYITEM_RAW/2d/fi'.  The
+        # codewriter has to say so itself, instead of emitting the opcode and
+        # letting the blackhole interpreter fail to find a handler for it.
+        S = lltype.GcStruct('S', ('x', lltype.Signed))
+        A = rffi.CArray(lltype.Ptr(S))
+        def f(n):
+            a = lltype.malloc(A, 5, flavor='raw', zero=True)
+            res = 1 if a[n] else 0
+            lltype.free(a, flavor='raw')
+            return res
+        e = py.test.raises(Exception, self.interp_operations, f, [0])
+        assert 'getarrayitem_raw_r not supported' in str(e.value)
 
     def test_bug_inline_short_preamble_can_be_inconsistent_in_optimizeopt(self):
         myjitdriver = JitDriver(greens = [], reds = "auto")
@@ -4175,6 +4234,34 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(10)
         self.check_resops(call_i=2)  # two calls to f, both get removed by the backend
 
+    def test_record_known_result_ref(self):
+        # the elidable function returns a GC pointer, so this goes through
+        # record_known_result_r rather than record_known_result_i
+        class W(object):
+            def __init__(self, x):
+                self.x = x
+        cache = [W(i) for i in range(20)]
+
+        @elidable
+        def f(x):
+            return cache[x]
+
+        def call_f(x):
+            w = f(x)
+            record_known_result(w, f, x)
+            return w.x
+
+        myjitdriver = JitDriver(greens=[], reds=['x', 'res'])
+        def main(x):
+            res = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(x=x, res=res)
+                res += call_f(x)
+                x -= 1
+            return res
+        res = self.meta_interp(main, [10], backendopt=True)
+        assert res == main(10)
+
 
     def test_record_exact_value(self):
         class A(object):
@@ -4657,8 +4744,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
     def test_unichar_ord_is_never_signed_on_64bit(self):
         import sys
-        if sys.maxunicode == 0xffff:
-            py.test.skip("test for 32-bit unicodes")
+        # what matters here is the width of the C-level lltype.UniChar
+        # used by the JIT backend (i.e. the target's wchar_t), not
+        # sys.maxunicode of the *hosting* interpreter running this
+        # untranslated test: on Windows wchar_t is always 2 bytes
+        # (UTF-16), even when hosted by a "wide" build whose own
+        # sys.maxunicode is 0x10ffff.
+        if rffi.sizeof(lltype.UniChar) == 2:
+            py.test.skip("test for 16-bit unicodes (e.g. UTF-16 on Windows)")
         def f(x):
             return ord(rffi.cast(lltype.UniChar, x))
         res = self.interp_operations(f, [-1])

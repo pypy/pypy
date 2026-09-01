@@ -659,6 +659,14 @@ class TestFramework(RewriteTests):
         # note: strdescr.basesize already contains the extra final character,
         # so that's why newstr(14) is rounded up to 'basesize+15' and not
         # 'basesize+16'.
+        # note also: each of the two allocations combined into the single
+        # call_malloc_nursery() below is rounded up to a WORD boundary
+        # *individually* (see round_up_for_allocation()) before being
+        # added together, not just the total.  With unicodedescr.itemsize
+        # == 4 (e.g. UCS4 on Linux/macOS) both parts already land on a
+        # WORD boundary and this makes no difference, but with itemsize
+        # == 2 (UTF-16, e.g. on Windows) the unicode part alone is not
+        # WORD-aligned.
         self.check_rewrite("""
             [i2]
             p0 = newstr(14)
@@ -668,13 +676,17 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [i2]
-            p0 = call_malloc_nursery(                                \
-                      %(strdescr.basesize + 15 * strdescr.itemsize + \
-                        unicodedescr.basesize + 10 * unicodedescr.itemsize)d)
+            p0 = call_malloc_nursery(                                       \
+                      %(((strdescr.basesize + 15 * strdescr.itemsize        \
+                          + WORD - 1) & ~(WORD - 1)) +                      \
+                        ((unicodedescr.basesize + 10 * unicodedescr.itemsize \
+                          + WORD - 1) & ~(WORD - 1)))d)
             gc_store(p0, 0,  %(strdescr.tid)d, %(tiddescr.field_size)s)
             gc_store(p0, %(strlendescr.offset)s, 14, %(strlendescr.field_size)s)
             gc_store(p0, 0,  0, %(strhashdescr.field_size)s)
-            p1 = nursery_ptr_increment(p0, %(strdescr.basesize + 15 * strdescr.itemsize)d)
+            p1 = nursery_ptr_increment(p0,                            \
+                      %((strdescr.basesize + 15 * strdescr.itemsize   \
+                          + WORD - 1) & ~(WORD - 1))d)
             gc_store(p1, 0,  %(unicodedescr.tid)d, %(tiddescr.field_size)s)
             gc_store(p1, %(unicodelendescr.offset)s, 10, %(unicodelendescr.field_size)s)
             gc_store(p1, 0,  0, %(unicodehashdescr.field_size)s)

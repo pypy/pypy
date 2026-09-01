@@ -11,7 +11,7 @@ shareddir = srcdir.join('shared')
 
 ffi = cffi.FFI()
 ffi.cdef("""
-long vmprof_write_header_for_jit_addr(void **, long, intptr_t , int);
+long vmprof_write_header_for_jit_addr(intptr_t *, long, intptr_t , int);
 void *pypy_find_codemap_at_addr(long addr, long *start_addr);
 long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                 long *current_pos_addr);
@@ -66,8 +66,8 @@ class TestDirect(object):
         lib.buffer[2] = 12
         lib.buffer[3] = 16
         lib.buffer[4] = 0
-        buf = ffi.new("long[10]", [0] * 10)
-        result = ffi.cast("void**", buf)
+        buf = ffi.new("intptr_t[10]", [0] * 10)
+        result = ffi.cast("intptr_t*", buf)
         res = lib.vmprof_write_header_for_jit_addr(result, 0, 0, 100)
         assert res == 10
         assert [x for x in buf] == [6, 0, 3, 16, 3, 12, 3, 8, 3, 4]

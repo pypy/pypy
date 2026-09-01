@@ -46,7 +46,17 @@ def test_call_descr_dynamic():
     assert descr.result_flag == FLAG_UNSIGNED
     assert descr.is_result_signed() == False
 
-    if not is_64_bit or is_emulated_long:
+    if is_emulated_long:
+        # Win64 (LLP64): C 'long' is 32 bits but the JIT's native word
+        # size is 64 bits, so 'long long' lines up with types.signed
+        # (see the Win64 special case in jit_libffi.types.getkind) and
+        # is classified as a plain 'i' kind, unlike on a genuine 32-bit
+        # target.  It doesn't need cpu.supports_longlong here.
+        descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.slonglong)
+        assert isinstance(descr, CallDescr)
+        assert descr.result_type == 'i'
+        assert descr.result_flag == FLAG_SIGNED
+    elif not is_64_bit:
         descr = calldescr_dynamic_for_tests(FakeCPU(), [], types.slonglong)
         assert descr is None   # missing longlongs
         descr = calldescr_dynamic_for_tests(FakeCPU(supports_longlong=True),
