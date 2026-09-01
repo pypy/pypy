@@ -2,6 +2,9 @@ import os
 import sys
 import unittest
 
+if sys.implementation.name == 'pypy':
+    raise unittest.SkipTest('Linux only')
+
 from _testinternalcapi import perf_map_state_teardown, write_perf_map_entry
 
 if sys.platform != 'linux':
