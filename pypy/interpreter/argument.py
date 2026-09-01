@@ -375,7 +375,8 @@ class Arguments(object):
             return self._parse(w_firstarg, signature, defaults_w, w_kw_defs,
                                blindargs)
         except ArgErrUnknownKwds as e:
-            if not signature.has_kwarg() and signature.kwonlyargcount == 0:
+            if (signature.posonlyargcount == signature.num_argnames() and
+                    signature.kwonlyargcount == 0):
                 raise oefmt(self.space.w_TypeError,
                             "%s() takes no keyword arguments", fnname)
             raise oefmt(self.space.w_TypeError, "%s() %8", fnname, e.getmsg())

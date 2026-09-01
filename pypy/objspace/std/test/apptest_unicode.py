@@ -98,6 +98,13 @@ def test_split():
     assert '   a b c d'.split(None, 0) == ['a b c d']
     assert u'a\nb\u1680c'.split() == [u'a', u'b', u'c']
 
+
+def test_split_unexpected_keyword_error():
+    with raises(TypeError) as exc:
+        "".split(max_split=1)
+    assert str(exc.value) == (
+        "str.split() got an unexpected keyword argument 'max_split'")
+
 def test_split_nonascii():
     assert "\u2029".split() == []
     assert "ä".split() == ['ä']

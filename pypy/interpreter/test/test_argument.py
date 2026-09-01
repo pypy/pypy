@@ -897,6 +897,30 @@ class TestErrorHandling(object):
         s = err.getmsg()
         assert s == "got 2 unexpected keyword arguments"
 
+    def test_unknown_keyword_error_for_keyword_capable_signature(self):
+        space = DummySpace()
+        args = Arguments(space, ["self"], ["max_split"], [1])
+        sig = Signature(["self", "sep", "maxsplit"], posonlyargcount=1)
+
+        with pytest.raises(OperationError) as excinfo:
+            args.parse_obj(None, "str.split", sig, [None, -1])
+
+        assert excinfo.value.w_type is TypeError
+        assert space.text_w(excinfo.value.get_w_value(space)) == (
+            "str.split() got an unexpected keyword argument 'max_split'")
+
+    def test_unknown_keyword_error_for_positional_only_signature(self):
+        space = DummySpace()
+        args = Arguments(space, [1], ["foo"], [2])
+        sig = Signature(["obj"], posonlyargcount=1)
+
+        with pytest.raises(OperationError) as excinfo:
+            args.parse_obj(None, "posonly", sig)
+
+        assert excinfo.value.w_type is TypeError
+        assert space.text_w(excinfo.value.get_w_value(space)) == (
+            "posonly() takes no keyword arguments")
+
     def test_multiple_values(self):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg()
