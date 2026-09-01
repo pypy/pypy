@@ -67,10 +67,13 @@ class TestConsole(Console):
         pass
     beep = forgetinput = finish = restore = prepare
 
+    def getheightwidth(self):
+        return self.height, self.width
+
     def _crash(self, *args, **kwargs):
         assert 0
 
-    move_cursor = set_cursor_vis = getheightwidth = push_char = clear = _crash
+    move_cursor = set_cursor_vis = push_char = clear = _crash
     flushoutput = wait = repaint = _crash
 
 

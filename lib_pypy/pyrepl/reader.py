@@ -144,16 +144,17 @@ class Reader:
     Instance variables of note include:
 
       * buffer:
-        A *list* (*not* a string at the moment :-) containing all the
-        characters that have been entered.
+        A per-character list containing all the characters that have been
+        entered. Does not include color information.
       * console:
         Hopefully encapsulates the OS dependent stuff.
       * pos:
         A 0-based index into 'buffer' for where the insertion point
         is.
       * screeninfo:
-        Ahem.  This list contains some info needed to move the
-        insertion point around reasonably efficiently.
+        A list of screen position tuples. Each list element is a tuple
+        representing information on visible line length for a given line.
+        Allows for efficient skipping of color escape sequences.
       * cxy, lxy:
         the position of the insertion point in screen ...
       * syntax_table:
@@ -312,9 +313,12 @@ class Reader:
 
         prompt_from_cache = (offset and self.buffer[offset - 1] != "\n")
 
-        colors = list(gen_colors(self.get_unicode())) if self.can_colorize else None
+        if self.can_colorize:
+            colors = list(gen_colors(self.get_unicode()))
+        else:
+            colors = None
+        trace("colors = {colors}", colors=colors)
         lines = "".join(self.buffer[offset:]).split("\n")
-
         cursor_found = False
         lines_beyond_cursor = 0
         for ln, line in enumerate(lines, num_common_lines):
@@ -388,6 +392,12 @@ class Reader:
 
     @staticmethod
     def process_prompt(prompt: str) -> tuple[str, int]:
+        r"""Return a tuple with the prompt string and its visible length.
+
+        The prompt string has the zero-width brackets recognized by shells
+        (\x01 and \x02) removed.  The length ignores anything between those
+        brackets as well as any ANSI escape sequences.
+        """
         out_prompt = unbracket(prompt, including_content=False)
         visible_prompt = unbracket(prompt, including_content=True)
         return out_prompt, wlen(visible_prompt)
@@ -511,7 +521,7 @@ class Reader:
         cur_x = self.screeninfo[i][0]
         while cur_x < x:
             if self.screeninfo[i][1][j] == 0:
-                j += 1
+                j += 1  # prevent potential future infinite loop
                 continue
             cur_x += self.screeninfo[i][1][j]
             j += 1
@@ -521,10 +531,13 @@ class Reader:
 
     def pos2xy(self) -> tuple[int, int]:
         """Return the x, y coordinates of position 'pos'."""
+
         prompt_len, y = 0, 0
         char_widths: list[int] = []
         pos = self.pos
         assert 0 <= pos <= len(self.buffer)
+
+        # optimize for the common case: typing at the end of the buffer
         if pos == len(self.buffer) and len(self.screeninfo) > 0:
             y = len(self.screeninfo) - 1
             prompt_len, char_widths = self.screeninfo[y]
@@ -534,12 +547,14 @@ class Reader:
             offset = len(char_widths)
             in_wrapped_line = prompt_len + sum(char_widths) >= self.console.width
             if in_wrapped_line:
-                offset -= 1
+                offset -= 1  # need to remove line-wrapping backslash
+
             if offset >= pos:
                 break
 
             if not in_wrapped_line:
-                offset += 1
+                offset += 1  # there's a newline in buffer
+
             pos -= offset
             y += 1
         return prompt_len + sum(char_widths[:pos]), y
@@ -553,6 +568,7 @@ class Reader:
     def update_cursor(self) -> None:
         """Move the cursor to reflect changes in self.pos"""
         self.cxy = self.pos2xy()
+        trace("update_cursor({pos}) = {cxy}", pos=self.pos, cxy=self.cxy)
         self.console.move_cursor(*self.cxy)
 
     def after_command(self, cmd: Command) -> None:
@@ -613,6 +629,7 @@ class Reader:
         finally:
             self.can_colorize = old_can_colorize
 
+
     def finish(self) -> None:
         """Called when a command signals that we're finished."""
         pass
@@ -628,6 +645,7 @@ class Reader:
 
     def refresh(self) -> None:
         """Recalculate and refresh the screen."""
+        self.console.height, self.console.width = self.console.getheightwidth()
         # this call sets up self.cxy, so call it first.
         self.screen = self.calc_screen()
         self.console.refresh(self.screen, self.cxy)

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from .support import (ScreenEqualMixin, handle_all_events,
                       handle_events_narrow_console, code_to_events,
-                      prepare_reader)
+                      prepare_console, prepare_reader)
 from test.support import cpython_only, force_colorized_test_class, import_helper
 from pyrepl.console import Event
 from pyrepl.reader import Reader
@@ -236,6 +236,9 @@ class TestReader(TestCase):
             console.get_event.side_effect = events
             console.height = 100
             console.width = 80
+            console.getheightwidth = MagicMock(
+                side_effect=lambda: (console.height, console.width)
+            )
             console.input_hook = input_hook
             return console
 
@@ -324,6 +327,21 @@ class TestReader(TestCase):
         reader, _ = handle_all_events(events, prepare_reader=completing_reader)
 
         self.assert_screen_equals(reader, f"{code}a")
+
+    def test_pos2xy_with_no_columns(self):
+        console = prepare_console([])
+        reader = prepare_reader(console)
+        # Simulate a resize to 0 columns.
+        reader.screeninfo = []
+        self.assertEqual(reader.pos2xy(), (0, 0))
+
+    def test_setpos_from_xy_for_non_printing_char(self):
+        code = "# non \u200c printing character"
+        events = code_to_events(code)
+
+        reader, _ = handle_all_events(events)
+        reader.setpos_from_xy(8, 0)
+        self.assertEqual(reader.pos, 7)
 
 
 @force_colorized_test_class
