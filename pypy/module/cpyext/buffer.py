@@ -163,7 +163,7 @@ class FQ(rgc.FinalizerQueue):
 fq = FQ()
 
 
-@cpython_api([CONST_STRING], Py_ssize_t, error=-1)
+@cpython_api([CONST_STRING], Py_ssize_t, error=-1, abi3=True)
 def PyBuffer_SizeFromFormat(space, format):
     w_struct = space.getbuiltinmodule('_struct')
     w_calcsize = space.getattr(w_struct, space.newtext('calcsize'))
@@ -171,7 +171,7 @@ def PyBuffer_SizeFromFormat(space, format):
     return space.int_w(w_res)
 
 
-@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRINGP, Py_ssize_tP], rffi.INT_real, error=-1, abi3=True)
 def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
     """Returns a pointer to a read-only memory location usable as
     character-based input.  The obj argument must support the single-segment
@@ -205,7 +205,7 @@ def PyObject_AsCharBuffer(space, obj, bufferp, sizep):
 DEFAULT_FMT = rffi.str2charp("B")
 
 @cpython_api([lltype.Ptr(Py_buffer), PyObject, rffi.VOIDP, Py_ssize_t,
-              rffi.INT_real, rffi.INT_real], rffi.INT, error=-1)
+              rffi.INT_real, rffi.INT_real], rffi.INT, error=-1, abi3=True)
 def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     """
     Fills in a buffer-info structure correctly for an exporter that can only

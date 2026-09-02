@@ -63,14 +63,14 @@ def dict_dealloc(space, py_obj):
     py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
     _dealloc(space, py_obj)
 
-@cpython_api([], PyObject)
+@cpython_api([], PyObject, abi3=True)
 def PyDict_New(space):
     return space.newdict()
 
 PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
 
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
-             result_borrowed=True)
+             result_borrowed=True, abi3=True)
 def PyDict_GetItem(space, w_dict, w_key):
     if not isinstance(w_dict, W_DictMultiObject):
         return None
@@ -83,7 +83,7 @@ def PyDict_GetItem(space, w_dict, w_key):
     except OperationError:
         return None
 
-@cpython_api([PyObject, PyObject], PyObject, result_borrowed=True)
+@cpython_api([PyObject, PyObject], PyObject, result_borrowed=True, abi3=True)
 def PyDict_GetItemWithError(space, w_dict, w_key):
     """Variant of PyDict_GetItem() that does not suppress
     exceptions. Return NULL with an exception set if an exception
@@ -93,21 +93,21 @@ def PyDict_GetItemWithError(space, w_dict, w_key):
         PyErr_BadInternalCall(space)
     return w_dict.getitem(w_key)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
     if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
     w_dict.setitem(w_key, w_obj)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_DelItem(space, w_dict, w_key):
     if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
     w_dict.descr_delitem(space, w_key)
     return 0
 
-@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     w_key = space.newtext(rffi.charp2str(key_ptr))
     if not isinstance(w_dict, W_DictMultiObject):
@@ -116,7 +116,7 @@ def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
     return 0
 
 @cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL,
-             result_borrowed=True)
+             result_borrowed=True, abi3=True)
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
@@ -138,7 +138,7 @@ def _PyDict_GetItemStringWithError(space, w_dict, key):
         PyErr_BadInternalCall(space)
     return w_dict.getitem(w_key)
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1, abi3=True)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""
@@ -148,14 +148,14 @@ def PyDict_DelItemString(space, w_dict, key_ptr):
     w_dict.descr_delitem(space, w_key)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyDict_Size(space, w_obj):
     """
     Return the number of items in the dictionary.  This is equivalent to
     len(p) on a dictionary."""
     return space.len_w(w_obj)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_Contains(space, w_dict, w_key):
     """Determine if dictionary p contains key.  If an item in p is matches
     key, return 1, otherwise return 0.  On error, return -1.
@@ -173,7 +173,7 @@ def PyDict_Contains(space, w_dict, w_key):
             return 0
         raise e
 
-@cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void, abi3=True)
 def PyDict_Clear(space, w_obj):
     """Empty an existing dictionary of all key-value pairs."""
     space.call_method(space.w_dict, "clear", w_obj)
@@ -187,7 +187,7 @@ def PyDict_SetDefault(space, w_dict, w_key, w_defaultobj):
         return space.call_method(
             space.w_dict, "setdefault", w_dict, w_key, w_defaultobj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Copy(space, w_obj):
     """Return a new dictionary that contains the same key-value pairs as p.
     """
@@ -203,7 +203,7 @@ def _has_val(space, w_dict, w_key):
             raise
     return True
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1, abi3=True)
 def PyDict_Merge(space, w_a, w_b, override):
     """Iterate over mapping object b adding key-value pairs to dictionary a.
     b may be a dictionary, or any object supporting PyMapping_Keys()
@@ -226,32 +226,32 @@ def PyDict_Merge(space, w_a, w_b, override):
             space.setitem(w_a, w_key, space.getitem(w_b, w_key))
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_Update(space, w_obj, w_other):
     """This is the same as PyDict_Merge(a, b, 1) in C, or a.update(b) in
     Python.  Return 0 on success or -1 if an exception was raised.
     """
     return PyDict_Merge(space, w_obj, w_other, 1)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Keys(space, w_obj):
     """Return a PyListObject containing all the keys from the dictionary,
     as in the dictionary method dict.keys()."""
     return space.call_function(space.w_list, space.call_method(space.w_dict, "keys", w_obj))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Values(space, w_obj):
     """Return a PyListObject containing all the values from the
     dictionary p, as in the dictionary method dict.values()."""
     return space.call_function(space.w_list, space.call_method(space.w_dict, "values", w_obj))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Items(space, w_obj):
     """Return a PyListObject containing all the items from the
     dictionary, as in the dictionary method dict.items()."""
     return space.call_function(space.w_list, space.call_method(space.w_dict, "items", w_obj))
 
-@cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     """Iterate over all key-value pairs in the dictionary p.  The
     Py_ssize_t referred to by ppos must be initialized to 0

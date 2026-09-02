@@ -16,20 +16,20 @@ from pypy.module.cpyext.pyobject import decref
 
 from pypy.module.cpyext.dictobject import PyDict_Check
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, abi3=True)
 def PySequence_Repeat(space, w_obj, count):
     """Return the result of repeating sequence object o count times, or NULL on
     failure.  This is the equivalent of the Python expression o * count.
     """
     return space.mul(w_obj, space.newint(count))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PySequence_Check(space, w_obj):
     """Return 1 if the object provides sequence protocol, and 0 otherwise.
     This function always succeeds."""
     return int(space.issequence_w(w_obj))
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Size(space, w_obj):
     """
     Returns the number of objects in sequence o on success, and -1 on failure.
@@ -37,11 +37,11 @@ def PySequence_Size(space, w_obj):
     Python expression len(o)."""
     return space.len_w(w_obj)
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Length(space, w_obj):
     return space.len_w(w_obj)
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject, abi3=True)
 def PySequence_Fast(space, w_obj, m):
     """Returns the sequence o as a tuple, unless it is already a tuple or list, in
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
@@ -118,20 +118,20 @@ def PySequence_Fast_ITEMS(space, py_obj):
         storage = get_list_storage(space, w_obj)
         return rffi.cast(PyObjectP, storage._elems)
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject, abi3=True)
 def PySequence_GetSlice(space, w_obj, start, end):
     """Return the slice of sequence object o between i1 and i2, or NULL on
     failure. This is the equivalent of the Python expression o[i1:i2]."""
     return space.getslice(w_obj, space.newint(start), space.newint(end))
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PySequence_SetSlice(space, w_obj, start, end, w_value):
     """Assign the sequence object v to the slice in sequence object o from i1 to
     i2.  This is the equivalent of the Python statement o[i1:i2] = v."""
     space.setslice(w_obj, space.newint(start), space.newint(end), w_value)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1, abi3=True)
 def PySequence_DelSlice(space, w_obj, start, end):
     """Delete the slice in sequence object o from i1 to i2.  Returns -1 on
     failure.  This is the equivalent of the Python statement del o[i1:i2]."""
@@ -170,7 +170,7 @@ def PySequence_ITEM(space, w_obj, i):
     w_ret = space.getitem(w_obj, space.newint(i))
     return make_ref(space, w_ret)
 
-@cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True)
+@cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True, abi3=True)
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
@@ -184,13 +184,13 @@ def PySequence_GetItem(space, w_obj, i):
                 "%T index out of range", w_obj)
     return PySequence_ITEM(space, w_obj, i)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PySequence_List(space, w_obj):
     """Return a list object with the same contents as the arbitrary sequence o.  The
     returned list is guaranteed to be new."""
     return space.call_function(space.w_list, w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PySequence_Tuple(space, w_obj):
     """Return a tuple object with the same contents as the arbitrary sequence o or
     NULL on failure.  If o is a tuple, a new reference will be returned,
@@ -198,20 +198,20 @@ def PySequence_Tuple(space, w_obj):
     equivalent to the Python expression tuple(o)."""
     return space.call_function(space.w_tuple, w_obj)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PySequence_Concat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     This is the equivalent of the Python expression o1 + o2."""
     return space.add(w_o1, w_o2)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PySequence_InPlaceConcat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     The operation is done in-place when o1 supports it.  This is the equivalent
     of the Python expression o1 += o2."""
     return space.inplace_add(w_o1, w_o2)
 
-@cpython_api([PyObject, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t], PyObject, abi3=True)
 def PySequence_InPlaceRepeat(space, w_o, count):
     """Return the result of repeating sequence object o count times, or NULL on
     failure.  The operation is done in-place when o supports it.  This is the
@@ -222,7 +222,7 @@ def PySequence_InPlaceRepeat(space, w_o, count):
     return space.inplace_mul(w_o, space.newint(count))
 
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PySequence_Contains(space, w_obj, w_value):
     """Determine if o contains value.  If an item in o is equal to value,
     return 1, otherwise return 0. On error, return -1.  This is
@@ -230,7 +230,7 @@ def PySequence_Contains(space, w_obj, w_value):
     w_res = space.contains(w_obj, w_value)
     return space.int_w(w_res)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PySeqIter_New(space, w_seq):
     """Return an iterator that works with a general sequence object, seq.  The
     iteration ends when the sequence raises IndexError for the subscripting
@@ -239,7 +239,7 @@ def PySeqIter_New(space, w_seq):
     # XXX check for bad internal call
     return space.newseqiter(w_seq)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PySequence_SetItem(space, w_o, i, w_v):
     """Assign object v to the ith element of o.  Returns -1 on failure.  This
     is the equivalent of the Python statement o[i] = v.  This function does
@@ -250,14 +250,14 @@ def PySequence_SetItem(space, w_o, i, w_v):
     space.setitem(w_o, space.newint(i), w_v)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1, abi3=True)
 def PySequence_DelItem(space, w_o, i):
     """Delete the ith element of object o.  Returns -1 on failure.  This is the
     equivalent of the Python statement del o[i]."""
     space.delitem(w_o, space.newint(i))
     return 0
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Index(space, w_seq, w_obj):
     """Return the first index i for which o[i] == value.  On error, return
     -1.    This is equivalent to the Python expression o.index(value).
@@ -280,7 +280,7 @@ def PySequence_Index(space, w_seq, w_obj):
 
     raise oefmt(space.w_ValueError, "sequence.index(x): x not in sequence")
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Count(space, w_seq, w_obj):
     """Return the number of occurrences of value in o, that is, return the number
     of keys for which o[key] == value.  On failure, return -1.  This is

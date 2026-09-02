@@ -4,12 +4,12 @@ from pypy.module.cpyext.object import FILEP
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.pystate import PyThreadState, PyInterpreterState
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def Py_MakePendingCalls(space):
     return 0
 
 pending_call = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT_real))
-@cpython_api([pending_call, rffi.VOIDP], rffi.INT_real, error=-1)
+@cpython_api([pending_call, rffi.VOIDP], rffi.INT_real, error=-1, abi3=True)
 def Py_AddPendingCall(space, func, arg):
     """Post a notification to the Python main thread.  If successful,
     func will be called with the argument arg at the earliest

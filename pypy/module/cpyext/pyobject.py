@@ -567,11 +567,11 @@ def write_w_marker_deallocating(space):
 def _Py_HashPointer(space, ptr):
     return rffi.cast(lltype.Signed, ptr)
 
-@cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void, abi3=True)
 def Py_IncRef(space, obj):
     if obj:
         incref(space, obj)
 
-@cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void, abi3=True)
 def Py_DecRef(space, obj):
     decref(space, obj)

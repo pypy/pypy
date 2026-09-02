@@ -20,11 +20,11 @@ import pypy.module.__builtin__.operation as operation
 # prefix and hands out the pointer past it (PyMem_* is the separate raw domain, no
 # prefix).  So every object alloc/free -- PyObject_New/Del, GC_New/Del, tp_alloc/
 # tp_free, and the _PyPy_Malloc/_PyPy_Free backing them -- is prefix-consistent.
-@cpython_api([size_t], rffi.VOIDP)
+@cpython_api([size_t], rffi.VOIDP, abi3=True)
 def PyObject_Malloc(space, size):
     return pyobj_raw_alloc(size)
 
-@cpython_api([size_t, size_t], rffi.VOIDP)
+@cpython_api([size_t, size_t], rffi.VOIDP, abi3=True)
 def PyObject_Calloc(space, nelem, elsize):
     if elsize != 0 and nelem > PY_SSIZE_T_MAX / elsize:
         return lltype.nullptr(rffi.VOIDP.TO)
@@ -32,7 +32,7 @@ def PyObject_Calloc(space, nelem, elsize):
 
 realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
 
-@cpython_api([rffi.VOIDP, size_t], rffi.VOIDP)
+@cpython_api([rffi.VOIDP, size_t], rffi.VOIDP, abi3=True)
 def PyObject_Realloc(space, ptr, size):
     if not lltype.cast_ptr_to_int(ptr):
         return pyobj_raw_alloc(size)
@@ -84,15 +84,15 @@ def _PyObject_GetDictPtr(space, op):
     loc = rffi.ptradd(cts.cast("char *", op), dictoffset)
     return cts.cast("PyObject **", loc)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_IsTrue(space, w_obj):
     return space.is_true(w_obj)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_Not(space, w_obj):
     return not space.is_true(w_obj)
 
-@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True, abi3=True)
 def PyObject_GetAttr(space, w_obj, w_name):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure.  This is the equivalent of the Python
@@ -100,7 +100,7 @@ def PyObject_GetAttr(space, w_obj, w_name):
     w_res = space.getattr(w_obj, w_name)
     return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True)
+@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True, abi3=True)
 def PyObject_GetAttrString(space, w_obj, name_ptr):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure. This is the equivalent of the Python
@@ -109,7 +109,7 @@ def PyObject_GetAttrString(space, w_obj, name_ptr):
     w_res = space.getattr(w_obj, space.newtext(name))
     return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyObject_HasAttr(space, w_obj, w_name):
     try:
         w_res = operation.hasattr(space, w_obj, w_name)
@@ -117,7 +117,7 @@ def PyObject_HasAttr(space, w_obj, w_name):
     except OperationError:
         return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyObject_HasAttrString(space, w_obj, name_ptr):
     try:
         name = rffi.charp2str(name_ptr)
@@ -126,7 +126,7 @@ def PyObject_HasAttrString(space, w_obj, name_ptr):
     except OperationError:
         return 0
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_SetAttr(space, w_obj, w_name, value):
     if value:
         w_value = from_ref(space, value)
@@ -135,7 +135,7 @@ def PyObject_SetAttr(space, w_obj, w_name, value):
         space.delattr(w_obj, w_name)
     return 0
 
-@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_SetAttrString(space, w_obj, name_ptr, value):
     w_name = space.newtext(rffi.charp2str(name_ptr))
     if value:
@@ -145,38 +145,38 @@ def PyObject_SetAttrString(space, w_obj, name_ptr, value):
         space.delattr(w_obj, w_name)
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyObject_Size(space, w_obj):
     return space.len_w(w_obj)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyCallable_Check(space, w_obj):
     """Determine if the object o is callable.  Return 1 if the object is callable
     and 0 otherwise.  This function always succeeds."""
     return int(space.is_true(space.callable(w_obj)))
 
-@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True)
+@cpython_api([PyObject, PyObject], PyObject, result_is_ll=True, abi3=True)
 def PyObject_GetItem(space, w_obj, w_key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
     w_res = space.getitem(w_obj, w_key)
     return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_SetItem(space, w_obj, w_key, w_value):
     """Map the object key to the value v.  Returns -1 on failure.  This is the
     equivalent of the Python statement o[key] = v."""
     space.setitem(w_obj, w_key, w_value)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_DelItem(space, w_obj, w_key):
     """Delete the mapping for key from o.  Returns -1 on failure. This is the
     equivalent of the Python statement del o[key]."""
     space.delitem(w_obj, w_key)
     return 0
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_Type(space, w_obj):
     """When o is non-NULL, returns a type object corresponding to the object type
     of object o. On failure, raises SystemError and returns NULL.  This
@@ -187,13 +187,13 @@ def PyObject_Type(space, w_obj):
     count is needed."""
     return space.type(w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_Str(space, w_obj):
     if w_obj is None:
         return space.newtext("<NULL>")
     return space.str(w_obj)
 
-@cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
+@cts.decl("PyObject * PyObject_Bytes(PyObject *v)", abi3=True)
 def PyObject_Bytes(space, w_obj):
     from pypy.module.cpyext.bytesobject import PyBytes_FromObject
     if w_obj is None:
@@ -205,7 +205,7 @@ def PyObject_Bytes(space, w_obj):
         return w_result
     return PyBytes_FromObject(space, w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_Repr(space, w_obj):
     """Compute a string representation of object o.  Returns the string
     representation on success, NULL on failure.  This is the equivalent of the
@@ -215,7 +215,7 @@ def PyObject_Repr(space, w_obj):
         return space.newtext("<NULL>")
     return space.repr(w_obj)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.newtext('')
@@ -224,7 +224,7 @@ def PyObject_Format(space, w_obj, w_format_spec):
         return space.unicode_from_object(w_ret)
     return w_ret
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_ASCII(space, w_obj):
     r"""As PyObject_Repr(), compute a string representation of object
     o, but escape the non-ASCII characters in the string returned by
@@ -243,7 +243,7 @@ def PyObject_Unicode(space, w_obj):
         return space.newutf8("<NULL>", 6)
     return space.call_function(space.w_unicode, w_obj)
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], PyObject)
+@cpython_api([PyObject, PyObject, rffi.INT_real], PyObject, abi3=True)
 def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
@@ -260,7 +260,7 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     if opid == Py_GE: return space.ge(w_o1, w_o2)
     PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1, abi3=True)
 def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
     """Compare the values of o1 and o2 using the operation specified by opid,
     which must be one of Py_LT, Py_LE, Py_EQ,
@@ -280,13 +280,13 @@ def PyObject_RichCompareBool(space, w_o1, w_o2, opid_int):
     w_res = PyObject_RichCompare(space, w_o1, w_o2, opid_int)
     return int(space.is_true(w_res))
 
-@cpython_api([PyObject], PyObject, result_is_ll=True)
+@cpython_api([PyObject], PyObject, result_is_ll=True, abi3=True)
 def PyObject_SelfIter(space, ref):
     """Undocumented function, this is what CPython does."""
     incref(space, ref)
     return ref
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyObject_GenericGetAttr(space, w_obj, w_name):
     """Generic attribute getter function that is meant to be put into a type
     object's tp_getattro slot.  It looks for a descriptor in the dictionary
@@ -298,7 +298,7 @@ def PyObject_GenericGetAttr(space, w_obj, w_name):
     w_descr = object_getattribute(space)
     return space.get_and_call_function(w_descr, w_obj, w_name)
 
-@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_GenericSetAttr(space, w_obj, w_name, w_value):
     """Generic attribute setter function that is meant to be put into a type
     object's tp_setattro slot.  It looks for a data descriptor in the
@@ -315,7 +315,7 @@ def PyObject_GenericSetAttr(space, w_obj, w_name, w_value):
         space.get_and_call_function(w_descr, w_obj, w_name)
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_IsInstance(space, w_inst, w_cls):
     """Returns 1 if inst is an instance of the class cls or a subclass of
     cls, or 0 if not.  On error, returns -1 and sets an exception.  If
@@ -330,7 +330,7 @@ def PyObject_IsInstance(space, w_inst, w_cls):
     from pypy.module.__builtin__.abstractinst import abstract_isinstance_w
     return abstract_isinstance_w(space, w_inst, w_cls, allow_override=True)
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_IsSubclass(space, w_derived, w_cls):
     """Returns 1 if the class derived is identical to or derived from the class
     cls, otherwise returns 0.  In case of an error, returns -1. If cls
@@ -341,7 +341,7 @@ def PyObject_IsSubclass(space, w_derived, w_cls):
     from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
     return abstract_issubclass_w(space, w_derived, w_cls, allow_override=True)
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_AsFileDescriptor(space, w_obj):
     """Derives a file descriptor from a Python object.  If the object is an
     integer or long integer, its value is returned.  If not, the object's
@@ -367,7 +367,7 @@ def PyObject_AsFileDescriptor(space, w_obj):
     return rffi.cast(rffi.INT_real, fd)
 
 
-@cpython_api([PyObject], lltype.Signed, error=-1)
+@cpython_api([PyObject], lltype.Signed, error=-1, abi3=True)
 def PyObject_Hash(space, pyobj):
     """
     Compute and return the hash value of an object o.  On failure, return -1.
@@ -386,7 +386,7 @@ def _Py_HashDouble(space, w_obj, v):
     from pypy.objspace.std.floatobject import float_hash
     return space.int_w(float_hash(space, w_obj, v))
 
-@cpython_api([PyObject], lltype.Signed, error=-1)
+@cpython_api([PyObject], lltype.Signed, error=-1, abi3=True)
 def PyObject_HashNotImplemented(space, o):
     """Set a TypeError indicating that type(o) is not hashable and return -1.
     This function receives special treatment when stored in a tp_hash slot,
@@ -395,7 +395,7 @@ def PyObject_HashNotImplemented(space, o):
     """
     raise oefmt(space.w_TypeError, "unhashable type")
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_Dir(space, w_o):
     """This is equivalent to the Python expression dir(o), returning a (possibly
     empty) list of strings appropriate for the object argument, or NULL if there
@@ -442,7 +442,7 @@ def _PyPyGC_AddMemoryPressure(space, report):
 
 ExecutionContext.cpyext_recursive_repr = None
 
-@cpython_api([PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def Py_ReprEnter(space, w_obj):
     ec = space.getexecutioncontext()
     d = ec.cpyext_recursive_repr
@@ -453,7 +453,7 @@ def Py_ReprEnter(space, w_obj):
     d[w_obj] = None
     return 0
 
-@cpython_api([PyObject], lltype.Void)
+@cpython_api([PyObject], lltype.Void, abi3=True)
 def Py_ReprLeave(space, w_obj):
     ec = space.getexecutioncontext()
     d = ec.cpyext_recursive_repr
@@ -463,12 +463,12 @@ def Py_ReprLeave(space, w_obj):
         except KeyError:
             pass
 
-@cpython_api([PyObject, rffi.VOIDP], PyObject)
+@cpython_api([PyObject, rffi.VOIDP], PyObject, abi3=True)
 def PyObject_GenericGetDict(space, w_obj, context):
     from pypy.interpreter.typedef import descr_get_dict
     return descr_get_dict(space, w_obj)
 
-@cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1, abi3=True)
 def PyObject_GenericSetDict(space, w_obj, w_value, context):
     from pypy.interpreter.typedef import descr_set_dict
     if w_value is None:
@@ -476,43 +476,43 @@ def PyObject_GenericSetDict(space, w_obj, w_value, context):
     descr_set_dict(space, w_obj, w_value)
     return 0
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyGC_IsEnabled(space):
     import gc
     return int(gc.isenabled())
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyGC_Disable(space):
     import gc
     ret = int(gc.isenabled())
     gc.disable()
     return ret
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyGC_Enable(space):
     import gc
     ret = int(gc.isenabled())
     gc.enable()
     return ret
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyObject_GC_IsTracked(space, w_obj):
     """All objects in PyPy are tracked, this will always return 1
     """
     return 1
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyObject_GC_IsFinalized(space, w_obj):
     """For now, always return 0
     """
     return 0
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def Py_Is(space, w_obj1, w_obj2):
     res = space.is_w(w_obj1, w_obj2)
     return int(res)
 
-@cts.decl("Py_ssize_t PyGC_Collect(void)", error=-1)
+@cts.decl("Py_ssize_t PyGC_Collect(void)", error=-1, abi3=True)
 def PyGC_Collect(space):
     from rpython.rlib.objectmodel import we_are_translated
     from rpython.rlib import rawrefcount

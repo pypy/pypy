@@ -4,7 +4,7 @@ from pypy.module._weakref.interp__weakref import W_Weakref, proxy
 from pypy.module._weakref.interp__weakref import W_Proxy, W_CallableProxy
 from rpython.rtyper.lltypesystem import rffi
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyWeakref_NewRef(space, w_obj, w_callback):
     """Return a weak reference object for the object ob.  This will always return
     a new reference, but is not guaranteed to create a new object; an existing
@@ -18,7 +18,7 @@ def PyWeakref_NewRef(space, w_obj, w_callback):
     w_weakref = space.gettypeobject(W_Weakref.typedef)
     return space.call_function(w_weakref, w_obj, w_callback)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyWeakref_NewProxy(space, w_obj, w_callback):
     """Return a weak reference proxy object for the object *ob*.  This will
     alwas return a new reference, but is not guaranteed to create a new
@@ -32,7 +32,7 @@ def PyWeakref_NewProxy(space, w_obj, w_callback):
     """
     return proxy(space, w_obj, w_callback)
 
-@cpython_api([PyObject], PyObject, result_borrowed=True)
+@cpython_api([PyObject], PyObject, result_borrowed=True, abi3=True)
 def PyWeakref_GetObject(space, w_ref):
     """Return the referenced object from a weak reference.  If the referent is
     no longer live, returns None. This function returns a borrowed reference.

@@ -25,11 +25,11 @@ PyCF_MASK = (consts.CO_FUTURE_DIVISION |
              consts.CO_FUTURE_PRINT_FUNCTION |
              consts.CO_FUTURE_UNICODE_LITERALS)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyEval_CallObjectWithKeywords(space, w_obj, w_arg, w_kwds):
     return space.call(w_obj, w_arg, w_kwds)
 
-@cpython_api([], PyObject, result_borrowed=True)
+@cpython_api([], PyObject, result_borrowed=True, abi3=True)
 def PyEval_GetBuiltins(space):
     """Return a dictionary of the builtins in the current execution
     frame, or the interpreter of the thread state if no frame is
@@ -44,7 +44,7 @@ def PyEval_GetBuiltins(space):
         w_builtins = space.builtin.getdict(space)
     return w_builtins      # borrowed ref in all cases
 
-@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True)
+@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True, abi3=True)
 def PyEval_GetLocals(space):
     """Return a dictionary of the local variables in the current execution
     frame, or NULL if no frame is currently executing."""
@@ -53,7 +53,7 @@ def PyEval_GetLocals(space):
         return None
     return caller.getdictscope()    # borrowed ref
 
-@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True)
+@cpython_api([], PyObject, error=CANNOT_FAIL, result_borrowed=True, abi3=True)
 def PyEval_GetGlobals(space):
     """Return a dictionary of the global variables in the current execution
     frame, or NULL if no frame is currently executing."""
@@ -62,12 +62,12 @@ def PyEval_GetGlobals(space):
         return None
     return caller.get_w_globals()    # borrowed ref
 
-@cpython_api([], PyFrameObject, error=CANNOT_FAIL, result_borrowed=True)
+@cpython_api([], PyFrameObject, error=CANNOT_FAIL, result_borrowed=True, abi3=True)
 def PyEval_GetFrame(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     return caller    # borrowed ref, may be null
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
     the code object, and the dictionaries of global and local variables.
@@ -80,7 +80,7 @@ def PyEval_EvalCode(space, w_code, w_globals, w_locals):
 
 @cpython_api([PyObject, PyObject, PyObject,
               PyObjectP, rffi.INT_real, PyObjectP, rffi.INT_real,
-              PyObjectP, rffi.INT_real, PyObject, PyObject], PyObject)
+              PyObjectP, rffi.INT_real, PyObject, PyObject], PyObject, abi3=True)
 def PyEval_EvalCodeEx(space, w_co, w_globals, w_locals, args, argcount,
                       kws, kwcount, defs, defcount, w_kwdefs, w_closure):
     """Evaluate a precompiled code object, given the globals and locals, plus
@@ -118,7 +118,7 @@ def PyEval_EvalCodeEx(space, w_co, w_globals, w_locals, args, argcount,
         keywords_w = [from_ref(space, kws[2 * i + 1]) for i in range(kwcount)]
     return func.call_args(Arguments(space, args_w, keyword_names_w, keywords_w))
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyObject_CallObject(space, w_obj, w_arg):
     """
     Call a callable Python object callable_object, with arguments given by the
@@ -128,7 +128,7 @@ def PyObject_CallObject(space, w_obj, w_arg):
     callable_object(*args)."""
     return space.call(w_obj, w_arg)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_CallNoArgs(space, w_obj):
     return space.call_function(w_obj)
 
@@ -146,7 +146,7 @@ def PyObject_CallMethodOneArg(space, w_self, w_name, w_arg):
     name = space.text_w(w_name)
     return space.call_method(w_self, name, w_arg)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyObject_Call(space, w_obj, w_args, w_kw):
     """
     Call a callable Python object, with arguments given by the
@@ -158,7 +158,7 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     return space.call(w_obj, w_args, w_kw)
 
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyCFunction_Call(space, w_obj, w_args, w_kw):
     return space.call(w_obj, w_args, w_kw)
 
@@ -337,19 +337,19 @@ def PyEval_MergeCompilerFlags(space, cf):
     cf.c_cf_flags = rffi.cast(rffi.INT, flags)
     return result
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def Py_GetRecursionLimit(space):
     from pypy.module.sys.vm import getrecursionlimit
     return space.int_w(getrecursionlimit(space))
 
-@cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL)
+@cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL, abi3=True)
 def Py_SetRecursionLimit(space, limit):
     from pypy.module.sys.vm import setrecursionlimit
     setrecursionlimit(space, widen(limit))
 
 limit = 0 # for testing
 
-@cpython_api([CONST_STRING], rffi.INT_real, error=1)
+@cpython_api([CONST_STRING], rffi.INT_real, error=1, abi3=True)
 def Py_EnterRecursiveCall(space, where):
     """Marks a point where a recursive C-level call is about to be performed.
 
@@ -378,7 +378,7 @@ def Py_EnterRecursiveCall(space, where):
                  "maximum recursion depth exceeded%s", rffi.charp2str(where))
     return 0
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, abi3=True)
 def Py_LeaveRecursiveCall(space):
     """Ends a Py_EnterRecursiveCall().  Must be called once for each
     successful invocation of Py_EnterRecursiveCall()."""
@@ -398,7 +398,7 @@ def _PyEval_GetAsyncGenFinalizer(space):
     ec = space.getexecutioncontext()
     return ec.w_asyncgen_finalizer_fn
 
-@cpython_api([PyObject], rffi.CONST_CCHARP)
+@cpython_api([PyObject], rffi.CONST_CCHARP, abi3=True)
 def PyEval_GetFuncName(space, w_obj):
     try:
         if space.isinstance_w(w_obj, space.w_type):

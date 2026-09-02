@@ -10,7 +10,7 @@ def PyExceptionInstance_Class(space, w_obj):
     return space.type(w_obj)
 
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyException_GetTraceback(space, w_exc):
     """Return the traceback associated with the exception as a new reference, as
     accessible from Python through __traceback__.  If there is no
@@ -21,7 +21,7 @@ def PyException_GetTraceback(space, w_exc):
     return w_tb
 
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyException_SetTraceback(space, w_exc, w_tb):
     """Set the traceback associated with the exception to tb.  Use Py_None to
     clear it."""
@@ -29,7 +29,7 @@ def PyException_SetTraceback(space, w_exc, w_tb):
     return 0
 
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyException_GetContext(space, w_exc):
     """Return the context (another exception instance during whose handling ex was
     raised) associated with the exception as a new reference, as accessible from
@@ -41,7 +41,7 @@ def PyException_GetContext(space, w_exc):
     return w_ctx
 
 
-@cpython_api([PyObject, PyObject], lltype.Void)
+@cpython_api([PyObject, PyObject], lltype.Void, abi3=True)
 def PyException_SetContext(space, w_exc, ctx):
     """Set the context associated with the exception to ctx.  Use NULL to clear
     it.  There is no type check to make sure that ctx is an exception instance.
@@ -53,7 +53,7 @@ def PyException_SetContext(space, w_exc, ctx):
         w_ctx = space.w_None
     space.setattr(w_exc, space.newtext('__context__'), w_ctx)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyException_GetCause(space, w_exc):
     """Return the cause (another exception instance set by raise ... from ...)
     associated with the exception as a new reference, as accessible from Python
@@ -65,7 +65,7 @@ def PyException_GetCause(space, w_exc):
     return w_cause
 
 
-@cpython_api([PyObject, PyObject], lltype.Void)
+@cpython_api([PyObject, PyObject], lltype.Void, abi3=True)
 def PyException_SetCause(space, w_exc, cause):
     """Set the cause associated with the exception to cause.  Use NULL to clear
     it.  There is no type check to make sure that cause is an exception instance.
@@ -78,14 +78,14 @@ def PyException_SetCause(space, w_exc, cause):
     space.setattr(w_exc, space.newtext('__cause__'), w_cause)
 
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyException_GetArgs(space, w_exc):
     """Return the args of the exception ex, as accessible from Python
     through args."""
     return space.getattr(w_exc, space.newtext('args'))
 
 
-@cpython_api([PyObject, PyObject], lltype.Void)
+@cpython_api([PyObject, PyObject], lltype.Void, abi3=True)
 def PyException_SetArgs(space, w_exc, w_args):
     """Set the args of the exception ex to args."""
     space.setattr(w_exc, space.newtext('args'), w_args)

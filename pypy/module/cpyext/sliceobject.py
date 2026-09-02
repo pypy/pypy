@@ -49,7 +49,7 @@ def slice_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PySlice_New(space, w_start, w_stop, w_step):
     """Return a new slice object with the given values.  The start, stop, and
     step parameters are used as the values of the slice object attributes of
@@ -65,7 +65,7 @@ def PySlice_New(space, w_start, w_stop, w_step):
     return W_SliceObject(w_start, w_stop, w_step)
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP,
-                Py_ssize_tP], rffi.INT_real, error=-1)
+                Py_ssize_tP], rffi.INT_real, error=-1, abi3=True)
 def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
                          slicelength_p):
     """Usable replacement for PySlice_GetIndices().  Retrieve the start,
@@ -82,7 +82,7 @@ def PySlice_GetIndicesEx(space, w_slice, length, start_p, stop_p, step_p,
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
-                rffi.INT_real, error=-1)
+                rffi.INT_real, error=-1, abi3=True)
 def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     """Retrieve the start, stop and step indices from the slice object slice,
     assuming a sequence of length length. Treats indices greater than
@@ -103,7 +103,7 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     return 0
 
 @cpython_api([PyObject, Py_ssize_tP, Py_ssize_tP, Py_ssize_tP],
-             rffi.INT_real, error=-1)
+             rffi.INT_real, error=-1, abi3=True)
 def PySlice_Unpack(space, w_slice, start_p, stop_p, step_p):
     if not isinstance(w_slice, W_SliceObject):
         raise PyErr_BadInternalCall(space)

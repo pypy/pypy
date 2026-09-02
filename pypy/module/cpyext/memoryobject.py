@@ -187,7 +187,7 @@ def _IsCContiguous(view):
         sd *= dim
     return 1
 
-@cpython_api([Py_bufferP, lltype.Char], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_bufferP, lltype.Char], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyBuffer_IsContiguous(space, view, fort):
     """Return 1 if the memory defined by the view is C-style (fort is
     'C') or Fortran-style (fort is 'F') contiguous or either one
@@ -204,12 +204,12 @@ def PyBuffer_IsContiguous(space, view, fort):
         return (_IsCContiguous(view) or _IsFortranContiguous(view))
     return 0
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyMemoryView_FromObject(space, w_obj):
     return space.call_method(space.builtin, "memoryview", w_obj)
 
 @cts.decl("""PyObject *
-    PyMemoryView_FromMemory(char *mem, Py_ssize_t size, int flags)""")
+    PyMemoryView_FromMemory(char *mem, Py_ssize_t size, int flags)""", abi3=True)
 def PyMemoryView_FromMemory(space, mem, size, flags):
     """Expose a raw memory area as a view of contiguous bytes. flags can be
     PyBUF_READ or PyBUF_WRITE. view->format is set to "B" (unsigned bytes).
@@ -221,7 +221,7 @@ def PyMemoryView_FromMemory(space, mem, size, flags):
     w_mview = W_MemoryView(view)
     return w_mview
 
-@cpython_api([Py_bufferP], PyObject, result_is_ll=True)
+@cpython_api([Py_bufferP], PyObject, result_is_ll=True, abi3=True)
 def PyMemoryView_FromBuffer(space, view):
     """Create a memoryview object wrapping the given buffer structure view.
     The memoryview object then owns the buffer represented by view, which
@@ -281,7 +281,7 @@ def memory_from_contiguous_copy(space, src, order):
                 "not implemented yet") 
 
 
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
+@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject, abi3=True)
 def PyMemoryView_GetContiguous(space, w_obj, buffertype, order):
     """
     Return a new memoryview object based on a contiguous exporter with

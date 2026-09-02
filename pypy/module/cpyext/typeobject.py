@@ -81,7 +81,7 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
-@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyGetSetDef)], PyObject, result_is_ll=True)
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyGetSetDef)], PyObject, result_is_ll=True, abi3=True)
 def PyDescr_NewGetSet(space, w_type, getset):
     # Note the arguments are reversed
     w_descr = W_GetSetPropertyEx(getset, w_type)
@@ -952,7 +952,7 @@ def py_type_ready(space, pto):
         return
     type_realize(space, rffi.cast(PyObject, pto))
 
-@cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1)
+@cpython_api([PyTypeObjectPtr], rffi.INT_real, error=-1, abi3=True)
 def PyType_Ready(space, pto):
     py_type_ready(space, pto)
     return 0
@@ -1240,21 +1240,21 @@ def get_slot_by_num(typ, slotnum):
 
 @cts.decl("""PyObject *
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
-    result_is_ll=True)
+    result_is_ll=True, abi3=True)
 def PyType_FromSpecWithBases(space, spec, bases):
     return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
                                       lltype.nullptr(PyObject.TO), spec, bases)
 
 @cts.decl("""PyObject *
     PyType_FromMetaclass(PyTypeObject * metaclass, PyObject * module, PyType_Spec *spec, PyObject *bases)""",
-    result_is_ll=True)
+    result_is_ll=True, abi3=True)
 def PyType_FromMetaclass(space, metaclass, module, spec, bases):
     return _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases)
 
 
 @cts.decl("""PyObject *
     PyType_FromModuleAndSpec(PyObject *module, PyType_Spec *spec, PyObject *bases)""",
-    result_is_ll=True)
+    result_is_ll=True, abi3=True)
 def PyType_FromModuleAndSpec(space, module, spec, bases):
     return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
                                       module, spec, bases)
@@ -1485,7 +1485,7 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
         dictloc = dictref
     return res_obj
 
-@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0))
+@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0), abi3=True)
 def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
@@ -1577,7 +1577,7 @@ def resync_slot_wrappers(space, w_type, pto):
         w_type.dict_w["__new__"] = W_PyCFunctionObject(
             space, get_new_method_def(space), from_ref(space, pyo), None)
 
-@cpython_api([PyTypeObjectPtr], lltype.Void)
+@cpython_api([PyTypeObjectPtr], lltype.Void, abi3=True)
 def PyType_Modified(space, w_obj):
     """Invalidate the internal lookup cache for the type and all of its
     subtypes.  This function must be called after any manual
@@ -1593,7 +1593,7 @@ def PyType_Modified(space, w_obj):
         resync_slot_wrappers(space, w_obj, pto)
         w_obj.mutated(None)
 
-@cpython_api([PyObject, PyObject], PyObject, header='genericaliasobject.h')
+@cpython_api([PyObject, PyObject], PyObject, header='genericaliasobject.h', abi3=True)
 def Py_GenericAlias(space, w_cls, w_item):
     from pypy.objspace.std.util import generic_alias_class_getitem
     return generic_alias_class_getitem(space, w_cls, w_item)

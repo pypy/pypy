@@ -8,7 +8,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.objspace.std import newformat
 
-@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject, PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyNumber_AsSsize_t(space, w_obj, w_exc):
     """Returns o converted to a Py_ssize_t value if o can be interpreted as an
     integer. If o can be converted to a Python int or long but the attempt to
@@ -41,20 +41,20 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
         else:
             raise
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyNumber_Long(space, w_obj):
     """Returns the o converted to a long integer object on success, or NULL on
     failure.  This is the equivalent of the Python expression long(o)."""
     return space.call_function(space.w_int, w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyNumber_Index(space, w_obj):
     """Returns the o converted to a Python int or long on success or NULL with a
     TypeError exception raised on failure.
     """
     return space.index(w_obj)
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
+@cpython_api([PyObject, rffi.INT_real], PyObject, abi3=True)
 def PyNumber_ToBase(space, w_obj, base):
     """Returns the integer n converted to base as a string with a base
     marker of '0b', '0o', or '0x' if applicable.  When
@@ -139,11 +139,11 @@ for name, spacemeth in [
     cname = 'PyNumber_%s' % (name,)
     globals()[cname] = make_unary_numbermethod(cname, spacemeth)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyNumber_Power(space, w_o1, w_o2, w_o3):
     return space.pow(w_o1, w_o2, w_o3)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyNumber_InPlacePower(space, w_o1, w_o2, w_o3):
     if not space.is_w(w_o3, space.w_None):
         raise oefmt(space.w_ValueError,

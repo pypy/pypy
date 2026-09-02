@@ -88,7 +88,7 @@ def PyFrame_New(space, tstate, w_code, w_globals, w_locals):
     py_frame.c_f_locals = make_ref(space, w_locals)
     return py_frame
 
-@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1, abi3=True)
 def PyTraceBack_Here(space, w_frame):
     from pypy.interpreter.pytraceback import record_application_traceback
     state = space.fromcache(State)
@@ -142,12 +142,12 @@ def PyFrame_GetLasti(space, w_frame):
     w_lasti = frame.fget_f_lasti(space)
     return space.int_w(w_lasti)
 
-@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1, abi3=True)
 def PyFrame_GetLineNumber(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
     return frame.get_last_lineno()
 
-@cpython_api([PyThreadState], PyFrameObject)
+@cpython_api([PyThreadState], PyFrameObject, abi3=True)
 def PyThreadState_GetFrame(space, tstate):
     ec = space.getexecutioncontext()
     caller = ec.gettopframe_nohidden()

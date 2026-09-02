@@ -50,7 +50,7 @@ def capsule_dealloc(space, py_obj):
 
 @cts.decl("""PyObject *
     PyCapsule_New(void *pointer, const char *name, PyCapsule_Destructor destructor)""",
-    result_is_ll=True)
+    result_is_ll=True, abi3=True)
 def PyCapsule_New(space, pointer, name, destructor):
     if not pointer:
         raise oefmt(space.w_ValueError, "PyCapsule_New called with null pointer")
@@ -59,7 +59,7 @@ def PyCapsule_New(space, pointer, name, destructor):
     pyobj.c_destructor = destructor
     return pyobj
 
-@cts.decl("int PyCapsule_SetPointer(PyObject *capsule, void *pointer)", error=-1)
+@cts.decl("int PyCapsule_SetPointer(PyObject *capsule, void *pointer)", error=-1, abi3=True)
 def PyCapsule_SetPointer(space, py_obj, pointer):
     # Set both the capsule and the w_obj. We can't use the attach/realize
     # mechanism since this is in-place modification
@@ -70,7 +70,7 @@ def PyCapsule_SetPointer(space, py_obj, pointer):
     w_obj.pointer = pointer
     return 0
 
-@cts.decl("int PyCapsule_SetDestructor(PyObject *capsule, PyCapsule_Destructor destructor)", error=-1)
+@cts.decl("int PyCapsule_SetDestructor(PyObject *capsule, PyCapsule_Destructor destructor)", error=-1, abi3=True)
 def PyCapsule_SetDestructor(space, py_obj, destructor):
     # Set both the capsule and the w_obj. We can't use the attach/realize
     # mechanism since this is in-place modification
@@ -78,7 +78,7 @@ def PyCapsule_SetDestructor(space, py_obj, destructor):
     py_capsule.c_destructor = destructor
     return 0
 
-@cts.decl("int PyCapsule_SetName(PyObject *capsule, const char *name)", error=-1)
+@cts.decl("int PyCapsule_SetName(PyObject *capsule, const char *name)", error=-1, abi3=True)
 def PyCapsule_SetName(space, py_obj, name):
     # Set both the capsule and the w_obj. We can't use the attach/realize
     # mechanism since this is in-place modification
@@ -89,7 +89,7 @@ def PyCapsule_SetName(space, py_obj, name):
     w_obj.name = name
     return 0
 
-@cts.decl("int PyCapsule_SetContext(PyObject *capsule, void *context)", error=-1)
+@cts.decl("int PyCapsule_SetContext(PyObject *capsule, void *context)", error=-1, abi3=True)
 def PyCapsule_SetContext(space, py_obj, context):
     # Set both the capsule and the w_obj. We can't use the attach/realize
     # mechanism since this is in-place modification

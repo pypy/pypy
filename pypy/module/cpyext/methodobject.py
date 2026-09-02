@@ -559,7 +559,7 @@ W_PyCWrapperObject.typedef = TypeDef(
 W_PyCWrapperObject.typedef.acceptable_as_base_class = False
 
 
-@cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject, PyObject], PyObject)
+@cpython_api([lltype.Ptr(PyMethodDef), PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyCMethod_New(space, ml, w_self, w_name, w_type):
     flags = rffi.cast(lltype.Signed, ml.c_ml_flags)
     if flags & METH_METHOD:
@@ -579,7 +579,7 @@ def PyCMethod_New(space, ml, w_self, w_name, w_type):
                 "but no METH_METHOD flag");
         return W_PyCFunctionObject(space, ml, w_self, w_name)
 
-@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)")
+@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)", abi3=True)
 def PyCFunction_GetFunction(space, w_obj):
     try:
         cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
@@ -600,13 +600,13 @@ def PyClassMethod_New(space, w_func):
 
 @cts.decl("""
     PyObject *
-    PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)""")
+    PyDescr_NewMethod(PyTypeObject *type, PyMethodDef *method)""", abi3=True)
 def PyDescr_NewMethod(space, w_type, method):
     return W_PyCMethodObject(space, method, None, None, w_type, None)
 
 @cts.decl("""
     PyObject *
-    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
+    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""", abi3=True)
 def PyDescr_NewClassMethod(space, w_type, method):
     if not isinstance(w_type, W_TypeObject):
         raise oefmt(space.w_SystemError,
@@ -660,7 +660,7 @@ def PyVectorcall_NARGS(n):
     return n & ~PY_VECTORCALL_ARGUMENTS_OFFSET
 
 @cts.decl("PyObject *PyObject_Vectorcall(PyObject *, PyObject *const *, "
-          "size_t, PyObject *)")
+          "size_t, PyObject *)", abi3=True)
 def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
     nargsf = n
     py_func = as_pyobj(space, w_func)
@@ -704,7 +704,7 @@ def PyObject_VectorcallDict(space, w_func, py_args, n, w_kwargs):
     return w_result
 
 @cts.decl("PyObject *PyObject_VectorcallMethod(PyObject *, PyObject *const *, "
-          "size_t, PyObject *)")
+          "size_t, PyObject *)", abi3=True)
 def PyObject_VectorcallMethod(space, w_name, py_args, n, w_argnames):
     if w_argnames is None:
         n_kwargs = -1

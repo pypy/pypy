@@ -47,12 +47,12 @@ def complex_realize(space, obj):
     return w_obj
 
 
-@cpython_api([lltype.Float, lltype.Float], PyObject)
+@cpython_api([lltype.Float, lltype.Float], PyObject, abi3=True)
 def PyComplex_FromDoubles(space, real, imag):
     return space.newcomplex(real, imag)
 
 
-@cpython_api([PyObject], lltype.Float, error=-1)
+@cpython_api([PyObject], lltype.Float, error=-1, abi3=True)
 def PyComplex_RealAsDouble(space, w_obj):
     if space.isinstance_w(w_obj, space.w_complex):
         assert isinstance(w_obj, W_ComplexObject)
@@ -61,7 +61,7 @@ def PyComplex_RealAsDouble(space, w_obj):
         return space.float_w(w_obj)
 
 
-@cpython_api([PyObject], lltype.Float, error=-1)
+@cpython_api([PyObject], lltype.Float, error=-1, abi3=True)
 def PyComplex_ImagAsDouble(space, w_obj):
     if space.isinstance_w(w_obj, space.w_complex):
         assert isinstance(w_obj, W_ComplexObject)

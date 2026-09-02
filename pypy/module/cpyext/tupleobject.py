@@ -129,7 +129,7 @@ def tuple_from_args_w(space, args_w):
         py_tuple.c_ob_item[i] = make_ref(space, w_obj)
     return rffi.cast(PyObject, py_tuple)
 
-@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1)
+@cpython_api([PyObject, Py_ssize_t, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyTuple_SetItem(space, ref, index, py_obj):
     if not tuple_check_ref(space, ref):
         decref(space, py_obj)
@@ -151,7 +151,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], PyObject,
-             result_borrowed=True, result_is_ll=True)
+             result_borrowed=True, result_is_ll=True, abi3=True)
 def PyTuple_GetItem(space, ref, index):
     if not tuple_check_ref(space, ref):
         PyErr_BadInternalCall(space)
@@ -161,7 +161,7 @@ def PyTuple_GetItem(space, ref, index):
         raise oefmt(space.w_IndexError, "tuple index out of range")
     return ref.c_ob_item[index]     # borrowed ref
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyTuple_Size(space, ref):
     """Take a pointer to a tuple object, and return the size of that tuple."""
     if not tuple_check_ref(space, ref):
@@ -213,7 +213,7 @@ def _PyTuple_Resize(space, p_ref, newsize):
         decref(space, ref)
     return 0
 
-@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
+@cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject, abi3=True)
 def PyTuple_GetSlice(space, w_obj, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it
     as a new tuple.
