@@ -1,8 +1,6 @@
 from rpython.rlib import jit
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef
 
 NUM_TOOLS = 6
 NUM_EVENTS = 17
@@ -50,11 +48,6 @@ class W_MonitoringSentinel(W_Root):
 
     def descr_repr(self, space):
         return space.newtext("<%s>" % self.name)
-
-
-W_MonitoringSentinel.typedef = TypeDef("sys.monitoring.sentinel",
-    __repr__=interp2app(W_MonitoringSentinel.descr_repr),
-)
 
 
 class Singletons(object):

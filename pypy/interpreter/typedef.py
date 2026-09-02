@@ -573,6 +573,7 @@ from pypy.interpreter.pycode import (
     CO_YIELD_INSIDE_TRY, W_LineIterator)
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SApplicationException
+from pypy.interpreter.pymonitoring import W_MonitoringSentinel
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction)
@@ -738,6 +739,10 @@ W_LineIterator.typedef = TypeDef('line_iterator',
     __next__ = interp2app(W_LineIterator.descr_next),
 )
 W_LineIterator.typedef.acceptable_as_base_class = False
+
+W_MonitoringSentinel.typedef = TypeDef("sys.monitoring.sentinel",
+    __repr__ = interp2app(W_MonitoringSentinel.descr_repr),
+)
 
 
 PyFrame.typedef = TypeDef('frame',
