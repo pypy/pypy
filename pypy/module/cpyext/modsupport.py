@@ -36,7 +36,7 @@ def module_dealloc(space, py_obj):
 
 PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyModule_New(space, name):
     """
     Return a new module object with the __name__ attribute set to name.
@@ -44,7 +44,7 @@ def PyModule_New(space, name):
     the caller is responsible for providing a __file__ attribute."""
     return Module(space, space.newtext(rffi.charp2str(name)))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyModule_NewObject(space, w_name):
     """
     Return a new module object with the __name__ attribute set to name.
@@ -52,7 +52,7 @@ def PyModule_NewObject(space, w_name):
     the caller is responsible for providing a __file__ attribute."""
     return Module(space, w_name)
 
-@cpython_api([PyModuleDef, rffi.INT_real], PyObject)
+@cpython_api([PyModuleDef, rffi.INT_real], PyObject, abi3=True)
 def PyModule_Create2(space, module, api_version):
     """Create a new module object, given the definition in module, assuming the
     API version module_api_version.  If that version does not match the version
@@ -227,7 +227,7 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None, 
             dict_w[methodname] = w_obj
 
 
-@cpython_api([PyObject], PyObject, result_borrowed=True)
+@cpython_api([PyObject], PyObject, result_borrowed=True, abi3=True)
 def PyModule_GetDict(space, w_mod):
     if PyModule_Check(space, w_mod):
         assert isinstance(w_mod, Module)
@@ -236,7 +236,7 @@ def PyModule_GetDict(space, w_mod):
     else:
         PyErr_BadInternalCall(space)
 
-@cpython_api([PyObject], rffi.CCHARP)
+@cpython_api([PyObject], rffi.CCHARP, abi3=True)
 def PyModule_GetName(space, w_mod):
     """
     Return module's __name__ value.  If the module does not provide one,
@@ -251,7 +251,7 @@ def PyModule_GetName(space, w_mod):
     from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
     return PyUnicode_AsUTF8(space, as_pyobj(space, w_mod.w_name))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyModule_GetFilenameObject(space, w_mod):
     """
     Return the name of the file from which module was loaded using module's
@@ -265,7 +265,7 @@ def PyModule_GetFilenameObject(space, w_mod):
     w_dict = w_mod.getdict(space)
     return space.getitem(w_dict, space.newtext("__file__"))
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyModule_GetNameObject(space, w_mod):
     """
     Return the name of module
@@ -274,7 +274,7 @@ def PyModule_GetNameObject(space, w_mod):
         raise oefmt(space.w_SystemError, "PyModule_GetNameObject(): not a module")
     return w_mod.w_name
 
-@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1)
+@cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1, abi3=True)
 def PyModule_AddFunctions(space, w_mod, methods):
     if not isinstance(w_mod, Module):
         raise oefmt(space.w_SystemError, "PyModule_AddFuntions(): not a module")
@@ -285,7 +285,7 @@ def PyModule_AddFunctions(space, w_mod, methods):
         space.setattr(w_mod, space.newtext(key), w_value)
     return 0
 
-@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1, abi3=True)
 def PyModule_ExecDef(space, w_mod, c_def):
     if not isinstance(w_mod, Module):
         raise oefmt(space.w_SystemError, "PyModule_ExecDef(): not a module")
@@ -294,7 +294,7 @@ def PyModule_ExecDef(space, w_mod, c_def):
     keepalive_until_here(w_mod)
     return 0
 
-@cts.decl("PyObject *PyModule_FromDefAndSpec2(PyModuleDef*, PyObject*, int)")
+@cts.decl("PyObject *PyModule_FromDefAndSpec2(PyModuleDef*, PyObject*, int)", abi3=True)
 def PyModule_FromDefAndSpec2(space, moddef, spec, module_api_version):
     w_spec = space.w_None
     if spec:

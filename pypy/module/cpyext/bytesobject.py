@@ -124,7 +124,7 @@ def bytes_dealloc(space, py_obj):
 
 #_______________________________________________________________________
 
-@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True, abi3=True)
 def PyBytes_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
@@ -132,12 +132,12 @@ def PyBytes_FromStringAndSize(space, char_p, length):
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyBytes_FromString(space, char_p):
     s = rffi.charp2str(char_p)
     return space.newbytes(s)
 
-@cpython_api([PyObject], rffi.CCHARP, error=0)
+@cpython_api([PyObject], rffi.CCHARP, error=0, abi3=True)
 def PyBytes_AsString(space, ref):
     return _PyBytes_AsString(space, ref)
 
@@ -160,7 +160,7 @@ def PyBytes_AS_STRING(space, void_ref):
         return py_str.c_ob_sval
     return _PyBytes_AsString(space, ref)
 
-@cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1)
+@cpython_api([PyObject, rffi.CCHARPP, rffi.CArrayPtr(Py_ssize_t)], rffi.INT_real, error=-1, abi3=True)
 def PyBytes_AsStringAndSize(space, ref, data, length):
     if not PyBytes_Check(space, ref):
         raise oefmt(space.w_TypeError,
@@ -179,7 +179,7 @@ def PyBytes_AsStringAndSize(space, ref, data, length):
                         "expected string without null bytes")
     return 0
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyBytes_Size(space, ref):
     if from_ref(space, rffi.cast(PyObject, ref.c_ob_type)) is space.w_bytes:
         ref = rffi.cast(PyVarObject, ref)
@@ -225,7 +225,7 @@ def _PyBytes_Resize(space, ref, newsize):
 def _PyBytes_Eq(space, w_str1, w_str2):
     return space.eq_w(w_str1, w_str2)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
 def PyBytes_Concat(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string; the caller will own the new reference.  The reference to
@@ -244,7 +244,7 @@ def PyBytes_Concat(space, ref, w_newpart):
         w_newstr = space.add(w_str, w_newpart)
         ref[0] = make_ref(space, w_newstr)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void, error=None)
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
 def PyBytes_ConcatAndDel(space, ref, newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string.  This version decrements the reference count of newpart."""
@@ -257,7 +257,7 @@ def PyBytes_ConcatAndDel(space, ref, newpart):
 def _PyBytes_Join(space, w_sep, w_seq):
     return space.call_method(w_sep, 'join', w_seq)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyBytes_FromObject(space, w_obj):
     """Return the bytes representation of object obj that implements
     the buffer protocol."""

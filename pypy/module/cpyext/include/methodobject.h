@@ -79,6 +79,12 @@ extern "C" {
     (((PyCFunctionObject *)func) -> m_ml -> ml_flags & METH_METHOD ? \
          ((PyCMethodObject *)func) -> mm_class : NULL)
 
+
+/* abi3/limited-API shims */
+#define PyCFunction_CheckExact(op) Py_IS_TYPE((op), &PyCFunction_Type)
+PyAPI_FUNC(int) PyCFunction_GetFlags(PyObject *);
+PyAPI_FUNC(PyObject *) PyCFunction_GetSelf(PyObject *);
+
 #ifdef __cplusplus
 }
 #endif

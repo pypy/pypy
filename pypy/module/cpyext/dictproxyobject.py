@@ -5,6 +5,6 @@ from pypy.module.cpyext.pyobject import PyObject
 PyDictProxy_Check, PyDictProxy_CheckExact = build_type_checkers(
     "DictProxy", W_DictProxyObject)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyDictProxy_New(space, w_dict):
     return W_DictProxyObject(w_dict)

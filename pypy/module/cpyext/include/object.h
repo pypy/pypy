@@ -953,7 +953,6 @@ PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
 
-
 #ifdef __cplusplus
 }
 #endif

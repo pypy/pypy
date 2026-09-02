@@ -7,7 +7,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.module.imp import importing
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyImport_Import(space, w_name):
     """
     This is a higher-level interface that calls the current "import hook function".
@@ -39,11 +39,11 @@ def PyImport_Import(space, w_name):
                                w_name, w_globals, w_globals,
                                space.newlist([space.newtext("__doc__")]))
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyImport_ImportModule(space, name):
     return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
 
-@cpython_api([CONST_STRING], PyObject)
+@cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyImport_ImportModuleNoBlock(space, name):
     space.warn(
         space.newtext('PyImport_ImportModuleNoBlock() is not non-blocking'),
@@ -54,7 +54,7 @@ def PyImport_ImportModuleNoBlock(space, name):
 @cts.decl(
     '''PyObject* PyImport_ImportModuleLevelObject(
         PyObject *name, PyObject *given_globals, PyObject *locals,
-        PyObject *given_fromlist, int level)''')
+        PyObject *given_fromlist, int level)''', abi3=True)
 def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, level):
     level = rffi.cast(lltype.Signed, level)
     if w_glob is None:
@@ -73,13 +73,13 @@ def PyImport_ImportModuleLevelObject(space, w_name, w_glob, w_loc, w_fromlist, l
         w_import, w_name, w_glob, w_loc, w_fromlist, space.newint(level))
 
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyImport_ReloadModule(space, w_mod):
     w_import = space.builtin.get('__import__')
     w_importlib = space.call_function(w_import, space.newtext('importlib'))
     return space.call_method(w_importlib, 'reload', w_mod)
 
-@cpython_api([CONST_STRING], PyObject, result_borrowed=True)
+@cpython_api([CONST_STRING], PyObject, result_borrowed=True, abi3=True)
 def PyImport_AddModule(space, name):
     """Return the module object corresponding to a module name.  The name
     argument may be of the form package.module. First check the modules
@@ -101,14 +101,14 @@ def PyImport_AddModule(space, name):
     # return a borrowed ref --- assumes one copy in sys.modules
     return w_mod
 
-@cpython_api([], PyObject, result_borrowed=True)
+@cpython_api([], PyObject, result_borrowed=True, abi3=True)
 def PyImport_GetModuleDict(space):
     """Return the dictionary used for the module administration (a.k.a.
     sys.modules).  Note that this is a per-interpreter variable."""
     w_modulesDict = space.sys.get('modules')
     return w_modulesDict     # borrowed ref
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyImport_GetModule(space, w_name):
     """Return the already imported module with the given name. If the module
     has not been imported yet then returns NULL but does not set an error.
@@ -121,7 +121,7 @@ def PyImport_GetModule(space, w_name):
             return None
         raise e
 
-@cpython_api([rffi.CONST_CCHARP, PyObject], PyObject)
+@cpython_api([rffi.CONST_CCHARP, PyObject], PyObject, abi3=True)
 def PyImport_ExecCodeModule(space, name, w_code):
     """Given a module name (possibly of the form package.module) and a code
     object read from a Python bytecode file or obtained from the built-in
@@ -148,7 +148,7 @@ def PyImport_ExecCodeModule(space, name, w_code):
                                      lltype.nullptr(rffi.CONST_CCHARP.TO))
 
 
-@cpython_api([rffi.CONST_CCHARP, PyObject, rffi.CONST_CCHARP], PyObject)
+@cpython_api([rffi.CONST_CCHARP, PyObject, rffi.CONST_CCHARP], PyObject, abi3=True)
 def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     """Like PyImport_ExecCodeModule(), but the __file__ attribute of
     the module object is set to pathname if it is non-NULL."""

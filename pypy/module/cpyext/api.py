@@ -31,7 +31,9 @@ from pypy.interpreter.function import StaticMethod, ClassMethod
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyparser import pygram
 from pypy.interpreter.typedef import Function, Method, PyTraceback
-from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
+from pypy.objspace.std.dictmultiobject import (
+    W_DictViewKeysObject, W_DictViewValuesObject, W_DictViewItemsObject)
+from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
@@ -267,6 +269,8 @@ CANNOT_FAIL = CannotFail()
 cpyext_namespace = NameManager('cpyext_')
 
 class BaseApiFunction(object):
+    abi3 = False   # default: exported only under the mangled PyPy* name
+
     def __init__(self, argtypes, restype, callable):
         self.argtypes = argtypes
         self.restype = restype
@@ -331,12 +335,13 @@ class ApiFunction(BaseApiFunction):
 
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
-                 result_borrowed=False, result_is_ll=False):
+                 result_borrowed=False, result_is_ll=False, abi3=False):
         from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
+        self.abi3 = abi3
 
         # extract the signature from the (CPython-level) code object
         sig = cpython_code_signature(callable.func_code)
@@ -461,7 +466,7 @@ class ApiFunction(BaseApiFunction):
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False, result_is_ll=False):
+                gil=None, result_borrowed=False, result_is_ll=False, abi3=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -472,6 +477,11 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
     - `header` is the header file to export the function in.
     - set `gil` to "acquire", "release" or "around" to acquire the GIL,
       release the GIL, or both
+    - set `abi3` to export the function under its bare CPython name (no PyPy*
+      mangling) in a translated build, so limited-API/abi3 extensions built
+      against CPython can resolve it directly.  Untranslated test builds keep
+      mangling it (with the 'cpyexttest' prefix) regardless, to avoid clashing
+      with the host interpreter's own symbols.
     """
     assert header is not None
     def decorate(func):
@@ -486,7 +496,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         api_function = ApiFunction(
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
-            result_borrowed=result_borrowed, result_is_ll=result_is_ll)
+            result_borrowed=result_borrowed, result_is_ll=result_is_ll,
+            abi3=abi3)
         FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         unwrapper = api_function.get_unwrapper()
         unwrapper.func = func
@@ -518,18 +529,19 @@ def c_only(argtypes, restype):
 
 def api_func_from_cdef(func, cdef, cts,
         error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-        result_is_ll=False):
+        result_is_ll=False, abi3=False):
     func._always_inline_ = 'try'
     cdecl = cts.parse_func(cdef)
     RESULT = cdecl.get_llresult(cts)
     api_function = ApiFunction(
         cdecl.get_llargs(cts), RESULT, func,
         error=_compute_error(error, RESULT), cdecl=cdecl,
-        result_is_ll=result_is_ll)
+        result_is_ll=result_is_ll, abi3=abi3)
     FUNCTIONS_BY_HEADER[header][cdecl.name] = api_function
     unwrapper = api_function.get_unwrapper()
     unwrapper.func = func
     unwrapper.api_func = api_function
+    INTERPLEVEL_API[cdecl.name] = unwrapper  # used in tests
     return unwrapper
 
 def api_decl(cdef, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):
@@ -752,6 +764,9 @@ def build_exported_objects():
         "PyDictProxy_Type": 'space.gettypeobject(cpyext.dictproxyobject.W_DictProxyObject.typedef)',
         "PyDictValues_Type": "space.gettypeobject(W_DictViewValuesObject.typedef)",
         "PyDictKeys_Type": "space.gettypeobject(W_DictViewKeysObject.typedef)",
+        "PyDictItems_Type": "space.gettypeobject(W_DictViewItemsObject.typedef)",
+        "PySeqIter_Type": "space.gettypeobject(W_AbstractSeqIterObject.typedef)",
+        "PyCallIter_Type": 'space.appexec([], """(): return type(iter(int, 1))""")',
         "PyTuple_Type": "space.w_tuple",
         "PyList_Type": "space.w_list",
         "PySet_Type": "space.w_set",
@@ -799,11 +814,11 @@ build_exported_objects()
 
 class CpyextTypeSpace(CTypeSpace):
     def decl(self, cdef, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-            result_is_ll=False):
+            result_is_ll=False, abi3=False):
         def decorate(func):
             return api_func_from_cdef(
                 func, cdef, self, error=error, header=header,
-                result_is_ll=result_is_ll)
+                result_is_ll=result_is_ll, abi3=abi3)
         return decorate
 
 
@@ -1627,8 +1642,13 @@ def generate_decls_and_callbacks(db, prefix=''):
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
-            _name = mangle_name(prefix, name)
-            header.append("#define %s %s" % (name, _name))
+            # abi3 functions keep their bare CPython name in a translated
+            # build (prefix == 'PyPy'), so abi3 extensions can resolve them
+            # directly; untranslated test builds (prefix == 'cpyexttest')
+            # still mangle them, to avoid clashing with the host interpreter.
+            if not (func.abi3 and prefix == 'PyPy'):
+                _name = mangle_name(prefix, name)
+                header.append("#define %s %s" % (name, _name))
             header.append(func.get_api_decl(name, db))
 
     for name, (typ, expr) in GLOBALS.iteritems():
@@ -1681,6 +1701,13 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "ceval.c",
                          source_dir / "floatobject.c",
                          source_dir / "pyctype.c",
+                         # abi3/limited-API shims for functions PyPy does not implement
+                         source_dir / "abi3_codecs.c",
+                         source_dir / "abi3_unicodeerr.c",
+                         source_dir / "abi3_unicodeops.c",
+                         source_dir / "abi3_misc.c",
+                         source_dir / "abi3_lifecycle.c",
+                         source_dir / "abi3_sysimport.c",
                          # for PyErr pypysig_pushback
                          translator_c_dir / "src" / "signals.c",
                          ]
@@ -1828,7 +1855,10 @@ def setup_library(space):
 
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
-            newname = mangle_name(prefix, name)
+            # abi3 functions are exported under their bare CPython name so
+            # that limited-API extensions built against CPython can resolve
+            # them without going through PyPy's usual PyPy*-mangled symbols.
+            newname = name if func.abi3 else mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
             deco(func.get_wrapper(space))

@@ -25,7 +25,7 @@ PyThreadState = lltype.Ptr(cpython_struct(
 class NoThreads(Exception):
     pass
 
-@cpython_api([], PyThreadState, error=CANNOT_FAIL, gil="release")
+@cpython_api([], PyThreadState, error=CANNOT_FAIL, gil="release", abi3=True)
 def PyEval_SaveThread(space):
     """Release the global interpreter lock (if it has been created and thread
     support is enabled) and reset the thread state to NULL, returning the
@@ -38,7 +38,7 @@ def PyEval_SaveThread(space):
     ec.cpyext_threadstate_is_current = False
     return tstate
 
-@cpython_api([PyThreadState], lltype.Void, gil="acquire")
+@cpython_api([PyThreadState], lltype.Void, gil="acquire", abi3=True)
 def PyEval_RestoreThread(space, tstate):
     """Acquire the global interpreter lock (if it has been created and thread
     support is enabled) and set the thread state to tstate, which must not be
@@ -47,14 +47,14 @@ def PyEval_RestoreThread(space, tstate):
     when thread support is disabled at compile time.)"""
     PyThreadState_Swap(space, tstate)
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, abi3=True)
 def PyEval_InitThreads(space):
     if not space.config.translation.thread:
         raise NoThreads
     from pypy.module.thread import os_thread
     os_thread.setup_threads(space)
 
-@cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyEval_ThreadsInitialized(space):
     if not space.config.translation.thread:
         return 0
@@ -175,7 +175,7 @@ class InterpreterState(object):
             ec.cpyext_threadstate_is_current = True
         return ec.cpyext_threadstate
 
-@cpython_api([], PyThreadState, error=CANNOT_FAIL)
+@cpython_api([], PyThreadState, error=CANNOT_FAIL, abi3=True)
 def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
     ts = state.get_thread_state(space)
@@ -196,7 +196,7 @@ def _PyThreadState_UncheckedGet(space):
     ts = state.get_thread_state(space)
     return ts
 
-@cpython_api([], PyObject, result_is_ll=True, error=CANNOT_FAIL)
+@cpython_api([], PyObject, result_is_ll=True, error=CANNOT_FAIL, abi3=True)
 def PyThreadState_GetDict(space):
     """Return a dictionary in which extensions can store thread-specific state
     information.  Each extension should use a unique key to use to store state in
@@ -224,7 +224,7 @@ def _PyThreadState_GetDict(space, tstate):
     return tstate.c_dict
 
 
-@cpython_api([PyThreadState], PyThreadState, error=CANNOT_FAIL)
+@cpython_api([PyThreadState], PyThreadState, error=CANNOT_FAIL, abi3=True)
 def PyThreadState_Swap(space, tstate):
     """Swap the current thread state with the thread state given by the argument
     tstate, which may be NULL.  The global interpreter lock must be held."""
@@ -244,7 +244,7 @@ def PyThreadState_Swap(space, tstate):
         ec.cpyext_threadstate_is_current = False
     return old_tstate
 
-@cpython_api([], PyThreadState, error=CANNOT_FAIL)
+@cpython_api([], PyThreadState, error=CANNOT_FAIL, abi3=True)
 def PyGILState_GetThisThreadState(space):
     """Get the current thread state for this thread.  May return NULL if no
     GILState API has been used on the current thread.  Note that the main thread
@@ -271,18 +271,18 @@ def PyThreadState_LeaveTracing(space, tstate):
     ec = space.getexecutioncontext()
     ec.is_tracing -= 1
 
-@cpython_api([PyThreadState], rffi.ULONGLONG, error=-1)
+@cpython_api([PyThreadState], rffi.ULONGLONG, error=-1, abi3=True)
 def PyThreadState_GetID(space, tstate):
     return tstate.c_id
 
-@cpython_api([PyThreadState], lltype.Void, gil="acquire")
+@cpython_api([PyThreadState], lltype.Void, gil="acquire", abi3=True)
 def PyEval_AcquireThread(space, tstate):
     """Acquire the global interpreter lock and set the current thread state to
     tstate, which should not be NULL.  The lock must have been created earlier.
     If this thread already has the lock, deadlock ensues.  This function is not
     available when thread support is disabled at compile time."""
 
-@cpython_api([PyThreadState], lltype.Void, gil="release")
+@cpython_api([PyThreadState], lltype.Void, gil="release", abi3=True)
 def PyEval_ReleaseThread(space, tstate):
     """Reset the current thread state to NULL and release the global interpreter
     lock.  The lock must have been created earlier and must be held by the current
@@ -320,7 +320,7 @@ def PyGILState_Check(space):
     assert False, "the logic is completely inside wrapper_second_level"
 
 
-@cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure")
+@cpython_api([], PyGILState_STATE, error=CANNOT_FAIL, gil="pygilstate_ensure", abi3=True)
 def PyGILState_Ensure(space, previous_state):
     # The argument 'previous_state' is not part of the API; it is inserted
     # by make_wrapper() and contains PyGILState_LOCKED/UNLOCKED based on
@@ -345,7 +345,7 @@ def PyGILState_Ensure(space, previous_state):
     ec.cpyext_threadstate_is_current = True
     return rffi.cast(PyGILState_STATE, previous_state)
 
-@cpython_api([PyGILState_STATE], lltype.Void, gil="pygilstate_release")
+@cpython_api([PyGILState_STATE], lltype.Void, gil="pygilstate_release", abi3=True)
 def PyGILState_Release(space, oldstate):
     oldstate = rffi.cast(lltype.Signed, oldstate)
     ec = space.getexecutioncontext()
@@ -378,12 +378,12 @@ def PyInterpreterState_Next(space, interp):
     # PyPy does not support multiple interpreters
     return lltype.nullptr(PyInterpreterState.TO)
 
-@cpython_api([PyInterpreterState], rffi.LONG, error=CANNOT_FAIL)
+@cpython_api([PyInterpreterState], rffi.LONG, error=CANNOT_FAIL, abi3=True)
 def PyInterpreterState_GetID(space, interp):
     return 0
 
 @cpython_api([PyInterpreterState], PyThreadState, error=CANNOT_FAIL,
-             gil="around")
+             gil="around", abi3=True)
 def PyThreadState_New(space, interp):
     """Create a new thread state object belonging to the given interpreter
     object.  The global interpreter lock need not be held, but may be held if
@@ -395,7 +395,7 @@ def PyThreadState_New(space, interp):
     rthread.gc_thread_start()
     return PyThreadState_Get(space)
 
-@cpython_api([PyThreadState], lltype.Void)
+@cpython_api([PyThreadState], lltype.Void, abi3=True)
 def PyThreadState_Clear(space, tstate):
     """Reset all information in a thread state object.  The global
     interpreter lock must be held."""
@@ -407,19 +407,19 @@ def PyThreadState_Clear(space, tstate):
     space.getexecutioncontext().cleanup_cpyext_state()
     rthread.gc_thread_die()
 
-@cpython_api([PyThreadState], lltype.Void)
+@cpython_api([PyThreadState], lltype.Void, abi3=True)
 def PyThreadState_Delete(space, tstate):
     """Destroy a thread state object.  The global interpreter lock need not
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, abi3=True)
 def PyThreadState_DeleteCurrent(space):
     """Destroy a thread state object.  The global interpreter lock need not
     be held.  The thread state must have been reset with a previous call to
     PyThreadState_Clear()."""
 
-@cpython_api([], lltype.Void)
+@cpython_api([], lltype.Void, abi3=True)
 def PyOS_AfterFork(space):
     """Function to update some internal state after a process fork; this should be
     called in the new process if the Python interpreter will continue to be used.
@@ -439,7 +439,7 @@ def _Py_IsFinalizing(space):
     implement _Py_Finalizing as a macro."""
     return space.sys.finalizing
 
-@cpython_api([lltype.Unsigned, PyObject], rffi.INT, error=CANNOT_FAIL)
+@cpython_api([lltype.Unsigned, PyObject], rffi.INT, error=CANNOT_FAIL, abi3=True)
 def PyThreadState_SetAsyncExc(space, id, w_exc):
     """ Asynchronously raise an exception in a thread. The id argument is the
     thread id of the target thread; exc is the exception object to be raised.
@@ -463,7 +463,7 @@ def _PyInterpreterState_GET(space):
     tstate = PyThreadState_Get(space)
     return tstate.c_interp
 
-@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyModuleDef], rffi.INT_real, error=-1, abi3=True)
 def PyState_AddModule(space, w_module, moddef):
     if not moddef:
         raise oefmt(space.w_SystemError, "module definition is NULL")
@@ -488,7 +488,7 @@ def PyState_AddModule(space, w_module, moddef):
     space.setitem(w_by_index, space.newint(index), w_module)
     return 0
 
-@cpython_api([PyModuleDef], rffi.INT_real, error=-1)
+@cpython_api([PyModuleDef], rffi.INT_real, error=-1, abi3=True)
 def PyState_RemoveModule(space, moddef):
     interp = _PyInterpreterState_GET(space)
     if moddef.c_m_slots:

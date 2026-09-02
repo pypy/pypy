@@ -197,6 +197,10 @@ PyAPI_FUNC(PyObject *) PyModule_Create2(struct PyModuleDef*,
 PyAPI_DATA(const char *) _Py_PackageContext;
 #endif
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(int) PyModule_SetDocString(PyObject *, const char *);
+
 #ifdef __cplusplus
 }
 #endif

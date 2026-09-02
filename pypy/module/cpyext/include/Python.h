@@ -99,6 +99,15 @@
 #include "datetime.h"
 #include "pysignals.h"
 
+/* abi3/limited-API surface CPython has its own headers for */
+#include "codecs.h"
+#include "iterobject.h"
+#include "pyframe.h"
+#include "pybuffer.h"
+#include "fileutils.h"
+#include "intrcheck.h"
+#include "pystrcmp.h"
+
 /* Missing definitions */
 #include "missing.h"
 

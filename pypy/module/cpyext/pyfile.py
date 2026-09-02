@@ -7,7 +7,7 @@ from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.module._io import interp_io
 from pypy.interpreter.error import OperationError, oefmt
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
+@cpython_api([PyObject, rffi.INT_real], PyObject, abi3=True)
 def PyFile_GetLine(space, w_obj, n):
     """
     Equivalent to p.readline([n]), this function reads one line from the
@@ -43,7 +43,7 @@ def PyFile_FromString(space, filename, mode):
     w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
 
-@cpython_api([rffi.INT_real, CONST_STRING, CONST_STRING, rffi.INT_real, CONST_STRING, CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+@cpython_api([rffi.INT_real, CONST_STRING, CONST_STRING, rffi.INT_real, CONST_STRING, CONST_STRING, CONST_STRING, rffi.INT_real], PyObject, abi3=True)
 def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
     """Create a Python file object from the file descriptor of an already
     opened file fd.  The arguments name, encoding, errors and newline
@@ -77,7 +77,7 @@ def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, c
                            encoding_, errors_, newline_, widen(closefd))
     return w_ret
 
-@cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
+@cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
@@ -85,7 +85,7 @@ def PyFile_WriteString(space, s, w_p):
     space.call_method(w_p, "write", w_str)
     return 0
 
-@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1, abi3=True)
 def PyFile_WriteObject(space, w_obj, w_p, flags):
     """
     Write object obj to file object p.  The only supported flag for flags is
@@ -99,7 +99,7 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
     space.call_method(w_p, "write", w_str)
     return 0
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyOS_FSPath(space, w_path):
     """
     Return the file system representation for path. If the object is a str or

@@ -24,6 +24,28 @@ PyAPI_DATA(const unsigned long) Py_Version;
     (_Py_IsFinalizing() ? _PyThreadState_UncheckedGet() : NULL)
 
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(void) Py_Initialize(void);
+PyAPI_FUNC(void) Py_InitializeEx(int);
+PyAPI_FUNC(void) Py_Finalize(void);
+PyAPI_FUNC(int) Py_FinalizeEx(void);
+PyAPI_FUNC(void) Py_Exit(int status);
+PyAPI_FUNC(int) Py_Main(int argc, wchar_t **argv);
+PyAPI_FUNC(int) Py_BytesMain(int argc, char **argv);
+PyAPI_FUNC(wchar_t *) Py_GetPath(void);
+PyAPI_FUNC(wchar_t *) Py_GetPrefix(void);
+PyAPI_FUNC(wchar_t *) Py_GetExecPrefix(void);
+PyAPI_FUNC(wchar_t *) Py_GetProgramFullPath(void);
+PyAPI_FUNC(wchar_t *) Py_GetPythonHome(void);
+PyAPI_FUNC(const char *) Py_GetPlatform(void);
+PyAPI_FUNC(const char *) Py_GetCompiler(void);
+PyAPI_FUNC(const char *) Py_GetCopyright(void);
+PyAPI_FUNC(const char *) Py_GetBuildInfo(void);
+PyAPI_FUNC(void) Py_SetPath(const wchar_t *);
+PyAPI_FUNC(void) Py_SetProgramName(const wchar_t *);
+PyAPI_FUNC(void) Py_SetPythonHome(const wchar_t *);
+
 #ifdef __cplusplus
 }
 #endif

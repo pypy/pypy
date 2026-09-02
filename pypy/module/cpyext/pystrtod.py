@@ -130,7 +130,7 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         if not user_endptr:
             lltype.free(endptr, flavor='raw')
 
-@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, INTP_real], rffi.CCHARP)
+@cpython_api([rffi.DOUBLE, lltype.Char, rffi.INT_real, rffi.INT_real, INTP_real], rffi.CCHARP, abi3=True)
 def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """Convert a double val to a string using supplied
     format_code, precision, and flags.

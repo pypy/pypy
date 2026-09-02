@@ -11,38 +11,38 @@ from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
 
-@cpython_api([rffi.LONG], PyObject)
+@cpython_api([rffi.LONG], PyObject, abi3=True)
 def PyLong_FromLong(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
     return space.newlong(widen(val))
 
-@cpython_api([Py_ssize_t], PyObject)
+@cpython_api([Py_ssize_t], PyObject, abi3=True)
 def PyLong_FromSsize_t(space, val):
     """Return a new PyLongObject object from a C Py_ssize_t, or
     NULL on failure.
     """
     return space.newlong(val)
 
-@cpython_api([rffi.SIZE_T], PyObject)
+@cpython_api([rffi.SIZE_T], PyObject, abi3=True)
 def PyLong_FromSize_t(space, val):
     """Return a new PyLongObject object from a C size_t, or NULL on
     failure.
     """
     return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, val))
 
-@cts.decl("PyObject *PyLong_FromLongLong(long long val)")
+@cts.decl("PyObject *PyLong_FromLongLong(long long val)", abi3=True)
 def PyLong_FromLongLong(space, val):
     """Return a new PyLongObject object from a C long long, or NULL
     on failure."""
     return space.newlong_from_rarith_int(val)
 
-@cts.decl("PyObject *PyLong_FromUnsignedLong(unsigned long val)")
+@cts.decl("PyObject *PyLong_FromUnsignedLong(unsigned long val)", abi3=True)
 def PyLong_FromUnsignedLong(space, val):
     """Return a new PyLongObject object from a C unsigned long, or
     NULL on failure."""
     return space.newlong_from_rarith_int(val)
 
-@cts.decl("PyObject *PyLong_FromUnsignedLongLong(unsigned long long val)")
+@cts.decl("PyObject *PyLong_FromUnsignedLongLong(unsigned long long val)", abi3=True)
 def PyLong_FromUnsignedLongLong(space, val):
     """Return a new PyLongObject object from a C unsigned long long,
     or NULL on failure."""
@@ -56,7 +56,7 @@ INT_MAX = (2 ** (8 * rffi.sizeof(rffi.UINT) - 1) -1)
 INT_MIN = (-2 ** (8 * rffi.sizeof(rffi.UINT) - 1))
 need_to_check = maxint > ULONG_MAX
 
-@cpython_api([PyObject], rffi.ULONG, error=-1)
+@cpython_api([PyObject], rffi.ULONG, error=-1, abi3=True)
 def PyLong_AsUnsignedLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
@@ -79,7 +79,7 @@ def PyLong_AsUnsignedLong(space, w_long):
                     "Python int too large to convert to C unsigned long")
     return rffi.cast(rffi.ULONG, val)
 
-@cpython_api([PyObject], rffi.ULONG, error=-1)
+@cpython_api([PyObject], rffi.ULONG, error=-1, abi3=True)
 def PyLong_AsUnsignedLongMask(space, w_long):
     """Return a C unsigned long from a Python long integer, without checking
     for overflow.
@@ -94,7 +94,7 @@ def PyLong_AsUnsignedLongMask(space, w_long):
         val &= ULONG_MASK
     return rffi.cast(rffi.ULONG, val)
 
-@cpython_api([PyObject], rffi.LONG, error=-1)
+@cpython_api([PyObject], rffi.LONG, error=-1, abi3=True)
 def PyLong_AsLong(space, w_long):
     """
     Get a C long int from an int object or any object that has an __index__
@@ -138,7 +138,7 @@ def _PyLong_AsInt(space, w_long):
                     "Python int too large to convert to C int")
     return rffi.cast(rffi.INT, val)
 
-@cpython_api([PyObject], Py_ssize_t, error=-1)
+@cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyLong_AsSsize_t(space, w_long):
     """Return a C Py_ssize_t representation of the contents of pylong.  If
     pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
@@ -146,7 +146,7 @@ def PyLong_AsSsize_t(space, w_long):
     """
     return space.int_w(space.index(w_long))
 
-@cpython_api([PyObject], rffi.SIZE_T, error=-1)
+@cpython_api([PyObject], rffi.SIZE_T, error=-1, abi3=True)
 def PyLong_AsSize_t(space, w_long):
     """Return a C size_t representation of of pylong.  pylong must be
     an instance of PyLongObject.
@@ -155,7 +155,7 @@ def PyLong_AsSize_t(space, w_long):
     size_t."""
     return space.uint_w(space.index(w_long))
 
-@cts.decl("long long PyLong_AsLongLong(PyObject *val)", error=-1)
+@cts.decl("long long PyLong_AsLongLong(PyObject *val)", error=-1, abi3=True)
 def PyLong_AsLongLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
@@ -163,7 +163,7 @@ def PyLong_AsLongLong(space, w_long):
     raised."""
     return cts.cast("long long", space.r_longlong_w(space.index(w_long)))
 
-@cts.decl("unsigned long long PyLong_AsUnsignedLongLong(PyObject *val)", error=-1)
+@cts.decl("unsigned long long PyLong_AsUnsignedLongLong(PyObject *val)", error=-1, abi3=True)
 def PyLong_AsUnsignedLongLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
@@ -180,7 +180,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
             e.w_type = space.w_OverflowError
         raise
 
-@cts.decl("unsigned long long PyLong_AsUnsignedLongLongMask(PyObject *val)", error=-1)
+@cts.decl("unsigned long long PyLong_AsUnsignedLongLongMask(PyObject *val)", error=-1, abi3=True)
 def PyLong_AsUnsignedLongLongMask(space, w_long):
     """Will first attempt to cast the object to a PyIntObject or
     PyLongObject, if it is not already one, and then return its value as
@@ -191,7 +191,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(space.index(w_long))
     return num.ulonglongmask()
 
-@cpython_api([PyObject, INTP_real], rffi.LONG, error=-1)
+@cpython_api([PyObject, INTP_real], rffi.LONG, error=-1, abi3=True)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """Get a C long int from an int object or any object that has an __index__
     method.
@@ -219,7 +219,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cts.decl("long long PyLong_AsLongLongAndOverflow(PyObject *val, int*)", error=-1)
+@cts.decl("long long PyLong_AsLongLongAndOverflow(PyObject *val, int*)", error=-1, abi3=True)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
     Return a C long long representation of the contents of pylong.  If pylong is
@@ -239,19 +239,19 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([lltype.Float], PyObject)
+@cpython_api([lltype.Float], PyObject, abi3=True)
 def PyLong_FromDouble(space, val):
     """Return a new PyLongObject object from v, or NULL on failure."""
     return space.long(space.newfloat(val))
 
-@cpython_api([PyObject], lltype.Float, error=-1.0)
+@cpython_api([PyObject], lltype.Float, error=-1.0, abi3=True)
 def PyLong_AsDouble(space, w_long):
     """Return a C double representation of the contents of pylong.  If
     pylong cannot be approximately represented as a double, an
     OverflowError exception is raised and -1.0 will be returned."""
     return space.float_w(space.float(w_long))
 
-@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject)
+@cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject, abi3=True)
 def PyLong_FromString(space, str, pend, base):
     """Return a new PyLongObject based on the string value in str, which is
     interpreted according to the radix in base.  If pend is non-NULL,
@@ -286,7 +286,7 @@ def PyLong_FromUnicodeObject(space, w_value, base):
     w_base = space.newint(rffi.cast(lltype.Signed, base))
     return space.call_function(space.w_long, w_value, w_base)
 
-@cpython_api([rffi.VOIDP], PyObject)
+@cpython_api([rffi.VOIDP], PyObject, abi3=True)
 def PyLong_FromVoidPtr(space, p):
     """Create a Python integer or long integer from the pointer p. The pointer value
     can be retrieved from the resulting value using PyLong_AsVoidPtr().
@@ -297,7 +297,7 @@ def PyLong_FromVoidPtr(space, p):
         return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, p))
     return space.newint(value)
 
-@cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO))
+@cpython_api([PyObject], rffi.VOIDP, error=lltype.nullptr(rffi.VOIDP.TO), abi3=True)
 def PyLong_AsVoidPtr(space, w_long):
     """Convert a Python integer or long integer pylong to a C void pointer.
     If pylong cannot be converted, an OverflowError will be raised.  This

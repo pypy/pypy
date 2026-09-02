@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (cpython_api, PyObject, PyObjectP,
 import pypy.module.__builtin__.operation as operation
 from rpython.rtyper.lltypesystem import rffi
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyCallIter_New(space, w_callable, w_sentinel):
     """Return a new iterator.  The first parameter, callable, can be any Python
     callable object that can be called with no parameters; each call to it should
@@ -13,7 +13,7 @@ def PyCallIter_New(space, w_callable, w_sentinel):
     """
     return operation.iter_sentinel(space, w_callable, w_sentinel)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyObject_GetIter(space, w_obj):
     """This is equivalent to the Python expression iter(o). It returns a new
     iterator for the object argument, or the object itself if the object is
@@ -21,7 +21,7 @@ def PyObject_GetIter(space, w_obj):
     cannot be iterated."""
     return space.iter(w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyIter_Next(space, w_obj):
     """Return the next value from the iteration o.  If the object is an
     iterator, this retrieves the next value from the iteration, and returns
@@ -35,14 +35,14 @@ def PyIter_Next(space, w_obj):
             raise
     return None
 
-@cpython_api([PyObject, PyObject, PyObjectP], rffi.INT_real, error=-1)
+@cpython_api([PyObject, PyObject, PyObjectP], rffi.INT_real, error=-1, abi3=True)
 def PyIter_Send(space, w_iter, w_arg, presult):
     presult[0] = rffi.cast(PyObject, 0)
     raise oefmt(space.w_NotImplementedError,
                 "PyIter_Send not implemented yet")
     return -1
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyIter_Check(space, w_obj):
     """Return true if the object o supports the iterator protocol."""
     try:

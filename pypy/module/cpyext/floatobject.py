@@ -46,11 +46,11 @@ def float_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
-@cpython_api([lltype.Float], PyObject)
+@cpython_api([lltype.Float], PyObject, abi3=True)
 def PyFloat_FromDouble(space, value):
     return space.newfloat(value)
 
-@cpython_api([PyObject], lltype.Float, error=-1)
+@cpython_api([PyObject], lltype.Float, error=-1, abi3=True)
 def PyFloat_AsDouble(space, w_obj):
     if not space.isinstance_w(w_obj, space.w_float):
         # Replicate CPython's PyFloat_AsDouble: try __float__, then __index__,
@@ -84,14 +84,14 @@ def PyFloat_AS_DOUBLE(space, w_float):
     without error checking."""
     return space.float_w(w_float)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyNumber_Float(space, w_obj):
     """
     Returns the o converted to a float object on success, or NULL on failure.
     This is the equivalent of the Python expression float(o)."""
     return space.call_function(space.w_float, w_obj)
 
-@cpython_api([PyObject], PyObject)
+@cpython_api([PyObject], PyObject, abi3=True)
 def PyFloat_FromString(space, w_obj):
     """
     Create a PyFloatObject object based on the string value in str, or

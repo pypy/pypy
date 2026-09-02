@@ -89,6 +89,13 @@ PyAPI_FUNC(int) PyThread_tss_set(Py_tss_t *key, void *value);
 PyAPI_FUNC(void *) PyThread_tss_get(Py_tss_t *key);
 #endif  /* New in 3.7 */
 
+
+/* abi3/limited-API shims */
+PyAPI_FUNC(PyObject*) PyThread_GetInfo(void);
+PyAPI_FUNC(size_t) PyThread_get_stacksize(void);
+PyAPI_FUNC(int) PyThread_set_stacksize(size_t);
+PyAPI_FUNC(unsigned long) PyThread_get_thread_native_id(void);
+
 #ifdef __cplusplus
 }
 #endif
