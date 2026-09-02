@@ -92,3 +92,54 @@ def test_no_jump_over_return_try_finally_in_finally_block():
         error=(ValueError, 'exception'),
         decorated=True,
     )
+
+
+def _jump_over_assignment(output):
+    output.append(1)
+    x = 2
+    output.append(x)
+
+
+def test_jump_over_assignment_warns_unbound_local():
+    # uses _warnings directly instead of the warnings module, cheaper to
+    # import when running untranslated
+    import _warnings
+
+    firstline = _jump_over_assignment.__code__.co_firstlineno
+
+    def trace(frame, event, arg):
+        if (event == 'line' and frame.f_code == _jump_over_assignment.__code__
+                and frame.f_lineno == firstline + 2):
+            frame.f_lineno = firstline + 3
+        return trace
+
+    saved_filters = _warnings.filters[:]
+    _warnings.filters.insert(0, ('error', None, RuntimeWarning, None, 0))
+    _warnings._filters_mutated()
+    try:
+        output = []
+        sys.settrace(trace)
+        try:
+            _jump_over_assignment(output)
+        except RuntimeWarning as e:
+            msg = str(e)
+        else:
+            raise AssertionError("expected RuntimeWarning")
+        finally:
+            sys.settrace(None)
+    finally:
+        _warnings.filters[:] = saved_filters
+        _warnings._filters_mutated()
+    assert 'assigning None to 1 unbound local' in msg
+
+    # without turning the warning into an error, the jump still succeeds
+    # and x ends up bound to None
+    output = []
+    sys.settrace(trace)
+    try:
+        _jump_over_assignment(output)
+    finally:
+        sys.settrace(None)
+    # the assignment 'x = 2' was jumped over, so x stays unbound and gets
+    # None assigned to it
+    assert output == [1, None]

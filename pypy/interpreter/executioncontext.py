@@ -291,7 +291,7 @@ class ExecutionContext(object):
         if self.space.is_w(w_func, self.space.w_None):
             self.w_tracefunc = None
         else:
-            self.force_all_frames()
+            self.force_all_frames(seed_line=True)
             self.w_tracefunc = w_func
             # Increase the JIT's trace_limit when we have a tracefunc, it
             # generates a ton of extra ops.
@@ -320,7 +320,8 @@ class ExecutionContext(object):
         self.profilefunc = func
         self.w_profilefuncarg = w_arg
 
-    def force_all_frames(self, is_being_profiled=False, seed_monitor_line=False):
+    def force_all_frames(self, is_being_profiled=False, seed_monitor_line=False,
+                          seed_line=False):
         # "Force" all frames in the sense of the jit, and optionally
         # set the flag 'is_being_profiled' on them.  A forced frame is
         # one out of which the jit will exit: if it is running so far,
@@ -332,6 +333,12 @@ class ExecutionContext(object):
         #
         # seed_monitor_line avoids a spurious LINE event for the line a
         # frame is already midway through when monitoring turns on.
+        # seed_line does the same for the legacy settrace()/f_lineno
+        # mechanism: without it, the first bytecode dispatched after
+        # settrace() activates tracing on an already-running frame sees
+        # d.f_lineno still at its unseeded default, which differs from
+        # the line currently in progress, and spuriously fires a 'line'
+        # event for a line that's only partially executed.
         frame = self.gettopframe_nohidden()
         while frame:
             if is_being_profiled:
@@ -342,6 +349,12 @@ class ExecutionContext(object):
                     d = frame.getorcreatedebug()
                     d.monitor_last_line = lineno
                     d.monitor_instr_prev_plus_one = frame.last_instr + 1
+            if seed_line:
+                lineno = frame.getcode()._get_lineno_for_pc_tracing(frame.last_instr)
+                if lineno != -1:
+                    d = frame.getorcreatedebug()
+                    d.f_lineno = lineno
+                    d.instr_prev_plus_one = frame.last_instr + 1
             frame = self.getnextframe_nohidden(frame)
 
     def call_tracing(self, w_func, w_args):

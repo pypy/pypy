@@ -796,6 +796,29 @@ class PyFrame(W_Root):
                 self.popvalue()
             start_stack = start_stack >> stacks.BITS
 
+        # If the jump skipped over the assignment of some locals, warn and
+        # then bind them to None (CPython: frame_setlineno, frameobject.c).
+        # Do this in two passes so that, if warnings are errors, we bail out
+        # before writing any Nones.
+        nlocalsplus = self._stack_start()
+        unbound = 0
+        for i in range(nlocalsplus):
+            w_val = self.locals_cells_stack_w[i]
+            if w_val is None or (isinstance(w_val, Cell) and w_val.w_value is None):
+                unbound += 1
+        if unbound:
+            if unbound == 1:
+                msg = "assigning None to 1 unbound local"
+            else:
+                msg = "assigning None to %d unbound locals" % unbound
+            space.warn(space.newtext(msg), space.w_RuntimeWarning)
+            for i in range(nlocalsplus):
+                w_val = self.locals_cells_stack_w[i]
+                if w_val is None:
+                    self.locals_cells_stack_w[i] = space.w_None
+                elif isinstance(w_val, Cell) and w_val.w_value is None:
+                    w_val.w_value = space.w_None
+
         d.f_lineno = new_lineno
         assert best_addr & 1 == 0
         self.last_instr = best_addr

@@ -298,11 +298,16 @@ def generator_function():
         "finally"
 def generator_example():
     # any() will leave the generator before its end
-    x = any(generator_function())
+    x = any(generator_function()); gc.collect()
 
     # the following lines were not traced
     for x in range(10):
         y = x
+
+# On CPython, when the generator is decref'ed to zero, we see the trace
+# for the "finally:" portion.  On PyPy, we don't see it before the next
+# garbage collection.  That's why we put gc.collect() on the same line
+# above.
 
 generator_example.events = ([(0, 'call'),
                              (2, 'line'),

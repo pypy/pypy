@@ -2328,3 +2328,34 @@ def test_edge_same_object():
     del foo
     sys.settrace(sys.gettrace())
     sys.settrace(None)
+
+
+# ---------------------------------------------------------------------------
+# TestLinesAfterTraceStarted tests
+# ---------------------------------------------------------------------------
+
+def test_lines_after_trace_started_via_settrace_only():
+    # ported from lib-python TestLinesAfterTraceStarted.test_events: tracing
+    # is turned on mid-frame (via sys._getframe().f_trace, then
+    # sys.settrace()), the line settrace() itself is called on must not get
+    # a spurious 'line' event -- only lines executed after it returns should.
+    class Tracer:
+        def __init__(self):
+            self.events = []
+        def trace(self, frame, event, arg):
+            if event == 'line':
+                self.events.append(frame.f_lineno)
+            return self.trace
+
+    tracer = Tracer()
+
+    def f():
+        sys._getframe().f_trace = tracer.trace
+        sys.settrace(tracer.trace)
+        line = 4
+        line = 5
+        sys.settrace(None)
+
+    firstlineno = f.__code__.co_firstlineno
+    f()
+    assert [l - firstlineno for l in tracer.events] == [3, 4, 5]
