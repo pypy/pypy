@@ -980,15 +980,17 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     # it at the real class __dict__ so later lazy evaluation sees mutations
     # (e.g. X.T = float after `type Alias = T`).
     w_classdictcell = dict_w.get("__classdictcell__", None)
+    classdictcell = None
     if w_classdictcell is not None:
-        _validate_classdictcell(space, w_classdictcell, dict_w)
+        classdictcell = _check_classdictcell(space, w_classdictcell)
+        del dict_w['__classdictcell__']
 
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w, is_heaptype=True)
 
     # Repoint the cell at the live mapping used by the finished type.
-    if w_classdictcell is not None:
-        _update_classdictcell(space, w_classdictcell, w_type)
+    if classdictcell is not None:
+        classdictcell.set(w_type.getdict(space))
 
     w_type.ready()
 
@@ -1006,20 +1008,13 @@ def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
                     space.type(w_classcell))
     del dict_w['__classcell__']
 
-def _validate_classdictcell(space, w_classdictcell, dict_w):
+def _check_classdictcell(space, w_classdictcell):
     from pypy.interpreter.nestedscope import Cell
     if not isinstance(w_classdictcell, Cell):
         raise oefmt(space.w_TypeError,
                     "__classdictcell__ must be a nonlocal cell, not %R",
                     space.type(w_classdictcell))
-    del dict_w['__classdictcell__']
-
-def _update_classdictcell(space, w_classdictcell, w_type):
-    from pypy.interpreter.nestedscope import Cell
-    # Keep this check at the call boundary: the RPython annotator does not
-    # propagate the type narrowing performed by _validate_classdictcell().
-    if isinstance(w_classdictcell, Cell):
-        w_classdictcell.set(w_type.getdict(space))
+    return w_classdictcell
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
     """Determine the most derived metatype"""
@@ -1150,8 +1145,8 @@ def descr_del__type_params__(space, w_type):
                     "cannot set '__type_params__' attribute of immutable "
                     "type '%N'", w_type)
     raise oefmt(space.w_TypeError,
-                "cannot delete '__type_params__' attribute of immutable "
-                "type '%N'", w_type)
+                "cannot delete '__type_params__' attribute of immutable type '%N'",
+                w_type)
 
 def descr_mro(space, w_type):
     """Return a type's method resolution order."""
@@ -1776,7 +1771,7 @@ def compute_C3_mro(space, cls):
             if mro_blockinglist(candidate, orderlists) is None:
                 break    # good candidate
         else:
-            return mro_error(space, orderlists)
+            return mro_error(space, orderlists)  # no candidate found
         assert candidate not in order
         order.append(candidate)
         for i in range(len(orderlists) - 1, -1, -1):
@@ -1794,23 +1789,33 @@ def mro_blockinglist(candidate, orderlists):
     return None # good candidate
 
 def mro_error(space, orderlists):
+    cycle = []
     candidate = orderlists[-1][0]
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
         raise oefmt(space.w_TypeError, "duplicate base class %N", candidate)
-    # Report the classes that are still blocking each other, i.e. the head of
-    # every list that has not been merged yet, deduplicated in the order they
-    # are met (set_mro_error()).
+    # The classes that are still blocking each other, i.e. the head of every
+    # list that has not been merged yet, deduplicated in the order they are
+    # met (set_mro_error()).
     conflicts_w = []
     for orderlist in orderlists:
         w_head = orderlist[0]
         if w_head not in conflicts_w:
             conflicts_w.append(w_head)
-    names = [cls.getname(space) for cls in conflicts_w]
-    # Can't use oefmt() here, since names is a list of unicodes
+    while candidate not in cycle:
+        cycle.append(candidate)
+        nextblockinglist = mro_blockinglist(candidate, orderlists)
+        candidate = nextblockinglist[0]
+    del cycle[:cycle.index(candidate)]
+    cycle.append(candidate)
+    cycle.reverse()
+    conflict_names = [cls.getname(space) for cls in conflicts_w]
+    cycle_names = [cls.getname(space) for cls in cycle]
+    # Can't use oefmt() here, since the names are lists of unicodes
     raise OperationError(space.w_TypeError, space.newtext(
         "Cannot create a consistent method resolution\norder (MRO) for bases "
-        + ', '.join(names)))
+        + ', '.join(conflict_names)
+        + ": cycle among base classes: " + ' < '.join(cycle_names)))
 
 
 class TypeCache(SpaceCache):

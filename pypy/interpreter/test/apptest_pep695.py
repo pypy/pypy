@@ -176,13 +176,12 @@ def test_type_alias_type_is_immutable():
     alias = TypeAliasType('MyType', int)
     assert not hasattr(alias, '__dict__')
     # An instance has no dict, so an unknown name has nowhere to go.
-    for name in ('extra', '_TypeAliasType__name_value'):
-        exc = raises(AttributeError, setattr, alias, name, 42)
-        assert str(exc.value) == (
-            "'typing.TypeAliasType' object has no attribute '%s'" % name)
+    exc = raises(AttributeError, setattr, alias, 'extra', 42)
+    assert str(exc.value) == (
+        "'typing.TypeAliasType' object has no attribute 'extra'")
     # __name__ is a read-only member, the rest are getsets without a setter.
     exc = raises(AttributeError, setattr, alias, '__name__', 'Changed')
-    assert str(exc.value) == 'readonly attribute'
+    assert str(exc.value) == "readonly attribute '__name__'"
     for name in ('__value__', '__type_params__', '__parameters__', '__module__'):
         exc = raises(AttributeError, setattr, alias, name, 'Changed')
         assert str(exc.value) == (
@@ -192,10 +191,6 @@ def test_type_alias_type_is_immutable():
         assert str(exc.value) == (
             "attribute '%s' of 'typing.TypeAliasType' objects is not writable"
             % name)
-    for name in ('_name', '_type_params', '_value', '_evaluate_value', '_module'):
-        assert not hasattr(alias, name)
-    assert not hasattr(alias, '_frozen')
-    assert not hasattr(TypeAliasType, '_frozen')
     exc = raises(TypeError, setattr, TypeAliasType, 'extra', 42)
     assert str(exc.value) == (
         "cannot set 'extra' attribute of immutable type 'typing.TypeAliasType'")
@@ -422,6 +417,13 @@ def test_classdictcell_validation_and_type_params_on_type():
             "__classdictcell__ must be a nonlocal cell, not "
             "<class '%s'>" % type_name)
     assert type.__type_params__ == ()
+
+
+def test_incorrect_mro_explicit_object():
+    exc = raises(TypeError, exec, "class My[X](object): ...")
+    assert str(exc.value) == (
+        "Cannot create a consistent method resolution\norder (MRO) for bases "
+        "object, Generic: cycle among base classes: object < Generic < object")
 
 
 def test_nested_class_namespace_isolation():

@@ -677,8 +677,6 @@ class __extend__(pyframe.PyFrame):
                         "local variable '%s' referenced before assignment",
                         varname)
         else:
-            # Match CPython 3.12+ wording (see ceval.c:_PyEval_EvalFrameDefault
-            # unbound free variable message).
             raise oefmt(self.space.w_NameError,
                         "cannot access free variable '%s' where it is not"
                         " associated with a value in enclosing scope",
