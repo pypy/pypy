@@ -93,6 +93,12 @@ class State:
     def setup_rawrefcount(self):
         space = self.space
         if not self.space.config.translating:
+            # cpyext's untranslated PyObject allocator (pyobject.py
+            # pyobj_raw_alloc/pyobj_get_link) always reserves the hidden
+            # ob_pypy_link prefix -- match that layout here, since
+            # rawrefcount.configure() otherwise defaults to the no-prefix
+            # (pre-abi3) test layout.
+            rawrefcount.configure(True)
             def dealloc_trigger():
                 from pypy.module.cpyext.pyobject import PyObject, decref
                 print 'dealloc_trigger...'

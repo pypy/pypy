@@ -1473,12 +1473,12 @@ def PyUnicode_ReadChar(space, ref, index):
     kind = get_kind(ref)
     data = get_data(ref)
     if kind == _1BYTE_KIND:
-        ch = rffi.cast(rffi.UCHARP, data)[index]
+        ch = widen(rffi.cast(rffi.UCHARP, data)[index])
     elif kind == _2BYTE_KIND:
-        ch = rffi.cast(rffi.USHORTP, data)[index]
+        ch = widen(rffi.cast(rffi.USHORTP, data)[index])
     else:
-        ch = rffi.cast(rffi.UINTP, data)[index]
-    return rffi.cast(Py_UCS4, widen(ch))
+        ch = intmask(rffi.cast(rffi.UINTP, data)[index])
+    return rffi.cast(Py_UCS4, ch)
 
 @cts.decl("int PyUnicode_WriteChar(PyObject *unicode, Py_ssize_t index, Py_UCS4 ch)", error=-1)
 def PyUnicode_WriteChar(space, ref, index, ch):
@@ -1491,7 +1491,7 @@ def PyUnicode_WriteChar(space, ref, index, ch):
         PyErr_BadArgument(space)
     if index < 0 or index >= get_len(ref):
         raise oefmt(space.w_IndexError, "string index out of range")
-    if widen(ref.c_ob_refcnt) != 1:
+    if widen(ref.c_ob_refcnt) != rawrefcount.REFCNT_FROM_PYPY + 1:
         raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
     if get_interned(ref) != 0:
         raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
