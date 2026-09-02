@@ -17,6 +17,7 @@ class AppTestFork(GenericTestThread):
             skip("Not reliable before translation")
 
         def busy_thread():
+            started_lock.release()
             print('sleep')
             while run:
                 time.sleep(0)
@@ -25,9 +26,16 @@ class AppTestFork(GenericTestThread):
         for i in range(150):
             run = True
             done = []
+            started_lock = _thread.allocate_lock()
+            started_lock.acquire()
             try:
                 print('sleep')
                 _thread.start_new(busy_thread, ())
+                # wait for busy_thread to actually be running before
+                # forking, so nothing is left mid-build (e.g. a
+                # globally-locked cache) at fork time
+                started_lock.acquire()
+                started_lock.release()
 
                 pid = os.fork()
                 if pid == 0:
@@ -50,8 +58,14 @@ class AppTestFork(GenericTestThread):
             skip("No fork on this platform")
 
         for i in range(10):
-            # pre-allocate some locks
-            _thread.start_new_thread(lambda: None, ())
+            # pre-allocate some locks: wait for the thread to actually
+            # run and finish before forking, so nothing is left
+            # mid-build (e.g. a globally-locked cache) at fork time
+            done_lock = _thread.allocate_lock()
+            done_lock.acquire()
+            _thread.start_new_thread(lambda: done_lock.release(), ())
+            done_lock.acquire()
+            done_lock.release()
             print('sleep')
 
             pid = os.fork()

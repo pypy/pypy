@@ -24,7 +24,7 @@ from pypy.interpreter.pymonitoring import (
     dispatch_global_event, should_fire, PY_RETURN, PY_YIELD, PY_UNWIND,
     RAISE, RERAISE, EXCEPTION_HANDLED, STOP_ITERATION,
     should_fire_local_any, LOCAL_LINE_INSTRUCTION_MASK,
-    should_fire_local, dispatch_code_event, JUMP, BRANCH)
+    should_fire_local, dispatch_code_event, JUMP, BRANCH, w_missing, CALL)
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
@@ -1587,8 +1587,6 @@ class __extend__(pyframe.PyFrame):
         # unconditionally (any callable), then route C callables through
         # call_args_and_c_profile if legacy profiling or C_RETURN/C_RAISE
         # monitoring wants to see the C_RETURN/C_RAISE pair.
-        from pypy.interpreter.pymonitoring import (
-            should_fire_local, dispatch_code_event, w_missing, CALL)
         code = self.getcode()
         call_wants_events = should_fire_local(self.space, code, CALL)
         if call_wants_events:

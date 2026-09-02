@@ -413,6 +413,12 @@ class InternalSpaceCache(Cache):
     def _build(self, callable):
         return callable(self.space)
 
+# Placed here (not at the top of the file) after W_Root and before ObjSpace to
+# prevent import cycles.
+from pypy.interpreter.pymonitoring import (
+    should_fire_local, dispatch_code_event, w_missing, CALL, C_RETURN, C_RAISE)
+
+
 class SpaceCache(Cache):
     """A base class for all our concrete caches."""
     def __init__(self, space):
@@ -1267,8 +1273,6 @@ class ObjSpace(object):
         # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import (
             Function, _Method, is_builtin_code, is_python_function)
-        from pypy.interpreter.pymonitoring import (
-            should_fire_local, dispatch_code_event, w_missing, CALL)
         pycode = frame.getcode()
         call_wants_events = should_fire_local(self, pycode, CALL)
         if call_wants_events:
@@ -1306,9 +1310,6 @@ class ObjSpace(object):
         return self.call_args(w_func, args)
 
     def call_args_and_c_profile(self, frame, w_func, args):
-        from pypy.interpreter.pymonitoring import (
-            should_fire_local, dispatch_code_event, w_missing,
-            C_RETURN, C_RAISE)
         pycode = frame.getcode()
         ec = self.getexecutioncontext()
         ec.c_call_trace(frame, w_func, args)
