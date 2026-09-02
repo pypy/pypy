@@ -130,7 +130,8 @@ def test_get_field_descr_nonneg():
         assert descr_x.get_integer_min() == 0
         descr_y = get_field_descr(c2, S, 'y')
         assert not descr_y.is_nonneg_signed_int()
-        assert descr_y.is_integer_bounded() == (RESTYPE != rffi.LONG)
+        assert descr_y.is_integer_bounded() == (
+            rffi.sizeof(RESTYPE) < symbolic.WORD)
         assert descr_y.get_integer_min() < 0
 
 def test_get_field_descr_longlong():
