@@ -92,7 +92,6 @@ PyAPI_FUNC(const char *) PyEval_GetFuncDesc(PyObject *);
 
 /* abi3/limited-API shims */
 struct _frame;  /* PyFrameObject; fully defined later in frameobject.h */
-PyAPI_FUNC(PyObject *) PyEval_EvalCodeEx(PyObject *co, PyObject *globals, PyObject *locals, PyObject *const *args, int argc, PyObject *const *kwds, int kwdc, PyObject *const *defs, int defc, PyObject *kwdefs, PyObject *closure);
 PyAPI_FUNC(PyObject *) PyEval_EvalFrame(struct _frame *);
 PyAPI_FUNC(PyObject *) PyEval_EvalFrameEx(struct _frame *f, int exc);
 PyAPI_FUNC(void) PyEval_AcquireLock(void);

@@ -42,17 +42,6 @@ PyAPI_FUNC(int) Py_BytesMain(int argc, char **argv)
     return -1;
 }
 
-PyAPI_FUNC(PyThreadState *) Py_NewInterpreter(void)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "Py_NewInterpreter() is not implemented in PyPy");
-    return NULL;
-}
-
-PyAPI_FUNC(void) Py_EndInterpreter(PyThreadState * _a0)
-{
-
-}
-
 PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_New(void)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyInterpreterState_New() is not implemented in PyPy");
@@ -159,12 +148,6 @@ PyAPI_FUNC(wchar_t *) Py_DecodeLocale(const char *arg, size_t *size)
 PyAPI_FUNC(char*) Py_EncodeLocale(const wchar_t *text, size_t *error_pos)
 {
     PyErr_SetString(PyExc_NotImplementedError, "Py_EncodeLocale() is not implemented in PyPy");
-    return NULL;
-}
-
-PyAPI_FUNC(PyObject *) PyEval_EvalCodeEx(PyObject *co, PyObject *globals, PyObject *locals, PyObject *const *args, int argc, PyObject *const *kwds, int kwdc, PyObject *const *defs, int defc, PyObject *kwdefs, PyObject *closure)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyEval_EvalCodeEx() is not implemented in PyPy");
     return NULL;
 }
 

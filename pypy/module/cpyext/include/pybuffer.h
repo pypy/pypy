@@ -9,7 +9,6 @@ extern "C" {
 #endif
 
 PyAPI_FUNC(int) PyObject_CopyData(PyObject *dest, PyObject *src);
-PyAPI_FUNC(Py_ssize_t) PyBuffer_SizeFromFormat(const char *format);
 PyAPI_FUNC(void) PyBuffer_FillContiguousStrides(int ndims, Py_ssize_t *shape, Py_ssize_t *strides, int itemsize, char fort);
 
 #ifdef __cplusplus

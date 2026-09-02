@@ -33,8 +33,6 @@ PyAPI_FUNC(int) Py_FinalizeEx(void);
 PyAPI_FUNC(void) Py_Exit(int status);
 PyAPI_FUNC(int) Py_Main(int argc, wchar_t **argv);
 PyAPI_FUNC(int) Py_BytesMain(int argc, char **argv);
-PyAPI_FUNC(PyThreadState *) Py_NewInterpreter(void);
-PyAPI_FUNC(void) Py_EndInterpreter(PyThreadState *);
 PyAPI_FUNC(wchar_t *) Py_GetPath(void);
 PyAPI_FUNC(wchar_t *) Py_GetPrefix(void);
 PyAPI_FUNC(wchar_t *) Py_GetExecPrefix(void);

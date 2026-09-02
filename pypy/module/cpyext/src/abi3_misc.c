@@ -51,17 +51,6 @@ PyAPI_FUNC(PyCodeObject *) PyFrame_GetCode(PyFrameObject *frame)
     return NULL;
 }
 
-PyAPI_FUNC(PyObject *) PyException_GetArgs(PyObject * _a0)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyException_GetArgs() is not implemented in PyPy");
-    return NULL;
-}
-
-PyAPI_FUNC(void) PyException_SetArgs(PyObject * _a0, PyObject * _a1)
-{
-
-}
-
 PyAPI_FUNC(const char *) PyExceptionClass_Name(PyObject * _a0)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyExceptionClass_Name() is not implemented in PyPy");
@@ -77,18 +66,6 @@ PyAPI_FUNC(const char *) PyModule_GetFilename(PyObject * _a0)
 PyAPI_FUNC(int) PyModule_SetDocString(PyObject * _a0, const char * _a1)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyModule_SetDocString() is not implemented in PyPy");
-    return -1;
-}
-
-PyAPI_FUNC(PyObject *) PyMember_GetOne(const char * _a0, PyMemberDef * _a1)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyMember_GetOne() is not implemented in PyPy");
-    return NULL;
-}
-
-PyAPI_FUNC(int) PyMember_SetOne(char * _a0, PyMemberDef * _a1, PyObject * _a2)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyMember_SetOne() is not implemented in PyPy");
     return -1;
 }
 
@@ -116,12 +93,6 @@ PyAPI_FUNC(PyObject *) PyObject_GetAIter(PyObject * _a0)
     return NULL;
 }
 
-PyAPI_FUNC(Py_ssize_t) PySequence_Count(PyObject *o, PyObject *value)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PySequence_Count() is not implemented in PyPy");
-    return -1;
-}
-
 PyAPI_FUNC(int) PySequence_In(PyObject *o, PyObject *value)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PySequence_In() is not implemented in PyPy");
@@ -144,12 +115,6 @@ PyAPI_FUNC(PyObject *) PyBytes_DecodeEscape(const char * _a0, Py_ssize_t _a1, co
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyBytes_DecodeEscape() is not implemented in PyPy");
     return NULL;
-}
-
-PyAPI_FUNC(Py_ssize_t) PyBuffer_SizeFromFormat(const char *format)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyBuffer_SizeFromFormat() is not implemented in PyPy");
-    return -1;
 }
 
 PyAPI_FUNC(void) PyBuffer_FillContiguousStrides(int ndims, Py_ssize_t *shape, Py_ssize_t *strides, int itemsize, char fort)

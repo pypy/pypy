@@ -1686,7 +1686,6 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "ceval.c",
                          source_dir / "floatobject.c",
                          # abi3/limited-API shims for functions PyPy does not implement
-                         source_dir / "abi3_type312.c",
                          source_dir / "abi3_codecs.c",
                          source_dir / "abi3_unicodeerr.c",
                          source_dir / "abi3_unicodeops.c",

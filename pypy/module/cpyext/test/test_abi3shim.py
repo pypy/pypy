@@ -11,8 +11,8 @@ class AppTestAbi3Shim(AppTestCpythonExtensionBase):
 
     def test_error_shims_pointer(self):
         module = self.import_extension('foo', [
-            ("type_frommetaclass", "METH_NOARGS", """
-                return PyType_FromMetaclass(NULL, NULL, NULL, NULL);
+            ("long_getinfo", "METH_NOARGS", """
+                return PyLong_GetInfo();
             """),
             ("decodeerror_getencoding", "METH_NOARGS", """
                 return PyUnicodeDecodeError_GetEncoding(Py_None);
@@ -24,7 +24,7 @@ class AppTestAbi3Shim(AppTestCpythonExtensionBase):
                 return PyFloat_GetInfo();
             """),
             ])
-        raises(NotImplementedError, module.type_frommetaclass)
+        raises(NotImplementedError, module.long_getinfo)
         raises(NotImplementedError, module.decodeerror_getencoding)
         raises(NotImplementedError, module.unicode_partition)
         raises(NotImplementedError, module.float_getinfo)

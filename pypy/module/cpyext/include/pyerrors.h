@@ -42,8 +42,6 @@ PyAPI_FUNC(void) _Py_NO_RETURN _Py_FatalErrorFunc(const char * func, const char 
 
 
 /* abi3/limited-API shims */
-PyAPI_FUNC(PyObject *) PyErr_GetRaisedException(void);
-PyAPI_FUNC(void) PyErr_SetRaisedException(PyObject *);
 PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_Create(const char *encoding,  const char *object, Py_ssize_t length, Py_ssize_t start, Py_ssize_t end, const char *reason);
 PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_GetEncoding(PyObject *);
 PyAPI_FUNC(PyObject *) PyUnicodeDecodeError_GetObject(PyObject *);
@@ -68,8 +66,6 @@ PyAPI_FUNC(PyObject *) PyUnicodeTranslateError_GetReason(PyObject *);
 PyAPI_FUNC(int) PyUnicodeTranslateError_SetStart(PyObject *, Py_ssize_t);
 PyAPI_FUNC(int) PyUnicodeTranslateError_SetEnd(PyObject *, Py_ssize_t);
 PyAPI_FUNC(int) PyUnicodeTranslateError_SetReason(PyObject *exc, const char *reason);
-PyAPI_FUNC(PyObject *) PyException_GetArgs(PyObject *);
-PyAPI_FUNC(void) PyException_SetArgs(PyObject *, PyObject *);
 PyAPI_FUNC(const char *) PyExceptionClass_Name(PyObject *);
 PyAPI_FUNC(PyObject *) PyErr_ProgramText(const char *filename,  int lineno);
 PyAPI_FUNC(PyObject *) PyErr_SetImportError(PyObject *, PyObject *, PyObject *);
