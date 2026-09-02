@@ -66,14 +66,11 @@ PyTuple_New(register Py_ssize_t size)
 
 /* this is CPython's tupledealloc */
 #ifdef CPYEXT_TESTS
-#define _Py_tuple_dealloc _cpyexttest_tuple_dealloc
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
 __declspec(dllexport)
 #endif
-#else  /* CPYEXT_TESTS */
-#define _Py_tuple_dealloc _PyPy_tuple_dealloc
 #endif  /* CPYEXT_TESTS */
 void
 _Py_tuple_dealloc(register PyObject *_op)
@@ -107,20 +104,12 @@ done:
 static PyObject *
 tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
-/* 
- * Mangle to _PyPy_tuple_new for translation.
- * For tests, we want to mangle as if it were a c-api function so
- * it will not be confused with the host's similarly named function
- */
 #ifdef CPYEXT_TESTS
-#define _Py_tuple_new _cpyexttest_tuple_new
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
 __declspec(dllexport)
 #endif
-#else  /* CPYEXT_TESTS */
-#define _Py_tuple_new _PyPy_tuple_new
 #endif  /* CPYEXT_TESTS */
 PyObject *
 _Py_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)

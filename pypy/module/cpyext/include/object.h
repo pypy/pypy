@@ -948,10 +948,9 @@ PyAPI_FUNC(int) _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void 
 PyAPI_FUNC(void) _PyObject_ClearManagedDict(PyObject *obj);
 
 /* PyPy internal ----------------------------------- */
-PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
 #define _PyObject_GC_Del PyObject_GC_Del
-PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
-PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);
+PyAPI_FUNC(void) _Py_subtype_dealloc(PyObject *);
+PyAPI_FUNC(void) _Py_object_dealloc(PyObject *);
 
 #ifdef __cplusplus
 }

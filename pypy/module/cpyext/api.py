@@ -607,82 +607,69 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 # files somewhere in the implementation of cpyext (rather than being defined in
 # RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
-    '_Py_FatalErrorFunc', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
-    'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
-    'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
-    'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
-    'PyUnicode_GetLength', 'PyUnicode_AppendAndDel',
-    'PyModule_AddObject', 'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
-    'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState', 'PyModule_AddObjectRef',
-    'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
-    '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
+    '_Py_FatalErrorFunc', '_PyArg_NoKeywords', '_PyErr_FormatFromCause',
+    '_Py_setfilesystemdefaultencoding', '_Py_get_capsule_type',
+    'PyComplex_AsCComplex', 'PyComplex_FromCComplex', '_PyType_Name',
+    'PyType_GetModuleByDef', '_Py_RestoreSignals',
+    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
+    'PyStructSequence_UnnamedField', 'PyFunction_Type', 'PyMethod_Type',
+    'PyRange_Type', 'PyTraceBack_Type', 'PyCapsule_Type', 'Py_FrozenFlag',
+    'Py_UnbufferedStdioFlag', '_Py_PackageContext', 'PyOS_InputHook',
+    'Py_Version', '_Py_PackageContext', 'PyMem_RawMalloc', 'PyMem_RawCalloc',
+    'PyMem_RawRealloc', 'PyMem_RawFree', 'PyObject_CallFinalizerFromDealloc',
+    'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack', '_PyObject_GC_Malloc',
+    '_Py_object_dealloc', 'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8',
+    'PyFloat_Unpack2', 'PyFloat_Unpack4', 'PyFloat_Unpack8',
+    '_PyFloat_InitState', '_PyObject_VisitManagedDict',
+    '_PyObject_ClearManagedDict'
+]
+SYMBOLS_C_ABI3 = [
+    'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse', 'PyArg_ParseTuple',
+    'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords', 'PyArg_VaParse',
+    'PyArg_VaParseTupleAndKeywords', 'PyUnicode_FromFormat',
+    'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
+    'PyUnicode_GetLength', 'PyUnicode_AppendAndDel', 'PyModule_AddObject',
+    'PyModule_AddIntConstant', 'PyModule_AddStringConstant',
+    'PyModule_GetDef', 'PyModuleDef_Init', 'PyModule_GetState',
+    'PyModule_AddObjectRef', 'Py_BuildValue', 'Py_VaBuildValue',
+    'PyTuple_Pack', '_PyArg_Parse_SizeT', '_PyArg_ParseTuple_SizeT',
     '_PyArg_ParseTupleAndKeywords_SizeT', '_PyArg_VaParse_SizeT',
-    '_PyArg_VaParseTupleAndKeywords_SizeT',
-    '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT',
-
-    'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
-    'PyErr_WarnFormat', '_PyErr_FormatFromCause', 'PyErr_FormatV',
-    'PySys_WriteStdout', 'PySys_WriteStderr',
-
-    'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
-    'PyEval_GetFuncDesc',
-    'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
-    '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
-
-    'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
-    '_Py_setfilesystemdefaultencoding',
-
-    'PyCapsule_IsValid', 'PyCapsule_GetPointer',
-    'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
-    'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', '_Py_get_capsule_type',
-
-    'PyComplex_AsCComplex', 'PyComplex_FromCComplex', 'PyNumber_Check', 'PyIndex_Check',
-
-    'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-    'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
-
-    'PyImport_ImportModuleLevel', '_PyType_Name', 'PyType_GetModuleByDef',
-
-    'PyOS_getsig', 'PyOS_setsig', 'PyType_GetName', 'PyType_GetQualName',
-    '_Py_RestoreSignals',
-    'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
-    'PyThread_acquire_lock', 'PyThread_acquire_lock_timed', 'PyThread_release_lock',
+    '_PyArg_VaParseTupleAndKeywords_SizeT', '_Py_BuildValue_SizeT',
+    '_Py_VaBuildValue_SizeT', 'PyErr_Format', 'PyErr_NewException',
+    'PyErr_NewExceptionWithDoc', 'PyErr_WarnFormat', 'PyErr_FormatV',
+    'PySys_WriteStdout', 'PySys_WriteStderr', 'PyEval_CallFunction',
+    'PyEval_CallMethod', 'PyObject_CallFunction', 'PyEval_GetFuncDesc',
+    'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs',
+    'PyObject_CallMethodObjArgs', '_PyObject_CallFunction_SizeT',
+    '_PyObject_CallMethod_SizeT', 'PyObject_DelItemString',
+    'PyObject_GetBuffer', 'PyBuffer_Release', 'PyCapsule_IsValid',
+    'PyCapsule_GetPointer', 'PyCapsule_GetName', 'PyCapsule_GetDestructor',
+    'PyCapsule_GetContext', 'PyCapsule_SetPointer', 'PyCapsule_SetName',
+    'PyCapsule_SetDestructor', 'PyCapsule_SetContext', 'PyCapsule_Import',
+    'PyNumber_Check', 'PyIndex_Check', 'PyObject_AsReadBuffer',
+    'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
+    'PyBuffer_GetPointer', 'PyBuffer_ToContiguous',
+    'PyBuffer_FromContiguous', 'PyImport_ImportModuleLevel', 'PyOS_getsig',
+    'PyOS_setsig', 'PyType_GetName', 'PyType_GetQualName',
+    'PyThread_get_thread_ident', 'PyThread_allocate_lock',
+    'PyThread_free_lock', 'PyThread_acquire_lock',
+    'PyThread_acquire_lock_timed', 'PyThread_release_lock',
     'PyThread_create_key', 'PyThread_delete_key', 'PyThread_set_key_value',
     'PyThread_get_key_value', 'PyThread_delete_key_value',
     'PyThread_ReInitTLS', 'PyThread_init_thread',
-    'PyThread_start_new_thread',
-
-    'PyStructSequence_InitType', 'PyStructSequence_InitType2',
-    'PyStructSequence_New', 'PyStructSequence_UnnamedField',
+    'PyThread_start_new_thread', 'PyStructSequence_New',
     'PyStructSequence_NewType', 'PyStructSequence_GetItem',
-    'PyStructSequence_SetItem',
-
-    'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
-    'PyCapsule_Type',
-
-    'Py_FrozenFlag', # not part of sys.flags
-    'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
-    '_Py_PackageContext', 'PyOS_InputHook', 'Py_Version',
-    '_Py_PackageContext', 'PyErr_SetInterrupt','PyErr_SetInterruptEx',
-
-    'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
+    'PyStructSequence_SetItem', 'PyErr_SetInterrupt', 'PyErr_SetInterruptEx',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
-    'PyObject_CallFinalizerFromDealloc',
-    'PyObject_ClearWeakRefs',
-    'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
-    'PyBytes_FromFormat', 'PyBytes_FromFormatV',
-
-    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState', 'PyType_IsSubtype',
-    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
-    '_PyObject_New', '_PyObject_NewVar', 'PyType_GenericNew',
-    '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
-    'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
-    'PyVectorcall_Call', 'PyState_FindModule', 'PySlice_AdjustIndices',
-    'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8', 'PyFloat_Unpack2',
-    'PyFloat_Unpack4', 'PyFloat_Unpack8', '_PyFloat_InitState',
-    '_PyObject_VisitManagedDict', '_PyObject_ClearManagedDict',
+    'PyObject_ClearWeakRefs', 'PyBytes_FromFormat', 'PyBytes_FromFormatV',
+    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState',
+    'PyType_IsSubtype', 'Py_IncRef', 'Py_DecRef', 'PyObject_Free',
+    'PyObject_GC_Del', 'PyType_GenericAlloc', '_PyObject_New',
+    '_PyObject_NewVar', 'PyType_GenericNew', '_PyObject_GC_New',
+    '_PyObject_GC_NewVar', 'PyObject_Init', 'PyObject_InitVar',
+    'PyTuple_New', '_Py_Dealloc', 'PyVectorcall_Call', 'PyState_FindModule',
+    'PySlice_AdjustIndices', '_Py_tuple_dealloc', '_Py_subtype_dealloc',
+    '_Py_get_PyOS_InputHook', '_Py_tuple_new',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -1227,10 +1214,12 @@ def setup_init_functions(eci, prefix):
     # of the cpyext module.  The C functions are called with no wrapper,
     # but must not do anything like calling back PyType_Ready().  We
     # use them just to get a pointer to the PyTypeObjects defined in C.
-    get_capsule_type = rffi.llexternal('_%s_get_capsule_type' % prefix,
+    get_capsule_type = rffi.llexternal(
+                                       mangle_c_symbol(prefix, '_Py_get_capsule_type'),
                                        [], PyTypeObjectPtr,
                                        compilation_info=eci, _nowrapper=True)
-    setdefenc = rffi.llexternal('_%s_setfilesystemdefaultencoding' % prefix,
+    setdefenc = rffi.llexternal(
+                                mangle_c_symbol(prefix, '_Py_setfilesystemdefaultencoding'),
                                 [rffi.CCHARP], lltype.Void,
                                 compilation_info=eci, _nowrapper=True)
     @init_function
@@ -1243,10 +1232,11 @@ def setup_init_functions(eci, prefix):
 
     from pypy.module.posix.interp_posix import add_fork_hook
     global py_fatalerrorfunc
-    py_fatalerrorfunc = rffi.llexternal('_%s_FatalErrorFunc' % prefix,
+    py_fatalerrorfunc = rffi.llexternal(
+                                    mangle_c_symbol(prefix, '_Py_FatalErrorFunc'),
                                     [CONST_STRING, CONST_STRING], lltype.Void,
                                     compilation_info=eci)
-    _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
+    _reinit_tls = rffi.llexternal(mangle_c_symbol(prefix, 'PyThread_ReInitTLS'), [],
                                   lltype.Void, compilation_info=eci)
     def reinit_tls(space):
         _reinit_tls()
@@ -1256,68 +1246,68 @@ def setup_init_functions(eci, prefix):
 def attach_c_functions(space, eci, prefix):
     state = space.fromcache(State)
     state.C._Py_Dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_Dealloc'),
+        mangle_c_symbol(prefix, '_Py_Dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci,
         _nowrapper=True)
     state.C.PyObject_Free = rffi.llexternal(
-        mangle_name(prefix, 'PyObject_Free'),
+        mangle_c_symbol(prefix, 'PyObject_Free'),
         [rffi.VOIDP], lltype.Void,
         compilation_info=eci,
         _nowrapper=True)
     # prefix-aware object free (subtracts the hidden ob_pypy_link prefix); the default
     # tp_free for cpyext objects, and the remap target for a spec's PyObject_Free
     state.C.PyObject_GC_Del = rffi.llexternal(
-        mangle_name(prefix, 'PyObject_GC_Del'),
+        mangle_c_symbol(prefix, 'PyObject_GC_Del'),
         [rffi.VOIDP], lltype.Void,
         compilation_info=eci,
         _nowrapper=True)
     state.C.PyType_GenericAlloc = rffi.llexternal(
-        mangle_name(prefix, 'PyType_GenericAlloc'),
+        mangle_c_symbol(prefix, 'PyType_GenericAlloc'),
         [PyTypeObjectPtr, Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
     state.C.PyTuple_New = rffi.llexternal(
-        mangle_name(prefix, 'PyTuple_New'),
+        mangle_c_symbol(prefix, 'PyTuple_New'),
         [Py_ssize_t], PyObject,
         compilation_info=eci,
         _nowrapper=True)
     state.C._PyPy_tuple_dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
+        mangle_c_symbol(prefix, '_Py_tuple_dealloc'), [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     _, state.C.set_marker = rffi.CExternVariable(
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='void *', declare_as_extern=True)
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_subtype_dealloc'),
+        mangle_c_symbol(prefix, '_Py_subtype_dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
-        mangle_name(prefix, '_Py_object_dealloc'),
+        mangle_c_symbol(prefix, '_Py_object_dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT_real))
     state.C.get_pyos_inputhook = rffi.llexternal(
-        mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
+        mangle_c_symbol(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        mangle_name(prefix, '_Py_tuple_new'),
+        mangle_c_symbol(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     state.C.PyType_GenericNew = rffi.llexternal(
-        mangle_name(prefix, 'PyType_GenericNew'),
+        mangle_c_symbol(prefix, 'PyType_GenericNew'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
-        mangle_name(prefix, '_Py_tuple_new'),
+        mangle_c_symbol(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     state.C.float_init = rffi.llexternal(
-        mangle_name(prefix, '_PyFloat_InitState'),
+        mangle_c_symbol(prefix, '_PyFloat_InitState'),
         [], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C.PyVectorcall_Call = rffi.llexternal(
-        mangle_name(prefix, 'PyVectorcall_Call'),
+        mangle_c_symbol(prefix, 'PyVectorcall_Call'),
         [PyObject, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
 
@@ -1572,6 +1562,16 @@ def mangle_name(prefix, name):
     else:
         raise ValueError("Error converting '%s'" % name)
 
+def mangle_c_symbol(prefix, name):
+    """Like mangle_name, but for a SYMBOLS_C/SYMBOLS_C_ABI3 entry: a
+    SYMBOLS_C_ABI3 name compiles under its bare CPython name in a
+    translated build (prefix == 'PyPy'), matching generate_decls_and_callbacks;
+    everywhere else (including SYMBOLS_C and untranslated test builds) it
+    is mangled as usual."""
+    if prefix == 'PyPy' and name in SYMBOLS_C_ABI3:
+        return name
+    return mangle_name(prefix, name)
+
 def write_header(header_name, decls, needs_signed=True, add_guards=False):
     decl_h = udir.join(header_name)
     lines = []
@@ -1614,6 +1614,17 @@ def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
     pypy_macros = []
     for name in SYMBOLS_C:
+        newname = mangle_name(prefix, name)
+        pypy_macros.append('#define %s %s' % (name, newname))
+    for name in SYMBOLS_C_ABI3:
+        # part of CPython's stable ABI: the C source implementing 'name'
+        # must compile under its bare CPython name in a translated build
+        # (prefix == 'PyPy'), so abi3 extensions can resolve it directly.
+        # Untranslated test builds (prefix == 'cpyexttest') still mangle it,
+        # to avoid clashing with the host interpreter's own symbol of the
+        # same name.
+        if prefix == 'PyPy':
+            continue
         newname = mangle_name(prefix, name)
         pypy_macros.append('#define %s %s' % (name, newname))
 

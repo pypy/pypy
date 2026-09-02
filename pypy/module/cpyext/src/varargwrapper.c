@@ -1,18 +1,6 @@
 #include <Python.h>
 #include <stdarg.h>
 
-#ifdef CPYEXT_TESTS
-#define PyTuplePack _cpyexttestTuplePack
-#ifdef __GNUC__
-__attribute__((visibility("default")))
-#else
-__declspec(dllexport)
-#endif
-#else  /* CPYEXT_TESTS */
-#define PyTuplePack PyPyTuplePack
-#endif  /* CPYEXT_TESTS */
-
-
 PyObject *
 PyTuple_Pack(Py_ssize_t n, ...)
 {

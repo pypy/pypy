@@ -17,8 +17,8 @@ typedef struct {
 } PyTupleObject;
 
 PyAPI_FUNC(PyObject *) PyTuple_New(Py_ssize_t size);
-PyAPI_FUNC(void) _PyPy_tuple_dealloc(PyObject *);
-PyAPI_FUNC(PyObject *) _PyPy_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+PyAPI_FUNC(void) _Py_tuple_dealloc(PyObject *);
+PyAPI_FUNC(PyObject *) _Py_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
 /* defined in varargswrapper.c */
 PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);

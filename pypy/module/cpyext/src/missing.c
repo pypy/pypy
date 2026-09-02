@@ -30,17 +30,14 @@ void _Py_setfilesystemdefaultencoding(const char *enc) {
     _PyPy_FileSystemDefaultEncoding = enc;
 }
 
+int (*PyOS_InputHook)(void) = 0;  /* only ever filled in by C extensions */
 #ifdef CPYEXT_TESTS
-#define _Py_get_PyOS_InputHook _cpyexttest_get_PyOS_InputHook
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
 __declspec(dllexport)
 #endif
-#else  /* CPYEXT_TESTS */
-#define _Py_get_PyOS_InputHook _PyPy_get_PyOS_InputHook
 #endif  /* CPYEXT_TESTS */
-int (*PyOS_InputHook)(void) = 0;  /* only ever filled in by C extensions */
 PyAPI_FUNC(_pypy_pyos_inputhook) _Py_get_PyOS_InputHook(void) {
     return PyOS_InputHook;
 }

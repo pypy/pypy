@@ -37,7 +37,6 @@
    to PyObjects, e.g. staying alive as long as the internal PyPy object
    stays alive. */
 #define PYPY_CPYEXT_GC      1
-#define PyPy_Borrow(a, b)   ((void) 0)
 
 /* Subversion Revision number of this file (not of the repository).
  * Empty since Mercurial migration. */
