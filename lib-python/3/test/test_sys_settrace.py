@@ -435,6 +435,8 @@ class TraceTestCase(unittest.TestCase):
     def test_12_tighterloop(self):
         self.run_test(tighterloop_example)
 
+    @unittest.skipIf(sys.implementation.name == 'pypy',
+        "needs to gc.collect the genexp")
     def test_13_genexp(self):
         self.run_test(generator_example)
         # issue1265: if the trace function contains a generator,
@@ -1948,8 +1950,28 @@ def no_jump_without_trace_function():
         raise AssertionError("Trace-function-less jump failed to fail")
 
 
+def _listcomp_is_inlined():
+    # PEP 709 (3.12): CPython inlines list/set/dict comprehensions into the
+    # enclosing frame instead of giving them their own code object. Detect
+    # this at runtime (rather than hardcoding sys.implementation.name) so
+    # the check keeps working if/when PyPy implements the same inlining.
+    def f():
+        return [i for i in range(3)]
+    CodeType = type(f.__code__)
+    return not any(isinstance(c, CodeType) for c in f.__code__.co_consts)
+
+
 class JumpTestCase(unittest.TestCase):
     unbound_locals = r"assigning None to [0-9]+ unbound local"
+    if sys.implementation.name == 'pypy':
+        # PYPY: message is more informative
+        no_jump_into_with_error = (ValueError, "body of a with statement")
+        no_jump_return_try_finally_error = (
+            ValueError, "except' block as there's no exception")
+    else:
+        no_jump_into_with_error = (ValueError, 'stack')
+        no_jump_return_try_finally_error = (
+            ValueError, 'comes after the current code block')
 
     def setUp(self):
         self.addCleanup(sys.settrace, sys.gettrace())
@@ -2164,7 +2186,7 @@ class JumpTestCase(unittest.TestCase):
             output.append(11)
         output.append(12)
 
-    @jump_test(5, 11, [2, 4], (ValueError, 'comes after the current code block'))
+    @jump_test(5, 11, [2, 4], no_jump_return_try_finally_error)
     def test_no_jump_over_return_try_finally_in_finally_block(output):
         try:
             output.append(2)
@@ -2525,25 +2547,25 @@ class JumpTestCase(unittest.TestCase):
             output.append(2)
         output.append(3)
 
-    @jump_test(1, 3, [], (ValueError, 'stack'))
+    @jump_test(1, 3, [], no_jump_into_with_error)
     def test_no_jump_forwards_into_with_block(output):
         output.append(1)
         with tracecontext(output, 2):
             output.append(3)
 
-    @async_jump_test(1, 3, [], (ValueError, 'stack'))
+    @async_jump_test(1, 3, [], no_jump_into_with_error)
     async def test_no_jump_forwards_into_async_with_block(output):
         output.append(1)
         async with asynctracecontext(output, 2):
             output.append(3)
 
-    @jump_test(3, 2, [1, 2, -1], (ValueError, 'stack'))
+    @jump_test(3, 2, [1, 2, -1], no_jump_into_with_error)
     def test_no_jump_backwards_into_with_block(output):
         with tracecontext(output, 1):
             output.append(2)
         output.append(3)
 
-    @async_jump_test(3, 2, [1, 2, -1], (ValueError, 'stack'))
+    @async_jump_test(3, 2, [1, 2, -1], no_jump_into_with_error)
     async def test_no_jump_backwards_into_async_with_block(output):
         async with asynctracecontext(output, 1):
             output.append(2)
@@ -2811,6 +2833,10 @@ output.append(4)
         x = [i for i in range(10)]
         c = 3
 
+    @unittest.skipUnless(_listcomp_is_inlined(),
+        "the only unbound local here is the PEP 709 comprehension-inlining "
+        "synthetic slot, which does not exist unless comprehensions are "
+        "inlined into the enclosing frame")
     @jump_test(8, 2, [2, 7, 2], warning=(RuntimeWarning, unbound_locals))
     def test_jump_backward_over_listcomp_v2(output):
         flag = False
@@ -2834,6 +2860,10 @@ output.append(4)
         x = [i async for i in asynciter(range(10))]
         c = 3
 
+    @unittest.skipUnless(_listcomp_is_inlined(),
+        "the only unbound local here is the PEP 709 comprehension-inlining "
+        "synthetic slot, which does not exist unless comprehensions are "
+        "inlined into the enclosing frame")
     @async_jump_test(8, 2, [2, 7, 2], warning=(RuntimeWarning, unbound_locals))
     async def test_jump_backward_over_async_listcomp_v2(output):
         flag = False
