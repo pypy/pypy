@@ -1,11 +1,5 @@
 #include "Python.h"
 
-#if defined(Py_ISDIGIT) || defined(Py_ISALPHA)
-#error remove these definitions
-#endif
-#define Py_ISDIGIT isdigit
-#define Py_ISALPHA isalpha
-
 PyObject *
 PyBytes_FromFormatV(const char *format, va_list vargs)
 {

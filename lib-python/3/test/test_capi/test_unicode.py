@@ -344,6 +344,8 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, fromobject, [])
         # CRASHES fromobject(NULL)
 
+    @unittest.skipUnless(support.check_impl_detail(cpython=True),
+                          "requires ctypes.pythonapi")
     def test_from_format(self):
         """Test PyUnicode_FromFormat()"""
         # Length modifiers "j" and "t" are not tested here because ctypes does

@@ -1,10 +1,5 @@
 #include "Python.h"
 
-#if defined(Py_ISDIGIT) || defined(Py_ISALPHA)
-#error remove these definitions
-#endif
-#define Py_ISDIGIT isdigit
-#define Py_ISALPHA isalpha
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
 
 #include "unicodetype_db.h"

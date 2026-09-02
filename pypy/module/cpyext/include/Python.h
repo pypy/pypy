@@ -39,6 +39,7 @@
 #include "pymath.h"
 #include "pymem.h"
 #include "pytypedefs.h"
+#include "pyctype.h"
 
 #include "object.h"
 #include "objimpl.h"

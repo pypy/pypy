@@ -1680,6 +1680,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "call.c",
                          source_dir / "ceval.c",
                          source_dir / "floatobject.c",
+                         source_dir / "pyctype.c",
                          # for PyErr pypysig_pushback
                          translator_c_dir / "src" / "signals.c",
                          ]

@@ -48,7 +48,10 @@ except ModuleNotFoundError:
 # Skip this test if the _testcapi module isn't available.
 _testcapi = import_helper.import_module('_testcapi')
 
-import _testinternalcapi
+try:
+    import _testinternalcapi
+except ModuleNotFoundError:
+    _testinternalcapi = None
 
 
 NULL = None
@@ -1306,6 +1309,7 @@ class TestPendingCalls(unittest.TestCase):
         gen = genf()
         self.assertEqual(_testcapi.gen_get_code(gen), gen.gi_code)
 
+    @unittest.skipIf(_testinternalcapi is None, "test requires _testinternalcapi module")
     class PendingTask(types.SimpleNamespace):
 
         _add_pending = _testinternalcapi.pending_threadfunc
@@ -2113,6 +2117,7 @@ class Test_testcapi(unittest.TestCase):
         self.assertEqual(_testcapi.Py_Version, sys.hexversion)
 
 
+@unittest.skipIf(_testinternalcapi is None, "test requires _testinternalcapi module")
 class Test_testinternalcapi(unittest.TestCase):
     locals().update((name, getattr(_testinternalcapi, name))
                     for name in dir(_testinternalcapi)
@@ -2207,6 +2212,7 @@ class Test_ModuleStateAccess(unittest.TestCase):
         self.assertIs(Subclass().get_defining_module(), self.module)
 
 
+@unittest.skipIf(_testinternalcapi is None, "test requires _testinternalcapi module")
 class TestInternalFrameApi(unittest.TestCase):
 
     @staticmethod
@@ -2233,6 +2239,7 @@ class TestInternalFrameApi(unittest.TestCase):
 
 SUFFICIENT_TO_DEOPT_AND_SPECIALIZE = 100
 
+@unittest.skipIf(_testinternalcapi is None, "test requires _testinternalcapi module")
 class Test_Pep523API(unittest.TestCase):
 
     def do_test(self, func, names):

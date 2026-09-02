@@ -23,7 +23,7 @@ else:
                 '_testcapi/exceptions.c',
                 '_testcapi/file.c',
                 #'_testcapi/float.c',
-                #'_testcapi/getargs.c',
+                '_testcapi/getargs.c',
                 #'_testcapi/heaptype.c',
                 '_testcapi/heaptype_relative.c',
                 '_testcapi/immortal.c',

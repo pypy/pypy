@@ -316,7 +316,7 @@ vgetargs1_impl(PyObject *compat_args, PyObject *const *stack, Py_ssize_t nargs, 
             break;
         default:
             if (level == 0) {
-                if (isalpha(c))
+                if (Py_ISALPHA(c))
                     if (c != 'e') /* skip encoded */
                         max++;
             }
@@ -401,7 +401,7 @@ vgetargs1_impl(PyObject *compat_args, PyObject *const *stack, Py_ssize_t nargs, 
         }
     }
 
-    if (*format != '\0' && !isalpha(*format) &&
+    if (*format != '\0' && !Py_ISALPHA(*format) &&
         *format != '(' &&
         *format != '|' && *format != ':' && *format != ';') {
         PyErr_Format(PyExc_SystemError,
@@ -525,7 +525,7 @@ converttuple(PyObject *arg, const char **p_format, va_list *p_va, int flags,
         }
         else if (c == ':' || c == ';' || c == '\0')
             break;
-        else if (level == 0 && isalpha(c) && c != 'e')
+        else if (level == 0 && Py_ISALPHA(c) && c != 'e')
             n++;
     }
 
