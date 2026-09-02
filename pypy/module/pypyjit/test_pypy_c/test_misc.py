@@ -179,8 +179,6 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             guard_not_invalidated?
-            i80 = int_lt(i11, 0)
-            guard_false(i80, descr=...)
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i20 = int_add(i11, 1)

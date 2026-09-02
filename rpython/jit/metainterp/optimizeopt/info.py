@@ -517,7 +517,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         assert mode is None
         if self.lenbound is None:
             assert self.length == -1
-            self.lenbound = IntBound.nonnegative()
+            self.lenbound = IntBound(0, self.descr.get_max_length())
         return self.lenbound
 
     def _init_items(self, const, size, clear):
@@ -636,7 +636,8 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         if self.lenbound is not None:
             lenop = ResOperation(rop.ARRAYLEN_GC, [op], descr=self.descr)
             short.append(lenop)
-            self.lenbound.make_guards(lenop, short, optimizer)
+            self.lenbound.make_guards_with_known_upper(
+                lenop, short, optimizer, self.descr.get_max_length())
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual=False):
@@ -892,4 +893,3 @@ def getptrinfo(op):
         assert isinstance(fw, PtrInfo)
         return fw
     return None
-

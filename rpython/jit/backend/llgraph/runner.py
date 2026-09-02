@@ -2,6 +2,7 @@ import py, weakref
 from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
+from rpython.jit.backend.llsupport.descr import MAX_REASONABLE_ARRAY_BYTES
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
 from rpython.jit.metainterp.history import BackendDescr
 from rpython.jit.metainterp.history import Const, getkind
@@ -185,10 +186,13 @@ class FieldDescr(BackendDescr):
         return _is_signed_kind(self.FIELD)
 
     def is_integer_bounded(self):
-        return getkind(self.FIELD) == 'int' \
-            and rffi.sizeof(self.FIELD) < symbolic.WORD
+        return ((getkind(self.FIELD) == 'int'
+            and rffi.sizeof(self.FIELD) < symbolic.WORD) or
+                self.fieldname in self.S._hints.get("nonneg_int_fields", set()))
 
     def get_integer_min(self):
+        if self.fieldname in self.S._hints.get("nonneg_int_fields", set()):
+            return 0
         if getkind(self.FIELD) != 'int':
             assert False
 
@@ -248,7 +252,17 @@ class ArrayDescr(BackendDescr):
             and rffi.sizeof(self.A.OF) < symbolic.WORD
 
     def get_item_size_in_bytes(self):
+        if self.A.OF is lltype.Void:
+            return 0
         return rffi.sizeof(self.A.OF)
+
+    def get_max_length(self):
+        from rpython.rlib.rarithmetic import LONG_BIT, maxint
+        # compute the maximum length of arrays of this itemsize
+        itemsize = self.get_item_size_in_bytes()
+        if LONG_BIT == 32 or itemsize == 0:
+            return maxint
+        return MAX_REASONABLE_ARRAY_BYTES // itemsize
 
     def get_item_integer_min(self):
         if getkind(self.A.OF) != 'int':

@@ -497,22 +497,31 @@ class InstanceRepr(Repr):
         if self.classdef is None:
             fields['__class__'] = 'typeptr', get_type_repr(self.rtyper)
         else:
+            if hints is None:
+                hints = {}
             # instance attributes
             attrs = self.classdef.attrs.items()
             attrs.sort()
             myllfields = []
+            nonneg_ints = set()
             for name, attrdef in attrs:
                 if not attrdef.readonly:
-                    r = self.rtyper.getrepr(attrdef.s_value)
+                    s_value = attrdef.s_value
+                    r = self.rtyper.getrepr(s_value)
                     mangled_name = 'inst_' + name
                     fields[name] = mangled_name, r
                     myllfields.append((mangled_name, r.lowleveltype))
+                    if isinstance(s_value, annmodel.SomeInteger) and s_value.nonneg and not s_value.unsigned:
+                        nonneg_ints.add(mangled_name)
 
             myllfields.sort(key=attr_reverse_size)
             if llfields is None:
                 llfields = myllfields
             else:
                 llfields = llfields + myllfields
+
+            if nonneg_ints:
+                hints['nonneg_int_fields'] = frozenset(nonneg_ints)
 
             self.rbase = getinstancerepr(self.rtyper, self.classdef.basedef,
                                          self.gcflavor)
@@ -521,8 +530,6 @@ class InstanceRepr(Repr):
             MkStruct = lltype.STRUCT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
             if adtmeths is None:
                 adtmeths = {}
-            if hints is None:
-                hints = {}
             hints = self._check_for_immutable_hints(hints)
             if self.classdef.classdesc.get_param('_rpython_never_allocate_'):
                 hints['never_allocate'] = True

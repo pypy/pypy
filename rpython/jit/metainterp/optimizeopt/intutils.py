@@ -1262,6 +1262,9 @@ class IntBound(AbstractInfo):
         return res
 
     def make_guards(self, box, guards, optimizer):
+        self.make_guards_with_known_upper(box, guards, optimizer, MAXINT)
+
+    def make_guards_with_known_upper(self, box, guards, optimizer, known_upper):
         """
         Generates guards from the information we have about the numbers this
         abstract integer contains.
@@ -1276,7 +1279,7 @@ class IntBound(AbstractInfo):
             guards.append(op)
             op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
-        if self.upper < MAXINT:
+        if self.upper < known_upper:
             bound = self.upper
             op = ResOperation(rop.INT_LE, [box, ConstInt(bound)])
             guards.append(op)
