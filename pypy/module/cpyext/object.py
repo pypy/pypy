@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
+    Py_GE, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj,
@@ -100,12 +100,13 @@ def PyObject_GetAttr(space, w_obj, w_name):
     w_res = space.getattr(w_obj, w_name)
     return hack_for_result_often_existing_obj(space, w_res)
 
-@cpython_api([PyObject, CONST_STRING], PyObject, result_is_ll=True, abi3=True)
+@cts.decl("PyObject *PyObject_GetAttrString(PyObject *, const char *)",
+    result_is_ll=True, abi3=True)
 def PyObject_GetAttrString(space, w_obj, name_ptr):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure. This is the equivalent of the Python
     expression o.attr_name."""
-    name = rffi.charp2str(name_ptr)
+    name = rffi.constcharp2str(name_ptr)
     w_res = space.getattr(w_obj, space.newtext(name))
     return hack_for_result_often_existing_obj(space, w_res)
 
@@ -117,10 +118,11 @@ def PyObject_HasAttr(space, w_obj, w_name):
     except OperationError:
         return 0
 
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
+@cts.decl("int PyObject_HasAttrString(PyObject *, const char *)",
+    error=CANNOT_FAIL, abi3=True)
 def PyObject_HasAttrString(space, w_obj, name_ptr):
     try:
-        name = rffi.charp2str(name_ptr)
+        name = rffi.constcharp2str(name_ptr)
         w_res = operation.hasattr(space, w_obj, space.newtext(name))
         return space.is_true(w_res)
     except OperationError:
@@ -135,9 +137,10 @@ def PyObject_SetAttr(space, w_obj, w_name, value):
         space.delattr(w_obj, w_name)
     return 0
 
-@cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1, abi3=True)
+@cts.decl("int PyObject_SetAttrString(PyObject *, const char *, PyObject *)",
+    error=-1, abi3=True)
 def PyObject_SetAttrString(space, w_obj, name_ptr, value):
-    w_name = space.newtext(rffi.charp2str(name_ptr))
+    w_name = space.newtext(rffi.constcharp2str(name_ptr))
     if value:
         w_value = from_ref(space, value)
         operation.setattr(space, w_obj, w_name, w_value)

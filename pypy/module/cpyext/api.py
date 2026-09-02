@@ -541,6 +541,7 @@ def api_func_from_cdef(func, cdef, cts,
     unwrapper = api_function.get_unwrapper()
     unwrapper.func = func
     unwrapper.api_func = api_function
+    INTERPLEVEL_API[cdecl.name] = unwrapper  # used in tests
     return unwrapper
 
 def api_decl(cdef, cts, error=_NOT_SPECIFIED, header=DEFAULT_HEADER):

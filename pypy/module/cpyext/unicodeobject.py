@@ -577,7 +577,8 @@ def PyUnicode_AsUnicodeEscapeString(space, pyobj):
     w_unicode = from_ref(space, pyobj)
     return unicodeobject.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
-@cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True, abi3=True)
+@cts.decl("PyObject *PyUnicode_FromWideChar(const wchar_t *, Py_ssize_t)",
+    result_is_ll=True, abi3=True)
 def PyUnicode_FromWideChar(space, wchar_p, size):
     """Create a Unicode object from the wchar_t buffer wchar_p of the given
     size. The buffer is copied into the new object. size == -1 means
