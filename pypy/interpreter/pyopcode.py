@@ -291,7 +291,12 @@ class __extend__(pyframe.PyFrame):
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.RETURN_CONST.index:
-                self.pushvalue(self.getconstant_w(oparg))
+                w_returnvalue = self.getconstant_w(oparg)
+                self.pushvalue(w_returnvalue)
+                if should_fire_local(ec.space, pycode, PY_RETURN):
+                    dispatch_code_event(
+                        ec.space, PY_RETURN, pycode, intmask(self.last_instr),
+                        w_returnvalue)
                 self.frame_finished_execution = True  # for generators
                 raise Return
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
