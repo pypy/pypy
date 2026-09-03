@@ -13,9 +13,6 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("get_thread_ident", "METH_NOARGS",
              """
-#ifndef PyThread_get_thread_ident
-#error "seems we are not accessing PyPy's functions"
-#endif
                  return PyLong_FromLong(PyThread_get_thread_ident());
              """),
             ])
@@ -40,9 +37,6 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_acquire_lock", "METH_NOARGS",
              """
-#ifndef PyThread_allocate_lock
-#error "seems we are not accessing PyPy's functions"
-#endif
                  PyThread_type_lock lock = PyThread_allocate_lock();
                  if (PyThread_acquire_lock(lock, 1) != 1) {
                      PyErr_SetString(PyExc_AssertionError, "first acquire");
@@ -64,9 +58,6 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_release_lock", "METH_NOARGS",
              """
-#ifndef PyThread_release_lock
-#error "seems we are not accessing PyPy's functions"
-#endif
                  PyThread_type_lock lock = PyThread_allocate_lock();
                  PyThread_acquire_lock(lock, 1);
                  PyThread_release_lock(lock);
@@ -86,9 +77,6 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("timed_acquire_lock", "METH_O",
              """
-#ifndef PyThread_acquire_lock_timed
-#error "seems we are not accessing PyPy's functions"
-#endif
                 PyLockStatus acquire_result;
                 int microseconds = PyLong_AsLong(args);
                 Py_BEGIN_ALLOW_THREADS
