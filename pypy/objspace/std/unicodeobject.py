@@ -1136,6 +1136,10 @@ class W_UnicodeObject(W_Root):
         return space.newint(value.count(sub, start_index, end_index))
 
     def descr_contains(self, space, w_sub):
+        if not space.isinstance_w(w_sub, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                        "'in <string>' requires string as left operand, not %T",
+                        w_sub)
         value = self._utf8
         w_other = self.convert_arg_to_w_unicode(space, w_sub)
         return space.newbool(value.find(w_other._utf8) >= 0)

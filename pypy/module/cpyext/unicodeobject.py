@@ -1307,7 +1307,7 @@ def PyUnicode_Contains(space, w_str, w_substr):
     there was an error."""
     if not space.isinstance_w(w_substr, space.w_unicode):
         raise oefmt(space.w_TypeError,
-                    "in <string> requires string as left operand, not %T",
+                    "'in <string>' requires string as left operand, not %T",
                      w_substr)
     if not space.isinstance_w(w_str, space.w_unicode):
         raise oefmt(space.w_TypeError, "must be str, not %T", w_str)

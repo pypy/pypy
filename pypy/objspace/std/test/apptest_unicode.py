@@ -40,6 +40,15 @@ def test_contains():
     assert 'bc' in 'abc'
     assert '\xe2' in 'g\xe2teau'
 
+def test_contains_non_str():
+    for sub in [None, 42, b'a', []]:
+        e = raises(TypeError, 'abc'.__contains__, sub)
+        assert str(e.value) == (
+            "'in <string>' requires string as left operand, not %s"
+            % type(sub).__name__)
+    e = raises(TypeError, lambda: None in 'abc')
+    assert 'NoneType' in str(e.value)
+
 def test_splitlines():
     assert ''.splitlines() == []
     assert ''.splitlines(1) == []
