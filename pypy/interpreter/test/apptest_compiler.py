@@ -213,7 +213,9 @@ def test_dont_share_lambdas():
     x, y, z = consts
     assert isinstance(x, type(code)) and isinstance(y, type(code))
     assert x is not y
-    assert x == y
+    assert x.co_code == y.co_code
+    assert x.co_consts == y.co_consts
+    assert x.co_linetable != y.co_linetable
 
 def test_dict_and_set_literal_order():
     x = 1
