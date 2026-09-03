@@ -55,7 +55,7 @@ class GenericAlias:
         return object.__getattribute__(self, name)
 
     def __repr__(self):
-        inner = ', '.join([_repr_item(x) for x in self.__args__])
+        inner = ', '.join([_repr_arg(x) for x in self.__args__])
         if len(self.__args__) == 0:
             inner = "()"
         star = '*' if self.__unpacked__ else ''
@@ -137,6 +137,14 @@ def _repr_item(it):
         return f"{module}.{qualname}"
     except AttributeError:
         return repr(it)
+
+def _repr_arg(it):
+    # Only a top-level argument that is exactly a list gets the [a, b] spelling
+    # (ParamSpec's argument list).  Anything else, a nested list included, is
+    # formatted by _repr_item.
+    if type(it) is list:
+        return "[{}]".format(", ".join([_repr_item(x) for x in it]))
+    return _repr_item(it)
 
 def _repr_item_union(it):
     if it is type(None):
@@ -325,8 +333,20 @@ class UnionType:
     __iter__ = None # we don't want __getitem__-based fallback iteration
 
 
+def _is_typealiastype(obj):
+    # Import lazily to avoid a module-import cycle.  Checking the actual class
+    # is important here: name/module checks let arbitrary user classes opt in
+    # to the union protocol by spoofing TypeAliasType's metadata.
+    obj_type = type(obj)
+    if (obj_type.__name__ != 'TypeAliasType' or
+            obj_type.__module__ != 'typing'):
+        return False
+    from _pypy_typing import TypeAliasType
+    return obj_type is TypeAliasType
+
 def _unionable(obj):
-    return obj is None or isinstance(obj, (type, UnionType, GenericAlias))
+    return (obj is None or isinstance(obj, (type, UnionType, GenericAlias))
+            or _is_typealiastype(obj))
 
 def _create_union(self, other):
     if _unionable(self) and _unionable(other):

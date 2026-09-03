@@ -3383,6 +3383,13 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self._handle_body(cls.body)
 
         self.no_position_info()
+        # Store __classdictcell__ so type.__new__ can repoint the cell at the
+        # real class __dict__ after the class is created (PEP 695 lazy bounds /
+        # type aliases that read the class namespace after mutation).
+        classdict_scope = self.scope.lookup("__classdict__")
+        if classdict_scope == symtable.SCOPE_CELL:
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["__classdict__"])
+            self.name_op("__classdictcell__", ast.Store, None)
         # return the (empty) __class__ cell
         scope = self.scope.lookup("__class__")
         if scope == symtable.SCOPE_CELL_CLASS:

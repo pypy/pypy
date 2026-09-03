@@ -985,9 +985,23 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     if w_classcell:
         _store_type_in_classcell(space, w_type, w_classcell, dict_w)
 
+    # PEP 695: __classdictcell__ holds the cell that annotation scopes use to
+    # resolve names against the class namespace.  While the class body runs it
+    # points at the temporary execution dict; after the type is built, repoint
+    # it at the real class __dict__ so later lazy evaluation sees mutations
+    # (e.g. X.T = float after `type Alias = T`).
+    w_classdictcell = dict_w.get("__classdictcell__", None)
+    classdictcell = None
+    if w_classdictcell is not None:
+        classdictcell = _check_classdictcell(space, w_classdictcell)
+        del dict_w['__classdictcell__']
+
     W_TypeObject.__init__(w_type, space, name, bases_w or [space.w_object],
                           dict_w, is_heaptype=True)
 
+    # Repoint the cell at the live mapping used by the finished type.
+    if classdictcell is not None:
+        classdictcell.set(w_type.getdict(space))
 
     w_type.ready()
 
@@ -1001,9 +1015,17 @@ def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
         w_classcell.set(w_type)
     else:
         raise oefmt(space.w_TypeError,
-                    "__classcell__ must be a nonlocal cell, not %T",
-                    w_classcell)
+                    "__classcell__ must be a nonlocal cell, not %R",
+                    space.type(w_classcell))
     del dict_w['__classcell__']
+
+def _check_classdictcell(space, w_classdictcell):
+    from pypy.interpreter.nestedscope import Cell
+    if not isinstance(w_classdictcell, Cell):
+        raise oefmt(space.w_TypeError,
+                    "__classdictcell__ must be a nonlocal cell, not %R",
+                    space.type(w_classdictcell))
+    return w_classdictcell
 
 def _calculate_metaclass(space, w_metaclass, bases_w):
     """Determine the most derived metatype"""
@@ -1107,21 +1129,32 @@ def descr_get__mro__(space, w_type):
 
 def descr_get__type_params__(space, w_type):
     w_type = _check(space, w_type)
-    # Look up __type_params__ in the type's dict
-    w_result = w_type.dict_w.get('__type_params__', None)
+    # type holds the getset in its own dict, so a plain lookup would find the
+    # descriptor instead of an empty tuple (type_get_type_params()).
+    if space.is_w(w_type, space.w_type):
+        return space.newtuple([])
+    # getdictvalue(), not dict_w, so that a value stored in a mutable cell is
+    # unwrapped.
+    w_result = w_type.getdictvalue(space, '__type_params__')
     if w_result is None:
         return space.newtuple([])  # Default is empty tuple
     return w_result
 
 def descr_set__type_params__(space, w_type, w_value):
     w_type = _check(space, w_type)
-    if not w_type.is_heaptype():
-        raise oefmt(space.w_TypeError,
-                    "can't set %N.__type_params__", w_type)
-    w_type.dict_w['__type_params__'] = w_value
+    # setdictvalue() already rejects a non-heaptype with the wording of
+    # check_set_special_type_attr() and invalidates the version tag.  The value
+    # itself is stored unchecked, whatever its type.
+    w_type.setdictvalue(space, '__type_params__', w_value)
 
 def descr_del__type_params__(space, w_type):
     w_type = _check(space, w_type)
+    # check_set_special_type_attr() tests the type before it tests the missing
+    # value, so a non-heaptype reports the "cannot set" wording even here.
+    if not w_type.is_heaptype():
+        raise oefmt(space.w_TypeError,
+                    "cannot set '__type_params__' attribute of immutable "
+                    "type '%N'", w_type)
     raise oefmt(space.w_TypeError,
                 "cannot delete '__type_params__' attribute of immutable type '%N'",
                 w_type)
@@ -1771,6 +1804,14 @@ def mro_error(space, orderlists):
     if candidate in orderlists[-1][1:]:
         # explicit error message for this specific case
         raise oefmt(space.w_TypeError, "duplicate base class %N", candidate)
+    # The classes that are still blocking each other, i.e. the head of every
+    # list that has not been merged yet, deduplicated in the order they are
+    # met (set_mro_error()).
+    conflicts_w = []
+    for orderlist in orderlists:
+        w_head = orderlist[0]
+        if w_head not in conflicts_w:
+            conflicts_w.append(w_head)
     while candidate not in cycle:
         cycle.append(candidate)
         nextblockinglist = mro_blockinglist(candidate, orderlists)
@@ -1778,10 +1819,13 @@ def mro_error(space, orderlists):
     del cycle[:cycle.index(candidate)]
     cycle.append(candidate)
     cycle.reverse()
-    names = [cls.getname(space) for cls in cycle]
-    # Can't use oefmt() here, since names is a list of unicodes
+    conflict_names = [cls.getname(space) for cls in conflicts_w]
+    cycle_names = [cls.getname(space) for cls in cycle]
+    # Can't use oefmt() here, since the names are lists of unicodes
     raise OperationError(space.w_TypeError, space.newtext(
-        "cycle among base classes: " + ' < '.join(names)))
+        "Cannot create a consistent method resolution\norder (MRO) for bases "
+        + ', '.join(conflict_names)
+        + ": cycle among base classes: " + ' < '.join(cycle_names)))
 
 
 class TypeCache(SpaceCache):
