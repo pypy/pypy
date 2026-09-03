@@ -52,6 +52,10 @@ class TestSequence(BaseApiTest):
         w_t1 = space.wrap(range(4))
         w_t2 = space.wrap(range(4, 8))
         assert space.unwrap(api.PySequence_Concat(w_t1, w_t2)) == range(8)
+        with raises_w(space, SystemError):
+            api.PySequence_Concat(None, w_t2)
+        with raises_w(space, SystemError):
+            api.PySequence_Concat(w_t1, None)
 
     def test_inplace_concat(self, space, api):
         w_t1 = space.wrap(range(4))
@@ -108,6 +112,11 @@ class TestSequence(BaseApiTest):
         assert not PySequence_Contains(space, w_t, space.wrap(2))
         with raises_w(space, TypeError):
             PySequence_Contains(space, space.w_None, space.wrap(2))
+
+        w_empty = space.newlist([])
+        assert PySequence_Contains(space, w_empty, None) == 0
+        with raises_w(space, SystemError):
+            PySequence_Contains(space, space.newlist([space.wrap(1)]), None)
 
     def test_setitem(self, space, api):
         state = space.fromcache(State)

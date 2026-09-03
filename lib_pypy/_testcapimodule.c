@@ -4258,11 +4258,9 @@ PyInit__testcapi(void)
         return NULL;
     }
 #endif
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_GetArgs(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_PyTime(m) < 0) {
         return NULL;
     }
@@ -4272,10 +4270,10 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Docstring(m) < 0) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Mem(m) < 0) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Watchers(m) < 0) {
         return NULL;
     }

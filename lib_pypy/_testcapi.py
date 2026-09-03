@@ -30,7 +30,7 @@ else:
                 #'_testcapi/import.c',
                 '_testcapi/list.c',
                 #'_testcapi/long.c',
-                #'_testcapi/mem.c',
+                '_testcapi/mem.c',
                 '_testcapi/numbers.c',
                 #'_testcapi/pyos.c',
                 '_testcapi/pytime.c',

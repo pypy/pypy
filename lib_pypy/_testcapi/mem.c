@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+#ifndef PYPY_VERSION
 
 typedef struct {
     PyMemAllocatorEx alloc;
@@ -710,12 +711,16 @@ static PyMethodDef test_methods[] = {
     {NULL},
 };
 
+#endif  /* !PYPY_VERSION */
+
 int
 _PyTestCapi_Init_Mem(PyObject *mod)
 {
+#ifndef PYPY_VERSION
     if (PyModule_AddFunctions(mod, test_methods) < 0) {
         return -1;
     }
+#endif
 
     PyObject *v;
 #ifdef WITH_PYMALLOC

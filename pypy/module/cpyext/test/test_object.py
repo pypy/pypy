@@ -80,6 +80,11 @@ class TestObject(BaseApiTest):
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
+        charp3 = rffi.str2charp("\xff")
+        with raises_w(space, UnicodeDecodeError):
+            PyObject_GetAttrString(space, space.wrap(""), charp3)
+        rffi.free_charp(charp3)
+
         assert get_w_obj_and_decref(space,
             PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__")))
         with raises_w(space, AttributeError):
@@ -102,8 +107,24 @@ class TestObject(BaseApiTest):
         with raises_w(space, KeyError):
             PyObject_GetItem(space, w_d, space.wrap("key"))
 
+        with raises_w(space, SystemError):
+            PyObject_GetItem(space, None, space.wrap("key"))
+        with raises_w(space, SystemError):
+            PyObject_GetItem(space, w_d, None)
+        with raises_w(space, SystemError):
+            api.PyObject_SetItem(None, space.wrap("key"), space.wrap(1))
+        with raises_w(space, SystemError):
+            api.PyObject_DelItem(None, space.wrap("key"))
+
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
+        with raises_w(space, SystemError):
+            api.PyObject_Size(None)
+
+    def test_callable_check(self, space, api):
+        assert api.PyCallable_Check(space.w_int) == 1
+        assert api.PyCallable_Check(space.wrap(1)) == 0
+        assert api.PyCallable_Check(None) == 0
 
     def test_str(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])

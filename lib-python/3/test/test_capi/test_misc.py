@@ -1309,55 +1309,59 @@ class TestPendingCalls(unittest.TestCase):
         gen = genf()
         self.assertEqual(_testcapi.gen_get_code(gen), gen.gi_code)
 
-    @unittest.skipIf(_testinternalcapi is None, "test requires _testinternalcapi module")
-    class PendingTask(types.SimpleNamespace):
+    if _testinternalcapi is not None:
+        class PendingTask(types.SimpleNamespace):
 
-        _add_pending = _testinternalcapi.pending_threadfunc
+            _add_pending = _testinternalcapi.pending_threadfunc
 
-        def __init__(self, req, taskid=None, notify_done=None):
-            self.id = taskid
-            self.req = req
-            self.notify_done = notify_done
+            def __init__(self, req, taskid=None, notify_done=None):
+                self.id = taskid
+                self.req = req
+                self.notify_done = notify_done
 
-            self.creator_tid = threading.get_ident()
-            self.requester_tid = None
-            self.runner_tid = None
-            self.result = None
+                self.creator_tid = threading.get_ident()
+                self.requester_tid = None
+                self.runner_tid = None
+                self.result = None
 
-        def run(self):
-            assert self.result is None
-            self.runner_tid = threading.get_ident()
-            self._run()
-            if self.notify_done is not None:
-                self.notify_done()
-
-        def _run(self):
-            self.result = self.req
-
-        def run_in_pending_call(self, worker_tids):
-            assert self._add_pending is _testinternalcapi.pending_threadfunc
-            self.requester_tid = threading.get_ident()
-            def callback():
+            def run(self):
                 assert self.result is None
-                # It can be tricky to control which thread handles
-                # the eval breaker, so we take a naive approach to
-                # make sure.
-                if threading.get_ident() not in worker_tids:
-                    self._add_pending(callback, ensure_added=True)
-                    return
-                self.run()
-            self._add_pending(callback, ensure_added=True)
+                self.runner_tid = threading.get_ident()
+                self._run()
+                if self.notify_done is not None:
+                    self.notify_done()
 
-        def create_thread(self, worker_tids):
-            return threading.Thread(
-                target=self.run_in_pending_call,
-                args=(worker_tids,),
-            )
+            def _run(self):
+                self.result = self.req
 
-        def wait_for_result(self):
-            while self.result is None:
-                time.sleep(0.01)
+            def run_in_pending_call(self, worker_tids):
+                assert self._add_pending is _testinternalcapi.pending_threadfunc
+                self.requester_tid = threading.get_ident()
+                def callback():
+                    assert self.result is None
+                    # It can be tricky to control which thread handles
+                    # the eval breaker, so we take a naive approach to
+                    # make sure.
+                    if threading.get_ident() not in worker_tids:
+                        self._add_pending(callback, ensure_added=True)
+                        return
+                    self.run()
+                self._add_pending(callback, ensure_added=True)
 
+            def create_thread(self, worker_tids):
+                return threading.Thread(
+                    target=self.run_in_pending_call,
+                    args=(worker_tids,),
+                )
+
+            def wait_for_result(self):
+                while self.result is None:
+                    time.sleep(0.01)
+    else:
+        PendingTask = None
+
+    @unittest.skipIf(_testinternalcapi is None,
+                     "requires _testinternalcapi._PyEval_AddPendingCall")
     @threading_helper.requires_working_threading()
     def test_subthreads_can_handle_pending_calls(self):
         payload = 'Spam spam spam spam. Lovely spam! Wonderful spam!'
@@ -1374,6 +1378,8 @@ class TestPendingCalls(unittest.TestCase):
 
         self.assertEqual(task.result, payload)
 
+    @unittest.skipIf(_testinternalcapi is None,
+                     "requires _testinternalcapi._PyEval_AddPendingCall")
     @threading_helper.requires_working_threading()
     def test_many_subthreads_can_handle_pending_calls(self):
         main_tid = threading.get_ident()

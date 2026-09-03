@@ -106,8 +106,9 @@ def PyObject_GetAttrString(space, w_obj, name_ptr):
     """Retrieve an attribute named attr_name from object o. Returns the attribute
     value on success, or NULL on failure. This is the equivalent of the Python
     expression o.attr_name."""
-    name = rffi.constcharp2str(name_ptr)
-    w_res = space.getattr(w_obj, space.newtext(name))
+    w_bytes = space.newbytes(rffi.constcharp2str(name_ptr))
+    w_name = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))
+    w_res = space.getattr(w_obj, w_name)
     return hack_for_result_often_existing_obj(space, w_res)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
@@ -122,8 +123,9 @@ def PyObject_HasAttr(space, w_obj, w_name):
     error=CANNOT_FAIL, abi3=True)
 def PyObject_HasAttrString(space, w_obj, name_ptr):
     try:
-        name = rffi.constcharp2str(name_ptr)
-        w_res = operation.hasattr(space, w_obj, space.newtext(name))
+        w_bytes = space.newbytes(rffi.constcharp2str(name_ptr))
+        w_name = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))
+        w_res = operation.hasattr(space, w_obj, w_name)
         return space.is_true(w_res)
     except OperationError:
         return 0
@@ -140,7 +142,8 @@ def PyObject_SetAttr(space, w_obj, w_name, value):
 @cts.decl("int PyObject_SetAttrString(PyObject *, const char *, PyObject *)",
     error=-1, abi3=True)
 def PyObject_SetAttrString(space, w_obj, name_ptr, value):
-    w_name = space.newtext(rffi.constcharp2str(name_ptr))
+    w_bytes = space.newbytes(rffi.constcharp2str(name_ptr))
+    w_name = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))
     if value:
         w_value = from_ref(space, value)
         operation.setattr(space, w_obj, w_name, w_value)
@@ -150,18 +153,24 @@ def PyObject_SetAttrString(space, w_obj, name_ptr, value):
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyObject_Size(space, w_obj):
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
 def PyCallable_Check(space, w_obj):
     """Determine if the object o is callable.  Return 1 if the object is callable
     and 0 otherwise.  This function always succeeds."""
+    if w_obj is None:
+        return 0
     return int(space.is_true(space.callable(w_obj)))
 
 @cpython_api([PyObject, PyObject], PyObject, result_is_ll=True, abi3=True)
 def PyObject_GetItem(space, w_obj, w_key):
     """Return element of o corresponding to the object key or NULL on failure.
     This is the equivalent of the Python expression o[key]."""
+    if w_obj is None or w_key is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     w_res = space.getitem(w_obj, w_key)
     return hack_for_result_often_existing_obj(space, w_res)
 
@@ -169,6 +178,8 @@ def PyObject_GetItem(space, w_obj, w_key):
 def PyObject_SetItem(space, w_obj, w_key, w_value):
     """Map the object key to the value v.  Returns -1 on failure.  This is the
     equivalent of the Python statement o[key] = v."""
+    if w_obj is None or w_key is None or w_value is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     space.setitem(w_obj, w_key, w_value)
     return 0
 
@@ -176,6 +187,8 @@ def PyObject_SetItem(space, w_obj, w_key, w_value):
 def PyObject_DelItem(space, w_obj, w_key):
     """Delete the mapping for key from o.  Returns -1 on failure. This is the
     equivalent of the Python statement del o[key]."""
+    if w_obj is None or w_key is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     space.delitem(w_obj, w_key)
     return 0
 
@@ -188,6 +201,8 @@ def PyObject_Type(space, w_obj):
     function instead of the common expression o->ob_type, which returns a
     pointer of type PyTypeObject*, except when the incremented reference
     count is needed."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.type(w_obj)
 
 @cpython_api([PyObject], PyObject, abi3=True)
@@ -234,6 +249,8 @@ def PyObject_ASCII(space, w_obj):
     PyObject_Repr() with \x, \u or \U escapes.  This generates a
     string similar to that returned by PyObject_Repr() in Python 2.
     Called by the ascii() built-in function."""
+    if w_obj is None:
+        return space.newtext("<NULL>")
     return operation.ascii(space, w_obj)
 
 @cpython_api([PyObject], PyObject)
@@ -254,6 +271,8 @@ def PyObject_RichCompare(space, w_o1, w_o2, opid_int):
     <=, ==, !=, >, or >= respectively. This is the equivalent of
     the Python expression o1 op o2, where op is the operator corresponding
     to opid. Returns the value of the comparison on success, or NULL on failure."""
+    if w_o1 is None or w_o2 is None:
+        PyErr_BadInternalCall(space)
     opid = rffi.cast(lltype.Signed, opid_int)
     if opid == Py_LT: return space.lt(w_o1, w_o2)
     if opid == Py_LE: return space.le(w_o1, w_o2)

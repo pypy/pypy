@@ -21,6 +21,8 @@ def PySequence_Repeat(space, w_obj, count):
     """Return the result of repeating sequence object o count times, or NULL on
     failure.  This is the equivalent of the Python expression o * count.
     """
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.mul(w_obj, space.newint(count))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
@@ -35,10 +37,14 @@ def PySequence_Size(space, w_obj):
     Returns the number of objects in sequence o on success, and -1 on failure.
     For objects that do not provide sequence protocol, this is equivalent to the
     Python expression len(o)."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Length(space, w_obj):
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.len_w(w_obj)
 
 @cpython_api([PyObject, CONST_STRING], PyObject, abi3=True)
@@ -49,6 +55,8 @@ def PySequence_Fast(space, w_obj, m):
     converted to a sequence, and raises a TypeError, raise a new TypeError with
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     if isinstance(w_obj, tupleobject.W_AbstractTupleObject):
         return w_obj   # CCC avoid the double conversion that occurs here
     if isinstance(w_obj, W_ListObject):
@@ -122,12 +130,16 @@ def PySequence_Fast_ITEMS(space, py_obj):
 def PySequence_GetSlice(space, w_obj, start, end):
     """Return the slice of sequence object o between i1 and i2, or NULL on
     failure. This is the equivalent of the Python expression o[i1:i2]."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.getslice(w_obj, space.newint(start), space.newint(end))
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PySequence_SetSlice(space, w_obj, start, end, w_value):
     """Assign the sequence object v to the slice in sequence object o from i1 to
     i2.  This is the equivalent of the Python statement o[i1:i2] = v."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     space.setslice(w_obj, space.newint(start), space.newint(end), w_value)
     return 0
 
@@ -135,6 +147,8 @@ def PySequence_SetSlice(space, w_obj, start, end, w_value):
 def PySequence_DelSlice(space, w_obj, start, end):
     """Delete the slice in sequence object o from i1 to i2.  Returns -1 on
     failure.  This is the equivalent of the Python statement del o[i1:i2]."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     space.delslice(w_obj, space.newint(start), space.newint(end))
     return 0
 
@@ -174,6 +188,8 @@ def PySequence_ITEM(space, w_obj, i):
 def PySequence_GetItem(space, w_obj, i):
     """Return the ith element of o, or NULL on failure. This is the equivalent of
     the Python expression o[i]."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     if i < 0:
         l = PySequence_Length(space, w_obj)
         i += l
@@ -188,6 +204,8 @@ def PySequence_GetItem(space, w_obj, i):
 def PySequence_List(space, w_obj):
     """Return a list object with the same contents as the arbitrary sequence o.  The
     returned list is guaranteed to be new."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.call_function(space.w_list, w_obj)
 
 @cpython_api([PyObject], PyObject, abi3=True)
@@ -196,12 +214,16 @@ def PySequence_Tuple(space, w_obj):
     NULL on failure.  If o is a tuple, a new reference will be returned,
     otherwise a tuple will be constructed with the appropriate contents.  This is
     equivalent to the Python expression tuple(o)."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.call_function(space.w_tuple, w_obj)
 
 @cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PySequence_Concat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     This is the equivalent of the Python expression o1 + o2."""
+    if w_o1 is None or w_o2 is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.add(w_o1, w_o2)
 
 @cpython_api([PyObject, PyObject], PyObject, abi3=True)
@@ -209,6 +231,8 @@ def PySequence_InPlaceConcat(space, w_o1, w_o2):
     """Return the concatenation of o1 and o2 on success, and NULL on failure.
     The operation is done in-place when o1 supports it.  This is the equivalent
     of the Python expression o1 += o2."""
+    if w_o1 is None or w_o2 is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.inplace_add(w_o1, w_o2)
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, abi3=True)
@@ -219,6 +243,8 @@ def PySequence_InPlaceRepeat(space, w_o, count):
 
     This function used an int type for count. This might require
     changes in your code for properly supporting 64-bit systems."""
+    if w_o is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.inplace_mul(w_o, space.newint(count))
 
 
@@ -227,6 +253,12 @@ def PySequence_Contains(space, w_obj, w_value):
     """Determine if o contains value.  If an item in o is equal to value,
     return 1, otherwise return 0. On error, return -1.  This is
     equivalent to the Python expression value in o."""
+    if w_obj is None or w_value is None:
+        # CPython crashes here too, except for an empty sequence: the
+        # search loop never gets to compare against the NULL value.
+        if w_obj is not None and space.len_w(w_obj) == 0:
+            return 0
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     w_res = space.contains(w_obj, w_value)
     return space.int_w(w_res)
 
@@ -244,16 +276,23 @@ def PySequence_SetItem(space, w_o, i, w_v):
     """Assign object v to the ith element of o.  Returns -1 on failure.  This
     is the equivalent of the Python statement o[i] = v.  This function does
     not steal a reference to v."""
+    if w_o is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     if PyDict_Check(space, w_o) or not PySequence_Check(space, w_o):
         raise oefmt(space.w_TypeError,
                     "'%T' object does not support item assignment", w_o)
-    space.setitem(w_o, space.newint(i), w_v)
+    if w_v is None:
+        space.delitem(w_o, space.newint(i))
+    else:
+        space.setitem(w_o, space.newint(i), w_v)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t], rffi.INT_real, error=-1, abi3=True)
 def PySequence_DelItem(space, w_o, i):
     """Delete the ith element of object o.  Returns -1 on failure.  This is the
     equivalent of the Python statement del o[i]."""
+    if w_o is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     space.delitem(w_o, space.newint(i))
     return 0
 
@@ -264,6 +303,8 @@ def PySequence_Index(space, w_seq, w_obj):
 
     This function returned an int type. This might require changes
     in your code for properly supporting 64-bit systems."""
+    if w_seq is None or w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
 
     w_iter = space.iter(w_seq)
     idx = 0
@@ -285,6 +326,8 @@ def PySequence_Count(space, w_seq, w_obj):
     """Return the number of occurrences of value in o, that is, return the number
     of keys for which o[key] == value.  On failure, return -1.  This is
     equivalent to the Python expression o.count(value)."""
+    if w_seq is None or w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     w_iter = space.iter(w_seq)
     cnt = 0
     while True:
