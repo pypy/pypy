@@ -480,10 +480,11 @@ class TestRunPyPyC(BaseTestPyPyC):
         #
         ops = loop.allops()
         assert log.opnames(ops) == [
+            'guard_not_invalidated',
             # this is the actual loop
             'int_lt', 'guard_true', 'int_add',
             # this is the signal checking stuff
-            'guard_not_invalidated', 'getfield_raw_i', 'int_lt', 'guard_false',
+            'getfield_raw_i', 'int_lt', 'guard_false',
             'jump'
             ]
 
@@ -538,16 +539,17 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_filename(self.filepath)
         call_ops = log.opnames(loop.ops_by_id('call'))
-        assert call_ops == ['guard_not_invalidated', 'force_token'] # it does not follow inlining
+        assert call_ops == ['force_token'] # it does not follow inlining
         #
         add_ops = log.opnames(loop.ops_by_id('add'))
         assert add_ops == ['int_add']
         #
         ops = log.opnames(loop.allops())
         assert ops == [
+            'guard_not_invalidated',
             # this is the actual loop
             'int_lt', 'guard_true',
-            'guard_not_invalidated', 'force_token', 'int_add',
+            'force_token', 'int_add',
             # this is the signal checking stuff
             'getfield_raw_i', 'int_lt', 'guard_false',
             'jump'
@@ -563,11 +565,11 @@ class TestRunPyPyC(BaseTestPyPyC):
         log = self.run(f)
         loop, = log.loops_by_id('increment')
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i6 = int_lt(i4, 1003)
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
-            guard_not_invalidated(descr=...)
             i10 = getfield_raw_i(..., descr=<.* pypysig_long_struct_inner.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
@@ -575,6 +577,7 @@ class TestRunPyPyC(BaseTestPyPyC):
         """)
         #
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i6 = int_lt(i4, 1003)
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)

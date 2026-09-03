@@ -16,9 +16,9 @@ class TestGetFrame(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated(descr=...)
         i54 = int_lt(i47, i28)
         guard_true(i54, descr=...)
-        guard_not_invalidated(descr=...)
         i55 = int_add(i47, 1)
         --TICK--
         jump(..., descr=...)

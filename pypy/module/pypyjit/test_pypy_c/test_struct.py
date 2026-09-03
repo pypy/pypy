@@ -35,7 +35,6 @@ class TestStruct(BaseTestPyPyC):
             # value using gc_store_indexed
             assert loop.match_by_id("pack", """
                 dummy_get_utf8?
-                guard_not_invalidated(descr=...)
                 # struct.pack
                 %s
                 p75 = newstr(4)
@@ -44,7 +43,6 @@ class TestStruct(BaseTestPyPyC):
         else:
             assert loop.match_by_id("pack", """
                 dummy_get_utf8?
-                guard_not_invalidated(descr=...)
                 # struct.pack
                 %s
                 i11 = int_and(i4, 255)
@@ -99,7 +97,6 @@ class TestStruct(BaseTestPyPyC):
             loop, = log.loops_by_filename(self.filepath)
             assert loop.match_by_id('pack', """
                 dummy_get_utf8?
-                guard_not_invalidated(descr=...)
                 # struct.pack
                 p85 = newstr(8)
                 gc_store_indexed(p85, 0, -1, 1, _, 4, descr=...)
@@ -131,7 +128,6 @@ class TestStruct(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('unpack', """
-            guard_not_invalidated(descr=...)
             i65 = raw_load_i(i49, 0, descr=<ArrayS 2>)
         """)
 
@@ -154,7 +150,6 @@ class TestStruct(BaseTestPyPyC):
         # now it is 'i46' because we need to add 0 to
         # W_BytearrayObject._offset
         assert loop.match_by_id('unpack', """
-            guard_not_invalidated(descr=...)
             setfield_gc(_, _, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__exports \d+>)
             i70 = gc_load_indexed_i(p48, i46, 1, _, -2)
         """)
@@ -193,7 +188,6 @@ class TestStruct(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('pack_into', """\
             dummy_get_utf8?
-            guard_not_invalidated(descr=...)
             dummy_get_utf8?
             _ = int_add(_, 1)
             p68 = getfield_gc_r(p14, descr=<FieldP pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__data \d+>)

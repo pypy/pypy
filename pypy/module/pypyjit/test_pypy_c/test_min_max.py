@@ -14,9 +14,9 @@ class TestMinMax(BaseTestPyPyC):
         assert log.result == 300*3000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_lt(i4, 300)
             guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
             i9 = int_add_ovf(i5, 3000)
             guard_no_overflow(descr=...)
             i11 = int_add(i4, 1)

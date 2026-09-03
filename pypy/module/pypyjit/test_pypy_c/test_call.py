@@ -71,8 +71,7 @@ class TestCall(BaseTestPyPyC):
         entry_bridge, = log.loops_by_id('call', is_entry_bridge=True)
         # LOAD_GLOBAL of OFFSET
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_value",
-                                    "guard_not_invalidated"]
+        assert log.opnames(ops) == []
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == []
         #
@@ -131,9 +130,7 @@ class TestCall(BaseTestPyPyC):
         # -------------------------------
         entry_bridge, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         ops = entry_bridge.ops_by_id('meth1', opcode='LOAD_METHOD')
-        assert log.opnames(ops) == ['guard_value', 'getfield_gc_r',
-                                    'guard_value',
-                                    'guard_not_invalidated']
+        assert log.opnames(ops) == ['getfield_gc_r', 'guard_value']
         # the second LOAD_METHOD is folded away
         assert list(entry_bridge.ops_by_id('meth2', opcode='LOAD_METHOD')) == []
         #
@@ -141,9 +138,9 @@ class TestCall(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i15 = int_lt(i6, i9)
             guard_true(i15, descr=...)
-            guard_not_invalidated(descr=...)
             i16 = force_token()
             i17 = int_add_ovf(i10, i6)
             guard_no_overflow(descr=...)
@@ -175,9 +172,9 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=...)
-            guard_not_invalidated(descr=...)
             i15 = force_token()
             i17 = int_add_ovf(i8, 1)
             guard_no_overflow(descr=...)
@@ -224,7 +221,7 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_id('call')
         ops = log.opnames(loop.ops_by_id('call'))
         guards = [ops for ops in ops if ops.startswith('guard')]
-        assert guards == ["guard_not_invalidated", "guard_no_overflow"]
+        assert guards == ["guard_no_overflow"]
 
     def test_kwargs(self):
         # this is not a very precise test, could be improved
@@ -412,9 +409,9 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 10000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i10 = int_lt(i5, i6)
             guard_true(i10, descr=...)
-            guard_not_invalidated(descr=...)
             i120 = int_add(i5, 1)
             --TICK--
             jump(..., descr=...)
@@ -435,14 +432,14 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_id('call', is_entry_bridge=True)
         assert loop.match("""
             guard_value(i4, 1, descr=...)
+            guard_value(p2, ConstPtr(ptr21), descr=...)
+            guard_not_invalidated(descr=...)
             guard_isnull(p5, descr=...)
             guard_nonnull_class(p12, ConstClass(W_IntObject), descr=...)
-            guard_value(p2, ConstPtr(ptr21), descr=...)
             i22 = getfield_gc_i(p12, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i24 = int_lt(i22, 5000)
             guard_true(i24, descr=...)
             dummy_get_utf8?
-            guard_not_invalidated(descr=...)
             p29 = call_r(ConstClass(_ll_1_threadlocalref_get__Ptr_GcStruct_objectLlT_Signed), #, descr=<Callr . i EF=1 OS=5>)
             p30 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             p31 = force_token()
@@ -466,10 +463,10 @@ class TestCall(BaseTestPyPyC):
             """, [])
         loop, = log.loops_by_id('call')
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i8 = getfield_gc_i(p6, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             i10 = int_lt(i8, 5000)
             guard_true(i10, descr=...)
-            guard_not_invalidated?
             i11 = force_token()
             i13 = int_add(i8, 1)
             --TICK--
@@ -493,9 +490,9 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i2 = int_lt(i0, i1)
             guard_true(i2, descr=...)
-            guard_not_invalidated?
             i3 = force_token()
             i4 = int_add(i0, 1)
             --TICK--
@@ -521,9 +518,9 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('call')
         assert loop.match("""
+            guard_not_invalidated(..., descr=...)
             i65 = int_lt(i58, i29)
             guard_true(i65, descr=...)
-            guard_not_invalidated(..., descr=...)
             i66 = force_token()
             i67 = force_token()
             i69 = int_sub_ovf(1, i56)
@@ -571,7 +568,7 @@ class TestCall(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_id('call')
         ops = loop.ops_by_id('call')
-        assert log.opnames(ops) == ["guard_not_invalidated", "force_token",
+        assert log.opnames(ops) == ["force_token",
                 "int_add_ovf", "guard_no_overflow"]
 
 
@@ -681,7 +678,6 @@ class TestCall(BaseTestPyPyC):
 
         assert loop.match_by_id("meth", """
             setfield_gc(p15, i65, descr=...)
-            guard_not_invalidated(descr=...)
             i68 = int_mul_ovf(i62, 2)
             guard_no_overflow(descr=...)
             p69 = force_token()

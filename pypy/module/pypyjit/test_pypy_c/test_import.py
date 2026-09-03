@@ -14,9 +14,7 @@ class TestImport(BaseTestPyPyC):
         log = self.run(main, [500])
         assert log.result == 500
         loop, = log.loops_by_id('import')
-        assert loop.match_by_id('import', """
-            guard_not_invalidated(descr=...)
-        """)
+        assert loop.match_by_id('import', "")
 
     def test_import_fast_path(self, tmpdir):
         pkg = tmpdir.join('mypkg').ensure(dir=True)
@@ -73,6 +71,4 @@ class TestImport(BaseTestPyPyC):
         log = self.run(main, [500])
         assert log.result == 500
         loop, = log.loops_by_id('import')
-        assert loop.match_by_id('import', """
-            guard_not_invalidated(descr=...)
-        """)
+        assert loop.match_by_id('import', "")

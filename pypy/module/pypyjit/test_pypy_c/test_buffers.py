@@ -44,7 +44,6 @@ class TestBuffers(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('unpack', """
-            guard_not_invalidated(descr=...)
             i66 = raw_load_i(i53, 0, descr=<ArrayS 4>)
             --TICK--
         """)

@@ -26,9 +26,9 @@ class TestString(BaseTestPyPyC):
         assert loop.match("""
             # nothing left like allocating a list object or doing any
             # residual call
+            guard_not_invalidated(descr=...)
             i49 = int_lt(i38, i26)
             guard_true(i49, descr=...)
-            guard_not_invalidated(descr=...)
             i51 = int_lt(i38, 256)
             guard_true(i51, descr=...)
             i53 = int_add(i38, 1)
@@ -57,9 +57,9 @@ class TestString(BaseTestPyPyC):
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i88 = int_lt(i83, i36)
             guard_true(i88, descr=...)
-            guard_not_invalidated(descr=...)
             i92 = int_eq(i83, %d)
             i94 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i83, i46, descr=<Calli . ii EF=0 OS=14>)
             i97 = int_ge(i94, i53)
@@ -100,9 +100,9 @@ class TestString(BaseTestPyPyC):
         else:
             args = (31, -858993459, 3)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            guard_not_invalidated(descr=...)
             i13 = int_eq(i6, %d)         # value provided below
 
             # "mod 10" block:
@@ -138,9 +138,9 @@ class TestString(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i79 = int_gt(i74, 0)
             guard_true(i79, descr=...)
-            guard_not_invalidated(descr=...)
             p80 = call_r(ConstClass(ll_int2dec__Signed), i74, descr=<Callr . i EF=3>)
             guard_no_exception(descr=...)
             i85 = strlen(p80)
@@ -254,12 +254,14 @@ class TestString(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated(descr=...)
         i45 = int_lt(i43, i26)
         guard_true(i45, descr=...)
         i46 = int_add(i43, 1)
+        ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct_inner.c_value .*>)
         setfield_gc(p15, i46, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current 8>)
-        guard_not_invalidated(descr=...)
-        --TICK--
+        ticker_cond0 = int_lt(ticker0, 0)
+        guard_false(ticker_cond0, descr=...)
         jump(..., descr=...)
         """)
 
@@ -272,6 +274,7 @@ class TestString(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated(descr=...)
         i49 = int_lt(i47, i24)
         guard_true(i49, descr=...)
         i50 = int_add(i47, 1)
@@ -283,7 +286,6 @@ class TestString(BaseTestPyPyC):
         guard_false(i56, descr=...)
         p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
-        guard_not_invalidated(descr=...)
         i59 = call_i(ConstClass(first_non_ascii_char), p80, descr=<Calli . r EF=4>)
         guard_no_exception(descr=...)
         i61 = int_lt(i59, 0)
@@ -337,7 +339,6 @@ class TestString(BaseTestPyPyC):
             i94 = int_add(-1, i77)
             i96 = call_i(ConstClass(prev_codepoint_pos_dont_look_inside), p78, i79, descr=...)
             i97 = int_sub(i79, i96)
-            guard_not_invalidated(descr=...)
         ''')
 
     def test_unicode_slicing_small_constant_indices(self):
