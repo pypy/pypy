@@ -1485,7 +1485,7 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
         dictloc = dictref
     return res_obj
 
-@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0), abi3=True)
+@cpython_api([PyTypeObjectPtr, rffi.INT_real], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0), abi3=True)
 def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
