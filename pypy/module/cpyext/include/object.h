@@ -195,8 +195,9 @@ static inline Py_ALWAYS_INLINE int _Py_IsImmortal(PyObject *op)
 #else
     /* PyPy: mask-equality instead of CPython's plain equality, so the check
        also catches immortal objects carrying PyPy's internal high-bits tag;
-       identical to CPython for plain refcounts */
-    return (op->ob_refcnt & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT;
+       identical to CPython for plain refcounts.  Explicit cast avoids a
+       -Wsign-conversion warning from the signed/unsigned '&'. */
+    return (_Py_CAST(unsigned int, op->ob_refcnt) & _Py_IMMORTAL_REFCNT) == _Py_IMMORTAL_REFCNT;
 #endif
 }
 #define _Py_IsImmortal(op) _Py_IsImmortal(_PyObject_CAST(op))
