@@ -1066,6 +1066,7 @@ unicode_decodembcsstateful(PyObject *self, PyObject *args)
     return Py_BuildValue("(Nn)", result, consumed);
 }
 
+#ifndef PYPY_VERSION  /* PyUnicode_DecodeCodePageStateful not implemented by PyPy */
 /* Test PyUnicode_DecodeCodePageStateful() */
 static PyObject *
 unicode_decodecodepagestateful(PyObject *self, PyObject *args)
@@ -1087,6 +1088,7 @@ unicode_decodecodepagestateful(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Nn)", result, consumed);
 }
+#endif /* PYPY_VERSION */
 
 /* Test PyUnicode_AsMBCSString() */
 static PyObject *
@@ -2048,7 +2050,9 @@ static PyMethodDef TestMethods[] = {
 #ifdef MS_WINDOWS
     {"unicode_decodembcs",       unicode_decodembcs,             METH_VARARGS},
     {"unicode_decodembcsstateful",unicode_decodembcsstateful,    METH_VARARGS},
+#ifndef PYPY_VERSION
     {"unicode_decodecodepagestateful",unicode_decodecodepagestateful,METH_VARARGS},
+#endif
     {"unicode_asmbcsstring",     unicode_asmbcsstring,           METH_O},
     {"unicode_encodecodepage",   unicode_encodecodepage,         METH_VARARGS},
 #endif /* MS_WINDOWS */
