@@ -20,6 +20,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_new'),
+                        "requires _testcapi.unicode_new")
     def test_new(self):
         """Test PyUnicode_New()"""
         from _testcapi import unicode_new as new
@@ -41,6 +43,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_fill'),
+                        "requires _testcapi.unicode_fill")
     def test_fill(self):
         """Test PyUnicode_Fill()"""
         from _testcapi import unicode_fill as fill
@@ -81,6 +85,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_writechar'),
+                        "requires _testcapi.unicode_writechar")
     def test_writechar(self):
         """Test PyUnicode_WriteChar()"""
         from _testcapi import unicode_writechar as writechar
@@ -112,6 +118,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_resize'),
+                        "requires _testcapi.unicode_resize")
     def test_resize(self):
         """Test PyUnicode_Resize()"""
         from _testcapi import unicode_resize as resize
@@ -138,6 +146,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_append'),
+                        "requires _testcapi.unicode_append")
     def test_append(self):
         """Test PyUnicode_Append()"""
         from _testcapi import unicode_append as append
@@ -166,6 +176,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_appendanddel'),
+                        "requires _testcapi.unicode_appendanddel")
     def test_appendanddel(self):
         """Test PyUnicode_AppendAndDel()"""
         from _testcapi import unicode_appendanddel as appendanddel
@@ -952,6 +964,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_transformdecimalandspacetoascii'),
+                        "requires _testcapi.unicode_transformdecimalandspacetoascii")
     def test_transform_decimal_and_space(self):
         """Test _PyUnicode_TransformDecimalAndSpaceToASCII()"""
         from _testcapi import unicode_transformdecimalandspacetoascii as transform_decimal
@@ -1449,6 +1463,8 @@ class CAPITest(unittest.TestCase):
 
     @support.cpython_only
     @unittest.skipIf(_testcapi is None, 'need _testcapi module')
+    @unittest.skipUnless(_testcapi and hasattr(_testcapi, 'unicode_copycharacters'),
+                        "requires _testcapi.unicode_copycharacters")
     def test_copycharacters(self):
         """Test PyUnicode_CopyCharacters()"""
         from _testcapi import unicode_copycharacters

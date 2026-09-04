@@ -104,6 +104,7 @@ test_widechar(PyObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 
+#ifndef PYPY_VERSION  /* PyUnicode_CopyCharacters not implemented by PyPy */
 static PyObject *
 unicode_copy(PyObject *unicode)
 {
@@ -130,8 +131,10 @@ unicode_copy(PyObject *unicode)
     }
     return copy;
 }
+#endif
 
 /* Test PyUnicode_New() */
+#ifndef PYPY_VERSION  /* PyUnicode_Fill not implemented by PyPy */
 static PyObject *
 unicode_new(PyObject *self, PyObject *args)
 {
@@ -155,8 +158,10 @@ unicode_new(PyObject *self, PyObject *args)
     }
     return result;
 }
+#endif
 
 /* Test PyUnicode_Fill() */
+#ifndef PYPY_VERSION  /* PyUnicode_Fill not implemented by PyPy */
 static PyObject *
 unicode_fill(PyObject *self, PyObject *args)
 {
@@ -180,8 +185,10 @@ unicode_fill(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Nn)", to_copy, filled);
 }
+#endif
 
 /* Test PyUnicode_WriteChar() */
+#ifndef PYPY_VERSION  /* depends on unicode_copy (PyUnicode_CopyCharacters not implemented by PyPy) */
 static PyObject *
 unicode_writechar(PyObject *self, PyObject *args)
 {
@@ -206,8 +213,10 @@ unicode_writechar(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Ni)", to_copy, result);
 }
+#endif
 
 /* Test PyUnicode_Resize() */
+#ifndef PYPY_VERSION  /* depends on unicode_copy and PyUnicode_Fill, not implemented by PyPy */
 static PyObject *
 unicode_resize(PyObject *self, PyObject *args)
 {
@@ -236,8 +245,10 @@ unicode_resize(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Ni)", copy, result);
 }
+#endif
 
 /* Test PyUnicode_Append() */
+#ifndef PYPY_VERSION  /* depends on unicode_copy (PyUnicode_CopyCharacters not implemented by PyPy) */
 static PyObject *
 unicode_append(PyObject *self, PyObject *args)
 {
@@ -254,8 +265,10 @@ unicode_append(PyObject *self, PyObject *args)
     PyUnicode_Append(&left_copy, right);
     return left_copy;
 }
+#endif
 
 /* Test PyUnicode_AppendAndDel() */
+#ifndef PYPY_VERSION  /* depends on unicode_copy (PyUnicode_CopyCharacters not implemented by PyPy) */
 static PyObject *
 unicode_appendanddel(PyObject *self, PyObject *args)
 {
@@ -273,6 +286,7 @@ unicode_appendanddel(PyObject *self, PyObject *args)
     PyUnicode_AppendAndDel(&left_copy, right);
     return left_copy;
 }
+#endif
 
 /* Test PyUnicode_FromStringAndSize() */
 static PyObject *
@@ -673,12 +687,14 @@ unicode_getdefaultencoding(PyObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 /* Test _PyUnicode_TransformDecimalAndSpaceToASCII() */
+#ifndef PYPY_VERSION  /* _PyUnicode_TransformDecimalAndSpaceToASCII not implemented by PyPy */
 static PyObject *
 unicode_transformdecimalandspacetoascii(PyObject *self, PyObject *arg)
 {
     NULLABLE(arg);
     return _PyUnicode_TransformDecimalAndSpaceToASCII(arg);
 }
+#endif
 
 /* Test PyUnicode_Decode() */
 static PyObject *
@@ -1493,6 +1509,7 @@ unicode_isidentifier(PyObject *self, PyObject *arg)
 }
 
 /* Test PyUnicode_CopyCharacters() */
+#ifndef PYPY_VERSION  /* PyUnicode_CopyCharacters / PyUnicode_Fill not implemented by PyPy */
 static PyObject *
 unicode_copycharacters(PyObject *self, PyObject *args)
 {
@@ -1523,6 +1540,7 @@ unicode_copycharacters(PyObject *self, PyObject *args)
 
     return Py_BuildValue("(Nn)", to_copy, copied);
 }
+#endif
 
 static int
 check_raised_systemerror(PyObject *result, char* msg)
@@ -1973,12 +1991,14 @@ static PyMethodDef TestMethods[] = {
      test_unicode_compare_with_ascii,                            METH_NOARGS},
     {"test_string_from_format",  test_string_from_format,        METH_NOARGS},
     {"test_widechar",            test_widechar,                  METH_NOARGS},
+#ifndef PYPY_VERSION
     {"unicode_new",              unicode_new,                    METH_VARARGS},
     {"unicode_fill",             unicode_fill,                   METH_VARARGS},
     {"unicode_writechar",        unicode_writechar,              METH_VARARGS},
     {"unicode_resize",           unicode_resize,                 METH_VARARGS},
     {"unicode_append",           unicode_append,                 METH_VARARGS},
     {"unicode_appendanddel",     unicode_appendanddel,           METH_VARARGS},
+#endif
     {"unicode_fromstringandsize",unicode_fromstringandsize,      METH_VARARGS},
     {"unicode_fromstring",       unicode_fromstring,             METH_O},
     {"unicode_fromkindanddata",  unicode_fromkindanddata,        METH_VARARGS},
@@ -2038,7 +2058,9 @@ static PyMethodDef TestMethods[] = {
     {"unicode_decodefsdefault",  unicode_decodefsdefault,        METH_VARARGS},
     {"unicode_decodefsdefaultandsize",unicode_decodefsdefaultandsize,METH_VARARGS},
     {"unicode_encodefsdefault",  unicode_encodefsdefault,        METH_O},
+#ifndef PYPY_VERSION
     {"unicode_transformdecimalandspacetoascii", unicode_transformdecimalandspacetoascii, METH_O},
+#endif
     {"unicode_concat",           unicode_concat,                 METH_VARARGS},
     {"unicode_splitlines",       unicode_splitlines,             METH_VARARGS},
     {"unicode_split",            unicode_split,                  METH_VARARGS},
@@ -2058,7 +2080,9 @@ static PyMethodDef TestMethods[] = {
     {"unicode_format",           unicode_format,                 METH_VARARGS},
     {"unicode_contains",         unicode_contains,               METH_VARARGS},
     {"unicode_isidentifier",     unicode_isidentifier,           METH_O},
+#ifndef PYPY_VERSION
     {"unicode_copycharacters",   unicode_copycharacters,         METH_VARARGS},
+#endif
     {NULL},
 };
 

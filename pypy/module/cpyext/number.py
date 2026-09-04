@@ -18,6 +18,8 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
     exception is cleared and the value is clipped to PY_SSIZE_T_MIN for a negative
     integer or PY_SSIZE_T_MAX for a positive integer.
     """
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     try:
         return space.int_w(w_obj) #XXX: this is wrong on win64
     except OperationError as e:
@@ -45,6 +47,8 @@ def PyNumber_AsSsize_t(space, w_obj, w_exc):
 def PyNumber_Long(space, w_obj):
     """Returns the o converted to a long integer object on success, or NULL on
     failure.  This is the equivalent of the Python expression long(o)."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.call_function(space.w_int, w_obj)
 
 @cpython_api([PyObject], PyObject, abi3=True)
@@ -52,6 +56,8 @@ def PyNumber_Index(space, w_obj):
     """Returns the o converted to a Python int or long on success or NULL with a
     TypeError exception raised on failure.
     """
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.index(w_obj)
 
 @cpython_api([PyObject, rffi.INT_real], PyObject, abi3=True)
@@ -62,6 +68,8 @@ def PyNumber_ToBase(space, w_obj, base):
     base. If n is not an int object, it is converted with
     PyNumber_Index() first.
     """
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     base = widen(base)
     if not (base == 2 or base == 8 or base == 10 or base ==16):
         # In Python3.7 this becomes a SystemError. Before that, CPython would
@@ -97,6 +105,8 @@ def make_unary_numbermethod(name, spacemeth):
     @cpython_api([PyObject], PyObject)
     @func_rename(cname)
     def PyNumber_Method(space, w_o1):
+        if w_o1 is None:
+            raise oefmt(space.w_SystemError, "null argument to internal routine")
         meth = getattr(space, spacemeth)
         return meth(w_o1)
     return PyNumber_Method

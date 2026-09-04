@@ -8,6 +8,8 @@ class TestCAPI(unittest.TestCase):
     def test_immortal_builtins(self):
         _testcapi.test_immortal_builtins()
 
+    @unittest.skipUnless(hasattr(_testcapi, 'test_immortal_small_ints'),
+                        "requires _testcapi.test_immortal_small_ints")
     def test_immortal_small_ints(self):
         _testcapi.test_immortal_small_ints()
 

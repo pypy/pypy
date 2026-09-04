@@ -48,6 +48,13 @@ class TestSequence(BaseApiTest):
         test((1, 2, 3, 4), 3)
         test([1, 2, 3, 4], 3)
 
+        with raises_w(space, SystemError):
+            api.PySequence_Repeat(None, 2)
+        with raises_w(space, TypeError):
+            api.PySequence_Repeat(space.wrap(42), 2)
+        with raises_w(space, TypeError):
+            api.PySequence_Repeat(space.call_function(space.w_set), 2)
+
     def test_concat(self, space, api):
         w_t1 = space.wrap(range(4))
         w_t2 = space.wrap(range(4, 8))
@@ -56,6 +63,8 @@ class TestSequence(BaseApiTest):
             api.PySequence_Concat(None, w_t2)
         with raises_w(space, SystemError):
             api.PySequence_Concat(w_t1, None)
+        with raises_w(space, TypeError):
+            api.PySequence_Concat(space.wrap(42), space.wrap(43))
 
     def test_inplace_concat(self, space, api):
         w_t1 = space.wrap(range(4))
@@ -63,11 +72,21 @@ class TestSequence(BaseApiTest):
         w_t3 = api.PySequence_InPlaceConcat(w_t1, w_t2)
         assert space.unwrap(w_t3) == range(8)
         assert space.unwrap(w_t1) == range(8)
+        with raises_w(space, SystemError):
+            api.PySequence_InPlaceConcat(None, w_t2)
+        with raises_w(space, SystemError):
+            api.PySequence_InPlaceConcat(w_t1, None)
+        with raises_w(space, TypeError):
+            api.PySequence_InPlaceConcat(space.wrap(42), space.wrap(43))
 
     def test_inplace_repeat(self, space, api):
         w_t1 = space.wrap(range(2))
         w_t2 = api.PySequence_InPlaceRepeat(w_t1, 3)
         assert space.unwrap(w_t2) == [0, 1, 0, 1, 0, 1]
+        with raises_w(space, SystemError):
+            api.PySequence_InPlaceRepeat(None, 2)
+        with raises_w(space, TypeError):
+            api.PySequence_InPlaceRepeat(space.wrap(42), 2)
 
     def test_exception(self, space):
         message = rffi.str2charp("message")
@@ -86,6 +105,15 @@ class TestSequence(BaseApiTest):
         assert space.eq_w(w_t, space.wrap([1, 5]))
         assert api.PySequence_SetSlice(w_t, 1, 1, space.wrap((3,))) == 0
         assert space.eq_w(w_t, space.wrap([1, 3, 5]))
+
+        assert api.PySequence_SetSlice(w_t, 1, 2, None) == 0
+        assert space.eq_w(w_t, space.wrap([1, 5]))
+        with raises_w(space, SystemError):
+            api.PySequence_GetSlice(None, 0, 1)
+        with raises_w(space, SystemError):
+            api.PySequence_SetSlice(None, 0, 1, w_t)
+        with raises_w(space, SystemError):
+            api.PySequence_DelSlice(None, 0, 1)
 
     def test_get_slice_fast(self, space, api):
         w_t = space.wrap([1, 2, 3, 4, 5])
@@ -135,6 +163,12 @@ class TestSequence(BaseApiTest):
             PySequence_SetItem(space, t, 0, w_value)
         with raises_w(space, TypeError):
             PySequence_SetItem(space, space.newdict(), 0, w_value)
+
+        w_l = space.newlist([space.wrap('a'), space.wrap('b'), space.wrap('c')])
+        assert api.PySequence_SetItem(w_l, 0, None) == 0
+        assert space.eq_w(w_l, space.wrap(['b', 'c']))
+        with raises_w(space, SystemError):
+            PySequence_SetItem(space, None, 0, w_value)
 
     def test_delitem(self, space, api):
         w_l = space.wrap([1, 2, 3, 4])

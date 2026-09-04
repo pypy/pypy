@@ -22,6 +22,7 @@ test_immortal_builtins(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 test_immortal_small_ints(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
@@ -30,10 +31,13 @@ test_immortal_small_ints(PyObject *self, PyObject *Py_UNUSED(ignored))
     }
     Py_RETURN_NONE;
 }
+#endif
 
 static PyMethodDef test_methods[] = {
     {"test_immortal_builtins",   test_immortal_builtins,     METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_immortal_small_ints", test_immortal_small_ints,   METH_NOARGS},
+#endif
     {NULL},
 };
 

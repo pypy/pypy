@@ -8,6 +8,8 @@ from test.support import catch_unraisable_exception, import_helper
 _testcapi = import_helper.import_module('_testcapi')
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'add_dict_watcher'),
+                    "not implemented by PyPy")
 class TestDictWatchers(unittest.TestCase):
     # types of watchers testcapimodule can add:
     EVENTS = 0   # appends dict events as strings to global event list
@@ -180,6 +182,8 @@ class TestDictWatchers(unittest.TestCase):
             self.clear_watcher(1)
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'add_type_watcher'),
+                    "not implemented by PyPy")
 class TestTypeWatchers(unittest.TestCase):
     # types of watchers testcapimodule can add:
     TYPES = 0    # appends modified types to global event list
@@ -357,6 +361,8 @@ class TestTypeWatchers(unittest.TestCase):
                     stack.enter_context(self.watcher())
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'add_code_watcher'),
+                    "not implemented by PyPy")
 class TestCodeObjectWatchers(unittest.TestCase):
     @contextmanager
     def code_watcher(self, which_watcher):
@@ -444,6 +450,8 @@ class TestCodeObjectWatchers(unittest.TestCase):
             _testcapi.allocate_too_many_code_watchers()
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'add_func_watcher'),
+                    "not implemented by PyPy")
 class TestFuncWatchers(unittest.TestCase):
     @contextmanager
     def add_watcher(self, func):

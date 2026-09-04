@@ -5,6 +5,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
 from pypy.module._io import interp_io
+from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.error import OperationError, oefmt
 
 @cpython_api([PyObject, rffi.INT_real], PyObject, abi3=True)
@@ -18,6 +19,8 @@ def PyFile_GetLine(space, w_obj, n):
     is returned if the end of the file is reached immediately.  If n is less than
     0, however, one line is read regardless of length, but EOFError is
     raised if the end of the file is reached immediately."""
+    if w_obj is None:
+        PyErr_BadInternalCall(space)
     try:
         w_readline = space.getattr(w_obj, space.newtext('readline'))
     except OperationError:
@@ -25,13 +28,23 @@ def PyFile_GetLine(space, w_obj, n):
             "argument must be a file, or have a readline() method.")
 
     n = rffi.cast(lltype.Signed, n)
-    if space.is_true(space.gt(space.newint(n), space.newint(0))):
-        return space.call_function(w_readline, space.newint(n))
-    elif space.is_true(space.lt(space.newint(n), space.newint(0))):
-        return space.call_function(w_readline)
+    if n > 0:
+        w_result = space.call_function(w_readline, space.newint(n))
     else:
-        # XXX Raise EOFError as specified
-        return space.call_function(w_readline)
+        w_result = space.call_function(w_readline)
+
+    is_bytes = space.isinstance_w(w_result, space.w_bytes)
+    if not (is_bytes or space.isinstance_w(w_result, space.w_unicode)):
+        raise oefmt(space.w_TypeError, "object.readline() returned non-string")
+
+    if n < 0:
+        if space.len_w(w_result) == 0:
+            raise oefmt(space.w_EOFError, "EOF when reading a line")
+        w_newline = space.newbytes('\n') if is_bytes else space.newtext('\n')
+        if space.is_true(space.call_method(w_result, 'endswith', w_newline)):
+            w_result = space.getitem(w_result,
+                space.newslice(space.w_None, space.newint(-1), space.w_None))
+    return w_result
 
 @cpython_api([CONST_STRING, CONST_STRING], PyObject)
 def PyFile_FromString(space, filename, mode):
@@ -92,10 +105,12 @@ def PyFile_WriteObject(space, w_obj, w_p, flags):
     Py_PRINT_RAW; if given, the str() of the object is written
     instead of the repr().  Return 0 on success or -1 on failure; the
     appropriate exception will be set."""
+    if w_p is None:
+        raise oefmt(space.w_TypeError, "writeobject with NULL file")
     if rffi.cast(lltype.Signed, flags) & Py_PRINT_RAW:
-        w_str = space.str(w_obj)
+        w_str = space.newtext("<NULL>") if w_obj is None else space.str(w_obj)
     else:
-        w_str = space.repr(w_obj)
+        w_str = space.newtext("<NULL>") if w_obj is None else space.repr(w_obj)
     space.call_method(w_p, "write", w_str)
     return 0
 

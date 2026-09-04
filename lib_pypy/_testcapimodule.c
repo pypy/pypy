@@ -1549,6 +1549,7 @@ crash_no_current_thread(PyObject *self, PyObject *Py_UNUSED(ignored))
 }
 
 /* Test that the GILState thread and the "current" thread match. */
+#ifndef PYPY_VERSION  /* depends on real subinterpreter support */
 static PyObject *
 test_current_tstate_matches(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
@@ -1583,8 +1584,10 @@ finally:
     }
     Py_RETURN_NONE;
 }
+#endif
 
 /* To run some code in a sub-interpreter. */
+#ifndef PYPY_VERSION  /* PyPy has no subinterpreters */
 static PyObject *
 run_in_subinterp(PyObject *self, PyObject *args)
 {
@@ -1618,6 +1621,7 @@ run_in_subinterp(PyObject *self, PyObject *args)
 
     return PyLong_FromLong(r);
 }
+#endif
 
 #ifndef PYPY_VERSION  /* PyPy has no subinterpreters / PyInterpreterConfig / cross-interpreter data */
 /* To run some code in a sub-interpreter. */
@@ -2604,12 +2608,14 @@ test_refcount_macros(PyObject *self, PyObject *Py_UNUSED(ignored))
 #undef Py_XNewRef
 #endif
 
+#ifndef PYPY_VERSION  /* exact Py_REFCNT() values don't apply to PyPy's GC-based refcounting */
 // Test Py_NewRef() and Py_XNewRef() functions, after undefining macros.
 static PyObject*
 test_refcount_funcs(PyObject *self, PyObject *Py_UNUSED(ignored))
 {
     TEST_REFCOUNT();
 }
+#endif
 
 
 // Test Py_Is() function
@@ -3529,8 +3535,12 @@ static PyMethodDef TestMethods[] = {
     {"make_memoryview_from_NULL_pointer", make_memoryview_from_NULL_pointer,
      METH_NOARGS},
     {"crash_no_current_thread", crash_no_current_thread,         METH_NOARGS},
+#ifndef PYPY_VERSION  /* depends on real subinterpreter support */
     {"test_current_tstate_matches", test_current_tstate_matches, METH_NOARGS},
+#endif
+#ifndef PYPY_VERSION  /* PyPy has no subinterpreters */
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#endif
 #ifndef PYPY_VERSION  /* PyInterpreterConfig / cross-interpreter data not exposed by PyPy */
     {"run_in_subinterp_with_config",
      _PyCFunction_CAST(run_in_subinterp_with_config),
@@ -3590,7 +3600,9 @@ static PyMethodDef TestMethods[] = {
 #ifndef PYPY_VERSION
     {"test_refcount_macros", test_refcount_macros, METH_NOARGS},
 #endif
+#ifndef PYPY_VERSION
     {"test_refcount_funcs", test_refcount_funcs, METH_NOARGS},
+#endif
     {"test_py_is_macros", test_py_is_macros, METH_NOARGS},
     {"test_py_is_funcs", test_py_is_funcs, METH_NOARGS},
     {"type_get_version", type_get_version, METH_O, PyDoc_STR("type->tp_version_tag")},
@@ -4253,11 +4265,9 @@ PyInit__testcapi(void)
         return NULL;
     }
 #endif
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Unicode(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_GetArgs(m) < 0) {
         return NULL;
     }
@@ -4376,10 +4386,8 @@ PyInit__testcapi(void)
 
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
-#ifndef PYPY_VERSION
 #undef Py_BuildValue
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);
-#endif
 
 static PyObject *
 test_buildvalue_issue38913(PyObject *self, PyObject *Py_UNUSED(ignored))

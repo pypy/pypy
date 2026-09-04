@@ -89,6 +89,8 @@ def PyNumber_Float(space, w_obj):
     """
     Returns the o converted to a float object on success, or NULL on failure.
     This is the equivalent of the Python expression float(o)."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     return space.call_function(space.w_float, w_obj)
 
 @cpython_api([PyObject], PyObject, abi3=True)

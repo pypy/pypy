@@ -1,6 +1,24 @@
 #include "parts.h"
 #include "util.h"
 
+#ifdef PYPY_VERSION
+/* PyPy's cpyext realizes a tuple into a real Python object as soon as it
+   crosses back into the interpreter (e.g. as a return value); a NULL item
+   at that point is a fatal error, unlike CPython which tolerates a
+   transiently NULL slot.  Stand in Py_None for any NULL slot right before
+   exposing a tuple to Python. */
+static void
+finalize_tuple_nulls(PyObject *tuple)
+{
+    Py_ssize_t n = PyTuple_GET_SIZE(tuple);
+    for (Py_ssize_t i = 0; i < n; i++) {
+        if (PyTuple_GET_ITEM(tuple, i) == NULL) {
+            PyTuple_SET_ITEM(tuple, i, Py_NewRef(Py_None));
+        }
+    }
+}
+#endif
+
 
 static PyObject *
 tuple_get_size(PyObject *Py_UNUSED(module), PyObject *obj)
@@ -53,6 +71,9 @@ tuple_set_item(PyObject *Py_UNUSED(module), PyObject *args)
         PyObject *val = PyTuple_GET_ITEM(newtuple, i);
         PyTuple_SET_ITEM(newtuple, i, Py_XNewRef(value));
         Py_DECREF(val);
+#ifdef PYPY_VERSION
+        finalize_tuple_nulls(newtuple);
+#endif
         return newtuple;
     }
     else {
@@ -61,10 +82,15 @@ tuple_set_item(PyObject *Py_UNUSED(module), PyObject *args)
         PyObject *val = PyTuple_GET_ITEM(obj, i);
         PyTuple_SET_ITEM(obj, i, Py_XNewRef(value));
         Py_DECREF(val);
+#ifdef PYPY_VERSION
+        finalize_tuple_nulls(obj);
+#endif
         return Py_XNewRef(obj);
     }
 }
 
+#ifndef PYPY_VERSION  /* returns a tuple with NULL items to Python; PyPy realizes
+                          eagerly on return and aborts on NULL slots */
 static PyObject *
 _tuple_resize(PyObject *Py_UNUSED(module), PyObject *args)
 {
@@ -91,6 +117,7 @@ _tuple_resize(PyObject *Py_UNUSED(module), PyObject *args)
     }
     return tup;
 }
+#endif
 
 static PyObject *
 _check_tuple_item_is_NULL(PyObject *Py_UNUSED(module), PyObject *args)
@@ -100,7 +127,14 @@ _check_tuple_item_is_NULL(PyObject *Py_UNUSED(module), PyObject *args)
     if (!PyArg_ParseTuple(args, "On", &obj, &i)) {
         return NULL;
     }
-    return PyLong_FromLong(PyTuple_GET_ITEM(obj, i) == NULL);
+    PyObject *item = PyTuple_GET_ITEM(obj, i);
+#ifdef PYPY_VERSION
+    /* NULL slots are stood in with Py_None before being returned to
+       Python; see finalize_tuple_nulls(). */
+    return PyLong_FromLong(item == NULL || item == Py_None);
+#else
+    return PyLong_FromLong(item == NULL);
+#endif
 }
 
 static PyObject *
@@ -117,11 +151,14 @@ tuple_checkexact(PyObject* Py_UNUSED(module), PyObject *obj)
     return PyLong_FromLong(PyTuple_CheckExact(obj));
 }
 
+#ifndef PYPY_VERSION  /* returns a tuple with NULL items to Python; PyPy realizes
+                          eagerly on return and aborts on NULL slots */
 static PyObject *
 tuple_new(PyObject* Py_UNUSED(module), PyObject *len)
 {
     return PyTuple_New(PyLong_AsSsize_t(len));
 }
+#endif
 
 static PyObject *
 tuple_pack(PyObject *Py_UNUSED(module), PyObject *args)
@@ -201,6 +238,9 @@ tuple_setitem(PyObject *Py_UNUSED(module), PyObject *args)
             Py_DECREF(newtuple);
             return NULL;
         }
+#ifdef PYPY_VERSION
+        finalize_tuple_nulls(newtuple);
+#endif
         return newtuple;
     }
     else {
@@ -209,6 +249,9 @@ tuple_setitem(PyObject *Py_UNUSED(module), PyObject *args)
         if (PyTuple_SetItem(obj, i, Py_XNewRef(value)) == -1) {
             return NULL;
         }
+#ifdef PYPY_VERSION
+        finalize_tuple_nulls(obj);
+#endif
         return Py_XNewRef(obj);
     }
 }
@@ -218,12 +261,16 @@ static PyMethodDef test_methods[] = {
     {"tuple_get_size", tuple_get_size, METH_O},
     {"tuple_get_item", tuple_get_item, METH_VARARGS},
     {"tuple_set_item", tuple_set_item, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"_tuple_resize", _tuple_resize, METH_VARARGS},
+#endif
     {"_check_tuple_item_is_NULL", _check_tuple_item_is_NULL, METH_VARARGS},
     /* Limited C API */
     {"tuple_check", tuple_check, METH_O},
     {"tuple_checkexact", tuple_checkexact, METH_O},
+#ifndef PYPY_VERSION
     {"tuple_new", tuple_new, METH_O},
+#endif
     {"tuple_pack", tuple_pack, METH_VARARGS},
     {"tuple_size", tuple_size, METH_O},
     {"tuple_getitem", tuple_getitem, METH_VARARGS},

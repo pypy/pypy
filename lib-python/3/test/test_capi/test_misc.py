@@ -1261,6 +1261,8 @@ class TestPendingCalls(unittest.TestCase):
         if False and support.verbose:
             print("(%i)"%(len(l),))
 
+    @unittest.skipIf(sys.implementation.name == 'pypy',
+                     "Py_AddPendingCall is a stub on PyPy, never succeeds")
     @threading_helper.requires_working_threading()
     def test_pendingcalls_threaded(self):
 
@@ -1294,6 +1296,8 @@ class TestPendingCalls(unittest.TestCase):
             if nFinished == context.nThreads:
                 context.event.set()
 
+    @unittest.skipIf(sys.implementation.name == 'pypy',
+                     "Py_AddPendingCall is a stub on PyPy, never succeeds")
     def test_pendingcalls_non_threaded(self):
         #again, just using the main thread, likely they will all be dispatched at
         #once.  It is ok to ask for too many, because we loop until we find a slot.
@@ -2105,6 +2109,7 @@ class TestThreadState(unittest.TestCase):
         ret = assert_python_ok('-X', 'tracemalloc', '-c', code)
         self.assertIn(b'callback called', ret.out)
 
+    @requires_subinterpreters
     def test_gilstate_matches_current(self):
         _testcapi.test_current_tstate_matches()
 

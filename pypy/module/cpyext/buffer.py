@@ -212,10 +212,13 @@ def PyBuffer_FillInfo(space, view, obj, buf, length, readonly, flags):
     share a contiguous chunk of memory of "unsigned bytes" of the given
     length. Returns 0 on success and -1 (with raising an error) on error.
     """
+    if not view:
+        raise oefmt(space.w_BufferError,
+            "PyBuffer_FillInfo: view==NULL argument is obsolete")
     readonly = widen(readonly)
     flags = widen(flags)
     if flags & PyBUF_WRITABLE and readonly:
-        raise oefmt(space.w_ValueError, "Object is not writable")
+        raise oefmt(space.w_BufferError, "Object is not writable.")
     view.c_buf = buf
     view.c_len = length
     view.c_obj = obj

@@ -23,6 +23,8 @@ def PySequence_Repeat(space, w_obj, count):
     """
     if w_obj is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not space.issequence_w(w_obj):
+        raise oefmt(space.w_TypeError, "'%T' object can't be repeated", w_obj)
     return space.mul(w_obj, space.newint(count))
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
@@ -140,7 +142,10 @@ def PySequence_SetSlice(space, w_obj, start, end, w_value):
     i2.  This is the equivalent of the Python statement o[i1:i2] = v."""
     if w_obj is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
-    space.setslice(w_obj, space.newint(start), space.newint(end), w_value)
+    if w_value is None:
+        space.delslice(w_obj, space.newint(start), space.newint(end))
+    else:
+        space.setslice(w_obj, space.newint(start), space.newint(end), w_value)
     return 0
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], rffi.INT_real, error=-1, abi3=True)
@@ -224,6 +229,8 @@ def PySequence_Concat(space, w_o1, w_o2):
     This is the equivalent of the Python expression o1 + o2."""
     if w_o1 is None or w_o2 is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not (space.issequence_w(w_o1) and space.issequence_w(w_o2)):
+        raise oefmt(space.w_TypeError, "'%T' object can't be concatenated", w_o1)
     return space.add(w_o1, w_o2)
 
 @cpython_api([PyObject, PyObject], PyObject, abi3=True)
@@ -233,6 +240,8 @@ def PySequence_InPlaceConcat(space, w_o1, w_o2):
     of the Python expression o1 += o2."""
     if w_o1 is None or w_o2 is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not (space.issequence_w(w_o1) and space.issequence_w(w_o2)):
+        raise oefmt(space.w_TypeError, "'%T' object can't be concatenated", w_o1)
     return space.inplace_add(w_o1, w_o2)
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, abi3=True)
@@ -245,6 +254,8 @@ def PySequence_InPlaceRepeat(space, w_o, count):
     changes in your code for properly supporting 64-bit systems."""
     if w_o is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not space.issequence_w(w_o):
+        raise oefmt(space.w_TypeError, "'%T' object can't be repeated", w_o)
     return space.inplace_mul(w_o, space.newint(count))
 
 

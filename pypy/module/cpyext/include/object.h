@@ -607,13 +607,15 @@ static inline void Py_DECREF(PyObject *op)
  * Python integers aren't currently weakly referencable.  Best practice is
  * to use Py_CLEAR() even if you can't think of a reason for why you need to.
  */
-#define Py_CLEAR(op)                            \
-    do {                                        \
-        PyObject *_py_tmp = _PyObject_CAST(op); \
-        if (_py_tmp != NULL) {                  \
-            (op) = NULL;                        \
-            Py_DECREF(_py_tmp);                 \
-        }                                       \
+#define Py_CLEAR(op) \
+    do { \
+        PyObject **_py_tmp_op_ptr = _Py_CAST(PyObject**, &(op)); \
+        PyObject *_py_tmp_old_op = (*_py_tmp_op_ptr); \
+        if (_py_tmp_old_op != NULL) { \
+            PyObject *_py_tmp_null_ptr = _Py_NULL; \
+            memcpy(_py_tmp_op_ptr, &_py_tmp_null_ptr, sizeof(PyObject*)); \
+            Py_DECREF(_py_tmp_old_op); \
+        } \
     } while (0)
 
 /* Function to use in case the object pointer can be NULL: */
@@ -836,21 +838,25 @@ PyAPI_FUNC(PyObject *) PyType_GetDict(PyTypeObject *);
  * Py_DECREF.
  */
 
-#define Py_SETREF(op, op2)                      \
-    do {                                        \
-        PyObject *_py_tmp = _PyObject_CAST(op); \
-        (op) = (op2);                           \
-        Py_DECREF(_py_tmp);                     \
+#define Py_SETREF(op, op2) \
+    do { \
+        PyObject **_py_tmp_op_ptr = _Py_CAST(PyObject**, &(op)); \
+        PyObject *_py_tmp_old_op = (*_py_tmp_op_ptr); \
+        PyObject *_py_tmp_new_op = _PyObject_CAST(op2); \
+        memcpy(_py_tmp_op_ptr, &_py_tmp_new_op, sizeof(PyObject*)); \
+        Py_DECREF(_py_tmp_old_op); \
     } while (0)
 
 /* Generic type check */
 PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 
-#define Py_XSETREF(op, op2)                     \
-    do {                                        \
-        PyObject *_py_tmp = _PyObject_CAST(op); \
-        (op) = (op2);                           \
-        Py_XDECREF(_py_tmp);                    \
+#define Py_XSETREF(op, op2) \
+    do { \
+        PyObject **_py_tmp_op_ptr = _Py_CAST(PyObject**, &(op)); \
+        PyObject *_py_tmp_old_op = (*_py_tmp_op_ptr); \
+        PyObject *_py_tmp_new_op = _PyObject_CAST(op2); \
+        memcpy(_py_tmp_op_ptr, &_py_tmp_new_op, sizeof(PyObject*)); \
+        Py_XDECREF(_py_tmp_old_op); \
     } while (0)
 
 #define Py_TRASHCAN_BEGIN(op, cond) do {

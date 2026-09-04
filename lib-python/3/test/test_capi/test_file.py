@@ -168,6 +168,8 @@ class CAPIFileTest(unittest.TestCase):
 
         # CRASHES asfd(NULL)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'pyfile_newstdprinter'),
+                        "requires _testcapi.pyfile_newstdprinter")
     def test_pyfile_newstdprinter(self):
         # Test PyFile_NewStdPrinter()
         pyfile_newstdprinter = _testcapi.pyfile_newstdprinter
@@ -189,6 +191,8 @@ class CAPIFileTest(unittest.TestCase):
 
         support.check_disallow_instantiation(self, type(file))
 
+    @unittest.skipUnless(hasattr(_testcapi, 'pyfile_newstdprinter'),
+                        "requires _testcapi.pyfile_newstdprinter")
     def test_pyfile_newstdprinter_write(self):
         # Test the write() method of PyFile_NewStdPrinter()
         pyfile_newstdprinter = _testcapi.pyfile_newstdprinter

@@ -217,8 +217,10 @@ def PyErr_Restore(space, py_type, py_value, py_traceback):
     if w_type is None:
         state.clear_exception()
         return
+    if w_value is None:
+        w_value = space.w_None
     operr = OperationError(w_type, w_value, w_traceback)
-    if w_value is None or not space.is_w(space.type(w_value), w_type):
+    if space.is_w(w_value, space.w_None) or not space.is_w(space.type(w_value), w_type):
         # Normalize eagerly here
         # A normalization failure must be caught here and it becomes the new
         # current exception.

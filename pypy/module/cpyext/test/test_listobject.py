@@ -29,10 +29,39 @@ class TestListObject(BaseApiTest):
         api.PyList_Append(l, space.wrap(3))
         assert api.PyList_GET_SIZE(l) == 1
 
+    def test_new_negative(self, space, api):
+        with raises_w(space, SystemError):
+            api.PyList_New(-1)
+
+    def test_append_null(self, space, api):
+        l = api.PyList_New(0)
+        with raises_w(space, SystemError):
+            api.PyList_Append(l, None)
+        with raises_w(space, SystemError):
+            api.PyList_Append(None, space.wrap(1))
+
+    def test_insert_not_list(self, space, api):
+        with raises_w(space, SystemError):
+            api.PyList_Insert(space.newtuple([]), 0, space.wrap(1))
+
+    def test_astuple_not_list(self, space, api):
+        with raises_w(space, SystemError):
+            api.PyList_AsTuple(space.newtuple([]))
+        with raises_w(space, SystemError):
+            api.PyList_AsTuple(None)
+
+    def test_getslice_not_list(self, space, api):
+        with raises_w(space, SystemError):
+            api.PyList_GetSlice(space.newtuple([]), 0, 0)
+
+    def test_setslice_not_list(self, space, api):
+        with raises_w(space, SystemError):
+            api.PyList_SetSlice(space.newtuple([]), 0, 0, space.newlist([]))
+
     def test_size(self, space):
         l = space.newlist([space.w_None, space.w_None])
         assert PyList_Size(space, l) == 2
-        with raises_w(space, TypeError):
+        with raises_w(space, SystemError):
             PyList_Size(space, space.w_None)
 
     def test_insert(self, space, api):

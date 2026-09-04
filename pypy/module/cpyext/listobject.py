@@ -20,6 +20,8 @@ def PyList_New(space, len):
     PySequence_SetItem()  or expose the object to Python code before
     setting all items to a real object with PyList_SetItem().
     """
+    if len < 0:
+        PyErr_BadInternalCall(space)
     w_list = space.newlist([None] * len)
     #w_list.convert_to_cpy_strategy(space)
     return w_list
@@ -87,7 +89,7 @@ def PyList_GetItem(space, w_list, index):
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyList_Append(space, w_list, w_item):
-    if not isinstance(w_list, W_ListObject):
+    if not isinstance(w_list, W_ListObject) or w_item is None:
         PyErr_BadInternalCall(space)
     w_list.append(w_item)
     return 0
@@ -97,6 +99,8 @@ def PyList_Insert(space, w_list, index, w_item):
     """Insert the item item into list list in front of index index.  Return
     0 if successful; return -1 and set an exception if unsuccessful.
     Analogous to list.insert(index, item)."""
+    if not isinstance(w_list, W_ListObject):
+        PyErr_BadInternalCall(space)
     space.call_method(space.w_list, "insert", w_list, space.newint(index), w_item)
     return 0
 
@@ -114,13 +118,15 @@ def PyList_Size(space, ref):
     len(list) on a list object.
     """
     if not PyList_Check(space, ref):
-        raise oefmt(space.w_TypeError, "expected list object")
+        PyErr_BadInternalCall(space)
     return PyList_GET_SIZE(space, ref)
 
 @cpython_api([PyObject], PyObject, abi3=True)
 def PyList_AsTuple(space, w_list):
     """Return a new tuple object containing the contents of list; equivalent to
     tuple(list)."""
+    if not isinstance(w_list, W_ListObject):
+        PyErr_BadInternalCall(space)
     return space.call_function(space.w_tuple, w_list)
 
 @cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
@@ -147,6 +153,8 @@ def PyList_GetSlice(space, w_list, low, high):
     and high.  Return NULL and set an exception if unsuccessful.  Analogous
     to list[low:high].  Negative indices, as when slicing from Python, are not
     supported."""
+    if not isinstance(w_list, W_ListObject):
+        PyErr_BadInternalCall(space)
     w_start = space.newint(low)
     w_stop = space.newint(high)
     return space.getslice(w_list, w_start, w_stop)
@@ -158,6 +166,8 @@ def PyList_SetSlice(space, w_list, low, high, w_sequence):
     be NULL, indicating the assignment of an empty list (slice deletion).
     Return 0 on success, -1 on failure.  Negative indices, as when
     slicing from Python, are not supported."""
+    if not isinstance(w_list, W_ListObject):
+        PyErr_BadInternalCall(space)
     w_start = space.newint(low)
     w_stop = space.newint(high)
     if w_sequence:

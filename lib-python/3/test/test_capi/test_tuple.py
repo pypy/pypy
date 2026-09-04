@@ -43,6 +43,8 @@ class CAPITest(unittest.TestCase):
 
         # CRASHES check(NULL)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'tuple_new'),
+                        "requires _testcapi.tuple_new")
     def test_tuple_new(self):
         # Test PyTuple_New()
         tuple_new = _testlimitedcapi.tuple_new
@@ -219,6 +221,8 @@ class CAPITest(unittest.TestCase):
         # CRASHES set_item([1], 0, [])
         # CRASHES set_item(NULL, 0, [])
 
+    @unittest.skipUnless(hasattr(_testcapi, '_tuple_resize'),
+                        "requires _testcapi._tuple_resize")
     def test__tuple_resize(self):
         # Test _PyTuple_Resize()
         resize = _testcapi._tuple_resize
