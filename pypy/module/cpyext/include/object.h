@@ -819,6 +819,7 @@ PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
 PyAPI_FUNC(PyObject *) PyType_GetModuleByDef(PyTypeObject *, PyModuleDef *);
 PyAPI_FUNC(PyObject *) PyType_GetDict(PyTypeObject *);
+PyAPI_FUNC(void *) PyObject_GetItemData(PyObject *);
 
 /* Safely decref `op` and set `op` to `op2`.
  *

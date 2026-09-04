@@ -76,12 +76,6 @@ PyAPI_FUNC(PyObject*) PyUnicode_AsEncodedUnicode(PyObject *unicode, const char *
     return NULL;
 }
 
-PyAPI_FUNC(PyObject*) PyUnicode_DecodeUnicodeEscape(const char *string, Py_ssize_t length, const char *errors)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyUnicode_DecodeUnicodeEscape() is not implemented in PyPy");
-    return NULL;
-}
-
 PyAPI_FUNC(PyObject*) PyUnicode_DecodeUTF7(const char *string, Py_ssize_t length, const char *errors)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyUnicode_DecodeUTF7() is not implemented in PyPy");

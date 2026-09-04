@@ -10,7 +10,8 @@ from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
     utf8_encode_utf_32_helper, str_decode_latin_1, utf8_encode_latin_1,
-    utf8_encode_raw_unicode_escape, str_decode_raw_unicode_escape)
+    utf8_encode_raw_unicode_escape, str_decode_raw_unicode_escape,
+    str_decode_unicode_escape)
 from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, cpython_api,
@@ -1555,3 +1556,34 @@ def PyUnicode_DecodeRawUnicodeEscape(space, p_string, length, p_errors):
     eh = state.decode_error_handler
     s, u_len, _ = str_decode_raw_unicode_escape(space, b, w_b, errors, True, eh)
     return space.newtext(s, u_len)
+
+@cts.decl(
+    "PyObject *PyUnicode_DecodeUnicodeEscape(const char *string, "
+    "Py_ssize_t length, const char *errors)",
+    abi3=True)
+def PyUnicode_DecodeUnicodeEscape(space, p_string, length, p_errors):
+    if not p_string:
+        PyErr_BadInternalCall(space)
+    if not p_errors:
+        errors = "strict"
+    else:
+        errors = rffi.constcharp2str(p_errors)
+    b = rffi.constcharpsize2str(p_string, length)
+    w_b = space.newbytes(b)
+    state = space.fromcache(CodecState)
+    unicode_name_handler = state.get_unicodedata_handler(space)
+    result, u_len, lgt, first_escape_error_char = str_decode_unicode_escape(
+        space, b, w_b, errors, True, state.decode_error_handler,
+        unicode_name_handler)
+    if first_escape_error_char is not None:
+        if len(first_escape_error_char) == 3:
+            msg = "invalid octal escape sequence '\\%s'" % (
+                first_escape_error_char,)
+        elif ' ' <= first_escape_error_char <= '\x7f':
+            msg = "invalid escape sequence '\\%s'" % (first_escape_error_char,)
+        else:
+            msg = "invalid escape sequence: '\\' followed by %s" % (
+                space.text_w(space.repr(
+                    space.newbytes(first_escape_error_char))),)
+        space.warn(space.newtext(msg), space.w_DeprecationWarning)
+    return space.newtext(result, u_len)

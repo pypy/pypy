@@ -111,12 +111,6 @@ PyAPI_FUNC(PyObject *) PyBytes_Repr(PyObject * _a0, int _a1)
     return NULL;
 }
 
-PyAPI_FUNC(PyObject *) PyBytes_DecodeEscape(const char * _a0, Py_ssize_t _a1, const char * _a2, Py_ssize_t _a3, const char * _a4)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyBytes_DecodeEscape() is not implemented in PyPy");
-    return NULL;
-}
-
 PyAPI_FUNC(void) PyBuffer_FillContiguousStrides(int ndims, Py_ssize_t *shape, Py_ssize_t *strides, int itemsize, char fort)
 {
 

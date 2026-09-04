@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers_flags,
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function,
-    PyVarObject)
+    PyVarObject, PY_SSIZE_T_MAX, cts)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
@@ -261,8 +261,25 @@ def _PyBytes_Join(space, w_sep, w_seq):
 def PyBytes_FromObject(space, w_obj):
     """Return the bytes representation of object obj that implements
     the buffer protocol."""
+    if w_obj is None:
+        raise oefmt(space.w_SystemError, "null argument to internal routine")
     if space.is_w(space.type(w_obj), space.w_bytes):
         return w_obj
     if space.isinstance_w(w_obj, space.w_bytes):
         return space.newbytes(space.bytes_w(w_obj))
     return space.newbytes(_convert_from_buffer_or_iterable(space, w_obj))
+
+@cts.decl(
+    "PyObject *PyBytes_DecodeEscape(const char *, Py_ssize_t, "
+    "const char *, Py_ssize_t, const char *)",
+    abi3=True)
+def PyBytes_DecodeEscape(space, s, size, errors, unicode, recode_encoding):
+    """Decode a string that may contain Python-style escape sequences and
+    return the resulting bytes object."""
+    from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
+    if size < 0 or size > PY_SSIZE_T_MAX - 8:
+        raise oefmt(space.w_OverflowError, "byte string is too large")
+    data = rffi.constcharpsize2str(s, size)
+    errors_s = rffi.constcharp2str(errors) if errors else 'strict'
+    buf, _ = PyString_DecodeEscape(space, data, errors_s, None)
+    return space.newbytes(buf)
