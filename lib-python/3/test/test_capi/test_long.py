@@ -28,6 +28,7 @@ class MyIndexAndInt:
 
 class LongTests(unittest.TestCase):
 
+    @unittest.skipUnless(hasattr(_testcapi, 'call_long_compact_api'), "")
     def test_compact(self):
         for n in {
             # Edge cases
@@ -44,6 +45,7 @@ class LongTests(unittest.TestCase):
                 if is_compact:
                     self.assertEqual(n, value)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'call_long_compact_api'), "")
     def test_compact_known(self):
         # Sanity-check some implementation details (we don't guarantee
         # that these are/aren't compact)

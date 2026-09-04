@@ -4249,22 +4249,18 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_Vectorcall(m) < 0) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Heaptype(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_Abstract(m) < 0) {
         return NULL;
     }
     if (_PyTestCapi_Init_ByteArray(m) < 0) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Bytes(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_Unicode(m) < 0) {
         return NULL;
     }
@@ -4288,29 +4284,21 @@ PyInit__testcapi(void)
         return NULL;
     }
 #endif
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Long(m) < 0) {
         return NULL;
     }
-#endif
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Float(m) < 0) {
         return NULL;
     }
-#endif
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Complex(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_Numbers(m) < 0) {
         return NULL;
     }
-#ifndef PYPY_VERSION
     if (_PyTestCapi_Init_Dict(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_Set(m) < 0) {
         return NULL;
     }
@@ -4360,10 +4348,10 @@ PyInit__testcapi(void)
     if (_PyTestCapi_Init_GC(m) < 0) {
         return NULL;
     }
+#endif
     if (_PyTestCapi_Init_Import(m) < 0) {
         return NULL;
     }
-#endif
     if (_PyTestCapi_Init_Eval(m) < 0) {
         return NULL;
     }

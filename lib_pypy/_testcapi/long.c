@@ -536,6 +536,7 @@ test_long_numbits(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION  /* checks PyUnstable_Long_{IsCompact,CompactValue} */
 static PyObject *
 check_long_compact_api(PyObject *self, PyObject *arg)
 {
@@ -547,6 +548,7 @@ check_long_compact_api(PyObject *self, PyObject *arg)
     }
     return Py_BuildValue("in", is_compact, value);
 }
+#endif
 
 static PyObject *
 pylong_check(PyObject *module, PyObject *obj)
@@ -771,7 +773,9 @@ static PyMethodDef test_methods[] = {
     {"test_long_long_and_overflow",test_long_long_and_overflow,  METH_NOARGS},
     {"test_long_numbits",       test_long_numbits,               METH_NOARGS},
     {"test_longlong_api",       test_longlong_api,               METH_NOARGS},
+#ifndef PYPY_VERSION
     {"call_long_compact_api",   check_long_compact_api,          METH_O},
+#endif
     {"pylong_check",                pylong_check,               METH_O},
     {"pylong_checkexact",           pylong_checkexact,          METH_O},
     {"pylong_fromdouble",           pylong_fromdouble,          METH_O},
