@@ -271,6 +271,7 @@ cpyext_namespace = NameManager('cpyext_')
 
 class BaseApiFunction(object):
     abi3 = False   # default: exported only under the mangled PyPy* name
+    noheader = False   # default: get the usual auto-generated #define/decl
 
     def __init__(self, argtypes, restype, callable):
         self.argtypes = argtypes
@@ -336,13 +337,15 @@ class ApiFunction(BaseApiFunction):
 
     def __init__(self, argtypes, restype, callable, error=CANNOT_FAIL,
                  c_name=None, cdecl=None, gil=None,
-                 result_borrowed=False, result_is_ll=False, abi3=False):
+                 result_borrowed=False, result_is_ll=False, abi3=False,
+                 noheader=False):
         from rpython.flowspace.bytecode import cpython_code_signature
         BaseApiFunction.__init__(self, argtypes, restype, callable)
         self.error_value = error
         self.c_name = c_name
         self.cdecl = cdecl
         self.abi3 = abi3
+        self.noheader = noheader
 
         # extract the signature from the (CPython-level) code object
         sig = cpython_code_signature(callable.func_code)
@@ -468,7 +471,7 @@ class ApiFunction(BaseApiFunction):
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
                 gil=None, result_borrowed=False, result_is_ll=False, abi3=False,
-                export=True):
+                export=True, noheader=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -490,6 +493,10 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
       trampoline, but the returned callable is still the normal unwrapper,
       so other cpyext RPython code can keep calling it with raw or wrapped
       PyObject* arguments exactly as before -- see ABI3-compatibility.md.
+    - set `noheader` to True (with `export` still True) for a function that
+      CPython exposes as BOTH a real symbol and a same-named shadowing macro
+      (Py_Is, Py_IsNone, Py_IsTrue, Py_IsFalse, ...): the object's own header
+      already hand-writes the correct `PyAPI_FUNC` declaration and macro.
     """
     assert header is not None
     def decorate(func):
@@ -505,7 +512,7 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
             argtypes, restype, func,
             error=_compute_error(error, restype), gil=gil,
             result_borrowed=result_borrowed, result_is_ll=result_is_ll,
-            abi3=abi3)
+            abi3=abi3, noheader=noheader)
         if export:
             FUNCTIONS_BY_HEADER[header][func.__name__] = api_function
         unwrapper = api_function.get_unwrapper()
@@ -1417,6 +1424,8 @@ def build_bridge(space):
     structindex = {}
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
+            if func.noheader:
+                continue
             functions.append(func.get_ctypes_impl(name, db))
             members.append(func.get_ptr_decl(name, db))
             structindex[name] = len(structindex)
@@ -1494,6 +1503,8 @@ def build_bridge(space):
     # implement structure initialization code
     for header, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         for name, func in header_functions.iteritems():
+            if func.noheader:
+                continue
             pypyAPI[structindex[name]] = ctypes.cast(
                 ll2ctypes.lltype2ctypes(func.get_llhelper(space)),
                 ctypes.c_void_p)
@@ -1685,6 +1696,11 @@ def generate_decls_and_callbacks(db, prefix=''):
     for header_name, header_functions in FUNCTIONS_BY_HEADER.iteritems():
         header = decls[header_name]
         for name, func in sorted(header_functions.iteritems()):
+            if func.noheader:
+                # object's own header hand-writes the decl + macro; any
+                # auto-generated text here would come after that macro is
+                # already active and get corrupted by its own expansion.
+                continue
             # abi3 functions keep their bare CPython name in a translated
             # build (prefix == 'PyPy'), so abi3 extensions can resolve them
             # directly; untranslated test builds (prefix == 'cpyexttest')

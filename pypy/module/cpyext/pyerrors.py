@@ -269,6 +269,13 @@ def PyErr_BadArgument(space):
 def PyErr_BadInternalCall(space):
     raise oefmt(space.w_SystemError, "Bad internal call!")
 
+@cpython_api([CONST_STRING, rffi.INT_real], lltype.Void, error=None, abi3=True)
+def _PyErr_BadInternalCall(space, filename, lineno):
+    """The real target of the PyErr_BadInternalCall() macro, which passes
+    __FILE__ and __LINE__; matches CPython's message format exactly."""
+    raise oefmt(space.w_SystemError, "%s:%d: bad argument to internal function",
+                rffi.charp2str(filename), widen(lineno))
+
 @cpython_api([], PyObject, error=CANNOT_FAIL, abi3=True)
 def PyErr_NoMemory(space):
     """This is a shorthand for PyErr_SetNone(PyExc_MemoryError); it returns NULL

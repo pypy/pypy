@@ -20,9 +20,12 @@ Don't forget to apply Py_INCREF() when returning either!!! */
 #define Py_RETURN_FALSE return Py_INCREF(Py_False), Py_False
 
 
-/* abi3/limited-API shims (CPython defines these as macros over Py_Is, i.e. a
-   plain pointer comparison, which is correct on PyPy too) */
+// Test if an object is the True singleton, the same as "x is True" in Python.
+PyAPI_FUNC(int) Py_IsTrue(PyObject *x);
 #define Py_IsTrue(x) ((x) == Py_True)
+
+// Test if an object is the False singleton, the same as "x is False" in Python.
+PyAPI_FUNC(int) Py_IsFalse(PyObject *x);
 #define Py_IsFalse(x) ((x) == Py_False)
 
 #ifdef __cplusplus

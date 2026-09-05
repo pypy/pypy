@@ -534,6 +534,10 @@ def Py_Is(space, w_obj1, w_obj2):
     res = space.is_w(w_obj1, w_obj2)
     return int(res)
 
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True, noheader=True)
+def Py_IsNone(space, w_obj):
+    return int(space.is_none(w_obj))
+
 @cts.decl("Py_ssize_t PyGC_Collect(void)", error=-1, abi3=True)
 def PyGC_Collect(space):
     from rpython.rlib.objectmodel import we_are_translated
