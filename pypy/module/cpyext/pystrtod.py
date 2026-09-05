@@ -1,6 +1,7 @@
 import errno
 from pypy.interpreter.error import oefmt
-from pypy.module.cpyext.api import cpython_api, INTP_real
+from pypy.module.cpyext.api import (cpython_api, INTP_real, Py_DTSF_SIGN,
+    Py_DTSF_ADD_DOT_0, Py_DTSF_ALT, Py_DTSF_NO_NEG_0)
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -22,6 +23,23 @@ DOUBLE_TO_STRING_TYPES_MAP = {
     rfloat.DIST_INFINITY: Py_DTST_INFINITE,
     rfloat.DIST_NAN: Py_DTST_NAN
 }
+
+# PyOS_double_to_string's "flags" parameter: Py_DTSF_SIGN/ADD_DOT_0/ALT
+# happen to share bit values with the matching rfloat.DTSF_* constants, but
+# Py_DTSF_NO_NEG_0 (0x08) collides with the unrelated, PyPy-internal
+# rfloat.DTSF_CUT_EXP_0 (also 0x8), so flags must be translated bit-by-bit
+# rather than passed through.
+def _cpython_flags_to_rfloat(flags):
+    result = 0
+    if flags & Py_DTSF_SIGN:
+        result |= rfloat.DTSF_SIGN
+    if flags & Py_DTSF_ADD_DOT_0:
+        result |= rfloat.DTSF_ADD_DOT_0
+    if flags & Py_DTSF_ALT:
+        result |= rfloat.DTSF_ALT
+    if flags & Py_DTSF_NO_NEG_0:
+        result |= rfloat.DTSF_NO_NEG_0
+    return result
 
 @cpython_api([rffi.CONST_CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
 @jit.dont_look_inside       # direct use of _get_errno()
@@ -141,7 +159,7 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     standard repr() format.
 
     flags can be zero or more of the values Py_DTSF_SIGN,
-    Py_DTSF_ADD_DOT_0, or Py_DTSF_ALT, or-ed together:
+    Py_DTSF_ADD_DOT_0, Py_DTSF_ALT, or Py_DTSF_NO_NEG_0, or-ed together:
 
     Py_DTSF_SIGN means to always precede the returned string with a sign
     character, even if val is non-negative.
@@ -153,6 +171,8 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     documentation for the PyOS_snprintf() '#' specifier for
     details.
 
+    Py_DTSF_NO_NEG_0 means to coerce negative zero to positive zero.
+
     If ptype is non-NULL, then the value it points to will be set to one of
     Py_DTST_FINITE, Py_DTST_INFINITE, or Py_DTST_NAN, signifying that
     val is a finite number, an infinite number, or not a number, respectively.
@@ -163,7 +183,7 @@ def PyOS_double_to_string(space, val, format_code, precision, flags, ptype):
     """
     buffer, rtype = rfloat.double_to_string(val, format_code,
                                             intmask(precision),
-                                            intmask(flags))
+                                            _cpython_flags_to_rfloat(intmask(flags)))
     if ptype != lltype.nullptr(INTP_real.TO):
         ptype[0] = rffi.cast(rffi.INT_real, DOUBLE_TO_STRING_TYPES_MAP[rtype])
     bufp = rffi.str2charp(buffer)

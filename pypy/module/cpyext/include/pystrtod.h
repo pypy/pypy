@@ -10,6 +10,7 @@ extern "C" {
 #define Py_DTSF_ADD_DOT_0 0x02 /* if the result is an integer add ".0" */
 #define Py_DTSF_ALT       0x04 /* "alternate" formatting. it's format_code
                                   specific */
+#define Py_DTSF_NO_NEG_0  0x08 /* negative zero result is coerced to 0 */
 
 /* PyOS_double_to_string's "type", if non-NULL, will be set to one of: */
 #define Py_DTST_FINITE 0

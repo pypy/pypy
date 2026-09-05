@@ -91,6 +91,11 @@ functions and constants
 #if !defined(Py_NAN)
 #    define Py_NAN ((double)NAN)
 #endif
+
+/* Py_INFINITY: Value that evaluates to a positive double infinity. */
+#ifndef Py_INFINITY
+#  define Py_INFINITY ((double)INFINITY)
+#endif
 /* Return whether integral type *type* is signed or not. */
 #define _Py_IntegralTypeSigned(type) ((type)(-1) < 0)
 /* Return the maximum value of integral type *type*. */

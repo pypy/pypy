@@ -70,6 +70,8 @@ PyAPI_FUNC(const char *) PyExceptionClass_Name(PyObject *);
 PyAPI_FUNC(PyObject *) PyErr_ProgramText(const char *filename,  int lineno);
 PyAPI_FUNC(PyObject *) PyErr_SetImportError(PyObject *, PyObject *, PyObject *);
 PyAPI_FUNC(PyObject *) PyErr_SetImportErrorSubclass(PyObject *, PyObject *, PyObject *, PyObject *);
+PyAPI_FUNC(void) PyErr_SetInterrupt(void);
+PyAPI_FUNC(int) PyErr_SetInterruptEx(int signum);
 PyAPI_FUNC(void) PyErr_SyntaxLocation(const char *filename,  int lineno);
 PyAPI_FUNC(void) PyErr_SyntaxLocationEx(const char *filename,  int lineno, int col_offset);
 

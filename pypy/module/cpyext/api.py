@@ -160,7 +160,7 @@ for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
 #pystrtod.h flags
-for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
+for name in ('SIGN', 'ADD_DOT_0', 'ALT', 'NO_NEG_0'):
     constant_names.append('Py_DTSF_%s' % name)
 
 for name in constant_names:

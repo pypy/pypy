@@ -25,6 +25,18 @@ extern "C" {
 #define _PyHASH_NAN 0
 #define _PyHASH_IMAG _PyHASH_MULTIPLIER
 
+/* hash algorithm selection */
+#define Py_HASH_EXTERNAL 0
+#define Py_HASH_SIPHASH24 1
+#define Py_HASH_FNV 2
+#define Py_HASH_SIPHASH13 3
+/* PyPy's string hash is always SipHash-2-4, see rpython/rlib/rsiphash.py */
+#define Py_HASH_ALGORITHM Py_HASH_SIPHASH24
+
+/* cutoff for small string DJBX33A optimization: PyPy does not implement it,
+   so the optimization is always disabled. */
+#define Py_HASH_CUTOFF 0
+
 
 #ifdef __cplusplus
 }
