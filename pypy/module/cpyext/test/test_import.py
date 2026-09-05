@@ -1,4 +1,4 @@
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.import_ import *
 from pypy.module.cpyext.import_ import (
@@ -20,6 +20,15 @@ class TestImport(BaseApiTest):
             w_foobar = PyImport_AddModule(space, modname)
         assert space.text_w(space.getattr(w_foobar,
                                          space.wrap('__name__'))) == 'foobar'
+
+        w_name = space.newbytes('\xff')
+        w_mod = PyImport_AddModuleObject(space, w_name)
+        assert space.eq_w(space.getattr(w_mod, space.wrap('__name__')), w_name)
+        assert space.getitem(space.sys.get('modules'), w_name) is w_mod
+        space.delitem(space.sys.get('modules'), w_name)
+
+        with raises_w(space, TypeError):
+            PyImport_AddModuleObject(space, space.newlist([]))
 
     def test_getmoduledict(self, space, api):
         testmod = "imghdr"

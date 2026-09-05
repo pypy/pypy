@@ -474,6 +474,7 @@ class CAPITest(unittest.TestCase):
     def test_null_type_doc(self):
         self.assertEqual(_testcapi.NullTpDocType.__doc__, None)
 
+    @support.cpython_only
     def test_subclass_of_heap_gc_ctype_with_tpdealloc_decrefs_once(self):
         class HeapGcCTypeSubclass(_testcapi.HeapGcCType):
             def __init__(self):
@@ -491,6 +492,7 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
         self.assertEqual(type_refcnt - 1, sys.getrefcount(HeapGcCTypeSubclass))
 
+    @support.cpython_only
     def test_subclass_of_heap_gc_ctype_with_del_modifying_dunder_class_only_decrefs_once(self):
         class A(_testcapi.HeapGcCType):
             def __init__(self):
@@ -617,6 +619,7 @@ class CAPITest(unittest.TestCase):
         b = bytes(inst)
         self.assertEqual(b, b"1234")
 
+    @support.cpython_only
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclass()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclass)
@@ -629,6 +632,7 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
         self.assertEqual(type_refcnt - 1, sys.getrefcount(_testcapi.HeapCTypeSubclass))
 
+    @support.cpython_only
     def test_c_subclass_of_heap_ctype_with_del_modifying_dunder_class_only_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclassWithFinalizer()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclassWithFinalizer)
@@ -845,6 +849,7 @@ class CAPITest(unittest.TestCase):
         expected = compile(code, "<string>", "exec")
         self.assertEqual(result.co_consts, expected.co_consts)
 
+    @support.cpython_only
     def test_export_symbols(self):
         # bpo-44133: Ensure that the "Py_FrozenMain" and
         # "PyThread_get_thread_native_id" symbols are exported by the Python
@@ -917,6 +922,7 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(SystemError):
             _testcapi.function_get_module(None)  # not a function
 
+    @unittest.skipUnless(hasattr(_testcapi, 'function_get_defaults'), "")
     def test_function_get_defaults(self):
         def some(
             pos_only1, pos_only2='p',
@@ -935,6 +941,7 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(SystemError):
             _testcapi.function_get_defaults(None)  # not a function
 
+    @unittest.skipUnless(hasattr(_testcapi, 'function_set_defaults'), "")
     def test_function_set_defaults(self):
         def some(
             pos_only1, pos_only2='p',
@@ -984,6 +991,7 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(_testcapi.function_get_defaults(some), None)
         self.assertEqual(some.__defaults__, None)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'function_get_kw_defaults'), "")
     def test_function_get_kw_defaults(self):
         def some(
             pos_only1, pos_only2='p',
@@ -1002,6 +1010,7 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(SystemError):
             _testcapi.function_get_kw_defaults(None)  # not a function
 
+    @unittest.skipUnless(hasattr(_testcapi, 'function_set_kw_defaults'), "")
     def test_function_set_kw_defaults(self):
         def some(
             pos_only1, pos_only2='p',
@@ -1070,6 +1079,7 @@ class CAPITest(unittest.TestCase):
 class TestHeapTypeRelative(unittest.TestCase):
     """Test API for extending opaque types (PEP 697)"""
 
+    @unittest.skipIf(support.is_pypy, "")
     @requires_limited_api
     def test_heaptype_relative_sizes(self):
         # Test subclassing using "relative" basicsize, see PEP 697
@@ -1125,6 +1135,7 @@ class TestHeapTypeRelative(unittest.TestCase):
         collection = _testcapi.HeapCCollection(1, 2, 3)
         self.assertEqual(list(collection), [1, 2, 3])
 
+    @unittest.skipIf(support.is_pypy, "")
     def test_heaptype_inherit_itemsize(self):
         """Test HeapCCollection subclasses work properly"""
         sizes = sorted({0, 1, 2, 3, 4, 7, 8, 123,
@@ -1149,6 +1160,7 @@ class TestHeapTypeRelative(unittest.TestCase):
                                + "Py_TPFLAGS_ITEMS_AT_END"):
             _testcapi.subclass_heaptype(int, -8, 0)
 
+    @unittest.skipIf(support.is_pypy, "")
     def test_heaptype_relative_members(self):
         """Test HeapCCollection subclasses work properly"""
         sizes = sorted({0, 1, 2, 3, 4, 7, 8, 123,

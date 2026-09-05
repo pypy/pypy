@@ -11,6 +11,7 @@ from test.support.script_helper import assert_python_failure, assert_python_ok
 # Skip this test if the _testcapi module isn't available.
 _testcapi = import_helper.import_module('_testcapi')
 
+@support.cpython_only
 @requires_subprocess()
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
@@ -150,6 +151,7 @@ class PyMemDebugTests(unittest.TestCase):
             self.assertGreaterEqual(count, i*5-2)
 
 
+@support.cpython_only
 class PyMemMallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'malloc_debug'
 

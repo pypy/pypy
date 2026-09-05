@@ -644,12 +644,6 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.newint(hash)
 
-    def cpyext_add_frozen(self, w_key):
-        if self.hash != self.DEFAULT_HASH:
-            return False
-        self.add(w_key)
-        return True
-
 W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
@@ -828,6 +822,8 @@ class EmptySetStrategy(SetStrategy):
         w_set.add(w_key)
 
     def remove(self, w_set, w_item):
+        # make sure the key is hashable, issue 3824
+        self.space.hash_w(w_item)
         return False
 
     def getdict_w(self, w_set):

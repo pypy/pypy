@@ -1,11 +1,11 @@
 from rpython.rtyper.lltypesystem import rffi
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, decref
 from pypy.module.cpyext.methodobject import PyClassMethod_New
 from pypy.module.cpyext.funcobject import (
     PyFunctionObject, PyCodeObject, CODE_FLAGS, PyMethod_Function,
     PyMethod_Self, PyMethod_New, PyFunction_GetCode, PyFunction_GetModule,
-    PyCode_NewEmpty, PyCode_Addr2Line)
+    PyFunction_GetGlobals, PyCode_NewEmpty, PyCode_Addr2Line)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
@@ -60,6 +60,16 @@ class TestFunctionObject(BaseApiTest):
 
         w_module = PyFunction_GetModule(space,w_function)
         assert space.utf8_w(w_module) == "abc"
+
+        w_globals = PyFunction_GetGlobals(space, w_function)
+        assert space.isinstance_w(w_globals, space.w_dict)
+
+        with raises_w(space, SystemError):
+            PyFunction_GetCode(space, space.w_None)
+        with raises_w(space, SystemError):
+            PyFunction_GetModule(space, space.w_None)
+        with raises_w(space, SystemError):
+            PyFunction_GetGlobals(space, space.w_None)
 
     def test_co_flags(self, space):
         def get_flags(signature, body="pass"):

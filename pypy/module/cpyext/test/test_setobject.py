@@ -19,7 +19,7 @@ class TestTupleObject(BaseApiTest):
         space.call_method(w_set, 'update', space.wrap([1, 2, 3, 4]))
         assert PySet_Size(space, w_set) == 4
         assert PySet_GET_SIZE(space, w_set) == 4
-        with raises_w(space, TypeError):
+        with raises_w(space, SystemError):
             PySet_Size(space, space.newlist([]))
 
     def test_set_add_discard(self, space, api):
@@ -39,12 +39,7 @@ class TestTupleObject(BaseApiTest):
         assert api.PySet_Size(w_set) == 4
 
     def test_frozenset_add(self, space, api):
-        w_set = api.PyFrozenSet_New(None)
-        api.PySet_Add(w_set, space.wrap(4))
-        assert api.PySet_Size(w_set) == 1
-        api.PySet_Add(w_set, space.wrap(5))
-        assert api.PySet_Size(w_set) == 2
-        assert space.hash_w(w_set) != 0   # makes the set really frozen
+        w_set = api.PyFrozenSet_New(space.wrap([4, 5]))
         with raises_w(space, SystemError):
             api.PySet_Add(w_set, space.wrap(6))
 

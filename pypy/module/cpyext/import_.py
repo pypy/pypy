@@ -42,16 +42,20 @@ def PyImport_Import(space, w_name):
                                w_name, w_globals, w_globals,
                                space.newlist([space.newtext("__doc__")]))
 
+def _decode_module_name(space, name):
+    return space.call_method(
+        space.newbytes(rffi.charp2str(name)), 'decode', space.newtext('utf-8'))
+
 @cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyImport_ImportModule(space, name):
-    return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
+    return PyImport_Import(space, _decode_module_name(space, name))
 
 @cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyImport_ImportModuleNoBlock(space, name):
     space.warn(
         space.newtext('PyImport_ImportModuleNoBlock() is not non-blocking'),
         space.w_RuntimeWarning)
-    return PyImport_Import(space, space.newtext(rffi.charp2str(name)))
+    return PyImport_Import(space, _decode_module_name(space, name))
 
 
 @cts.decl(
@@ -82,8 +86,8 @@ def PyImport_ReloadModule(space, w_mod):
     w_importlib = space.call_function(w_import, space.newtext('importlib'))
     return space.call_method(w_importlib, 'reload', w_mod)
 
-@cpython_api([CONST_STRING], PyObject, result_borrowed=True, abi3=True)
-def PyImport_AddModule(space, name):
+@cpython_api([PyObject], PyObject, result_borrowed=True, abi3=True)
+def PyImport_AddModuleObject(space, w_name):
     """Return the module object corresponding to a module name.  The name
     argument may be of the form package.module. First check the modules
     dictionary if there's one there, and if not, create a new one and insert
@@ -95,14 +99,14 @@ def PyImport_AddModule(space, name):
     PyImport_ImportModule() or one of its variants to import a module.
     Package structures implied by a dotted name for name are not created if
     not already present."""
-    from pypy.module.imp.importing import check_sys_modules_w
-    modulename = rffi.charp2str(name)
-    w_mod = check_sys_modules_w(space, modulename)
-    if not w_mod or space.is_w(w_mod, space.w_None):
-        w_mod = Module(space, space.newtext(modulename))
-    space.setitem(space.sys.get('modules'), space.newtext(modulename), w_mod)
     # return a borrowed ref --- assumes one copy in sys.modules
-    return w_mod
+    return importing.add_module(space, w_name)
+
+@cpython_api([CONST_STRING], PyObject, result_borrowed=True, abi3=True)
+def PyImport_AddModule(space, name):
+    """Like PyImport_AddModuleObject(), but name is a UTF-8 encoded
+    string instead of a Unicode object."""
+    return PyImport_AddModuleObject(space, _decode_module_name(space, name))
 
 @cpython_api([], PyObject, result_borrowed=True, abi3=True)
 def PyImport_GetModuleDict(space):
@@ -156,7 +160,8 @@ def PyImport_ExecCodeModuleEx(space, name, w_code, pathname):
     """Like PyImport_ExecCodeModule(), but the __file__ attribute of
     the module object is set to pathname if it is non-NULL."""
     code = space.interp_w(PyCode, w_code)
-    w_name = space.newtext(rffi.constcharp2str(name))
+    w_name = space.call_method(
+        space.newbytes(rffi.constcharp2str(name)), 'decode', space.newtext('utf-8'))
     if pathname:
         pathname = rffi.constcharp2str(pathname)
     else:

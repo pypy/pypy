@@ -61,12 +61,6 @@ PyAPI_FUNC(void) PySys_FormatStdout(const char *format, ...)
 
 }
 
-PyAPI_FUNC(PyObject *) PyImport_AddModuleObject(PyObject *name)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyImport_AddModuleObject() is not implemented in PyPy");
-    return NULL;
-}
-
 PyAPI_FUNC(int) PyImport_AppendInittab(const char *name, PyObject* (*initfunc)(void))
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyImport_AppendInittab() is not implemented in PyPy");

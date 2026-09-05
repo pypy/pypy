@@ -7,6 +7,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, decref, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.function import Function, Method
+from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import pycode
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -90,16 +91,22 @@ def code_dealloc(space, py_obj):
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyFunction_GetCode(space, w_func):
     """Return the code object associated with the function object op."""
+    if w_func is None or not space.isinstance_w(w_func, space.gettypefor(Function)):
+        raise PyErr_BadInternalCall(space)
     func = space.interp_w(Function, w_func)
     return func.code      # borrowed ref
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetModule(space, w_func):
+    if w_func is None or not space.isinstance_w(w_func, space.gettypefor(Function)):
+        raise PyErr_BadInternalCall(space)
     return space.getattr(w_func, space.newtext('__module__'))
 
 
 @cpython_api([PyObject], PyObject)
 def PyFunction_GetGlobals(space, w_func):
+    if w_func is None or not space.isinstance_w(w_func, space.gettypefor(Function)):
+        raise PyErr_BadInternalCall(space)
     return space.getattr(w_func, space.newtext('__globals__'))
 
 @cpython_api([PyObject, PyObject], PyObject)

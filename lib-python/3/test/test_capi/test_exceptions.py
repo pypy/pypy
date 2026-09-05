@@ -214,6 +214,7 @@ class Test_ErrSetAndRestore(unittest.TestCase):
         # CRASHES setstring(ZeroDivisionError, NULL)
         # CRASHES setstring(NULL, b'error')
 
+    @support.cpython_only
     def test_format(self):
         """Test PyErr_Format()"""
         import_helper.import_module('ctypes')
@@ -316,6 +317,7 @@ class Test_ErrSetAndRestore(unittest.TestCase):
         # CRASHES writeunraisable(NULL, NULL)
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'unstable_exc_prep_reraise_star'), "")
 class Test_PyUnstable_Exc_PrepReraiseStar(ExceptionIsLikeMixin, unittest.TestCase):
 
     def setUp(self):

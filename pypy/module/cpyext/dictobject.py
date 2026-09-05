@@ -107,9 +107,13 @@ def PyDict_DelItem(space, w_dict, w_key):
     w_dict.descr_delitem(space, w_key)
     return 0
 
+def _decode_key_string(space, key_ptr):
+    return space.call_method(
+        space.newbytes(rffi.charp2str(key_ptr)), 'decode', space.newtext('utf-8'))
+
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
-    w_key = space.newtext(rffi.charp2str(key_ptr))
+    w_key = _decode_key_string(space, key_ptr)
     if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
     w_dict.setitem(w_key, w_obj)
@@ -120,7 +124,12 @@ def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
-    w_key = space.newtext(rffi.charp2str(key))
+    try:
+        w_key = _decode_key_string(space, key)
+    except OperationError as e:
+        if not e.match(space, space.w_UnicodeDecodeError):
+            raise
+        return None
     if not isinstance(w_dict, W_DictMultiObject):
         return None
     # NOTE: this works so far because all our dict strategies store
@@ -133,7 +142,7 @@ def PyDict_GetItemString(space, w_dict, key):
 @cpython_api([PyObject, CONST_STRING], PyObject,
              result_borrowed=True)
 def _PyDict_GetItemStringWithError(space, w_dict, key):
-    w_key = space.newtext(rffi.charp2str(key))
+    w_key = _decode_key_string(space, key)
     if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
     return w_dict.getitem(w_key)
@@ -142,7 +151,7 @@ def _PyDict_GetItemStringWithError(space, w_dict, key):
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""
-    w_key = space.newtext(rffi.charp2str(key_ptr))
+    w_key = _decode_key_string(space, key_ptr)
     if not isinstance(w_dict, W_DictMultiObject):
         raise PyErr_BadInternalCall(space)
     w_dict.descr_delitem(space, w_key)
