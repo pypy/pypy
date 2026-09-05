@@ -145,10 +145,24 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
                 v = &left;
                 PyBytes_Concat(v, PyTuple_GetItem(args, 1));
                 return *v;
+             """),
+            ("decodeescape", "METH_VARARGS",
+             """
+                const char *s;
+                const char *errors = NULL;
+                if (!PyArg_ParseTuple(args, "z|z", &s, &errors))
+                    return NULL;
+                return PyBytes_DecodeEscape(s, s ? strlen(s) : 0, errors, 0, NULL);
              """)])
         assert module.bytes_as_string(b"huheduwe") == b"huhe"
         ret = module.concat(b'abc', b'def')
         assert ret == b'abcdef'
+
+        assert module.decodeescape(r"a\tb") == b"a\tb"
+        assert module.decodeescape(r"\xa1\xa2") == b"\xa1\xa2"
+        assert module.decodeescape(r"x\xay", "replace") == b"x?y"
+        raises(ValueError, module.decodeescape, "\\")
+        assert module.decodeescape(None) == b""
 
     def test_py_bytes_as_string_None(self):
         module = self.import_extension('foo', [

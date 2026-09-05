@@ -126,9 +126,17 @@ def bytes_dealloc(space, py_obj):
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True, abi3=True)
 def PyBytes_FromStringAndSize(space, char_p, length):
+    if length < 0:
+        raise oefmt(space.w_SystemError,
+            "Negative size passed to PyBytes_FromStringAndSize")
     if char_p:
         s = rffi.charpsize2str(char_p, length)
         return make_ref(space, space.newbytes(s))
+    elif length == 0:
+        return make_ref(space, space.newbytes(""))
+    elif length > PY_SSIZE_T_MAX - 64:
+        # would overflow the PyBytesObject allocation size
+        raise oefmt(space.w_MemoryError, "")
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
@@ -225,14 +233,8 @@ def _PyBytes_Resize(space, ref, newsize):
 def _PyBytes_Eq(space, w_str1, w_str2):
     return space.eq_w(w_str1, w_str2)
 
-@cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
-def PyBytes_Concat(space, ref, w_newpart):
-    """Create a new string object in *string containing the contents of newpart
-    appended to string; the caller will own the new reference.  The reference to
-    the old value of string will be stolen.  If the new string cannot be created,
-    the old reference to string will still be discarded and the value of
-    *string will be set to NULL; the appropriate exception will be set."""
-
+def _bytes_concat_helper(space, ref, w_newpart):
+    """Shared implementation of PyBytes_Concat and PyBytes_ConcatAndDel."""
     old = ref[0]
     if not old:
         return
@@ -245,13 +247,22 @@ def PyBytes_Concat(space, ref, w_newpart):
         ref[0] = make_ref(space, w_newstr)
 
 @cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
-def PyBytes_ConcatAndDel(space, ref, newpart):
+def PyBytes_Concat(space, ref, w_newpart):
+    """Create a new string object in *string containing the contents of newpart
+    appended to string; the caller will own the new reference.  The reference to
+    the old value of string will be stolen.  If the new string cannot be created,
+    the old reference to string will still be discarded and the value of
+    *string will be set to NULL; the appropriate exception will be set."""
+    _bytes_concat_helper(space, ref, w_newpart)
+
+@cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
+def PyBytes_ConcatAndDel(space, ref, w_newpart):
     """Create a new string object in *string containing the contents of newpart
     appended to string.  This version decrements the reference count of newpart."""
     try:
-        PyBytes_Concat(space, ref, newpart)
+        _bytes_concat_helper(space, ref, w_newpart)
     finally:
-        decref(space, newpart)
+        decref(space, as_pyobj(space, w_newpart))
 
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyBytes_Join(space, w_sep, w_seq):
@@ -279,7 +290,7 @@ def PyBytes_DecodeEscape(space, s, size, errors, unicode, recode_encoding):
     from pypy.interpreter.pyparser.parsestring import PyString_DecodeEscape
     if size < 0 or size > PY_SSIZE_T_MAX - 8:
         raise oefmt(space.w_OverflowError, "byte string is too large")
-    data = rffi.constcharpsize2str(s, size)
+    data = rffi.constcharpsize2str(s, size) if s else ""
     errors_s = rffi.constcharp2str(errors) if errors else 'strict'
     buf, _ = PyString_DecodeEscape(space, data, errors_s, None)
     return space.newbytes(buf)

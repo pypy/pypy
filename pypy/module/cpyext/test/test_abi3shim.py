@@ -36,15 +36,8 @@ class AppTestAbi3Shim(AppTestCpythonExtensionBase):
                     return NULL;
                 Py_RETURN_NONE;
             """),
-            ("import_getmagicnumber", "METH_NOARGS", """
-                long m = PyImport_GetMagicNumber();
-                if (m == -1 && PyErr_Occurred())
-                    return NULL;
-                return PyLong_FromLong(m);
-            """),
             ])
         raises(NotImplementedError, module.codec_register)
-        raises(NotImplementedError, module.import_getmagicnumber)
 
     def test_ignore_shims_void(self):
         module = self.import_extension('foo', [

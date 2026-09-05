@@ -94,7 +94,10 @@ def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, c
 def PyFile_WriteString(space, s, w_p):
     """Write string s to file object p.  Return 0 on success or -1 on
     failure; the appropriate exception will be set."""
-    w_str = space.newtext(rffi.charp2str(s))
+    if w_p is None:
+        raise oefmt(space.w_SystemError, "null file for PyFile_WriteString")
+    w_bytes = space.newbytes(rffi.charp2str(s))
+    w_str = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))
     space.call_method(w_p, "write", w_str)
     return 0
 

@@ -91,18 +91,6 @@ PyAPI_FUNC(PyObject *) PyImport_GetImporter(PyObject *path)
     return NULL;
 }
 
-PyAPI_FUNC(long) PyImport_GetMagicNumber(void)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyImport_GetMagicNumber() is not implemented in PyPy");
-    return -1;
-}
-
-PyAPI_FUNC(const char *) PyImport_GetMagicTag(void)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyImport_GetMagicTag() is not implemented in PyPy");
-    return NULL;
-}
-
 PyAPI_FUNC(int) PyImport_ImportFrozenModule(const char *name)
 {
     PyErr_SetString(PyExc_NotImplementedError, "PyImport_ImportFrozenModule() is not implemented in PyPy");

@@ -56,14 +56,21 @@ INT_MAX = (2 ** (8 * rffi.sizeof(rffi.UINT) - 1) -1)
 INT_MIN = (-2 ** (8 * rffi.sizeof(rffi.UINT) - 1))
 need_to_check = maxint > ULONG_MAX
 
+def _check_long_arg(space, w_long):
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
+    if not space.isinstance_w(w_long, space.w_int):
+        raise oefmt(space.w_TypeError, "an integer is required")
+
 @cpython_api([PyObject], rffi.ULONG, error=-1, abi3=True)
 def PyLong_AsUnsignedLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
+    _check_long_arg(space, w_long)
     try:
-        val = space.uint_w(space.index(w_long))
+        val = space.uint_w(w_long)
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
@@ -84,6 +91,8 @@ def PyLong_AsUnsignedLongMask(space, w_long):
     """Return a C unsigned long from a Python long integer, without checking
     for overflow.
     """
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     num = space.bigint_w(space.index(w_long))
     val = num.uintmask()
     if need_to_check and not we_are_translated():
@@ -100,6 +109,8 @@ def PyLong_AsLong(space, w_long):
     Get a C long int from an int object or any object that has an __index__
     method.  Return -1 and set an error if overflow occurs.
     """
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     try:
         val = space.int_w(space.index(w_long))
     except OperationError as e:
@@ -123,6 +134,8 @@ def _PyLong_AsInt(space, w_long):
     Get a C int from an int object or any object that has an __index__
     method.  Return -1 and set an error if overflow occurs.
     """
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     try:
         val = space.int_w(space.index(w_long))
     except OperationError as e:
@@ -144,7 +157,8 @@ def PyLong_AsSsize_t(space, w_long):
     pylong is greater than PY_SSIZE_T_MAX, an OverflowError is raised
     and -1 will be returned.
     """
-    return space.int_w(space.index(w_long))
+    _check_long_arg(space, w_long)
+    return space.int_w(w_long)
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1, abi3=True)
 def PyLong_AsSize_t(space, w_long):
@@ -153,7 +167,8 @@ def PyLong_AsSize_t(space, w_long):
 
     Raise OverflowError if the value of pylong is out of range for a
     size_t."""
-    return space.uint_w(space.index(w_long))
+    _check_long_arg(space, w_long)
+    return space.uint_w(w_long)
 
 @cts.decl("long long PyLong_AsLongLong(PyObject *val)", error=-1, abi3=True)
 def PyLong_AsLongLong(space, w_long):
@@ -161,6 +176,8 @@ def PyLong_AsLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     return cts.cast("long long", space.r_longlong_w(space.index(w_long)))
 
 @cts.decl("unsigned long long PyLong_AsUnsignedLongLong(PyObject *val)", error=-1, abi3=True)
@@ -169,14 +186,11 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    if not w_long:
-        return PyErr_BadInternalCall(space)
+    _check_long_arg(space, w_long)
     try:
-        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(space.index(w_long)))
+        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
-            if not w_long:
-                raise
             e.w_type = space.w_OverflowError
         raise
 
@@ -186,8 +200,8 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     PyLongObject, if it is not already one, and then return its value as
     unsigned long long, without checking for overflow.
     """
-    if not w_long:
-        return PyErr_BadInternalCall(space)
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     num = space.bigint_w(space.index(w_long))
     return num.ulonglongmask()
 
@@ -249,6 +263,7 @@ def PyLong_AsDouble(space, w_long):
     """Return a C double representation of the contents of pylong.  If
     pylong cannot be approximately represented as a double, an
     OverflowError exception is raised and -1.0 will be returned."""
+    _check_long_arg(space, w_long)
     return space.float_w(space.float(w_long))
 
 @cpython_api([CONST_STRING, rffi.CCHARPP, rffi.INT_real], PyObject, abi3=True)

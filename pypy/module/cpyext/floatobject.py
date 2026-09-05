@@ -8,6 +8,7 @@ from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 
 PyFloatObjectStruct = lltype.ForwardReference()
 PyFloatObject = lltype.Ptr(PyFloatObjectStruct)
@@ -52,6 +53,8 @@ def PyFloat_FromDouble(space, value):
 
 @cpython_api([PyObject], lltype.Float, error=-1, abi3=True)
 def PyFloat_AsDouble(space, w_obj):
+    if w_obj is None:
+        raise PyErr_BadArgument(space)
     if not space.isinstance_w(w_obj, space.w_float):
         # Replicate CPython's PyFloat_AsDouble: try __float__, then __index__,
         # then raise "must be real number, not <type>" - not the broader

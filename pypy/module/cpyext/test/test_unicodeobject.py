@@ -884,6 +884,19 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 }
                 return PyUnicode_DecodeRawUnicodeEscape(as_c_string, size, NULL);
             """),
+            ('encode', "METH_O",
+             """
+                return PyUnicode_AsUnicodeEscapeString(args);
+             """),
+            ('decode', "METH_O",
+            """
+                char* as_c_string;
+                Py_ssize_t size;
+                if (PyBytes_AsStringAndSize(args, &as_c_string, &size) < 0) {
+                    return NULL;
+                }
+                return PyUnicode_DecodeUnicodeEscape(as_c_string, size, NULL);
+            """),
         ])
         
         x = u'\U00100000'
@@ -905,6 +918,16 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             assert e.end == 10
         else:
             assert False, "Should have raised UnicodeDecodeError"
+
+        x = u'\U00100000'
+        y = module.decode(module.encode(x))
+        assert y == x
+
+        x = b'a\\tb\\n\\u674f'
+        y = module.encode(module.decode(x))
+        assert y == x
+
+        raises(ValueError, module.decode, br'\x1')
 
  
 class TestUnicode(BaseApiTest):

@@ -283,6 +283,7 @@ class ImportTests(unittest.TestCase):
         if not object:
             self.assertEqual(origin, py_filename)
 
+    @unittest.skip("not implemented by PyPy")
     def test_executecodemodulewithpathnames(self):
         # Test PyImport_ExecCodeModuleWithPathnames()
         execute_code_func = _testcapi.PyImport_ExecCodeModuleWithPathnames
@@ -293,6 +294,7 @@ class ImportTests(unittest.TestCase):
         # CRASHES execute_code_func(NULL, code, NULL, NULL)
         # CRASHES execute_code_func(name, NULL, NULL, NULL)
 
+    @unittest.skip("not implemented by PyPy")
     def test_executecodemoduleobject(self):
         # Test PyImport_ExecCodeModuleObject()
         execute_code_func = _testcapi.PyImport_ExecCodeModuleObject

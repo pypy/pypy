@@ -153,6 +153,8 @@ def PyDict_Size(space, w_obj):
     """
     Return the number of items in the dictionary.  This is equivalent to
     len(p) on a dictionary."""
+    if w_obj is None or not space.isinstance_w(w_obj, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
@@ -175,13 +177,16 @@ def PyDict_Contains(space, w_dict, w_key):
 
 @cpython_api([PyObject], lltype.Void, abi3=True)
 def PyDict_Clear(space, w_obj):
-    """Empty an existing dictionary of all key-value pairs."""
+    """Empty an existing dictionary of all key-value pairs.  Has no effect
+    if w_obj is not a dict."""
+    if not space.isinstance_w(w_obj, space.w_dict):
+        return
     space.call_method(space.w_dict, "clear", w_obj)
 
 @cts.decl("""PyObject *
     PyDict_SetDefault(PyObject *d, PyObject *key, PyObject *defaultobj)""")
 def PyDict_SetDefault(space, w_dict, w_key, w_defaultobj):
-    if not PyDict_Check(space, w_dict):
+    if not space.isinstance_w(w_dict, space.w_dict):
         PyErr_BadInternalCall(space)
     else:
         return space.call_method(
@@ -191,6 +196,8 @@ def PyDict_SetDefault(space, w_dict, w_key, w_defaultobj):
 def PyDict_Copy(space, w_obj):
     """Return a new dictionary that contains the same key-value pairs as p.
     """
+    if w_obj is None or not space.isinstance_w(w_obj, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     return space.call_method(space.w_dict, "copy", w_obj)
 
 def _has_val(space, w_dict, w_key):
@@ -212,6 +219,8 @@ def PyDict_Merge(space, w_a, w_b, override):
     only be added if there is not a matching key in a. Return 0 on
     success or -1 if an exception was raised.
     """
+    if w_a is None or not space.isinstance_w(w_a, space.w_dict) or w_b is None:
+        raise PyErr_BadInternalCall(space)
     override = rffi.cast(lltype.Signed, override)
     w_keys = space.call_method(w_b, "keys")
     w_iter = space.iter(w_keys)
@@ -237,18 +246,24 @@ def PyDict_Update(space, w_obj, w_other):
 def PyDict_Keys(space, w_obj):
     """Return a PyListObject containing all the keys from the dictionary,
     as in the dictionary method dict.keys()."""
+    if w_obj is None or not space.isinstance_w(w_obj, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     return space.call_function(space.w_list, space.call_method(space.w_dict, "keys", w_obj))
 
 @cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Values(space, w_obj):
     """Return a PyListObject containing all the values from the
     dictionary p, as in the dictionary method dict.values()."""
+    if w_obj is None or not space.isinstance_w(w_obj, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     return space.call_function(space.w_list, space.call_method(space.w_dict, "values", w_obj))
 
 @cpython_api([PyObject], PyObject, abi3=True)
 def PyDict_Items(space, w_obj):
     """Return a PyListObject containing all the items from the
     dictionary, as in the dictionary method dict.items()."""
+    if w_obj is None or not space.isinstance_w(w_obj, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     return space.call_function(space.w_list, space.call_method(space.w_dict, "items", w_obj))
 
 @cpython_api([PyObject, Py_ssize_tP, PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL, abi3=True)

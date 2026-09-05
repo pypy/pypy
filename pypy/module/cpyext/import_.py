@@ -16,6 +16,9 @@ def PyImport_Import(space, w_name):
     are installed in the current environment, e.g. by rexec or ihooks.
 
     Always uses absolute imports."""
+    if w_name is None:
+        raise oefmt(space.w_SystemError,
+            "NULL object passed to PyImport_Import")
     caller = space.getexecutioncontext().gettopframe_nohidden()
     # Get the builtins from current globals
     if caller is not None:
@@ -173,6 +176,18 @@ def _PyImport_AcquireLock(space):
         space.call_method(space.getbuiltinmodule('imp'), 'acquire_lock')
     except OperationError as e:
         e.write_unraisable(space, "_PyImport_AcquireLock")
+
+@cpython_api([], rffi.LONG, error=CANNOT_FAIL, abi3=True)
+def PyImport_GetMagicNumber(space):
+    """Return the magic number for Python bytecode files (a.k.a. .pyc file).
+    The magic number should be present in the first four bytes of the
+    bytecode file, in little-endian byte order."""
+    return importing.get_pyc_magic(space)
+
+@cts.decl("const char *PyImport_GetMagicTag(void)", error=CANNOT_FAIL, abi3=True)
+def PyImport_GetMagicTag(space):
+    """Return the magic tag string for PYC files."""
+    return rffi.str2charp(importing.PYC_TAG, track_allocation=False)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def _PyImport_ReleaseLock(space):

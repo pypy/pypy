@@ -34,6 +34,12 @@ class TestImport(BaseApiTest):
         w_dict = PyImport_GetModuleDict(space, )
         assert space.contains_w(w_dict, space.wrap(testmod))
 
+    def test_getmagic(self, space):
+        from pypy.module.imp import importing
+        assert PyImport_GetMagicNumber(space) == importing.get_pyc_magic(space)
+        tag = rffi.constcharp2str(PyImport_GetMagicTag(space))
+        assert tag == importing.PYC_TAG
+
     def test_reload(self, space):
         stat = PyImport_Import(space, space.wrap("stat"))
         space.delattr(stat, space.wrap("S_IMODE"))

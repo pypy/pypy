@@ -1389,7 +1389,10 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = make_ref(space, space.newtext(name))
     incref(space, res.c_ht_qualname)
-    typ.c_tp_name = spec.c_name
+    # spec (and spec.c_name) may be freed by the caller right after this
+    # function returns, so tp_name needs its own persistent copy.
+    typ.c_tp_name = cts.cast('const char*',
+                              rffi.str2charp(specname, track_allocation=False))
     if module:
         incref(space, module)
         res.c_ht_module = module

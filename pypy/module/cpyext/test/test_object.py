@@ -558,8 +558,8 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert n == 1
         module.leave(obj2)
 
-    def test_GenericGetSetDict(self):
-        module = self.import_extension('test_GenericGetSetDict', [
+    def test_get(self):
+        module = self.import_extension('test_get', [
             ('test1', 'METH_VARARGS',
              """
                  PyObject *obj = PyTuple_GET_ITEM(args, 0);
@@ -572,7 +572,57 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  if (res != 0)
                      return NULL;
                  return olddict;
-             """)])
+             """),
+            ('itemdata_roundtrip', 'METH_O',
+             """
+                 Py_ssize_t n = PyLong_AsSsize_t(args);
+                 static PyType_Slot slots[] = {{0, 0}};
+                 static PyType_Spec spec = {
+                     "test_get.ItemsAtEnd",
+                     sizeof(PyVarObject),
+                     sizeof(PyObject *),
+                     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_ITEMS_AT_END,
+                     slots,
+                 };
+                 PyObject *type = PyType_FromSpec(&spec);
+                 if (type == NULL)
+                     return NULL;
+                 PyObject *instance = ((PyTypeObject *)type)->tp_alloc(
+                     (PyTypeObject *)type, n);
+                 if (instance == NULL) {
+                     Py_DECREF(type);
+                     return NULL;
+                 }
+                 PyObject **data = PyObject_GetItemData(instance);
+                 if (data == NULL) {
+                     Py_DECREF(instance);
+                     Py_DECREF(type);
+                     return NULL;
+                 }
+                 PyObject *result = PyTuple_New(n);
+                 Py_ssize_t i;
+                 for (i = 0; i < n; i++) {
+                     PyObject *v = PyLong_FromSsize_t(i * 10);
+                     data[i] = v;    /* 'instance' owns this reference */
+                     Py_INCREF(v);   /* the tuple gets its own reference */
+                     PyTuple_SET_ITEM(result, i, v);
+                 }
+                 for (i = 0; i < n; i++) {
+                     Py_DECREF(data[i]);
+                     data[i] = NULL;
+                 }
+                 Py_DECREF(instance);
+                 Py_DECREF(type);
+                 return result;
+             """),
+            ('itemdata_typeerror', 'METH_O',
+             """
+                 void *p = PyObject_GetItemData(args);
+                 if (p == NULL)
+                     return NULL;
+                 Py_RETURN_NONE;
+             """),
+            ])
         class A:
             pass
         a = A()
@@ -582,6 +632,9 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert d == {'x': 42}
         assert a.y == 43
         assert a.__dict__ is nd
+
+        assert module.itemdata_roundtrip(3) == (0, 10, 20)
+        raises(TypeError, module.itemdata_typeerror, object())
 
     def test_Py_Is(self):
         module = self.import_extension('foo', [
