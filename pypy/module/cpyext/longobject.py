@@ -222,8 +222,9 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     For other errors (e.g., TypeError), return -1 and set an error condition.
     In this case *overflow will be 0.
     """
-
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     try:
         val = space.int_w(space.index(w_long))
         if not need_to_check or (val >= LONG_MIN and val <= LONG_MAX):
@@ -248,6 +249,8 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     other exception occurs (for example a TypeError or MemoryError), then -1
     will be returned and *overflow will be 0."""
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
+    if w_long is None:
+        raise PyErr_BadInternalCall(space)
     try:
         return rffi.cast(rffi.LONGLONG, space.r_longlong_w(space.index(w_long)))
     except OperationError as e:
