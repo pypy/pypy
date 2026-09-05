@@ -20,6 +20,9 @@ extern "C" {
 #define PyByteArray_GET_SIZE(op) PyByteArray_Size((PyObject*)(op))
 #define PyByteArray_AS_STRING(op) PyByteArray_AsString((PyObject*)(op))
 
+#define PyByteArray_Check(self) PyObject_TypeCheck((self), &PyByteArray_Type)
+#define PyByteArray_CheckExact(self) Py_IS_TYPE((self), &PyByteArray_Type)
+
 /* Object layout */
 typedef struct {
     PyObject_VAR_HEAD

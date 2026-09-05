@@ -34,7 +34,8 @@ def module_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
-PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
+PyModule_Check, PyModule_CheckExact = build_type_checkers(
+    "Module", Module, export=False)
 
 @cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyModule_New(space, name):

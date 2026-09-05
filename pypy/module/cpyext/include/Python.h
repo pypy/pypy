@@ -77,6 +77,7 @@
 #include "genobject.h"
 #include "descrobject.h"
 #include "genericaliasobject.h"
+#include "weakrefobject.h"
 #include "structseq.h"
 #include "pyerrors.h"
 #include "pythread.h"

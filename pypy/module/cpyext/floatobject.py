@@ -16,7 +16,8 @@ PyFloatObjectFields = PyObjectFields + \
     (("ob_fval", rffi.DOUBLE),)
 cpython_struct("PyFloatObject", PyFloatObjectFields, PyFloatObjectStruct)
 
-PyFloat_Check, PyFloat_CheckExact = build_type_checkers("Float", "w_float")
+PyFloat_Check, PyFloat_CheckExact = build_type_checkers(
+    "Float", "w_float", export=False)
 
 @bootstrap_function
 def init_floatobject(space):

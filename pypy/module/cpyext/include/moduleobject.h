@@ -8,6 +8,9 @@ extern "C" {
 
 #include "cpyext_moduleobject.h"
 
+#define PyModule_Check(op) PyObject_TypeCheck((op), &PyModule_Type)
+#define PyModule_CheckExact(op) Py_IS_TYPE((op), &PyModule_Type)
+
 PyAPI_FUNC(struct PyModuleDef*) PyModule_GetDef(PyObject*);
 PyAPI_FUNC(void*) PyModule_GetState(PyObject*);
 

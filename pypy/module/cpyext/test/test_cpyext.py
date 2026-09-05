@@ -33,8 +33,7 @@ def PyPy_Noop(space, pyobj):
 class TestApi:
     def test_signature(self):
         common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
-        assert 'PyModule_Check' in common_functions
-        assert common_functions['PyModule_Check'].argtypes == [cts.gettype("void *")]
+        assert 'PyModule_Check' not in common_functions
         assert 'PyModule_GetDict' in common_functions
         assert common_functions['PyModule_GetDict'].argtypes == [api.PyObject]
 

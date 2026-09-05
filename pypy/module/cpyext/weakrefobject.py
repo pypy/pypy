@@ -56,7 +56,7 @@ def PyWeakref_LockObject(space, w_ref):
     """
     return space.call_function(w_ref)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyWeakref_CheckRef(space, w_obj):
     """Return true if ob is a reference object.
     """
@@ -65,13 +65,13 @@ def PyWeakref_CheckRef(space, w_obj):
     return (space.is_w(w_obj_type, w_type) or
             space.issubtype_w(w_obj_type, w_type))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyWeakref_CheckRefExact(space, w_obj):
     w_obj_type = space.type(w_obj)
     w_type = space.gettypeobject(W_Weakref.typedef)
     return space.is_w(w_obj_type, w_type)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyWeakref_CheckProxy(space, w_obj):
     """Return true if ob is a proxy object.
     """
@@ -80,7 +80,7 @@ def PyWeakref_CheckProxy(space, w_obj):
     w_type2 = space.gettypeobject(W_CallableProxy.typedef)
     return space.is_w(w_obj_type, w_type1) or space.is_w(w_obj_type, w_type2)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyWeakref_Check(space, w_obj):
     """Return true if ob is either a reference or proxy object.
     """

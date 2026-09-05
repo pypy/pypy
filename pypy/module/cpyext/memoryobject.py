@@ -17,7 +17,8 @@ from pypy.module.cpyext.buffer import CPyBuffer, fq
 cts.parse_header(parse_dir / 'cpyext_memoryobject.h')
 PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 
-PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
+PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers(
+    "MemoryView", export=False)
 
 FORMAT_ALLOCATED = 0x04
 # set when view.c_obj holds an owned reference that memory_dealloc must give

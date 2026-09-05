@@ -3,13 +3,14 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.pyobject import (PyObject, make_ref, make_typedescr, decref)
 from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cts, parse_dir,
-    bootstrap_function, slot_function)
+    bootstrap_function, slot_function, init_function)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
 from pypy.module.__pypy__.interp_pypydatetime import (W_DateTime_Date,
     W_DateTime_Time, W_DateTime_Delta)
+from pypy.objspace.std.capsuleobject import W_Capsule
 from rpython.tool.sourcetools import func_renamer
 from pypy.module.cpyext.state import State
 
@@ -96,6 +97,24 @@ def _PyDateTime_Import(space):
 
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
+
+DATETIME_CAPSULE_NAME = "datetime.datetime_CAPI"
+
+@init_function
+def init_datetime_capsule(space):
+    """A CPython-compiled extension's PyDateTime_IMPORT expands to
+    PyCapsule_Import("datetime.datetime_CAPI", 0): publish the same
+    PyDateTime_CAPI struct _PyDateTime_Import builds as a real capsule
+    under that name, so such an extension finds it without ever calling
+    into PyPy's own _PyDateTime_Import.
+    """
+    datetimeAPI = _PyDateTime_Import(space)
+    pointer = rffi.cast(rffi.VOIDP, datetimeAPI)
+    name = rffi.cast(cts.gettype("const char*"),
+                      rffi.str2charp(DATETIME_CAPSULE_NAME, track_allocation=False))
+    w_capsule = W_Capsule(space, pointer, name)
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    space.setattr(w_datetime, space.newtext("datetime_CAPI"), w_capsule)
 
 PyDateTime_Time = cts.gettype('PyDateTime_Time*')
 PyDateTime_DateTime = cts.gettype('PyDateTime_DateTime*')

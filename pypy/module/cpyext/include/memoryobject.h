@@ -7,6 +7,8 @@ extern "C" {
 
 #include "cpyext_memoryobject.h"
 
+#define PyMemoryView_Check(op) Py_IS_TYPE((op), &PyMemoryView_Type)
+
 /* Get a pointer to the memoryview's private copy of the exporter's buffer. */
 #define PyMemoryView_GET_BUFFER(op) (&((PyMemoryViewObject *)(op))->view)
 /* Get a pointer to the exporting object (this may be NULL!). */

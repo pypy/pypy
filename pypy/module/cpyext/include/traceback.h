@@ -14,6 +14,8 @@ typedef struct _traceback {
         int tb_lineno;
 } PyTracebackObject;
 
+#define PyTraceBack_Check(v) Py_IS_TYPE((v), &PyTraceBack_Type)
+
 #ifdef __cplusplus
 }
 #endif

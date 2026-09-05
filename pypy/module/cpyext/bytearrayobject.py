@@ -27,7 +27,8 @@ PyByteArrayObject = lltype.Ptr(PyByteArrayObjectStruct)
 PyByteArrayObjectFields = PyVarObjectFields
 cpython_struct("PyByteArrayObject", PyByteArrayObjectFields, PyByteArrayObjectStruct)
 
-PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers("ByteArray", "w_bytearray")
+PyByteArray_Check, PyByteArray_CheckExact = build_type_checkers(
+    "ByteArray", "w_bytearray", export=False)
 
 #_______________________________________________________________________
 

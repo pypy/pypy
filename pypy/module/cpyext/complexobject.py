@@ -6,7 +6,8 @@ from pypy.module.cpyext.pyobject import (
 from pypy.objspace.std.complexobject import W_ComplexObject, unpackcomplex
 from pypy.interpreter.error import oefmt
 
-PyComplex_Check, PyComplex_CheckExact = build_type_checkers("Complex")
+PyComplex_Check, PyComplex_CheckExact = build_type_checkers(
+    "Complex", export=False)
 
 Py_complex_t = rffi.CStruct('Py_complex_t',
                             ('real', rffi.DOUBLE),

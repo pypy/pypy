@@ -41,17 +41,18 @@ def set_dealloc(space, py_obj):
     py_set.c__tmplist = lltype.nullptr(PyObject.TO)
     _dealloc(space, py_obj)
 
-PySet_Check, PySet_CheckExact = build_type_checkers("Set")
-PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers("FrozenSet")
+PySet_Check, PySet_CheckExact = build_type_checkers("Set", export=False)
+PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers(
+    "FrozenSet", export=False)
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyAnySet_Check(space, w_obj):
     """Return true if obj is a set object, a frozenset object, or an
     instance of a subtype."""
     return (space.isinstance_w(w_obj, space.gettypefor(W_SetObject)) or
             space.isinstance_w(w_obj, space.gettypefor(W_FrozensetObject)))
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, export=False)
 def PyAnySet_CheckExact(space, w_obj):
     """Return true if obj is a set object or a frozenset object but
     not an instance of a subtype."""

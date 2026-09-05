@@ -160,6 +160,51 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                                       datetime.tzinfo)
         module.clear_types()
 
+    def test_capsule_import(self):
+        # Simulate what a CPython-compiled extension's PyDateTime_IMPORT
+        # macro actually does: PyCapsule_Import, not PyPy's own
+        # _PyDateTime_Import rewrite.
+        module = self.import_extension('foo', [
+            ("get_types", "METH_NOARGS",
+             """
+                 PyDateTime_CAPI *capi = (PyDateTime_CAPI *)PyCapsule_Import(
+                     "datetime.datetime_CAPI", 0);
+                 if (!capi) {
+                     return NULL;
+                 }
+                 return PyTuple_Pack(5,
+                                     capi->DateType,
+                                     capi->DateTimeType,
+                                     capi->TimeType,
+                                     capi->DeltaType,
+                                     capi->TZInfoType);
+             """),
+            ("check", "METH_O",
+             """
+                 PyDateTimeAPI = (PyDateTime_CAPI *)PyCapsule_Import(
+                     "datetime.datetime_CAPI", 0);
+                 if (!PyDateTimeAPI) {
+                     return NULL;
+                 }
+                 return Py_BuildValue("iiiii",
+                     PyDate_Check(args), PyDate_CheckExact(args),
+                     PyDateTime_Check(args), PyDateTime_CheckExact(args),
+                     PyDelta_Check(args));
+             """),
+            ], prologue='#include "datetime.h"\n')
+        import datetime
+        assert module.get_types() == (datetime.date,
+                                      datetime.datetime,
+                                      datetime.time,
+                                      datetime.timedelta,
+                                      datetime.tzinfo)
+        # real CPython PyDate_Check/PyDateTime_Check/... macros, driven by
+        # the PyDateTimeAPI populated via PyCapsule_Import above.
+        assert module.check(datetime.date(2020, 1, 1)) == (1, 1, 0, 0, 0)
+        assert module.check(datetime.datetime(2020, 1, 1)) == (1, 0, 1, 1, 0)
+        assert module.check(datetime.timedelta(1)) == (0, 0, 0, 0, 1)
+        assert module.check(42) == (0, 0, 0, 0, 0)
+
     def test_constructors(self):
         module = self.import_extension('foo', [
             ("new_date", "METH_NOARGS",
