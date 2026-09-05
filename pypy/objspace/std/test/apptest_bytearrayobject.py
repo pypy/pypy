@@ -64,3 +64,17 @@ def test_init_index():
 
 def test_init_huge_count_overflows():
     raises(OverflowError, bytearray, 2 ** 200)
+
+
+def test_init_does_not_honor_bytes_without_index():
+    # unlike bytes(), bytearray() never calls __bytes__, even when
+    # __index__ is absent (see test_init_index_takes_precedence_over_bytes
+    # for the case where both are defined).
+    class WithBytes:
+        def __init__(self, value):
+            self.value = value
+        def __bytes__(self):
+            return self.value
+
+    assert bytes(WithBytes(b'xy')) == b'xy'
+    raises(TypeError, bytearray, WithBytes(b'xy'))

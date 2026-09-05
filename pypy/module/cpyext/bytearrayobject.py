@@ -1,10 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers,
-    PyVarObjectFields, Py_ssize_t, CONST_STRING)
+    PyVarObjectFields, Py_ssize_t, CONST_STRING, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, make_typedescr, get_typedescr)
@@ -45,9 +45,15 @@ def PyByteArray_FromObject(space, w_obj):
 def PyByteArray_FromStringAndSize(space, char_p, length):
     """Create a new bytearray object from string and its length, len.  On
     failure, NULL is returned."""
+    if length < 0:
+        raise oefmt(space.w_SystemError,
+            "Negative size passed to PyByteArray_FromStringAndSize")
     if char_p:
         w_s = space.newbytes(rffi.charpsize2str(char_p, length))
     else:
+        if length > PY_SSIZE_T_MAX - 64:
+            # would overflow the buffer allocation size
+            raise oefmt(space.w_MemoryError, "")
         w_s = space.newint(length)
     w_buffer = space.call_function(space.w_bytearray, w_s)
     return make_ref(space, w_buffer)
@@ -55,7 +61,13 @@ def PyByteArray_FromStringAndSize(space, char_p, length):
 @cpython_api([PyObject, PyObject], PyObject, abi3=True)
 def PyByteArray_Concat(space, w_left, w_right):
     """Concat bytearrays a and b and return a new bytearray with the result."""
-    return space.add(w_left, w_right)
+    try:
+        left = space.bufferstr_w(w_left)
+        right = space.bufferstr_w(w_right)
+    except OperationError:
+        raise oefmt(space.w_TypeError,
+            "can't concat %T to %T", w_right, w_left)
+    return space.call_function(space.w_bytearray, space.newbytes(left + right))
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyByteArray_Size(space, w_obj):
@@ -78,6 +90,9 @@ def PyByteArray_AsString(space, w_obj):
 def PyByteArray_Resize(space, w_obj, newlen):
     """Resize the internal buffer of bytearray to len."""
     if space.isinstance_w(w_obj, space.w_bytearray):
+        if newlen > PY_SSIZE_T_MAX - 64:
+            # would overflow the buffer allocation size
+            raise oefmt(space.w_MemoryError, "")
         oldlen = space.len_w(w_obj)
         if newlen > oldlen:
             space.call_method(w_obj, 'extend', space.newbytes('\x00' * (newlen - oldlen)))

@@ -41,13 +41,13 @@ def PySequence_Size(space, w_obj):
     Python expression len(o)."""
     if w_obj is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not space.issequence_w(w_obj):
+        raise oefmt(space.w_TypeError, "'%T' is not a sequence", w_obj)
     return space.len_w(w_obj)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PySequence_Length(space, w_obj):
-    if w_obj is None:
-        raise oefmt(space.w_SystemError, "null argument to internal routine")
-    return space.len_w(w_obj)
+    return PySequence_Size(space, w_obj)
 
 @cpython_api([PyObject, CONST_STRING], PyObject, abi3=True)
 def PySequence_Fast(space, w_obj, m):
@@ -195,6 +195,8 @@ def PySequence_GetItem(space, w_obj, i):
     the Python expression o[i]."""
     if w_obj is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not space.issequence_w(w_obj):
+        raise oefmt(space.w_TypeError, "'%T' is not a sequence", w_obj)
     if i < 0:
         l = PySequence_Length(space, w_obj)
         i += l
@@ -304,6 +306,8 @@ def PySequence_DelItem(space, w_o, i):
     equivalent of the Python statement del o[i]."""
     if w_o is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
+    if not space.issequence_w(w_o):
+        raise oefmt(space.w_TypeError, "'%T' is not a sequence", w_o)
     space.delitem(w_o, space.newint(i))
     return 0
 

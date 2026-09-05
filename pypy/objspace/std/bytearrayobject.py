@@ -295,7 +295,8 @@ class W_BytearrayObject(W_BufferExporter):
             # loop (list comprehension, append) is not - and this list type
             # supports raw pointers, which makes appending even more
             # expensive.  see issue 5567.
-            data = list(newbytesdata_w(space, w_source, encoding, errors))
+            data = list(newbytesdata_w(space, w_source, encoding, errors,
+                                        check_bytes_method=False))
             data.append("\0")
         self._data = resizable_list_supporting_raw_ptr(data)
         self._offset = 0

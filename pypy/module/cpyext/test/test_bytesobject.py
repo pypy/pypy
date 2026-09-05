@@ -46,11 +46,19 @@ class AppTestBytesObject(AppTestCpythonExtensionBase):
              ("test_is_bytes", "METH_VARARGS",
              """
                 return PyBool_FromLong(PyBytes_Check(PyTuple_GetItem(args, 0)));
+             """),
+             ("test_size_of", "METH_O",
+             """
+                Py_ssize_t size = PyBytes_Size(args);
+                if (size < 0)
+                    return NULL;
+                return PyLong_FromSsize_t(size);
              """)], prologue='#include <stdlib.h>')
         assert module.get_hello1() == b'Hello world'
         assert module.get_hello2() == b'Hello world'
         assert module.test_Size()
         raises(TypeError, module.test_Size_exception)
+        raises(TypeError, module.test_size_of, bytearray(b'abc'))
 
         assert module.test_is_bytes(b"")
         assert not module.test_is_bytes(())
@@ -313,6 +321,18 @@ class TestBytes(BaseApiTest):
         assert not ptr[0]
         ptr[0] = lltype.nullptr(PyObject.TO)
         PyBytes_Concat(space, ptr, space.wrap('def')) # should not crash
+        lltype.free(ptr, flavor='raw')
+
+        # the first argument need not be an exact bytes object, just
+        # something supporting the buffer protocol -- and the result is
+        # always a real bytes object
+        ba_ref = make_ref(space, space.newbytearray(list('abc')))
+        ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
+        ptr[0] = ba_ref
+        PyBytes_Concat(space, ptr, space.newbytes('def'))
+        w_result = from_ref(space, ptr[0])
+        assert space.bytes_w(w_result) == b'abcdef'
+        assert space.type(w_result) is space.w_bytes
         lltype.free(ptr, flavor='raw')
 
     def test_ConcatAndDel2(self, space):

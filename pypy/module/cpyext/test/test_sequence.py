@@ -3,8 +3,9 @@ from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.sequence import (
-    PySequence_Fast, PySequence_Contains, 
-    PySequence_GetItem, PySequence_SetItem, PySequence_DelItem)
+    PySequence_Fast, PySequence_Contains,
+    PySequence_GetItem, PySequence_SetItem, PySequence_DelItem,
+    PySequence_Size, PySequence_Length)
 from pypy.module.cpyext.pyobject import get_w_obj_and_decref, from_ref
 from pypy.module.cpyext.state import State
 import pytest
@@ -34,6 +35,13 @@ class TestSequence(BaseApiTest):
         w_seq = api.PySequence_Tuple(w_set)
         assert space.type(w_seq) is space.w_tuple
         assert sorted(space.unwrap(w_seq)) == [1, 2, 3, 4]
+
+        assert PySequence_Size(space, w_l) == 4
+        assert PySequence_Length(space, w_l) == 4
+        with raises_w(space, TypeError):
+            PySequence_Size(space, space.newdict())
+        with raises_w(space, TypeError):
+            PySequence_Length(space, space.newdict())
 
         w_seq = api.PySequence_List(w_set)
         assert space.type(w_seq) is space.w_list
@@ -177,6 +185,8 @@ class TestSequence(BaseApiTest):
         assert space.eq_w(w_l, space.wrap([1, 2, 4]))
         with raises_w(space, IndexError):
             PySequence_DelItem(space, w_l, 3)
+        with raises_w(space, TypeError):
+            PySequence_DelItem(space, space.newdict(), 1)
 
     def test_getitem(self, space, api):
         thelist = [8, 7, 6, 5, 4, 3, 2, 1]
@@ -189,6 +199,8 @@ class TestSequence(BaseApiTest):
         assert space.is_true(space.eq(result, space.wrap(4)))
         with raises_w(space, IndexError):
             PySequence_GetItem(space, w_l, 9000)
+        with raises_w(space, TypeError):
+            PySequence_GetItem(space, space.newdict(), 1)
 
     def test_index(self, space, api):
         thelist = [9, 8, 7, 6, 5, 4, 3, 2, 1]

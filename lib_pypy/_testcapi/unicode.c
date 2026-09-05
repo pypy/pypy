@@ -783,6 +783,7 @@ unicode_decodeutf8(PyObject *self, PyObject *args)
     return PyUnicode_DecodeUTF8(data, size, errors);
 }
 
+#ifndef PYPY_VERSION
 /* Test PyUnicode_DecodeUTF8Stateful() */
 static PyObject *
 unicode_decodeutf8stateful(PyObject *self, PyObject *args)
@@ -803,6 +804,7 @@ unicode_decodeutf8stateful(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Nn)", result, consumed);
 }
+#endif
 
 /* Test PyUnicode_AsUTF8String() */
 static PyObject *
@@ -832,6 +834,7 @@ unicode_decodeutf32(PyObject *self, PyObject *args)
     return Py_BuildValue("(iN)", byteorder, result);
 }
 
+#ifndef PYPY_VERSION
 /* Test PyUnicode_DecodeUTF32Stateful() */
 static PyObject *
 unicode_decodeutf32stateful(PyObject *self, PyObject *args)
@@ -853,6 +856,7 @@ unicode_decodeutf32stateful(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(iNn)", byteorder, result, consumed);
 }
+#endif
 
 /* Test PyUnicode_AsUTF32String() */
 static PyObject *
@@ -882,6 +886,7 @@ unicode_decodeutf16(PyObject *self, PyObject *args)
     return Py_BuildValue("(iN)", byteorder, result);
 }
 
+#ifndef PYPY_VERSION
 /* Test PyUnicode_DecodeUTF16Stateful() */
 static PyObject *
 unicode_decodeutf16stateful(PyObject *self, PyObject *args)
@@ -903,6 +908,7 @@ unicode_decodeutf16stateful(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(iNn)", byteorder, result, consumed);
 }
+#endif
 
 /* Test PyUnicode_AsUTF16String() */
 static PyObject *
@@ -998,6 +1004,7 @@ unicode_asasciistring(PyObject *self, PyObject *arg)
     return PyUnicode_AsASCIIString(arg);
 }
 
+#ifndef PYPY_VERSION
 /* Test PyUnicode_DecodeCharmap() */
 static PyObject *
 unicode_decodecharmap(PyObject *self, PyObject *args)
@@ -1028,6 +1035,7 @@ unicode_ascharmapstring(PyObject *self, PyObject *args)
     NULLABLE(mapping);
     return PyUnicode_AsCharmapString(unicode, mapping);
 }
+#endif
 
 #ifdef MS_WINDOWS
 
@@ -2031,13 +2039,19 @@ static PyMethodDef TestMethods[] = {
     {"unicode_decodeutf7",       unicode_decodeutf7,             METH_VARARGS},
     {"unicode_decodeutf7stateful",unicode_decodeutf7stateful,    METH_VARARGS},
     {"unicode_decodeutf8",       unicode_decodeutf8,             METH_VARARGS},
+#ifndef PYPY_VERSION
     {"unicode_decodeutf8stateful",unicode_decodeutf8stateful,    METH_VARARGS},
+#endif
     {"unicode_asutf8string",     unicode_asutf8string,           METH_O},
     {"unicode_decodeutf16",      unicode_decodeutf16,            METH_VARARGS},
+#ifndef PYPY_VERSION
     {"unicode_decodeutf16stateful",unicode_decodeutf16stateful,  METH_VARARGS},
+#endif
     {"unicode_asutf16string",    unicode_asutf16string,          METH_O},
     {"unicode_decodeutf32",      unicode_decodeutf32,            METH_VARARGS},
+#ifndef PYPY_VERSION
     {"unicode_decodeutf32stateful",unicode_decodeutf32stateful,  METH_VARARGS},
+#endif
     {"unicode_asutf32string",    unicode_asutf32string,          METH_O},
     {"unicode_decodeunicodeescape",unicode_decodeunicodeescape,  METH_VARARGS},
     {"unicode_asunicodeescapestring",unicode_asunicodeescapestring,METH_O},
@@ -2047,8 +2061,10 @@ static PyMethodDef TestMethods[] = {
     {"unicode_aslatin1string",   unicode_aslatin1string,         METH_O},
     {"unicode_decodeascii",      unicode_decodeascii,            METH_VARARGS},
     {"unicode_asasciistring",    unicode_asasciistring,          METH_O},
+#ifndef PYPY_VERSION
     {"unicode_decodecharmap",    unicode_decodecharmap,          METH_VARARGS},
     {"unicode_ascharmapstring",  unicode_ascharmapstring,        METH_VARARGS},
+#endif
 #ifdef MS_WINDOWS
     {"unicode_decodembcs",       unicode_decodembcs,             METH_VARARGS},
 #ifndef PYPY_VERSION

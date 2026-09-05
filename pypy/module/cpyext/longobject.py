@@ -128,7 +128,7 @@ def PyLong_AsLong(space, w_long):
                     "Python int too large to convert to C long")
     return rffi.cast(rffi.LONG, val)
 
-@cpython_api([PyObject], rffi.INT, error=-1)
+@cpython_api([PyObject], rffi.INT, error=-1, abi3=True)
 def _PyLong_AsInt(space, w_long):
     """
     Get a C int from an int object or any object that has an __index__
@@ -168,7 +168,13 @@ def PyLong_AsSize_t(space, w_long):
     Raise OverflowError if the value of pylong is out of range for a
     size_t."""
     _check_long_arg(space, w_long)
-    return space.uint_w(w_long)
+    try:
+        return space.uint_w(w_long)
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            raise oefmt(space.w_OverflowError,
+                "can't convert negative value to size_t")
+        raise
 
 @cts.decl("long long PyLong_AsLongLong(PyObject *val)", error=-1, abi3=True)
 def PyLong_AsLongLong(space, w_long):
@@ -219,7 +225,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
 
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
-        val = space.int_w(w_long)
+        val = space.int_w(space.index(w_long))
         if not need_to_check or (val >= LONG_MIN and val <= LONG_MAX):
             # On win64 space.int_w will succeed for 8-byte ints
             # but long is 4 bytes. So we must check manually
@@ -243,7 +249,7 @@ def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     will be returned and *overflow will be 0."""
     overflow_ptr[0] = rffi.cast(rffi.INT_real, 0)
     try:
-        return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
+        return rffi.cast(rffi.LONGLONG, space.r_longlong_w(space.index(w_long)))
     except OperationError as e:
         if not e.match(space, space.w_OverflowError):
             raise
@@ -319,7 +325,12 @@ def PyLong_AsVoidPtr(space, w_long):
     is only assured to produce a usable void pointer for values created
     with PyLong_FromVoidPtr().
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
-    return rffi.cast(rffi.VOIDP, space.uint_w(w_long))
+    _check_long_arg(space, w_long)
+    if space.is_true(space.lt(w_long, space.newint(0))):
+        val = space.int_w(w_long)
+    else:
+        val = space.uint_w(w_long)
+    return rffi.cast(rffi.VOIDP, val)
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1)
 def _PyLong_NumBits(space, w_long):

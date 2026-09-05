@@ -121,6 +121,11 @@ class TestLongObject(BaseApiTest):
         assert space.unwrap(w_l) == maxint+1
         assert api.PyLong_AsVoidPtr(w_l) == p
 
+        # a genuinely negative Python int must also round-trip (using the
+        # signed conversion), not just the unsigned bit patterns above
+        p = rffi.cast(rffi.VOIDP, -1)
+        assert api.PyLong_AsVoidPtr(space.newint(-1)) == p
+
     def test_sign_and_bits(self, space, api):
         assert api._PyLong_Sign(space.wraplong(0L)) == 0
         assert api._PyLong_Sign(space.wraplong(2L)) == 1
@@ -516,18 +521,29 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 if (!ret) return NULL;
                 return PyLong_FromLong(ret);
             """),
-            ])
-        assert module.aslongmask(3) == 3
-
-    def test_as_longlong_and_overflow(self):
-        module = self.import_extension('foo', [
             ("aslonglong_overflow", "METH_O",
             """
                 int overflow=0;
                 long long ret = PyLong_AsLongLongAndOverflow(args, &overflow);
                 return PyTuple_Pack(2, PyLong_FromLongLong(ret), PyLong_FromLong(overflow));
             """),
+            # PyLong_AsPid must reject values that don't fit in a pid_t (an
+            # int-sized type on Linux), not just values that don't fit in a
+            # C long -- see Issue #1983.
+            ("aspid", "METH_O",
+            """
+                pid_t pid = PyLong_AsPid(args);
+                if (pid == -1 && PyErr_Occurred())
+                    return NULL;
+                return PyLong_FromLong((long)pid);
+            """),
             ])
+        assert module.aslongmask(3) == 3
+
         assert module.aslonglong_overflow(1<<62) == (1<<62, 0)
         assert module.aslonglong_overflow(1<<63) == (-1, 1)
         assert module.aslonglong_overflow(-1<<64) == (-1, -1)
+
+        assert module.aspid(42) == 42
+        assert module.aspid(-42) == -42
+        raises(OverflowError, module.aspid, 1 << 40)

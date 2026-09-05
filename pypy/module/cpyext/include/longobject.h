@@ -25,7 +25,8 @@ PyAPI_FUNC(long) PyOS_strtol(const char *, char **, int);
 
 
 /* abi3/limited-API shims */
-#define PyLong_AsPid PyLong_AsLong
+PyAPI_FUNC(int) _PyLong_AsInt(PyObject *);
+#define PyLong_AsPid _PyLong_AsInt
 #define PyLong_FromPid PyLong_FromLong
 PyAPI_FUNC(PyObject *) PyLong_GetInfo(void);
 

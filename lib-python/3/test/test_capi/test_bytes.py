@@ -129,6 +129,7 @@ class CAPITest(unittest.TestCase):
         # CRASHES asstringandsize(NULL, 0)
         # CRASHES asstringandsize_null(NULL, 0)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'bytes_repr'), "")
     def test_repr(self):
         # Test PyBytes_Repr()
         bytes_repr = _testcapi.bytes_repr

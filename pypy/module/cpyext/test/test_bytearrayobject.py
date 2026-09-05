@@ -141,6 +141,14 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                 }
                 ret = PyByteArray_Concat(ba1, ba2);
                 return ret;
+             """),
+            ("concat_raw", "METH_VARARGS",
+             """
+                PyObject *left, *right;
+                if (!PyArg_ParseTuple(args, "OO", &left, &right)) {
+                    return NULL;
+                }
+                return PyByteArray_Concat(left, right);
              """)])
         assert module.bytearray_from_bytes(b"huheduwe") == b"huhe"
         assert module.bytes_from_bytearray(bytearray(b'abc')) == b'abc'
@@ -152,6 +160,15 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
         assert not isinstance(ret, str)
         assert isinstance(ret, bytearray)
         raises(TypeError, module.concat, b'abc', u'def')
+
+        # PyByteArray_Concat itself accepts any buffer-protocol object,
+        # not just bytearrays, on either side.
+        assert module.concat_raw(b'abc', b'def') == bytearray(b'abcdef')
+        assert module.concat_raw(bytearray(b'abc'), b'def') == bytearray(b'abcdef')
+        assert module.concat_raw(b'abc', bytearray(b'def')) == bytearray(b'abcdef')
+        assert module.concat_raw(memoryview(b'xabcy')[1:4], b'def') == bytearray(b'abcdef')
+        raises(TypeError, module.concat_raw, b'abc', u'def')
+        raises(TypeError, module.concat_raw, memoryview(b'axbycz')[::2], b'def')
 
     def test_bytearray_resize(self):
         module = self.import_extension('foo', [

@@ -769,7 +769,7 @@ def invoke_bytes_method(space, w_source):
         return w_bytes
     return None
 
-def newbytesdata_w(space, w_source, encoding, errors):
+def newbytesdata_w(space, w_source, encoding, errors, check_bytes_method=True):
     # None value
     if w_source is None:
         if encoding is not None or errors is not None:
@@ -796,10 +796,12 @@ def newbytesdata_w(space, w_source, encoding, errors):
     # Fast-path for bytes
     if space.type(w_source) is space.w_bytes:
         return space.bytes_w(w_source)
-    # Some other object with a __bytes__ special method (could be str subclass)
-    w_result = invoke_bytes_method(space, w_source)
-    if w_result is not None:
-        return space.bytes_w(w_result)
+    if check_bytes_method:
+        # Some other object with a __bytes__ special method (could be str
+        # subclass). Unlike bytes(), bytearray() does not honor __bytes__.
+        w_result = invoke_bytes_method(space, w_source)
+        if w_result is not None:
+            return space.bytes_w(w_result)
 
     return newbytesdata_w_tail(space, w_source)
 

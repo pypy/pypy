@@ -133,6 +133,7 @@ bytes_asstringandsize_null(PyObject *Py_UNUSED(module), PyObject *args)
     }
 }
 
+#ifndef PYPY_VERSION
 /* Test PyBytes_Repr() */
 static PyObject *
 bytes_repr(PyObject *Py_UNUSED(module), PyObject *args)
@@ -145,6 +146,7 @@ bytes_repr(PyObject *Py_UNUSED(module), PyObject *args)
     NULLABLE(obj);
     return PyBytes_Repr(obj, smartquotes);
 }
+#endif
 
 /* Test PyBytes_Concat() */
 static PyObject *
@@ -238,7 +240,9 @@ static PyMethodDef test_methods[] = {
     {"bytes_asstring", bytes_asstring, METH_VARARGS},
     {"bytes_asstringandsize", bytes_asstringandsize, METH_VARARGS},
     {"bytes_asstringandsize_null", bytes_asstringandsize_null, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"bytes_repr", bytes_repr, METH_VARARGS},
+#endif
     {"bytes_concat", bytes_concat, METH_VARARGS},
     {"bytes_concatanddel", bytes_concatanddel, METH_VARARGS},
     {"bytes_decodeescape", bytes_decodeescape, METH_VARARGS},

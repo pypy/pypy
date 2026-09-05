@@ -111,6 +111,7 @@ class CAPITest(unittest.TestCase):
         # TODO: Test PyUnicode_DecodeUTF8() with NULL as data and
         # negative size.
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_decodeutf8stateful'), "")
     def test_decodeutf8stateful(self):
         """Test PyUnicode_DecodeUTF8Stateful()"""
         decodeutf8stateful = _testcapi.unicode_decodeutf8stateful
@@ -190,6 +191,7 @@ class CAPITest(unittest.TestCase):
         # TODO: Test PyUnicode_DecodeUTF16() with NULL as data and
         # negative size.
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_decodeutf16stateful'), "")
     def test_decodeutf16stateful(self):
         """Test PyUnicode_DecodeUTF16Stateful()"""
         decodeutf16stateful = _testcapi.unicode_decodeutf16stateful
@@ -288,6 +290,7 @@ class CAPITest(unittest.TestCase):
         # TODO: Test PyUnicode_DecodeUTF32() with NULL as data and
         # negative size.
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_decodeutf32stateful'), "")
     def test_decodeutf32stateful(self):
         """Test PyUnicode_DecodeUTF32Stateful()"""
         decodeutf32stateful = _testcapi.unicode_decodeutf32stateful
@@ -401,6 +404,7 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(TypeError, asasciistring, [])
         # CRASHES asasciistring(NULL)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_decodecharmap'), "")
     def test_decodecharmap(self):
         """Test PyUnicode_DecodeCharmap()"""
         decodecharmap = _testcapi.unicode_decodecharmap
@@ -424,6 +428,7 @@ class CAPITest(unittest.TestCase):
         # TODO: Test PyUnicode_DecodeCharmap() with NULL as data and
         # negative size.
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_ascharmapstring'), "")
     def test_ascharmapstring(self):
         """Test PyUnicode_AsCharmapString()"""
         ascharmapstring = _testcapi.unicode_ascharmapstring

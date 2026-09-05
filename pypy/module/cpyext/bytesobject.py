@@ -1,4 +1,4 @@
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, bootstrap_function, build_type_checkers_flags,
@@ -183,8 +183,7 @@ def PyBytes_AsStringAndSize(space, ref, data, length):
         while ref_str.c_ob_sval[i] != '\0':
             i += 1
         if i != ob_size:
-            raise oefmt(space.w_TypeError,
-                        "expected string without null bytes")
+            raise oefmt(space.w_ValueError, "embedded null byte")
     return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
@@ -194,6 +193,9 @@ def PyBytes_Size(space, ref):
         return ref.c_ob_size
     else:
         w_obj = from_ref(space, ref)
+        if not space.isinstance_w(w_obj, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                "expected bytes, %T found", w_obj)
         return space.len_w(w_obj)
 
 @cpython_api([PyObjectP, Py_ssize_t], rffi.INT_real, error=-1)
@@ -241,10 +243,15 @@ def _bytes_concat_helper(space, ref, w_newpart):
 
     ref[0] = lltype.nullptr(PyObject.TO)
     w_str = get_w_obj_and_decref(space, old)
-    if w_newpart is not None and PyBytes_Check(space, old):
-        # XXX: should use buffer protocol
-        w_newstr = space.add(w_str, w_newpart)
-        ref[0] = make_ref(space, w_newstr)
+    if w_newpart is None:
+        return
+    try:
+        left = space.bufferstr_w(w_str)
+        right = space.bufferstr_w(w_newpart)
+    except OperationError:
+        raise oefmt(space.w_TypeError,
+            "can't concat %T to %T", w_newpart, w_str)
+    ref[0] = make_ref(space, space.newbytes(left + right))
 
 @cpython_api([PyObjectP, PyObject], lltype.Void, error=None, abi3=True)
 def PyBytes_Concat(space, ref, w_newpart):
