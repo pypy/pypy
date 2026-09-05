@@ -1922,7 +1922,14 @@ def setup_library(space):
             newname = name if func.abi3 else mangle_name(prefix, name)
             deco = entrypoint_lowlevel("cpyext", func.argtypes, newname,
                                         relax=True)
-            deco(func.get_wrapper(space))
+            wrapper = func.get_wrapper(space)
+            if func.noheader:
+                # the object's header hand-writes a same-named macro
+                # (see `noheader` in cpython_api): undef it right before
+                # the auto-generated forward declaration, like CPython's
+                # own Objects/object.c does for Py_IsTrue and friends.
+                wrapper.undef_macro_name = newname
+            deco(wrapper)
 
     setup_init_functions(eci, prefix)
     if sys.platform == "win32":

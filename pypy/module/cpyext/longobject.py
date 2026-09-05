@@ -327,10 +327,9 @@ def PyLong_AsVoidPtr(space, w_long):
     For values outside 0..LONG_MAX, both signed and unsigned integers are accepted."""
     _check_long_arg(space, w_long)
     if space.is_true(space.lt(w_long, space.newint(0))):
-        val = space.int_w(w_long)
+        return rffi.cast(rffi.VOIDP, space.int_w(w_long))
     else:
-        val = space.uint_w(w_long)
-    return rffi.cast(rffi.VOIDP, val)
+        return rffi.cast(rffi.VOIDP, space.uint_w(w_long))
 
 @cpython_api([PyObject], rffi.SIZE_T, error=-1)
 def _PyLong_NumBits(space, w_long):
