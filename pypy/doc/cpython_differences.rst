@@ -385,6 +385,12 @@ on CPython will result in the old function being called for ``x.__int__()``
 (via slot lookup). On PyPy we will always call the __new__ function, not the
 old, this quirky behaviour is unfortunately necessary to fully support NumPy.
 
+``PyMapping_Check`` returns true for any object with a ``__getitem__``, so
+that ``list``/``tuple``/``str``/``bytes`` count as mappings like they do on
+CPython (which wires ``tp_as_mapping`` for those types too). A side effect is
+that a custom C type providing only ``sq_item`` (no ``tp_as_mapping`` at all)
+is wrongly treated as mapping-like too, unlike on CPython.
+
 The cpyext layer `adds complexity`_ and is slow. If possible, use cffi_ or HPy_.
 
 .. _adds complexity: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html

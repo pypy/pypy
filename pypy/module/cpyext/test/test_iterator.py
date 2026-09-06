@@ -88,6 +88,12 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         obj = module.get_dictproxy({'a': 10})
         assert module.check(obj) == 2
 
+    @pytest.mark.xfail(reason=
+        "PyMapping_Check treats any __getitem__ as mapping-like (needed so "
+        "that list/tuple/str/bytes count as mappings, matching CPython's "
+        "list_as_mapping etc), so a custom C type providing only sq_item "
+        "is indistinguishable from those and wrongly counts too -- see "
+        "pypy/doc/cpython_differences.rst")
     def test_iterable_nonmapping_object(self):
         module = self.import_extension('foo', [
            ("test", "METH_NOARGS",

@@ -42,10 +42,9 @@ class TestFile(BaseApiTest):
         w_line = api.PyFile_GetLine(w_file, 0)
         assert space.text_w(w_line) == "2\n"
 
-        # XXX We ought to raise an EOFError here, but don't
+        # for n < 0, a trailing newline (if any) is stripped, unlike n >= 0
         w_line = api.PyFile_GetLine(w_file, -1)
-        # assert api.PyErr_Occurred() is space.w_EOFError
-        assert space.text_w(w_line) == "line3\n"
+        assert space.text_w(w_line) == "line3"
 
         space.call_method(w_file, "close")
 
