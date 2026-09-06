@@ -3078,6 +3078,60 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         X = module.metaclass_bad('X', (object,), {})
         x = X()
 
+    def test_pep697_type_data(self):
+        import struct
+        ptrsize = struct.calcsize('P')
+        module = self.import_module(name='nanobind1', filename="nanobind1")
+        T = module.pep697
+        assert type(T) is module.pep697_meta
+        t = T()
+        t.value = 42
+        t.d = 1.5
+        offset, size, value, d = module.pep697_info(t)
+        # type data sits right past the (aligned) PyObject header
+        assert 2 * ptrsize <= offset <= 2 * ptrsize + 16
+        assert size >= 16
+        assert (value, d) == (42, 1.5)
+        # the member descriptors and PyObject_GetTypeData agree on the layout
+        module.pep697_set(t, 7)
+        assert t.value == 7
+        assert t.d == 1.5
+
+        # an app-level subclass adds a __dict__ without disturbing the
+        # C-level type data
+        class Sub(T):
+            pass
+        assert type(Sub) is module.pep697_meta
+        s = Sub()
+        s.value = 3
+        s.d = -2.0
+        s.x = "dict"
+        assert module.pep697_info(s)[2:] == (3, -2.0)
+        module.pep697_set(s, 8)
+        assert (s.value, s.x) == (8, "dict")
+
+        class Slotted(T):
+            __slots__ = ('y',)
+        sl = Slotted()
+        sl.value = 11
+        sl.y = 12
+        assert module.pep697_info(sl)[2] == 11
+        assert sl.y == 12
+
+        # metaclass data lives past PyHeapTypeObject in each type object,
+        # both for the C-created type and app-level subclasses
+        moffset, type_basicsize, msize, _ = module.pep697_meta_info(T)
+        assert type_basicsize <= moffset <= type_basicsize + 16
+        assert msize >= 2 * ptrsize
+        module.pep697_meta_set(T, 99)
+        module.pep697_meta_set(Sub, 5)
+        module.pep697_meta_set(Slotted, 6)
+        assert module.pep697_meta_info(T)[3] == 99
+        assert module.pep697_meta_info(Sub)[3] == 5
+        assert module.pep697_meta_info(Slotted)[3] == 6
+        raises(TypeError, module.pep697_meta_info, int)
+        raises(TypeError, module.pep697_info, 1)
+
     def test_vectorcall2(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
         # py3.9+ only

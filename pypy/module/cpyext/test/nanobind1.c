@@ -2,6 +2,120 @@
 #include <structmember.h>
 
 // ----------------------------------------------------
+// Part 0: PEP 697 -- relative basicsize, Py_RELATIVE_OFFSET members,
+// PyObject_GetTypeData, as used by nanobind under the limited API:
+// a metaclass extending 'type' keeps per-type data past PyHeapTypeObject,
+// and instances keep their data past the base's basicsize.
+// ----------------------------------------------------
+
+typedef struct {
+    int value;
+    double d;
+} pep697_data;
+
+static PyMemberDef pep697_members[] = {
+    {"value", T_INT, offsetof(pep697_data, value), Py_RELATIVE_OFFSET, NULL},
+    {"d", T_DOUBLE, offsetof(pep697_data, d), Py_RELATIVE_OFFSET, NULL},
+    {NULL}
+};
+
+static PyType_Slot pep697_slots[] = {
+    {Py_tp_members, pep697_members},
+    {0, NULL}
+};
+
+static PyType_Spec pep697_spec = {
+    .name = "nanobind1.pep697",
+    .basicsize = -(int) sizeof(pep697_data),
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .slots = pep697_slots,
+};
+
+typedef struct {
+    void *ptr;
+    long tag;
+} pep697_meta_data;
+
+static PyType_Slot pep697_meta_slots[] = {
+    {Py_tp_base, NULL}, /* &PyType_Type, filled in module init for MSVC */
+    {0, NULL}
+};
+
+static PyType_Spec pep697_meta_spec = {
+    .name = "nanobind1.pep697_meta",
+    .basicsize = -(int) sizeof(pep697_meta_data),
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .slots = pep697_meta_slots,
+};
+
+static PyObject *pep697_type = NULL;
+static PyObject *pep697_meta = NULL;
+
+/* (offset of the type data in the instance, PyType_GetTypeDataSize,
+    value, d) read through PyObject_GetTypeData */
+static PyObject *pep697_info(PyObject *self, PyObject *obj) {
+    PyTypeObject *cls = (PyTypeObject *) pep697_type;
+    if (!PyObject_TypeCheck(obj, cls)) {
+        PyErr_SetString(PyExc_TypeError, "not a pep697 instance");
+        return NULL;
+    }
+    pep697_data *data = (pep697_data *) PyObject_GetTypeData(obj, cls);
+    if (data == NULL)
+        return NULL;
+    return Py_BuildValue("nnid", (Py_ssize_t) ((char *) data - (char *) obj),
+                         PyType_GetTypeDataSize(cls), data->value, data->d);
+}
+
+static PyObject *pep697_set(PyObject *self, PyObject *args) {
+    PyObject *obj;
+    int value;
+    if (!PyArg_ParseTuple(args, "Oi", &obj, &value))
+        return NULL;
+    pep697_data *data = (pep697_data *) PyObject_GetTypeData(
+        obj, (PyTypeObject *) pep697_type);
+    if (data == NULL)
+        return NULL;
+    data->value = value;
+    Py_RETURN_NONE;
+}
+
+/* (offset of the meta data in the type object, PyType_Type.tp_basicsize,
+    PyType_GetTypeDataSize, tag) */
+static PyObject *pep697_meta_info(PyObject *self, PyObject *tp) {
+    PyTypeObject *meta = (PyTypeObject *) pep697_meta;
+    if (!PyObject_TypeCheck(tp, meta)) {
+        PyErr_SetString(PyExc_TypeError, "not a pep697_meta instance");
+        return NULL;
+    }
+    pep697_meta_data *data = (pep697_meta_data *) PyObject_GetTypeData(tp, meta);
+    if (data == NULL)
+        return NULL;
+    return Py_BuildValue("nnnl", (Py_ssize_t) ((char *) data - (char *) tp),
+                         PyType_Type.tp_basicsize,
+                         PyType_GetTypeDataSize(meta), data->tag);
+}
+
+static PyObject *pep697_meta_set(PyObject *self, PyObject *args) {
+    PyObject *tp;
+    long tag;
+    if (!PyArg_ParseTuple(args, "Ol", &tp, &tag))
+        return NULL;
+    pep697_meta_data *data = (pep697_meta_data *) PyObject_GetTypeData(
+        tp, (PyTypeObject *) pep697_meta);
+    if (data == NULL)
+        return NULL;
+    data->tag = tag;
+    data->ptr = (void *) tp;
+    Py_RETURN_NONE;
+}
+
+#define PEP697_METHODS \
+    { "pep697_info", (PyCFunction) pep697_info, METH_O, NULL }, \
+    { "pep697_set", (PyCFunction) pep697_set, METH_VARARGS, NULL }, \
+    { "pep697_meta_info", (PyCFunction) pep697_meta_info, METH_O, NULL }, \
+    { "pep697_meta_set", (PyCFunction) pep697_meta_set, METH_VARARGS, NULL },
+
+// ----------------------------------------------------
 // Part 1: Reproducer of reference counting issue
 // https://foss.heptapod.net/pypy/pypy/-/issues/3844
 // ----------------------------------------------------
@@ -104,10 +218,12 @@ static PyObject* call(PyObject* self, PyObject* arg) {
 
 struct PyMethodDef nanobind1_methods[] = {
     { "call", (PyCFunction) call, METH_O, NULL },
+    PEP697_METHODS
     { NULL, NULL, 0, NULL},
 };
 #else
 struct PyMethodDef nanobind1_methods[] = {
+    PEP697_METHODS
     { NULL, NULL, 0, NULL},
 };
 #endif
@@ -200,6 +316,32 @@ PyInit_nanobind1(void)
 
     if (!metaclass_bad || PyModule_AddObject(m, "metaclass_bad", metaclass_bad) < 0) {
         Py_XDECREF(metaclass_bad);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    pep697_meta_slots[0].pfunc = &PyType_Type;
+    pep697_meta = PyType_FromSpec(&pep697_meta_spec);
+    if (!pep697_meta) {
+        Py_DECREF(m);
+        return NULL;
+    }
+    Py_INCREF(pep697_meta);
+    if (PyModule_AddObject(m, "pep697_meta", pep697_meta) < 0) {
+        Py_DECREF(pep697_meta);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    pep697_type = PyType_FromMetaclass((PyTypeObject *) pep697_meta, NULL,
+                                       &pep697_spec, NULL);
+    if (!pep697_type) {
+        Py_DECREF(m);
+        return NULL;
+    }
+    Py_INCREF(pep697_type);
+    if (PyModule_AddObject(m, "pep697", pep697_type) < 0) {
+        Py_DECREF(pep697_type);
         Py_DECREF(m);
         return NULL;
     }

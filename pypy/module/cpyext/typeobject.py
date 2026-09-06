@@ -22,7 +22,8 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR, Py_TPFLAGS_IMMUTABLETYPE,
-    Py_TPFLAGS_HAVE_GC,
+    Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_ITEMS_AT_END, Py_RELATIVE_OFFSET,
+    ALIGNOF_MAX_ALIGN_T,
     PyObject, PyVarObject,
     )
 
@@ -531,6 +532,9 @@ def inherit_special(space, pto, w_obj, base_pto):
                 and _cpyext_call_resolves_concretely(space, w_obj)):
             flags |= Py_TPFLAGS_HAVE_VECTORCALL
 
+    if widen(base_pto.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END:
+        flags |= Py_TPFLAGS_ITEMS_AT_END
+
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):
@@ -784,6 +788,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
     elif space.is_w(w_type, space.w_type):
         pto.c_tp_itemsize = rffi.sizeof(PyMemberDef)
+        # the PyMemberDef items of a heap type follow tp_basicsize, so
+        # PEP 697 extension of 'type' is allowed (as on CPython)
+        pto.c_tp_flags = rffi.cast(rffi.ULONG,
+            widen(pto.c_tp_flags) | Py_TPFLAGS_ITEMS_AT_END)
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -1259,6 +1267,9 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
                                       module, spec, bases)
 
+def _align_up(size):
+    return (size + ALIGNOF_MAX_ALIGN_T - 1) & ~(ALIGNOF_MAX_ALIGN_T - 1)
+
 def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
@@ -1301,6 +1312,15 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
                     if not cname:
                         break
                     m_name = rffi.constcharp2str(cname)
+                    if widen(member.c_flags) & Py_RELATIVE_OFFSET:
+                        if widen(spec.c_basicsize) > 0:
+                            raise oefmt(space.w_SystemError,
+                                "With Py_RELATIVE_OFFSET, basicsize must be "
+                                "negative.")
+                        if (member.c_offset < 0 or
+                                member.c_offset >= -widen(spec.c_basicsize)):
+                            raise oefmt(space.w_SystemError,
+                                "Member offset out of range (0..-basicsize)")
                     if m_name == "__weaklistoffset__":
                         assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
                         assert widen(member.c_flags) == structmemberdefs.READONLY
@@ -1378,6 +1398,25 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
         raise oefmt(space.w_TypeError,
             "type '%s' is not an acceptable base type",
             rffi.constcharp2str(base.c_tp_name))
+
+    # PEP 697: basicsize 0 inherits, basicsize < 0 extends the base
+    basicsize = widen(spec.c_basicsize)
+    type_data_offset = basicsize
+    if basicsize == 0:
+        basicsize = base.c_tp_basicsize
+    elif basicsize < 0:
+        type_data_offset = _align_up(base.c_tp_basicsize)
+        basicsize = type_data_offset + _align_up(-widen(spec.c_basicsize))
+        if (base.c_tp_itemsize and not
+                ((widen(base.c_tp_flags) | widen(spec.c_flags)) &
+                 Py_TPFLAGS_ITEMS_AT_END)):
+            raise oefmt(space.w_SystemError,
+                "Cannot extend variable-size class without "
+                "Py_TPFLAGS_ITEMS_AT_END.")
+    itemsize = widen(spec.c_itemsize)
+    if itemsize == 0:
+        itemsize = base.c_tp_itemsize
+
     metaclass_pto = cts.cast('PyTypeObject*', metaclass_p)
     res = generic_cpy_call_dont_convert_result(space, metaclass_pto.c_tp_alloc, metaclass_pto, nmembers)
     if not res:
@@ -1410,8 +1449,8 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     typ.c_tp_bases = make_ref(space, space.newtuple(bases_w),
                                immortal=not is_heaptype)
     typ.c_tp_base = base
-    typ.c_tp_basicsize = cts.cast('Py_ssize_t', spec.c_basicsize)
-    typ.c_tp_itemsize = cts.cast('Py_ssize_t', spec.c_itemsize)
+    typ.c_tp_basicsize = basicsize
+    typ.c_tp_itemsize = itemsize
     if tp_doc is not None:
         typ.c_tp_doc = rffi.str2constcharp(tp_doc, track_allocation=False)
 
@@ -1436,6 +1475,14 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
             const_pfunc = rffi.cast(rffi.CONST_VOIDP, slotdef.c_pfunc)
             rffi.c_memcpy(loc, const_pfunc, length)
             typ.c_tp_members = cts.cast("PyMemberDef *", loc)
+            members = rffi.cast(rffi.CArrayPtr(PyMemberDef), loc)
+            for j in range(nmembers - 1):
+                member = members[j]
+                flags = widen(member.c_flags)
+                if flags & Py_RELATIVE_OFFSET:
+                    member.c_flags = rffi.cast(rffi.INT_real,
+                                               flags & ~Py_RELATIVE_OFFSET)
+                    member.c_offset += type_data_offset
         else:
             fill_ht_slot(res, slot, slotdef.c_pfunc)
         i += 1

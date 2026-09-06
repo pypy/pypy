@@ -42,17 +42,28 @@ PyAPI_FUNC(_pypy_pyos_inputhook) _Py_get_PyOS_InputHook(void) {
     return PyOS_InputHook;
 }
 
-/* TODO: not yet implemented, stubbed to fail cleanly */
+/* PEP 697, as in CPython's Objects/typeobject.c. PyType_FromMetaclass lays
+   the type data out at _align_up(base->tp_basicsize), see
+   _PyType_FromMetaclass_impl in typeobject.py */
+static Py_ssize_t
+_align_up(Py_ssize_t size)
+{
+    return (size + ALIGNOF_MAX_ALIGN_T - 1) & ~(ALIGNOF_MAX_ALIGN_T - 1);
+}
+
 void *
 PyObject_GetTypeData(PyObject *obj, PyTypeObject *cls)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyObject_GetTypeData");
-    return NULL;
+    assert(PyObject_TypeCheck(obj, cls));
+    return (char *)obj + _align_up(cls->tp_base->tp_basicsize);
 }
 
 Py_ssize_t
 PyType_GetTypeDataSize(PyTypeObject *cls)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyType_GetTypeDataSize");
-    return -1;
+    ptrdiff_t result = cls->tp_basicsize - _align_up(cls->tp_base->tp_basicsize);
+    if (result < 0) {
+        return 0;
+    }
+    return result;
 }
