@@ -85,6 +85,18 @@ def PyErr_SetObject(space, w_type, w_value):
     arbitrary Python object for the "value" of the exception."""
     pyerr_setobject(space, w_type, w_value)
 
+def _add_normalization_failure_note(space, e, w_type, w_value):
+    try:
+        args_repr = space.text_w(space.repr(w_value))
+    except OperationError:
+        args_repr = "<unknown>"
+    tpname = space.text_w(space.getattr(w_type, space.newtext('__name__')))
+    note = "Normalization failed: type=%s args=%s" % (tpname, args_repr)
+    try:
+        space.call_method(e.get_w_value(space), 'add_note', space.newtext(note))
+    except OperationError:
+        pass
+
 def pyerr_setobject(space, w_type, w_value):
     state = space.fromcache(State)
     operr = OperationError(w_type, w_value)
@@ -94,6 +106,7 @@ def pyerr_setobject(space, w_type, w_value):
     try:
         operr.normalize_exception(space)
     except OperationError as e:
+        _add_normalization_failure_note(space, e, w_type, w_value)
         state.set_exception(e)
         return
     operr.record_context(space, space.getexecutioncontext())
@@ -558,6 +571,16 @@ def PyTraceBack_Print(space, w_tb, w_file):
     space.call_method(w_traceback, "print_tb", w_tb, space.w_None, w_file)
     return 0
 
+def _ensure_unraisable_traceback(space, operror):
+    # an exception set via PyErr_SetRaisedException (rather than raised
+    # through bytecode) has no traceback yet, so build one pointing at
+    # the calling Python frame
+    if not operror.has_any_traceback():
+        frame = space.getexecutioncontext().gettopframe_nohidden()
+        if frame is not None:
+            from pypy.interpreter.pytraceback import PyTraceback
+            operror.set_traceback(PyTraceback(space, frame, frame.last_instr, None))
+
 @cpython_api([PyObject], lltype.Void, abi3=True)
 def PyErr_WriteUnraisable(space, where):
     """This utility function prints a warning message to sys.stderr when an
@@ -570,13 +593,14 @@ def PyErr_WriteUnraisable(space, where):
     printed in the warning message."""
 
     if not where:
-        where = ''
+        w_obj = None
     else:
-        where = space.text_w(space.repr(from_ref(space, where)))
+        w_obj = from_ref(space, where)
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        operror.write_unraisable(space, where)
+        _ensure_unraisable_traceback(space, operror)
+        operror.write_unraisable(space, '', w_object=w_obj)
 
 @cpython_api([CONST_STRING, PyObject], lltype.Void)
 def _PyErr_WriteUnraisableMsg(space, where, w_obj):
@@ -596,6 +620,7 @@ def _PyErr_WriteUnraisableMsg(space, where, w_obj):
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
+        _ensure_unraisable_traceback(space, operror)
         operror.write_unraisable(space, where, w_object=w_obj, with_traceback=True)
 
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void, abi3=True)

@@ -287,7 +287,8 @@ def PyLong_FromString(space, str, pend, base):
     between 2 and 36, inclusive.  Leading spaces are ignored.  If there are
     no digits, ValueError will be raised."""
     s = rffi.charp2str(str)
-    w_str = space.newtext(s)
+    # pass as bytes, not text, so int() only accepts ASCII digits
+    w_str = space.newbytes(s)
     w_base = space.newint(rffi.cast(lltype.Signed, base))
     if pend:
         pend[0] = rffi.ptradd(str, len(s))

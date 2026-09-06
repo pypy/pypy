@@ -93,6 +93,7 @@ class Test_FatalError(unittest.TestCase):
         self.assertEqual(len(modules), total)
 
     @support.requires_subprocess()
+    @unittest.skipIf(support.is_pypy, "pypy's builtins are different")
     def test_fatal_error(self):
         # By default, stdlib extension modules are ignored,
         # but not test modules.

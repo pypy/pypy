@@ -1144,6 +1144,8 @@ class Object_TestCase(unittest.TestCase):
 
 # Bug #6012
 class Test6012(unittest.TestCase):
+    @unittest.skipUnless(support.check_impl_detail(cpython=True),
+                          "relies on refcount semantics")
     def test(self):
         self.assertEqual(_testcapi.argparsing("Hello", "World"), 1)
 

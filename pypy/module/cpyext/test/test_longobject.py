@@ -148,6 +148,20 @@ class TestLongObject(BaseApiTest):
         assert api.PyLong_AsUnsignedLongMask(
             space.wrap(maxlong * 2 + 2)) == 0
 
+    def test_fromstring(self, space, api):
+        s = rffi.str2charp('123')
+        w_value = api.PyLong_FromString(s, None, 10)
+        assert space.unwrap(w_value) == 123
+        lltype.free(s, flavor='raw')
+
+        # non-ASCII (Arabic-Indic) digits, UTF-8 encoded: must not be
+        # accepted, like CPython's byte-wise parser rejects them
+        s = rffi.str2charp(u'١٢٣'.encode('utf-8'))
+        with pytest.raises(OperationError) as e:
+            api.PyLong_FromString(s, None, 0)
+        assert e.value.match(space, space.w_ValueError)
+        lltype.free(s, flavor='raw')
+
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
         module = self.import_extension('foo', [

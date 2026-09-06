@@ -54,6 +54,40 @@ class TestExceptions(BaseApiTest):
 
         api.PyErr_Clear()
 
+    def test_SetObject_normalization_failure_note(self, space, api):
+        w_broken = space.appexec([], """():
+            class Broken(Exception):
+                def __init__(self, *args):
+                    raise ValueError("Broken __init__")
+            return Broken
+        """)
+        api.PyErr_SetObject(w_broken, space.wrap("abcd"))
+        state = space.fromcache(State)
+        operror = state.get_exception()
+        w_value = operror.get_w_value(space)
+        assert space.isinstance_w(w_value, space.w_ValueError)
+        w_notes = space.getattr(w_value, space.wrap("__notes__"))
+        assert space.eq_w(space.getitem(w_notes, space.wrap(0)),
+            space.wrap("Normalization failed: type=Broken args='abcd'"))
+
+        api.PyErr_Clear()
+
+        w_badarg = space.appexec([], """():
+            class BadArg:
+                def __repr__(self):
+                    raise TypeError('Broken arg type')
+            return BadArg()
+        """)
+        api.PyErr_SetObject(w_broken, w_badarg)
+        operror = state.get_exception()
+        w_value = operror.get_w_value(space)
+        assert space.isinstance_w(w_value, space.w_ValueError)
+        w_notes = space.getattr(w_value, space.wrap("__notes__"))
+        assert space.eq_w(space.getitem(w_notes, space.wrap(0)),
+            space.wrap("Normalization failed: type=Broken args=<unknown>"))
+
+        api.PyErr_Clear()
+
     def test_SetNone(self, space, api):
         api.PyErr_SetNone(space.w_KeyError)
         state = space.fromcache(State)
@@ -847,7 +881,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         sys.stdout = old
         msg = output.strip().replace('\r', '').splitlines()
         assert msg[0] == "sys.unraisablehook RuntimeError('nonfatal-error') Exception ignored sometext"
- 
+
     def test_fetch_normalized(self):
         module = self.import_extension('foo', [
             ("clevel_error", "METH_O",
@@ -873,6 +907,16 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 // decrefs?
                 Py_RETURN_TRUE;
              '''),
+            ("writeunraisable", "METH_VARARGS",
+             '''
+                PyObject *exc, *obj;
+                if (!PyArg_ParseTuple(args, "OO", &exc, &obj)) {
+                    return NULL;
+                }
+                PyErr_SetRaisedException(Py_NewRef(exc));
+                PyErr_WriteUnraisable(obj == Py_None ? NULL : obj);
+                Py_RETURN_NONE;
+             '''),
             ], prologue="""
             static PyObject * pyx_d;
             """, more_init="""
@@ -884,6 +928,44 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         ret = module.clevel_error(fname)
         print(ret)
         assert ret is True
+
+        import sys
+
+        class CustomError(Exception):
+            pass
+
+        caught = []
+        old_hook = sys.unraisablehook
+        sys.unraisablehook = caught.append
+        try:
+            firstline = sys._getframe().f_lineno
+            module.writeunraisable(CustomError('oops!'), hex)
+            args = caught.pop()
+            assert args.exc_type is CustomError
+            assert str(args.exc_value) == 'oops!'
+            assert args.exc_traceback.tb_lineno == firstline + 1
+            assert args.object is hex
+
+            module.writeunraisable(CustomError('oops!'), None)
+            args = caught.pop()
+            assert args.exc_type is CustomError
+            assert args.object is None
+        finally:
+            sys.unraisablehook = old_hook
+
+        old_hook = sys.unraisablehook
+        sys.unraisablehook = None
+        try:
+            import io
+            old_stderr = sys.stderr
+            sys.stderr = io.StringIO()
+            module.writeunraisable(CustomError('oops!'), None)
+            output = sys.stderr.getvalue()
+            sys.stderr = old_stderr
+            lines = output.strip().splitlines()
+            assert lines[0] == 'Traceback (most recent call last):'
+        finally:
+            sys.unraisablehook = old_hook
 
     def test_set_get(self):
         # taken from test_capi

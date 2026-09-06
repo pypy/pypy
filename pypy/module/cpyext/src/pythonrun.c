@@ -30,6 +30,55 @@ PyRun_SimpleString(const char *command)
     return PyRun_SimpleStringFlags(command, NULL);
 }
 
+static void
+_dump_extension_modules(FILE *out)
+{
+    PyObject *modules = PyImport_GetModuleDict();
+    if (modules == NULL || !PyDict_Check(modules)) {
+        return;
+    }
+    PyObject *stdlib_names = PySys_GetObject("stdlib_module_names");
+    if (stdlib_names != NULL && !PyFrozenSet_Check(stdlib_names)) {
+        stdlib_names = NULL;
+    }
+
+    PyObject *key, *value;
+    Py_ssize_t pos = 0;
+    int header = 1;
+    Py_ssize_t count = 0;
+    while (PyDict_Next(modules, &pos, &key, &value)) {
+        if (!PyUnicode_Check(key) || !PyModule_Check(value)) {
+            continue;
+        }
+        PyModuleDef *def = PyModule_GetDef(value);
+        if (def == NULL || def->m_methods == NULL) {
+            continue;
+        }
+        if (stdlib_names != NULL) {
+            int is_stdlib = PySet_Contains(stdlib_names, key);
+            if (is_stdlib < 0) {
+                PyErr_Clear();
+                is_stdlib = 0;
+            }
+            if (is_stdlib) {
+                continue;
+            }
+        }
+        if (header) {
+            fprintf(out, "\nExtension modules: ");
+            header = 0;
+        }
+        else {
+            fprintf(out, ", ");
+        }
+        fprintf(out, "%s", PyUnicode_AsUTF8(key));
+        count++;
+    }
+    if (count) {
+        fprintf(out, " (total: %zd)\n", count);
+    }
+}
+
 void
 _Py_FatalErrorFunc(const char * func, const char *msg)
 {
@@ -43,6 +92,7 @@ _Py_FatalErrorFunc(const char * func, const char *msg)
     if (PyErr_Occurred()) {
         PyErr_PrintEx(0);
     }
+    _dump_extension_modules(stderr);
 #ifdef MS_WINDOWS
     {
         size_t len = strlen(msg);

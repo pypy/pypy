@@ -317,17 +317,23 @@ class OperationError(Exception):
     @staticmethod
     def write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
                                  extra_line):
-        if not first_line:
-            first_line = "Exception ignored in:"
+        had_first_line = bool(first_line)
         if w_object is None or w_object is space.w_None:
-            first_line = "%s" % (first_line,)
+            if not had_first_line:
+                # nothing to say about "where": like CPython, skip the
+                # marquee line entirely and go straight to the traceback
+                first_line = ''
         else:
+            if not had_first_line:
+                first_line = "Exception ignored in:"
             try:
                 objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
             first_line = "%s %s" % (first_line, objrepr)
-        if not extra_line:
+        if not first_line:
+            extra_line = ''
+        elif not extra_line:
             extra_line = '\n'
         else:
             extra_line += ':\n'
