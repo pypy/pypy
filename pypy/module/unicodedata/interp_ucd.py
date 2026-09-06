@@ -22,6 +22,11 @@ TCount = 28
 NCount = (VCount*TCount)
 SCount = (LCount*NCount)
 
+# Combining runs shorter than this use a simple insertion sort; longer
+# runs use a stable counting sort to avoid quadratic time on adversarial
+# input (CPython gh-140632 unicodedata canonical-ordering DoS hardening).
+CANONICAL_ORDERING_COUNTING_SORT_THRESHOLD = 20
+
 # Since Python2.7, the unicodedata module gives a preview of Python3 character
 # handling: on narrow unicode builds, a surrogate pair is considered as one
 # unicode code point.
@@ -219,20 +224,57 @@ class UCD(W_Root):
                 result[j] = ch
                 j += 1
 
-        # Sort all combining marks
-        for i in range(j):
-            ch = result[i]
-            comb = self._combining(ch)
-            if comb == 0:
+        # Sort each maximal run of combining marks into canonical order.
+        # Short runs use insertion sort; long runs use a stable counting sort
+        # so that adversarial input cannot trigger quadratic behaviour.
+        i = 0
+        while i < j:
+            prev = self._combining(result[i])
+            if prev == 0:
+                i += 1
                 continue
-            for k in range(i, 0, -1):
-                if self._combining(result[k - 1]) <= comb:
-                    result[k] = ch
+            run_start = i
+            i += 1
+            needs_sort = False
+            while i < j:
+                cur = self._combining(result[i])
+                if cur == 0:
                     break
-
-                result[k] = result[k - 1]
+                if prev > cur:
+                    needs_sort = True
+                prev = cur
+                i += 1
+            if not needs_sort:
+                continue
+            run_length = i - run_start
+            if run_length < CANONICAL_ORDERING_COUNTING_SORT_THRESHOLD:
+                # stable insertion sort of result[run_start:i]
+                for a in range(run_start + 1, i):
+                    ch = result[a]
+                    comb = self._combining(ch)
+                    b = a
+                    while b > run_start and self._combining(result[b - 1]) > comb:
+                        result[b] = result[b - 1]
+                        b -= 1
+                    result[b] = ch
             else:
-                result[0] = ch
+                # stable counting sort by combining class (1..255)
+                counts = [0] * 256
+                for a in range(run_start, i):
+                    counts[self._combining(result[a])] += 1
+                total = 0
+                for c in range(256):
+                    cnt = counts[c]
+                    counts[c] = total
+                    total += cnt
+                sortbuf = [0] * run_length
+                for a in range(run_start, i):
+                    code = result[a]
+                    comb = self._combining(code)
+                    sortbuf[counts[comb]] = code
+                    counts[comb] += 1
+                for a in range(run_length):
+                    result[run_start + a] = sortbuf[a]
 
         if not composed: # If decomposed normalization we are done
             return self.build(space, result, stop=j)

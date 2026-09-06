@@ -194,6 +194,23 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert decompressed_data == b''
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
 
+    def test_decompress_after_data_error(self):
+        # A decompressor is unusable after a decompression error; re-entering
+        # the C decompressor could previously write out of bounds
+        # (CVE / CPython gh-140260).
+        from _bz2 import BZ2Decompressor
+        data = bytes.fromhex(
+            "425a6839314159265359000000000000007fffff000000000000000000000000"
+            "00000000000000000000000000000000000000e0370000000000000000000000"
+            "000000000000000000000000000000000000000000000000000083f3"
+        )
+        bzd = BZ2Decompressor()
+        raises(OSError, bzd.decompress, data)
+        assert bzd.needs_input is False
+        assert bzd.eof is False
+        exc = raises(ValueError, bzd.decompress, b'\x00' * 18)
+        assert "previous error" in str(exc.value)
+
     def test_decompressor_pickle_error(self):
         from _bz2 import BZ2Decompressor
         import _pickle as pickle
