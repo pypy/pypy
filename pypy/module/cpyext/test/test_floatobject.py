@@ -4,7 +4,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.floatobject import (
-    PyFloat_FromDouble, PyFloat_AsDouble, PyFloat_AS_DOUBLE, PyNumber_Float)
+    PyFloat_FromDouble, PyFloat_AsDouble, PyFloat_AS_DOUBLE, PyNumber_Float,
+    PyFloat_GetInfo, PyFloat_GetMax, PyFloat_GetMin)
 
 class TestFloatObject(BaseApiTest):
     def test_floatobject(self, space):
@@ -13,6 +14,14 @@ class TestFloatObject(BaseApiTest):
         assert PyFloat_AS_DOUBLE(space, space.wrap(23.45)) == 23.45
         with pytest.raises(OperationError):
             PyFloat_AsDouble(space, space.w_None)
+
+    def test_getinfo_getmax_getmin(self, space):
+        w_info = PyFloat_GetInfo(space)
+        assert space.eq_w(w_info, space.sys.get('float_info'))
+        assert PyFloat_GetMax(space) == space.float_w(
+            space.getattr(space.sys.get('float_info'), space.newtext('max')))
+        assert PyFloat_GetMin(space) == space.float_w(
+            space.getattr(space.sys.get('float_info'), space.newtext('min')))
 
     def test_coerce(self, space):
         assert space.type(PyNumber_Float(space, space.wrap(3))) is space.w_float
@@ -35,9 +44,19 @@ class AppTestFloatObject(AppTestCpythonExtensionBase):
                  Py_DECREF(str);
                  return res;
              """),
+            ("from_object", "METH_O",
+             """
+                 return PyFloat_FromString(args);
+             """),
             ])
         assert module.from_string() == 1234.56
         assert type(module.from_string()) is float
+
+        assert module.from_object(b"4.25") == 4.25
+        assert module.from_object(bytearray(b"4.25")) == 4.25
+        assert module.from_object(memoryview(b"4.255")[:-1]) == 4.25
+        raises(TypeError, module.from_object, memoryview(b"4.25")[::2])
+        raises(TypeError, module.from_object, 4.25)
 
     def test_return_nan(self):
         import math

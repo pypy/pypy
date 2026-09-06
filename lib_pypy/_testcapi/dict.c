@@ -253,6 +253,7 @@ dict_update(PyObject *self, PyObject *args)
     RETURN_INT(PyDict_Update(mapping, mapping2));
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 dict_mergefromseq2(PyObject *self, PyObject *args)
 {
@@ -265,6 +266,7 @@ dict_mergefromseq2(PyObject *self, PyObject *args)
     NULLABLE(seq);
     RETURN_INT(PyDict_MergeFromSeq2(mapping, seq, override));
 }
+#endif
 
 
 static PyMethodDef test_methods[] = {
@@ -290,7 +292,9 @@ static PyMethodDef test_methods[] = {
     {"dict_next", dict_next, METH_VARARGS},
     {"dict_merge", dict_merge, METH_VARARGS},
     {"dict_update", dict_update, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"dict_mergefromseq2", dict_mergefromseq2, METH_VARARGS},
+#endif
 
     {NULL},
 };

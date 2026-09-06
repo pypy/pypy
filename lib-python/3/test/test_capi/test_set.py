@@ -1,9 +1,13 @@
 import unittest
 
+from test import support
 from test.support import import_helper
 
 # Skip this test if the _testcapi module isn't available.
 _testcapi = import_helper.import_module('_testcapi')
+
+def expectedFailureIfPyPy(func):
+    return unittest.expectedFailure(func) if support.is_pypy else func
 
 class set_subclass(set):
     pass
@@ -143,6 +147,7 @@ class TestSetCAPI(unittest.TestCase):
         # CRASHES: contains(NULL, object())
         # CRASHES: contains(NULL, NULL)
 
+    @expectedFailureIfPyPy  # see pypy/doc/cpython_differences.rst: PySet_Add
     def test_add(self):
         add = _testcapi.set_add
         for cls in (set, set_subclass):

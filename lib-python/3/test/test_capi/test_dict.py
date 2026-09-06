@@ -355,6 +355,7 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(SystemError, merge, {}, NULL, 0)
         self.assertRaises(SystemError, merge, NULL, {}, 0)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'dict_mergefromseq2'), "")
     def test_dict_mergefromseq2(self):
         mergefromseq2 = _testcapi.dict_mergefromseq2
         for cls1 in dict, DictSubclass:

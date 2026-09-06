@@ -53,22 +53,16 @@ PyAPI_FUNC(int) PyDict_MergeFromSeq2(PyObject *d, PyObject *seq2, int override)
     return -1;
 }
 
-PyAPI_FUNC(PyObject*) PyFloat_GetInfo(void)
+PyAPI_FUNC(int) PyCFunction_GetFlags(PyObject * _a0)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyFloat_GetInfo() is not implemented in PyPy");
+    PyErr_SetString(PyExc_NotImplementedError, "PyCFunction_GetFlags() is not implemented in PyPy");
+    return -1;
+}
+
+PyAPI_FUNC(PyObject *) PyCFunction_GetSelf(PyObject * _a0)
+{
+    PyErr_SetString(PyExc_NotImplementedError, "PyCFunction_GetSelf() is not implemented in PyPy");
     return NULL;
-}
-
-PyAPI_FUNC(double) PyFloat_GetMin(void)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyFloat_GetMin() is not implemented in PyPy");
-    return -1;
-}
-
-PyAPI_FUNC(double) PyFloat_GetMax(void)
-{
-    PyErr_SetString(PyExc_NotImplementedError, "PyFloat_GetMax() is not implemented in PyPy");
-    return -1;
 }
 
 PyAPI_FUNC(PyCodeObject *) PyFrame_GetCode(PyFrameObject *frame)

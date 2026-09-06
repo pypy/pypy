@@ -91,6 +91,23 @@ class TestDictObject(BaseApiTest):
         PyDict_Merge(space, w_d, w_d2, 1)
         assert space.unwrap(w_d) == dict(a='c', c='d', e='f')
 
+        # a dict subclass overriding __getitem__/keys() must not have
+        # those overrides called by PyDict_Merge -- it merges via the
+        # dict's own storage directly, like CPython's fast dict-to-dict
+        # path does
+        w_evil = space.appexec([], """():
+            class Evil(dict):
+                def __getitem__(self, key):
+                    raise RuntimeError('do not get evil')
+                def keys(self):
+                    raise RuntimeError('do not call keys')
+            d = Evil()
+            dict.__setitem__(d, 'g', 'h')
+            return d
+        """)
+        PyDict_Merge(space, w_d, w_evil, 1)
+        assert space.unwrap(w_d) == dict(a='c', c='d', e='f', g='h')
+
     def test_update(self, space):
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a"), space.wrap("b"))
@@ -123,6 +140,11 @@ class TestDictObject(BaseApiTest):
                w_proxy, space.newint(1))
         raises(OperationError, space.call_method, w_proxy, 'clear')
         assert PyDictProxy_Check(space, w_proxy)
+
+        with raises_w(space, TypeError):
+            PyDictProxy_New(space, space.newlist([]))
+        with raises_w(space, TypeError):
+            PyDictProxy_New(space, space.newint(42))
 
     def test_typedict1(self, space):
         py_type = make_ref(space, space.w_int)

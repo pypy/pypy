@@ -231,6 +231,18 @@ def PyDict_Merge(space, w_a, w_b, override):
     if w_a is None or not space.isinstance_w(w_a, space.w_dict) or w_b is None:
         raise PyErr_BadInternalCall(space)
     override = rffi.cast(lltype.Signed, override)
+    if isinstance(w_b, W_DictMultiObject):
+        # fast path: like CPython, merge via the dict's own storage,
+        # bypassing any overridden __getitem__/keys() (dict subclasses
+        # are allowed to override those without affecting PyDict_Merge)
+        w_iter = w_b.iteritems()
+        while True:
+            w_key, w_value = w_iter.next_item()
+            if w_key is None:
+                break
+            if override != 0 or w_a.getitem(w_key) is None:
+                w_a.setitem(w_key, w_value)
+        return 0
     w_keys = space.call_method(w_b, "keys")
     w_iter = space.iter(w_keys)
     while 1:

@@ -391,6 +391,13 @@ CPython (which wires ``tp_as_mapping`` for those types too). A side effect is
 that a custom C type providing only ``sq_item`` (no ``tp_as_mapping`` at all)
 is wrongly treated as mapping-like too, unlike on CPython.
 
+``PySet_Add`` on a frozenset uses a "has it been hashed yet" heuristic to
+approximate CPython's refcount-based "not yet exposed" check (needed so
+Cython's frozenset-literal codegen keeps working). This means a
+freshly-created, not-yet-hashed frozenset can still be filled in via
+``PySet_Add`` even when other references to it exist elsewhere, unlike on
+CPython.
+
 The cpyext layer `adds complexity`_ and is slow. If possible, use cffi_ or HPy_.
 
 .. _adds complexity: https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html

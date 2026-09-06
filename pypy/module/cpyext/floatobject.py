@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rfloat
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_struct, build_type_checkers, init_function,
     CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
@@ -88,6 +89,23 @@ def PyFloat_AS_DOUBLE(space, w_float):
     without error checking."""
     return space.float_w(w_float)
 
+@cpython_api([], PyObject, abi3=True)
+def PyFloat_GetInfo(space):
+    """Return a structseq instance which contains information about the
+    precision, minimum and maximum values of a float."""
+    from pypy.module.sys.system import get_float_info
+    return get_float_info(space)
+
+@cpython_api([], lltype.Float, error=CANNOT_FAIL, abi3=True)
+def PyFloat_GetMax(space):
+    """Return the maximum representable finite float DBL_MAX as C double."""
+    return rfloat.DBL_MAX
+
+@cpython_api([], lltype.Float, error=CANNOT_FAIL, abi3=True)
+def PyFloat_GetMin(space):
+    """Return the minimum normalized positive float DBL_MIN as C double."""
+    return rfloat.DBL_MIN
+
 @cpython_api([PyObject], PyObject, abi3=True)
 def PyNumber_Float(space, w_obj):
     """
@@ -103,4 +121,12 @@ def PyFloat_FromString(space, w_obj):
     Create a PyFloatObject object based on the string value in str, or
     NULL on failure.
     """
-    return space.call_function(space.w_float, w_obj)
+    if space.isinstance_w(w_obj, space.w_unicode):
+        return space.call_function(space.w_float, w_obj)
+    try:
+        s = space.bufferstr_w(w_obj)
+    except OperationError:
+        raise oefmt(space.w_TypeError,
+            "float() argument must be a string or a real number, not '%T'",
+            w_obj)
+    return space.call_function(space.w_float, space.newbytes(s))

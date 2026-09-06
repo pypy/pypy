@@ -20,14 +20,10 @@ class AppTestAbi3Shim(AppTestCpythonExtensionBase):
             ("unicode_partition", "METH_NOARGS", """
                 return PyUnicode_Partition(Py_None, Py_None);
             """),
-            ("float_getinfo", "METH_NOARGS", """
-                return PyFloat_GetInfo();
-            """),
             ])
         raises(NotImplementedError, module.long_getinfo)
         raises(NotImplementedError, module.decodeerror_getencoding)
         raises(NotImplementedError, module.unicode_partition)
-        raises(NotImplementedError, module.float_getinfo)
 
     def test_error_shims_int(self):
         module = self.import_extension('foo', [
