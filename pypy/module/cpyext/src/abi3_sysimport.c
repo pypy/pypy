@@ -87,14 +87,14 @@ PyAPI_FUNC(PyObject *) PyImport_GetImporter(PyObject *path)
 
 PyAPI_FUNC(int) PyImport_ImportFrozenModule(const char *name)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyImport_ImportFrozenModule() is not implemented in PyPy");
-    return -1;
+    /* PyPy has no table of frozen modules: nothing is ever frozen. */
+    return 0;
 }
 
 PyAPI_FUNC(int) PyImport_ImportFrozenModuleObject(PyObject *name)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyImport_ImportFrozenModuleObject() is not implemented in PyPy");
-    return -1;
+    /* PyPy has no table of frozen modules: nothing is ever frozen. */
+    return 0;
 }
 
 PyAPI_FUNC(PyObject*) PyThread_GetInfo(void)

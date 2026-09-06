@@ -4,7 +4,7 @@ import StringIO
 
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyobject import make_ref
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 
@@ -39,6 +39,12 @@ class TestExceptions(BaseApiTest):
         assert api.PyErr_Occurred() is space.w_ValueError
 
         api.PyErr_Clear()
+
+    def test_SetString_invalid_utf8(self, space, api):
+        string = rffi.str2charp("\xff")
+        with raises_w(space, UnicodeDecodeError):
+            api.PyErr_SetString(space.w_ValueError, string)
+        rffi.free_charp(string)
 
     def test_SetObject(self, space, api):
         api.PyErr_SetObject(space.w_ValueError, space.wrap("a value"))
@@ -930,34 +936,30 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         assert ret is True
 
         import sys
+        import io
 
         class CustomError(Exception):
             pass
 
-        caught = []
-        old_hook = sys.unraisablehook
-        sys.unraisablehook = caught.append
-        try:
-            firstline = sys._getframe().f_lineno
-            module.writeunraisable(CustomError('oops!'), hex)
-            args = caught.pop()
-            assert args.exc_type is CustomError
-            assert str(args.exc_value) == 'oops!'
-            assert args.exc_traceback.tb_lineno == firstline + 1
-            assert args.object is hex
-
-            module.writeunraisable(CustomError('oops!'), None)
-            args = caught.pop()
-            assert args.exc_type is CustomError
-            assert args.object is None
-        finally:
-            sys.unraisablehook = old_hook
-
+        # avoid a custom sys.unraisablehook: an audithook installed by an
+        # earlier test in this process may still be armed and would reject
+        # any hook other than its own, so exercise the default hook (via
+        # stderr) instead, like CPython's own %-formatted traceback output
         old_hook = sys.unraisablehook
         sys.unraisablehook = None
         try:
-            import io
             old_stderr = sys.stderr
+            sys.stderr = io.StringIO()
+            firstline = sys._getframe().f_lineno
+            module.writeunraisable(CustomError('oops!'), hex)
+            output = sys.stderr.getvalue()
+            sys.stderr = old_stderr
+            lines = output.strip().splitlines()
+            assert lines[0] == 'Exception ignored in: %r' % (hex,)
+            assert lines[1] == 'Traceback (most recent call last):'
+            assert ', line %d, ' % (firstline + 1,) in lines[2]
+            assert lines[-1].endswith('CustomError: oops!')
+
             sys.stderr = io.StringIO()
             module.writeunraisable(CustomError('oops!'), None)
             output = sys.stderr.getvalue()
@@ -965,6 +967,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             lines = output.strip().splitlines()
             assert lines[0] == 'Traceback (most recent call last):'
         finally:
+            sys.stderr = old_stderr
             sys.unraisablehook = old_hook
 
     def test_set_get(self):

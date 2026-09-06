@@ -94,9 +94,16 @@ class TestTupleObject(BaseApiTest):
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
-        w_slice = api.PyTuple_GetSlice(w_tuple, 3, -3)
+        w_slice = api.PyTuple_GetSlice(w_tuple, 3, 7)
         assert space.eq_w(w_slice,
                           space.newtuple([space.wrap(i) for i in range(3, 7)]))
+        # a negative index is clamped to 0, not relative to the end
+        # (unlike Python slicing)
+        w_slice = api.PyTuple_GetSlice(w_tuple, 3, -3)
+        assert space.eq_w(w_slice, space.newtuple([]))
+
+        with raises_w(space, SystemError):
+            api.PyTuple_GetSlice(space.newlist([]), 0, 0)
 
 
 class AppTestTuple(AppTestCpythonExtensionBase):

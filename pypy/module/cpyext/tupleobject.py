@@ -218,4 +218,16 @@ def PyTuple_GetSlice(space, w_obj, low, high):
     """Take a slice of the tuple pointed to by p from low to high and return it
     as a new tuple.
     """
-    return space.getslice(w_obj, space.newint(low), space.newint(high))
+    if not space.isinstance_w(w_obj, space.w_tuple):
+        PyErr_BadInternalCall(space)
+    # raw clamp, like CPython's tupleslice(): unlike a Python slice, a
+    # negative index here is not relative to the end
+    items_w = space.fixedview(w_obj)
+    length = len(items_w)
+    if low < 0:
+        low = 0
+    if high > length:
+        high = length
+    if high < low:
+        high = low
+    return space.newtuple(items_w[low:high])

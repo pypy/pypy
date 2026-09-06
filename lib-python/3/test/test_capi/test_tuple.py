@@ -1,6 +1,7 @@
 import unittest
 import sys
 from collections import namedtuple
+from test import support
 from test.support import import_helper
 
 _testcapi = import_helper.import_module('_testcapi')
@@ -200,6 +201,11 @@ class CAPITest(unittest.TestCase):
 
         # CRASHES setitem(NULL, 0, [])
 
+    @unittest.skipIf(support.is_pypy,
+        "PyPy copies a tuple's items into its interp-level object once, "
+        "rather than keeping a live view of ob_item, so mutating an "
+        "already-exposed tuple via the raw PyTuple_SET_ITEM macro is not "
+        "observable")
     def test_tuple_set_item(self):
         # Test PyTuple_SET_ITEM()
         set_item = _testcapi.tuple_set_item

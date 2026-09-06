@@ -114,8 +114,9 @@ def pyerr_setobject(space, w_type, w_value):
 
 @cpython_api([PyObject, CONST_STRING], lltype.Void, abi3=True)
 def PyErr_SetString(space, w_type, message_ptr):
-    message = rffi.charp2str(message_ptr)
-    pyerr_setobject(space, w_type, space.newtext(message))
+    w_bytes = space.newbytes(rffi.charp2str(message_ptr))
+    w_message = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))
+    pyerr_setobject(space, w_type, w_message)
 
 @cpython_api([PyObject], lltype.Void, error=CANNOT_FAIL, abi3=True)
 def PyErr_SetNone(space, w_type):
