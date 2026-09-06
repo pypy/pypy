@@ -609,7 +609,15 @@ class LZMADecompressor(object):
                 used__input_buffer = False
 
             # actual decompression
-            result = self._decompress(buf, buf_size, max_length)
+            try:
+                result = self._decompress(buf, buf_size, max_length)
+            except:
+                # On error lzs.next_in still points into the local input
+                # buffer, which is about to be freed.  Reset it so a later
+                # call does not dereference freed memory (CPython gh-140260).
+                lzs.next_in = ffi.NULL
+                self.clear_input_buffer()
+                raise
 
             if self.eof:
                 self.needs_input = False

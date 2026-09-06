@@ -165,7 +165,7 @@ def _catch_bz2_error(space, bzerror):
     elif bzerror == BZ_MEM_ERROR:
         raise OperationError(space.w_MemoryError, space.w_None)
     elif bzerror in (BZ_DATA_ERROR, BZ_DATA_ERROR_MAGIC):
-        raise oefmt(space.w_IOError, "invalid data stream")
+        raise oefmt(space.w_IOError, "Invalid data stream")
     elif bzerror == BZ_IO_ERROR:
         raise oefmt(space.w_IOError, "unknown IO error")
     elif bzerror == BZ_UNEXPECTED_EOF:
@@ -407,6 +407,7 @@ class W_BZ2Decompressor(W_Root):
         self.bzs = lltype.malloc(bz_stream.TO, flavor='raw', zero=True)
         try:
             self.running = False
+            self.bzerror = False
             self.unused_data = ""
             self.needs_input = True
             self.input_buffer = ""
@@ -474,6 +475,11 @@ class W_BZ2Decompressor(W_Root):
                         self.running = False
                         break
                     if bzreturn != BZ_OK:
+                        # Re-entering BZ2_bzDecompress() after an error can
+                        # write out of bounds, so mark the decompressor as
+                        # unusable (CPython gh-140260).
+                        self.bzerror = True
+                        self.needs_input = False
                         _catch_bz2_error(self.space, bzreturn)
 
                     if self.left_to_process == 0:
@@ -502,6 +508,9 @@ class W_BZ2Decompressor(W_Root):
             if not self.running:
                 raise oefmt(self.space.w_EOFError,
                             "end of stream was already found")
+            if self.bzerror:
+                raise oefmt(self.space.w_ValueError,
+                            "Decompressor is unusable after a previous error")
             datalen = len(data)
             if len(self.input_buffer) > 0:
                 data = self.input_buffer + data

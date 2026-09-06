@@ -134,6 +134,29 @@ class AppTestPyexpat:
         p.ExternalEntityRefHandler = handler
         p.Parse(xml)
 
+    def test_external_entity_keeps_parent_alive(self):
+        # CPython gh-139400: a sub-parser must keep its parent alive, else
+        # parsing through the child after the parent is collected segfaults.
+        import pyexpat, gc
+        xml = ('<!DOCTYPE doc [\n'
+               '  <!ENTITY test SYSTEM "whatever">\n'
+               ']>\n'
+               '<doc>&test;</doc>')
+        children = []
+        holder = [pyexpat.ParserCreate()]
+        def handler(context, base, systemId, publicId):
+            children.append(holder[0].ExternalEntityParserCreate(context))
+            return True
+        holder[0].ExternalEntityRefHandler = handler
+        holder[0].Parse(xml, True)
+        child = children[0]
+        del holder[:]
+        del children[:]
+        handler = None
+        gc.collect()
+        gc.collect()
+        child.Parse(b'<a/>', True)
+
     def test_errors(self):
         import types
         import pyexpat

@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib import rgc, jit, rutf8
+from rpython.rlib import rgc, jit, rutf8, rstackovf
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
@@ -22,6 +22,19 @@ if sys.platform == "win32":
 else:
     pre_include_bits = []
 
+# Since expat 2.8.0 the entropy source lives in a separate translation unit
+# selected by the HAVE_* / XML_DEV_URANDOM macros in expat_config.h.  Compile
+# the file(s) that match this platform's config so the writeRandomBytes_*
+# symbol referenced by xmlparse.c is defined.
+if sys.platform == 'darwin':
+    _random_files = ['random_arc4random_buf.c']
+elif sys.platform == 'win32':
+    _random_files = ['random_rand_s.c']
+else:
+    # glibc >= 2.17 uses HAVE_SYSCALL_GETRANDOM, older glibc uses
+    # XML_DEV_URANDOM; compile both, the unused one links harmlessly.
+    _random_files = ['random_getrandom.c', 'random_dev_urandom.c']
+
 eci = ExternalCompilationInfo(
     includes=['__expat.h', 'pyexpatns.h'],  # avoid conflicts with system libraries
     include_dirs=[str(srcdir), cdir],
@@ -32,7 +45,7 @@ eci = ExternalCompilationInfo(
         srcdir.join('xmltok.c'),
         srcdir.join('xmltok_impl.c'),
         srcdir.join('xmltok_ns.c'),
-    ]
+    ] + [srcdir.join(f) for f in _random_files]
 )
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
@@ -429,6 +442,10 @@ class W_XMLParserType(W_Root):
 
     def __init__(self, space, parser, w_intern):
         self.itself = parser
+        # Strong reference to the parent parser for a sub-parser created by
+        # ExternalEntityParserCreate.  The child's C struct is owned by the
+        # parent's, so the parent must outlive the child (CPython gh-139400).
+        self.parent = None
         self.register_finalizer(space)
 
         self.w_intern = w_intern
@@ -466,6 +483,7 @@ class W_XMLParserType(W_Root):
             if self.itself:
                 XML_ParserFree(self.itself)
                 self.itself = lltype.nullptr(XML_Parser.TO)
+        self.parent = None
         if global_storage and self.id >= 0:
             try:
                 global_storage.free_nonmoving_id(self.id)
@@ -609,7 +627,17 @@ By default, parser objects have a maximum amplification factor of 100.0."""
         return w_attrs
 
     def w_convert_model(self, space, model):
-        children = [self.w_convert_model(space, model.c_children[i])
+        # Guard against unbounded recursion on deeply nested content models
+        # (CVE-2026-4224); CPython uses _Py_EnterRecursiveCall here.
+        try:
+            return self._w_convert_model(space, model)
+        except rstackovf.StackOverflow:
+            rstackovf.check_stack_overflow()
+            raise oefmt(space.w_RecursionError,
+                        "maximum recursion depth exceeded in conv_content_model")
+
+    def _w_convert_model(self, space, model):
+        children = [self._w_convert_model(space, model.c_children[i])
                     for i in range(model.c_numchildren)]
         return space.newtuple([
             space.newint(model.c_type),
@@ -759,6 +787,7 @@ information passed to the ExternalEntityRefHandler."""
             raise MemoryError
 
         parser = W_XMLParserType(space, xmlparser, self.w_intern)
+        parser.parent = self
 
         # copy handlers from self
         for i in range(NB_HANDLERS):

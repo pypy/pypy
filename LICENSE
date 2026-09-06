@@ -598,4 +598,4 @@ License for 'libexpat'
 
 The pyexpat module includes code from libexpat which is distributed under an MIT license:
 
-    https://github.com/libexpat/libexpat/blob/R_2_7_4/COPYING
+    https://github.com/libexpat/libexpat/blob/R_2_8_4/COPYING
