@@ -900,7 +900,9 @@ def cpyext_vectorcall_call_changed(space, w_type):
 def _realized_pto(space, w_type):
     # type.__basicsize__ and friends are read by C extensions (the limited
     # API has no other way to learn a type's layout), so they must report
-    # the layout of the cpyext PyTypeObject, materializing it if needed
+    # the layout of the cpyext PyTypeObject, materializing it if needed.
+    # This may be the very first use of cpyext in the process.
+    space.fromcache(State).make_sure_cpyext_is_imported()
     pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
     keepalive_until_here(w_type)
     return pto

@@ -177,12 +177,32 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
                  Py_RETURN_FALSE;
              '''
              ),
+            ('getSelf', 'METH_O',
+             '''
+             PyObject *m_self = PyCFunction_GetSelf(args);
+             if (!m_self) return NULL;
+             return Py_NewRef(m_self);
+             '''
+             ),
+            ('getFlags', 'METH_O',
+             '''
+             int flags = PyCFunction_GetFlags(args);
+             if (flags == -1 && PyErr_Occurred()) return NULL;
+             return PyLong_FromLong(flags);
+             '''
+             ),
             ])
         assert mod.isCFunction(mod.getModule) == "getModule"
         assert mod.getModule(mod.getModule) == 'MyModule'
         if self.runappdirect:  # XXX: fails untranslated
             assert mod.isSameFunction(mod.getModule)
         raises(SystemError, mod.isSameFunction, 1)
+        # module-level PyCFunctions are bound to their module
+        assert mod.getSelf(mod.getModule) is mod
+        assert mod.getFlags(mod.getModule) == 8  # METH_O
+        assert mod.getFlags(mod.isCFunction) == 8
+        raises(SystemError, mod.getSelf, 1)
+        raises(SystemError, mod.getFlags, 1)
 
     def test_function_as_method(self):
         # Unlike user functions, builtins don't become methods

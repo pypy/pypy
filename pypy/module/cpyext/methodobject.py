@@ -579,16 +579,26 @@ def PyCMethod_New(space, ml, w_self, w_name, w_type):
                 "but no METH_METHOD flag");
         return W_PyCFunctionObject(space, ml, w_self, w_name)
 
-@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)", abi3=True)
-def PyCFunction_GetFunction(space, w_obj):
+def _pycfunction_w(space, w_obj):
     try:
-        cfunction = space.interp_w(W_PyCFunctionObject, w_obj)
+        return space.interp_w(W_PyCFunctionObject, w_obj)
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise oefmt(space.w_SystemError,
                         "bad argument to internal function")
         raise
-    return cfunction.ml.c_ml_meth
+
+@cts.decl("PyCFunction PyCFunction_GetFunction(PyObject *)", abi3=True)
+def PyCFunction_GetFunction(space, w_obj):
+    return _pycfunction_w(space, w_obj).ml.c_ml_meth
+
+@cpython_api([PyObject], PyObject, result_borrowed=True, abi3=True)
+def PyCFunction_GetSelf(space, w_obj):
+    return _pycfunction_w(space, w_obj).w_self
+
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
+def PyCFunction_GetFlags(space, w_obj):
+    return rffi.cast(rffi.INT_real, _pycfunction_w(space, w_obj).flags)
 
 @cpython_api([PyObject], PyObject)
 def PyStaticMethod_New(space, w_func):
