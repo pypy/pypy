@@ -1430,9 +1430,9 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     elif basicsize < 0:
         type_data_offset = _align_up(base.c_tp_basicsize)
         basicsize = type_data_offset + _align_up(-widen(spec.c_basicsize))
-        if (base.c_tp_itemsize and not
-                ((widen(base.c_tp_flags) | widen(spec.c_flags)) &
-                 Py_TPFLAGS_ITEMS_AT_END)):
+        if (base.c_tp_itemsize and
+                not (widen(base.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END) and
+                not (widen(spec.c_flags) & Py_TPFLAGS_ITEMS_AT_END)):
             raise oefmt(space.w_SystemError,
                 "Cannot extend variable-size class without "
                 "Py_TPFLAGS_ITEMS_AT_END.")
