@@ -340,6 +340,18 @@ class AppTestComparesByIdentity:
         hash(a.f)
 
 class AppTestTypeObject:
+    def test_layout_attributes_need_cpyext(self):
+        # the C layout attributes describe the cpyext PyTypeObject; without
+        # cpyext there is nothing to describe (see cpyext/test/test_typeobject)
+        import sys
+        if 'cpyext' in sys.builtin_module_names:
+            skip("this space has cpyext")
+        for name in ('__basicsize__', '__itemsize__', '__dictoffset__',
+                     '__weakrefoffset__'):
+            assert not hasattr(int, name)
+            assert not hasattr(type, name)
+            assert getattr(int, name, 42) == 42
+
     def test_module(self):
         def f(): pass
         assert object.__module__ == 'builtins'

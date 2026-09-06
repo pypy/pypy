@@ -3132,6 +3132,61 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         raises(TypeError, module.pep697_meta_info, int)
         raises(TypeError, module.pep697_info, 1)
 
+        # type.__basicsize__ and friends report the cpyext layout that
+        # PyObject_GetTypeData works against
+        assert T.__basicsize__ == offset + size
+        assert T.__itemsize__ == 0
+        assert T.__dictoffset__ == 0
+        assert T.__weakrefoffset__ == 0
+        assert module.pep697_meta.__basicsize__ == moffset + msize
+        assert type.__basicsize__ == type_basicsize
+        assert Sub.__basicsize__ >= T.__basicsize__
+        # cpyext keeps an app-level __dict__ on the PyPy side: there is no
+        # dict pointer in the C mirror of an app-level subclass
+        assert Sub.__dictoffset__ == 0
+        assert Slotted.__dictoffset__ == 0
+
+    def test_type_layout_attributes(self):
+        import struct
+        ptrsize = struct.calcsize('P')
+        # PyObject is {ob_refcnt, ob_type}
+        assert object.__basicsize__ == 2 * ptrsize
+        assert object.__itemsize__ == 0
+        assert object.__dictoffset__ == 0
+        assert object.__weakrefoffset__ == 0
+        # variable-size builtins
+        assert bytes.__itemsize__ == 1
+        assert tuple.__itemsize__ == ptrsize
+        assert float.__itemsize__ == 0
+        # type's items are PyMemberDef {name, type, offset, flags, doc}
+        assert type.__itemsize__ == 5 * ptrsize
+        # tp_dict lives inside PyTypeObject, past the PyVarObject header
+        assert 3 * ptrsize < type.__dictoffset__ < type.__basicsize__
+        # list and dict have C mirrors regardless of their strategy
+        assert list.__basicsize__ > object.__basicsize__
+        assert list.__itemsize__ == 0
+        assert dict.__basicsize__ >= object.__basicsize__
+        class A:
+            pass
+        class S:
+            __slots__ = ('x',)
+        import sys
+        if sys.implementation.name == 'pypy':
+            # app-level classes keep their __dict__ and weakrefs on the
+            # PyPy side: the C mirror has no slot for either
+            assert A.__dictoffset__ == 0
+            assert A.__weakrefoffset__ == 0
+        else:
+            # CPython 3.12: managed dict and weakref, at negative offsets
+            assert A.__dictoffset__ == -1
+            assert A.__weakrefoffset__ < 0
+        assert A.__basicsize__ >= object.__basicsize__
+        assert S.__dictoffset__ == 0
+        assert S.__basicsize__ >= object.__basicsize__
+        for name in ('__basicsize__', '__itemsize__', '__dictoffset__',
+                     '__weakrefoffset__'):
+            raises(TypeError, vars(type)[name].__get__, 42, int)
+
     def test_vectorcall2(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
         # py3.9+ only

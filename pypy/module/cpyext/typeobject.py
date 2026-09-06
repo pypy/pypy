@@ -792,6 +792,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         # PEP 697 extension of 'type' is allowed (as on CPython)
         pto.c_tp_flags = rffi.cast(rffi.ULONG,
             widen(pto.c_tp_flags) | Py_TPFLAGS_ITEMS_AT_END)
+        # as on CPython; limited-API code reads type.__dictoffset__ to
+        # reach tp_dict of a type object
+        pto.c_tp_dictoffset = rffi.offsetof(PyTypeObject, 'c_tp_dict')
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -893,6 +896,26 @@ def cpyext_vectorcall_call_changed(space, w_type):
     _cpyext_vectorcall_recompute_one(space, w_type)
     for w_sub in w_type.get_subclasses():
         cpyext_vectorcall_call_changed(space, w_sub)
+
+def _realized_pto(space, w_type):
+    # type.__basicsize__ and friends are read by C extensions (the limited
+    # API has no other way to learn a type's layout), so they must report
+    # the layout of the cpyext PyTypeObject, materializing it if needed
+    pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+    keepalive_until_here(w_type)
+    return pto
+
+def type_basicsize(space, w_type):
+    return _realized_pto(space, w_type).c_tp_basicsize
+
+def type_itemsize(space, w_type):
+    return _realized_pto(space, w_type).c_tp_itemsize
+
+def type_dictoffset(space, w_type):
+    return _realized_pto(space, w_type).c_tp_dictoffset
+
+def type_weaklistoffset(space, w_type):
+    return _realized_pto(space, w_type).c_tp_weaklistoffset
 
 def cpyext_have_vectorcall_flag(space, w_type):
     """Non-forcing peek at Py_TPFLAGS_HAVE_VECTORCALL for w_type.__flags__.

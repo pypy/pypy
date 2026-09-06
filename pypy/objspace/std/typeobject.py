@@ -1286,6 +1286,36 @@ def descr__flags(space, w_type):
     w_type = _check(space, w_type)
     return space.newint(w_type.get_flags())
 
+# The C-level layout attributes exist only to be read by C extensions
+# (limited-API code cannot see the tp_* slots), so they describe the
+# cpyext PyTypeObject and are absent when cpyext is not built in.
+def _check_cpyext_layout(space, w_type, name):
+    w_type = _check(space, w_type)
+    if not space.config.objspace.usemodules.cpyext:
+        raise oefmt(space.w_AttributeError,
+                    "type object '%N' has no attribute '%s'", w_type, name)
+    return w_type
+
+def descr__basicsize(space, w_type):
+    w_type = _check_cpyext_layout(space, w_type, '__basicsize__')
+    from pypy.module.cpyext.typeobject import type_basicsize
+    return space.newint(type_basicsize(space, w_type))
+
+def descr__itemsize(space, w_type):
+    w_type = _check_cpyext_layout(space, w_type, '__itemsize__')
+    from pypy.module.cpyext.typeobject import type_itemsize
+    return space.newint(type_itemsize(space, w_type))
+
+def descr__dictoffset(space, w_type):
+    w_type = _check_cpyext_layout(space, w_type, '__dictoffset__')
+    from pypy.module.cpyext.typeobject import type_dictoffset
+    return space.newint(type_dictoffset(space, w_type))
+
+def descr__weakrefoffset(space, w_type):
+    w_type = _check_cpyext_layout(space, w_type, '__weakrefoffset__')
+    from pypy.module.cpyext.typeobject import type_weaklistoffset
+    return space.newint(type_weaklistoffset(space, w_type))
+
 def descr_get__module(space, w_type):
     w_type = _check(space, w_type)
     return w_type.get_module()
@@ -1359,6 +1389,10 @@ W_TypeObject.typedef = TypeDef("type",
     __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),
+    __basicsize__ = GetSetProperty(descr__basicsize),
+    __itemsize__ = GetSetProperty(descr__itemsize),
+    __dictoffset__ = GetSetProperty(descr__dictoffset),
+    __weakrefoffset__ = GetSetProperty(descr__weakrefoffset),
     __module__ = GetSetProperty(descr_get__module, descr_set__module),
     __abstractmethods__ = GetSetProperty(descr_get___abstractmethods__,
                                          descr_set___abstractmethods__,
