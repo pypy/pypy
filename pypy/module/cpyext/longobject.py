@@ -128,7 +128,7 @@ def PyLong_AsLong(space, w_long):
                     "Python int too large to convert to C long")
     return rffi.cast(rffi.LONG, val)
 
-@cpython_api([PyObject], rffi.INT, error=-1, abi3=True)
+@cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def _PyLong_AsInt(space, w_long):
     """
     Get a C int from an int object or any object that has an __index__
@@ -149,7 +149,7 @@ def _PyLong_AsInt(space, w_long):
     if val > INT_MAX or val < INT_MIN:
         raise oefmt(space.w_OverflowError,
                     "Python int too large to convert to C int")
-    return rffi.cast(rffi.INT, val)
+    return rffi.cast(rffi.INT_real, val)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1, abi3=True)
 def PyLong_AsSsize_t(space, w_long):

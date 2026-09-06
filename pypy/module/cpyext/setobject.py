@@ -81,8 +81,14 @@ def PySet_Add(space, w_s, w_obj):
     instances.  Return 0 on success or -1 on failure. Raise a TypeError if
     the key is unhashable. Raise a MemoryError if there is no room to grow.
     Raise a SystemError if set is an not an instance of set or its
-    subtype."""
+    subtype.
+
+    Now works with instances of frozenset or its subtypes.
+    Like PyTuple_SetItem() in that it can be used to fill-in the
+    values of brand new frozensets before they are exposed to other code."""
     if not space.isinstance_w(w_s, space.w_set):
+        if isinstance(w_s, W_FrozensetObject) and w_s.cpyext_add_frozen(w_obj):
+            return 0
         PyErr_BadInternalCall(space)
     space.call_method(space.w_set, 'add', w_s, w_obj)
     return 0
