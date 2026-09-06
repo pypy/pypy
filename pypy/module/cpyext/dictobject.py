@@ -230,6 +230,7 @@ def PyDict_Merge(space, w_a, w_b, override):
     """
     if w_a is None or not space.isinstance_w(w_a, space.w_dict) or w_b is None:
         raise PyErr_BadInternalCall(space)
+    assert isinstance(w_a, W_DictMultiObject)
     override = rffi.cast(lltype.Signed, override)
     if isinstance(w_b, W_DictMultiObject):
         # fast path: like CPython, merge via the dict's own storage,
