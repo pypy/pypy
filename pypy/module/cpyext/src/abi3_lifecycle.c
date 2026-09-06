@@ -48,16 +48,22 @@ PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_New(void)
     return NULL;
 }
 
+/* PyPy has a single interpreter */
 PyAPI_FUNC(PyInterpreterState *) PyInterpreterState_Get(void)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyInterpreterState_Get() is not implemented in PyPy");
-    return NULL;
+    return PyInterpreterState_Main();
 }
 
-PyAPI_FUNC(PyObject *) PyInterpreterState_GetDict(PyInterpreterState * _a0)
+PyAPI_FUNC(PyObject *) PyInterpreterState_GetDict(PyInterpreterState *interp)
 {
-    PyErr_SetString(PyExc_NotImplementedError, "PyInterpreterState_GetDict() is not implemented in PyPy");
-    return NULL;
+    if (interp->dict == NULL) {
+        interp->dict = PyDict_New();
+        if (interp->dict == NULL) {
+            PyErr_Clear();
+        }
+    }
+    /* Returning NULL means no per-interpreter dict is available. */
+    return interp->dict;
 }
 
 PyAPI_FUNC(void) PyInterpreterState_Clear(PyInterpreterState * _a0)

@@ -19,6 +19,7 @@ struct _is;
 typedef struct _is {
     struct _is *next;
     PyObject * modules_by_index;
+    PyObject *dict;  /* Stores per-interpreter state */
 } PyInterpreterState;
 
 typedef struct _ts {

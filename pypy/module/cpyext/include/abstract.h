@@ -310,8 +310,18 @@ PyAPI_FUNC(int) PyIndex_Check(PyObject *);
 
 #define PY_VECTORCALL_ARGUMENTS_OFFSET ((size_t)1 << (8 * sizeof(size_t) - 1))
 
+/* Given a vectorcall nargsf argument, return the actual number of arguments.
+ * (For use outside the limited API, this is re-defined as a static inline
+ * function in cpython/abstract.h)
+ */
+PyAPI_FUNC(Py_ssize_t) PyVectorcall_NARGS(size_t nargsf);
+
+// PyVectorcall_NARGS() is exported as a function for the stable ABI.
+// Here (when we are not using the stable ABI), the name is overridden to
+// call a static inline function for best performance.
+#define PyVectorcall_NARGS(n) _PyVectorcall_NARGS(n)
 static inline Py_ssize_t
-PyVectorcall_NARGS(size_t n)
+_PyVectorcall_NARGS(size_t n)
 {
     return n & ~PY_VECTORCALL_ARGUMENTS_OFFSET;
 }

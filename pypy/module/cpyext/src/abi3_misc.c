@@ -4,6 +4,44 @@
 
 #include "Python.h"
 
+/* Stable-ABI entry points that the headers otherwise provide as macros or
+   static inlines for code compiled against PyPy; abi3 wheels compiled
+   against CPython's headers reference the exported functions instead. */
+
+#undef Py_NewRef
+PyAPI_FUNC(PyObject*) Py_NewRef(PyObject *obj)
+{
+    return _Py_NewRef(obj);
+}
+
+#undef Py_XNewRef
+PyAPI_FUNC(PyObject*) Py_XNewRef(PyObject *obj)
+{
+    return _Py_XNewRef(obj);
+}
+
+#undef PyObject_GC_Track
+PyAPI_FUNC(void) PyObject_GC_Track(void *op)
+{
+}
+
+#undef PyObject_GC_UnTrack
+PyAPI_FUNC(void) PyObject_GC_UnTrack(void *op)
+{
+}
+
+#undef PyVectorcall_NARGS
+PyAPI_FUNC(Py_ssize_t) PyVectorcall_NARGS(size_t nargsf)
+{
+    return _PyVectorcall_NARGS(nargsf);
+}
+
+#undef Py_CompileString
+PyAPI_FUNC(PyObject *) Py_CompileString(const char *str, const char *filename, int start)
+{
+    return Py_CompileStringFlags(str, filename, start, NULL);
+}
+
 PyAPI_FUNC(int) PyAIter_Check(PyObject * _a0)
 {
     return 0;

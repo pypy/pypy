@@ -323,7 +323,7 @@ def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
 
     PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_filename)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], PyObject, abi3=True)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     """Similar to PyErr_SetFromErrno(), with the additional behavior that if
@@ -355,7 +355,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
                                       space.newtext(msg, lgt))
     raise OperationError(w_type, w_error)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyErr_SetFromErrnoWithFilenameObjects(space, w_type, w_value, w_value2):
     """Similar to PyErr_SetFromErrnoWithFilenameObject(), with the additional

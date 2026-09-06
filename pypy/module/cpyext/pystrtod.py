@@ -41,7 +41,8 @@ def _cpython_flags_to_rfloat(flags):
         result |= rfloat.DTSF_NO_NEG_0
     return result
 
-@cpython_api([rffi.CONST_CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
+@cpython_api([rffi.CONST_CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0,
+             abi3=True)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
     """Convert a string s to a double, raising a Python

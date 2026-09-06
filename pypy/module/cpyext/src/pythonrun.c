@@ -68,10 +68,19 @@ _Py_FatalErrorFunc(const char * func, const char *msg)
 
 /* Somewhere in the py3.10 development cycle, Py_FatalError became a macro that
  * uses __function__ to call _Py_FatalErrorFunc. But for backwards
- * compatiblity, export the old funcion from the shared object
+ * compatiblity, export the old funcion from the shared object, both under
+ * the PyPy-mangled name and under the bare name the stable ABI still has.
  */
+#undef Py_FatalError
+
 PyAPI_FUNC(void)
 PyPy_FatalError(const char *msg)
+{
+    Py_FatalError(msg);
+}
+
+PyAPI_FUNC(void)
+Py_FatalError(const char *msg)
 {
     fprintf(stderr, "Fatal Python error: %s\n", msg);
     fflush(stderr); /* it helps in Windows debug build */

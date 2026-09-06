@@ -93,16 +93,16 @@ def PyNumber_ToBase(space, w_obj, base):
 def func_rename(newname):
     return lambda func: func_with_new_name(func, newname)
 
-def make_numbermethod(cname, spacemeth):
-    @cpython_api([PyObject, PyObject], PyObject)
+def make_numbermethod(cname, spacemeth, abi3):
+    @cpython_api([PyObject, PyObject], PyObject, abi3=abi3)
     @func_rename(cname)
     def PyNumber_Method(space, w_o1, w_o2):
         meth = getattr(space, spacemeth)
         return meth(w_o1, w_o2)
     return PyNumber_Method
 
-def make_unary_numbermethod(name, spacemeth):
-    @cpython_api([PyObject], PyObject)
+def make_unary_numbermethod(cname, spacemeth):
+    @cpython_api([PyObject], PyObject, abi3=True)
     @func_rename(cname)
     def PyNumber_Method(space, w_o1):
         if w_o1 is None:
@@ -111,15 +111,16 @@ def make_unary_numbermethod(name, spacemeth):
         return meth(w_o1)
     return PyNumber_Method
 
-def make_inplace_numbermethod(cname, spacemeth):
+def make_inplace_numbermethod(cname, spacemeth, abi3):
     spacemeth = 'inplace_' + spacemeth.rstrip('_')
-    @cpython_api([PyObject, PyObject], PyObject)
+    @cpython_api([PyObject, PyObject], PyObject, abi3=abi3)
     @func_rename(cname)
     def PyNumber_Method(space, w_o1, w_o2):
         meth = getattr(space, spacemeth)
         return meth(w_o1, w_o2)
     return PyNumber_Method
 
+# PyNumber_Divide / PyNumber_InPlaceDivide are py2 leftovers, not stable ABI
 for name, spacemeth in [
         ('Add', 'add'),
         ('Subtract', 'sub'),
@@ -135,11 +136,12 @@ for name, spacemeth in [
         ('Or', 'or_'),
         ('Divmod', 'divmod'),
         ('MatrixMultiply', 'matmul')]:
+    abi3 = name != 'Divide'
     cname = 'PyNumber_%s' % (name,)
-    globals()[cname] = make_numbermethod(cname, spacemeth)
+    globals()[cname] = make_numbermethod(cname, spacemeth, abi3)
     if name != 'Divmod':
         cname = 'PyNumber_InPlace%s' % (name,)
-        globals()[cname] = make_inplace_numbermethod(cname, spacemeth)
+        globals()[cname] = make_inplace_numbermethod(cname, spacemeth, abi3)
 
 for name, spacemeth in [
         ('Negative', 'neg'),

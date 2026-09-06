@@ -632,15 +632,22 @@ SYMBOLS_C = [
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex', '_PyType_Name',
     'PyType_GetModuleByDef', '_Py_RestoreSignals',
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
-    'PyStructSequence_UnnamedField', 'Py_FrozenFlag',
-    'Py_UnbufferedStdioFlag', '_Py_PackageContext', 'PyOS_InputHook',
-    'Py_Version', '_Py_PackageContext', 'PyMem_RawMalloc', 'PyMem_RawCalloc',
+    'Py_FrozenFlag',
+    'Py_UnbufferedStdioFlag', '_Py_PackageContext',
+    'PyMem_RawMalloc', 'PyMem_RawCalloc',
     'PyMem_RawRealloc', 'PyMem_RawFree', 'PyObject_CallFinalizerFromDealloc',
     'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack', '_PyObject_GC_Malloc',
     '_Py_object_dealloc', 'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8',
     'PyFloat_Unpack2', 'PyFloat_Unpack4', 'PyFloat_Unpack8',
     '_PyFloat_InitState', '_PyObject_VisitManagedDict',
-    '_PyObject_ClearManagedDict'
+    '_PyObject_ClearManagedDict',
+    # _Py_Dealloc is in the stable ABI but deliberately NOT exported under
+    # its bare name: only extensions built with Py_LIMITED_API < 3.12
+    # reference it, from an inlined Py_DECREF that decrements ob_refcnt
+    # directly, which PyPy's tagged refcounts do not support. Keeping it
+    # mangled makes such extensions fail at dlopen with a clear error
+    # (see load_extension_module) instead of leaking or crashing later.
+    '_Py_Dealloc',
 ]
 SYMBOLS_C_ABI3 = [
     'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse', 'PyArg_ParseTuple',
@@ -686,7 +693,8 @@ SYMBOLS_C_ABI3 = [
     'PyObject_GC_Del', 'PyType_GenericAlloc', '_PyObject_New',
     '_PyObject_NewVar', 'PyType_GenericNew', '_PyObject_GC_New',
     '_PyObject_GC_NewVar', 'PyObject_Init', 'PyObject_InitVar',
-    'PyTuple_New', '_Py_Dealloc', 'PyVectorcall_Call', 'PyState_FindModule',
+    'PyTuple_New', 'PyVectorcall_Call', 'PyState_FindModule',
+    'PyStructSequence_UnnamedField', 'PyOS_InputHook', 'Py_Version',
     'PySlice_AdjustIndices', '_Py_tuple_dealloc', '_Py_subtype_dealloc',
     '_Py_get_PyOS_InputHook', '_Py_tuple_new', 'PyCapsule_Type',
 ]
@@ -728,15 +736,15 @@ SKIP_GLOBAL += MANGLE_NAMES
 
 # this needs to include all prebuilt pto, otherwise segfaults occur
 register_global('_Py_NoneStruct',
-    'PyObject*', 'space.w_None', header=pypy_decl)
+    'PyObject*', 'space.w_None', header=pypy_decl, abi3=True)
 register_global('_Py_TrueStruct',
-    'PyObject*', 'space.w_True', header=pypy_decl)
+    'PyObject*', 'space.w_True', header=pypy_decl, abi3=True)
 register_global('_Py_FalseStruct',
-    'PyObject*', 'space.w_False', header=pypy_decl)
+    'PyObject*', 'space.w_False', header=pypy_decl, abi3=True)
 register_global('_Py_NotImplementedStruct',
-    'PyObject*', 'space.w_NotImplemented', header=pypy_decl)
+    'PyObject*', 'space.w_NotImplemented', header=pypy_decl, abi3=True)
 register_global('_Py_EllipsisObject',
-    'PyObject*', 'space.w_Ellipsis', header=pypy_decl)
+    'PyObject*', 'space.w_Ellipsis', header=pypy_decl, abi3=True)
 register_global('PyDateTimeAPI', 'PyDateTime_CAPI*', 'None')
 register_global('Py_GenericAliasType', 'PyTypeObject*',
     '''space.appexec([], """():
@@ -1968,8 +1976,14 @@ def create_extension_module(space, w_spec):
         else:
             dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
+        msg = e.msg
+        if msg.find('_Py_Dealloc') >= 0:
+            msg += ('; this C extension was built for the limited API of '
+                    'Python < 3.12 and inlines reference counting, which '
+                    'PyPy cannot support: only abi3 extensions built for '
+                    'Python 3.12 or newer (cp312-abi3 wheels) can be loaded')
         raise raise_import_error(space,
-            space.newfilename(e.msg), w_name, w_path)
+            space.newfilename(msg), w_name, w_path)
     look_for = None
     #
     if space.config.objspace.usemodules._cffi_backend:

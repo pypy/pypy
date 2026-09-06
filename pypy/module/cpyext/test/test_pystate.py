@@ -88,8 +88,27 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                      int64_t id = PyThreadState_GetID(tstate);
                      return PyLong_FromLong(id + 100);
                  """),
+                ("get_dict", "METH_NOARGS",
+                 """
+                     PyInterpreterState *interp = PyInterpreterState_Get();
+                     PyObject *dict;
+                     if (interp == NULL || interp != PyInterpreterState_Main()) {
+                         PyErr_SetString(PyExc_AssertionError, "bad interp");
+                         return NULL;
+                     }
+                     dict = PyInterpreterState_GetDict(interp);
+                     if (dict == NULL || dict != PyInterpreterState_GetDict(interp)) {
+                         PyErr_SetString(PyExc_AssertionError, "bad dict");
+                         return NULL;
+                     }
+                     return Py_NewRef(dict);
+                 """),
                 ])
         assert module.get() > 100
+        d = module.get_dict()
+        assert isinstance(d, dict)
+        d['abi3'] = 1
+        assert module.get_dict() is d
 
     @py.test.mark.xfail(run=False, reason='PyThreadState_Get() segfaults on py3k and CPython')
     def test_basic_threadstate_dance(self):
@@ -442,7 +461,6 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                 callback()
         finally:
             sys.settrace(old_trace)
-
 
 class TestInterpreterState(BaseApiTest):
     def test_interpreter_head(self, space, api):

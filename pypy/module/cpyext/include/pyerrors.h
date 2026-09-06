@@ -38,7 +38,14 @@ typedef struct {
 
 PyAPI_FUNC(void) _Py_NO_RETURN _Py_FatalErrorFunc(const char * func, const char *msg);
 
-#define Py_FatalError(message) _Py_FatalErrorFunc(__func__, message)
+/* Defined in Python/pylifecycle.c
+
+   The Py_FatalError() function is replaced with a macro which logs
+   automatically the name of the current function, unless the Py_LIMITED_API
+   macro is defined. */
+PyAPI_FUNC(void) _Py_NO_RETURN Py_FatalError(const char *message);
+
+#define Py_FatalError(message) _Py_FatalErrorFunc(__func__, (message))
 
 
 /* abi3/limited-API shims */

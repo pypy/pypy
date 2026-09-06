@@ -13,7 +13,8 @@ PyInterpreterState = lltype.Ptr(PyInterpreterStateStruct)
 cpython_struct(
     "PyInterpreterState",
     [('next', PyInterpreterState),
-     ('modules_by_index', PyObject)],
+     ('modules_by_index', PyObject),
+     ('dict', PyObject)],
     PyInterpreterStateStruct)
 PyThreadState = lltype.Ptr(cpython_struct(
     "PyThreadState",

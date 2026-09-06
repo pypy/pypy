@@ -47,6 +47,8 @@ typedef struct {
 #define PyCF_DONT_IMPLY_DEDENT 0x0200
 #define PyCF_ONLY_AST 0x0400
 
+PyAPI_FUNC(PyObject *) Py_CompileString(const char *, const char *, int);
+
 #define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
 
 PyAPI_FUNC(int) PyRun_SimpleStringFlags(const char *, PyCompilerFlags *);

@@ -925,7 +925,7 @@ def PyUnicode_Resize(space, ref, newsize):
     return 0
 
 def make_conversion_functions(suffix, encoding, only_for_asstring=False):
-    @cpython_api([PyObject], PyObject)
+    @cpython_api([PyObject], PyObject, abi3=True)
     @func_renamer('PyUnicode_As%sString' % suffix)
     def PyUnicode_AsXXXString(space, pyobj):
         """Encode a Unicode object and return the result as Python
@@ -940,7 +940,7 @@ def make_conversion_functions(suffix, encoding, only_for_asstring=False):
     if only_for_asstring:
         return
 
-    @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
+    @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject, abi3=True)
     @func_renamer('PyUnicode_Decode%s' % suffix)
     def PyUnicode_DecodeXXX(space, s, size, errors):
         """Create a Unicode object by decoding size bytes of the

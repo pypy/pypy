@@ -175,19 +175,19 @@ PyAPI_FUNC(PyVarObject *) _PyObject_GC_NewVar(PyTypeObject *, Py_ssize_t);
 /* Tell the GC to track this object.
  *
  * See also private _PyObject_GC_TRACK() macro. */
-#ifndef PYPY_VERSION
 PyAPI_FUNC(void) PyObject_GC_Track(void *);
 
 /* Tell the GC to stop tracking this object.
  *
  * See also private _PyObject_GC_UNTRACK() macro. */
 PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
-#else
+
+/* PyPy: no-ops. The functions above exist for the stable ABI (see
+ * abi3_misc.c); code compiled against these headers gets the macros. */
 #define PyObject_GC_Track(o)      do { } while(0)
 #define _PyObject_GC_TRACK(o)      do { } while(0)
 #define _PyObject_GC_UnTrack(o)    do { } while(0)
 #define PyObject_GC_UnTrack(o)    do { } while(0)
-#endif
 
 PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
