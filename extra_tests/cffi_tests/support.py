@@ -73,13 +73,93 @@ class FdWriteCapture:
     def getvalue(self):
         return self._value
 
+class CompilerOutputCapture(object):
+    """Capture the C compiler's output to a temporary file.
+
+    distutils spawns the C compiler as a subprocess that writes its
+    diagnostics to file descriptors 1 and 2.  When the compile fails we
+    only get 'command ... failed with exit code N' and the actual error
+    messages are lost.  Redirecting the fds to a temp file recovers them,
+    and unlike the pipe-based FdWriteCapture this also works on Windows and
+    is not limited to 512 bytes.
+    """
+    def __init__(self):
+        self._value = b''
+        self._tmp = None
+        self._saved = {}
+
+    def __enter__(self):
+        import tempfile
+        sys.stdout.flush()
+        sys.stderr.flush()
+        try:
+            self._tmp = tempfile.TemporaryFile()
+            for fd in (1, 2):
+                self._saved[fd] = os.dup(fd)
+                os.dup2(self._tmp.fileno(), fd)
+        except (OSError, ValueError):
+            # fd redirection is unavailable here: give up on capturing
+            self._restore()
+            if self._tmp is not None:
+                self._tmp.close()
+                self._tmp = None
+        return self
+
+    def _restore(self):
+        for fd, saved in self._saved.items():
+            try:
+                os.dup2(saved, fd)
+                os.close(saved)
+            except OSError:
+                pass
+        self._saved = {}
+
+    def __exit__(self, *exc):
+        if self._tmp is None:
+            return
+        sys.stdout.flush()
+        sys.stderr.flush()
+        self._restore()
+        try:
+            self._tmp.seek(0)
+            self._value = self._tmp.read()
+        finally:
+            self._tmp.close()
+            self._tmp = None
+
+    def getvalue(self):
+        if isinstance(self._value, bytes):
+            return self._value.decode('utf-8', 'replace')
+        return self._value
+
+
+def _attach_compiler_output(exc, output):
+    banner = "\n---- C compiler output ----\n" + output
+    try:
+        if exc.args and isinstance(exc.args[0], str):
+            exc.args = (exc.args[0] + banner,) + tuple(exc.args[1:])
+        else:
+            exc.args = tuple(exc.args) + (banner,)
+    except Exception:
+        pass
+
+
 def _verify(ffi, module_name, preamble, *args, **kwds):
     from cffi.recompiler import recompile
     from .udir import udir
     assert module_name not in sys.modules, "module name conflict: %r" % (
         module_name,)
     kwds.setdefault('tmpdir', str(udir))
-    outputfilename = recompile(ffi, module_name, preamble, *args, **kwds)
+    capture = CompilerOutputCapture()
+    try:
+        with capture:
+            outputfilename = recompile(ffi, module_name, preamble,
+                                       *args, **kwds)
+    except Exception as e:
+        output = capture.getvalue()
+        if output.strip():
+            _attach_compiler_output(e, output)
+        raise
     module = load_dynamic(module_name, outputfilename)
     #
     # hack hack hack: copy all *bound methods* from module.ffi back to the
