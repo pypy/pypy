@@ -196,7 +196,12 @@ def PySequence_GetItem(space, w_obj, i):
     if w_obj is None:
         raise oefmt(space.w_SystemError, "null argument to internal routine")
     if not space.issequence_w(w_obj):
-        raise oefmt(space.w_TypeError, "'%T' is not a sequence", w_obj)
+        # Match CPython's messages: a mapping-but-not-sequence gets
+        # "X is not a sequence", anything else "does not support indexing".
+        if space.ismapping_w(w_obj):
+            raise oefmt(space.w_TypeError, "%T is not a sequence", w_obj)
+        raise oefmt(space.w_TypeError,
+                    "'%T' object does not support indexing", w_obj)
     if i < 0:
         l = PySequence_Length(space, w_obj)
         i += l

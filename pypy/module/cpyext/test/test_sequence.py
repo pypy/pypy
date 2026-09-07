@@ -47,6 +47,23 @@ class TestSequence(BaseApiTest):
         assert space.type(w_seq) is space.w_list
         assert sorted(space.unwrap(w_seq)) == [1, 2, 3, 4]
 
+    def test_getitem_error_messages(self, space, api):
+        from pypy.interpreter.error import OperationError
+        # neither a sequence nor a mapping -> "does not support indexing"
+        try:
+            PySequence_GetItem(space, space.newint(100), 0)
+            assert False, "expected TypeError"
+        except OperationError as e:
+            assert e.match(space, space.w_TypeError)
+            assert "'int' object does not support indexing" in e.errorstr(space)
+        # a mapping-but-not-sequence -> "X is not a sequence"
+        try:
+            PySequence_GetItem(space, space.newdict(), 0)
+            assert False, "expected TypeError"
+        except OperationError as e:
+            assert e.match(space, space.w_TypeError)
+            assert "is not a sequence" in e.errorstr(space)
+
     def test_repeat(self, space, api):
         def test(seq, count):
             w_seq = space.wrap(seq)
