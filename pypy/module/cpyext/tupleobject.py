@@ -221,13 +221,18 @@ def PyTuple_GetSlice(space, w_obj, low, high):
     if not space.isinstance_w(w_obj, space.w_tuple):
         PyErr_BadInternalCall(space)
     # raw clamp, like CPython's tupleslice(): unlike a Python slice, a
-    # negative index here is not relative to the end
+    # negative index here is not relative to the end.  Both indices must be
+    # clamped into [0, length] so that the RPython slice below stays in
+    # bounds: an unclamped low > length makes the translated list slice
+    # compute a bogus length and raise MemoryError.
     items_w = space.fixedview(w_obj)
     length = len(items_w)
     if low < 0:
         low = 0
-    if high > length:
-        high = length
+    elif low > length:
+        low = length
     if high < low:
         high = low
+    elif high > length:
+        high = length
     return space.newtuple(items_w[low:high])

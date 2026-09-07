@@ -102,13 +102,26 @@ class TestTupleObject(BaseApiTest):
         w_slice = api.PyTuple_GetSlice(w_tuple, 3, -3)
         assert space.eq_w(w_slice, space.newtuple([]))
 
+        # low beyond the length must clamp to an empty tuple, not run off the
+        # end of the underlying list (which raised MemoryError once translated)
+        w_short = space.newtuple([space.wrap(1)])
+        assert space.eq_w(api.PyTuple_GetSlice(w_short, 2, 1), space.newtuple([]))
+        assert space.eq_w(api.PyTuple_GetSlice(w_short, 5, 10), space.newtuple([]))
+
         with raises_w(space, SystemError):
             api.PyTuple_GetSlice(space.newlist([]), 0, 0)
 
 
 class AppTestTuple(AppTestCpythonExtensionBase):
-    def test_refcounts(self):
+    def test_slice_and_refcount(self):
         module = self.import_extension('foo', [
+            ("getslice", "METH_VARARGS",
+             '''
+             PyObject *t; Py_ssize_t low, high;
+             if (!PyArg_ParseTuple(args, "Onn", &t, &low, &high))
+                 return NULL;
+             return PyTuple_GetSlice(t, low, high);
+             '''),
             ("run", "METH_NOARGS",
              """
                 PyObject *item = PyTuple_New(0);
@@ -147,6 +160,19 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             ])
         x = module.run()
         assert x == ((),)
+
+        # PyTuple_GetSlice() with low > len(tuple) must return an empty tuple,
+        # like CPython's tupleslice().  A regression made the translated
+        # RPython slice run off the end and raise MemoryError (surfacing as
+        # "SystemError: <MemoryError object>").  This is exactly the shape
+        # Cython emits when extracting *args, e.g. Swallow("Brian", airspeed=42)
+        # where a keyword fills a positional slot (PyTuple_GetSlice(args, 2, 1)).
+        assert module.getslice(("Brian",), 2, 1) == ()
+        assert module.getslice(("Brian",), 2, 2) == ()
+        assert module.getslice((), 5, 10) == ()
+        assert module.getslice(("a", "b", "c"), 1, 3) == ("b", "c")
+        assert module.getslice(("a", "b", "c"), 2, 1) == ()
+        assert module.getslice(("a", "b", "c"), -1, 5) == ("a", "b", "c")
 
     def test_refcounts_more(self):
         module = self.import_extension('foo', [
