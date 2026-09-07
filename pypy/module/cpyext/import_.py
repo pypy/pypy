@@ -182,7 +182,7 @@ def _PyImport_AcquireLock(space):
     except OperationError as e:
         e.write_unraisable(space, "_PyImport_AcquireLock")
 
-@cpython_api([], rffi.LONG, error=CANNOT_FAIL, abi3=True)
+@cts.decl("long PyImport_GetMagicNumber(void)", error=CANNOT_FAIL, abi3=True)
 def PyImport_GetMagicNumber(space):
     """Return the magic number for Python bytecode files (a.k.a. .pyc file).
     The magic number should be present in the first four bytes of the

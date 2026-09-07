@@ -27,7 +27,6 @@ PyAPI_FUNC(int) PyImport_AppendInittab(const char *name,  PyObject* (*initfunc)(
 PyAPI_FUNC(PyObject *) PyImport_ExecCodeModuleObject(PyObject *name, PyObject *co, PyObject *pathname, PyObject *cpathname);
 PyAPI_FUNC(PyObject *) PyImport_ExecCodeModuleWithPathnames(const char *name,  PyObject *co, const char *pathname,  const char *cpathname);
 PyAPI_FUNC(PyObject *) PyImport_GetImporter(PyObject *path);
-PyAPI_FUNC(long) PyImport_GetMagicNumber(void);
 PyAPI_FUNC(const char *) PyImport_GetMagicTag(void);
 PyAPI_FUNC(int) PyImport_ImportFrozenModule(const char *name);
 PyAPI_FUNC(int) PyImport_ImportFrozenModuleObject(PyObject *name);
