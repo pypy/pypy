@@ -19,6 +19,18 @@ class AppTestImpModule:
         fake_latin1 = udir.join('fake_latin1.py')
         fake_latin1.write("print('-*- coding: iso-8859-1 -*')")
         cls.w_udir = cls.space.wrap(str(udir))
+        # Prime the imp machinery now, outside any test's leakfinder tracking
+        # window.  On Windows the first use builds the cffi-backed dynamic
+        # loader (an ffi.dlopen() FFI, misc.FORMAT_LONGDOUBLE, ...), whose raw
+        # allocations live for the whole process; leakfinder would otherwise
+        # blame whichever test triggers them first (test_find_module).
+        cls.space.appexec([], """():
+            import os, imp
+            f, _, _ = imp.find_module('cmd')
+            if f is not None:
+                f.close()
+            imp.get_suffixes()
+        """)
 
     def w__py_file(self):
         fname = self.udir + '/@TEST.py'
