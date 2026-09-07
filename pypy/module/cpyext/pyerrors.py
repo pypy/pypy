@@ -99,6 +99,13 @@ def _add_normalization_failure_note(space, e, w_type, w_value):
 
 def pyerr_setobject(space, w_type, w_value):
     state = space.fromcache(State)
+    if not space.exception_is_valid_obj_as_class_w(w_type):
+        e = oefmt(space.w_SystemError,
+                  "_PyErr_SetObject: exception %R is not a BaseException "
+                  "subclass", w_type)
+        e.normalize_exception(space)
+        state.set_exception(e)
+        return
     operr = OperationError(w_type, w_value)
     # Normalize eagerly when the exception is set
     # A normalization failure (e.g. a broken __subclasscheck__) must be
@@ -112,7 +119,7 @@ def pyerr_setobject(space, w_type, w_value):
     operr.record_context(space, space.getexecutioncontext())
     state.set_exception(operr)
 
-@cpython_api([PyObject, CONST_STRING], lltype.Void, abi3=True)
+@cpython_api([PyObject, CONST_STRING], lltype.Void, error=None, abi3=True)
 def PyErr_SetString(space, w_type, message_ptr):
     w_bytes = space.newbytes(rffi.charp2str(message_ptr))
     w_message = space.call_method(w_bytes, 'decode', space.newtext("utf-8"))

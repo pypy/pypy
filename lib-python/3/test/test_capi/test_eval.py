@@ -1,5 +1,6 @@
 import sys
 import unittest
+from test import support
 from test.support import import_helper
 
 _testcapi = import_helper.import_module('_testcapi')
@@ -58,6 +59,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(_testcapi.eval_getglobals(),
                          globals())
 
+    @support.cpython_only  # builtins is a dict on PyPy
     def test_eval_getbuiltins(self):
         # Test PyEval_GetBuiltins()
         self.assertEqual(_testcapi.eval_getbuiltins(),

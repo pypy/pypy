@@ -194,8 +194,31 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              Py_RETURN_TRUE;
              '''
              ),
+            ("setstring", "METH_O",
+             '''
+             PyErr_SetString(PyExc_ZeroDivisionError, PyBytes_AS_STRING(args));
+             return NULL;
+             '''
+             ),
+            ("setstring_badtype", "METH_NOARGS",
+             '''
+             PyErr_SetString((PyObject *)&PyList_Type, "error");
+             return NULL;
+             '''
+             ),
+            ("setobject_badtype", "METH_NOARGS",
+             '''
+             PyErr_SetObject((PyObject *)&PyList_Type, Py_None);
+             return NULL;
+             '''
+             ),
             ])
         assert module.check_error()
+        raises(ZeroDivisionError, module.setstring, b'error')
+        raises(UnicodeDecodeError, module.setstring, b'\xff')
+        e = raises(SystemError, module.setstring_badtype)
+        assert "is not a BaseException subclass" in str(e.value)
+        raises(SystemError, module.setobject_badtype)
 
     def test_fetch_and_restore(self):
         module = self.import_extension('foo', [
