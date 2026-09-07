@@ -110,11 +110,23 @@ writer_write_str(fmt_writer *w, PyObject *str,
 {
     Py_ssize_t length, nbytes, fill;
     const char *utf8;
+    PyObject *encoded = NULL;
+    int res = -1;
 
     length = PyUnicode_GET_LENGTH(str);
     utf8 = PyUnicode_AsUTF8AndSize(str, &nbytes);
-    if (utf8 == NULL)
-        return -1;
+    if (utf8 == NULL) {
+        /* lone surrogates are not valid UTF-8; the result is decoded
+           with surrogatepass, so encode them the same way */
+        if (!PyErr_ExceptionMatches(PyExc_UnicodeEncodeError))
+            return -1;
+        PyErr_Clear();
+        encoded = PyUnicode_AsEncodedString(str, "utf-8", "surrogatepass");
+        if (encoded == NULL)
+            return -1;
+        utf8 = PyBytes_AS_STRING(encoded);
+        nbytes = PyBytes_GET_SIZE(encoded);
+    }
     if (precision != -1 && precision < length) {
         nbytes = utf8_prefix_bytes(utf8, nbytes, precision);
         length = precision;
@@ -123,15 +135,18 @@ writer_write_str(fmt_writer *w, PyObject *str,
 
     if (fill && !(flags & F_LJUST)) {
         if (writer_fill(w, ' ', fill) < 0)
-            return -1;
+            goto done;
     }
     if (writer_write_bytes(w, utf8, nbytes) < 0)
-        return -1;
+        goto done;
     if (fill && (flags & F_LJUST)) {
         if (writer_fill(w, ' ', fill) < 0)
-            return -1;
+            goto done;
     }
-    return 0;
+    res = 0;
+  done:
+    Py_XDECREF(encoded);
+    return res;
 }
 
 static int

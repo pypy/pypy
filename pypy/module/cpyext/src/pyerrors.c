@@ -6,7 +6,6 @@ PyObject *
 PyErr_Format(PyObject *exception, const char *format, ...)
 {
     va_list vargs;
-    PyObject* string;
 
 #ifdef HAVE_STDARG_PROTOTYPES
     va_start(vargs, format);
@@ -14,9 +13,7 @@ PyErr_Format(PyObject *exception, const char *format, ...)
     va_start(vargs);
 #endif
 
-    string = PyUnicode_FromFormatV(format, vargs);
-    PyErr_SetObject(exception, string);
-    Py_XDECREF(string);
+    PyErr_FormatV(exception, format, vargs);
     va_end(vargs);
     return NULL;
 }

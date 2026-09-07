@@ -106,6 +106,8 @@ def pyerr_setobject(space, w_type, w_value):
         e.normalize_exception(space)
         state.set_exception(e)
         return
+    if w_value is None:
+        w_value = space.w_None
     operr = OperationError(w_type, w_value)
     # Normalize eagerly when the exception is set
     # A normalization failure (e.g. a broken __subclasscheck__) must be
@@ -311,6 +313,12 @@ def PyErr_NoMemory(space):
     state.set_exception(static_operr)
     return rffi.cast(PyObject, 0)
 
+def _errno_message(errno):
+    if errno == 0:
+        # like CPython: sometimes errno didn't get set
+        return "Error", 5
+    return _strerror(errno)
+
 @cpython_api([PyObject], PyObject, abi3=True)
 def PyErr_SetFromErrno(space, w_type):
     """
@@ -354,7 +362,7 @@ def PyErr_SetFromErrnoWithFilenameObject(space, w_type, w_value):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
-    msg, lgt = _strerror(errno)
+    msg, lgt = _errno_message(errno)
     if w_value:
         if we_are_translated():
             w_error = space.call_function(w_type,
@@ -385,7 +393,7 @@ def PyErr_SetFromErrnoWithFilenameObjects(space, w_type, w_value, w_value2):
     Return value: always NULL."""
     # XXX Doesn't actually do anything with PyErr_CheckSignals.
     errno = rffi.cast(lltype.Signed, rposix._get_errno())
-    msg, lgt = _strerror(errno)
+    msg, lgt = _errno_message(errno)
     if w_value:
         if w_value2:
             w_error = space.call_function(w_type,

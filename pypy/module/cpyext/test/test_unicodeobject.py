@@ -425,6 +425,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ''')
         assert module.format_check() is None
         assert module.format_p(None).startswith("0x")
+        assert module.format_obj("<%U>", "\udc80") == "<\udc80>"
+        assert module.format_obj("<%R>", "\u1234\udc80") == "<%r>" % ("\u1234\udc80",)
+        assert module.format_obj("<%.1U>", "\u1234\udc80") == "<\u1234>"
         res = module.test_unicode_format_v(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
@@ -1306,6 +1309,8 @@ class TestUnicode(BaseApiTest):
             PyUnicode_FromEncodedObject(space, space.wrap(1), b_encoding, None)
         with raises_w(space, TypeError):
             PyUnicode_FromEncodedObject(space, space.newlist([]), b_encoding, None)
+        with raises_w(space, SystemError):
+            PyUnicode_FromEncodedObject(space, None, b_encoding, None)
         w_text = PyUnicode_FromEncodedObject(space, space.newbytearray([]),
                                              b_encoding, None)
         assert space.utf8_w(w_text) == ""

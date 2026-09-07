@@ -553,7 +553,11 @@ def unraisablehook(space, w_hookargs):
     w_type = space.getattr(w_hookargs, space.newtext("exc_type"))
     w_value = space.getattr(w_hookargs, space.newtext("exc_value"))
     w_tb = space.getattr(w_hookargs, space.newtext("exc_traceback"))
-    err_msg = space.text_w(space.getattr(w_hookargs, space.newtext("err_msg")))
+    w_err_msg = space.getattr(w_hookargs, space.newtext("err_msg"))
+    if space.is_none(w_err_msg):
+        err_msg = ''
+    else:
+        err_msg = space.text_w(w_err_msg)
     w_object = space.getattr(w_hookargs, space.newtext("object"))
     extra_line = space.text_w(space.getattr(w_hookargs, space.newtext("extra_line")))
     OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)

@@ -5,6 +5,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from pypy.objspace.std.complexobject import W_ComplexObject, unpackcomplex
 from pypy.interpreter.error import oefmt
+from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 
 PyComplex_Check, PyComplex_CheckExact = build_type_checkers(
     "Complex", export=False)
@@ -59,7 +60,7 @@ def PyComplex_RealAsDouble(space, w_obj):
         assert isinstance(w_obj, W_ComplexObject)
         return w_obj.realval
     else:
-        return space.float_w(w_obj)
+        return PyFloat_AsDouble(space, w_obj)
 
 
 @cpython_api([PyObject], lltype.Float, error=-1, abi3=True)

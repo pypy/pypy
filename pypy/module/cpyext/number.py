@@ -157,8 +157,13 @@ def PyNumber_Power(space, w_o1, w_o2, w_o3):
 
 @cpython_api([PyObject, PyObject, PyObject], PyObject, abi3=True)
 def PyNumber_InPlacePower(space, w_o1, w_o2, w_o3):
-    if not space.is_w(w_o3, space.w_None):
-        raise oefmt(space.w_ValueError,
-                    "PyNumber_InPlacePower with non-None modulus is not "
-                    "supported")
-    return space.inplace_pow(w_o1, w_o2)
+    if space.is_w(w_o3, space.w_None):
+        return space.inplace_pow(w_o1, w_o2)
+    # CPython's nb_inplace_power slot calls __ipow__(self, other),
+    # dropping the modulus; without __ipow__ it is a plain ternary pow
+    w_impl = space.lookup(w_o1, '__ipow__')
+    if w_impl is not None:
+        w_res = space.get_and_call_function(w_impl, w_o1, w_o2)
+        if not space.is_w(w_res, space.w_NotImplemented):
+            return w_res
+    return space.pow(w_o1, w_o2, w_o3)

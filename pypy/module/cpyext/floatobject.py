@@ -6,7 +6,7 @@ from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from rpython.rlib.rstruct import runpack
-from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.objspace.std.floatobject import W_FloatObject, call_float_method
 from pypy.module.cpyext.state import State
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
@@ -63,22 +63,13 @@ def PyFloat_AsDouble(space, w_obj):
         # float() error which also accepts strings.
         w_float_method = space.lookup(w_obj, '__float__')
         if w_float_method is not None:
-            w_value = space.float(w_obj)
+            w_value = call_float_method(space, w_obj)
         else:
             w_index_method = space.lookup(w_obj, '__index__')
             if w_index_method is not None:
                 return space.float_w(space.float(space.index(w_obj)))
             raise oefmt(space.w_TypeError,
                         "must be real number, not %T", w_obj)
-        w_value_type = space.type(w_value)
-        if not space.is_w(w_value_type, space.w_float):
-            space.warn(space.newtext(
-                "%s.__float__ returned non-float (type %s).  "
-                "The ability to return an instance of a strict subclass "
-                "of float is deprecated, and may be removed "
-                "in a future version of Python." %
-                (space.type(w_obj).name, w_value_type.name)),
-                space.w_DeprecationWarning)
     else:
         w_value = w_obj
     return space.float_w(w_value)

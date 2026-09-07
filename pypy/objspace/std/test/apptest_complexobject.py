@@ -514,6 +514,24 @@ def test_convert():
             return None
     raises(TypeError, complex, complex2(1j))
 
+    class FloatSubclass(float):
+        pass
+    class BadFloat2:
+        """__float__() returning a strict float subclass is deprecated"""
+        def __float__(self):
+            return FloatSubclass(4.25)
+    with warnings.catch_warnings(record=True) as log:
+        warnings.simplefilter("always", DeprecationWarning)
+        assert complex(BadFloat2()) == 4.25
+        assert complex(1, BadFloat2()) == 1+4.25j
+        assert len(log) == 2
+        assert log[0].category == DeprecationWarning
+        assert "BadFloat2.__float__ returned non-float" in str(log[0].message)
+    class BadFloat:
+        def __float__(self):
+            return "4.25"
+    raises(TypeError, complex, BadFloat())
+
 def test_getnewargs():
     assert (1+2j).__getnewargs__() == (1.0, 2.0)
 

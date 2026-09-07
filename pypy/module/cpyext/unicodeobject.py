@@ -667,6 +667,8 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
 
     All other objects, including Unicode objects, cause a TypeError to be
     set."""
+    if w_obj is None:
+        PyErr_BadInternalCall(space)
     if space.isinstance_w(w_obj, space.w_bytes):
         s = space.bytes_w(w_obj)
         if not s:

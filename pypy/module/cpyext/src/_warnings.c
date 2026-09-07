@@ -26,9 +26,14 @@ PyErr_WarnFormat(PyObject *category, Py_ssize_t stack_level,
 
 PyObject *
 PyErr_FormatV(PyObject * exception, const char * format, va_list vargs) {
-    PyObject * string = PyUnicode_FromFormatV(format, vargs);
+    PyObject * string;
+    /* PyUnicode_FromFormatV() must not be called with an exception set,
+       it calls arbitrary Python code like PyObject_Repr() */
+    PyErr_Clear();
+    string = PyUnicode_FromFormatV(format, vargs);
     if (string != NULL) {
         PyErr_SetObject(exception, string);
+        Py_DECREF(string);
     }
     return NULL;
 }

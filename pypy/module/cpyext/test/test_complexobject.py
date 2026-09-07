@@ -19,6 +19,41 @@ class TestComplexObject(BaseApiTest):
         with raises_w(space, TypeError):
             PyComplex_RealAsDouble(space, space.w_None)
 
+        # like PyFloat_AsDouble: __float__ (and its subclass warning),
+        # no __complex__ fallback
+        w_objs = space.appexec([], """():
+            class FloatSubclass(float):
+                pass
+            class BadFloat2:
+                def __float__(self):
+                    return FloatSubclass(4.25)
+            class Complex:
+                def __complex__(self):
+                    return 4.25+0.5j
+            return BadFloat2(), Complex()
+        """)
+        w_badfloat2, w_complex = space.unpackiterable(w_objs)
+        with raises_w(space, TypeError):
+            PyComplex_RealAsDouble(space, w_complex)
+        with raises_w(space, TypeError):
+            PyComplex_RealAsDouble(space, space.wrap("4.25"))
+        w_ctx = space.appexec([], """():
+            import warnings
+            ctx = warnings.catch_warnings(record=True)
+            entries = ctx.__enter__()
+            warnings.simplefilter("always", DeprecationWarning)
+            return ctx, entries
+        """)
+        w_ctx, w_entries = space.unpackiterable(w_ctx)
+        assert PyComplex_RealAsDouble(space, w_badfloat2) == 4.25
+        w_msgs = space.appexec([w_ctx, w_entries], """(ctx, entries):
+            ctx.__exit__(None, None, None)
+            return [str(w.message) for w in entries]
+        """)
+        msgs = space.unwrap(w_msgs)
+        assert len(msgs) == 1
+        assert "BadFloat2.__float__ returned non-float" in msgs[0]
+
 class AppTestCComplex(AppTestCpythonExtensionBase):
     def test_AsCComplex(self):
         module = self.import_extension('foo', [

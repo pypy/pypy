@@ -1,7 +1,7 @@
 import pytest
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError
-from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.number import (
     PyNumber_Long, PyNumber_Index, PyNumber_Add,
@@ -58,6 +58,20 @@ class TestIterator(BaseApiTest):
             PyNumber_Power(space, space.wrap(3), space.wrap(2), space.wrap(5)))
         assert 9 == space.unwrap(
             PyNumber_InPlacePower(space, space.wrap(3), space.wrap(2), space.w_None))
+        assert 4 == space.unwrap(
+            PyNumber_InPlacePower(space, space.wrap(3), space.wrap(2), space.wrap(5)))
+        with raises_w(space, TypeError):
+            PyNumber_InPlacePower(space, space.wrap(3), space.wrap(2), space.wrap(1.5))
+        # like CPython, __ipow__ is called without the modulus
+        w_x = space.appexec([], """():
+            class X:
+                def __ipow__(*args):
+                    return args
+            return X()
+        """)
+        w_res = PyNumber_InPlacePower(space, w_x, space.wrap(2), space.wrap(5))
+        assert space.len_w(w_res) == 2
+        assert space.is_w(space.getitem(w_res, space.wrap(0)), w_x)
 
 
 class AppTestCNumber(AppTestCpythonExtensionBase):

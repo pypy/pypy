@@ -259,6 +259,9 @@ class AppTestCall(AppTestCpythonExtensionBase):
             return a       # noqa: F821 -- looked up in the passed globals
         assert module.eval_code_ex(f.__code__, {'a': 1}) == 1
         raises(NameError, module.eval_code_ex, f.__code__, {})
+        from collections import UserDict
+        raises(SystemError, module.eval_code_ex, f.__code__, UserDict(a=1))
+        raises(SystemError, module.eval_code_ex, f.__code__, [])
 
         def g(a, b, c):
             return a

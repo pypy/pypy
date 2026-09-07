@@ -18,6 +18,23 @@ def test_simple():
     assert "Exception ignored in: testplace" in output.err_msg
     assert isinstance(output.exc_value, ValueError)
 
+def test_err_msg_none():
+    # like CPython, err_msg is None (not '') when there is no message
+    unraisables = []
+    oldhook = sys.unraisablehook
+    sys.unraisablehook = unraisables.append
+    try:
+        class A:
+            def __del__(self):
+                1/0
+        A()
+        import gc
+        gc.collect()
+    finally:
+        sys.unraisablehook = oldhook
+    assert unraisables[0].err_msg is None
+    assert isinstance(unraisables[0].exc_value, ZeroDivisionError)
+
 def test_custom_unraisablehook():
     l = []
     def ownhook(hookargs):

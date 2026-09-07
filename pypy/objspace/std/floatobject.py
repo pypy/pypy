@@ -163,6 +163,21 @@ def float_hash(space, w_float, floatval):
     else:
         return space.newint(_hash_float(floatval))
 
+def call_float_method(space, w_obj):
+    """Call w_obj.__float__() (which must exist), warning like CPython's
+    PyFloat_AsDouble if the result is a strict subclass of float."""
+    w_res = space.float(w_obj)
+    w_res_type = space.type(w_res)
+    if not space.is_w(w_res_type, space.w_float):
+        space.warn(space.newtext(
+            "%s.__float__ returned non-float (type %s).  "
+            "The ability to return an instance of a strict subclass "
+            "of float is deprecated, and may be removed "
+            "in a future version of Python." %
+            (space.type(w_obj).name, w_res_type.name)),
+            space.w_DeprecationWarning)
+    return w_res
+
 class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
     The constructor takes an RPython float as an argument."""
@@ -223,17 +238,9 @@ class W_FloatObject(W_Root):
         builtinclass_new_args_check(space, "float", space.w_float, w_floattype, __args__)
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
-            w_obj = space.float(w_value)
-            w_obj_type = space.type(w_obj)
-            if not space.is_w(w_obj_type, space.w_float):
-                space.warn(space.newtext(
-                    "%s.__float__ returned non-float (type %s).  "
-                    "The ability to return an instance of a strict subclass "
-                    "of float is deprecated, and may be removed "
-                    "in a future version of Python." %
-                    (space.type(w_value).name, w_obj_type.name)),
-                    space.w_DeprecationWarning)
-            elif space.is_w(w_floattype, space.w_float):
+            w_obj = call_float_method(space, w_value)
+            if (space.is_w(w_floattype, space.w_float) and
+                    space.is_w(space.type(w_obj), space.w_float)):
                 return w_obj
             value = space.float_w(w_obj)
         elif space.lookup(w_value, "__index__") is not None:

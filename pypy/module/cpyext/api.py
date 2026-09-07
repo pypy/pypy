@@ -2105,6 +2105,23 @@ def invoke_pyos_inputhook(space):
     if c_inputhook:
         generic_cpy_call(space, c_inputhook)
 
+class CFunctionResultError(OperationError):
+    """SystemError raised when a C function's result is inconsistent with
+    the error indicator, see CPython's _Py_CheckFunctionResult()."""
+    def __init__(self, space, msg):
+        self.msg = msg
+        OperationError.__init__(self, space.w_SystemError,
+                                space.newtext("c function call " + msg))
+
+    def set_callable(self, space, w_callable):
+        try:
+            name = space.text_w(space.repr(w_callable))
+        except OperationError:
+            return
+        w_value = self.normalize_exception(space)
+        space.setattr(w_value, space.newtext("args"),
+                      space.newtuple([space.newtext(name + " " + self.msg)]))
+
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
     FT = lltype.typeOf(func).TO
@@ -2197,16 +2214,16 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             if not expect_null and has_new_error and has_result:
                 state = space.fromcache(State)
                 operr = state.clear_exception()
-                w_err = oefmt(space.w_SystemError,
-                            "c function call returned a result with an exception set")
+                w_err = CFunctionResultError(space,
+                            "returned a result with an exception set")
                 if operr:
                     w_err.chain_exceptions_from_cause(space, operr)
                 raise w_err
             elif not expect_null and not has_new_error and not has_result:
                 state = space.fromcache(State)
                 state.clear_exception()
-                raise oefmt(space.w_SystemError,
-                            "c function call returned NULL without setting an exception")
+                raise CFunctionResultError(space,
+                            "returned NULL without setting an exception")
             elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()

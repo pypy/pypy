@@ -281,13 +281,15 @@ class OperationError(Exception):
                 first_line = 'Exception ignored %s' % (where, )
             else:
                 first_line = 'Exception ignored in: %s' % (where, )
+            w_first_line = space.newtext(first_line)
         else:
             first_line = ''
+            w_first_line = space.w_None
         info_w = [
             self.w_type,
             w_value,
             w_tb,
-            space.newtext(first_line),
+            w_first_line,
             w_object,
             space.newtext(extra_line),
         ]

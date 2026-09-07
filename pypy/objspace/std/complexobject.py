@@ -179,6 +179,9 @@ def unpackcomplex(space, w_complex, allow_subclass=False, firstarg=True):
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
     #
+    if space.lookup(w_complex, '__float__') is not None:
+        from pypy.objspace.std.floatobject import call_float_method
+        return (space.float_w(call_float_method(space, w_complex)), 0.0)
     try:
         return (space.float_w(space.float(w_complex)), 0.0)
     except OperationError as e:

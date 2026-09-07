@@ -191,6 +191,14 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              return PyLong_FromLong(flags);
              '''
              ),
+            ('bindTo', 'METH_O',
+             '''
+             /* a PyCFunction whose m_self is an arbitrary object */
+             static PyMethodDef ml = {"bound", (PyCFunction)MyModule_getFlags,
+                                      METH_O, NULL};
+             return PyCFunction_NewEx(&ml, args, NULL);
+             '''
+             ),
             ])
         assert mod.isCFunction(mod.getModule) == "getModule"
         assert mod.getModule(mod.getModule) == 'MyModule'
@@ -203,6 +211,9 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getFlags(mod.isCFunction) == 8
         raises(SystemError, mod.getSelf, 1)
         raises(SystemError, mod.getFlags, 1)
+        assert repr(mod.getModule) == "<built-in function getModule>"
+        bound = mod.bindTo([])
+        assert repr(bound).startswith("<built-in method bound of list object at ")
 
     def test_function_as_method(self):
         # Unlike user functions, builtins don't become methods

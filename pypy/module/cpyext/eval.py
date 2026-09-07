@@ -7,7 +7,7 @@ from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
     cpython_struct, ferror, fclose)
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref
-from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
+from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno, PyErr_BadInternalCall
 from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 from pypy.interpreter.pycode import PyCode
@@ -87,6 +87,8 @@ def PyEval_EvalCodeEx(space, w_co, w_globals, w_locals, args, argcount,
     positional arguments, keyword name/value pairs, default values, keyword-only
     defaults and a closure."""
     code = space.interp_w(PyCode, w_co)
+    if not space.isinstance_w(w_globals, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     argcount = widen(argcount)
     kwcount = widen(kwcount)
     defcount = widen(defcount)

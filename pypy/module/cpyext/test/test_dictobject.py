@@ -108,6 +108,16 @@ class TestDictObject(BaseApiTest):
         PyDict_Merge(space, w_d, w_evil, 1)
         assert space.unwrap(w_d) == dict(a='c', c='d', e='f', g='h')
 
+        # same for the target dict when the source is a non-dict mapping
+        w_mapping = space.appexec([], """():
+            from collections import UserDict
+            return UserDict({'g': 'i', 'j': 'k'})
+        """)
+        PyDict_Merge(space, w_evil, w_mapping, 0)
+        assert space.unwrap(space.call_function(space.w_dict, w_evil)) == dict(g='h', j='k')
+        PyDict_Merge(space, w_evil, w_mapping, 1)
+        assert space.unwrap(space.call_function(space.w_dict, w_evil)) == dict(g='i', j='k')
+
     def test_update(self, space):
         w_d = space.newdict()
         space.setitem(w_d, space.wrap("a"), space.wrap("b"))

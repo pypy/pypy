@@ -916,7 +916,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
 
-        expected = 'c function call returned a result with an exception set'
+        expected = '<built-in function crash4> returned a result with an exception set'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
         assert exc.value.args[0] == expected
@@ -926,7 +926,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.noop(1) == 1
 
         # clear the exception but return NULL, signalling an error
-        expected = 'c function call returned NULL without setting an exception'
+        expected = '<built-in function clear> returned NULL without setting an exception'
         exc = raises(SystemError, module.clear, None)
         assert exc.value.args[0] == expected
 
@@ -937,9 +937,10 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.clear(1) == 1
 
         # Set an exception, but return non-NULL
-        expected = 'c function call returned a result with an exception set'
+        expected = '<built-in function set> returned a result with an exception set'
         exc = raises(SystemError, module.set, 1)
         assert exc.value.args[0] == expected
+        assert isinstance(exc.value.__cause__, TypeError)
 
 
         # Clear the exception and return a value, all is OK

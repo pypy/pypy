@@ -212,6 +212,18 @@ class AppTestFetch(AppTestCpythonExtensionBase):
              return NULL;
              '''
              ),
+            ("setobject_null", "METH_NOARGS",
+             '''
+             PyErr_SetObject(PyExc_ZeroDivisionError, NULL);
+             return NULL;
+             '''
+             ),
+            ("format_repr", "METH_O",
+             '''
+             PyErr_SetString(PyExc_ValueError, "stale");
+             return PyErr_Format(PyExc_TypeError, "repr: %R", args);
+             '''
+             ),
             ])
         assert module.check_error()
         raises(ZeroDivisionError, module.setstring, b'error')
@@ -219,6 +231,14 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         e = raises(SystemError, module.setstring_badtype)
         assert "is not a BaseException subclass" in str(e.value)
         raises(SystemError, module.setobject_badtype)
+        e = raises(ZeroDivisionError, module.setobject_null)
+        assert e.value.args == ()
+        e = raises(TypeError, module.format_repr, 42)
+        assert str(e.value) == "repr: 42"
+        class BadRepr:
+            def __repr__(self):
+                raise KeyError("no repr")
+        raises(KeyError, module.format_repr, BadRepr())
 
     def test_fetch_and_restore(self):
         module = self.import_extension('foo', [
@@ -421,6 +441,12 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/%s");
                  return NULL;
                  ''' % (char, )),
+                ("set_from_errno_zero", "METH_NOARGS",
+                 '''
+                 errno = 0;
+                 PyErr_SetFromErrnoWithFilename(PyExc_OSError, "file");
+                 return NULL;
+                 '''),
                 ]
         if sys.platform == "win32":
             codestr += [
@@ -473,6 +499,12 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             # untranslated the errno can get reset by the calls to ll2ctypes
             assert exc_info.value.errno == errno.EBADF
             assert exc_info.value.strerror == os.strerror(errno.EBADF)
+
+        exc_info = raises(OSError, module.set_from_errno_zero)
+        assert exc_info.value.filename == "file"
+        if self.runappdirect or exc_info.value.errno == 0:
+            assert exc_info.value.args == (0, "Error")
+            assert exc_info.value.strerror == "Error"
         if sys.platform == "win32":
             exc_info = raises(OSError, module.set_from_windowserr)
             if self.runappdirect:
@@ -896,7 +928,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             pass
 
         def hook(event, args):
-            if event == "sys.unraisablehook":
+            if event == "sys.unraisablehook" and sys.unraisablehook is unraisablehook:
                 if args[0] != unraisablehook:
                     raise ValueError("Expected {} == {}".format(args[0], unraisablehook))
                 print(event, repr(args[1].exc_value), args[1].err_msg)
@@ -910,6 +942,18 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         sys.stdout = old
         msg = output.strip().replace('\r', '').splitlines()
         assert msg[0] == "sys.unraisablehook RuntimeError('nonfatal-error') Exception ignored sometext"
+
+        # without a message, err_msg is None like CPython
+        seen = []
+        sys.unraisablehook = seen.append
+        try:
+            module.unraisable_exc(RuntimeError("oops"), None, hex)
+            module.unraisable(hex)
+        finally:
+            sys.unraisablehook = sys.__unraisablehook__
+        assert [a.err_msg for a in seen] == [None, None]
+        assert [a.object for a in seen] == [hex, hex]
+        assert str(seen[0].exc_value) == "oops"
 
     def test_fetch_normalized(self):
         module = self.import_extension('foo', [

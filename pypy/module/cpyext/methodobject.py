@@ -15,7 +15,7 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS, METH_METHOD,
     PyObject, PyTypeObjectPtr, Py_TPFLAGS_HAVE_VECTORCALL,
-    bootstrap_function, cpython_api, generic_cpy_call,
+    bootstrap_function, cpython_api, generic_cpy_call, CFunctionResultError,
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
     PyObjectP, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
@@ -142,6 +142,13 @@ class W_PyCFunctionObject(W_Root):
         return self.call(space, self.w_self, __args__)
 
     def call(self, space, w_self, __args__):
+        try:
+            return self._call(space, w_self, __args__)
+        except CFunctionResultError as e:
+            e.set_callable(space, self)
+            raise
+
+    def _call(self, space, w_self, __args__):
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         length = len(__args__.arguments_w)
         if not flags & METH_KEYWORDS and __args__.keyword_names_w:
@@ -256,6 +263,15 @@ class W_PyCFunctionObject(W_Root):
 
     def fdel_module(self, space):
         self.w_module = space.w_None
+
+    def descr_repr(self, space):
+        from pypy.interpreter.module import Module
+        w_self = self.w_self
+        if w_self is None or isinstance(w_self, Module):
+            return space.newtext("<built-in function %s>" % self.name)
+        classname = space.type(w_self).getname(space)
+        info = 'built-in method %s of %s object' % (self.name, classname)
+        return w_self.getrepr(space, info)
 
     def descr_reduce(self, space):
         w_builtins = space.getbuiltinmodule('builtins')
@@ -494,6 +510,7 @@ def cclassmethod_descr_get(space, w_function, w_obj, w_cls=None):
 W_PyCFunctionObject.typedef = TypeDef(
     'builtin_function_or_method',
     __call__ = interp2app(W_PyCFunctionObject.descr_call),
+    __repr__ = interp2app(W_PyCFunctionObject.descr_repr),
     __doc__ = GetSetProperty(W_PyCFunctionObject.get_doc),
     __text_signature__ = GetSetProperty(W_PyCFunctionObject.get_txtsig),
     __module__ = GetSetProperty(W_PyCFunctionObject.fget_module,
@@ -680,7 +697,12 @@ def PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
             py_argnames = lltype.nullptr(PyObject.TO)
         else:
             py_argnames = as_pyobj(space, w_argnames)
-        result = generic_cpy_call(space, func, py_func, py_args, nargsf, py_argnames)
+        try:
+            result = generic_cpy_call(space, func, py_func, py_args, nargsf,
+                                      py_argnames)
+        except CFunctionResultError as e:
+            e.set_callable(space, w_func)
+            raise
         keepalive_until_here(w_func)
         keepalive_until_here(w_argnames)
         return result

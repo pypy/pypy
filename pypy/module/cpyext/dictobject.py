@@ -2,7 +2,8 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
-from pypy.objspace.std.dictmultiobject import W_DictMultiObject
+from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
+    update1_dict_dict, update1_keys)
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t, cts,
@@ -209,16 +210,6 @@ def PyDict_Copy(space, w_obj):
         raise PyErr_BadInternalCall(space)
     return space.call_method(space.w_dict, "copy", w_obj)
 
-def _has_val(space, w_dict, w_key):
-    try:
-        w_val = space.getitem(w_dict, w_key)
-    except OperationError as e:
-        if e.match(space, space.w_KeyError):
-            return False
-        else:
-            raise
-    return True
-
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1, abi3=True)
 def PyDict_Merge(space, w_a, w_b, override):
     """Iterate over mapping object b adding key-value pairs to dictionary a.
@@ -232,19 +223,26 @@ def PyDict_Merge(space, w_a, w_b, override):
         raise PyErr_BadInternalCall(space)
     assert isinstance(w_a, W_DictMultiObject)
     override = rffi.cast(lltype.Signed, override)
-    if isinstance(w_b, W_DictMultiObject):
-        # fast path: like CPython, merge via the dict's own storage,
-        # bypassing any overridden __getitem__/keys() (dict subclasses
-        # are allowed to override those without affecting PyDict_Merge)
+    # like CPython: use b's storage directly unless __iter__ is overridden
+    w_st_iter = space.newtext("__iter__")
+    if (isinstance(w_b, W_DictMultiObject) and
+            space.is_w(space.findattr(space.type(w_b), w_st_iter),
+                       space.findattr(space.w_dict, w_st_iter))):
+        if override != 0:
+            update1_dict_dict(space, w_a, w_b)
+            return 0
         w_iter = w_b.iteritems()
         while True:
             w_key, w_value = w_iter.next_item()
             if w_key is None:
                 break
-            if override != 0 or w_a.getitem(w_key) is None:
+            if w_a.getitem(w_key) is None:
                 w_a.setitem(w_key, w_value)
         return 0
     w_keys = space.call_method(w_b, "keys")
+    if override != 0:
+        update1_keys(space, w_a, w_b, w_keys)
+        return 0
     w_iter = space.iter(w_keys)
     while 1:
         try:
@@ -253,8 +251,8 @@ def PyDict_Merge(space, w_a, w_b, override):
             if not e.match(space, space.w_StopIteration):
                 raise
             break
-        if not _has_val(space, w_a, w_key) or override != 0:
-            space.setitem(w_a, w_key, space.getitem(w_b, w_key))
+        if w_a.getitem(w_key) is None:
+            w_a.setitem(w_key, space.getitem(w_b, w_key))
     return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
