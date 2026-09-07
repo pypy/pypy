@@ -329,8 +329,6 @@ class TestString(BaseTestPyPyC):
         # No call to _check_utf8 is necessary, because the bytes come from
         # W_UnicodeObject.utf8_w.
         assert loop.match_by_id('decode', '''
-            i95 = int_ge(i86, 0)
-            guard_true(i95, descr=...)
         ''')
 
     def test_find(self):

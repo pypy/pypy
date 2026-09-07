@@ -225,6 +225,7 @@ class LLtypeMixin(object):
     immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
 
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
+    voidarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Void))
     int32arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.INT))
     int16arraydescr = cpu.arraydescrof(lltype.GcArray(rffi.SHORT))
     float32arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.SingleFloat))

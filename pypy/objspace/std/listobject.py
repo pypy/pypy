@@ -49,6 +49,8 @@ def make_range_list(space, start, step, length):
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.erase(None)
     elif start == 0 and step == 1:
+        assert length >= 0
+        debug.check_nonneg(length)
         strategy = space.fromcache(SimpleRangeListStrategy)
         storage = strategy.erase((length,))
     else:
@@ -1415,7 +1417,9 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
             self, w_list, w_obj, startindex, stopindex, count)
 
     def length(self, w_list):
-        return self.unerase(w_list.lstorage)[0]
+        res = self.unerase(w_list.lstorage)[0]
+        debug.check_nonneg(res)
+        return res
 
     def step(self, w_list):
         return 1

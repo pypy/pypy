@@ -293,3 +293,28 @@ class TestArray(BaseTestPyPyC):
             f37 = getarrayitem_raw_f(i8, i36, descr=...)
             ...
         """)
+
+    def test_list_len_known_ge_zero(self):
+        def main(n):
+            l = [1, 32, 4, 2] * n
+            l.append(n)
+            while n > 0:
+                # can be removed because we now know that the length field of
+                # the resizable list gcstruct is non-negative
+                if -1 > len(l) - 1: # ID: lencheck
+                    raise ValueError
+                l.pop()
+                n -= 1
+            return len(l)
+        log = self.run(main, [1000])
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = loop.match_by_id("lencheck", """
+            guard_not_invalidated?
+            guard_nonnull_class(p12, ConstClass(W_ListObject), descr=...)
+            p28 = getfield_gc_r(p12, descr=...)
+            guard_class(p28, ..., descr=...)
+            p30 = getfield_gc_r(p12, descr=...)
+            i31 = getfield_gc_i(p30, descr=...) # list length
+            # there is no comparison for the length here at all
+            i33 = int_add(i31, -1)
+        """)

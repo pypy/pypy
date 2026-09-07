@@ -150,16 +150,20 @@ class FieldDescr(ArrayOrFieldDescr):
     flag = '\x00'
 
     def __init__(self, name, offset, field_size, flag, index_in_parent=0,
-                 is_pure=False):
+                 is_pure=False, is_nonneg_int=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
         self.index = index_in_parent
         self._is_pure = is_pure
+        self._is_nonneg_int = is_nonneg_int
 
     def is_always_pure(self):
         return self._is_pure
+
+    def is_nonneg_signed_int(self):
+        return self._is_nonneg_int
 
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
@@ -182,10 +186,12 @@ class FieldDescr(ArrayOrFieldDescr):
         return self.flag == FLAG_SIGNED
 
     def is_integer_bounded(self):
-        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
-            and self.field_size < symbolic.WORD
+        return ((self.flag in (FLAG_SIGNED, FLAG_UNSIGNED)
+            and self.field_size < symbolic.WORD) or self.is_nonneg_signed_int())
 
     def get_integer_min(self):
+        if self.is_nonneg_signed_int():
+            return 0
         if self.flag == FLAG_UNSIGNED:
             return intbounds.get_integer_min(True, self.field_size)
         elif self.flag == FLAG_SIGNED:
@@ -227,8 +233,11 @@ def get_field_descr(gccache, STRUCT, fieldname):
         name = '%s.%s' % (STRUCT._name, fieldname)
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
         is_pure = STRUCT._immutable_field(fieldname) != False
+        is_nonneg_int = False
+        if flag == FLAG_SIGNED:
+            is_nonneg_int = fieldname in STRUCT._hints.get("nonneg_int_fields", set())
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent,
-                                is_pure)
+                                is_pure, is_nonneg_int)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:
@@ -269,6 +278,13 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
 
 # ____________________________________________________________
 # ArrayDescrs
+
+# maximum reasonable physical size in bytes for a single array.
+# we make some conservative assumptions. let's assume we have a at
+# most 57 bits of physical addresses (which some Intel architectures
+# support). if we have a single array that fills all of that (128
+# petabyte), how large is it?
+MAX_REASONABLE_ARRAY_BYTES = 2**57
 
 class ArrayDescr(ArrayOrFieldDescr):
     tid = 0
@@ -313,6 +329,13 @@ class ArrayDescr(ArrayOrFieldDescr):
 
     def get_item_size_in_bytes(self):
         return self.itemsize
+
+    def get_max_length(self):
+        from rpython.rlib.rarithmetic import LONG_BIT, maxint
+        # compute the maximum length of arrays of this itemsize
+        if LONG_BIT == 32 or self.itemsize == 0:
+            return maxint
+        return MAX_REASONABLE_ARRAY_BYTES // self.itemsize
 
     def is_array_of_structs(self):
         return self.flag == FLAG_STRUCT
