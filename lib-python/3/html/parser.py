@@ -141,7 +141,7 @@ class HTMLParser(_markupbase.ParserBase):
         self._pending = []
         self._pending_len = 0
         self._parse_threshold = 1
-        _markupbase.ParserBase.reset(self)
+        super().reset()
 
     def feed(self, data):
         r"""Feed data to the parser.

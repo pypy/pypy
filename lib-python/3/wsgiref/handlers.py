@@ -238,8 +238,6 @@ class BaseHandler:
         self.headers = self.headers_class(headers)
         status = self._convert_string_type(status, "Status")
         self._validate_status(status)
-        if _name_disallowed_re.search(status):
-            raise ValueError("Control characters are not allowed in status")
 
         if __debug__:
             for name, val in headers:
@@ -251,6 +249,8 @@ class BaseHandler:
         return self.write
 
     def _validate_status(self, status):
+        if _name_disallowed_re.search(status):
+            raise ValueError("Control characters are not allowed in status")
         if len(status) < 4:
             raise AssertionError("Status must be at least 4 characters")
         if not status[:3].isdigit():

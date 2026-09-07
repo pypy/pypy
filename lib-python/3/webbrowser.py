@@ -413,22 +413,6 @@ class Edge(UnixBrowser):
     remote_action_newwin = "--new-window"
     remote_action_newtab = ""
     background = True
-    def _remote(self, action):
-        s = self._find_grail_rc()
-        if not s:
-            return 0
-        s.send(action)
-        s.close()
-        return 1
-
-    def open(self, url, new=0, autoraise=True):
-        sys.audit("webbrowser.open", url)
-        self._check_url(url)
-        if new:
-            ok = self._remote("LOADNEW " + url)
-        else:
-            ok = self._remote("LOAD " + url)
-        return ok
 
 
 #
@@ -614,7 +598,6 @@ if sys.platform == 'darwin':
 
         def open(self, url, new=0, autoraise=True):
             sys.audit("webbrowser.open", url)
-            self._check_url(url)
             assert "'" not in url
             # hack for local urls
             if not ':' in url:
