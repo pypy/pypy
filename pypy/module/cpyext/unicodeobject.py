@@ -673,10 +673,17 @@ def PyUnicode_FromEncodedObject(space, w_obj, encoding, errors):
             return space.newtext('')
     elif space.isinstance_w(w_obj, space.w_unicode):
         raise oefmt(space.w_TypeError, "decoding str is not supported")
-    elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
-        raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
     else:
-        s = space.bufferstr_w(w_obj)
+        try:
+            s = space.bufferstr_w(w_obj)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "decoding to str: need a bytes-like object, %T found",
+                        w_obj)
+        if not s:
+            return space.newtext('')
     return _pyunicode_decode(space, s, encoding, errors)
 
 
@@ -1093,7 +1100,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
     w_string = space.newbytes(string)
     result, length, pos, bo = str_decode_utf_32_helper(
         space, string, w_string, errors, True, state.decode_error_handler,
-        byteorder=byteorder)
+        byteorder=byteorder, allow_surrogates=False)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
     return space.newutf8(result, length)

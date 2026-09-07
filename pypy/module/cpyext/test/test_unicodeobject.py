@@ -317,7 +317,102 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 char *s2 = PyUnicode_AsUTF8(PyTuple_GetItem(args, 2));
                 return PyUnicode_FromFormat(fmt, d, s2);
             """),
+            ("format_check", "METH_NOARGS",
+            """
+                PyObject *result;
+                PyObject *unicode = PyUnicode_FromString("None");
+#define CHECK2(FORMAT, EXPECTED, ARG1, ARG2)                            \\
+                result = PyUnicode_FromFormat(FORMAT, ARG1, ARG2);      \\
+                if (EXPECTED == NULL) {                                 \\
+                    if (result != NULL ||                               \\
+                            !PyErr_ExceptionMatches(PyExc_SystemError)) { \\
+                        Py_XDECREF(result);                             \\
+                        PyErr_Format(PyExc_AssertionError,              \\
+                            "SystemError not raised: %s", FORMAT);      \\
+                        goto fail;                                      \\
+                    }                                                   \\
+                    PyErr_Clear();                                      \\
+                }                                                       \\
+                else if (result == NULL)                                \\
+                    goto fail;                                          \\
+                else if (PyUnicode_CompareWithASCIIString(result, EXPECTED)) { \\
+                    PyErr_Format(PyExc_AssertionError,                  \\
+                        "failed at \\"%s\\" expected \\"%s\\" got \\"%s\\"", \\
+                        FORMAT, EXPECTED, PyUnicode_AsUTF8(result));    \\
+                    goto fail;                                          \\
+                }                                                       \\
+                Py_XDECREF(result)
+#define CHECK1(FORMAT, EXPECTED, ARG) CHECK2(FORMAT, EXPECTED, ARG, 0)
+#define CHECK0(FORMAT, EXPECTED) CHECK2(FORMAT, EXPECTED, 0, 0)
+                CHECK2("%u %? %u", NULL, 1, 2);
+                CHECK0("%%", "%");
+                CHECK0("%0%", NULL);
+                CHECK0("%.2%", NULL);
+                CHECK1("%c", "c", 'c');
+                CHECK1("%2c", NULL, 'c');
+                CHECK1("%.2c", NULL, 'c');
+                CHECK1("%d", "123", (int)123);
+                CHECK1("%i", "-123", (int)-123);
+                CHECK1("%u", "123", (unsigned int)123);
+                CHECK1("%x", "7b", (unsigned int)123);
+                CHECK1("%X", "7B", (unsigned int)123);
+                CHECK1("%o", "173", (unsigned int)123);
+                CHECK1("%ld", "-123", (long)-123);
+                CHECK1("%lu", "123", (unsigned long)123);
+                CHECK1("%lld", "-123", (long long)-123);
+                CHECK1("%llx", "7b", (unsigned long long)123);
+                CHECK1("%zd", "-123", (Py_ssize_t)-123);
+                CHECK1("%zu", "123", (size_t)123);
+                CHECK1("%td", "123", (ptrdiff_t)123);
+                CHECK1("%jd", "-123", (intmax_t)-123);
+                CHECK1("%5d", "  123", (int)123);
+                CHECK1("%5d", " -123", (int)-123);
+                CHECK1("%-5d", "123  ", (int)123);
+                CHECK1("%05d", "00123", (int)123);
+                CHECK1("%05d", "-0123", (int)-123);
+                CHECK1("%.5d", "00123", (int)123);
+                CHECK1("%.5d", "-00123", (int)-123);
+                CHECK1("%7.5d", "  00123", (int)123);
+                CHECK1("%07.5d", "0000123", (int)123);
+                CHECK1("%.7d", "0000123", (int)123);
+                CHECK1("%.0d", "0", (int)0);
+                CHECK1("%5.0d", "    0", (int)0);
+                CHECK1("%s", "None", "None");
+                CHECK1("%ls", "None", L"None");
+                CHECK1("%U", "None", unicode);
+                CHECK1("%A", "None", Py_None);
+                CHECK1("%S", "None", Py_None);
+                CHECK1("%R", "None", Py_None);
+                CHECK2("%V", "None", unicode, "ignored");
+                CHECK2("%V", "None", NULL, "None");
+                CHECK2("%lV", "None", NULL, L"None");
+                CHECK1("%5s", " None", "None");
+                CHECK1("%-5s", "None ", "None");
+                CHECK1("%.1s", "N", "None");
+                CHECK1("%.1ls", "N", L"None");
+                CHECK1("%.1U", "N", unicode);
+                CHECK1("%.1R", "N", Py_None);
+                CHECK1("%5.1s", "    N", "None");
+                CHECK1("%-5.1V", "N    ", unicode);
+                CHECK1("%ls", "c", L"c");
+                CHECK1("%zs", NULL, "a");
+                CHECK1("%ld", "123", (long)123);
+                Py_DECREF(unicode);
+                Py_RETURN_NONE;
+            fail:
+                Py_DECREF(unicode);
+                return NULL;
+#undef CHECK0
+#undef CHECK1
+#undef CHECK2
+            """),
+            ("format_p", "METH_O",
+            """
+                return PyUnicode_FromFormat("%p", args);
+            """),
             ], prologue='''
+            #include <stddef.h>
+            #include <stdint.h>
             PyObject* helper(char* fmt, ...)
             {
               va_list va;
@@ -328,6 +423,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
               return res;
             }
             ''')
+        assert module.format_check() is None
+        assert module.format_p(None).startswith("0x")
         res = module.test_unicode_format_v(1, "xyz")
         assert res == "bla 1 ble xyz\n"
 
@@ -1207,6 +1304,15 @@ class TestUnicode(BaseApiTest):
                                         b_encoding, None)
         with raises_w(space, TypeError):
             PyUnicode_FromEncodedObject(space, space.wrap(1), b_encoding, None)
+        with raises_w(space, TypeError):
+            PyUnicode_FromEncodedObject(space, space.newlist([]), b_encoding, None)
+        w_text = PyUnicode_FromEncodedObject(space, space.newbytearray([]),
+                                             b_encoding, None)
+        assert space.utf8_w(w_text) == ""
+        w_text = PyUnicode_FromEncodedObject(
+            space, space.call_function(space.w_bytearray, space.newbytes("caf\xc3\xa9")),
+            None, None)
+        assert space.utf8_w(w_text) == "caf\xc3\xa9"
 
         rffi.free_charp(b_text)
         rffi.free_charp(b_encoding)
@@ -1339,6 +1445,21 @@ class TestUnicode(BaseApiTest):
         test("\x00\x00\x00\x61\x00\x00\x00\x62", 1)
 
         test("\x00\x00\xFE\xFF\x00\x00\x00\x61\x00\x00\x00\x62", 0, 1)
+
+        # lone surrogate: an error in strict mode, U+FFFD with 'replace'
+        encoded_charp = rffi.str2charp("\x3d\xd8\x00\x00")
+        errors_charp = rffi.str2charp("strict")
+        pendian = lltype.malloc(INTP_real.TO, 1, flavor='raw')
+        pendian[0] = rffi.cast(rffi.INT_real, -1)
+        with raises_w(space, UnicodeDecodeError):
+            PyUnicode_DecodeUTF32(space, encoded_charp, 4, errors_charp, pendian)
+        rffi.free_charp(errors_charp)
+        errors_charp = rffi.str2charp("replace")
+        w_ustr = PyUnicode_DecodeUTF32(space, encoded_charp, 4, errors_charp, pendian)
+        assert space.utf8_w(w_ustr) == u'\ufffd'.encode('utf-8')
+        rffi.free_charp(errors_charp)
+        rffi.free_charp(encoded_charp)
+        lltype.free(pendian, flavor='raw')
         test("\xFF\xFE\x00\x00\x61\x00\x00\x00\x62\x00\x00\x00", 0, -1)
 
     def test_compare(self, space):
