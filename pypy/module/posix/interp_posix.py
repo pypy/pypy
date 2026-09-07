@@ -3266,7 +3266,10 @@ def _add_dll_directory(space, w_path):
     to remove this directory from the search path.
     """
     space.audit("os.add_dll_directory", [w_path])
-    cookie = rwin32.AddDllDirectory(space.utf8_w(w_path), space.len_w(w_path))
+    # path is path_t: accept str, bytes and os.PathLike, like CPython.
+    from rpython.rlib import rutf8
+    path = space.fsdecode_w(w_path)
+    cookie = rwin32.AddDllDirectory(path, rutf8.codepoints_in_utf8(path))
     return W_DLLCapsule(cookie)
 
 def _remove_dll_directory(space, w_cookie):

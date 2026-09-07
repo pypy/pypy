@@ -161,8 +161,14 @@ def convert_sources_to_files(sources, dirname):
     files = []
     for i, source in enumerate(sources):
         filename = dirname / ('source_%d.c' % i)
-        with filename.open('w') as f:
-            f.write(str(source))
+        # Write UTF-8 explicitly: a source may contain non-ASCII characters
+        # (e.g. a non-ascii filename in a string literal).  Text-mode write of
+        # a unicode source encodes with the host's default codec, which is
+        # ASCII on some buildbots (win, macos) and raises UnicodeEncodeError.
+        if not isinstance(source, bytes):
+            source = source.encode('utf-8')
+        with filename.open('wb') as f:
+            f.write(source)
         files.append(filename)
     return files
 
