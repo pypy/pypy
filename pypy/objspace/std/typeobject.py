@@ -885,11 +885,14 @@ class W_TypeObject(W_Root):
     def get_flags(self):
         from copy_reg import _HEAPTYPE
         _CPYTYPE = 1 # used for non-heap types defined in C
+        _IMMUTABLETYPE = 1 << 8
         _ABSTRACT = 1 << 20
         #
         flags = 0
         if self.flag_heaptype:
             flags |= _HEAPTYPE
+        else:
+            flags |= _IMMUTABLETYPE
         if self.flag_cpytype:
             flags |= _CPYTYPE
         if self.flag_abstract:

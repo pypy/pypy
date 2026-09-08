@@ -1119,11 +1119,18 @@ def _type_realize(space, py_obj):
     # tp_mro, tp_subclasses
     py_type = rffi.cast(PyTypeObjectPtr, py_obj)
 
+    if py_type.c_tp_basicsize < 0:
+        # inheriting the base size here would silently shrink instances
+        raise oefmt(space.w_SystemError,
+                    "type %s has a negative tp_basicsize, which is only "
+                    "valid in a PyType_Spec",
+                    rffi.constcharp2str(py_type.c_tp_name))
+
     if not py_type.c_tp_base:
         # borrowed reference, but w_object is unlikely to disappear
         base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
-    
+
     if py_type.c_tp_itemsize == 0:
         w_base = from_ref(space, rffi.cast(PyObject, py_type.c_tp_base))
         if space.is_w(w_base, space.w_bytes):
@@ -1194,6 +1201,10 @@ def finish_type_2(space, pto, w_obj):
     Sets up other attributes, when the interpreter type has been created.
     """
     pto.c_tp_mro = make_ref(space, space.newtuple(w_obj.mro_w))
+    flags = widen(pto.c_tp_flags)
+    if not flags & Py_TPFLAGS_HEAPTYPE:
+        # like PyType_Ready: all static types are immutable
+        pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_IMMUTABLETYPE)
     base = pto.c_tp_base
     if base:
         inherit_special(space, pto, w_obj, base)
@@ -1276,13 +1287,15 @@ def get_slot_by_num(typ, slotnum):
     result_is_ll=True, abi3=True)
 def PyType_FromSpecWithBases(space, spec, bases):
     return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
-                                      lltype.nullptr(PyObject.TO), spec, bases)
+                                      lltype.nullptr(PyObject.TO), spec, bases,
+                                      allow_tp_new=True)
 
 @cts.decl("""PyObject *
     PyType_FromMetaclass(PyTypeObject * metaclass, PyObject * module, PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True, abi3=True)
 def PyType_FromMetaclass(space, metaclass, module, spec, bases):
-    return _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases)
+    return _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases,
+                                      allow_tp_new=False)
 
 
 @cts.decl("""PyObject *
@@ -1290,12 +1303,13 @@ def PyType_FromMetaclass(space, metaclass, module, spec, bases):
     result_is_ll=True, abi3=True)
 def PyType_FromModuleAndSpec(space, module, spec, bases):
     return _PyType_FromMetaclass_impl(space, lltype.nullptr(PyTypeObjectPtr.TO),
-                                      module, spec, bases)
+                                      module, spec, bases, allow_tp_new=True)
 
 def _align_up(size):
     return (size + ALIGNOF_MAX_ALIGN_T - 1) & ~(ALIGNOF_MAX_ALIGN_T - 1)
 
-def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
+def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases,
+                               allow_tp_new):
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
@@ -1316,6 +1330,7 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     tp_doc = None
     tp_txtsig = None
     module_from_spec = False
+    have_doc = False
     i = 0
     while True:
         slotdef = slotdefs[i]
@@ -1362,11 +1377,20 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
                         module_from_spec = True
 
         elif slot == cts.macros['Py_tp_doc']:
+            # like CPython: a second Py_tp_doc is only an error if the
+            # first one was non-NULL
+            if have_doc:
+                raise oefmt(space.w_SystemError,
+                            "Multiple Py_tp_doc slots are not supported.")
             if slotdef.c_pfunc:
+                have_doc = True
                 from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
                 # Remove the signature if any from the docstring
                 tp_doc = extract_doc(from_pfunc, name)
                 tp_txtsig = extract_txtsig(from_pfunc, name)
+            else:
+                tp_doc = None
+                tp_txtsig = None
         i += 1
     if not spec.c_name:
         raise oefmt(space.w_SystemError,
@@ -1396,8 +1420,15 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
         else:
             bases_w = space.fixedview(w_bases)
     if widen(spec.c_flags) & Py_TPFLAGS_IMMUTABLETYPE:
-        # XXX check that all bases are immutable
-        pass
+        for w_b in bases_w:
+            b = cts.cast('PyTypeObject*', as_pyobj(space, w_b))
+            if not widen(b.c_tp_flags) & Py_TPFLAGS_IMMUTABLETYPE:
+                space.warn(space.newtext(
+                    "Creating immutable type %s from mutable base %s is "
+                    "deprecated, and slated to be disallowed in Python 3.14."
+                    % (specname, rffi.constcharp2str(b.c_tp_name))),
+                    space.w_DeprecationWarning)
+            keepalive_until_here(w_b)
     # Calculate the metaclass
     if metaclass:
         w_metaclass = from_ref(space, cts.cast('PyObject*', metaclass))
@@ -1412,8 +1443,15 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases):
     metaclass_pto = cts.cast('PyTypeObject*', metaclass_p)
     typetype_pto = cts.cast('PyTypeObject*', as_pyobj(space, space.w_type))
     if (metaclass_pto.c_tp_new and (metaclass_pto.c_tp_new != typetype_pto.c_tp_new)):
-        raise oefmt(space.w_TypeError,
-            "Metaclasses with custom tp_new are not supported.")
+        if allow_tp_new:
+            # the pre-3.12 entry points still accept this, with a warning
+            space.warn(space.newtext(
+                "Type %s uses PyType_Spec with a metaclass that has custom "
+                "tp_new. This is deprecated and will no longer be allowed in "
+                "Python 3.14." % specname), space.w_DeprecationWarning)
+        else:
+            raise oefmt(space.w_TypeError,
+                "Metaclasses with custom tp_new are not supported.")
     keepalive_until_here(w_metaclass)
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))

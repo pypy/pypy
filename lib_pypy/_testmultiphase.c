@@ -384,7 +384,6 @@ static int execfunc(PyObject *m)
     Str_Type_slots[0].pfunc = &PyUnicode_Type;
 
     /* Add a custom type */
-    fprintf(stdout, "%s %d\n", __FILE__, __LINE__);
     temp = PyType_FromSpec(&Example_Type_spec);
     if (temp == NULL) {
         goto fail;

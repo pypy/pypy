@@ -109,11 +109,58 @@ static PyObject *pep697_meta_set(PyObject *self, PyObject *args) {
     Py_RETURN_NONE;
 }
 
+/* A larger data block: fill it with a pattern and check it survives, so an
+   under-allocation of the instance would show up. */
+#define PEP697_BIG_SIZE 200
+
+static PyType_Slot pep697_big_slots[] = {
+    {0, NULL}
+};
+
+static PyType_Spec pep697_big_spec = {
+    .name = "nanobind1.pep697_big",
+    .basicsize = -PEP697_BIG_SIZE,
+    .flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .slots = pep697_big_slots,
+};
+
+static PyObject *pep697_big_type = NULL;
+
+static PyObject *pep697_big_fill(PyObject *self, PyObject *obj) {
+    PyTypeObject *cls = (PyTypeObject *) pep697_big_type;
+    if (!PyObject_TypeCheck(obj, cls)) {
+        PyErr_SetString(PyExc_TypeError, "not a pep697_big instance");
+        return NULL;
+    }
+    Py_ssize_t size = PyType_GetTypeDataSize(cls);
+    unsigned char *data = (unsigned char *) PyObject_GetTypeData(obj, cls);
+    for (Py_ssize_t i = 0; i < size; i++)
+        data[i] = (unsigned char) (i * 7);
+    return PyLong_FromSsize_t(size);
+}
+
+static PyObject *pep697_big_check(PyObject *self, PyObject *obj) {
+    PyTypeObject *cls = (PyTypeObject *) pep697_big_type;
+    if (!PyObject_TypeCheck(obj, cls)) {
+        PyErr_SetString(PyExc_TypeError, "not a pep697_big instance");
+        return NULL;
+    }
+    Py_ssize_t size = PyType_GetTypeDataSize(cls);
+    unsigned char *data = (unsigned char *) PyObject_GetTypeData(obj, cls);
+    for (Py_ssize_t i = 0; i < size; i++) {
+        if (data[i] != (unsigned char) (i * 7))
+            return PyLong_FromSsize_t(i);
+    }
+    return PyLong_FromSsize_t(-1);
+}
+
 #define PEP697_METHODS \
     { "pep697_info", (PyCFunction) pep697_info, METH_O, NULL }, \
     { "pep697_set", (PyCFunction) pep697_set, METH_VARARGS, NULL }, \
     { "pep697_meta_info", (PyCFunction) pep697_meta_info, METH_O, NULL }, \
-    { "pep697_meta_set", (PyCFunction) pep697_meta_set, METH_VARARGS, NULL },
+    { "pep697_meta_set", (PyCFunction) pep697_meta_set, METH_VARARGS, NULL }, \
+    { "pep697_big_fill", (PyCFunction) pep697_big_fill, METH_O, NULL }, \
+    { "pep697_big_check", (PyCFunction) pep697_big_check, METH_O, NULL },
 
 // ----------------------------------------------------
 // Part 1: Reproducer of reference counting issue
@@ -342,6 +389,18 @@ PyInit_nanobind1(void)
     Py_INCREF(pep697_type);
     if (PyModule_AddObject(m, "pep697", pep697_type) < 0) {
         Py_DECREF(pep697_type);
+        Py_DECREF(m);
+        return NULL;
+    }
+
+    pep697_big_type = PyType_FromSpec(&pep697_big_spec);
+    if (!pep697_big_type) {
+        Py_DECREF(m);
+        return NULL;
+    }
+    Py_INCREF(pep697_big_type);
+    if (PyModule_AddObject(m, "pep697_big", pep697_big_type) < 0) {
+        Py_DECREF(pep697_big_type);
         Py_DECREF(m);
         return NULL;
     }

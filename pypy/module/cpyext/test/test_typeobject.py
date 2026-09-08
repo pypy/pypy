@@ -3078,6 +3078,120 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         X = module.metaclass_bad('X', (object,), {})
         x = X()
 
+    def test_negative_basicsize_not_inherited(self):
+        # a hand-built heap type with a base-relative (negative)
+        # tp_basicsize, as nanobind's emulated PyType_FromMetaclass does
+        import sys
+        module = self.import_module(name='negative_basicsize',
+                                    filename='negative_basicsize')
+        if sys.implementation.name == 'pypy':
+            e = raises(SystemError, module.make_meta, 168)
+            assert "negative tp_basicsize" in str(e.value)
+        else:
+            # CPython keeps the value and fails when allocating
+            r = module.make_meta(168)
+            assert r['basicsize_after_ready'] == r['basicsize_before_ready'] == -168
+            raises(MemoryError, r['meta'], 'C', (), {})
+
+    def test_from_spec_checks(self):
+        module = self.import_extension('foo_spec_checks', [
+            ("repeated_slots", "METH_O",
+             '''
+                long variant = PyLong_AsLong(args);
+                PyType_Slot slots_doc[] = {
+                    {Py_tp_doc, "doc 1"}, {Py_tp_doc, "doc 2"}, {0, 0}};
+                PyType_Slot slots_members[] = {
+                    {Py_tp_members, spec_members},
+                    {Py_tp_members, spec_members}, {0, 0}};
+                PyType_Slot slots_doc_null[] = {
+                    {Py_tp_doc, NULL}, {Py_tp_doc, "doc 2"}, {0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.Repeated",
+                                    sizeof(PyObject), 0, Py_TPFLAGS_DEFAULT, NULL};
+                if (variant == 0) spec.slots = slots_doc;
+                else if (variant == 1) spec.slots = slots_members;
+                else spec.slots = slots_doc_null;
+                return PyType_FromSpec(&spec);
+             '''),
+            ("immutable_with_base", "METH_O",
+             '''
+                PyType_Slot slots[] = {{0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.Immutable",
+                    (int)((PyTypeObject *)args)->tp_basicsize, 0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE, slots};
+                return PyType_FromSpecWithBases(&spec, args);
+             '''),
+            ("make_metaclass", "METH_NOARGS",
+             '''
+                PyType_Slot slots[] = {{Py_tp_new, meta_new}, {0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.Meta",
+                    sizeof(PyHeapTypeObject), sizeof(PyMemberDef),
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, slots};
+                return PyType_FromSpecWithBases(&spec, (PyObject *)&PyType_Type);
+             '''),
+            ("with_metaclass", "METH_VARARGS",
+             '''
+                PyObject *meta, *use_frommetaclass;
+                PyType_Slot slots[] = {{0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.Sub", sizeof(PyObject), 0,
+                                    Py_TPFLAGS_DEFAULT, slots};
+                if (!PyArg_ParseTuple(args, "OO", &meta, &use_frommetaclass))
+                    return NULL;
+                if (PyObject_IsTrue(use_frommetaclass))
+                    return PyType_FromMetaclass((PyTypeObject *)meta, NULL,
+                                                &spec, NULL);
+                /* a base whose metaclass is 'meta' */
+                PyObject *base = PyObject_CallFunction(meta, "s(O){}", "Base",
+                                                       &PyBaseObject_Type);
+                if (base == NULL)
+                    return NULL;
+                PyObject *res = PyType_FromSpecWithBases(&spec, base);
+                Py_DECREF(base);
+                return res;
+             '''),
+            ], prologue='''
+            static PyMemberDef spec_members[] = {
+                {"x", Py_T_INT, 0, Py_READONLY, NULL}, {NULL}};
+            static PyObject *
+            meta_new(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                return PyType_Type.tp_new(t, a, k);
+            }
+            ''')
+        import warnings
+        raises(SystemError, module.repeated_slots, 0)
+        raises(SystemError, module.repeated_slots, 1)
+        # a NULL first Py_tp_doc does not count
+        assert module.repeated_slots(2).__doc__ == "doc 2"
+
+        # all static types are immutable, heap types are not
+        IMMUTABLETYPE = 1 << 8
+        class Mutable:
+            pass
+        assert object.__flags__ & IMMUTABLETYPE
+        assert int.__flags__ & IMMUTABLETYPE
+        assert not Mutable.__flags__ & IMMUTABLETYPE
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
+            module.immutable_with_base(object)
+            assert log == []
+            Imm = module.immutable_with_base(Mutable)
+            assert len(log) == 1
+            assert log[0].category is DeprecationWarning
+            assert "from mutable base Mutable" in str(log[0].message)
+        assert Imm.__flags__ & IMMUTABLETYPE
+        assert issubclass(Imm, Mutable)
+
+        Meta = module.make_metaclass()
+        assert issubclass(Meta, type)
+        raises(TypeError, module.with_metaclass, Meta, True)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
+            Sub = module.with_metaclass(Meta, False)
+            assert len(log) == 1
+            assert log[0].category is DeprecationWarning
+            assert "custom tp_new" in str(log[0].message)
+        assert type(Sub) is Meta
+
     def test_pep697_type_data(self):
         import struct
         ptrsize = struct.calcsize('P')
@@ -3141,10 +3255,33 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.pep697_meta.__basicsize__ == moffset + msize
         assert type.__basicsize__ == type_basicsize
         assert Sub.__basicsize__ >= T.__basicsize__
-        # cpyext keeps an app-level __dict__ on the PyPy side: there is no
-        # dict pointer in the C mirror of an app-level subclass
-        assert Sub.__dictoffset__ == 0
-        assert Slotted.__dictoffset__ == 0
+        import sys
+        if sys.implementation.name == 'pypy':
+            # cpyext keeps an app-level __dict__ on the PyPy side: there is
+            # no dict pointer in the C mirror of an app-level subclass
+            assert Sub.__dictoffset__ == 0
+            assert Slotted.__dictoffset__ == 0
+
+        # a larger relative basicsize really is allocated: fill all of it
+        # and read it back, on the C type and on app-level subclasses
+        Big = module.pep697_big
+        assert Big.__basicsize__ >= object.__basicsize__ + 200
+        class BigSub(Big):
+            pass
+        class BigSlotted(Big):
+            __slots__ = ('y',)
+        for cls in (Big, BigSub, BigSlotted):
+            objs = [cls() for i in range(50)]
+            for o in objs:
+                assert module.pep697_big_fill(o) >= 200
+            if cls is BigSub:
+                for o in objs:
+                    o.x = "dict"
+            elif cls is BigSlotted:
+                for o in objs:
+                    o.y = "slot"
+            for o in objs:
+                assert module.pep697_big_check(o) == -1
 
     def test_type_layout_attributes(self):
         import struct
