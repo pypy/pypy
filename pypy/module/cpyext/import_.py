@@ -52,9 +52,7 @@ def PyImport_ImportModule(space, name):
 
 @cpython_api([CONST_STRING], PyObject, abi3=True)
 def PyImport_ImportModuleNoBlock(space, name):
-    space.warn(
-        space.newtext('PyImport_ImportModuleNoBlock() is not non-blocking'),
-        space.w_RuntimeWarning)
+    # since CPython 3.3 this is just PyImport_ImportModule
     return PyImport_Import(space, _decode_module_name(space, name))
 
 

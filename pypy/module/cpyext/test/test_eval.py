@@ -273,6 +273,18 @@ class AppTestCall(AppTestCpythonExtensionBase):
         # defaults fill the trailing parameters
         assert module.eval_code_ex(h.__code__, {}, {}, (1, 2), {}, (99,)) == 99
 
+        # the file is parsed as Python 2 too: build the keyword-only
+        # signature at runtime
+        ns = {}
+        exec("def k(*, a):\n    return a", ns)
+        kcode = ns['k'].__code__
+        assert module.eval_code_ex(kcode, {}, {}, (), {}, (), {'a': 7}) == 7
+        raises(TypeError, module.eval_code_ex, kcode, {}, {}, (), {}, (), {})
+        # kwdefaults must be a real dict
+        raises(SystemError, module.eval_code_ex, kcode, {}, {}, (), {}, (),
+               UserDict(a=1))
+        raises(SystemError, module.eval_code_ex, kcode, {}, {}, (), {}, (), [])
+
         # non-optimized (exec) code runs against the given locals mapping
         code = compile("x = a + 1", "<test>", "exec")
         loc = {}

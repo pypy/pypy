@@ -3180,6 +3180,18 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert "from mutable base Mutable" in str(log[0].message)
         assert Imm.__flags__ & IMMUTABLETYPE
         assert issubclass(Imm, Mutable)
+        # attributes of the immutable heap type cannot be changed, those
+        # of its mutable base can
+        Mutable.meth = lambda self: 'original'
+        inst = Imm()
+        assert inst.meth() == 'original'
+        e = raises(TypeError, setattr, Imm, 'meth', lambda self: 'overridden')
+        assert "cannot set 'meth' attribute of immutable type" in str(e.value)
+        raises(TypeError, delattr, Imm, 'meth')
+        assert inst.meth() == 'original'
+        Mutable.meth = lambda self: 'changed'
+        assert inst.meth() == 'changed'
+        assert Imm.__module__ == 'foo_spec_checks'
 
         Meta = module.make_metaclass()
         assert issubclass(Meta, type)

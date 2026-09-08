@@ -377,10 +377,20 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
             assert module.__doc__ == "Module named in %s" % lang
 
     def test_get_module(self):
+        # a single-phase module from the same shared object must not be
+        # confused with the multi-phase one loaded afterwards
+        shared = self.load_from_name("_test_module_state_shared",
+                                     use_prefix=False)
+        assert shared.__name__ == "_test_module_state_shared"
         module = self.load_from_name("meth_state_access")
-        print("module", dir(module))
+        assert module.__name__ == "_testmultiphase_meth_state_access"
+        assert not hasattr(module, "Error")
         instance0 = module.StateAccessType()
         assert instance0.get_defining_module() == module
+        # and reloading the single-phase one still finds its own dict
+        shared2 = self.load_from_name("_test_module_state_shared",
+                                      use_prefix=False)
+        assert shared2.Error is shared.Error
 
     def test_fromdefandspec(self):
         import sys

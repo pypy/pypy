@@ -89,6 +89,8 @@ def PyEval_EvalCodeEx(space, w_co, w_globals, w_locals, args, argcount,
     code = space.interp_w(PyCode, w_co)
     if not space.isinstance_w(w_globals, space.w_dict):
         raise PyErr_BadInternalCall(space)
+    if w_kwdefs is not None and not space.isinstance_w(w_kwdefs, space.w_dict):
+        raise PyErr_BadInternalCall(space)
     argcount = widen(argcount)
     kwcount = widen(kwcount)
     defcount = widen(defcount)

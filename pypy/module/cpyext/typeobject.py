@@ -678,6 +678,8 @@ class W_PyCTypeObject(W_TypeObject):
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
             is_heaptype=flag_heaptype)
+        if flag_heaptype and flags & Py_TPFLAGS_IMMUTABLETYPE:
+            self.flag_immutable = True
 
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
@@ -1308,6 +1310,11 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
 def _align_up(size):
     return (size + ALIGNOF_MAX_ALIGN_T - 1) & ~(ALIGNOF_MAX_ALIGN_T - 1)
 
+def _set_type_dict_entry(w_type, name, w_value):
+    # like PyDict_SetItem(tp_dict): no immutability check
+    w_type.dict_w[name] = w_value
+    w_type.mutated(name)
+
 def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases,
                                allow_tp_new):
     state = space.fromcache(State)
@@ -1567,8 +1574,9 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases,
     if tp_txtsig is not None:
         assert isinstance(w_type, W_PyCTypeObject)
         w_type.text_signature = tp_txtsig
+    assert isinstance(w_type, W_TypeObject)
     if not module_from_spec and modname is not None:
-        w_type.setdictvalue(space, '__module__', space.newtext(modname))
+        _set_type_dict_entry(w_type, '__module__', space.newtext(modname))
     # Convert getsets
     if typ.c_tp_getset:
         getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), typ.c_tp_getset)
@@ -1581,7 +1589,7 @@ def _PyType_FromMetaclass_impl(space, metaclass, module, spec, bases,
                 break
             name = rffi.constcharp2str(name)
             w_descr = W_GetSetPropertyEx(getset, w_type)
-            w_type.setdictvalue(space, name, w_descr)
+            _set_type_dict_entry(w_type, name, w_descr)
     if dictoffset:
         # Link the PyDictObject and w_type.__dict__
         # See also create_ref

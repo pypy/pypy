@@ -163,6 +163,7 @@ class W_TypeObject(W_Root):
 
     _immutable_fields_ = ["flag_heaptype",
                           "flag_cpytype",
+                          "flag_immutable",
                           "flag_abstract?",
                           "flag_sequence_bug_compat",
                           "flag_patma_collection?",
@@ -216,6 +217,7 @@ class W_TypeObject(W_Root):
         self.text_signature = None
         self.weak_subclasses = []
         self.flag_heaptype = is_heaptype
+        self.flag_immutable = False
         self.flag_abstract = False
         self.flag_sequence_bug_compat = False
         self.flag_patma_collection = "X" # can be "X", "M", "S", set in the _abc module
@@ -424,7 +426,7 @@ class W_TypeObject(W_Root):
         return self._getdictvalue_no_unwrapping(space, attr)
 
     def setdictvalue(self, space, name, w_value):
-        if not self.is_heaptype():
+        if not self.is_heaptype() or self.flag_immutable:
             raise oefmt(space.w_TypeError,
                         "cannot set '%s' attribute of immutable type '%N'", name, self)
         if name == "__del__" and name not in self.dict_w:
@@ -449,9 +451,10 @@ class W_TypeObject(W_Root):
     def deldictvalue(self, space, key):
         if self.lazyloaders:
             self._cleanup_()    # force un-lazification
-        if not (self.is_heaptype() or self.is_cpytype()):
+        if not (self.is_heaptype() or self.is_cpytype()) or self.flag_immutable:
             raise oefmt(space.w_TypeError,
-                        "cannot delete attributes on immutable type object '%N'", self)
+                        "cannot delete '%s' attribute of immutable type '%N'",
+                        key, self)
         try:
             del self.dict_w[key]
         except KeyError:
@@ -891,7 +894,7 @@ class W_TypeObject(W_Root):
         flags = 0
         if self.flag_heaptype:
             flags |= _HEAPTYPE
-        else:
+        if not self.flag_heaptype or self.flag_immutable:
             flags |= _IMMUTABLETYPE
         if self.flag_cpytype:
             flags |= _CPYTYPE

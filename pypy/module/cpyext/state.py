@@ -199,8 +199,10 @@ class State:
     def find_extension(self, name, path):
         from pypy.module.cpyext.import_ import PyImport_AddModule
         from pypy.interpreter.module import Module
+        # keyed like CPython's extension cache: one shared object may
+        # contain several single-phase modules
         try:
-            w_dict = self.extensions[path]
+            w_dict = self.extensions[(name, path)]
         except KeyError:
             return None
         with rffi.scoped_str2charp(name) as ll_name:
@@ -217,7 +219,7 @@ class State:
         space.setitem_str(w_modules, name, w_mod)
         w_dict = w_mod.getdict(space)
         w_copy = space.call_method(w_dict, 'copy')
-        self.extensions[path] = w_copy
+        self.extensions[(name, path)] = w_copy
         return w_mod
 
     @specialize.arg(1)
