@@ -1,0 +1,6 @@
+Select the PyObject model used by cpyext's rawrefcount: store ``ob_pypy_link``
+in a hidden word before ``ob_refcnt`` instead of as a visible header field, and
+make the ``REFCNT_FROM_PYPY`` tag permanent.  This makes the visible PyObject
+header identical to CPython's so that abi3 wheels can be loaded.  Only a
+cpyext whose allocator reserves the prefix word may turn this on.  See
+``pypy/doc/discussion/rawrefcount.rst``.
