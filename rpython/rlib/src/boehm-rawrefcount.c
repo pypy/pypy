@@ -25,12 +25,27 @@ typedef long long Py_ssize_t;
 typedef long Py_ssize_t;
 #endif
 
-/* this is the first two words of the PyObject structure used in
-   pypy/module/cpyext */
+#ifndef RRC_LINK_PREFIX
+#  define RRC_LINK_PREFIX 0
+#endif
+
+#if RRC_LINK_PREFIX
+/* ob_pypy_link lives in a hidden word immediately before ob_refcnt, so the
+   visible PyObject header matches CPython's exactly (see
+   pypy/module/cpyext/src/object.c _PyPy_LINK). */
+typedef struct {
+    Py_ssize_t ob_refcnt;
+} pyobj_t;
+#define PYOBJ_LINK(pyobj)  (((Py_ssize_t *)(pyobj))[-1])
+#else
+/* ob_pypy_link is the second word of the PyObject header, PyPy's
+   traditional (pre-abi3) layout. */
 typedef struct {
     Py_ssize_t ob_refcnt;
     Py_ssize_t ob_pypy_link;
 } pyobj_t;
+#define PYOBJ_LINK(pyobj)  ((pyobj)->ob_pypy_link)
+#endif
 
 struct link_s {
     pyobj_t *pyobj;    /* NULL if entry unused */
@@ -135,13 +150,13 @@ static void hash_add_entry(gcobj_t *gcobj, pyobj_t *pyobj)
     if (hash_free_list == NULL) {
         hash_grow_table();
     }
-    assert(pyobj->ob_pypy_link == 0);
+    assert(PYOBJ_LINK(pyobj) == 0);
 
     struct link_s *lnk = hash_free_list;
     hash_free_list = lnk->next_in_bucket;
     lnk->pyobj = pyobj;
     lnk->gcenc = (uintptr_t)gcobj;
-    pyobj->ob_pypy_link = (Py_ssize_t)lnk;
+    PYOBJ_LINK(pyobj) = (Py_ssize_t)lnk;
 
     hash_link(lnk);
 
@@ -193,7 +208,7 @@ RPY_EXTERN
 #endif
                 assert(result->ob_refcnt == REFCNT_FROM_PYPY);
                 result->ob_refcnt = 1;
-                result->ob_pypy_link = 0;
+                PYOBJ_LINK(result) = 0;
                 p->pyobj = NULL;
                 *pp = p->next_in_bucket;
                 p->next_in_bucket = hash_free_list;
@@ -217,7 +232,7 @@ void gc_rawrefcount_create_link_pypy(/*gcobj_t*/void *gcobj,
     gcobj_t *gcobj1 = (gcobj_t *)gcobj;
     pyobj_t *pyobj1 = (pyobj_t *)pyobj;
 
-    assert(pyobj1->ob_pypy_link == 0);
+    assert(PYOBJ_LINK(pyobj1) == 0);
     /*assert(pyobj1->ob_refcnt >= REFCNT_FROM_PYPY);*/
     /*^^^ could also be fixed just after the call to create_link_pypy()*/
 
@@ -235,10 +250,10 @@ RPY_EXTERN
 {
     pyobj_t *pyobj1 = (pyobj_t *)pyobj;
 
-    if (pyobj1->ob_pypy_link == 0)
+    if (PYOBJ_LINK(pyobj1) == 0)
         return NULL;
 
-    struct link_s *lnk = (struct link_s *)pyobj1->ob_pypy_link;
+    struct link_s *lnk = (struct link_s *)PYOBJ_LINK(pyobj1);
     assert(lnk->pyobj == pyobj1);
     
     gcobj_t *g = decode_gcenc(lnk->gcenc);

@@ -818,6 +818,14 @@ class FuncNode(FuncNodeBase):
     def forward_declaration(self):
         callable = getattr(self.obj, '_callable', None)
         is_exported = getattr(callable, 'exported_symbol', False)
+        # some exported names collide with a same-named macro defined by
+        # a header the generated C code also pulls in (e.g. cpyext's
+        # Py_IsTrue/Py_IsFalse/Py_IsNone, which CPython itself handles the
+        # same way in Objects/object.c): #undef right before the
+        # declaration so the macro can't corrupt it via text substitution.
+        undef_name = getattr(callable, 'undef_macro_name', None)
+        if undef_name:
+            yield '#undef %s' % (undef_name,)
         yield '%s;' % (
             forward_cdecl(self.implementationtypename,
                 self.name, self.db.standalone, is_exported=is_exported))
