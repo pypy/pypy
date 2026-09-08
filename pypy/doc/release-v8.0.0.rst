@@ -6,9 +6,9 @@ PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
 ..
   updated to 3230035a4700d82f996c283f90e1f5d969730021
 
-.. note
+.. note::
    This is a pre-release announcement. When the release actually happens, it
-   will be announced on the https://pypy.org/blog
+   will be announced on the PyPy blog_
 
 
 The PyPy team is proud to release version 8.0.0 of PyPy after the previous
@@ -47,9 +47,8 @@ required pieces have all been put in place:
   compatible with CPython's C headers when defining
   ``Py_LIMITED_API=0x030C0000``
 - PyPy no longer mangles exported function names from the limited API.
-  In PyPy3.11 and earlier, functions like `PyTuple_New`` were exported as
-  `PyPyTupleNew``. This also means the exported functions respect the exact
-  semantics of their CPython counterparts.
+  In PyPy3.11 and earlier, functions like ``PyTuple_New`` were exported as
+  ``PyPyTupleNew``. 
 
 Still missing: the import machinery must be taught that abi3.so shared objects
 are valid for PyPy, and the larger ecosystem (pip, uv) must also accept that
