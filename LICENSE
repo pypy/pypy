@@ -68,14 +68,14 @@ copyrighted by one or more of the following people and organizations:
   Aurelien Campeas
   Edd Barrett
   Niklaus Haldimann
-  Yusuke Izawa
   Seo Sanghyeon
+  Yusuke Izawa
   Laura Creighton
   Leonardo Santagada
   Alexander Schremmer
   David Edelsohn
-  Raffael Tfirst
   Stefano Rivera
+  Raffael Tfirst
   Lawrence Oluyede
   Gregor Wegberg
   Jakub Gustak
@@ -120,7 +120,6 @@ copyrighted by one or more of the following people and organizations:
   Camillo Bruni
   Nicolas Truessel
   Simon Burton
-  Maxwell Bernstein
   Bartosz Skowron
   Michael Foord
   Jean-Paul Calderone
@@ -134,16 +133,16 @@ copyrighted by one or more of the following people and organizations:
   Greg Price
   Jeremy Thurgood
   Mark Pearse
+  Stan Ulbrych
+  Julian Berman
   Ivan Sichmann Freitas
   Adrian Kuhn
-  Julian Berman
   olliemath
   Wenzhu Man
   Guido van Rossum
   Stian Andreassen
   Mikael Schönenberg
   Tobias Pape
-  Stan Ulbrych
   Tyler Wade
   Paul deGrandis
   Tadeu Zagallo
@@ -164,6 +163,7 @@ copyrighted by one or more of the following people and organizations:
   Rami Chowdhury
   Colin Valliant
   Eugene Oden
+  Maxwell Bernstein
   marky1991
   Vasily Kuznetsov
   Boris Feigin
@@ -180,6 +180,7 @@ copyrighted by one or more of the following people and organizations:
   Ben Young
   Nicolas Chauvat
   Vanessa Freudenberg
+  Samuel Ytterbrink
   Yusuke Tsutsumi
   Dusty Phillips
   Jasper Schulz
@@ -201,6 +202,7 @@ copyrighted by one or more of the following people and organizations:
   Beatrice During
   Jared Grubb
   Olivier Dormond
+  Jeong, YunWon
   Nils Müller
   Sergey Matyunin
   Brian Dorsey
@@ -255,6 +257,7 @@ copyrighted by one or more of the following people and organizations:
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
+  Jeongseop Lim
   Charalampos Stratakis
   Petr Vaněk
   Wenzel Jakob
@@ -274,8 +277,9 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Jeong YunWon
+  Philipp Lachowski
   Dennis Sweeney
-  Samuel Ytterbrink
   Pierre Augier
   Ilya Egorov
   Paul Gey
@@ -302,8 +306,8 @@ copyrighted by one or more of the following people and organizations:
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Hyunbin Kim
   Victorien
-  Jeongseop Lim
   Julian Waters
   Sam James
   Christian Clauss
@@ -336,7 +340,6 @@ copyrighted by one or more of the following people and organizations:
   Richard Lancaster
   Markus Holtermann
   Ruochen Huang
-  Jeong YunWon
   Lucas Stadler
   Toni Mattis
   Jason Michalski
@@ -356,7 +359,7 @@ copyrighted by one or more of the following people and organizations:
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Jeong, YunWon
+  Stanley C
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
@@ -386,7 +389,6 @@ copyrighted by one or more of the following people and organizations:
   Zsolt Cserna
   DeVerne Jones
   whitequark
-  Alex Kashirin
   Joannah Nanjekye nanjekyejoannah@gmail.com
   Paul Graydon
   Hervé Beraud

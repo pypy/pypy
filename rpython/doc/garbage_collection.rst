@@ -1,6 +1,3 @@
-.. TODO cleanup after merge of gc-del
-
-
 .. _garbage-collection:
 
 =============================
@@ -222,3 +219,80 @@ than being done all at once after a specific minor collection).  The
 default is `incminimark`, as it seems to have a very minimal impact on
 performance and memory usage at the benefit of avoiding the long pauses
 of `minimark`.
+
+
+.. _shadow-stack:
+
+The shadow stack: finding GC roots in translated C code
+=======================================================
+
+All the "framework" GCs above are moving collectors, so the GC must be able
+to find every local variable in every active C function that holds a pointer
+to a GC object (a *root*), and update it if the object moves.  The C stack
+cannot be walked portably, so RPython keeps a separate *shadow stack*: a
+thread-local array of addresses, ``gcdata.root_stack_base``, with a moving
+``root_stack_top``.  During a collection the GC walks this array (see
+``walk_stack_root()`` in :source:`rpython/memory/gctransform/shadowstack.py`)
+instead of the machine stack.  This is the only root finder left; it is
+selected by ``--gcrootfinder=shadowstack``, which is the default and implied
+by every framework GC.  Boehm and refcounting do not use it.
+
+How the code generator uses it
+------------------------------
+
+The GC transformer (:source:`rpython/memory/gctransform/framework.py`)
+runs a ``CollectAnalyzer``
+(:source:`rpython/translator/backendopt/collectanalyze.py`) over the whole
+call graph to compute, for each operation, whether it *might collect*.  An
+operation might collect if it is a GC allocation, a call to a function that
+might collect, or a call to an external C function that releases the GIL
+(``releasegil=True``; another thread may then run and trigger a
+collection).  Around every such operation the transformer emits
+``gc_push_roots`` / ``gc_pop_roots`` for the GC pointers that are live
+across it.  The result is that each C function whose body contains at least
+one might-collect operation gets a shadow-stack frame: it bumps
+``root_stack_top`` on entry (``gc_enter_roots_frame``), stores the live
+pointers into the frame before the operation (``gc_save_root``), reloads them
+afterwards because they may have moved (``gc_restore_root``), and pops the
+frame on exit.  :source:`rpython/memory/gctransform/shadowcolor.py` performs
+a register-allocation-like pass so that each function uses as few slots as
+possible and pushes are hoisted out of loops where they can be.
+
+The saves and reloads are cheap individually but very numerous, and a
+function that gets a shadow-stack frame at all pays for the enter/leave even
+on paths that never allocate.  So the goal is to keep as many functions as
+possible out of the "might collect" set.
+
+Hints that influence the analysis
+---------------------------------
+
+A few function attributes let RPython code override the analysis.  They are
+all promises made by the programmer and are not checked:
+
+``_gctransformer_hint_cannot_collect_``
+    The function never collects, even though its body looks as if it could.
+    Used in :source:`rpython/rlib/rgil.py` for ``release()`` and
+    ``acquire()``: the GIL is not held around the actual blocking call, so
+    saving pointers there would be wrong anyway.
+
+``_gctransformer_hint_close_stack_``
+    The function must always be treated as collecting, whatever its body
+    looks like, because it releases the GIL and another thread may run a
+    collection while this one is blocked.  The JIT also refuses to trace
+    into such a function and always emits a residual call.  Used for
+    ``yield_thread()`` and the ``call_external_function`` wrapper that
+    :source:`rpython/rtyper/lltypesystem/rffi.py` generates for
+    ``releasegil=True`` calls.
+
+Interaction with the JIT and stacklets
+--------------------------------------
+
+JIT-compiled code does not emit per-call pushes.  Instead each JIT frame is
+itself a GC object, and the shadow stack holds a single pointer to the
+current jitframe while machine code runs; the GC finds the roots inside the
+frame via the JIT's own GC map.  Stacklets (greenlets, ``_continuation``)
+switch between several shadow stacks; the ``ShadowStackPool`` in
+:source:`rpython/memory/gctransform/shadowstack.py` saves and restores
+``root_stack_base`` / ``root_stack_top`` when switching, and the switching
+code is carefully written to perform no GC operation while the stack is in
+an inconsistent state.

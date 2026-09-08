@@ -1,3 +1,5 @@
+.. _rawrefcount-and-the-gc:
+
 ======================
 Rawrefcount and the GC
 ======================
