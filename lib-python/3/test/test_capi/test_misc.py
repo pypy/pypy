@@ -89,6 +89,7 @@ class CAPITest(unittest.TestCase):
         self.assertRaises(AttributeError, setattr, inst.testfunction, "attribute", "test")
 
     @support.requires_subprocess()
+    @unittest.skipIf(support.is_pypy, "checks CPython's fatal error wording")
     def test_no_FatalError_infinite_loop(self):
         code = textwrap.dedent("""
             import _testcapi
@@ -381,6 +382,7 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(buildvalue('C', sys.maxunicode), chr(sys.maxunicode))
         self.assertRaises(ValueError, buildvalue, 'C', -1)
         self.assertRaises(ValueError, buildvalue, 'C', sys.maxunicode+1)
+    @unittest.skipIf(support.is_pypy, "checks refcounts")
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
@@ -577,6 +579,7 @@ class CAPITest(unittest.TestCase):
         inst = _testcapi.HeapCTypeWithNegativeDict()
         self.assertEqual({}, inst.__dict__)
 
+    @unittest.skipIf(support.is_pypy, "weakrefs are not stored in the C struct")
     def test_heaptype_with_weakref(self):
         inst = _testcapi.HeapCTypeWithWeakref()
         ref = weakref.ref(inst)
@@ -597,6 +600,7 @@ class CAPITest(unittest.TestCase):
         ref = weakref.ref(inst)
         self.assertEqual(ref(), inst)
 
+    @unittest.skipIf(support.is_pypy, "expects a weakref to die on del")
     def test_sublclassing_managed_both(self):
 
         class C1(_testcapi.HeapCTypeWithManagedWeakref, _testcapi.HeapCTypeWithManagedDict):
@@ -724,6 +728,7 @@ class CAPITest(unittest.TestCase):
         self.assertTrue(issubclass(sub, Base))
         self.assertIsInstance(sub, metaclass)
 
+    @unittest.skipIf(support.is_pypy, "PyPy's layout check is more permissive")
     def test_multiple_inheritance_ctypes_with_weakref_or_dict(self):
 
         with self.assertRaises(TypeError):
@@ -733,6 +738,7 @@ class CAPITest(unittest.TestCase):
             class Both2(_testcapi.HeapCTypeWithDict, _testcapi.HeapCTypeWithWeakref):
                 pass
 
+    @unittest.skipIf(support.is_pypy, "PyPy's layout check is more permissive")
     def test_multiple_inheritance_ctypes_with_weakref_or_dict_and_other_builtin(self):
 
         with self.assertRaises(TypeError):
@@ -873,6 +879,7 @@ class CAPITest(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertTrue(hasattr(ctypes.pythonapi, name))
 
+    @unittest.skipIf(support.is_pypy, "_PyObject_ClearManagedDict is CPython-internal")
     def test_clear_managed_dict(self):
 
         class C:
@@ -1060,6 +1067,7 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(_testcapi.function_get_kw_defaults(some), None)
         self.assertEqual(some.__kwdefaults__, None)
 
+    @unittest.skipIf(support.is_pypy, "PyUnstable_Object_GC_NewWithExtraData")
     def test_unstable_gc_new_with_extra_data(self):
         class Data(_testcapi.ObjExtraData):
             __slots__ = ('x', 'y')
@@ -1155,10 +1163,11 @@ class TestHeapTypeRelative(unittest.TestCase):
                 self.assertTrue(set(mem) <= {3}, f'got {mem!r}')
 
     def test_heaptype_invalid_inheritance(self):
+        # PyPy: int is not a variable-size type, tuple is on both
         with self.assertRaises(SystemError,
                                msg="Cannot extend variable-size class without "
                                + "Py_TPFLAGS_ITEMS_AT_END"):
-            _testcapi.subclass_heaptype(int, -8, 0)
+            _testcapi.subclass_heaptype(tuple, -8, 0)
 
     @unittest.skipIf(support.is_pypy, "")
     def test_heaptype_relative_members(self):
@@ -2127,10 +2136,19 @@ class TestThreadState(unittest.TestCase):
         _testcapi.test_current_tstate_matches()
 
 
+if support.is_pypy:
+    # refcount timing (buildvalue_N, capsule) or a CPython-private type
+    # (_io._BytesIOBuffer)
+    _pypy_testcapi_skips = frozenset(['test_buildvalue_N', 'test_capsule',
+                                      'test_pep3118_obsolete_write_locks'])
+else:
+    _pypy_testcapi_skips = frozenset()
+
 class Test_testcapi(unittest.TestCase):
     locals().update((name, getattr(_testcapi, name))
                     for name in dir(_testcapi)
-                    if name.startswith('test_') and not name.endswith('_code'))
+                    if name.startswith('test_') and not name.endswith('_code')
+                    and name not in _pypy_testcapi_skips)
 
     # Suppress warning from PyUnicode_FromUnicode().
     @warnings_helper.ignore_warnings(category=DeprecationWarning)

@@ -34,7 +34,7 @@ class NotImplemented(W_Root):
 
 class DisallowNew(W_Root):
     @staticmethod
-    def descr_new_disallow(space, w_type):
+    def descr_new_disallow(space, w_type, __args__):
         """Create and return a new object.  See help(type) for accurate signature."""
         name = w_type.getname(space)
         raise oefmt(space.w_TypeError, "cannot create '%s' instances", name)

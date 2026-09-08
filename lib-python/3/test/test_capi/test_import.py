@@ -3,6 +3,7 @@ import os.path
 import sys
 import types
 import unittest
+from test import support
 from test.support import os_helper
 from test.support import import_helper
 from test.support.warnings_helper import check_warnings
@@ -147,6 +148,7 @@ class ImportTests(unittest.TestCase):
         self.assertEqual(import_frozen_module('nonexistent'), 0)
         self.assertEqual(import_frozen_module(''), 0)
 
+    @unittest.skipIf(support.is_pypy, "no frozen modules")
     def test_importfrozenmodule(self):
         # Test PyImport_ImportFrozenModule()
         importfrozenmodule = _testcapi.PyImport_ImportFrozenModule
@@ -155,6 +157,7 @@ class ImportTests(unittest.TestCase):
         self.assertRaises(UnicodeDecodeError, importfrozenmodule, b'\xff')
         # CRASHES importfrozenmodule(NULL)
 
+    @unittest.skipIf(support.is_pypy, "no frozen modules")
     def test_importfrozenmoduleobject(self):
         # Test PyImport_ImportFrozenModuleObject()
         importfrozenmoduleobject = _testcapi.PyImport_ImportFrozenModuleObject

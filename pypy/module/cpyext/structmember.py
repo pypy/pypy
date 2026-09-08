@@ -3,7 +3,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.structmemberdefs import *
-from pypy.module.cpyext.api import PyObjectP, cpython_api, CONST_STRING
+from pypy.module.cpyext.api import (PyObjectP, cpython_api, CONST_STRING,
+    Py_RELATIVE_OFFSET)
 from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, decref, from_ref, make_ref
@@ -41,6 +42,9 @@ integer_converters = unrolling_iterable([ # range checking, unsigned
 
 @cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject, abi3=True)
 def PyMember_GetOne(space, obj, w_member):
+    if widen(w_member.c_flags) & Py_RELATIVE_OFFSET:
+        raise oefmt(space.w_SystemError,
+                    "PyMember_GetOne used with Py_RELATIVE_OFFSET")
     addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     for converter in integer_converters:
@@ -96,6 +100,9 @@ def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = widen(w_member.c_type)
     flags = widen(w_member.c_flags)
+    if flags & Py_RELATIVE_OFFSET:
+        raise oefmt(space.w_SystemError,
+                    "PyMember_SetOne used with Py_RELATIVE_OFFSET")
 
     if flags & READONLY:
         raise oefmt(space.w_AttributeError, "readonly attribute")

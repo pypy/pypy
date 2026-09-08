@@ -125,11 +125,18 @@ def build_fd_sequence(space, w_fd_list):
     return result
 
 
+def seq_getitems(space, w_seq):
+    """like PySequence_Size + PySequence_GetItem, as CPython does"""
+    length = space.len_w(w_seq)
+    if space.lookup(w_seq, '__getitem__') is None:
+        raise oefmt(space.w_TypeError,
+                    "'%T' object does not support indexing", w_seq)
+    return [space.getitem(w_seq, space.newint(i)) for i in range(length)]
+
 def seqstr2charpp(space, w_seqstr):
     """Sequence of bytes -> char**, NULL terminated"""
-    w_iter = space.iter(w_seqstr)
-    return rffi.liststr2charpp([space.bytes0_w(space.next(w_iter))
-                                for i in range(space.len_w(w_seqstr))])
+    return rffi.liststr2charpp([space.bytes0_w(w_item)
+                                for w_item in seq_getitems(space, w_seqstr)])
 
 
 @unwrap_spec(p2cread=int, p2cwrite=int, c2pread=int, c2pwrite=int,
@@ -191,9 +198,8 @@ def fork_exec(space, w_process_args, w_executable_list,
         l_exec_array = seqstr2charpp(space, w_executable_list)
 
         if not space.is_none(w_process_args):
-            w_iter = space.iter(w_process_args)
-            argv = [space.fsencode_w(space.next(w_iter))
-                    for i in range(space.len_w(w_process_args))]
+            argv = [space.fsencode_w(w_item)
+                    for w_item in seq_getitems(space, w_process_args)]
             l_argv = rffi.liststr2charpp(argv)
 
         if not space.is_none(w_env_list):

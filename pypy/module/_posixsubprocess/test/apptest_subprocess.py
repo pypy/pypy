@@ -65,6 +65,13 @@ def test_seq_bytes_to_charp_array():
     n = 1
     pytest.raises(OverflowError, _posixsubprocess.fork_exec,
            1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
+    # a sized object without __getitem__: indexed, not iterated
+    class NoGetItem(object):
+        def __len__(self):
+            return 1
+    with pytest.raises(TypeError, match='indexing'):
+        _posixsubprocess.fork_exec(
+           1,NoGetItem(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
 
 def test_pass_fds_make_inheritable():
     fd1, fd2 = posix.pipe()

@@ -698,6 +698,14 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 PyModule_AddObject(mod, "DescrLike", (PyObject *)&DescrLike_Type);
             """)
         module4.finish_registration()
+        # DISALLOW_INSTANTIATION rejects any arguments with the same message
+        e = raises(TypeError, module4.Meta, "X", (), {})
+        import sys
+        if sys.implementation.name == 'pypy':
+            assert str(e.value) == "cannot create 'Meta' instances"
+        else:
+            assert str(e.value) == "cannot create 'probe_extra_args_meta.Meta' instances"
+        raises(TypeError, module4.Meta)
         # establish the MetaLeaf singleton without excess args first
         module4.DescrLike()
         # This mirrors `np.dtype(rational2)` exactly.
