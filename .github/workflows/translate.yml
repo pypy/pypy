@@ -23,12 +23,12 @@ jobs:
           - platform: linux64
             runner: ubuntu-24.04
             # latest as of 2026-09-08
-            container: ghcr.io/pypy/buildworker_x86_64:sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
             arch: x86
           - platform: linux64-revdb
             runner: ubuntu-24.04
             # latest as of 2026-09-08
-            container: ghcr.io/pypy/buildworker_x86_64:sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
             arch: x86
             revdb: true
           - platform: linux32
