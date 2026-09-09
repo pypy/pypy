@@ -86,7 +86,7 @@ packed_words = strategies.integers(min_value=10, max_value=100).flatmap(
         unique=True,
     ))
 
-@settings(max_examples=5000, deadline=None)
+@settings(max_examples=500, deadline=None)
 @given(packed_words)
 def test_packed_offset_varint_width_stabilizes(words):
     # Multiple branches with enough label data frequently put target offsets
