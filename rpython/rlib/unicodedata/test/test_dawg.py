@@ -3,7 +3,8 @@ from hypothesis import given, settings, strategies
 
 from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
         build_compression_dawg, _inverse_lookup,
-        encode_varint_unsigned, decode_varint_unsigned,
+        encode_varint_unsigned, encode_varint_unsigned_padded,
+        decode_varint_unsigned,
         number_add_bits, number_split_bits)
 from rpython.rlib.unicodedata.codegen import CodeWriter
 
@@ -155,6 +156,20 @@ def test_varint_hypothesis(i, prefix):
     res, pos = decode_varint_unsigned(prefix + b, len(prefix))
     assert res == i
     assert pos == len(b) + len(prefix)
+
+@given(strategies.integers(min_value=0),
+       strategies.integers(min_value=0, max_value=5))
+def test_varint_padded_hypothesis(i, padding):
+    canonical = []
+    canonical_size = encode_varint_unsigned(i, canonical)
+    padded = []
+    size = canonical_size + padding
+    assert encode_varint_unsigned_padded(i, padded, size) == size
+    padded = b"".join(padded)
+    assert len(padded) == size
+    res, pos = decode_varint_unsigned(padded)
+    assert res == i
+    assert pos == size
 
 @given(strategies.integers())
 def test_add_bits(i):
