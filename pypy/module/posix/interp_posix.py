@@ -3132,6 +3132,40 @@ def sched_setparam(space, pid, w_param):
     else:
         return space.newint(res)
 
+
+@unwrap_spec(pid=int)
+def sched_getaffinity(space, pid):
+    """ Return the affinity of the process identified by pid (or the current
+    process if zero). The affinity is returned as a set of CPU identifiers. """
+    try:
+        cpus = rposix.sched_getaffinity(pid)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        return space.newset([space.newint(cpu) for cpu in cpus])
+
+
+@unwrap_spec(pid=int)
+def sched_setaffinity(space, pid, w_mask):
+    """ Set the CPU affinity of the process identified by pid to mask.
+    mask should be an iterable of integers identifying CPUs. """
+    cpus = []
+    for w_cpu in space.unpackiterable(w_mask):
+        if not space.isinstance_w(w_cpu, space.w_int):
+            raise oefmt(space.w_TypeError,
+                        "expected an iterator of ints, but iterator yielded %R",
+                        w_cpu)
+        cpu = space.int_w(w_cpu)
+        if cpu < 0:
+            raise oefmt(space.w_ValueError, "negative CPU number")
+        if cpu > INT_MAX - 1:
+            raise oefmt(space.w_OverflowError, "invalid CPU number")
+        cpus.append(cpu)
+    try:
+        rposix.sched_setaffinity(pid, cpus)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+
 def splitdrive(p):
     # copied from ntpath.py, but changed to move the sep to the root.
     # where os.path.splitpath('c:\\abc\\def.txt')

@@ -11,7 +11,7 @@ from rpython.rlib._os_support import (
     POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
-from rpython.rlib.rarithmetic import intmask, widen
+from rpython.rlib.rarithmetic import intmask, widen, r_uint
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
@@ -3326,6 +3326,7 @@ if sys.platform.startswith('linux'):
                 """.split():
             locals()[name] = rffi_platform.DefinedConstantInteger(name)
         HAVE_UNSHARE = rffi_platform.Has('unshare')
+        HAVE_SCHED_SETAFFINITY = rffi_platform.Has('sched_setaffinity')
 
     cConfig = rffi_platform.configure(CConfig)
     for key, value in cConfig.items():
@@ -3339,3 +3340,63 @@ if sys.platform.startswith('linux'):
             save_err=rffi.RFFI_SAVE_ERRNO)
         def unshare(flags):
             return handle_posix_error('unshare', c_unshare(flags))
+
+    if cConfig['HAVE_SCHED_SETAFFINITY']:
+        # cpu_set_t is an array of unsigned long words in glibc and musl, so
+        # the mask is handled as such here instead of via the CPU_* macros.
+        CPU_MASK_P = rffi.CArrayPtr(rffi.ULONG)
+        CPU_MASK_BITS = rffi.sizeof(rffi.ULONG) * 8
+
+        c_sched_getaffinity = external('sched_getaffinity',
+            [rffi.PID_T, rffi.SIZE_T, rffi.VOIDP], rffi.INT,
+            compilation_info=CConfig._compilation_info_,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+        c_sched_setaffinity = external('sched_setaffinity',
+            [rffi.PID_T, rffi.SIZE_T, rffi.VOIDP], rffi.INT,
+            compilation_info=CConfig._compilation_info_,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+
+        def sched_getaffinity(pid):
+            """Returns the list of CPUs the process is allowed to run on."""
+            nwords = 1
+            while True:
+                with lltype.scoped_alloc(CPU_MASK_P.TO, nwords, zero=True) as mask:
+                    size = nwords * rffi.sizeof(rffi.ULONG)
+                    res = widen(c_sched_getaffinity(
+                        pid, rffi.cast(rffi.SIZE_T, size),
+                        rffi.cast(rffi.VOIDP, mask)))
+                    if res < 0:
+                        err = get_saved_errno()
+                        # the kernel's cpumask is wider than ours: retry
+                        if err == errno.EINVAL:
+                            nwords *= 2
+                            continue
+                        raise OSError(err, 'sched_getaffinity failed')
+                    cpus = []
+                    for i in range(nwords):
+                        word = widen(mask[i])
+                        if word == 0:
+                            continue
+                        for bit in range(CPU_MASK_BITS):
+                            if word & (r_uint(1) << bit):
+                                cpus.append(i * CPU_MASK_BITS + bit)
+                    return cpus
+
+        def sched_setaffinity(pid, cpus):
+            """Restricts the process to the given list of CPUs (non-negative
+            ints)."""
+            maxcpu = 0
+            for cpu in cpus:
+                assert cpu >= 0
+                if cpu > maxcpu:
+                    maxcpu = cpu
+            nwords = maxcpu // CPU_MASK_BITS + 1
+            with lltype.scoped_alloc(CPU_MASK_P.TO, nwords, zero=True) as mask:
+                for cpu in cpus:
+                    i = cpu // CPU_MASK_BITS
+                    mask[i] = rffi.cast(rffi.ULONG,
+                        widen(mask[i]) | (r_uint(1) << (cpu % CPU_MASK_BITS)))
+                size = nwords * rffi.sizeof(rffi.ULONG)
+                handle_posix_error('sched_setaffinity', c_sched_setaffinity(
+                    pid, rffi.cast(rffi.SIZE_T, size),
+                    rffi.cast(rffi.VOIDP, mask)))
