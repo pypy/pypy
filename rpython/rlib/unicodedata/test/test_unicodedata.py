@@ -8,7 +8,7 @@ import pytest
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0,
     unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0,
-    unicodedb_14_0_0)
+    unicodedb_14_0_0, unicodedb_15_0_0)
 
 
 class TestUnicodeData(object):
@@ -259,7 +259,29 @@ def test_unicode14():
     assert unicodedb_14_0_0.name(0x1e290) == 'TOTO LETTER PA'
     assert unicodedb_14_0_0.name(0x1FAC3) == 'PREGNANT MAN'
 
+def test_unicode15():
+    assert unicodedb_15_0_0.name(0x11f04) == 'KAWI LETTER A'
+    assert unicodedb_15_0_0.isxidstart(0x11f04)
+    assert unicodedb_15_0_0.isxidcontinue(0x11f04)
+
+    assert unicodedb_15_0_0.name(0x1e4f9) == 'NAG MUNDARI DIGIT NINE'
+    assert unicodedb_15_0_0.decimal(0x1e4f9) == 9
+    assert unicodedb_15_0_0.digit(0x1e4f9) == 9
+    assert unicodedb_15_0_0.numeric(0x1e4f9) == 9.0
+
+    assert unicodedb_15_0_0.combining(0x10efd) == 220
+    assert unicodedb_15_0_0.compat_decomposition(0x1e06d) == [0x04b1]
+
+def test_unicode15_cjk_extension_h():
+    with pytest.raises(KeyError):
+        unicodedb_15_0_0.name(0x3134b)
+    assert unicodedb_15_0_0.name(0x31350) == \
+        'CJK UNIFIED IDEOGRAPH-31350'
+    assert unicodedb_15_0_0.name(0x323af) == \
+        'CJK UNIFIED IDEOGRAPH-323AF'
+    with pytest.raises(KeyError):
+        unicodedb_15_0_0.name(0x323b0)
+
 def test_cjk_14_new_chars():
     assert unicodedb_14_0_0.name(0x9ffd) == 'CJK UNIFIED IDEOGRAPH-9FFD'
     assert unicodedb_14_0_0.name(0x2b735) == 'CJK UNIFIED IDEOGRAPH-2B735'
-
