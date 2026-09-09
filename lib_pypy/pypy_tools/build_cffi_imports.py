@@ -61,7 +61,7 @@ cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-3.3.1.tar.gz',
               '777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e',
               [
-               ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
+               ['./config', '--prefix=/usr', 'no-shared', 'no-tests', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
