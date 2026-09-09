@@ -27,6 +27,19 @@ SCOPE_FREE = 4
 SCOPE_CELL = 5
 SCOPE_CELL_CLASS = 6     # for "__class__" inside class bodies only
 
+# The kinds an annotation scope can have.  They pick the wording of the
+# "<what> cannot be used within <where>" errors, exactly as ste_type does in
+# symtable_raise_if_annotation_block().
+TYPE_PARAM_BLOCK = 0
+TYPE_ALIAS_BLOCK = 1
+TYPE_VAR_BOUND_BLOCK = 2
+
+BLOCK_CONTEXTS = [
+    "the definition of a generic",   # TYPE_PARAM_BLOCK
+    "a type alias",                  # TYPE_ALIAS_BLOCK
+    "a TypeVar bound",               # TYPE_VAR_BOUND_BLOCK
+]
+
 
 class TypeParamsNode(ast.AST):
     """A wrapper node for the type params scope key.
@@ -286,8 +299,14 @@ class Scope(object):
                     # vars, so it will be passed through by the interpreter, but
                     # we leave the scope alone, so it can be local on its own.
                     self.free_vars.append(name)
+                else:
+                    self._note_passthrough_free(name)
         self._check_optimization()
         free.update(new_free)
+
+    def _note_passthrough_free(self, name):
+        """Hook for AnnotationScope free-var pass-through."""
+        pass
 
 
 class ModuleScope(Scope):
@@ -390,12 +409,24 @@ class AnnotationScope(FunctionScope):
     Key differences from FunctionScope:
     - Can access enclosing class namespace via LOAD_FROM_DICT_OR_* opcodes
     - Disallows yield, yield from, await, walrus operator
+    - Selective name mangling for type parameters of a generic class only
+      (CPython ste_mangled_names): __T is mangled to _Cls__T so the class
+      body can see it, but other names like base class __Base are not mangled
     """
     can_be_optimized = True
     needs_classdict = False
 
-    def __init__(self, name, lineno, col_offset):
+    def __init__(self, name, lineno, col_offset, blocktype):
         FunctionScope.__init__(self, name, lineno, col_offset)
+        # Which kind of annotation scope this is, one of the *_BLOCK values.
+        self.blocktype = blocktype
+        # If set, private name used for double-underscore mangling (class name).
+        self.private = None
+        # Names that should be mangled with self.private (type param names only).
+        # None means "inherit / use parent mangling" (no selective set).
+        # A dict used as a set means only those keys are mangled (CPython
+        # ste_mangled_names).
+        self.mangled_names = None
 
     # Causes translation error???
     # https://gist.github.com/BarrensZeppelin/30fe57eed1e88c81d0c1c324910a167c
@@ -403,14 +434,44 @@ class AnnotationScope(FunctionScope):
     # def needs_classdict(self):
     #     return self.class_entry is not None
 
+    def mangle(self, name):
+        # CPython _Py_MaybeMangle: when ste_mangled_names is set, only mangle
+        # names that appear in that set (the type parameters themselves).
+        if self.mangled_names is not None:
+            if name in self.mangled_names and self.private is not None:
+                return misc.mangle(name, self.private)
+            # _Py_MaybeMangle leaves every non-selected name untouched.  In
+            # particular, an enclosing class must not mangle globals used in
+            # a nested generic class's bases or bounds.
+            return name
+        # Nested scopes (a bound, a lambda or a comprehension in a base) have
+        # no selective set of their own; Scope.mangle sends them here.
+        return FunctionScope.mangle(self, name)
+
+    def _note_passthrough_free(self, name):
+        # Free vars from nested scopes (e.g. a nested generic class body
+        # referencing an outer function cell) must pass through annotation
+        # scopes even when the same name is GLOBAL_IMPLICIT here due to an
+        # enclosing class binding. Local resolution stays GLOBAL_IMPLICIT
+        # (classdict-then-globals); free_vars is only for cell pass-through.
+        # Avoid dict.get() (returns None) for RPython annotation.
+        if name in self.symbols and self.symbols[name] == SCOPE_GLOBAL_IMPLICIT:
+            if name not in self.free_vars:
+                self.free_vars.append(name)
+                self.has_free = True
+
+    def not_allowed(self, what, node):
+        self.error("%s cannot be used within %s"
+                   % (what, BLOCK_CONTEXTS[self.blocktype]), node)
+
     def note_yield(self, yield_node):
-        self.error("yield expression cannot be used within an annotation scope", yield_node)
+        self.not_allowed("yield expression", yield_node)
 
     def note_yieldFrom(self, yieldFrom_node):
-        self.error("yield expression cannot be used within an annotation scope", yieldFrom_node)
+        self.not_allowed("yield expression", yieldFrom_node)
 
     def note_await(self, await_node):
-        self.error("await expression cannot be used within an annotation scope", await_node)
+        self.not_allowed("await expression", await_node)
 
 
 class ClassScope(Scope):
@@ -490,12 +551,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """Lookup the scope for a given AST node."""
         return self.scopes[scope_node]
 
-    def _push_annotation_scope(self, name, node, scope_node=None):
+    def _push_annotation_scope(self, name, node, blocktype, scope_node=None):
         """Create and push an annotation scope with classdict handling.
 
         Args:
             name: The scope name
             node: The AST node (for lineno/col_offset)
+            blocktype: Which kind of annotation scope, one of the *_BLOCK values
             scope_node: The node to use as key in the scopes dictionary
         """
         # Find the nearest enclosing ClassScope.
@@ -506,7 +568,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         else:
             class_scope = self.scope.class_entry
 
-        scope = AnnotationScope(name, node.lineno, node.col_offset)
+        scope = AnnotationScope(name, node.lineno, node.col_offset, blocktype)
         if class_scope is not None:
             scope.class_entry = class_scope
             scope.needs_classdict = True
@@ -527,7 +589,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         """
         type_params_node = TypeParamsNode(node)
         self.type_params_nodes[node] = type_params_node
-        self._push_annotation_scope(name + ".<type_params>", node, type_params_node)
+        self._push_annotation_scope(name + ".<type_params>", node,
+                                    TYPE_PARAM_BLOCK, type_params_node)
 
         # For functions with defaults, register implicit args so LOAD_FAST works.
         # Defaults are evaluated in the outer scope, then passed as args to the
@@ -543,6 +606,14 @@ class SymtableBuilder(ast.GenericASTVisitor):
             # For classes, register .generic_base which holds Generic[T, ...]
             # This is used to automatically add Generic to bases like CPython does
             self.note_symbol('.generic_base', SYM_ASSIGNED | SYM_USED)
+            # CPython sets ste_private + ste_mangled_names on the type-param
+            # block: only the type parameter identifiers themselves are mangled
+            # with the class name (so the class body can see _Cls__T), while
+            # other names in bases/bounds (e.g. __Base) stay unmangled.
+            # TypeVar.__name__ stays the unmangled '__T'.
+            assert isinstance(self.scope, AnnotationScope)
+            self.scope.private = name
+            self.scope.mangled_names = {}
 
         self.visit_sequence(node.type_params)
 
@@ -920,9 +991,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
                 "assignment expression cannot be used in a comprehension iterable expression",
                 node)
         if isinstance(scope, AnnotationScope):
-            self.error(
-                "named expression cannot be used within an annotation scope",
-                node)
+            scope.not_allowed("named expression", node)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
@@ -982,8 +1051,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if type_alias.type_params:
             self._enter_typeparam_scope(type_alias, target.id)
 
-        # Create a scope for the value expression (TypeAliasBlock in CPython)
-        self._push_annotation_scope(target.id, type_alias)
+        # Create a scope for the value expression
+        self._push_annotation_scope(target.id, type_alias, TYPE_ALIAS_BLOCK)
 
         type_alias.value.walkabout(self)
 
@@ -992,22 +1061,38 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if type_alias.type_params:
             self.pop_scope()
 
+    def _register_type_param_name(self, name):
+        """Record a type parameter name for selective class mangling.
+
+        CPython only mangles type-parameter identifiers in the type-param
+        block (ste_mangled_names); other names stay unmangled so base classes
+        like ``__Base`` resolve correctly.
+        """
+        if isinstance(self.scope, AnnotationScope):
+            mangled_names = self.scope.mangled_names
+            if mangled_names is not None:
+                mangled_names[name] = None
+
     def visit_TypeVar(self, type_var):
         """Visit a TypeVar in a type parameter list."""
+        self._register_type_param_name(type_var.name)
         self.note_symbol(type_var.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var)
 
         # If there's a bound, create a sub-scope for lazy evaluation
         if type_var.bound is not None:
-            self._push_annotation_scope(type_var.name + ".<bound>", type_var)
+            self._push_annotation_scope(type_var.name + ".<bound>", type_var,
+                                        TYPE_VAR_BOUND_BLOCK)
             type_var.bound.walkabout(self)
             self.pop_scope()
 
     def visit_ParamSpec(self, param_spec):
         """Visit a ParamSpec in a type parameter list."""
+        self._register_type_param_name(param_spec.name)
         self.note_symbol(param_spec.name, SYM_TYPE_PARAM | SYM_ASSIGNED, param_spec)
 
     def visit_TypeVarTuple(self, type_var_tuple):
         """Visit a TypeVarTuple in a type parameter list."""
+        self._register_type_param_name(type_var_tuple.name)
         self.note_symbol(type_var_tuple.name, SYM_TYPE_PARAM | SYM_ASSIGNED, type_var_tuple)
 
     def visit_MatchMapping(self, match_mapping):

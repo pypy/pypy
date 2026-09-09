@@ -37,36 +37,72 @@ def _caller_module():
     return f.f_globals.get('__name__')
 
 
-class _Immutable:
+class _ImmutableTypeMeta(type):
+    """Metaclass rejecting attribute changes on the class itself.
+
+    The C implementations are declared with Py_TPFLAGS_IMMUTABLETYPE; both
+    assignment and deletion report "cannot set" there.
+    """
+
+    def __setattr__(cls, name, value):
+        cls._immutable_type_error(name)
+
+    def __delattr__(cls, name):
+        cls._immutable_type_error(name)
+
+    def _immutable_type_error(cls, name):
+        raise TypeError(
+            "cannot set %r attribute of immutable type '%s.%s'" %
+            (name, cls.__module__, cls.__qualname__))
+
+
+class _Immutable(metaclass=_ImmutableTypeMeta):
     """Mixin that makes instances immutable: attribute assignment and
     deletion are blocked from outside this module, for a fixed set of
     "core" attributes given by _readonly_attrs.  This mirrors CPython,
     where these types are implemented in C with a handful of read-only
     struct members but otherwise allow arbitrary new instance attributes
     (e.g. typing_extensions patches 'has_default' onto TypeVar/ParamSpec
-    instances on Python < 3.13).  _readonly_attrs of None means there are
-    no such extra attributes and everything is blocked, matching types
-    that CPython implements without a per-instance dict at all.  Internal
-    code that legitimately needs to set up or lazily patch one of the
-    readonly attributes must go through
-    object.__setattr__/object.__delattr__ to bypass this.
+    instances on Python < 3.13).  _getset_attrs is the subset of
+    _readonly_attrs implemented as a getset without a setter, which reports
+    its own wording.  _has_instance_dict of False means there are no such
+    extra attributes and everything is blocked, matching types that CPython
+    implements without a per-instance dict at all.  Internal code that
+    legitimately needs to set up or lazily patch one of the readonly
+    attributes must go through object.__setattr__/object.__delattr__ to
+    bypass this.
     """
     __slots__ = ()
 
-    _readonly_attrs = None
+    _readonly_attrs = frozenset()
+    _getset_attrs = frozenset()
+    _has_instance_dict = True
+
+    def _immutable_error(self, name):
+        cls = type(self)
+        qualname = '%s.%s' % (cls.__module__, cls.__qualname__)
+        if name in self._getset_attrs:
+            return AttributeError(
+                "attribute '%s' of '%s' objects is not writable"
+                % (name, qualname))
+        if name in self._readonly_attrs:
+            # keep the attribute name, appended to the standard wording
+            return AttributeError("readonly attribute '%s'" % name)
+        if not self._has_instance_dict:
+            return AttributeError(
+                "'%s' object has no attribute '%s'" % (qualname, name))
+        return None
 
     def __setattr__(self, name, value):
-        if self._readonly_attrs is None or name in self._readonly_attrs:
-            raise TypeError(
-                "cannot set %r attribute of immutable type %r" %
-                (name, type(self).__name__))
+        error = self._immutable_error(name)
+        if error is not None:
+            raise error
         object.__setattr__(self, name, value)
 
     def __delattr__(self, name):
-        if self._readonly_attrs is None or name in self._readonly_attrs:
-            raise TypeError(
-                "cannot delete %r attribute of immutable type %r" %
-                (name, type(self).__name__))
+        error = self._immutable_error(name)
+        if error is not None:
+            raise error
         object.__delattr__(self, name)
 
     def __copy__(self):
@@ -78,6 +114,7 @@ class _Immutable:
 
 class _PickleUsingNameMixin:
     """Mixin for types that can be pickled using their __name__."""
+    __slots__ = ()
 
     def __reduce__(self):
         return self.__name__
@@ -161,6 +198,7 @@ class TypeVar(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
         '__name__', '__bound__', '__covariant__', '__contravariant__',
         '__infer_variance__', '__constraints__',
     ))
+    _getset_attrs = frozenset(('__bound__', '__constraints__'))
 
     def __init__(self, name, *constraints, bound=None, covariant=False,
                  contravariant=False, infer_variance=False):
@@ -245,6 +283,7 @@ class ParamSpec(_Immutable, _PickleUsingNameMixin, _BoundVarianceMixin):
         '__name__', '__bound__', '__covariant__', '__contravariant__',
         '__infer_variance__', 'args', 'kwargs',
     ))
+    _getset_attrs = frozenset(('args', 'kwargs'))
 
     def __init__(self, name, *, bound=None, covariant=False, contravariant=False, infer_variance=False):
         object.__setattr__(self, '__name__', name)
@@ -278,6 +317,9 @@ class ParamSpecArgs(_Immutable):
     """
     __slots__ = ('__origin__',)
 
+    _readonly_attrs = frozenset(('__origin__',))
+    _has_instance_dict = False
+
     def __init__(self, origin):
         object.__setattr__(self, '__origin__', origin)
 
@@ -305,6 +347,9 @@ class ParamSpecKwargs(_Immutable):
     Given P = ParamSpec('P'), P.kwargs is an instance of ParamSpecKwargs.
     """
     __slots__ = ('__origin__',)
+
+    _readonly_attrs = frozenset(('__origin__',))
+    _has_instance_dict = False
 
     def __init__(self, origin):
         object.__setattr__(self, '__origin__', origin)
@@ -339,7 +384,8 @@ class TypeVarTuple(_Immutable, _PickleUsingNameMixin):
 
     _readonly_attrs = frozenset(('__name__',))
 
-    __slots__ = ('__name__',)
+    # instances accept new attributes (Py_TPFLAGS_MANAGED_DICT)
+    __slots__ = ('__name__', '__dict__')
 
     def __init__(self, name):
         object.__setattr__(self, '__name__', name)
@@ -379,6 +425,18 @@ class TypeAliasType(_Immutable, _PickleUsingNameMixin):
         # and __value__ = tuple[float, float]
     """
 
+    # No instance dict: the C implementation stores exactly these members.
+    __slots__ = ('_name', '_type_params', '_value', '_evaluate', '_module')
+
+    _readonly_attrs = frozenset((
+        '__name__', '__parameters__', '__type_params__', '__value__',
+        '__module__',
+    ))
+    _getset_attrs = frozenset((
+        '__parameters__', '__type_params__', '__value__', '__module__',
+    ))
+    _has_instance_dict = False
+
     def __init__(self, name, value, *, type_params=()):
         """Initialize a TypeAliasType.
 
@@ -387,11 +445,30 @@ class TypeAliasType(_Immutable, _PickleUsingNameMixin):
             value: The value of the type alias.
             type_params: The type parameters of the alias (for generic aliases).
         """
+        if hasattr(self, '_name'):
+            # typealias has no tp_init: calling __init__ again is a no-op.
+            return
+        if not isinstance(name, str):
+            type_name = 'None' if name is None else type(name).__name__
+            raise TypeError(
+                f"typealias() argument 'name' must be str, not {type_name}"
+            )
+        if not isinstance(type_params, tuple):
+            raise TypeError("type_params must be a tuple")
         object.__setattr__(self, '_name', name)
         object.__setattr__(self, '_type_params',
                            tuple(type_params) if type_params else ())
-        object.__setattr__(self, '__value__', value)
-        object.__setattr__(self, '__module__', _caller_module())
+        object.__setattr__(self, '_value', value)
+        object.__setattr__(self, '_evaluate', None)
+        object.__setattr__(self, '_module', _caller_module())
+
+    def __getattribute__(self, name):
+        # The class must expose TypeAliasType.__module__ == 'typing', while
+        # each alias records the module that created it.  With no instance
+        # dict to shadow the class attribute, intercept the lookup.
+        if name == '__module__':
+            return object.__getattribute__(self, '_module')
+        return object.__getattribute__(self, name)
 
     @property
     def __name__(self):
@@ -414,7 +491,15 @@ class TypeAliasType(_Immutable, _PickleUsingNameMixin):
                 result.append(param)
         return tuple(result)
 
-    __value__ = _LazyEvaluator()
+    @property
+    def __value__(self):
+        if self._evaluate is not None:
+            # Do not clear the evaluator until it succeeds: a failed lazy
+            # lookup must be retried on the next access.
+            value = self._evaluate()
+            object.__setattr__(self, '_value', value)
+            object.__setattr__(self, '_evaluate', None)
+        return self._value
 
     def __repr__(self):
         return self._name
@@ -423,20 +508,23 @@ class TypeAliasType(_Immutable, _PickleUsingNameMixin):
         """Support generic type alias subscripting: Alias[T]."""
         if not self._type_params:
             raise TypeError("Only generic type aliases are subscriptable")
-        from typing import _GenericAlias
-        if not isinstance(parameters, tuple):
-            parameters = (parameters,)
-        return _GenericAlias(self, parameters)
+        # Prefer types.GenericAlias so specialized aliases match CPython's
+        # types.GenericAlias (and its list/tuple repr rules).
+        import types
+        return types.GenericAlias(self, parameters)
 
     def __or__(self, other):
-        """Support | for Union types."""
-        from typing import Union
-        return Union[self, other]
+        """Support | for types.UnionType."""
+        from _pypy_generic_alias import _create_union
+        return _create_union(self, other)
 
     def __ror__(self, other):
-        """Support | for Union types (reverse)."""
-        from typing import Union
-        return Union[other, self]
+        """Support | for types.UnionType (reverse)."""
+        from _pypy_generic_alias import _create_union
+        return _create_union(other, self)
+
+    def __init_subclass__(cls, **kwargs):
+        raise TypeError("type 'typing.TypeAliasType' is not an acceptable base type")
 
 
 # Factory functions for the compiler
@@ -479,9 +567,8 @@ def _make_typevartuple(name):
 
 def _make_typealiastype(name, evaluate_value, type_params):
     t = TypeAliasType(name, None, type_params=type_params)
-    object.__delattr__(t, '__value__')
-    object.__setattr__(t, '__evaluate_value__', evaluate_value)
-    object.__setattr__(t, '__module__', getattr(evaluate_value, '__module__', None))
+    object.__setattr__(t, '_evaluate', evaluate_value)
+    object.__setattr__(t, '_module', getattr(evaluate_value, '__module__', None))
     return t
 
 
@@ -537,5 +624,5 @@ class Generic:
 # make the __module__ match pickling by their public name.
 for _cls in (TypeVar, ParamSpec, TypeVarTuple, TypeAliasType, Generic,
              ParamSpecArgs, ParamSpecKwargs):
-    _cls.__module__ = 'typing'
+    type.__setattr__(_cls, '__module__', 'typing')
 del _cls

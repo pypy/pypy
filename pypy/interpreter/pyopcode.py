@@ -736,8 +736,9 @@ class __extend__(pyframe.PyFrame):
                         varname)
         else:
             raise oefmt(self.space.w_NameError,
-                        "free variable '%s' referenced before assignment"
-                        " in enclosing scope", varname)
+                        "cannot access free variable '%s' where it is not"
+                        " associated with a value in enclosing scope",
+                        varname)
 
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
