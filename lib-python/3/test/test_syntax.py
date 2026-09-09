@@ -26,7 +26,6 @@ it.  (Maybe we should enable the ellipsis option for these tests.)
 In ast.c, syntax errors are raised by calling ast_error().
 
 PyPy-specific changes:
-- replace 'invalid syntax' with "invalid character '$' (U+0024)" when '$' appears
 - replace 'invalid syntax' with 'expected ':' in 'match x x:'
 
 Errors from set_context():
@@ -306,13 +305,13 @@ SyntaxError: invalid syntax
 ...     case y:
 ...        3 $ 3
 Traceback (most recent call last):
-SyntaxError: invalid character '$' (U+0024)
+SyntaxError: invalid syntax
 
 >>> match x:
 ...     case $:
 ...        ...
 Traceback (most recent call last):
-SyntaxError: invalid character '$' (U+0024)
+SyntaxError: invalid syntax
 
 >>> match ...:
 ...     case {**rest, "key": value}:
@@ -1285,19 +1284,19 @@ Custom error message for try block mixing except and except*
 Ensure that early = are not matched by the parser as invalid comparisons
    >>> f(2, 4, x=34); 1 $ 2
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
    >>> dict(x=34); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
    >>> dict(x=34, (x for x in range 10), 1); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
    >>> dict(x=34, x=1, y=2); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
 Incomplete dictionary literals
 
@@ -1329,7 +1328,7 @@ Incomplete dictionary literals
 
    >>> {1} $
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
    # Ensure that the error is not raised for invalid expressions
 
@@ -1339,7 +1338,7 @@ Incomplete dictionary literals
 
    >>> {1: $, 2: 3}
    Traceback (most recent call last):
-   SyntaxError: invalid character '$' (U+0024)
+   SyntaxError: invalid syntax
 
 Specialized indentation errors:
 
