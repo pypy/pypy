@@ -28,8 +28,9 @@ Process for upgrading the stdlib to a new cpython version
 7. merge vendor/stdlib-3-*
 8. commit
 10. fix issues. Note especially changes in datetime.py, venv/__init__.py, and others.
-11. commit 
-14. update version numbers in sys/version.py and cpyext/include/patch_level.h
+11. commit
+12. port grammar changes, see "Keeping the parser grammar in sync" below
+13. update version numbers in sys/version.py and cpyext/include/patch_level.h
 
 Process for updating a point release if the diff is small
 =========================================================
@@ -43,11 +44,43 @@ patch -p2 -i <outfile>
 
 If patch asks about reversed patches, reply "no" and apply anyway "yes"
 
-Carefully note the failures in the *.rej files and try to resolve the conflicts.
-Delete all the *.orig files, and look for files that should be added to version control
+Carefully note the failures in the `*.rej` files and try to resolve the conflicts.
+Delete all the `*.orig` files, and look for files that should be added to version control
 Look for removed files that should be deleted from version control
 
 Then update sys/version.py, cpyext/include/patchlevel.h, and ./stdlib-version.txt
 
 Make sure binary files (especially pip and setuptools wheels) were copied
 correctly. On at least one occasion they were empty after this process.
+
+Then run the grammar check below: point releases add `invalid_*` rules
+for new error messages that lib-python/3/test/test_syntax.py expects.
+
+Keeping the parser grammar in sync
+==================================
+
+`pypy/interpreter/pyparser/tools/python-in-rpython.gram` is a fork of
+CPython's `Grammar/python.gram`. The actions differ (RPython instead of C)
+but the rules and their alternatives should match, in the same order, since
+the first matching `invalid_*` alternative decides which SyntaxError the
+user sees. `lib-python/check_grammar_drift.py` compares the two, ignoring
+actions and a list of deliberate PyPy deviations kept in the script:
+
+    python3 lib-python/check_grammar_drift.py                  # download the
+                                                               # python.gram of
+                                                               # CPYTHON_VERSION
+    python3 lib-python/check_grammar_drift.py --version 3.12.14
+    python3 lib-python/check_grammar_drift.py --gram <path-to>/python.gram
+    python3 lib-python/check_grammar_drift.py --show-known    # list deviations
+
+It exits 1 and
+prints each rule that is missing, has different alternatives, or has the same
+alternatives in a different order. For each one, port the change to
+python-in-rpython.gram, or add the rule to `KNOWN_DIFFERENCES` with a reason
+when PyPy differs on purpose. Then regenerate the parser::
+
+    cd pypy/interpreter/pyparser/tools && python3 rpython_generator.py
+
+and run tests. Don't forget to clear the rpython/_cache caches!! Renumbered
+``_tmp_NNN`` helpers make the regenerated rpypegparse.py diff large, that is
+expected.

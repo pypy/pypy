@@ -466,6 +466,12 @@ if 1:
             exc = pytest.raises(SyntaxError, self.parse, src).value
             assert exc.msg == ("parameter without a default follows "
                                "parameter with a default"), src
+        # the alternatives are tried in CPython's order
+        for src in ("def f(a, /, b=1, c, /): pass", "lambda a, /, b=1, c, /: 0"):
+            exc = pytest.raises(SyntaxError, self.parse, src).value
+            assert exc.msg == "/ may appear only once", src
+        exc = pytest.raises(SyntaxError, self.parse, "def f(/, a=1, b): pass").value
+        assert exc.msg == "at least one argument must precede /"
 
     def test_invalid_default(self):
         info = pytest.raises(SyntaxError, self.parse, "def f(x=): return 1")
