@@ -794,13 +794,15 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ])
         s = 'abcdef'
         assert module.readchar(s, 3) == ord(s[3])
-        try:
+        import sys
+        if sys.implementation.name == 'pypy':
+            # PyUnicode_FromString already built the interpreter-level
+            # string, which is immutable, so the write cannot be seen
+            raises(SystemError, module.writechar, s, 3, ord('z'))
+        else:
             newstr = module.writechar(s, 3, ord('z'))
             assert newstr[3] == 'z'
             assert newstr[0] == 'a'
-        except SystemError:
-            # raises on PyPy
-            pass
         indx = module.findchar(s, ord('z'), 0, -1, 0)
         assert indx == -1
         indx = module.findchar(s, ord('d'), 0, -1, 0)

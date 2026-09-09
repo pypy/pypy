@@ -19,6 +19,7 @@ from pypy.module.cpyext.api import (
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir,
     PyTypeObjectPtr, PyVarObject, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument, PyErr_BadInternalCall
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr,
@@ -1503,6 +1504,10 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     if index < 0 or index >= get_len(ref):
         raise oefmt(space.w_IndexError, "string index out of range")
     if widen(ref.c_ob_refcnt) != rawrefcount.REFCNT_FROM_PYPY + 1:
+        raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
+    if rawrefcount.to_obj(W_Root, ref) is not None:
+        # the interpreter-level string already exists and is immutable, a
+        # write into the C buffer would be lost
         raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
     if get_interned(ref) != 0:
         raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
