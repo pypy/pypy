@@ -6,12 +6,14 @@ from rpython.rlib import rawrefcount
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY_LIGHT
 
-# The prefix relocation trips two untranslated-only fakeaddress/ll2ctypes limits:
-# a symbolic link (a moved object's address) can't round-trip through the raw prefix,
-# and lltype.free of the prefixed allocation doesn't invalidate the test's cast pointer.
-# Both moving-GC paths are covered translated by
-# rpython/rlib/test/test_rawrefcount.py::TestTranslated::test_full_translation.
-_SKIP_UNTRANSLATED = "prefix: untranslated fakeaddress/ll2ctypes limitation, see comment"
+# The GC reaches the test's PyObjectS through rffi.cast (see incminimark._pyobj),
+# i.e. through ll2ctypes, in both link-prefix modes.  That trips two
+# untranslated-only fakeaddress limits: a symbolic link (a moved object's
+# address) can't round-trip through raw memory, and lltype.free of the GC's cast
+# pointer doesn't invalidate the test's own pointer.  Both moving-GC paths are
+# covered translated, in both modes, by
+# rpython/rlib/test/test_rawrefcount.py::TestTranslated*::test_full_translation.
+_SKIP_UNTRANSLATED = "untranslated fakeaddress/ll2ctypes limitation, see comment"
 
 S = lltype.GcForwardReference()
 S.become(lltype.GcStruct('S',
@@ -199,7 +201,7 @@ class TestRawRefCount(BaseDirectGCTest):
         p1 = check_alive(0)
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1       # in the pending list
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1       # in the pending list
         assert rawrefcount._ob_link_get(r1) == 0
         assert self.gc.rawrefcount_next_dead() == r1addr
         assert self.gc.rawrefcount_next_dead() == llmemory.NULL
@@ -223,7 +225,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert p1.x == 42
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1
         assert rawrefcount._ob_link_get(r1) == 0
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()
@@ -240,7 +242,7 @@ class TestRawRefCount(BaseDirectGCTest):
         else:
             self._collect(major=False, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1
         assert rawrefcount._ob_link_get(r1) == 0
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()
@@ -260,7 +262,7 @@ class TestRawRefCount(BaseDirectGCTest):
         check_alive(0)
         r1.c_ob_refcnt += 1            # the pyobject is kept alive
         self._collect(major=False)
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1     # refcnt dropped to 1
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1     # refcnt dropped to 1
         assert rawrefcount._ob_link_get(r1) == 0  # detached
         self.gc.check_no_more_rawrefcount_state()
         rawrefcount._ob_free(r1)
@@ -278,7 +280,7 @@ class TestRawRefCount(BaseDirectGCTest):
             self._collect(major=True, expected_trigger=1)
         else:
             self._collect(major=False, expected_trigger=1)
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1     # refcnt 1, in the pending list
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1     # refcnt 1, in the pending list
         assert rawrefcount._ob_link_get(r1) == 0  # detached
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()
@@ -305,7 +307,7 @@ class TestRawRefCount(BaseDirectGCTest):
         assert self.trigger == []
         self._collect(major=True, expected_trigger=1)
         py.test.raises(RuntimeError, "p1.x")            # dead
-        assert r1.c_ob_refcnt == REFCNT_FROM_PYPY + 1
+        assert r1.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1
         assert rawrefcount._ob_link_get(r1) == 0
         assert self.gc.rawrefcount_next_dead() == r1addr
         self.gc.check_no_more_rawrefcount_state()

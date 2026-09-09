@@ -109,6 +109,10 @@ alias = {
     'Tadeu Zagallo': ['tadeuzagallo'],
     'Pierre Augier': ['paugier'],
     'Julian Waters': ['TheShermanTanker'],
+    'Stanley C': ['stanbot8'],
+    'Philipp Lachowski': ['DCIMS\\lac'],
+    'Jeong YunWon': ['Jeong, YunWon'],
+    None: ['dependabot[bot]', 'Claude'],  # bots and AI agents
     }
 
 alias_map = {}
@@ -131,7 +135,8 @@ def get_more_authors(log):
     ignore_words = ['around', 'consulting', 'yesterday', 'for a bit', 'thanks',
                     'in-progress', 'bits of', 'even a little', 'floating',
                     'a bit', 'reviewing', 'looking', 'advising', 'partly', 'ish',
-                    'watching', 'mostly', 'jumping', 'twitch', 's390x']
+                    'watching', 'mostly', 'jumping', 'twitch', 's390x',
+                    ]
     sep_words = ['and', ';', '+', '/', 'with special  by']
     nicknames = match.group(1)
     for word in ignore_words:
@@ -183,10 +188,11 @@ def main(show_numbers):
     items = list(authors_count.items())
     items.sort(key=operator.itemgetter(1), reverse=True)
     for name, n in items:
-        if show_numbers:
-            print('%5d %s' % (n, name))
-        else:
-            print('  ' + name)
+        if name:
+            if show_numbers:
+                print('%5d %s' % (n, name))
+            else:
+                print('  ' + name)
 
 if __name__ == '__main__':
     show_numbers = '-n' in sys.argv

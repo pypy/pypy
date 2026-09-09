@@ -271,12 +271,14 @@ translation_optiondescription = OptionDescription(
                "Ensure full separation of GC and non-GC pointers", default=False),
     BoolOption("rawrefcount_link_prefix",
                "Store cpyext's rawrefcount ob_pypy_link in a hidden prefix word "
-               "before ob_refcnt, instead of as a regular PyObject header field. "
+               "before ob_refcnt, instead of as a regular PyObject header field, "
+               "and make the REFCNT_FROM_PYPY tag permanent (it marks the prefix; "
+               "the GC then never subtracts it, so the dead-object test becomes "
+               "ob_refcnt == REFCNT_FROM_PYPY rather than 0). "
                "Needed so PyObject's visible layout matches CPython's {ob_refcnt, "
                "ob_type} exactly (abi3 wheel loading); must only be set by a "
                "target whose cpyext allocator actually reserves that prefix word "
-               "(see pypy/module/cpyext/src/object.c _generic_alloc) -- turning "
-               "it on otherwise corrupts memory on every PyObject allocation.",
+               "and whose Py_DECREF implements the two-condition dealloc test.",
                default=False),
     BoolOption("reverse_debugger",
                "Give an executable that writes a log file for reverse debugging",

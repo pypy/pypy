@@ -118,7 +118,7 @@ class TestRawRefCount:
         assert rawrefcount.next_dead(rawrefcount.PyObject) == lltype.nullptr(rawrefcount.PyObjectS)
         assert rawrefcount._o_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # tag kept + pending ref
+        assert ob.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1   # pending ref
         assert rawrefcount._ob_link_get(ob) == 0
         rawrefcount._ob_free(ob)
 
@@ -136,7 +136,7 @@ class TestRawRefCount:
         rawrefcount._collect()
         p = wr_p()
         assert p is None            # was unlinked
-        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # the C reference remains
+        assert ob.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1   # the C reference remains
         assert rawrefcount._o_list == []
         assert rawrefcount.to_obj(W_Root, ob) == None
         rawrefcount._ob_free(ob)
@@ -175,7 +175,7 @@ class TestRawRefCount:
         assert rawrefcount._d_list == [ob]
         assert rawrefcount._p_list == []
         assert wr_p() is None
-        assert ob.c_ob_refcnt == REFCNT_FROM_PYPY + 1   # tag kept + pending ref
+        assert ob.c_ob_refcnt == rawrefcount.REFCNT_AFTER_UNLINK + 1   # pending ref
         assert rawrefcount._ob_link_get(ob) == 0
         rawrefcount._ob_free(ob)
 
@@ -229,11 +229,13 @@ class TestRawRefCountNoPrefix(TestRawRefCount):
 
 
 class TestTranslated(StandaloneTests):
+    link_prefix = True
 
     def test_full_translation(self):
         # Explicit, not leftover state from another test's configure() call:
         # translation bakes in whichever mode is current right now.
-        rawrefcount.configure(True)
+        rawrefcount.configure(self.link_prefix)
+        dead_refcnt = rawrefcount.REFCNT_AFTER_UNLINK + 1
 
         class State:
             pass
@@ -274,8 +276,8 @@ class TestTranslated(StandaloneTests):
             if rawrefcount.next_dead(rawrefcount.PyObject) != ob:
                 print "NEXT_DEAD != OB"
                 return 1
-            if ob.c_ob_refcnt != REFCNT_FROM_PYPY + 1:
-                print "next_dead().ob_refcnt != REFCNT_FROM_PYPY + 1"
+            if ob.c_ob_refcnt != dead_refcnt:
+                print "next_dead().ob_refcnt != REFCNT_AFTER_UNLINK + 1"
                 return 1
             if rawrefcount.next_dead(rawrefcount.PyObject) != lltype.nullptr(rawrefcount.PyObjectS):
                 print "NEXT_DEAD second time != NULL"
@@ -297,3 +299,7 @@ class TestTranslated(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('OK!\n')
+
+
+class TestTranslatedNoPrefix(TestTranslated):
+    link_prefix = False

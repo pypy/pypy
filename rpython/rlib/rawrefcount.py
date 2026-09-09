@@ -44,9 +44,30 @@ else:
 
 RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
+# translation.rawrefcount_link_prefix selects between two PyObject models,
+# and both halves of the choice go together:
+#
+# * link prefix False (the default, and PyPy's traditional model):
+#   ob_pypy_link is a visible header field, and REFCNT_FROM_PYPY is a
+#   transient tag -- added when the pyobj is linked to its w_obj, subtracted
+#   again by the GC when it unlinks them.  A pyobj whose w_obj died and that
+#   nothing in C references is handed to next_dead() with ob_refcnt == 1.
+#
+# * link prefix True (cpyext for abi3 wheels): ob_pypy_link lives in a
+#   hidden word before ob_refcnt, and the tag becomes permanent, doubling as
+#   the "this PyObject has a prefix" discriminator -- the GC never subtracts
+#   it, and a dead pyobj reaches next_dead() with ob_refcnt ==
+#   REFCNT_FROM_PYPY + 1.  cpyext's dealloc condition must then be the
+#   two-condition test described in pypy/doc/discussion/rawrefcount.rst.
+#
+# The tag policy is only meaningful together with the layout (the permanent
+# tag exists to mark the prefix), so a single option controls both.
+
 
 _LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
-_LINK_PREFIX = 16   # padded to 16 so body (ob_refcnt) keeps malloc's 16-byte alignment
+# two words (pad + link, see _PyObjectPrefixedS) so body (ob_refcnt) keeps
+# malloc's 2*sizeof(void*) alignment: 16 on 64-bit, 8 on 32-bit
+_LINK_PREFIX = 2 * _LINK_OFFSET
 
 
 class _PrefixHelpers:
@@ -136,9 +157,12 @@ def configure(link_prefix):
     reads these module-level names (rpython.memory.gc.incminimark has its own
     independent, config-driven implementation of the same layout choice).
     """
-    global RRC_LINK_PREFIX, PyObjectS, PyObject
+    global RRC_LINK_PREFIX, REFCNT_AFTER_UNLINK, PyObjectS, PyObject
     global _ob_link_get, _ob_link_set, _ob_free, _pyobject_alloc
     RRC_LINK_PREFIX = link_prefix
+    # what the tag leaves behind in ob_refcnt once the GC has unlinked the
+    # pyobj from its (dead) w_obj: the whole tag if permanent, else nothing
+    REFCNT_AFTER_UNLINK = REFCNT_FROM_PYPY if link_prefix else 0
     h = get_helpers(link_prefix)
     PyObjectS = h.PyObjectS
     PyObject = h.PyObject
@@ -233,8 +257,9 @@ def next_dead(OB_PTR_TYPE):
     but cannot immediately dispose of them (it doesn't know how to call
     e.g. tp_dealloc(), and anyway calling it immediately would cause all
     sorts of bugs).  So instead, it stores them in an internal list,
-    initially with refcnt == REFCNT_FROM_PYPY + 1.  This pops the next item off
-    this list.
+    initially with refcnt == REFCNT_AFTER_UNLINK + 1 (i.e. 1, or
+    REFCNT_FROM_PYPY + 1 when the tag is permanent).  This pops the next
+    item off this list.
     """
     if len(_d_list) == 0:
         return lltype.nullptr(OB_PTR_TYPE.TO)
@@ -304,9 +329,18 @@ def _collect(track_allocation=True):
             else:
                 assert ob.c_ob_refcnt >= REFCNT_FROM_PYPY
                 assert ob.c_ob_refcnt < int(REFCNT_FROM_PYPY_LIGHT * 0.99)
-                if ob.c_ob_refcnt == REFCNT_FROM_PYPY:
-                    ob.c_ob_refcnt += 1
-                    _d_list.append(ob)
+                if RRC_LINK_PREFIX:
+                    # permanent tag (see "Two-condition deallocation" in
+                    # pypy/doc/discussion/rawrefcount.rst): dead only once
+                    # nothing but the bare tag is left
+                    if ob.c_ob_refcnt == REFCNT_FROM_PYPY:
+                        ob.c_ob_refcnt += 1
+                        _d_list.append(ob)
+                else:
+                    ob.c_ob_refcnt -= REFCNT_FROM_PYPY
+                    if ob.c_ob_refcnt == 0:
+                        ob.c_ob_refcnt = 1
+                        _d_list.append(ob)
             return None
 
     _p_list = new_p_list

@@ -129,7 +129,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                           "_ll_resize": _ll_list_resize,
                                           "_ll_resize_hint": _ll_list_resize_hint,
                                       }),
-                                      hints = {'list': True})
+                                      hints = {'list': True, 'nonneg_int_fields': frozenset(['length'])})
                              )
 
     def compact_repr(self):

@@ -82,7 +82,7 @@ equal have the same hash value.  It is possible, but unlikely, for
 two un-equal objects to have the same hash value."""
     return space.hash(w_object)
 
-def id(space, w_object):
+def id(space, w_object, __posonly__=None):
     "Return the identity of an object: id(x) == id(y) if and only if x is y."
     w_res = space.id(w_object)
     space.audit("builtins.id", [w_res])

@@ -17,7 +17,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     isconstant, isvirtual, set_param, record_exact_class, record_known_result,
     record_exact_value, loop_unrolling_heuristic)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
-from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
+from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -1625,6 +1625,7 @@ class BasicTests:
         self.check_trace_count(1)
         self.check_resops(call_r=2)
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardclass_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1649,8 +1650,9 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=0, guard_value=6)
+        self.check_resops(guard_class=0, guard_value=7)
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardclass(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1676,10 +1678,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_class=0, guard_nonnull=4,
-                          guard_nonnull_class=4, guard_isnull=2)
+        self.check_resops(guard_class=0, guard_nonnull=0,
+                          guard_nonnull_class=5, guard_isnull=2)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1704,10 +1707,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
-                          guard_nonnull_class=0, guard_isnull=2)
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=0,
+                          guard_nonnull_class=0, guard_isnull=3)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardvalue_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1732,10 +1736,11 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+        self.check_resops(guard_value=5, guard_class=0, guard_nonnull=0,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
+    @pytest.mark.skipif(LONG_BIT!=64, reason='small differences in reasoning about list indexes make this test too precise')
     def test_merge_guardnonnull_guardclass_guardvalue(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'l'])
 
@@ -1763,7 +1768,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
-        self.check_resops(guard_class=0, guard_nonnull=6, guard_value=6,
+        self.check_resops(guard_class=0, guard_nonnull=0, guard_value=7,
                           guard_nonnull_class=0, guard_isnull=2)
 
 
@@ -3411,6 +3416,27 @@ class BasicTests:
         res = self.interp_operations(f, [40, 2])
         assert res == 0
         self.check_operations_history(uint_mul_high=1)
+
+    def test_bounds_instance_fields(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        class A:
+            pass
+        a = A()
+        a.x = 12
+        def g(i):
+            assert i >= 0
+            a.x = i
+            while a.x <= 100:
+                myjitdriver.jit_merge_point()
+                if a.x - 1 < -1: # can be removed by the jit because it knows that a.x is >= 0 from the annotator
+                    raise ValueError
+                try:
+                    a.x = ovfcheck(a.x + 1)
+                except OverflowError:
+                    return 12
+            return a.x
+        res = self.meta_interp(g, [4])
+        self.check_resops(int_lt=0)
 
 
 class BaseLLtypeTests(BasicTests):
@@ -5144,3 +5170,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res2 = self.interp_operations(f, [6])
         assert res1 == res2
         self.check_operations_history(guard_class=1, record_exact_class=0)
+
+    def test_rlist_void(self):
+        def f(i):
+            l = [None]
+            if i:
+                l.append(None)
+            return l[0] is None # always True
+        res = self.interp_operations(f, [6])
+        assert res
+        res = self.interp_operations(f, [0])
+        assert res

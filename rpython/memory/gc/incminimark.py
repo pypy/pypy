@@ -3176,6 +3176,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # so turning this on without the matching cpyext change corrupts memory
         # before every allocation.
         #
+        # The same flag also decides whether the REFCNT_FROM_PYPY tag is
+        # permanent (prefix layout, tag doubles as the "has prefix" marker) or
+        # transient (traditional layout, subtracted again in _rrc_free); see the
+        # comment block in rpython/rlib/rawrefcount.py.
+        #
         # translation.rawrefcount_link_prefix is the single source of truth for
         # this choice; it is False everywhere except where a target explicitly
         # opts in (see pypy/goal/targetpypystandalone.py, set for the py3.12/abi3
@@ -3376,13 +3381,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(rc < int(REFCNT_FROM_PYPY_LIGHT * 0.99),
                       "refcount underflow from REFCNT_FROM_PYPY_LIGHT?")
             self._pyobj(pyobject).ob_pypy_link = 0
-            # The tag is permanent (never subtracted); the object is dead only
-            # once nothing but the bare tag is left.  lxml and others expect
-            # tp_dealloc to fire at once, else a bogus raw pointer stays usable
-            # (a later Py_INCREF/Py_DECREF would call tp_dealloc a second time).
-            if rc == REFCNT_FROM_PYPY:
-                self.rrc_dealloc_pending.append(pyobject)
-                self._pyobj(pyobject).ob_refcnt = rc + 1
+            # An object with no references left cannot stay around waiting
+            # for its deallocator to be called.  Some code (lxml) expects
+            # that tp_dealloc is called immediately when the refcnt drops
+            # to 0.  If it isn't, we get some uncleared raw pointer that can
+            # still be used to access the object; but (PyObject *)raw_pointer
+            # is then bogus because after a Py_INCREF()/Py_DECREF() on it,
+            # its tp_dealloc is also called!  So the pending object is kept
+            # alive with one extra reference, owned by the dealloc queue.
+            if self.rrc_link_prefix:
+                # The tag is permanent (never subtracted); the object is
+                # dead only once nothing but the bare tag is left.
+                if rc == REFCNT_FROM_PYPY:
+                    self.rrc_dealloc_pending.append(pyobject)
+                    self._pyobj(pyobject).ob_refcnt = rc + 1
+            else:
+                rc -= REFCNT_FROM_PYPY
+                if rc == 0:
+                    self.rrc_dealloc_pending.append(pyobject)
+                    rc = 1
+                self._pyobj(pyobject).ob_refcnt = rc
     _rrc_free._always_inline_ = True
 
     def rrc_major_collection_trace(self):
