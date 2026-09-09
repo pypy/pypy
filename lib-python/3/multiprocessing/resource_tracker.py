@@ -115,6 +115,8 @@ class ResourceTracker(object):
 
         waitpid(self._pid, 0)
         self._pid = None
+        # PYPY change
+        self._registered.clear()
 
     def getfd(self):
         self.ensure_running()

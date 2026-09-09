@@ -2247,7 +2247,10 @@ def skip_if_broken_multiprocessing_synchronize():
             # bpo-38377: On Linux, creating a semaphore fails with OSError
             # if the current user does not have the permission to create
             # a file in /dev/shm/ directory.
-            synchronize.Lock(ctx=None)
+            # PYPY change
+            # synchronize.Lock(ctx=None)
+            import multiprocessing
+            synchronize.Lock(ctx=multiprocessing.get_context('fork'))
         except OSError as exc:
             raise unittest.SkipTest(f"broken multiprocessing SemLock: {exc!r}")
 
