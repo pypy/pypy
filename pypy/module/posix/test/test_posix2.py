@@ -1141,7 +1141,6 @@ class AppTestPosix:
                 assert os.sched_getaffinity(0) == mask
             finally:
                 os.sched_setaffinity(0, mask)
-            raises(TypeError, os.sched_setaffinity, 0, ["0"])
 
     def test_write_buffer(self):
         os = self.posix

@@ -3134,19 +3134,21 @@ def sched_setparam(space, pid, w_param):
 
 
 @unwrap_spec(pid=int)
-def sched_getaffinity(space, pid):
+def sched_getaffinity(space, pid, __posonly__=None):
     """ Return the affinity of the process identified by pid (or the current
     process if zero). The affinity is returned as a set of CPU identifiers. """
     try:
         cpus = rposix.sched_getaffinity(pid)
     except OSError as e:
-        wrap_oserror(space, e, eintr_retry=True)
-    else:
-        return space.newset([space.newint(cpu) for cpu in cpus])
+        raise wrap_oserror(space, e)
+    except OverflowError:
+        raise oefmt(space.w_OverflowError,
+                    "could not allocate a large enough CPU set")
+    return space.newset([space.newint(cpu) for cpu in cpus])
 
 
 @unwrap_spec(pid=int)
-def sched_setaffinity(space, pid, w_mask):
+def sched_setaffinity(space, pid, w_mask, __posonly__=None):
     """ Set the CPU affinity of the process identified by pid to mask.
     mask should be an iterable of integers identifying CPUs. """
     cpus = []
@@ -3154,17 +3156,17 @@ def sched_setaffinity(space, pid, w_mask):
         if not space.isinstance_w(w_cpu, space.w_int):
             raise oefmt(space.w_TypeError,
                         "expected an iterator of ints, but iterator yielded %R",
-                        w_cpu)
+                        space.type(w_cpu))
         cpu = space.int_w(w_cpu)
         if cpu < 0:
             raise oefmt(space.w_ValueError, "negative CPU number")
         if cpu > INT_MAX - 1:
-            raise oefmt(space.w_OverflowError, "invalid CPU number")
+            raise oefmt(space.w_OverflowError, "CPU number too large")
         cpus.append(cpu)
     try:
         rposix.sched_setaffinity(pid, cpus)
     except OSError as e:
-        wrap_oserror(space, e, eintr_retry=True)
+        raise wrap_oserror(space, e)
 
 def splitdrive(p):
     # copied from ntpath.py, but changed to move the sep to the root.

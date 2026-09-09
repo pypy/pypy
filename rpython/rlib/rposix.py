@@ -11,7 +11,7 @@ from rpython.rlib._os_support import (
     POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
-from rpython.rlib.rarithmetic import intmask, widen, r_uint
+from rpython.rlib.rarithmetic import intmask, widen, r_uint, INT_MAX
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
@@ -3357,30 +3357,36 @@ if sys.platform.startswith('linux'):
             save_err=rffi.RFFI_SAVE_ERRNO)
 
         def sched_getaffinity(pid):
-            """Returns the list of CPUs the process is allowed to run on."""
-            nwords = 1
+            """Returns the list of CPUs the process is allowed to run on.
+
+            Raises OverflowError if no mask big enough for the kernel's
+            cpumask can be allocated."""
+            ncpus = CPU_MASK_BITS
             while True:
+                nwords = ncpus // CPU_MASK_BITS
                 with lltype.scoped_alloc(CPU_MASK_P.TO, nwords, zero=True) as mask:
                     size = nwords * rffi.sizeof(rffi.ULONG)
                     res = widen(c_sched_getaffinity(
                         pid, rffi.cast(rffi.SIZE_T, size),
                         rffi.cast(rffi.VOIDP, mask)))
-                    if res < 0:
-                        err = get_saved_errno()
-                        # the kernel's cpumask is wider than ours: retry
-                        if err == errno.EINVAL:
-                            nwords *= 2
-                            continue
+                    if res >= 0:
+                        cpus = []
+                        for i in range(nwords):
+                            word = widen(mask[i])
+                            if word == 0:
+                                continue
+                            for bit in range(CPU_MASK_BITS):
+                                if word & (r_uint(1) << bit):
+                                    cpus.append(i * CPU_MASK_BITS + bit)
+                        return cpus
+                    err = get_saved_errno()
+                    if err != errno.EINVAL:
                         raise OSError(err, 'sched_getaffinity failed')
-                    cpus = []
-                    for i in range(nwords):
-                        word = widen(mask[i])
-                        if word == 0:
-                            continue
-                        for bit in range(CPU_MASK_BITS):
-                            if word & (r_uint(1) << bit):
-                                cpus.append(i * CPU_MASK_BITS + bit)
-                    return cpus
+                if ncpus > INT_MAX // 2:
+                    raise OverflowError(
+                        "could not allocate a large enough CPU set")
+                # EINVAL: the kernel's cpumask may be wider than ours, retry
+                ncpus *= 2
 
         def sched_setaffinity(pid, cpus):
             """Restricts the process to the given list of CPUs (non-negative
