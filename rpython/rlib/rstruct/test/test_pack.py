@@ -181,6 +181,9 @@ class BaseTestPack(PackSupport):
         s = self.mypack_fn(standardfmttable.pack_pascal,
                            arg=8, value='hello', size=8)
         assert s == '\x05hello\x00\x00'
+        s = self.mypack_fn(standardfmttable.pack_pascal,
+                           arg=0, value='hello', size=0)
+        assert s == ''
 
 
 class TestPackLittleEndian(BaseTestPack):

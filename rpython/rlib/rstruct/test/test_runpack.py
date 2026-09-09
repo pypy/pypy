@@ -37,6 +37,13 @@ class TestRStruct(BaseRtypingTest):
         assert fn()
         assert self.interpret(fn, [])
 
+    def test_unpack_pascal(self):
+        def fn():
+            a, b, c = runpack('8p1p0p', '\x05helloxx\x03')
+            return a + '|' + b + '|' + c
+        assert fn() == 'hello||'
+        assert self.ll_to_string(self.interpret(fn, [])) == 'hello||'
+
     def test_unpack_single(self):
         data = struct.pack('i', 123)
         def fn():
