@@ -65,7 +65,9 @@ RAWREFCOUNT_DEALLOC_TRIGGER = lltype.Ptr(lltype.FuncType([], lltype.Void))
 
 
 _LINK_OFFSET = rffi.sizeof(lltype.Signed)   # bytes back from body to ob_pypy_link
-_LINK_PREFIX = 16   # padded to 16 so body (ob_refcnt) keeps malloc's 16-byte alignment
+# two words (pad + link, see _PyObjectPrefixedS) so body (ob_refcnt) keeps
+# malloc's 2*sizeof(void*) alignment: 16 on 64-bit, 8 on 32-bit
+_LINK_PREFIX = 2 * _LINK_OFFSET
 
 
 class _PrefixHelpers:
