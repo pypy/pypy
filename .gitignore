@@ -67,3 +67,6 @@ bin/easy_install*
 lib-python/3/test/data/*.txt
 pypy/tool/pyhdrdump/pyhdrdump
 extra_tests/cffi_tests/cffi0/snippets/*/build
+extra_tests/cffi_tests/cffi0/snippets/*/*.egg-info/
+extra_tests/ctypes_tests/*.o
+extra_tests/hpy_tests/.hpy.lock

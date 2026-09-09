@@ -174,6 +174,9 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['sched_getparam'] = 'interp_posix.sched_getparam'
         appleveldefs['sched_param'] = 'app_posix.sched_param'
         interpleveldefs['sched_setparam'] = 'interp_posix.sched_setparam'
+    if hasattr(rposix, 'sched_setaffinity'):
+        interpleveldefs['sched_getaffinity'] = 'interp_posix.sched_getaffinity'
+        interpleveldefs['sched_setaffinity'] = 'interp_posix.sched_setaffinity'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',

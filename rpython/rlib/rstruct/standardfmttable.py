@@ -93,11 +93,11 @@ def pack_string(fmtiter, count):
 
 def pack_pascal(fmtiter, count):
     string = fmtiter.accept_str_arg()
+    if count == 0:
+        return
     prefix = len(string)
     if prefix >= count:
         prefix = count - 1
-        if prefix < 0:
-            raise StructError("bad '0p' in struct format")
     if prefix > 255:
         prefix = 255
     fmtiter.wbuf.setitem(fmtiter.pos, chr(prefix))
@@ -252,7 +252,8 @@ def unpack_string(fmtiter, count):
 @specialize.argtype(0)
 def unpack_pascal(fmtiter, count):
     if count == 0:
-        raise StructError("bad '0p' in struct format")
+        fmtiter.appendobj('')
+        return
     data = fmtiter.read(count)
     end = 1 + ord(data[0])
     if end > count:

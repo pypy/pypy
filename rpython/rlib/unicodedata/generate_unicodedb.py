@@ -810,8 +810,20 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x2B740 <= code <= 0x2CEA1 or"
                         " 0x2CEB0 <= code <= 0x2EBE0) or"
                         " 0x30000 <= code <= 0x3134A")
+    elif version_tuple == (15, 0, 0):
+        cjk_interval = ("(0x3400 <= code <= 0x4DBF or"
+                        " 0x4E00 <= code <= 0x9FFF or"
+                        " 0x20000 <= code <= 0x2A6DF or"
+                        " 0x2A700 <= code <= 0x2B739 or"
+                        " 0x2B740 <= code <= 0x2B81D or"
+                        " 0x2B820 <= code <= 0x2CEA1 or"
+                        " 0x2CEB0 <= code <= 0x2EBE0 or"
+                        " 0x30000 <= code <= 0x3134A or"
+                        " 0x31350 <= code <= 0x323AF)")
     else:
-        raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://www.unicode.org/reports/tr38/tr38-29.html#BlockListing")
+        raise ValueError(
+            "please add the CJK ranges from the First/Last records in "
+            "UnicodeData-%s.txt" % version)
 
     write_character_names(outfile, table, base_mod)
 
@@ -1066,7 +1078,7 @@ def main():
         filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'
     filenames = dict((name, filename % dict(version=options.unidata_version))
                      for (name, filename) in filenames.items())
-    files = dict((name, open(filename))
+    files = dict((name, open_data(filename, options.unidata_version))
                  for (name, filename) in filenames.items())
 
     table = read_unicodedata(files)
@@ -1089,6 +1101,78 @@ from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
     writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
 
     outfile.print_stats()
+
+def _data_url(filename, version):
+    if filename.startswith('UnihanNumeric-'):
+        if version == '3.2.0':
+            remote_filename = 'Unihan-3.2.0.zip'
+        else:
+            remote_filename = 'Unihan.zip'
+    elif version == '3.2.0':
+        remote_filename = filename
+    else:
+        remote_filename = filename.replace('-%s' % version, '')
+    if version == '3.2.0':
+        return 'https://www.unicode.org/Public/3.2-Update/' + remote_filename
+    return 'https://www.unicode.org/Public/%s/ucd/%s' % (
+        version, remote_filename)
+
+def _urlretrieve(url, filename):
+    try:
+        from urllib.request import urlretrieve
+    except ImportError:
+        from urllib import urlretrieve
+    return urlretrieve(url, filename)
+
+def _download_data_file(path, filename, version):
+    import zipfile
+
+    url = _data_url(filename, version)
+    download_path = path + '.download'
+    print('downloading', url)
+    try:
+        _urlretrieve(url, download_path)
+        if filename.startswith('UnihanNumeric-'):
+            member = ('Unihan-3.2.0.txt' if version == '3.2.0'
+                      else 'Unihan_NumericValues.txt')
+            archive = zipfile.ZipFile(download_path)
+            try:
+                data = archive.read(member)
+            finally:
+                archive.close()
+            if version == '3.2.0':
+                numeric_tags = (
+                    b'\tkAccountingNumeric\t',
+                    b'\tkPrimaryNumeric\t',
+                    b'\tkOtherNumeric\t',
+                )
+                data = b''.join(line for line in data.splitlines(True)
+                                if any(tag in line for tag in numeric_tags))
+            with open(path, 'wb') as output:
+                output.write(data)
+            os.unlink(download_path)
+        else:
+            os.rename(download_path, path)
+    finally:
+        if os.path.exists(download_path):
+            os.unlink(download_path)
+
+def open_data(filename, version, data_dir=None):
+    if data_dir is None:
+        data_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), 'data')
+    path = os.path.join(data_dir, filename)
+    if not os.path.exists(path):
+        if not os.path.isdir(data_dir):
+            os.makedirs(data_dir)
+        # These files were introduced after Unicode 3.2. Keep using an empty
+        # input for that version, as the old checked-in placeholder files did.
+        if version == '3.2.0' and filename.startswith(
+                ('NameAliases-', 'NamedSequences-')):
+            open(path, 'w').close()
+        else:
+            _download_data_file(path, filename, version)
+    return open(path)
 
 # next function from CPython
 def splitbins(t, trace=1):

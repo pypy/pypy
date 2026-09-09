@@ -964,6 +964,44 @@ def test_sched_rr_get_interval():
     assert interval >= 0
     assert interval < 1.
 
+@pytest.mark.skipif(not hasattr(rposix, 'sched_setaffinity'),
+    reason="Requires working rposix.sched_setaffinity()")
+def test_sched_affinity():
+    mask = rposix.sched_getaffinity(0)
+    assert len(mask) >= 1
+    assert mask == sorted(set(mask))
+    with pytest.raises(OSError):
+        rposix.sched_getaffinity(-1)
+
+    def f(cpu):
+        cpus = rposix.sched_getaffinity(0)
+        try:
+            rposix.sched_setaffinity(0, [cpu])
+            return rposix.sched_getaffinity(0)[0]
+        finally:
+            rposix.sched_setaffinity(0, cpus)
+
+    assert f(mask[-1]) == mask[-1]
+    assert interpret(f, [mask[-1]]) == mask[-1]
+    fn = compile(f, [int])
+    assert fn(mask[-1]) == mask[-1]
+    assert rposix.sched_getaffinity(0) == mask
+
+@pytest.mark.skipif(not hasattr(rposix, 'sched_setaffinity'),
+    reason="Requires working rposix.sched_setaffinity()")
+def test_sched_getaffinity_persistent_einval(monkeypatch):
+    from rpython.rtyper.lltypesystem import rffi
+    sizes = []
+    def einval(pid, size, mask):
+        sizes.append(size)
+        return rffi.cast(rffi.INT, -1)
+    monkeypatch.setattr(rposix, 'c_sched_getaffinity', einval)
+    monkeypatch.setattr(rposix, 'get_saved_errno', lambda: errno.EINVAL)
+    monkeypatch.setattr(rposix, 'INT_MAX', 4 * rposix.CPU_MASK_BITS)
+    with pytest.raises(OverflowError):
+        rposix.sched_getaffinity(0)
+    assert len(sizes) == 3
+
 @pytest.mark.skipif(not hasattr(rposix, 'sched_getscheduler'),
     reason="Requires working rposix.sched_getscheduler()")
 def test_get_and_set_scheduler_and_param():
