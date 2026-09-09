@@ -224,7 +224,8 @@ native_types = [
     # pointer type to it has been created.
     (Complete,                  "T{<l:a:}".replace('l', s_long), (), Complete),
     # Unfortunately the pointer format string is not fixed...
-    (POINTER(Complete),         "&B",                   (),           POINTER(Complete)),
+    # Broken on CPython, works on PyPy
+    (POINTER(Complete),         "&T{<l:a:}".replace('l', s_long) if support.check_impl_detail(pypy=True) else "&B", (), POINTER(Complete)),
 
     ## other
 

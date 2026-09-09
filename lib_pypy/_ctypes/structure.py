@@ -161,6 +161,13 @@ def _set_shape(tp, rawfields, is_union=False):
     tp._fficompositesize_ = tp._ffistruct_.size
 
 
+def _append_padding(flds, padding):
+    if padding == 1:
+        flds.append('x')
+    elif padding > 1:
+        flds.append('%dx' % padding)
+
+
 def struct_setattr(self, name, value):
     if name == '_fields_':
         if self.__dict__.get('_fields_', None) is not None:
@@ -212,6 +219,7 @@ class StructOrUnionMeta(_CDataMeta):
         if self is StructOrUnion:
             return
         if '_fields_' not in self.__dict__:
+            self._incomplete_ = True
             self._fields_ = []  # As a side-effet, this also sets the ffishape.
 
     __setattr__ = struct_setattr
@@ -261,7 +269,7 @@ class StructOrUnionMeta(_CDataMeta):
         return res
 
     def _getformat(self):
-        if self._is_union or hasattr(self, '_pack_'):
+        if self._is_union or self.__dict__.get('_incomplete_', False):
             return "B"
         if hasattr(self, '_swappedbytes_'):
             bo = swappedorder[sys.byteorder]
@@ -270,14 +278,14 @@ class StructOrUnionMeta(_CDataMeta):
         flds = []
         cum_size = 0
         for name, obj in self._fields_:
-            padding = self._ffistruct_.fieldoffset(name) - cum_size
-            if padding:
-                flds.append('%dx' % padding)
+            offset = self._ffistruct_.fieldoffset(name)
+            _append_padding(flds, offset - cum_size)
             flds.append(obj._getformat())
             flds.append(':')
             flds.append(name)
             flds.append(':')
-            cum_size += self._ffistruct_.fieldsize(name)
+            cum_size = offset + self._ffistruct_.fieldsize(name)
+        _append_padding(flds, self._ffistruct_.size - cum_size)
         return 'T{' + ''.join(flds) + '}'
 
     def _has_pointer(self):

@@ -233,7 +233,7 @@ def test_memoryview_endian():
         ]
     c_les = LES()
     mv = memoryview(c_les)
-    assert mv.format == 'B'
+    assert mv.format == 'T{(16)<B:a:<Q:i:}'
 
 def test_deepcopy_struct():
     # issue 3022: missing __new__ on StructureInstanceAutoFree
