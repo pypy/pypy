@@ -314,7 +314,8 @@ def getaddrinfo(space, w_host, w_port,
     if space.is_w(w_port, space.w_None):
         port = None
     elif space.isinstance_w(w_port, space.w_int):
-        port = str(space.int_w(w_port))
+        # like CPython 3.12, leave range checking to getaddrinfo()
+        port = space.text_w(space.str(w_port))
     elif space.isinstance_w(w_port, space.w_bytes):
         port = space.bytes_w(w_port)
     elif space.isinstance_w(w_port, space.w_unicode):

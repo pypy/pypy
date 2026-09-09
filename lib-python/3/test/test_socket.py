@@ -864,7 +864,8 @@ class GeneralModuleTests(unittest.TestCase):
 
     @unittest.skipUnless(_socket is not None, 'need _socket module')
     def test_socket_type(self):
-        self.assertTrue(gc.is_tracked(_socket.socket))
+        if support.check_impl_detail(cpython=True):
+            self.assertTrue(gc.is_tracked(_socket.socket))
         with self.assertRaisesRegex(TypeError, "immutable"):
             _socket.socket.foo = 1
 
@@ -931,30 +932,34 @@ class GeneralModuleTests(unittest.TestCase):
         self.addCleanup(s.close)
         s.bind(('', 0))
         sockname = s.getsockname()
+        if sys.implementation.name == 'pypy':
+            nonemsg = "is not iterable"
+            quotedstr = "not str"
+            quotedcomplex = "not complex"
+        else:
+            nonemsg = "not NoneType"
+            quotedstr = "not 'str'"
+            quotedcomplex = "not 'complex'"
         # 2 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', None)
-        self.assertIn('not NoneType',str(cm.exception))
+        self.assertIn(nonemsg, str(cm.exception))
         # 3 args
         with self.assertRaises(TypeError) as cm:
             s.sendto('\u2620', 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'str'")
+        self.assertIn(quotedstr, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(5j, 0, sockname)
-        self.assertEqual(str(cm.exception),
-                         "a bytes-like object is required, not 'complex'")
+        self.assertIn(quotedcomplex, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, None)
-        self.assertIn('not NoneType', str(cm.exception))
+        self.assertIn(nonemsg, str(cm.exception))
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 'bar', sockname)
         with self.assertRaises(TypeError) as cm:
@@ -962,10 +967,20 @@ class GeneralModuleTests(unittest.TestCase):
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo')
-        self.assertIn('(1 given)', str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'missing 1 required positional argument'
+        else:
+            msg = '(1 given)'
+        self.assertIn(msg, str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'but 5 were given'
+        else:
+            msg = '(4 given)'
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, sockname, 4)
-        self.assertIn('(4 given)', str(cm.exception))
+        self.assertIn(msg, str(cm.exception))
 
     def testCrucialConstants(self):
         # Testing for mission critical constants

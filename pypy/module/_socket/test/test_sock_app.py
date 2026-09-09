@@ -213,6 +213,15 @@ def test_getaddrinfo(space, w_socket):
             return -1
         ''')
     assert space.unwrap(w_l) == True
+    # an int port outside the C long range is not an OverflowError
+    w_l = space.appexec([w_socket], """(_socket):
+            try:
+                _socket.getaddrinfo(None, 2**64, type=_socket.SOCK_STREAM)
+            except _socket.gaierror:
+                return 1
+            return 0
+        """)
+    assert space.int_w(w_l) == 1
 
 def test_getaddrinfo_ipv6(space, w_socket):
     host = 'fe80::1%1'
