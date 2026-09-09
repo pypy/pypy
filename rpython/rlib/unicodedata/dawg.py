@@ -287,53 +287,76 @@ class Dawg(object):
         return topoorder, linear_data, inverse
 
     def compute_packed(self, order):
-        # assign offsets to every node
-        for i, node in enumerate(order):
-            # we don't know position of the edge yet, just use something big as
-            # the starting position. we'll have to do further iterations anyway,
-            # but the size is at least a lower limit then
-            node.packed_offset = 2 ** 30 + i * 2 ** 10
-            # minimum varint byte count per edge's info field, enforced to grow
-            # monotonically so the fixpoint cannot oscillate (span-dependent
-            # instruction problem: a smaller encoding shifts targets, which can
-            # require a larger encoding, which shifts them back, ad infinitum).
-            node.min_info_bytes = [1] * len(node.linear_edges)
-
-        # due to the varint encoding of edge targets we need to run this to
-        # fixpoint
-        last_result = None
-        while 1:
+        def compute_chunk(node):
             result = bytearray()
-            result_pp = bytearray()
-            for node in order:
-                offset = node.packed_offset = len(result)
-                encode_varint_unsigned(number_add_bits(node.count, node.final), result)
-                if len(node.linear_edges) == 0:
-                    assert node.final
-                    encode_varint_unsigned(0, result) # add a 0 saying "done"
-                #result_pp.extend("%r # N pos=%s count=%s%s\n" % (bytes(result[offset:]), offset, node.count, " final" if node.final else ""))
-                result_pp.extend("%r\n" % (bytes(result[offset:]), ))
-                prev_printed = len(result)
-                prev_child_offset = len(result)
-                for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
-                    child_offset = targetnode.packed_offset
-                    child_offset_difference = child_offset - prev_child_offset
+            encode_varint_unsigned(
+                number_add_bits(node.count, node.final), result)
+            if not node.linear_edges:
+                assert node.final
+                encode_varint_unsigned(0, result) # add a 0 saying "done"
+            prev_child_offset = node.packed_offset + len(result)
+            for edgeindex, (label, targetnode) in enumerate(node.linear_edges):
+                child_offset = targetnode.packed_offset
+                child_offset_difference = child_offset - prev_child_offset
+                assert child_offset_difference >= 0
+                info = number_add_bits(
+                    child_offset_difference, len(label) == 1,
+                    edgeindex == len(node.linear_edges) - 1)
+                encode_varint_unsigned(info, result)
+                prev_child_offset = child_offset
+                if len(label) > 1:
+                    encode_varint_unsigned(len(label), result)
+                result.extend(label)
+            return result
 
-                    info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
-                    if edgeindex == 0:
-                        assert info != 0
-                    used = _encode_varint_unsigned_min(info, result, node.min_info_bytes[edgeindex])
-                    node.min_info_bytes[edgeindex] = max(node.min_info_bytes[edgeindex], used)
-                    prev_child_offset = child_offset
-                    if len(label) > 1:
-                        encode_varint_unsigned(len(label), result)
-                    result.extend(label)
-                    result_pp.extend(" %r\n" % (bytes(result[prev_printed:]), ))
-                    prev_printed = len(result)
-                node.packed_size = len(result) - node.packed_offset
-            if result == last_result:
+        # The size of an edge depends on the offset of its target, while node
+        # offsets depend on the sizes of preceding edges. Start with the
+        # smallest possible allocation for each node and grow the allocations
+        # monotonically until every canonically encoded node fits.
+        for node in order:
+            size = varint_unsigned_size(
+                number_add_bits(node.count, node.final))
+            if not node.linear_edges:
+                assert node.final
+                size += 1 # a 0 saying "done"
+            for label, targetnode in node.linear_edges:
+                size += 1 + len(label) # one byte for the edge info
+                if len(label) > 1:
+                    size += varint_unsigned_size(len(label))
+            node.packed_size = size
+
+        seen_sizes = set()
+        while 1:
+            size_state = tuple(node.packed_size for node in order)
+            if size_state in seen_sizes:
+                raise RuntimeError("DAWG packing size calculation cycled")
+            seen_sizes.add(size_state)
+
+            offset = 0
+            for node in order:
+                node.packed_offset = offset
+                offset += node.packed_size
+
+            chunks = [compute_chunk(node) for node in order]
+            changed = False
+            for node, chunk in zip(order, chunks):
+                if len(chunk) > node.packed_size:
+                    node.packed_size = len(chunk)
+                    changed = True
+            if not changed:
                 break
-            last_result = result
+
+        result = bytearray()
+        result_pp = bytearray()
+        for node, chunk in zip(order, chunks):
+            assert len(result) == node.packed_offset
+            result.extend(chunk)
+            result_pp.extend("%r\n" % (bytes(chunk), ))
+            padding_size = node.packed_size - len(chunk)
+            if padding_size:
+                padding = b"\x00" * padding_size
+                result.extend(padding)
+                result_pp.extend("%r\n" % (padding, ))
         self.packed = result
         self.packed_pp = result_pp
         return bytes(result)
@@ -363,37 +386,21 @@ def number_split_bits(x, n, acc=()):
 def encode_varint_unsigned(i, res):
     # https://en.wikipedia.org/wiki/LEB128 unsigned variant
     more = True
-    count = 0
+    startlen = len(res)
     if i < 0:
         raise ValueError("only positive numbers supported", i)
     while more:
         lowest7bits = i & 0b1111111
         i >>= 7
-        count += 1
         if i == 0:
             more = False
         else:
             lowest7bits |= 0b10000000
         res.append(chr(lowest7bits))
-    return count
+    return len(res) - startlen
 
-def _encode_varint_unsigned_min(i, res, min_bytes):
-    # LEB128 padded to at least min_bytes; valid because decode_varint_unsigned
-    # handles continuation bytes with zero value.
-    more = True
-    count = 0
-    if i < 0:
-        raise ValueError("only positive numbers supported", i)
-    while more:
-        lowest7bits = i & 0b1111111
-        i >>= 7
-        count += 1
-        if i == 0 and count >= min_bytes:
-            more = False
-        else:
-            lowest7bits |= 0b10000000
-        res.append(chr(lowest7bits))
-    return count
+def varint_unsigned_size(i):
+    return encode_varint_unsigned(i, [])
 
 @objectmodel.always_inline
 def decode_varint_unsigned(b, index=0):

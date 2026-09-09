@@ -13,7 +13,7 @@ PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
 
 The PyPy team is proud to release version 8.0.0 of PyPy after the previous
 release on May 26, 2026. This is a major new version, hence the bump to 8.0.0.
-It is our first release of python 3.12, which may still have some bugs so we
+It is our first release of Python 3.12, which may still have some bugs so we
 are calling it "beta" quality. 
 
 Why the move to 8.0.0
@@ -32,13 +32,13 @@ version would be prudent.
 cp12-abi3 support
 -----------------
 
-PyPy's python3.12 support comes with a new model for the C layer ``PyObject``.
+PyPy's Python3.12 support comes with a new model for the C layer ``PyObject``.
 In order to link the C object to the internal RPython one, we have an extra
 field in the object ``ob_pypy_link``, as described in-depth in
 :ref:`rawrefcount-and-the-gc`. In previous versions, this field was
 visible in a way that makes the ``PyObject`` struct different from the CPython
 one. From v8.0.0, we "hide" the PyPy-only extension in a prefix before
-the pointer we hand off to c-extension modules. The goal of this work is to
+the pointer we hand off to C-extension modules. The goal of this work is to
 allow PyPy to use
 cp312-abi3 wheels produced for CPython 3.12 and up, using the limited ABI. The
 required pieces have all been put in place:
@@ -55,17 +55,17 @@ are valid for PyPy, and the larger ecosystem (pip, uv) must also accept that
 cp312-abi3 wheels are valid candidates for installation.
 
 Yes, this is a big step. We are working with Cython and PyO3 to make sure it
-all will JustWork. Hopefully this will make it easier for packages to
+all will Just Work™. Hopefully this will make it easier for packages to
 support PyPy.
   
 
-What is new in codegen
-======================
+What is new in RPython code generation
+=======================================
 
 PyPy is written in RPython, and has code generation to translate RPython into
-C. We have made some improvements to code generation in attempts to speed up the
-base interpreter. While the speedups have not been that impressive, we have
-made some steps forward:
+C as part of the VM build process. We have made some improvements to code
+generation in attempts to speed up the base interpreter. While the speedups
+have not been that impressive, we have made some steps forward:
 
 - We now use `computed gotos`_ and more aggressively inline code. While this
   produces more compact sources, it does not boost performance as much as we
@@ -104,9 +104,8 @@ The release includes three different interpreters:
 - PyPy3.12, supporting the syntax and features of Python3.12, including the
   stdlib for CPython 3.12.14.
 
-The interpreters are based on much the same codebase, thus the double
-release. This is a micro release, all APIs are compatible with the other 7.3
-releases.
+The interpreters are based on much the same codebase, thus the triple
+release.
 
 We recommend updating. You can find links to download the releases here:
 
@@ -178,8 +177,6 @@ For all versions
 ----------------
 
 - Add missing constants to ``_socket`` (:issue:`5340`)
-- Add docstrings and python2 typing to public functions and methods in
-  ``rpython.rlib.parsing.deterministic``
 - Add implementation of ``os.unshare()`` where supported (Linux)
 - Make ``tar.gz`` compressed binaries instead of ``tar.bz2`` (:issue:`5353`)
 - Quiet compilation warnings from gcc14, which is more strict around pointer use
@@ -188,6 +185,8 @@ For all versions
 - Add an RPython ``RPY_NORETURN __attribute__((noreturn))`` and use it for aborts
 - Teach ``lltype`` to handle variadic pointer arguments for untranslated macos
   arm64 tests
+- Add docstrings and python2 typing to public functions and methods in
+  ``rpython.rlib.parsing.deterministic``
 
 Bugfixes
 ~~~~~~~~
@@ -207,7 +206,6 @@ Speedups and enhancements
 - Use computed-goto on GCC/Clang instead of a big switch statement
 - Explicitly inline stack checks at the beginning of each ``PyFrame``
 - Do not create PDB files on windows when testing and translating
-- Add two ``int_signext`` rules to the JIT
 - Turn app level ``lst = [None] * n`` into a ``malloc + memset``
 - Port Crochemore-Perrin two-way string search from cpython3.12 into
   RPython
@@ -220,8 +218,10 @@ Speedups and enhancements
 - Rather than allocate ``VMPROFSTACK`` nodes at each ``enter_code`` call, use a
   freelist and remove an indirection from ``_vmprof.execute_frame``, which is
   called very often (:issue:`5573)`
-- Teach the jit to reason about non-negative fields (:issue:`5577`)
-
+- Add new peephole rewriting rules to the JIT optimizer to better optimize integer operations.
+- Teach the JIT to reason about non-negative fields (:issue:`5577`). In
+  particular, the JIT now knows that the length of a list is non-negative. This
+  can often make indexing access bounds checks more efficient.
 
 JIT cleanups and simplifications (do not affect Python performance)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -246,7 +246,6 @@ Python 2.7
 
 Python 3.11
 -----------
-
 
 - Opt-out of ``_cppyy``, ``micronumpy``, ``_hpy_universal`` for 8.0.0
 - Update CFFI to v2.1.0
@@ -309,7 +308,6 @@ Bugfixes including missing compatibility with CPython 3.11
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Refactor multiprocessing resource_tracker to work with PyPy
+- Refactor multiprocessing ``resource_tracker`` to work with PyPy
 - Cache hash of tuples to only calculate them once
 - Simplify ``getattr`` since PyPy's strings and bytes are internally always utf8
-
