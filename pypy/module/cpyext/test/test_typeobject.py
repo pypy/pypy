@@ -3093,8 +3093,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_module(name='negative_basicsize',
                                     filename='negative_basicsize')
         if sys.implementation.name == 'pypy':
-            e = raises(SystemError, module.make_meta, 168)
-            assert "negative tp_basicsize" in str(e.value)
+            # PyType_Ready resolves it like PyType_FromMetaclass (PEP 697)
+            r = module.make_meta(168)
+            Meta = r['meta']
+            assert r['basicsize_before_ready'] == -168
+            assert r['basicsize_after_ready'] == r['expected']
+            assert Meta.__basicsize__ == r['expected']
+            classes = [Meta('C%d' % i, (), {}) for i in range(20)]
+            for C in classes:
+                assert type(C) is Meta
+                assert module.fill_check(C, 168) == -1
+            for C in classes:
+                assert C().__class__ is C
+                assert module.fill_check(C, 168) == -1
+            del classes
         else:
             # CPython keeps the value and fails when allocating
             r = module.make_meta(168)

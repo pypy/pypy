@@ -1121,17 +1121,24 @@ def _type_realize(space, py_obj):
     # tp_mro, tp_subclasses
     py_type = rffi.cast(PyTypeObjectPtr, py_obj)
 
-    if py_type.c_tp_basicsize < 0:
-        # inheriting the base size here would silently shrink instances
-        raise oefmt(space.w_SystemError,
-                    "type %s has a negative tp_basicsize, which is only "
-                    "valid in a PyType_Spec",
-                    rffi.constcharp2str(py_type.c_tp_name))
-
     if not py_type.c_tp_base:
         # borrowed reference, but w_object is unlikely to disappear
         base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
+
+    basicsize = widen(py_type.c_tp_basicsize)
+    if basicsize < 0:
+        # PEP 697 base-relative size, as nanobind's emulated
+        # PyType_FromMetaclass stores into tp_basicsize before PyType_Ready
+        base_pto = py_type.c_tp_base
+        if (base_pto.c_tp_itemsize and
+                not (widen(base_pto.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END) and
+                not (widen(py_type.c_tp_flags) & Py_TPFLAGS_ITEMS_AT_END)):
+            raise oefmt(space.w_SystemError,
+                "Cannot extend variable-size class without "
+                "Py_TPFLAGS_ITEMS_AT_END.")
+        py_type.c_tp_basicsize = (_align_up(widen(base_pto.c_tp_basicsize)) +
+                                  _align_up(-basicsize))
 
     if py_type.c_tp_itemsize == 0:
         w_base = from_ref(space, rffi.cast(PyObject, py_type.c_tp_base))
