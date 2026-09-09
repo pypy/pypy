@@ -51,3 +51,9 @@ lib/pypy*
 pypy/doc/config/*.rst
 pypy/doc/config/*.txt
 pypy/doc/_build
+site-packages/pip*
+site-packages/setuptools*
+site-packages/pkg_resources*
+site-packages/easy_install.py
+bin/pip*
+bin/easy_install*
