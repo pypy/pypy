@@ -1,7 +1,4 @@
 """Apptests for f_lineno jump validation (sys.settrace frame jumping).
-
-Mirrors the lib-python JumpTestCase structure: functions defined at module
-level, JumpTracer with decorated=True, so firstLine is set dynamically.
 """
 import sys
 import re
@@ -101,9 +98,7 @@ def _jump_over_assignment(output):
 
 
 def test_jump_over_assignment_warns_unbound_local():
-    # uses _warnings directly instead of the warnings module, cheaper to
-    # import when running untranslated
-    import _warnings
+    import warnings
 
     firstline = _jump_over_assignment.__code__.co_firstlineno
 
@@ -113,10 +108,8 @@ def test_jump_over_assignment_warns_unbound_local():
             frame.f_lineno = firstline + 3
         return trace
 
-    saved_filters = _warnings.filters[:]
-    _warnings.filters.insert(0, ('error', None, RuntimeWarning, None, 0))
-    _warnings._filters_mutated()
-    try:
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', RuntimeWarning)
         output = []
         sys.settrace(trace)
         try:
@@ -127,9 +120,6 @@ def test_jump_over_assignment_warns_unbound_local():
             raise AssertionError("expected RuntimeWarning")
         finally:
             sys.settrace(None)
-    finally:
-        _warnings.filters[:] = saved_filters
-        _warnings._filters_mutated()
     assert 'assigning None to 1 unbound local' in msg
 
     # without turning the warning into an error, the jump still succeeds
