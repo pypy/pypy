@@ -48,13 +48,15 @@ class AppTestUnicodeData:
         import unicodedata
         assert int(unicodedata.unidata_version.split(".")[0]) >= 8
         cases = [
-            ('3400', '4DB5'),
-            ('4E00', '9FFD'),
+            ('3400', '4DBF'),
+            ('4E00', '9FFF'),
             ('20000', '2A6DF'),
-            ('2A700', '2B738'),
+            ('2A700', '2B739'),
+            ('2B740', '2B81D'),
             ('2B740', '2CEA1'),
             ('2CEB0', '2EBE0'),
             ('30000', '3134A'),
+            ('31350', '323AF'),
         ]
         for first, last in cases:
             first = int(first, 16)
