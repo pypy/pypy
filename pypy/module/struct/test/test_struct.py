@@ -220,6 +220,8 @@ class AppTestStruct(object):
         assert unpack("5p", "\x80abcd") == ("abcd",)
         assert unpack("1p", "\x03") == ("",)
         assert unpack("300p", longpacked300) == (longstring[:255],)
+        assert pack("0p", "") == ""
+        assert unpack("0p", "") == ("",)
 
     def test_char_format(self):
         """
@@ -331,12 +333,6 @@ class AppTestStruct(object):
         raises(error, unpack, "ii", "?")# unpack str size too short for format
         raises(error, unpack, "b", "??")# unpack str size too long for format
         raises(error, pack, "c", "foo") # expected a string of length 1
-        try:
-            pack("0p")                  # bad '0p' in struct format
-        except error:                   # (but ignored on CPython)
-            pass
-        if '__pypy__' in sys.builtin_module_names:
-            raises(error, unpack, "0p", "")   # segfaults on CPython 2.5.2!
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
         exc = raises(error, pack, ">d", 'abc')
