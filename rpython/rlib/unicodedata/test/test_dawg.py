@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given, strategies
+from hypothesis import given, settings, strategies
 
 from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
         build_compression_dawg, _inverse_lookup,
@@ -37,6 +37,66 @@ def test_2():
     dawg.insert("bbbbbaaaaaaa", 0)
     dawg.insert("bbbbbbbbb", -1)
     packed, data, inverse = dawg.finish()
+
+def test_packed_offset_varint_width_does_not_oscillate():
+    # Without remembering the largest varint width used by each edge, packing
+    # this graph alternates forever between two layouts.
+    words = [
+        "BF", "CADG", "CGFAG", "FFDAGCCAEGFDG", "FGDFCEBADBG",
+        "GCEFAABDEAF", "GEDEDGGGGAFGG",
+    ]
+    dawg = Dawg()
+    for value, word in enumerate(words):
+        dawg.insert(word, value)
+    packed, data, inverse = dawg.finish()
+
+    for value, word in enumerate(words):
+        assert lookup(packed, data, word) == value
+        assert inverse_lookup(packed, inverse, value) == word
+
+def test_packed_child_offset_difference_does_not_become_negative():
+    words = [
+        "A", "B", "CABACA", "DAE", "DFB", "ECD", "ABDDG", "BCDEG",
+        "AACCEF", "BBDDEE", "BDCEED", "EAAAFG", "EBCDEE", "BBDFGAG",
+        "ABCDEGEG", "BCCDDEGG", "CDEEEGFG", "AACCDEGFG", "DFABBDDGE",
+        "ABBDDEFGFG", "DBBBCCEEFEG",
+    ]
+    words.sort()
+    dawg = Dawg()
+    for value, word in enumerate(words):
+        dawg.insert(word, value)
+    packed, data, inverse = dawg.finish()
+
+    for value, word in enumerate(words):
+        assert lookup(packed, data, word) == value
+        assert inverse_lookup(packed, inverse, value) == word
+
+packed_word = strategies.integers(min_value=1, max_value=15).flatmap(
+    lambda size: strategies.lists(
+        strategies.sampled_from("ABCDEFG"),
+        min_size=size,
+        max_size=size,
+    ).map("".join))
+
+packed_words = strategies.integers(min_value=10, max_value=100).flatmap(
+    lambda size: strategies.lists(
+        packed_word,
+        min_size=size,
+        max_size=size,
+        unique=True,
+    ))
+
+@settings(max_examples=5000, deadline=None)
+@given(packed_words)
+def test_packed_offset_varint_width_stabilizes(words):
+    # Multiple branches with enough label data frequently put target offsets
+    # around a LEB128 size boundary, where layout oscillations can occur.
+    words = [word.encode("ascii") for word in words]
+    words.sort()
+    dawg = Dawg()
+    for value, word in enumerate(words):
+        dawg.insert(word, value)
+    dawg.finish()
 
 def test_bug_match_past_string_end():
     dawg = Dawg()

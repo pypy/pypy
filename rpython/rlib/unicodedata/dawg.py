@@ -293,15 +293,12 @@ class Dawg(object):
             # the starting position. we'll have to do further iterations anyway,
             # but the size is at least a lower limit then
             node.packed_offset = 2 ** 30 + i * 2 ** 10
-            # minimum varint byte count per edge's info field, enforced to grow
-            # monotonically so the fixpoint cannot oscillate (span-dependent
-            # instruction problem: a smaller encoding shifts targets, which can
-            # require a larger encoding, which shifts them back, ad infinitum).
-            node.min_info_bytes = [1] * len(node.linear_edges)
 
         # due to the varint encoding of edge targets we need to run this to
         # fixpoint
         last_result = None
+        seen_results = {}
+        iteration = 0
         while 1:
             result = bytearray()
             result_pp = bytearray()
@@ -322,8 +319,7 @@ class Dawg(object):
                     info = number_add_bits(child_offset_difference, len(label) == 1, edgeindex == len(node.linear_edges) - 1)
                     if edgeindex == 0:
                         assert info != 0
-                    used = _encode_varint_unsigned_min(info, result, node.min_info_bytes[edgeindex])
-                    node.min_info_bytes[edgeindex] = max(node.min_info_bytes[edgeindex], used)
+                    encode_varint_unsigned(info, result)
                     prev_child_offset = child_offset
                     if len(label) > 1:
                         encode_varint_unsigned(len(label), result)
@@ -333,7 +329,15 @@ class Dawg(object):
                 node.packed_size = len(result) - node.packed_offset
             if result == last_result:
                 break
+            result_bytes = bytes(result)
+            previous_iteration = seen_results.get(result_bytes)
+            if previous_iteration is not None:
+                raise RuntimeError(
+                    "DAWG packing did not converge: layout cycle of period %d" %
+                    (iteration - previous_iteration))
+            seen_results[result_bytes] = iteration
             last_result = result
+            iteration += 1
         self.packed = result
         self.packed_pp = result_pp
         return bytes(result)
@@ -363,37 +367,18 @@ def number_split_bits(x, n, acc=()):
 def encode_varint_unsigned(i, res):
     # https://en.wikipedia.org/wiki/LEB128 unsigned variant
     more = True
-    count = 0
+    startlen = len(res)
     if i < 0:
         raise ValueError("only positive numbers supported", i)
     while more:
         lowest7bits = i & 0b1111111
         i >>= 7
-        count += 1
         if i == 0:
             more = False
         else:
             lowest7bits |= 0b10000000
         res.append(chr(lowest7bits))
-    return count
-
-def _encode_varint_unsigned_min(i, res, min_bytes):
-    # LEB128 padded to at least min_bytes; valid because decode_varint_unsigned
-    # handles continuation bytes with zero value.
-    more = True
-    count = 0
-    if i < 0:
-        raise ValueError("only positive numbers supported", i)
-    while more:
-        lowest7bits = i & 0b1111111
-        i >>= 7
-        count += 1
-        if i == 0 and count >= min_bytes:
-            more = False
-        else:
-            lowest7bits |= 0b10000000
-        res.append(chr(lowest7bits))
-    return count
+    return len(res) - startlen
 
 @objectmodel.always_inline
 def decode_varint_unsigned(b, index=0):
