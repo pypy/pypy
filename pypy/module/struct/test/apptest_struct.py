@@ -190,6 +190,8 @@ def test_pascal_format():
     assert unpack("5p", b"\x80abcd") == (b"abcd",)
     assert unpack("1p", b"\x03") == (b"",)
     assert unpack("300p", longpacked300) == (longstring[:255],)
+    assert pack("0p", b"") == b""
+    assert unpack("0p", b"") == (b"",)
 
 def test_char_format():
     """
@@ -317,12 +319,6 @@ def test_struct_error():
     raises(error, unpack, "ii", b"?")# unpack str size too short for format
     raises(error, unpack, "b", b"??")# unpack str size too long for format
     raises(error, pack, "c", b"foo") # expected a string of length 1
-    try:
-        pack("0p")                  # bad '0p' in struct format
-    except error:                   # (but ignored on CPython)
-        pass
-    if '__pypy__' in sys.builtin_module_names:
-        raises(error, unpack, "0p", b"")   # segfaults on CPython 2.5.2!
     raises(error, pack, "b", 150)   # argument out of range
     # XXX the accepted ranges still differs between PyPy and CPython
     exc = raises(error, pack, ">d", 'abc')

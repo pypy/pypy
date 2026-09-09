@@ -120,7 +120,7 @@ Other steps
     from the buildbot. You may find it convenient to use the ``repackage.sh``
     script in ``pypy/tool/release`` to do this. 
 
-    Also repackage and upload source "-src.tar.bz2"
+    Also repackage and upload source "-src.tar.gz"
 
   * Upload binaries to https://buildbot.pypy.org/mirror. Add the files to
     the ``versions.json`` in ``pypy/tools/release``, upload it, and run the
