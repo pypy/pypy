@@ -1124,6 +1124,24 @@ class AppTestPosix:
             sp = os.sched_param(sched_priority=1)
             assert sp.sched_priority == 1
 
+    if hasattr(rposix, 'sched_setaffinity'):
+        def test_sched_affinity(self):
+            os = self.posix
+            mask = os.sched_getaffinity(0)
+            assert isinstance(mask, set)
+            assert len(mask) >= 1
+            assert all(isinstance(cpu, int) and cpu >= 0 for cpu in mask)
+            try:
+                smaller = set(mask)
+                if len(smaller) > 1:
+                    smaller.pop()
+                os.sched_setaffinity(0, smaller)
+                assert os.sched_getaffinity(0) == smaller
+                os.sched_setaffinity(0, iter(list(mask)))
+                assert os.sched_getaffinity(0) == mask
+            finally:
+                os.sched_setaffinity(0, mask)
+
     def test_write_buffer(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_write_buffer',
