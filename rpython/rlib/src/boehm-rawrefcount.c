@@ -13,7 +13,12 @@
 #endif
 
 
-#define REFCNT_FROM_PYPY  (LONG_MAX / 4 + 1)
+/* must match rpython/rlib/rawrefcount.py */
+#if LONG_MAX > 0xFFFFFFFFL
+#  define REFCNT_FROM_PYPY  (LONG_MAX / 4 + 1)
+#else
+#  define REFCNT_FROM_PYPY  0x40000000L
+#endif
 
 typedef struct pypy_header0 gcobj_t;    /* opaque here */
 

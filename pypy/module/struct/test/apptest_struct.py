@@ -320,7 +320,10 @@ def test_struct_error():
     raises(error, unpack, "ii", b"?")# unpack str size too short for format
     raises(error, unpack, "b", b"??")# unpack str size too long for format
     raises(error, pack, "c", b"foo") # expected a string of length 1
+<<<<<<< HEAD
     raises(error, pack, "0p")       # pack expected 1 items for packing
+=======
+>>>>>>> py3.11
     raises(error, pack, "b", 150)   # argument out of range
     # XXX the accepted ranges still differs between PyPy and CPython
     exc = raises(error, pack, ">d", 'abc')
