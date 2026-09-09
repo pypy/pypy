@@ -148,8 +148,8 @@ class TestMisc(BaseTestPyPyC):
     RANGE_ITER_STEP_1 = """
             guard_not_invalidated?
             # W_IntRangeStepOneIterator.next()
-            i16 = int_lt(i11, i12)
-            guard_true(i16, descr=...)
+            i16 = int_ge(i11, i12)
+            guard_false(i16, descr=...)
             i20 = int_add(i11, 1)
             setfield_gc(p4, i20, descr=<.* .*W_IntRangeIterator.inst_current .*>)
             guard_not_invalidated?

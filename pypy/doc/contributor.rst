@@ -33,8 +33,8 @@ Contributors
   Aurelien Campeas
   Edd Barrett
   Niklaus Haldimann
-  Yusuke Izawa
   Seo Sanghyeon
+  Yusuke Izawa
   Laura Creighton
   Leonardo Santagada
   Alexander Schremmer
@@ -47,8 +47,8 @@ Contributors
   Romain Guillebert
   Batuhan Taskaya
   Guido Wesdorp
-  Nico Rittinghaus
   Ronny Pfannschmidt
+  Nico Rittinghaus
   Alexander Hesse
   Justin Peel
   Niko Matsakis
@@ -85,7 +85,6 @@ Contributors
   Camillo Bruni
   Nicolas Truessel
   Simon Burton
-  Maxwell Bernstein
   Bartosz Skowron
   Michael Foord
   Jean-Paul Calderone
@@ -129,6 +128,7 @@ Contributors
   Rami Chowdhury
   Colin Valliant
   Eugene Oden
+  Maxwell Bernstein
   marky1991
   Vasily Kuznetsov
   Boris Feigin
@@ -145,8 +145,10 @@ Contributors
   Ben Young
   Nicolas Chauvat
   Vanessa Freudenberg
+  Samuel Ytterbrink
   Yusuke Tsutsumi
   Dusty Phillips
+  Jeong YunWon
   Jasper Schulz
   Jason Chu
   Michael Twomey
@@ -178,13 +180,13 @@ Contributors
   Jason Creighton
   Stuart Williams
   Gintautas Miliauskas
-  devdanzin
   Matt Jackson
   Berkin Ilbeyi
   Stanislaw Halik
   Michael Cheng
   Lucian Branescu Mihaila
   Justas Sadzevicius
+  devdanzin
   Oliver Margetts
   Ricky Zhou
   Mihnea Saracin
@@ -220,6 +222,7 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
+  Jeongseop Lim
   Charalampos Stratakis
   Petr Vaněk
   Wenzel Jakob
@@ -239,8 +242,8 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Philipp Lachowski
   Dennis Sweeney
-  Samuel Ytterbrink
   Pierre Augier
   Ilya Egorov
   Paul Gey
@@ -267,8 +270,8 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Hyunbin Kim
   Victorien
-  Jeongseop Lim
   Julian Waters
   Sam James
   Christian Clauss
@@ -301,7 +304,6 @@ Contributors
   Richard Lancaster
   Markus Holtermann
   Ruochen Huang
-  Jeong YunWon
   Lucas Stadler
   Toni Mattis
   Jason Michalski
@@ -321,7 +323,7 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Jeong, YunWon
+  Stanley C
   Alex Willmer
   Ariel Volovik
   Martin Teichmann
@@ -351,7 +353,6 @@ Contributors
   Zsolt Cserna
   DeVerne Jones
   whitequark
-  Alex Kashirin
   Joannah Nanjekye nanjekyejoannah@gmail.com
   Paul Graydon
   Hervé Beraud
@@ -486,4 +487,5 @@ made an effort to contribute and we thank them.
   Igor Trindade Oliveira
   Nicholas Riley
   Neil Shepperd
+  Alex Kashirin
   coolbutuseless@gmail.com
