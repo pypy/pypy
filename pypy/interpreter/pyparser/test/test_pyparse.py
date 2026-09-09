@@ -447,6 +447,26 @@ if 1:
         assert "Generator expression must be parenthesized" in info.value.msg
         assert info.value.end_offset == 36
 
+    def test_invalid_call_arguments(self):
+        for src, msg, offset, end_offset in [
+                ("f(a=)", "expected argument value expression", 3, 5),
+                ("f(a, b, c=)", "expected argument value expression", 9, 11),
+                ("f(a, b, c=, d)", "expected argument value expression", 9, 11),
+                ("f(*args=[0])", "cannot assign to iterable argument unpacking", 3, 12),
+                ("f(a, b, *args=[0])", "cannot assign to iterable argument unpacking", 9, 18),
+                ("f(**kwargs={'a': 1})", "cannot assign to keyword argument unpacking", 3, 20),
+                ("f(a, b, *args, **kwargs={'a': 1})", "cannot assign to keyword argument unpacking", 16, 33),
+                ]:
+            exc = pytest.raises(SyntaxError, self.parse, src).value
+            assert exc.msg == msg, src
+            assert (exc.offset, exc.end_offset) == (offset, end_offset), src
+
+    def test_positional_only_default_ordering(self):
+        for src in ("def f(x, /, y=1, z): pass", "lambda a,/,d=3,c: None"):
+            exc = pytest.raises(SyntaxError, self.parse, src).value
+            assert exc.msg == ("parameter without a default follows "
+                               "parameter with a default"), src
+
     def test_invalid_default(self):
         info = pytest.raises(SyntaxError, self.parse, "def f(x=): return 1")
         assert "expected default value expression" in info.value.msg
@@ -653,6 +673,19 @@ def overly_generic[
    *d: SimpleTypeVarTuple,
 ): ...
 """)
+
+    def test_generic_header_errors(self):
+        for src in ("class A[T]\n", "class A[T]()\n"):
+            exc = pytest.raises(SyntaxError, self.parse, src).value
+            assert exc.msg == "expected ':'"
+        exc = pytest.raises(IndentationError, self.parse,
+                            "def foo[T](x, /, y, *, z=2):\npass").value
+        assert exc.msg == ("expected an indented block after function "
+                           "definition on line 1")
+        exc = pytest.raises(IndentationError, self.parse,
+                            "class Blech[T](A):\npass").value
+        assert exc.msg == ("expected an indented block after class "
+                           "definition on line 1")
 
 
 class TestIncompleteInput(object):

@@ -1183,6 +1183,7 @@ kwargs[list]:
     | ','.kwarg_or_double_starred+
 
 starred_expression:
+    | invalid_starred_expression
     | '*' a=expression { ast.Starred(value=a, ctx=Load, LOCATIONS) }
     | '*' { self.raise_syntax_error("Invalid star expression") }
 
@@ -1323,6 +1324,9 @@ invalid_arguments[NoReturn]:
             "invalid syntax. Maybe you meant '==' or ':=' instead of '='?", a, b
         )
      }
+    | (args ',')? a=NAME b='=' &(',' | ')') {
+        self.raise_syntax_error_known_range("expected argument value expression", a, b)
+     }
     | a=args b=for_if_clauses {
         self.check_nonparen_genexp_in_call(
             "Generator expression must be parenthesized",
@@ -1350,6 +1354,13 @@ invalid_kwarg[NoReturn]:
      }
     | !(NAME '=') a=expression b='=' {
         self.kwarg_illegal_assignment(a, b)
+     }
+    | a='**' expression '=' b=expression {
+        self.raise_syntax_error_known_range("cannot assign to keyword argument unpacking", a, b)
+     }
+invalid_starred_expression[NoReturn]:
+    | a='*' expression '=' b=expression {
+        self.raise_syntax_error_known_range("cannot assign to iterable argument unpacking", a, b)
      }
 
 expression_without_invalid[ast.AST]:
@@ -1453,7 +1464,7 @@ invalid_dict_comprehension[NoReturn]:
         self.raise_syntax_error_known_location("dict unpacking cannot be used in dict comprehension", a)
      }
 invalid_parameters[NoReturn]:
-    | param_no_default* invalid_parameters_helper a=param_no_default {
+    | slash_no_default? param_no_default* invalid_parameters_helper a=param_no_default {
         self.raise_syntax_error_known_location("parameter without a default follows parameter with a default", a)
      }
     | param_no_default* a='(' param_no_default+ ','? b=')' {
@@ -1482,7 +1493,7 @@ invalid_parameters_helper: # This is only there to avoid type errors
     | a=slash_with_default { self.dummy_name() }
     | a=param_with_default+ { self.dummy_name() }
 invalid_lambda_parameters[NoReturn]:
-    | lambda_param_no_default* invalid_lambda_parameters_helper a=lambda_param_no_default {
+    | lambda_slash_no_default? lambda_param_no_default* invalid_lambda_parameters_helper a=lambda_param_no_default {
         self.raise_syntax_error_known_location("parameter without a default follows parameter with a default", a)
      }
     | lambda_param_no_default* a='(' ','.lambda_param+ ','? b=')' {
@@ -1670,14 +1681,14 @@ invalid_for_stmt[NoReturn]:
         )
      }
 invalid_def_raw[NoReturn]:
-    | [ASYNC] a='def' NAME '(' [params] ')' ['->' expression] ':' NEWLINE !INDENT {
+    | [ASYNC] a='def' NAME [type_params] '(' [params] ')' ['->' expression] ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after function definition on line %s" % a.lineno
         )
      }
 invalid_class_def_raw[NoReturn]:
-    | 'class' NAME ['(' [arguments] ')'] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
-    | a='class' NAME ['(' [arguments] ')'] ':' NEWLINE !INDENT {
+    | 'class' NAME [type_params] ['(' [arguments] ')'] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='class' NAME [type_params] ['(' [arguments] ')'] ':' NEWLINE !INDENT {
         self.raise_indentation_error(
             "expected an indented block after class definition on line %s" % a.lineno
         )

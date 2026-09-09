@@ -2374,7 +2374,12 @@ def func2():
             self._check_error(paren + "1 + 2", f"\\{paren}' was never closed")
 
         for paren in "([{":
-            self._check_error(f"a = {paren} 1, 2, 3\nb=3", f"\\{paren}' was never closed")
+            if support.check_impl_detail(pypy=True):
+                # PyPy points at the missing comma before 'b=3'
+                self._check_error(f"a = {paren} 1, 2, 3\nb=3",
+                                  "invalid syntax. Perhaps you forgot a comma?")
+            else:
+                self._check_error(f"a = {paren} 1, 2, 3\nb=3", f"\\{paren}' was never closed")
 
         for paren in ")]}":
             self._check_error(paren + "1 + 2", f"unmatched '\\{paren}'")
