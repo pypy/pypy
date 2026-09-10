@@ -21,7 +21,7 @@ from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import have_debug_prints
+from rpython.rlib.debug import have_debug_prints, fatalerror
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
@@ -32,6 +32,14 @@ SIZE_LIVE_OP = OFFSET_SIZE + 1
 
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
+
+def heapcache_sanity_failed(descr, details):
+    # the value remembered by the heapcache disagrees with the value actually
+    # in memory: something mutated the field without the tracer noticing.
+    # Name the field before aborting, to help debug reports like issue #4946.
+    fatalerror("JIT heapcache sanity check failed: " +
+               descr.repr_of_descr() + details)
+heapcache_sanity_failed._dont_inline_ = True
 
 # ____________________________________________________________
 
@@ -915,12 +923,17 @@ class MIFrame(object):
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         opnum, descr, arraybox, indexbox)
             if typ == 'i':
-                assert resvalue == tobox.getint()
+                if resvalue != tobox.getint():
+                    heapcache_sanity_failed(descr,
+                        " (interior int): read " + str(resvalue) +
+                        ", cached " + str(tobox.getint()))
             elif typ == 'r':
-                assert resvalue == tobox.getref_base()
+                if resvalue != tobox.getref_base():
+                    heapcache_sanity_failed(descr, " (interior ref)")
             elif typ == 'f':
                 # need to be careful due to NaNs etc
-                assert ConstFloat(resvalue).same_constant(tobox.constbox())
+                if not ConstFloat(resvalue).same_constant(tobox.constbox()):
+                    heapcache_sanity_failed(descr, " (interior float)")
             return tobox
         resop = self.execute_with_descr(opnum, descr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
@@ -936,15 +949,20 @@ class MIFrame(object):
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         opnum, fielddescr, box)
             if type == 'i':
-                assert resvalue == upd.currfieldbox.getint()
+                if resvalue != upd.currfieldbox.getint():
+                    heapcache_sanity_failed(fielddescr,
+                        " (int): read " + str(resvalue) +
+                        ", cached " + str(upd.currfieldbox.getint()))
             elif type == 'r':
-                assert resvalue == upd.currfieldbox.getref_base()
+                if resvalue != upd.currfieldbox.getref_base():
+                    heapcache_sanity_failed(fielddescr, " (ref)")
             else:
                 assert type == 'f'
                 # make the comparison more robust again NaNs
                 # see ConstFloat.same_constant
-                assert ConstFloat(resvalue).same_constant(
-                    upd.currfieldbox.constbox())
+                if not ConstFloat(resvalue).same_constant(
+                        upd.currfieldbox.constbox()):
+                    heapcache_sanity_failed(fielddescr, " (float)")
             self.metainterp.staticdata.profiler.count_ops(rop.GETFIELD_GC_I, Counters.HEAPCACHED_OPS)
             return upd.currfieldbox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
