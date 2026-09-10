@@ -20,6 +20,20 @@ def test_crash():
     with pytest.raises((AttributeError, TypeError)):
         hashlib.shake_128()._keccak_init(())
 
+def test_hmac_block_size_after_failed_init():
+    # block_size on an HMAC whose __init__ failed left self.ctx NULL
+    # and segfaulted inside OpenSSL
+    import _hashlib
+    for arg in (0, 'a', b'a', 'nosuchdigest'):
+        h = _hashlib.HMAC.__new__(_hashlib.HMAC)
+        with pytest.raises(Exception):
+            h.__init__(arg)
+        with pytest.raises((ValueError, TypeError, AttributeError)):
+            h.block_size
+    h = _hashlib.HMAC.__new__(_hashlib.HMAC)
+    with pytest.raises((ValueError, TypeError, AttributeError)):
+        h.block_size
+
 def test_hmac_digest_buffers():
     # issue 5544: key and msg accept any bytes-like object
     import hmac

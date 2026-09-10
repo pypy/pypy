@@ -847,6 +847,8 @@ class W_TextIOWrapper(W_TextIOBase):
         return ret
 
     def _dealloc_warn_w(self, space, w_source):
+        # issue 5123: w_buffer is None after detach() or before __init__
+        self._check_attached(space)
         space.call_method(self.w_buffer, "_dealloc_warn", w_source)
 
     # _____________________________________________________________

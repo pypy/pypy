@@ -112,6 +112,18 @@ def test_detach():
     assert not b.closed
     b.close()
 
+def test_dealloc_warn_detached():
+    # issue 5123: the fix only landed in the buffered layer; the
+    # TextIOWrapper reproducer from the issue still segfaulted
+    b = _io.BytesIO(b'x')
+    f = _io.TextIOWrapper(b)
+    f.detach()
+    raises(ValueError, f._dealloc_warn, None)
+
+def test_dealloc_warn_uninitialized():
+    f = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
+    raises(ValueError, f._dealloc_warn, None)
+
 def test_newlinetranslate():
     
     r = _io.BytesIO(b"abc\r\ndef\rg")

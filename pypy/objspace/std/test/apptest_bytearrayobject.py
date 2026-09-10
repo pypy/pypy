@@ -78,3 +78,15 @@ def test_init_does_not_honor_bytes_without_index():
 
     assert bytes(WithBytes(b'xy')) == b'xy'
     raises(TypeError, bytearray, WithBytes(b'xy'))
+
+def test_release_buffer_bad_argument():
+    # __release_buffer__ with something that is not a live buffer from
+    # this object must raise, not underflow the export count and abort
+    b = bytearray(b'x')
+    raises(ValueError, b.__release_buffer__, None)
+    raises(ValueError, b.__release_buffer__, memoryview(bytearray(b'y')))
+    raises(ValueError, b.__release_buffer__, memoryview(b'z'))
+    m = b.__buffer__(0)
+    b.__release_buffer__(m)
+    raises(ValueError, m.tobytes)
+    b += b'ok'   # no exports left, resize allowed

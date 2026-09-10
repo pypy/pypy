@@ -368,3 +368,16 @@ def test_memoryview_dunder_buffer_direct():
     assert mv.tobytes() == b"hello"
 
 
+def test_pypy_raw_address_released():
+    # _pypy_raw_address() on a released view segfaulted
+    m = memoryview(bytearray(b"abc"))
+    assert m._pypy_raw_address() != 0
+    m.release()
+    with raises(ValueError):
+        m._pypy_raw_address()
+    m = memoryview(b"")
+    m.release()
+    with raises(ValueError):
+        m._pypy_raw_address()
+
+

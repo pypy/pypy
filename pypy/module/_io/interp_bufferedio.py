@@ -1153,12 +1153,19 @@ class W_BufferedRWPair(W_BufferedIOBase):
         # self.w_writer and self.w_reader have their own finalizer
         return type(self) is not W_BufferedRWPair
 
+    def _check_init(self, space):
+        if self.w_writer is None or self.w_reader is None:
+            raise oefmt(space.w_ValueError,
+                        "I/O operation on uninitialized object")
+
     def isatty_w(self, space):
+        self._check_init(space)
         if space.is_true(space.call_method(self.w_writer, "isatty")):
             return space.w_True
         return space.call_method(self.w_reader, "isatty")
 
     def closed_get_w(self, space):
+        self._check_init(space)
         return space.getattr(self.w_writer, space.newtext("closed"))
 
 methods = dict((method, interp2app(getattr(W_BufferedRWPair, method + '_w')))

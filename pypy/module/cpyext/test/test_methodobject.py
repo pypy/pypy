@@ -8,6 +8,8 @@ from pypy.module.cpyext.methodobject import (
 from rpython.rtyper.lltypesystem import rffi, lltype
 
 class AppTestMethodObject(AppTestCpythonExtensionBase):
+    spaceconfig = dict(AppTestCpythonExtensionBase.spaceconfig)
+    spaceconfig['usemodules'] = spaceconfig['usemodules'] + ['_pickle']
 
     def test_call_METH_NOARGS(self):
         mod = self.import_extension('MyModule', [
@@ -331,6 +333,10 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         mod = self.import_module(name="reduce_pickle")
         unpickle = mod.__pyx_unpickle_Wrapper
         assert unpickle.__module__ == "reduce_pickle"
+        # a builtin function from a C extension pickles by reference
+        import _pickle
+        for proto in range(6):
+            assert _pickle.loads(_pickle.dumps(unpickle, proto)) is unpickle
 
     def test_module_name(self):
         # issue 3993

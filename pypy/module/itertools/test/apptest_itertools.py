@@ -161,3 +161,15 @@ def test_tee_function_uses_copy():
     assert a is not my
     assert b is not my
     assert list(b) == ['d', 'e', 'f']
+
+def test_zip_longest_exhausted_twice():
+    # list() twice on a zip_longest whose first sub-iterator was
+    # exhausted (and replaced by None internally) segfaulted
+    from itertools import zip_longest
+    z = zip_longest([1, 2, 3], range(5))
+    assert list(z) == [(1, 0), (2, 1), (3, 2), (None, 3), (None, 4)]
+    assert list(z) == []
+    assert sorted(z) == []
+    z = zip_longest([1], range(3), range(4))
+    list(z)
+    assert set(z) == set()

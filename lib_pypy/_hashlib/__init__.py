@@ -243,6 +243,9 @@ class HMAC(HASH):
 
     @property
     def block_size(self):
+        # self.ctx is NULL if __init__ failed (or was never called)
+        if self.ctx == ffi.NULL:
+            raise ValueError("HMAC object is not initialized")
         md = lib.HMAC_CTX_get_md(self.ctx)
         if not md:
             raise ValueError("could not get EVP_MD from HMAC_CTX")

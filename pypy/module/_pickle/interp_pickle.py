@@ -13,7 +13,6 @@ from pypy.interpreter.unicodehelper import check_utf8_or_raise
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
 from pypy.module._pickle.state import State
 from pypy.module.__pypy__.interp_buffer import W_PickleBuffer
-from pypy.module.cpyext.methodobject import W_PyCFunctionObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 
@@ -488,7 +487,9 @@ class DispatchCache(object):
         self.dispatch[space.w_bytearray]   = save_bytearray
         w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
         self.dispatch[w_function]     = save_global
-        self.dispatch[space.gettypefor(W_PyCFunctionObject)] = save_global
+        if space.config.objspace.usemodules.cpyext:
+            from pypy.module.cpyext.methodobject import W_PyCFunctionObject
+            self.dispatch[space.gettypefor(W_PyCFunctionObject)] = save_global
         self.dispatch4 = self.dispatch.copy()
         self.dispatch4[space.w_frozenset] = save_frozenset
 

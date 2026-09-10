@@ -37,3 +37,20 @@ def test_readinto_holds_bytearray_export_during_read():
     assert locked_during_read[0], (
         "bytearray must be locked (export held) during BufferedIOBase.readinto"
     )
+
+
+def test_rwpair_uninitialized_closed_and_isatty():
+    # .closed and .isatty() on an uninitialized BufferedRWPair
+    # dereferenced a None writer and segfaulted
+    import _io
+    from pytest import raises
+    o = _io.BufferedRWPair.__new__(_io.BufferedRWPair)
+    with raises(ValueError):
+        o.closed
+    with raises(ValueError):
+        o.isatty()
+    # everything that consults .closed inherited the fault. These go
+    # through _check_closed, which swallows the ValueError, so they
+    # merely must not crash.
+    iter(o)
+    o.__enter__()

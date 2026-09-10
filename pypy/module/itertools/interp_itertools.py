@@ -696,7 +696,11 @@ class W_ZipLongest(W_Root):
         # XXX in theory we should tupleize the greenkeys of all the
         # sub-iterators, but much more work
         if len(self.iterators_w) > 0:
-            return space.iterator_greenkey(self.iterators_w[0])
+            # unlike W_Zip, an exhausted sub-iterator is replaced by
+            # None in _fetch(), so this may be None
+            w_iter = self.iterators_w[0]
+            if w_iter is not None:
+                return space.iterator_greenkey(w_iter)
         return None
 
 

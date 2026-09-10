@@ -545,6 +545,7 @@ class W_MemoryView(W_BufferExporter):
 
     def descr_pypy_raw_address(self, space):
         from rpython.rtyper.lltypesystem import lltype, rffi
+        self._check_released(space)
         try:
             ptr = self.view.get_raw_address()
         except ValueError:
