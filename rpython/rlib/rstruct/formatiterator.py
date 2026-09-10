@@ -15,6 +15,9 @@ class FormatIterator(object):
     """
     _mixin_ = True
     _operate_is_specialized_ = False
+    # 'u' in native mode is a PyPy2 extension; PyPy3 subclasses set this
+    # to False to reject it like CPython 3 does
+    accept_unichar = True
 
     @jit.look_inside_iff(lambda self, fmt: jit.isconstant(fmt))
     def interpret(self, fmt):
@@ -66,6 +69,8 @@ class FormatIterator(object):
 
             for fmtdesc in table:
                 if c == fmtdesc.fmtchar:
+                    if fmtdesc.fmtchar == 'u' and not self.accept_unichar:
+                        raise StructError("bad char in struct format")
                     if self._operate_is_specialized_:
                         if fmtdesc.alignment > 1:
                             self.align(fmtdesc.mask)
