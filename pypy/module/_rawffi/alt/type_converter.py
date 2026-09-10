@@ -233,7 +233,8 @@ class ToAppLevelConverter(object):
                     wcharval, allow_surrogates=True), 1)
             except rutf8.OutOfRange:
                 raise oefmt(space.w_ValueError,
-                            "unicode character %d out of range", wcharval)
+                            "unicode character %d out of range",
+                            intmask(wcharval))
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():
