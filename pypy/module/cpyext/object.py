@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib import rawrefcount
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
@@ -20,9 +21,18 @@ import pypy.module.__builtin__.operation as operation
 # prefix and hands out the pointer past it (PyMem_* is the separate raw domain, no
 # prefix).  So every object alloc/free -- PyObject_New/Del, GC_New/Del, tp_alloc/
 # tp_free, and the _PyPy_Malloc/_PyPy_Free backing them -- is prefix-consistent.
+def _tagged_raw_alloc(size):
+    # Like tp_alloc (_generic_alloc in src/object.c): mark the reserved prefix
+    # by pre-tagging ob_refcnt, so that PyObject_Init (which increments) leaves
+    # an owned object rather than a foreign one.  Harmless for raw buffers.
+    ptr = pyobj_raw_alloc(size)
+    if size >= rffi.sizeof(lltype.Signed):
+        rffi.cast(rffi.SIGNEDP, ptr)[0] = rawrefcount.REFCNT_FROM_PYPY
+    return ptr
+
 @cpython_api([size_t], rffi.VOIDP, abi3=True)
 def PyObject_Malloc(space, size):
-    return pyobj_raw_alloc(size)
+    return _tagged_raw_alloc(size)
 
 @cpython_api([size_t, size_t], rffi.VOIDP, abi3=True)
 def PyObject_Calloc(space, nelem, elsize):

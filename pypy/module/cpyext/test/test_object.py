@@ -308,6 +308,54 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is float
         assert x == -12.34
 
+    def test_object_malloc_heaptype_fields(self):
+        # nanobind allocates instances of its heap types with
+        # PyObject_Malloc + PyObject_Init, then writes fields right after
+        # the header and reads them back on the next call into C
+        module = self.import_extension('foo', [
+            ("make", "METH_O",
+             """
+                 PyTypeObject *tp = (PyTypeObject *)args;
+                 Inst *obj = PyObject_Malloc(sizeof(Inst));
+                 if (obj == NULL)
+                     return PyErr_NoMemory();
+                 PyObject_Init((PyObject *)obj, tp);
+                 obj->offset = 0;
+                 obj->state = 0;
+                 obj->offset = -1234;
+                 obj->state = 0x12345678;
+                 return (PyObject *)obj;
+             """),
+            ("read", "METH_O",
+             """
+                 Inst *obj = (Inst *)args;
+                 return Py_BuildValue("(il)", obj->offset, (long)obj->state);
+             """),
+            ("make_type", "METH_NOARGS",
+             """
+                 PyType_Slot slots[] = {{0, NULL}};
+                 PyType_Spec spec = {"foo.Inst", sizeof(Inst), 0,
+                                     Py_TPFLAGS_DEFAULT, slots};
+                 return PyType_FromSpec(&spec);
+             """),
+            ], prologue='''
+            typedef struct {
+                PyObject_HEAD
+                int offset;
+                unsigned int state;
+            } Inst;
+            ''')
+        T = module.make_type()
+        objs = [module.make(T) for i in range(20)]
+        for o in objs:
+            assert type(o) is T
+            assert module.read(o) == (-1234, 0x12345678)
+        o = objs[0]
+        o2 = o
+        del objs
+        self.debug_collect()
+        assert module.read(o2) == (-1234, 0x12345678)
+
     def test_object_calloc(self):
         module = self.import_extension('foo', [
             ("calloctest", "METH_NOARGS",
