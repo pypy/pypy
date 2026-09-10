@@ -391,6 +391,41 @@ class TestInstance(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
+    def test_namedtuple_replace(self):
+        def main():
+            from collections import namedtuple
+            A = namedtuple("A", "x y")
+            res = 0
+            i = 0
+            while i < 2000:
+                a = A(i, 2)
+                b = a._replace(x=i + 1)
+                res += b.x + b.y
+                i += 1
+            return res
+
+        log = self.run(main, [])
+        assert log.result == 2005000
+        loop, = log.loops_by_filename(self.filepath)
+        # The tuples and keyword dictionary should stay virtual, leaving
+        # only arithmetic, guards, and frame/ticker bookkeeping in the loop.
+        assert loop.match("""
+            guard_not_invalidated(descr=...)
+            i82 = int_lt(i49, 2000)
+            guard_true(i82, descr=...)
+            p83 = force_token()
+            i88 = int_add(i49, 1)
+            p89 = force_token()
+            p92 = force_token()
+            p97 = force_token()
+            p101 = force_token()
+            i106 = int_add(i49, 3)
+            i107 = int_add_ovf(i76, i106)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+        """)
+
     def test_add_instance_attr_big(self):
         def main():
             class A(object):
