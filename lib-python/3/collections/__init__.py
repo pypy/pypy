@@ -55,6 +55,11 @@ try:
 except ImportError:
     pass
 
+try:
+    from __pypy__ import newdict
+except ImportError:
+    newdict = lambda _: {}
+
 
 ################################################################################
 ### OrderedDict
@@ -432,11 +437,11 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
 
     # Create all the named tuple methods to be added to the class namespace
 
-    namespace = {
-        '_tuple_new': tuple_new,
-        '__builtins__': {},
-        '__name__': f'namedtuple_{typename}',
-    }
+    # PyPy: use a module dictionary so the JIT can optimize global lookups.
+    namespace = newdict('module')
+    namespace['_tuple_new'] = tuple_new
+    namespace['__builtins__'] = {}
+    namespace['__name__'] = f'namedtuple_{typename}'
     code = f'lambda _cls, {arg_list}: _tuple_new(_cls, ({arg_list}))'
     __new__ = eval(code, namespace)
     __new__.__name__ = '__new__'

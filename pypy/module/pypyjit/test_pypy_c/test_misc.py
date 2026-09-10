@@ -514,7 +514,7 @@ class TestMisc(BaseTestPyPyC):
             ...
             i82 = int_add(i76, 1)
             setfield_gc(p16, i82, descr=...)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
             setarrayitem_gc(p63, 1, i71, descr=...)
             setarrayitem_gc(p63, 2, i76, descr=...)
             setarrayitem_gc(p63, 0, i77, descr=...)

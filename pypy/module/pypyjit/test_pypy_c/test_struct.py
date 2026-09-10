@@ -168,7 +168,7 @@ class TestStruct(BaseTestPyPyC):
         assert log.result == main(1000)
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('pack_into', """\
-            guard_not_invalidated(descr=...)
+            setfield_gc(p1, i1, descr=...) # exports
             i65 = int_le(i58, 32767)
             guard_true(i65, descr=...)
             raw_store(i55, 4, i58, descr=<ArrayS 2>)

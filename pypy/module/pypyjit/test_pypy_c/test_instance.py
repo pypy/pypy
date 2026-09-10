@@ -379,9 +379,9 @@ class TestInstance(BaseTestPyPyC):
         log = self.run(main, [])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i7 = int_lt(i5, 2000)
             guard_true(i7, descr=...)
-            guard_not_invalidated(descr=...)
             p1 = force_token()
             p2 = force_token()
             i20 = int_add_ovf(i19, i5)

@@ -375,7 +375,7 @@ class Test__ffi(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-        guard_not_invalidated?
+        guard_not_invalidated(descr=...)
         i106 = getfield_gc_i(p20, descr=...)
         i161 = int_lt(i106, i43)
         guard_true(i161, descr=...)
@@ -383,7 +383,6 @@ class Test__ffi(BaseTestPyPyC):
         p110 = getfield_gc_r(p16, descr=...)
         setfield_gc(p20, i162, descr=...)
         guard_value(p110, ConstPtr(ptr111), descr=...)
-        guard_not_invalidated(descr=...)
         p163 = force_token()
         p164 = force_token()
         p118 = getfield_gc_r(p16, descr=...)
