@@ -2,6 +2,38 @@ import os
 import sys
 import textwrap
 import subprocess
+import gc
+import weakref
+
+import pytest
+
+
+@pytest.mark.pypy_only
+@pytest.mark.parametrize('container_type', [
+    weakref.WeakSet, weakref.WeakKeyDictionary, weakref.WeakValueDictionary,
+])
+def test_len_during_finalization(container_type):
+    container = container_type()
+    observations = []
+
+    class Item:
+        def __del__(self):
+            # PyPy clears weakrefs before __del__, but their callbacks may
+            # not have removed the dead entries from the container yet.
+            observations.append((len(container), list(container)))
+
+    item = Item()
+    if container_type is weakref.WeakSet:
+        container.add(item)
+    elif container_type is weakref.WeakKeyDictionary:
+        container[item] = 42
+    else:
+        container['key'] = item
+    del item
+    gc.collect()
+    # Check outside __del__, where assertion failures would be unraisable.
+    assert observations == [(0, [])]
+
 
 def test_WeakValueDictionary_len(tmpdir):
     src = textwrap.dedent("""
