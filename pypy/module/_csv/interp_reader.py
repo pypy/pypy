@@ -183,7 +183,8 @@ class W_Reader(W_Root):
                     else:
                         # illegal
                         raise self.error("'%s' expected after '%s'" % (
-                            unichr_as_utf8(r_uint(dialect.delimiter)), unichr_as_utf8(r_uint(dialect.quotechar))))
+                            unichr_as_utf8(r_uint(dialect.delimiter), allow_surrogates=True),
+                            unichr_as_utf8(r_uint(dialect.quotechar), allow_surrogates=True)))
 
                 elif state == EAT_CRNL:
                     if not (c == ord(u'\n') or c == ord(u'\r')):

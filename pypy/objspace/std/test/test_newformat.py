@@ -548,6 +548,12 @@ class AppTestInternalMethods:
         assert '{0:c}'.format(42) == '*'
         assert '{0:c}'.format(1234) == '\u04d2'
         raises(OverflowError, '{0:c}'.format, -1)
+        raises(OverflowError, '{0:c}'.format, 0x110000)
+
+    def test_format_char_surrogate(self):
+        assert format(0xD800, 'c') == '\ud800'
+        assert format(0xDFFF, 'c') == '\udfff'
+        assert format(0x10FFFF, 'c') == '\U0010ffff'
 
     def test_error(self):
         info = raises(ValueError, "{: }".format, '')

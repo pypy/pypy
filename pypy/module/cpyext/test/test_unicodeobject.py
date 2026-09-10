@@ -777,19 +777,15 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("findchar", "METH_VARARGS",
             """
                 PyObject *uni;
-                int ch;
+                unsigned long ch;
                 Py_ssize_t start, end, ret;
                 int direction;
-                if (!PyArg_ParseTuple(args, "Oinni", &uni, &ch, &start, &end, &direction)) {
-                    return NULL;
-                }
-                if (ch > (int)0xffff || ch < 0) {
-                    PyErr_SetString(PyExc_OverflowError, "ch is out of bounds");
+                if (!PyArg_ParseTuple(args, "Oknni", &uni, &ch, &start, &end, &direction)) {
                     return NULL;
                 }
                 ret = PyUnicode_FindChar(uni, (Py_UCS4)ch, start, end, direction);
-                if (ret == -2) return NULL;
-                return PyLong_FromLong(ret);
+                if (ret < 0 && PyErr_Occurred()) return NULL;
+                return PyLong_FromSsize_t(ret);
             """),
             ])
         s = 'abcdef'
@@ -806,7 +802,12 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         indx = module.findchar(s, ord('z'), 0, -1, 0)
         assert indx == -1
         indx = module.findchar(s, ord('d'), 0, -1, 0)
-        assert indx == 3 
+        assert indx == 3
+        assert module.findchar(s, 0xD800, 0, len(s), 1) == -1
+        assert module.findchar(s, 0xDFFF, 0, len(s), 1) == -1
+        assert module.findchar(s, 0x110000, 0, len(s), 1) == -1
+        assert module.findchar('a\ud800b', 0xD800, 0, 3, 1) == 1
+        assert module.findchar('a\U00012345b', 0x12345, 0, 3, -1) == 1 
 
     def test_subclass(self):
         module = self.import_extension('gcc', [

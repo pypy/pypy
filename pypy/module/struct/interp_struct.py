@@ -3,7 +3,6 @@ from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rarithmetic import r_uint, widen
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
-from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -11,7 +10,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.typedef import make_weakref_descr
 from pypy.module.struct.formatiterator import (
-    PackFormatIterator, UnpackFormatIterator
+    PackFormatIterator, UnpackFormatIterator, CalcSizeFormatIterator
 )
 
 

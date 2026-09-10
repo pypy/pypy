@@ -124,6 +124,14 @@ class AppTestDialect(object):
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', quotechar=4)
         assert exc_info.value.args[0] == '"quotechar" must be string or None, not int'
 
+    def test_surrogate_chars(self):
+        import _csv
+        d = _csv.Dialect(delimiter='\ud800', quotechar='\udc00',
+                         escapechar='\udfff')
+        assert d.delimiter == '\ud800'
+        assert d.quotechar == '\udc00'
+        assert d.escapechar == '\udfff'
+
     def test_line_terminator(self):
         # lineterminator can be the empty string
         import _csv

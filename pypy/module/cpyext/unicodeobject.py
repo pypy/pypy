@@ -1453,8 +1453,8 @@ def PyUnicode_FindChar(space, ref, ch, start, end, direction):
     w_str = from_ref(space, ref)
     ch = widen(ch)
     if ch > rutf8.MAXUNICODE:
-        raise oefmt(space.w_ValueError, "character out of range")
-    w_ch = space.newtext(rutf8.unichr_as_utf8(r_uint(ch)), 1)
+        return -1
+    w_ch = space.newtext(rutf8.unichr_as_utf8(r_uint(ch), allow_surrogates=True), 1)
     if rffi.cast(lltype.Signed, direction) > 0:
         w_pos = space.call_method(w_str, "find", w_ch,
                                   space.newint(start), space.newint(end))

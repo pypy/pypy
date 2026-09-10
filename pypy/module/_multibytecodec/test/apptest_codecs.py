@@ -134,6 +134,13 @@ def test_encode_custom_error_handler_type():
     assert b'\xc3' in result
 
 
+def test_encoder_setstate_bad_int():
+    enc = codecs.getincrementalencoder('cp949')()
+    raises(OverflowError, enc.setstate, -1)
+    raises(OverflowError, enc.setstate, 1 << 200)
+    enc.setstate(0)
+
+
 def test_encode_replacement_with_state():
     s = '\u4ee4\u477c\u4ee4'.encode("iso-2022-jp", errors="replace")
     assert s == b'\x1b$BNa\x1b(B?\x1b$BNa\x1b(B'

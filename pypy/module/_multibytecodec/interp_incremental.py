@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib import rutf8
-from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror,
@@ -168,8 +168,11 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
         bigint = space.bigint_w(w_state)
         try:
             statebytes = bigint.tobytes(17, 'little', False)
+        except InvalidSignednessError:
+            raise oefmt(space.w_OverflowError,
+                        "can't convert negative int to unsigned")
         except OverflowError:
-            raise oefmt(space.w_UnicodeError, "pending buffer too large")
+            raise oefmt(space.w_OverflowError, "int too big to convert")
         pending_byte_len = ord(statebytes[0])
         if pending_byte_len > 8:
             raise oefmt(space.w_UnicodeError, "pending buffer too large")

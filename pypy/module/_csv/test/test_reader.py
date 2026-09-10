@@ -41,6 +41,12 @@ class AppTestReader(object):
         self._read_test(['"ab"c'], 'Error', strict = 1)
         self._read_test(['"ab"c'], [['abc']], doublequote = 0)
 
+    def test_read_strict_surrogate_delimiter(self):
+        import _csv
+        reader = _csv.reader(['"ab"c'], strict=True, delimiter='\ud800')
+        exc_info = raises(_csv.Error, list, reader)
+        assert exc_info.value.args[0].endswith("'\ud800' expected after '\"'")
+
     def test_read_eol(self):
         import csv
         self._read_test(['a,b'], [['a','b']])

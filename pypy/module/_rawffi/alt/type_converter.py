@@ -228,7 +228,12 @@ class ToAppLevelConverter(object):
             return space.newbytes(chr(ucharval))
         elif w_ffitype.is_unichar():
             wcharval = r_uint(self.get_unichar(w_ffitype))
-            return space.newutf8(rutf8.unichr_as_utf8(wcharval), 1)
+            try:
+                return space.newutf8(rutf8.unichr_as_utf8(
+                    wcharval, allow_surrogates=True), 1)
+            except rutf8.OutOfRange:
+                raise oefmt(space.w_ValueError,
+                            "unicode character %d out of range", wcharval)
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():

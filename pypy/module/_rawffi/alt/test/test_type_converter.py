@@ -1,4 +1,5 @@
 import sys
+import pytest
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat, r_longlong, r_ulonglong
 from rpython.rlib.libffi import IS_32_BIT
 from pypy.module._rawffi.alt.interp_ffitype import app_types, descr_new_pointer
@@ -168,3 +169,15 @@ class TestToAppLevel(object):
     def test_uint(self):
         self.check(app_types.uint, 42, self.space.wrap(42))
         self.check(app_types.uint, r_uint(sys.maxint+1), self.space.wrap(sys.maxint+1))
+
+    def test_unichar(self):
+        from pypy.interpreter.error import OperationError
+        space = self.space
+        self.check(app_types.unichar, 0x41, space.newutf8('A', 1))
+        self.check(app_types.unichar, 0xD800, space.newutf8('\xed\xa0\x80', 1))
+        self.check(app_types.unichar, 0x10FFFF,
+                   space.newutf8('\xf4\x8f\xbf\xbf', 1))
+        for bad in [0x110000, 0x6aa2cc4e, r_uint(-1)]:
+            with pytest.raises(OperationError) as excinfo:
+                self.from_app_level(app_types.unichar, bad)
+            assert excinfo.value.match(space, space.w_ValueError)

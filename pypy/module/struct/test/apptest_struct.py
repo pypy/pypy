@@ -320,10 +320,7 @@ def test_struct_error():
     raises(error, unpack, "ii", b"?")# unpack str size too short for format
     raises(error, unpack, "b", b"??")# unpack str size too long for format
     raises(error, pack, "c", b"foo") # expected a string of length 1
-<<<<<<< HEAD
     raises(error, pack, "0p")       # pack expected 1 items for packing
-=======
->>>>>>> py3.11
     raises(error, pack, "b", 150)   # argument out of range
     # XXX the accepted ranges still differs between PyPy and CPython
     exc = raises(error, pack, ">d", 'abc')
@@ -346,20 +343,12 @@ def test_overflow_error():
     raises(someerror, calcsize, "c%dc" % (sys.maxsize,))
     raises(someerror, calcsize, "%dci" % (sys.maxsize,))
 
-def test_unicode():
-    """
-    A PyPy extension: accepts the 'u' format character in native mode,
-    just like the array module does.  (This is actually used in the
-    implementation of our interp-level array module.)
-    """
-    import sys
-    if '__pypy__' not in sys.builtin_module_names:
-        skip("PyPy extension")
-    data = struct.pack("uuu", 'X', 'Y', 'Z')
-    # this assumes UCS4; adapt/extend the test on platforms where we use
-    # another format
-    assert data == b'X\x00\x00\x00Y\x00\x00\x00Z\x00\x00\x00'
-    assert struct.unpack("uuu", data) == ('X', 'Y', 'Z')
+def test_no_unicode_format():
+    # 'u' in native mode is a PyPy2 extension, not available on PyPy3
+    raises(struct.error, struct.pack, "u", 'X')
+    raises(struct.error, struct.unpack, "u", b'abcd')
+    raises(struct.error, struct.calcsize, "u")
+    raises(struct.error, struct.calcsize, "@u")
 
 def test_unpack_memoryview():
     """

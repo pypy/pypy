@@ -844,7 +844,7 @@ def make_formatting_class(for_unicode):
                                 "%%c arg not in range(%s)",
                                 hex(max_char))
                 if self.is_unicode:
-                    result = rutf8.unichr_as_utf8(value)
+                    result = rutf8.unichr_as_utf8(value, allow_surrogates=True)
                 else:
                     result = chr(value)
                 n_digits = 1

@@ -3,12 +3,15 @@ from rpython.rlib.rarithmetic import (r_uint, r_ulonglong, r_longlong,
 from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rstruct.error import StructError
+from rpython.rlib.rstruct import formatiterator as rformatiterator
 from rpython.rlib.rstruct.formatiterator import FormatIterator
 
 from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
+    accept_unichar = False
+
     def __init__(self, space, wbuf, args_w):
         self.space = space
         self.args_w = args_w
@@ -111,6 +114,8 @@ class PackFormatIterator(FormatIterator):
 
 
 class UnpackFormatIterator(FormatIterator):
+    accept_unichar = False
+
     def __init__(self, space, buf):
         self.space = space
         self.buf = buf
@@ -192,3 +197,7 @@ class UnpackFormatIterator(FormatIterator):
         if end > self.length:
             raise StructError("unpack str size too short for format")
         self.pos = end
+
+
+class CalcSizeFormatIterator(rformatiterator.CalcSizeFormatIterator):
+    accept_unichar = False

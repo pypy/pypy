@@ -166,19 +166,19 @@ def W_Dialect___new__(space, w_subtype, w_dialect = None,
 def _get_escapechar(space, dialect):
     if dialect.escapechar == NOT_SET:
         return space.w_None
-    s = rutf8.unichr_as_utf8(dialect.escapechar)
+    s = rutf8.unichr_as_utf8(dialect.escapechar, allow_surrogates=True)
     return space.newutf8(s, 1)
 
 def _get_quotechar(space, dialect):
     if dialect.quotechar == NOT_SET:
         return space.w_None
-    s = rutf8.unichr_as_utf8(dialect.quotechar)
+    s = rutf8.unichr_as_utf8(dialect.quotechar, allow_surrogates=True)
     return space.newutf8(s, 1)
 
 def _get_delimiter(space, dialect):
     if dialect.delimiter == NOT_SET:
         return space.w_None
-    s = rutf8.unichr_as_utf8(dialect.delimiter)
+    s = rutf8.unichr_as_utf8(dialect.delimiter, allow_surrogates=True)
     return space.newutf8(s, 1)
 
 
