@@ -507,8 +507,13 @@ class AbstractActionFlag(object):
         self.checkinterval_scaled = 10000 * TICK_COUNTER_STEP
         self._rebuild_action_dispatcher()
 
+    @jit.dont_look_inside
     def fire(self, action):
         """Request for the action to be run before the next opcode."""
+        # This is called from GC callbacks potentially at any allocation.
+        # Therefore '_fired_bitmask' can change at points where the JIT's
+        # tracer cannot see it, and the tracer must never record reads or
+        # writes of it: see issue #4946 and action_dispatcher below.
         assert action._action_index >= 0 # period actions must not call fire
         mask = r_uint(1) << action._action_index
         if not self._fired_bitmask & mask:
@@ -559,7 +564,11 @@ class AbstractActionFlag(object):
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
 
-        @jit.unroll_safe
+        # Since this can be called in GC hooks while allocating, it
+        # cannot be jitted (issue #4946).  The same
+        # applies to the stats fields of the gc hook actions, which are
+        # written from the GC and read by their perform() methods.
+        @jit.dont_look_inside
         @objectmodel.dont_inline
         def action_dispatcher(ec, frame):
             # periodic actions (first reset the bytecode counter)
