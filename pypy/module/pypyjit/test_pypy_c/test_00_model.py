@@ -503,10 +503,11 @@ class TestRunPyPyC(BaseTestPyPyC):
         assert log.opnames(ops) == ['int_add']
         #
         ops = loop.ops_by_id('cond')
+        # the guard_not_invalidated in this loop is from py 3.12 sys.monitoring
         # the 'jump' at the end is because the last opcode in the loop
         # coincides with the first, and so it thinks that 'jump' belongs to
         # the id
-        assert log.opnames(ops) == ['int_lt', 'guard_true', 'jump']
+        assert log.opnames(ops) == ['guard_not_invalidated', 'int_lt', 'guard_true', 'jump']
 
     def test_ops_by_id_and_opcode(self):
         def f():

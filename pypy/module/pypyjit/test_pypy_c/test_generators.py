@@ -19,15 +19,10 @@ class TestGenerators(BaseTestPyPyC):
         log = self.run(main, [500])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("generator", """
+            guard_not_invalidated?
             cond_call(..., descr=...)
             i16 = force_token()
-            setfield_gc(p32, p34, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
-            setfield_gc(p13, p33, descr=<FieldP pypy.interpreter.generator.GeneratorOrCoroutine.inst_saved_operr .*>)
-            setfield_gc(p32, p13, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_current_gen_or_coroutine .*>)
-            setfield_gc(p13, 1, descr=<FieldU pypy.interpreter.generator.GeneratorOrCoroutine.inst_running .*>)
-            setfield_gc(p13, p35, descr=<FieldP pypy.interpreter.generator.GeneratorOrCoroutine.inst_previous_gen_or_coroutine .*>)
-            setfield_gc(p20, p38, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref .*>)
-            guard_not_invalidated(descr=...)
+            guard_not_invalidated?
 
             p45 = new_with_vtable(descr=<.*>)
             ifoo = arraylen_gc(p8, descr=<ArrayP .*>)
@@ -58,15 +53,9 @@ class TestGenerators(BaseTestPyPyC):
         log = self.run(main, [500])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("generator", """
+            guard_not_invalidated?
             cond_call(..., descr=...)
             i16 = force_token()
-            setfield_gc(p32, p34, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_sys_exc_operror .*>)
-            setfield_gc(p13, p33, descr=<FieldP pypy.interpreter.generator.GeneratorOrCoroutine.inst_saved_operr .*>)
-            setfield_gc(p32, p13, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_current_gen_or_coroutine .*>)
-            setfield_gc(p13, 1, descr=<FieldU pypy.interpreter.generator.GeneratorOrCoroutine.inst_running .*>)
-            setfield_gc(p13, p35, descr=<FieldP pypy.interpreter.generator.GeneratorOrCoroutine.inst_previous_gen_or_coroutine .*>)
-            setfield_gc(p20, p38, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref .*>)
-            guard_not_invalidated(descr=...)
             p45 = new_with_vtable(descr=<.*>)
             i47 = arraylen_gc(p8, descr=<ArrayP .>) # Should be removed by backend
             setfield_gc(p45, i29, descr=<FieldS .*>)

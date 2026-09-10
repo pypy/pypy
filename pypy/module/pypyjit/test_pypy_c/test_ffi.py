@@ -375,6 +375,7 @@ class Test__ffi(BaseTestPyPyC):
         log = self.run(main, [300])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+        guard_not_invalidated?
         i106 = getfield_gc_i(p20, descr=...)
         i161 = int_lt(i106, i43)
         guard_true(i161, descr=...)
