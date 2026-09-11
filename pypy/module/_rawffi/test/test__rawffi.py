@@ -960,6 +960,24 @@ class AppTestFfi(object):
             # UCS2 build
             print(b[0:4])
             assert b[0:4] == b'x\x00y\x00'
+
+    def test_wide_char_out_of_range(self):
+        import _rawffi, sys
+        if _rawffi.sizeof('u') != 4:
+            skip("UCS4 wchar_t only")
+        A = _rawffi.Array('u')
+        a = A(1)
+        b = _rawffi.Array('i').fromaddress(a.itemaddress(0), 1)
+        b[0] = 0xd800
+        assert a[0] == '\ud800'
+        if self.runappdirect:
+            # Fails to run untranslated: ll2ctypes is not up to the task of
+            # creating a unicode char w/value > maxunicode
+            b[0] = 0x110000
+            with raises(ValueError) as e:
+                a[0]
+            assert str(e.value) == (
+                "character U+110000 is not in range [U+0000; U+10ffff]")
         a.free()
 
     def test_truncate(self):

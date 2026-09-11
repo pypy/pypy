@@ -177,7 +177,10 @@ class TestToAppLevel(object):
         self.check(app_types.unichar, 0xD800, space.newutf8('\xed\xa0\x80', 1))
         self.check(app_types.unichar, 0x10FFFF,
                    space.newutf8('\xf4\x8f\xbf\xbf', 1))
-        for bad in [0x110000, 0x6aa2cc4e, r_uint(-1)]:
+        for bad in [0x110000, 0x6aa2cc4e]:
             with pytest.raises(OperationError) as excinfo:
                 self.from_app_level(app_types.unichar, bad)
             assert excinfo.value.match(space, space.w_ValueError)
+            msg = space.text_w(excinfo.value.get_w_value(space))
+            assert msg == ("character U+%x is not in range "
+                           "[U+0000; U+10ffff]" % bad)

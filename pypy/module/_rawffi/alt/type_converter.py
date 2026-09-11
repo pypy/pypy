@@ -2,6 +2,7 @@ from rpython.rlib import libffi
 from rpython.rlib import jit, rutf8
 from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.unicodehelper import wrap_unicode_out_of_range_error
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._rawffi.alt.interp_ffitype import app_types
 
@@ -231,10 +232,8 @@ class ToAppLevelConverter(object):
             try:
                 return space.newutf8(rutf8.unichr_as_utf8(
                     wcharval, allow_surrogates=True), 1)
-            except rutf8.OutOfRange:
-                raise oefmt(space.w_ValueError,
-                            "unicode character %d out of range",
-                            intmask(wcharval))
+            except rutf8.OutOfRange as e:
+                raise wrap_unicode_out_of_range_error(space, e)
         elif w_ffitype.is_double():
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():
