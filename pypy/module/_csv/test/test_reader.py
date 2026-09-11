@@ -45,7 +45,19 @@ class AppTestReader(object):
         import _csv
         reader = _csv.reader(['"ab"c'], strict=True, delimiter='\ud800')
         exc_info = raises(_csv.Error, list, reader)
-        assert exc_info.value.args[0].endswith("'\ud800' expected after '\"'")
+        assert exc_info.value.args[0] == "'\ud800' expected after '\"'"
+
+    def test_error_messages_match_cpython(self):
+        import _csv
+        exc_info = raises(_csv.Error, list,
+                          _csv.reader(['a', 'b\r\rc'], strict=True))
+        assert exc_info.value.args[0] == (
+            "new-line character seen in unquoted field - "
+            "do you need to open the file with newline=''?")
+        exc_info = raises(_csv.Error, list, _csv.reader([b'a']))
+        assert exc_info.value.args[0] == (
+            "iterator should return strings, not bytes "
+            "(the file should be opened in text mode)")
 
     def test_read_eol(self):
         import csv

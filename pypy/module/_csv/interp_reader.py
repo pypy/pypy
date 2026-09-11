@@ -30,7 +30,6 @@ class W_Reader(W_Root):
     @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
-        msg = 'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.newtext('Error'))
         raise OperationError(w_error, space.newtext(msg))
@@ -76,7 +75,7 @@ class W_Reader(W_Root):
             self.line_num += 1
             if space.isinstance_w(w_line, space.w_bytes):
                 raise self.error("iterator should return strings, not bytes "
-                                 "(did you open the file in text mode?")
+                                 "(the file should be opened in text mode)")
             line = space.utf8_w(w_line)
             for c in Utf8StringIterator(line):
                 if state == START_RECORD:
