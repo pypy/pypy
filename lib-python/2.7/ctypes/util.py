@@ -83,6 +83,15 @@ elif os.name == "posix":
     # Andreas Degert's find functions, using gcc, /sbin/ldconfig, objdump
     import re, errno
 
+    def _is_elf(filename):
+        "Return True if the given file is an ELF file"
+        elf_header = b'\x7fELF'
+        try:
+            with open(filename, 'rb') as thefile:
+                return thefile.read(4) == elf_header
+        except IOError:
+            return False
+
     def _findLib_gcc(name):
         import tempfile
         # Run GCC's linker with the -t (aka --trace) option and examine the
@@ -107,10 +116,17 @@ elif os.name == "posix":
                 # the normal behaviour of GCC if linking fails
                 if e.errno != errno.ENOENT:
                     raise
-        res = re.search(expr, trace)
+        res = re.findall(expr, trace)
         if not res:
             return None
-        return res.group(0)
+
+        for file in res:
+            # Check if the given file is an elf file: gcc can report
+            # some files that are linker scripts and not actual
+            # shared objects. See bpo-41976 for more details
+            if not _is_elf(file):
+                continue
+            return file
 
 
     if sys.platform == "sunos5":
@@ -267,8 +283,37 @@ elif os.name == "posix":
                 return None
             return res.group(1)
 
+        def _findLib_ld(name):
+            # See issue #9998 for why this is needed
+            expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
+            cmd = ['ld', '-t']
+            libpath = os.environ.get('LD_LIBRARY_PATH')
+            if libpath:
+                for d in libpath.split(':'):
+                    cmd.extend(['-L', d])
+            cmd.extend(['-o', os.devnull, '-l%s' % name])
+            result = None
+            try:
+                p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE,
+                                     universal_newlines=True)
+                out, _ = p.communicate()
+                res = re.findall(expr, out)
+                for file in res:
+                    # Check if the given file is an elf file: gcc can report
+                    # some files that are linker scripts and not actual
+                    # shared objects. See bpo-41976 for more details
+                    if not _is_elf(file):
+                        continue
+                    return file
+            except Exception:
+                pass  # result will be None
+            return result
+
         def find_library(name):
-            return _findSoname_ldconfig(name) or _get_soname(_findLib_gcc(name))
+            # See issue #9998
+            return _findSoname_ldconfig(name) or \
+                   _get_soname(_findLib_gcc(name)) or _get_soname(_findLib_ld(name))
 
 ################################################################
 # test code
