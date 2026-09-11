@@ -45,12 +45,11 @@ def test_rwpair_uninitialized_closed_and_isatty():
     import _io
     from pytest import raises
     o = _io.BufferedRWPair.__new__(_io.BufferedRWPair)
-    with raises(ValueError):
-        o.closed
-    with raises(ValueError):
-        o.isatty()
-    # everything that consults .closed inherited the fault. These go
-    # through _check_closed, which swallows the ValueError, so they
-    # merely must not crash.
-    iter(o)
-    o.__enter__()
+    # everything that consults .closed inherited the fault
+    for f in (lambda: o.closed, lambda: o.isatty(), lambda: iter(o),
+              lambda: list(o), lambda: o.readlines(),
+              lambda: o.__enter__(), lambda: o.read(),
+              lambda: o.write(b''), lambda: o.close()):
+        with raises(ValueError) as e:
+            f()
+        assert str(e.value) == "I/O operation on uninitialized object"

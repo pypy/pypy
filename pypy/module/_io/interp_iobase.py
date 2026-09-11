@@ -98,10 +98,13 @@ class W_IOBase(W_Root):
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
         # in most cases!
-        w_closed = space.findattr(self, space.newtext('closed'))
-        if w_closed is not None and space.is_true(w_closed):
-            return True
-        return False
+        try:
+            w_closed = space.getattr(self, space.newtext('closed'))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            return False
+        return space.is_true(w_closed)
 
     def _finalize_(self):
         # Note: there is only this empty _finalize_() method here, but
