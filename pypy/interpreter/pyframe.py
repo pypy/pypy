@@ -241,8 +241,9 @@ class PyFrame(W_Root):
         else:
             closure_size = 0
         if closure_size != nfreevars:
-            raise ValueError("code object received a closure with "
-                                 "an unexpected number of free variables")
+            raise oefmt(self.space.w_ValueError,
+                        "code object received a closure with an unexpected "
+                        "number of free variables")
         index = code.co_nlocals
         for i in range(ncellvars):
             self.locals_cells_stack_w[index] = Cell(

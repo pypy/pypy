@@ -322,3 +322,22 @@ def test_co_positions_no_debug_ranges():
     finally:
         sys._xoptions.clear()
         sys._xoptions.update(saved)
+
+def test_closure_freevars_mismatch():
+    import types
+    def outer():
+        y = 1
+        def inner():
+            return y
+        return inner
+    code = outer.__code__
+    inner_code = next(c for c in code.co_consts
+                      if getattr(c, 'co_freevars', None))
+    new_inner = inner_code.replace(
+        co_freevars=inner_code.co_freevars + ('z',))
+    consts = tuple(new_inner if c is inner_code else c
+                   for c in code.co_consts)
+    f = types.FunctionType(code.replace(co_consts=consts), globals())
+    with pytest.raises(ValueError) as e:
+        f()()
+    assert "closure" in str(e.value)
