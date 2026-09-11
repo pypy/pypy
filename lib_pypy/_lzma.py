@@ -484,7 +484,9 @@ class LZMADecompressor(object):
                              "except with FORMAT_BLOCK")
 
         format = _parse_format(format)
-        self.lock = threading.Lock()
+        # RLock: the input buffer helpers below are reachable from app
+        # level and take the lock too, while decompress() already holds it
+        self.lock = threading.RLock()
         self.check = CHECK_UNKNOWN
         self.unused_data = b''
         self.eof = False
@@ -524,60 +526,63 @@ class LZMADecompressor(object):
     def pre_decompress_left_data(self, buf, buf_size):
         # in this case there is data left that needs to be processed before the first
         # argument can be processed
+        with self.lock:
+            lzs = self.lzs
 
-        lzs = self.lzs
-
-        addr_input_buffer = int(ffi.cast('uintptr_t', self._input_buffer))
-        addr_next_in = int(ffi.cast('uintptr_t', lzs.next_in))
-        avail_now = (addr_input_buffer + self._input_buffer_size) - \
-                    (addr_next_in + lzs.avail_in)
-        avail_total = self._input_buffer_size - lzs.avail_in
-        if avail_total < buf_size:
-            # resize the buffer, it is too small!
-            offset = addr_next_in - addr_input_buffer
-            new_size = self._input_buffer_size + buf_size - avail_now
-            # there is no realloc?
-            tmp = ffi.cast("uint8_t*",m.malloc(new_size))
-            if tmp == ffi.NULL:
-                raise MemoryError
-            ffi.memmove(tmp, lzs.next_in, lzs.avail_in)
-            lzs.next_in = tmp
-            m.free(self._input_buffer)
-            self._input_buffer = tmp
-            self._input_buffer_size = new_size
-        elif avail_now < buf_size:
-            # the buffer is not too small, but we cannot append it!
-            # move all data to the front
-            ffi.memmove(self._input_buffer, lzs.next_in, lzs.avail_in)
-            lzs.next_in = self._input_buffer
-        ffi.memmove(lzs.next_in+lzs.avail_in, buf, buf_size)
-        lzs.avail_in += buf_size
-        return lzs.next_in, lzs.avail_in
+            addr_input_buffer = int(ffi.cast('uintptr_t', self._input_buffer))
+            addr_next_in = int(ffi.cast('uintptr_t', lzs.next_in))
+            avail_now = (addr_input_buffer + self._input_buffer_size) - \
+                        (addr_next_in + lzs.avail_in)
+            avail_total = self._input_buffer_size - lzs.avail_in
+            if avail_total < buf_size:
+                # resize the buffer, it is too small!
+                offset = addr_next_in - addr_input_buffer
+                new_size = self._input_buffer_size + buf_size - avail_now
+                # there is no realloc?
+                tmp = ffi.cast("uint8_t*",m.malloc(new_size))
+                if tmp == ffi.NULL:
+                    raise MemoryError
+                ffi.memmove(tmp, lzs.next_in, lzs.avail_in)
+                lzs.next_in = tmp
+                m.free(self._input_buffer)
+                self._input_buffer = tmp
+                self._input_buffer_size = new_size
+            elif avail_now < buf_size:
+                # the buffer is not too small, but we cannot append it!
+                # move all data to the front
+                ffi.memmove(self._input_buffer, lzs.next_in, lzs.avail_in)
+                lzs.next_in = self._input_buffer
+            ffi.memmove(lzs.next_in+lzs.avail_in, buf, buf_size)
+            lzs.avail_in += buf_size
+            return lzs.next_in, lzs.avail_in
 
     def post_decompress_avail_data(self):
-        lzs = self.lzs
-        # free buffer it is to small
-        if self._input_buffer is not ffi.NULL and \
-           self._input_buffer_size < lzs.avail_in:
-            m.free(self._input_buffer)
-            self._input_buffer = ffi.NONE
+        with self.lock:
+            lzs = self.lzs
+            # free buffer it is to small
+            if self._input_buffer is not ffi.NULL and \
+               self._input_buffer_size < lzs.avail_in:
+                m.free(self._input_buffer)
+                self._input_buffer = ffi.NULL
+                self._input_buffer_size = 0
 
-        # allocate if necessary
-        if self._input_buffer is ffi.NULL:
-            self._input_buffer = ffi.cast("uint8_t*",m.malloc(lzs.avail_in))
-            if self._input_buffer == ffi.NULL:
-                raise MemoryError
-            self._input_buffer_size = lzs.avail_in
+            # allocate if necessary
+            if self._input_buffer is ffi.NULL:
+                self._input_buffer = ffi.cast("uint8_t*",m.malloc(lzs.avail_in))
+                if self._input_buffer == ffi.NULL:
+                    raise MemoryError
+                self._input_buffer_size = lzs.avail_in
 
-        ffi.memmove(self._input_buffer, lzs.next_in, lzs.avail_in)
-        lzs.next_in = self._input_buffer
+            ffi.memmove(self._input_buffer, lzs.next_in, lzs.avail_in)
+            lzs.next_in = self._input_buffer
 
     def clear_input_buffer(self):
         # clean the buffer
-        if self._input_buffer is not ffi.NULL:
-            m.free(self._input_buffer)
-            self._input_buffer = ffi.NULL
-            self._input_buffer_size = 0
+        with self.lock:
+            if self._input_buffer is not ffi.NULL:
+                m.free(self._input_buffer)
+                self._input_buffer = ffi.NULL
+                self._input_buffer_size = 0
 
     def decompress(self, data, max_length=-1):
         """
