@@ -7,7 +7,8 @@ from pypy.module.cpyext.api import (PyObjectP, cpython_api, CONST_STRING,
     Py_RELATIVE_OFFSET)
 from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
-from pypy.module.cpyext.pyobject import PyObject, decref, from_ref, make_ref
+from pypy.module.cpyext.pyobject import (PyObject, decref, from_ref, make_ref,
+    cpyext_dict_slot, publish_dict_to_c)
 from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
@@ -77,12 +78,16 @@ def PyMember_GetOne(space, obj, w_member):
         w_result = space.newtext(result[0])
     elif member_type == T_OBJECT:
         obj_ptr = rffi.cast(PyObjectP, addr)
+        if not obj_ptr[0]:
+            _publish_if_dict_slot(space, obj, obj_ptr)
         if obj_ptr[0]:
             w_result = from_ref(space, obj_ptr[0])
         else:
             w_result = space.w_None
     elif member_type == T_OBJECT_EX:
         obj_ptr = rffi.cast(PyObjectP, addr)
+        if not obj_ptr[0]:
+            _publish_if_dict_slot(space, obj, obj_ptr)
         if obj_ptr[0]:
             w_result = from_ref(space, obj_ptr[0])
         else:
@@ -92,6 +97,15 @@ def PyMember_GetOne(space, obj, w_member):
     else:
         raise oefmt(space.w_SystemError, "bad memberdescr type")
     return w_result
+
+
+def _publish_if_dict_slot(space, obj, obj_ptr):
+    # a member exposing the raw __dict__ slot is filled on demand, like
+    # _PyObject_GetDictPtr
+    py_obj = rffi.cast(PyObject, obj)
+    slot = cpyext_dict_slot(py_obj)
+    if rffi.cast(lltype.Signed, slot) == rffi.cast(lltype.Signed, obj_ptr):
+        publish_dict_to_c(space, from_ref(space, py_obj), py_obj)
 
 
 @cpython_api([rffi.CCHARP, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,

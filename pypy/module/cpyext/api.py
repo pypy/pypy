@@ -640,7 +640,6 @@ SYMBOLS_C = [
     '_Py_object_dealloc', 'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8',
     'PyFloat_Unpack2', 'PyFloat_Unpack4', 'PyFloat_Unpack8',
     '_PyFloat_InitState', '_PyObject_VisitManagedDict',
-    '_PyObject_ClearManagedDict',
     # _Py_Dealloc is in the stable ABI but deliberately NOT exported under
     # its bare name: only extensions built with Py_LIMITED_API < 3.12
     # reference it, from an inlined Py_DECREF that decrements ob_refcnt

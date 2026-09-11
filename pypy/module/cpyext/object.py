@@ -4,12 +4,13 @@ from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
-    Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_MANAGED_DICT, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, from_ref, incref, decref,
+    PyObject, PyObjectP, from_ref, as_pyobj, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj,
-    pyobj_raw_alloc, pyobj_raw_free, PYOBJ_LINK_PREFIX)
+    pyobj_raw_alloc, pyobj_raw_free, PYOBJ_LINK_PREFIX,
+    cpyext_dict_slot, publish_dict_to_c)
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
@@ -85,14 +86,10 @@ def _dealloc(space, obj):
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
-    pytype = op.c_ob_type
-    dictoffset = pytype.c_tp_dictoffset
-    if not dictoffset:
-        return lltype.nullptr(PyObjectP.TO)
-    if dictoffset < 0:
-        dictoffset += pytype.c_tp_basicsize
-    loc = rffi.ptradd(cts.cast("char *", op), dictoffset)
-    return cts.cast("PyObject **", loc)
+    dictptr = cpyext_dict_slot(op)
+    if dictptr and not dictptr[0]:
+        publish_dict_to_c(space, from_ref(space, op), op)
+    return dictptr
 
 @cpython_api([PyObject], rffi.INT_real, error=-1, abi3=True)
 def PyObject_IsTrue(space, w_obj):
@@ -495,10 +492,23 @@ def Py_ReprLeave(space, w_obj):
         except KeyError:
             pass
 
+@cpython_api([PyObject], lltype.Void)
+def _PyObject_ClearManagedDict(space, w_obj):
+    # empty the dict in place: it may live only on the PyPy side
+    pto = as_pyobj(space, w_obj).c_ob_type
+    if (not widen(pto.c_tp_flags) & Py_TPFLAGS_MANAGED_DICT
+            or not pto.c_tp_dictoffset):
+        return
+    w_dict = w_obj.getdict(space)
+    if w_dict is not None:
+        space.call_method(space.w_dict, "clear", w_dict)
+
 @cpython_api([PyObject, rffi.VOIDP], PyObject, abi3=True)
 def PyObject_GenericGetDict(space, w_obj, context):
     from pypy.interpreter.typedef import descr_get_dict
-    return descr_get_dict(space, w_obj)
+    w_dict = descr_get_dict(space, w_obj)
+    publish_dict_to_c(space, w_obj, as_pyobj(space, w_obj))
+    return w_dict
 
 @cpython_api([PyObject, PyObject, rffi.VOIDP], rffi.INT_real, error=-1, abi3=True)
 def PyObject_GenericSetDict(space, w_obj, w_value, context):

@@ -613,6 +613,7 @@ def get_type_name(name):
 
 class W_PyCTypeObject(W_TypeObject):
     _cpyext_dictoffset = 0
+    _cpyext_dict_warned = False
 
     @jit.dont_look_inside
     def __init__(self, space, pto):

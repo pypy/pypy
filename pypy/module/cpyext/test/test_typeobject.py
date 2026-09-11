@@ -2938,6 +2938,127 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert dict1 is dict4
         assert isinstance(dict1, dict)
 
+    def test_dictoffset_cycle_collected(self):
+        # nanobind test27_dynamic_attr: attributes set from Python on
+        # instances of a C type with a __dictoffset__ form a cycle that
+        # must still be collectable
+        module = self.import_extension("foo", [
+            ("get_custom_type", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&Custom_spec);
+            """),
+            ("ndealloc", "METH_NOARGS",
+            """
+                    return PyLong_FromLong(ndealloc);
+            """),
+            ("get_dict_ptr", "METH_O",
+            """
+                    PyObject **dp = _PyObject_GetDictPtr(args);
+                    if (dp == NULL || *dp == NULL)
+                        Py_RETURN_NONE;
+                    return Py_NewRef(*dp);
+            """),
+            ], prologue="""
+                #include <structmember.h>
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *d;
+                } CustomObject;
+                static long ndealloc = 0;
+
+                static int
+                Custom_traverse(CustomObject *self, visitproc visit, void *arg)
+                {
+                    Py_VISIT(self->d);
+                    Py_VISIT(Py_TYPE(self));
+                    return 0;
+                }
+
+                static int
+                Custom_clear(CustomObject *self)
+                {
+                    Py_CLEAR(self->d);
+                    return 0;
+                }
+
+                static void
+                Custom_dealloc(CustomObject *self)
+                {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    ndealloc++;
+                    PyObject_GC_UnTrack(self);
+                    Custom_clear(self);
+                    tp->tp_free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyMemberDef Custom_members[] = {
+                    {"__dictoffset__", T_PYSSIZET, offsetof(CustomObject, d),
+                        READONLY, 0},
+                    {NULL}
+                };
+
+                static PyGetSetDef Custom_getsets[] = {
+                    {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+                    {NULL}
+                };
+
+                static PyType_Slot Custom_slots[] = {
+                    {Py_tp_members, Custom_members},
+                    {Py_tp_getset, Custom_getsets},
+                    {Py_tp_traverse, Custom_traverse},
+                    {Py_tp_clear, Custom_clear},
+                    {Py_tp_dealloc, Custom_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec Custom_spec = {
+                    "foo.Custom",
+                    sizeof(CustomObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,
+                    Custom_slots
+                };
+            """)
+        import sys, warnings
+        Custom = module.get_custom_type()
+        n = 10
+        objs = [Custom() for i in range(n)]
+        for i in range(n):
+            objs[i].prev = objs[i - 1]
+            objs[i].next = objs[(i + 1) % n]
+            objs[i].self = objs[i]
+        assert objs[3].next.prev is objs[3]
+        before = module.ndealloc()
+        del objs
+        self.debug_collect()
+        assert module.ndealloc() == before + n
+
+        # once C code has looked at the dict slot, PyPy holds the dict from
+        # the C struct and can no longer collect a cycle through it
+        a = Custom()
+        b = Custom()
+        a.other = b
+        b.other = a
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always")
+            d = module.get_dict_ptr(a)
+        assert d is a.__dict__
+        if sys.implementation.name == 'pypy':
+            assert len(log) == 1
+            assert log[0].category is ResourceWarning
+            assert "Custom" in str(log[0].message)
+        else:
+            assert log == []
+        del d
+        before = module.ndealloc()
+        del a, b
+        self.debug_collect()
+        if sys.implementation.name == 'pypy':
+            assert module.ndealloc() == before
+        else:
+            assert module.ndealloc() == before + 2
+
     def test_managed_dict(self):
         # Cython sets Py_TPFLAGS_MANAGED_DICT without an explicit
         # __dictoffset__ member

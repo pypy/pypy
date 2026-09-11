@@ -344,25 +344,60 @@ class CPyExtDictTerminator(DevolvedDictTerminator):
         self.dictoffset = dictoffset
 
     def build_dict(self, obj, space):
-        # Called once per object (mapdict caches the result), so this is not
-        # a hot path -- no need for a live/re-checking strategy here. Either
-        # adopt whatever's already published at the struct field, or create
-        # and publish a plain dict, mirroring PyObject_GenericGetDict's
-        # get-or-create semantics. Either way there's exactly one dict
-        # object for the lifetime of the instance: the struct field and
-        # obj.getdict() always agree because they name the same object,
-        # not because anything re-checks them against each other.
+        # Called once per object (mapdict caches the result).  Adopt a dict
+        # that C code already stored in the struct field, else create one on
+        # the PyPy side only: publishing it into the struct would pin it with
+        # a C reference, making a cycle through the instance uncollectable.
+        # It is published on demand by publish_dict_to_c when C asks for it.
         py_obj = as_pyobj(space, obj)
-        loc = rffi.ptradd(cts.cast("char *", py_obj), self.dictoffset)
-        dictptr = cts.cast("PyObject **", loc)
+        dictptr = cpyext_dict_slot(py_obj)
         pyobj = dictptr[0]
         if pyobj:
             result = from_ref(space, pyobj)
+            _warn_dict_pinned(space, obj)
         else:
             result = space.newdict()
-            dictptr[0] = make_ref(space, result)
         assert isinstance(result, W_DictMultiObject)
         return result
+
+
+def cpyext_dict_slot(py_obj):
+    """The tp_dictoffset slot of py_obj, NULL if its type has none."""
+    pto = py_obj.c_ob_type
+    dictoffset = pto.c_tp_dictoffset
+    if not dictoffset:
+        return lltype.nullptr(PyObjectP.TO)
+    if dictoffset < 0:
+        dictoffset += pto.c_tp_basicsize
+    loc = rffi.ptradd(cts.cast("char *", py_obj), dictoffset)
+    return cts.cast("PyObject **", loc)
+
+def publish_dict_to_c(space, w_obj, py_obj):
+    """Store w_obj's __dict__ in the struct slot, for C code that reads it.
+    From then on the instance owns a C reference to its dict, so a reference
+    cycle through the instance is never collected (issue 3848)."""
+    dictptr = cpyext_dict_slot(py_obj)
+    if not dictptr or dictptr[0]:
+        return
+    w_dict = w_obj.getdict(space)
+    if w_dict is None:
+        return
+    dictptr[0] = make_ref(space, w_dict)
+    _warn_dict_pinned(space, w_obj)
+
+def _warn_dict_pinned(space, w_obj):
+    from pypy.module.cpyext.typeobject import W_PyCTypeObject
+    w_type = space.type(w_obj)
+    if not isinstance(w_type, W_PyCTypeObject) or w_type._cpyext_dict_warned:
+        return
+    w_type._cpyext_dict_warned = True
+    try:
+        space.warn(space.newtext(
+            "cpyext: the __dict__ of a '%s' instance is shared with C code; "
+            "reference cycles through such instances are not collected"
+            % w_type.name), space.w_ResourceWarning)
+    except OperationError:
+        pass
 
 
 def track_reference(space, py_obj, w_obj):
