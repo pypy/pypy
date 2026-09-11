@@ -13,7 +13,7 @@ Command line usage:
 
 Options:
   -n/--number N: how many times to execute 'statement' (default: see below)
-  -r/--repeat N: how many times to repeat the timer (default 5)
+  -r/--repeat N: how many times to repeat the timer (default 7)
   -s/--setup S: statement to be executed once initially (default 'pass').
                 Execution time of this setup statement is NOT timed.
   -p/--process: use time.process_time() (default is time.perf_counter())
@@ -51,6 +51,7 @@ Functions:
 
 import gc
 import itertools
+import math
 import sys
 import time
 
@@ -58,7 +59,7 @@ __all__ = ["Timer", "timeit", "repeat", "default_timer"]
 
 dummy_src_name = "<timeit-src>"
 default_number = 1000000
-default_repeat = 5
+default_repeat = 7
 default_timer = time.perf_counter
 
 _globals = globals
@@ -175,7 +176,8 @@ class Timer:
         """
         it = itertools.repeat(None, number)
         gcold = gc.isenabled()
-        gc.disable()
+        if '__pypy__' not in sys.builtin_module_names:
+            gc.disable()    # only do that on CPython
         try:
             timing = self.inner(it, self.timer)
         finally:
@@ -188,20 +190,14 @@ class Timer:
 
         This is a convenience function that calls the timeit()
         repeatedly, returning a list of results.  The first argument
-        specifies how many times to call timeit(), defaulting to 5;
+        specifies how many times to call timeit(), defaulting to 7;
         the second argument specifies the timer argument, defaulting
         to one million.
 
-        Note: it's tempting to calculate mean and standard deviation
-        from the result vector and report these.  However, this is not
-        very useful.  In a typical case, the lowest value gives a
-        lower bound for how fast your machine can run the given code
-        snippet; higher values in the result vector are typically not
-        caused by variability in Python's speed, but by other
-        processes interfering with your timing accuracy.  So the min()
-        of the result is probably the only number you should be
-        interested in.  After that, you should look at the entire
-        vector and apply common sense rather than statistics.
+        The command-line interface reports the mean and population standard
+        deviation of the per-loop timings. Inspect the full result vector
+        for warmup effects and interference from other processes; use pyperf
+        for more reliable measurements.
         """
         r = []
         for i in range(repeat):
@@ -262,6 +258,7 @@ def main(args=None, *, _wrap_timer=None):
     """
     if args is None:
         args = sys.argv[1:]
+    origargs = args
     import getopt
     try:
         opts, args = getopt.getopt(args, "n:u:s:r:pvh",
@@ -308,10 +305,18 @@ def main(args=None, *, _wrap_timer=None):
             return 0
     setup = "\n".join(setup) or "pass"
 
+    import os
+    print("WARNING: timeit is a very unreliable tool. use pyperf or something else for real measurements")
+    executable = os.path.basename(sys.executable)
+    print("%s -m pip install pyperf" % executable)
+    print("%s -m pyperf timeit %s" % (
+        executable,
+        " ".join([(arg if arg.startswith("-") else repr(arg))
+                        for arg in origargs]), ))
+    print("-" * 60)
     # Include the current directory, so that local imports work (sys.path
     # contains the directory of this script, rather than the current
     # directory)
-    import os
     sys.path.insert(0, os.curdir)
     if _wrap_timer is not None:
         timer = _wrap_timer(timer)
@@ -341,7 +346,7 @@ def main(args=None, *, _wrap_timer=None):
         t.print_exc()
         return 1
 
-    def format_time(dt):
+    def format_time(dt, stdev=None):
         unit = time_unit
 
         if unit is not None:
@@ -353,17 +358,28 @@ def main(args=None, *, _wrap_timer=None):
                 if dt >= scale:
                     break
 
-        return "%.*g %s" % (precision, dt / scale, unit)
+        if stdev is None:
+            return "%.*g %s" % (precision, dt / scale, unit)
+        else:
+            return "%.*g +- %.*g %s" % (precision, dt / scale,
+                                        precision, stdev / scale, unit)
 
     if verbose:
         print("raw times: %s" % ", ".join(map(format_time, raw_timings)))
         print()
     timings = [dt / number for dt in raw_timings]
 
-    best = min(timings)
-    print("%d loop%s, best of %d: %s per loop"
-          % (number, 's' if number != 1 else '',
-             repeat, format_time(best)))
+    def _avg(l):
+        return math.fsum(l) / len(l)
+    def _stdev(l):
+        avg = _avg(l)
+        return (math.fsum([(x - avg) ** 2 for x in l]) / len(l)) ** 0.5
+
+    average = _avg(timings)
+    stdev = _stdev(timings)
+
+    print("%s loops, average of %d: %s per loop (using standard deviation)"
+          % (number, repeat, format_time(average, stdev)))
 
     best = min(timings)
     worst = max(timings)
