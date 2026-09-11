@@ -449,6 +449,13 @@ class AppTestLong:
         raises(ValueError, (-5).to_bytes, 1, 'foo')
         assert 65535 .to_bytes(length=2, byteorder='big') == b'\xff\xff'
 
+    def test_to_bytes_negative_length(self):
+        for i in (0, 1, -1, 2**100):
+            with raises(ValueError) as e:
+                i.to_bytes(-1)
+            assert str(e.value) == "length argument must be non-negative"
+        assert (0).to_bytes(0) == b''
+
     def test_to_bytes_default_length(self):
         assert 11 .to_bytes() == b'\x0b'
 

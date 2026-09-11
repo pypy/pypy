@@ -126,6 +126,9 @@ class W_AbstractIntObject(W_Root):
         complement is used to represent the integer.  If signed is False
         and a negative integer is given, an OverflowError is raised.
         """
+        if length < 0:
+            raise oefmt(space.w_ValueError,
+                        "length argument must be non-negative")
         bigint = space.bigint_w(self)
         try:
             byte_string = bigint.tobytes(length, byteorder=byteorder,
@@ -882,6 +885,9 @@ class W_IntObject(W_AbstractIntObject):
         _divmod, ovf2small=_divmod_ovf2small)
 
     def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
+        if length < 0:
+            raise oefmt(space.w_ValueError,
+                        "length argument must be non-negative")
         x = self.intval
         try:
             byte_string = tobytes_int(x, length, byteorder=byteorder,
