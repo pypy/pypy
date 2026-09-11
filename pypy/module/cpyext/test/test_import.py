@@ -92,3 +92,11 @@ class AppTestImportLogic(AppTestCpythonExtensionBase):
         _sys = module.getmodule('sys')
         assert sys is _sys
         assert module.getmodule('not_in_sys_modules') is None
+
+    def test_abi3_extension_suffix(self):
+        import sys, _imp
+        suffixes = _imp.extension_suffixes()
+        if sys.platform != 'win32':
+            assert '.abi3.so' in suffixes
+        assert '.so' not in suffixes
+        assert '.pyd' not in suffixes
