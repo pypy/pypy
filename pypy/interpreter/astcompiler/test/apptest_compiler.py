@@ -287,6 +287,129 @@ def f():          # line 1
     is_load_none = lambda i: i.opname == 'LOAD_CONST' and i.argval is None
     assert _position_of(src, is_load_none) == (2, 2, 9, 12)
     assert _position_of(src, lambda i: i.opname == 'RETURN_VALUE') == (2, 2, 9, 12)
+    assert _position_of(src, lambda i: i.opname == 'BEFORE_WITH') == (2, 2, 9, 12)
+    assert _position_of(src, lambda i: i.opname == 'POP_TOP') == (2, 2, 9, 12)
+
+
+def _code_position_of(code, opname, occurrence=1):
+    import dis
+    n = occurrence
+    for instr, pos in zip(dis.get_instructions(code), code.co_positions()):
+        if instr.opname == opname:
+            n -= 1
+            if not n:
+                return pos
+    raise AssertionError('no %s found' % opname)
+
+
+def test_jump_position_is_tested_expr():
+    import textwrap
+    code = compile(textwrap.dedent("""\
+        if (a or
+            (b and not c) or
+            not (
+                d > 0)):
+            x = 42
+        """), '<test>', 'exec')
+    assert _code_position_of(code, 'POP_JUMP_IF_TRUE', 1) == (1, 1, 4, 5)
+    assert _code_position_of(code, 'POP_JUMP_IF_FALSE', 1) == (2, 2, 5, 6)
+    assert _code_position_of(code, 'POP_JUMP_IF_FALSE', 2) == (2, 2, 15, 16)
+    assert _code_position_of(code, 'COMPARE_OP', 1) == (4, 4, 8, 13)
+    assert _code_position_of(code, 'POP_JUMP_IF_TRUE', 2) == (4, 4, 8, 13)
+
+
+def test_comprehension_element_positions():
+    import textwrap
+    body = textwrap.dedent("""\
+        %s(x,
+            2*x)
+            for x
+            in [1,2,3] if (x > 0
+                           and x < 100
+                           and x != 50)%s
+        """)
+    for start, end, opname in [('(', ')', 'YIELD_VALUE'),
+                               ('[', ']', 'LIST_APPEND'),
+                               ('{', '}', 'SET_ADD')]:
+        code = compile(body % (start, end), '<test>', 'exec').co_consts[0]
+        assert _code_position_of(code, opname) == (1, 2, 1, 8)
+        assert _code_position_of(code, 'JUMP_ABSOLUTE') == (1, 2, 1, 8)
+        assert _code_position_of(code, 'FOR_ITER') == (4, 4, 7, 14)
+        assert _code_position_of(code, 'POP_JUMP_IF_FALSE', 1) == (4, 4, 19, 24)
+    # the implicit return after the loop inherits the iterable's position
+    code = compile(body % ('(', ')'), '<test>', 'exec').co_consts[0]
+    assert _code_position_of(code, 'RETURN_CONST') == (4, 4, 7, 14)
+
+    code = compile(textwrap.dedent("""\
+        {x:
+            2*x
+            for x
+            in [1,2,3] if (x > 0
+                           and x < 100
+                           and x != 50)}
+        """), '<test>', 'exec').co_consts[0]
+    assert _code_position_of(code, 'MAP_ADD') == (1, 2, 1, 7)
+    assert _code_position_of(code, 'JUMP_ABSOLUTE') == (1, 2, 1, 7)
+
+
+def test_async_comprehension_positions():
+    import textwrap, types
+    code = compile(textwrap.dedent("""\
+        async def f():
+            [(x,
+                2*x)
+                async for x
+                in [1,2,3] if (x > 0
+                               and x < 100
+                               and x != 50)]
+        """), '<test>', 'exec')
+    g = {}
+    eval(code, g)
+    code = [c for c in g['f'].__code__.co_consts if isinstance(c, types.CodeType)][0]
+    assert _code_position_of(code, 'LIST_APPEND') == (2, 3, 5, 12)
+    assert _code_position_of(code, 'JUMP_ABSOLUTE') == (2, 3, 5, 12)
+    assert _code_position_of(code, 'PUSH_EXC_INFO') == (2, 7, 4, 36)
+    assert _code_position_of(code, 'RETURN_VALUE') == (2, 7, 4, 36)
+
+
+def test_genexp_line_numbers():
+    def return_genexp():
+        return (1
+                for
+                x
+                in
+                y)
+    code = return_genexp.__code__.co_consts[1]
+    last_line = -2
+    res = []
+    for _, _, line in code.co_lines():
+        if line is not None and line != last_line:
+            res.append(line - code.co_firstlineno)
+            last_line = line
+    assert res == [0, 4, 2, 0, 4]
+
+
+def test_match_pattern_positions():
+    import textwrap
+    code = compile(textwrap.dedent("""\
+        match x:
+            case a, *b, c:
+                pass
+        """), '<test>', 'exec')
+    # UNPACK_EX needs an EXTENDED_ARG here, which must not lose the position
+    assert _code_position_of(code, 'EXTENDED_ARG') == (2, 2, 9, 17)
+    assert _code_position_of(code, 'UNPACK_EX') == (2, 2, 9, 17)
+    assert _code_position_of(code, 'STORE_NAME', 3) == (2, 2, 9, 17)
+
+    code = compile(textwrap.dedent("""\
+        match x:
+            case C(1) | C(2):
+                pass
+        """), '<test>', 'exec')
+    assert _code_position_of(code, 'MATCH_CLASS', 1) == (2, 2, 9, 13)
+    assert _code_position_of(code, 'COMPARE_OP', 1) == (2, 2, 11, 12)
+    assert _code_position_of(code, 'MATCH_CLASS', 2) == (2, 2, 16, 20)
+    assert _code_position_of(code, 'COMPARE_OP', 2) == (2, 2, 18, 19)
 
 
 def test_for_loop_iter_exception_position():

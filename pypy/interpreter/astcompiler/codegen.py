@@ -130,6 +130,7 @@ class __extend__(ast.GeneratorExp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op(ops.YIELD_VALUE)
         codegen.emit_op(ops.POP_TOP)
 
@@ -155,6 +156,7 @@ class __extend__(ast.ListComp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op_arg(ops.LIST_APPEND, index + 1)
 
 
@@ -169,6 +171,7 @@ class __extend__(ast.SetComp):
 
     def accept_comp_iteration(self, codegen, index):
         self.elt.walkabout(codegen)
+        codegen.update_position(self.elt)
         codegen.emit_op_arg(ops.SET_ADD, index + 1)
 
 
@@ -184,6 +187,8 @@ class __extend__(ast.DictComp):
     def accept_comp_iteration(self, codegen, index):
         self.key.walkabout(codegen)
         self.value.walkabout(codegen)
+        codegen.update_position((self.key.lineno, self.value.end_lineno,
+                                 self.key.col_offset, self.value.end_col_offset))
         codegen.emit_op_arg(ops.MAP_ADD, index + 1)
 
 
@@ -233,6 +238,17 @@ def update_pos_expr(func):
         self.position_info = new_position_info
         try:
             return func(self, expr)
+        finally:
+            self.position_info = old_position_info
+    updater.func_name = func.func_name + "_pos_updater"
+    return updater
+
+def update_pos_pattern(func):
+    def updater(self, pattern):
+        assert isinstance(pattern, ast.pattern)
+        old_position_info = self.update_position(pattern)
+        try:
+            return func(self, pattern)
         finally:
             self.position_info = old_position_info
     updater.func_name = func.func_name + "_pos_updater"
@@ -1616,6 +1632,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         witem = wih.items[pos]
         assert isinstance(witem, ast.withitem)
         witem.context_expr.walkabout(self)
+        self.update_position(witem.context_expr)
         if not is_async:
             self.emit_op(ops.BEFORE_WITH)
             self.emit_jump(_SETUP_WITH, cleanup)
@@ -2212,6 +2229,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             start = self.new_block()
             if_cleanup = self.new_block()
             self.use_next_block(start)
+            self.update_position(iter)
             self.emit_jump(ops.FOR_ITER, anchor)
             self.use_next_block()
             built_object_stackdepth += 1
@@ -2275,7 +2293,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(b_if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_start)
 
-        self._emit_async_for_handler(b_except, b_reraise, b_end)
+        self._emit_async_for_handler(b_except, b_reraise, b_end,
+                                     position_node=node)
 
     def _compile_comprehension(self, node, name, sub_scope):
         is_async_function = self.scope.is_coroutine
@@ -2539,6 +2558,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(end)
         # self.emit_op(ops.POP_TOP)
 
+    @update_pos_pattern
     def visit_MatchValue(self, match_value):
         # check that it's either a literal or an attribute lookup
         value = match_value.value
@@ -2550,6 +2570,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_compare(ast.Eq)
         self.match_context.emit_fail_jump(ops.POP_JUMP_IF_FALSE)
 
+    @update_pos_pattern
     def visit_MatchSingleton(self, match_singleton):
         w_value = match_singleton.value
         self.load_const(w_value)
@@ -2567,6 +2588,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         targetpos = match_context.on_top + len(match_context.names_stored)
         self.emit_swaps(targetpos)
 
+    @update_pos_pattern
     def visit_MatchAs(self, match_as):
         match_context = self.match_context
         if match_as.pattern is None:
@@ -2596,6 +2618,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             match_context.on_top -= 1
             self._pattern_store_name(match_as.name, match_as, match_context)
 
+    @update_pos_pattern
     def visit_MatchSequence(self, match_sequence):
         match_context = self.match_context
         patterns = match_sequence.patterns
@@ -2689,9 +2712,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         match_context.on_top -= 1
         self.emit_op(ops.POP_TOP)
 
+    @update_pos_pattern
     def visit_MatchStar(self, match_star):
         self._pattern_store_name(match_star.name, match_star, self.match_context)
 
+    @update_pos_pattern
     def visit_MatchMapping(self, match_mapping):
         match_context = self.match_context
 
@@ -2766,6 +2791,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)  # discard subject
         match_context.on_top -= 1
 
+    @update_pos_pattern
     def visit_MatchOr(self, match_or):
         end = self.new_block()
 
@@ -2825,6 +2851,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # pop the copy of the subject
         self.emit_op(ops.POP_TOP)
 
+    @update_pos_pattern
     def visit_MatchClass(self, match_class):
         match_context = self.match_context
 

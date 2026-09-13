@@ -696,9 +696,9 @@ class PythonCodeMaker(ast.ASTVisitor):
             for instr in block.instructions:
                 if is_pseudo_opcode(instr.opcode):
                     continue
-                encode_single_position(table, instr.position_info, self.first_lineno)
-                for extra in range((instr.size() - 2) // 2):
-                    encode_single_position(table, UNKNOWN_POSITION, self.first_lineno)
+                # EXTENDED_ARG prefixes share the position of their instruction
+                for extra in range(instr.size() // 2):
+                    encode_single_position(table, instr.position_info, self.first_lineno)
         return table.build()
 
     def _build_code(self, blocks, size):

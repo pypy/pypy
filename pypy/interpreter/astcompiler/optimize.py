@@ -41,10 +41,15 @@ class __extend__(ast.expr):
             gen.space, gen.compile_info)
         if test_constant == CONST_NOT_CONST:
             self.walkabout(gen)
+            # the jump gets the position of the tested expression
+            old_position_info = gen.position_info
+            if self.lineno > 0:
+                gen.update_position(self)
             if condition:
                 gen.emit_jump(ops.POP_JUMP_IF_TRUE, target)
             else:
                 gen.emit_jump(ops.POP_JUMP_IF_FALSE, target)
+            gen.position_info = old_position_info
             return
         gen.emit_line_tracing_nop(self)
         if test_constant == condition:
