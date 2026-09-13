@@ -2602,6 +2602,28 @@ class W_Unpickler(W_Root):
     def find_class(self, w_module_name, w_name):
         # Subclasses may override this.
         space = self.space
+        w_descr = space.lookup(self, 'find_class')
+        w_builtin = space.lookup_in_type(space.gettypefor(W_Unpickler),
+                                         'find_class')
+        if w_descr is w_builtin and self.getdictvalue(space, 'find_class') is None:
+            return self.builtin_find_class(w_module_name, w_name)
+        w_find_class = space.getattr(self, space.newtext('find_class'))
+        return space.call_function(w_find_class, w_module_name, w_name)
+
+    def descr_find_class(self, space, w_module_name, w_name):
+        """Return an object from a specified module.
+
+        If necessary, the module will be imported. Subclasses may override
+        this method (e.g. to restrict unpickling of arbitrary classes and
+        functions).
+
+        This method is called whenever a class or a function object is
+        needed.  Both arguments passed are str objects.
+        """
+        return self.builtin_find_class(w_module_name, w_name)
+
+    def builtin_find_class(self, w_module_name, w_name):
+        space = self.space
         space.audit('pickle.find_class', [w_module_name, w_name])
         if self.proto < 3 and self.fix_imports:
             w_modname_and_name = space.newtuple([w_module_name, w_name])
@@ -2928,6 +2950,7 @@ W_Unpickler.typedef = TypeDef("_pickle.Unpickler",
     __new__ = interp2app(descr__new__unpickler),
     __init__ = interp2app(descr__init__unpickler),
     load = interp2app(W_Unpickler.load),
+    find_class = interp2app(W_Unpickler.descr_find_class),
     memo = GetSetProperty(W_Unpickler.get_memo_w, W_Unpickler.set_memo_w),
 )
 
