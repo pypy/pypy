@@ -372,6 +372,34 @@ def test_find_class():
     got = loads(data)
     assert isinstance(got, range)
 
+def test_overridden_find_class_called_on_import_error():
+    import types, gc
+
+    mod = types.ModuleType("mod_a")
+    mod.A = type("A", (), {"__module__": "mod_a"})
+
+    sys.modules["mod_a"] = mod
+
+    from mod_a import A
+
+    a = A()
+
+    serialized_a = pickle.dumps(a)
+
+    del A
+    del mod
+    sys.modules.pop("mod_a", None)
+    gc.collect()
+
+    class U(pickle.Unpickler):
+        def find_class(self, module, name):
+            if module == "mod_a" and name == "A":
+                return dict
+            return super().find_class(module, name)
+
+    assert isinstance(U(io.BytesIO(serialized_a)).load(), dict)
+
+
 def test_function():
     for method, args in (
             ({1, 2}.__contains__, (2,)),
