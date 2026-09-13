@@ -3124,6 +3124,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # declaring it, and _PyObject_ClearManagedDict/_PyObject_VisitManagedDict
         # must still compute the right (tp_basicsize-adjusted) address for a
         # negative offset instead of corrupting memory before the object.
+        # Cython's cyfunction tp_dealloc also calls _PyObject_ClearManagedDict
+        # on the dying object, whether or not its dict was published to C.
         module = self.import_extension("foo", [
             ("get_type", "METH_NOARGS",
             """
@@ -3134,12 +3136,35 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     _PyObject_ClearManagedDict(args);
                     Py_RETURN_NONE;
             """),
+            ("publish_dict", "METH_O",
+            """
+                    PyObject **dictptr = _PyObject_GetDictPtr(args);
+                    if (dictptr == NULL || *dictptr == NULL) {
+                        PyErr_SetString(PyExc_AssertionError, "no dict");
+                        return NULL;
+                    }
+                    Py_RETURN_NONE;
+            """),
+            ("dealloc_count", "METH_NOARGS",
+            """
+                    return PyLong_FromLong(dealloc_count);
+            """),
             ], prologue="""
                 #include <structmember.h>
                 typedef struct {
                     PyObject_HEAD
                     PyObject *d;
                 } NegOffsetObject;
+
+                static long dealloc_count = 0;
+
+                static void NegOffset_dealloc(PyObject *self) {
+                    PyTypeObject *tp = Py_TYPE(self);
+                    _PyObject_ClearManagedDict(self);
+                    dealloc_count++;
+                    tp->tp_free(self);
+                    Py_DECREF(tp);
+                }
 
                 static struct PyMemberDef NegOffset_members[] = {
                     {"__dictoffset__", T_PYSSIZET,
@@ -3148,6 +3173,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 };
 
                 static PyType_Slot NegOffset_slots[] = {
+                    {Py_tp_dealloc, NegOffset_dealloc},
                     {Py_tp_members, NegOffset_members},
                     {0, 0},
                 };
@@ -3166,6 +3192,17 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert inst.__dict__ == {"foo": 42}
         module.clear_managed_dict(inst)
         assert inst.__dict__ == {}
+
+        published = w_type()
+        published.foo = 42
+        module.publish_dict(published)
+        unpublished = w_type()
+        unpublished.foo = 43
+        d = unpublished.__dict__
+        del inst, published, unpublished
+        self.debug_collect()
+        assert module.dealloc_count() == 3
+        assert d == {"foo": 43}
 
     def test_unhashable(self):
         if not self.runappdirect:

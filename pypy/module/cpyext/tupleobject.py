@@ -140,7 +140,7 @@ def PyTuple_SetItem(space, ref, index, py_obj):
         decref(space, py_obj)
         raise oefmt(space.w_IndexError, "tuple assignment index out of range")
     old_ref = tupleobj.c_ob_item[index]
-    if pyobj_has_w_obj(ref):
+    if pyobj_has_w_obj(space, ref):
         # similar but not quite equal to ref.c_ob_refcnt != 1 on CPython
         decref(space, py_obj)
         raise oefmt(space.w_SystemError, "PyTuple_SetItem called on tuple after"

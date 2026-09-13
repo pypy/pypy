@@ -163,7 +163,7 @@ def PyBytes_AS_STRING(space, void_ref):
     ref = rffi.cast(PyObject, void_ref)
     # if no w_str is associated with this ref,
     # return the c-level ptr as RW
-    if not pyobj_has_w_obj(ref):
+    if not pyobj_has_w_obj(space, ref):
         py_str = rffi.cast(PyBytesObject, ref)
         return py_str.c_ob_sval
     return _PyBytes_AsString(space, ref)
@@ -211,7 +211,7 @@ def _PyBytes_Resize(space, ref, newsize):
     set to NULL, a memory exception is set, and -1 is returned.
     """
     # XXX always create a new string so far
-    if pyobj_has_w_obj(ref[0]):
+    if pyobj_has_w_obj(space, ref[0]):
         raise oefmt(space.w_SystemError,
                     "_PyBytes_Resize called on already created string")
     py_str = rffi.cast(PyBytesObject, ref[0])

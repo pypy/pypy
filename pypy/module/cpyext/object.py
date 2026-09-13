@@ -10,7 +10,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, as_pyobj, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj,
     pyobj_raw_alloc, pyobj_raw_free, PYOBJ_LINK_PREFIX,
-    cpyext_dict_slot, publish_dict_to_c)
+    cpyext_dict_slot, publish_dict_to_c, pyobj_has_w_obj)
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
@@ -493,15 +493,23 @@ def Py_ReprLeave(space, w_obj):
             pass
 
 @cpython_api([PyObject], lltype.Void)
-def _PyObject_ClearManagedDict(space, w_obj):
-    # empty the dict in place: it may live only on the PyPy side
-    pto = as_pyobj(space, w_obj).c_ob_type
+def _PyObject_ClearManagedDict(space, obj):
+    # takes a raw PyObject*: Cython calls this from tp_dealloc, when the
+    # PyPy side of the object is already gone
+    pto = obj.c_ob_type
     if (not widen(pto.c_tp_flags) & Py_TPFLAGS_MANAGED_DICT
             or not pto.c_tp_dictoffset):
         return
-    w_dict = w_obj.getdict(space)
-    if w_dict is not None:
-        space.call_method(space.w_dict, "clear", w_dict)
+    dictptr = cpyext_dict_slot(obj)
+    if dictptr and dictptr[0]:
+        py_dict = dictptr[0]
+        dictptr[0] = lltype.nullptr(PyObject.TO)
+        decref(space, py_dict)
+    if pyobj_has_w_obj(space, obj):
+        # empty the dict in place: it may live only on the PyPy side
+        w_dict = from_ref(space, obj).getdict(space)
+        if w_dict is not None:
+            space.call_method(space.w_dict, "clear", w_dict)
 
 @cpython_api([PyObject, rffi.VOIDP], PyObject, abi3=True)
 def PyObject_GenericGetDict(space, w_obj, context):

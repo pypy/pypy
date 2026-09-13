@@ -490,7 +490,17 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
         return lltype.nullptr(PyObject.TO)
 as_pyobj._always_inline_ = 'try'
 
-def pyobj_has_w_obj(pyobj):
+def pyobj_has_w_obj(space, pyobj):
+    """Whether a W_Root is already tied to pyobj (and it is not being deallocated)."""
+    refcnt = pyobj.c_ob_refcnt
+    if refcnt < rawrefcount.REFCNT_FROM_PYPY:
+        if refcnt_is_immortal(refcnt):
+            # prefix-less static object, mapped out-of-band as in from_ref
+            key = rffi.cast(lltype.Signed, pyobj)
+            return key in space.fromcache(State).static_py2w
+        return False   # foreign object, no prefix link to read
+    if not we_are_translated() and rawrefcount._ob_link_get(pyobj) == 0xDEADFFF:
+        return False   # untranslated stand-in for w_marker_deallocating, see src/object.c
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
     return w_obj is not None and w_obj is not w_marker_deallocating
 
