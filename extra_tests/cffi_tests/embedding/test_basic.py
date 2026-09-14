@@ -146,6 +146,8 @@ if sys.platform == 'win32':
         env_extra = {'PYTHONPATH': prefix_pythonpath()}
         if sys.platform == 'win32':
             envname = 'PATH'
+        elif sys.platform == 'darwin':
+            envname = 'DYLD_LIBRARY_PATH'
         else:
             envname = 'LD_LIBRARY_PATH'
         libpath = org_env.get(envname)
