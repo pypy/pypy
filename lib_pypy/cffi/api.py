@@ -599,7 +599,9 @@ class FFI:
                 if sys.version_info < (3,):
                     pythonlib = "pypy-c"
                 else:
-                    pythonlib = "pypy3-c"
+                    import sysconfig
+                    ldlibrary = sysconfig.get_config_var('LDLIBRARY')
+                    pythonlib = os.path.splitext(ldlibrary)[0][3:]
                 if hasattr(sys, 'prefix'):
                     ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
             # On uninstalled pypy's, the libpypy-c is typically found in
