@@ -7,7 +7,7 @@ def test_bytes_invalid_escape():
         eval("b'''\n\\z'''")
     assert len(w) == 1
     assert w[0].filename == '<string>'
-    assert w[0].lineno == 1
+    assert w[0].lineno == 2
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter('error', category=SyntaxWarning)
@@ -15,7 +15,7 @@ def test_bytes_invalid_escape():
             eval("b'''\n\\z'''")
     assert not w
     assert excinfo.value.filename == '<string>'
-    assert excinfo.value.lineno == 1
+    assert excinfo.value.lineno == 2
 
 def test_str_invalid_escape():
     with warnings.catch_warnings(record=True) as w:

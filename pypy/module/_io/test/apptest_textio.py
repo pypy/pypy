@@ -124,6 +124,44 @@ def test_dealloc_warn_uninitialized():
     f = _io.TextIOWrapper.__new__(_io.TextIOWrapper)
     raises(ValueError, f._dealloc_warn, None)
 
+def test_reconfigure_after_detach():
+    class T(_io.TextIOWrapper):
+        def flush(self):
+            pass
+    t = T(_io.BytesIO(b''), encoding='utf-8')
+    t.detach()
+    excinfo = raises(ValueError, t.reconfigure, encoding='latin-1')
+    assert "detached" in str(excinfo.value)
+    excinfo = raises(ValueError, t.reconfigure, line_buffering=True)
+    assert "detached" in str(excinfo.value)
+
+def test_flush_detaches():
+    class T(_io.TextIOWrapper):
+        def flush(self):
+            if self.attached:
+                self.attached = False
+                self.detach()
+    for op in ["truncate()", "tell()", "seek(0)", "close()", "detach()",
+               "reconfigure(encoding='latin-1')", "reconfigure(newline='')"]:
+        t = T(_io.BytesIO(b''), encoding='utf-8')
+        t.attached = True
+        excinfo = raises(ValueError, eval, "t." + op)
+        assert "detached" in str(excinfo.value), op
+
+def test_buffer_method_detaches():
+    class B(_io.BytesIO):
+        def seek(self, pos, whence=0):
+            self.wrapper.detach()
+            return _io.BytesIO.seek(self, pos, whence)
+    b = B(b'abc')
+    t = _io.TextIOWrapper(b, encoding='utf-8')
+    b.wrapper = t
+    # cookie: start_pos=0, bytes_to_feed=1, chars_to_skip=1, so seek()
+    # calls buffer.read() after buffer.seek() has detached us
+    cookie = (1 << 128) | (1 << 192)
+    excinfo = raises(ValueError, t.seek, cookie)
+    assert "detached" in str(excinfo.value)
+
 def test_newlinetranslate():
     
     r = _io.BytesIO(b"abc\r\ndef\rg")

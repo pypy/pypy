@@ -96,7 +96,9 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
         else:
             msg = "invalid escape sequence '%s'" % first_escape_error_char
         if astbuilder:
-            astbuilder.deprecation_warn(msg, token)
+            err_lineno, err_col_offset = _find_escape_position(
+                token, ps, substr, first_escape_error_char)
+            astbuilder.deprecation_warn(msg, token, err_lineno, err_col_offset)
 
     return space.newbytes(v)
 
