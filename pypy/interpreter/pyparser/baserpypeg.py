@@ -273,12 +273,14 @@ class Parser:
             tok = self.diagnose()
             if self.compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT:
                 if self.compile_info.source_ends_with_newline:
-                    # Mirror CPython's _is_end_of_source(): the parser consumed
-                    # all the way to ENDMARKER.  For "@int\n" the decorator rule
-                    # fetches ENDMARKER while looking for a function/class body;
-                    # for "a @\n" the parser fails at the NEWLINE token and never
-                    # reaches ENDMARKER, so "invalid syntax" is raised instead.
-                    if (self._highwatermark >= len(self._tokens) - 1 and
+                    # Mirror CPython's _is_end_of_source(): its tokenizer only
+                    # reports EOF once the parser asks for a token beyond the
+                    # NEWLINE that ends the last source line (the trailing
+                    # DEDENTs, the extra single-mode NEWLINE, or ENDMARKER).
+                    # For "@int\n" the decorator rule looks past that NEWLINE
+                    # for a function/class body; for "a @\n" the parser fails
+                    # at the NEWLINE itself, so "invalid syntax" is raised.
+                    if (self._looked_past_last_line() and
                             not self._eval_invalid_with_trailing_newline()):
                         self.raise_syntax_error_known_location("incomplete input", tok)
                 elif (self.compile_info.flags & consts.PyCF_DONT_IMPLY_DEDENT or
@@ -413,6 +415,18 @@ class Parser:
         if self._highwatermark >= len(self._tokens):
             self._highwatermark = len(self._tokens) - 1
         return self._tokens[self._highwatermark]
+
+    def _looked_past_last_line(self):
+        start = len(self._tokens) - 1
+        while start > 0:
+            typ = self._tokens[start - 1].token_type
+            if (typ != tokens.NEWLINE and typ != tokens.DEDENT and
+                    typ != tokens.ENDMARKER):
+                break
+            start -= 1
+        if self._tokens[start].token_type == tokens.NEWLINE:
+            return self._highwatermark > start
+        return self._highwatermark >= start
 
     def _eval_invalid_with_trailing_newline(self):
         """In eval mode, if the source ended with a newline and the parse
