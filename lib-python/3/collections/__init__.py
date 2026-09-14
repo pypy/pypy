@@ -57,8 +57,10 @@ except ImportError:
 
 try:
     from __pypy__ import newdict
+    is_pypy = True
 except ImportError:
     newdict = lambda _: {}
+    is_pypy = False
 
 
 ################################################################################
@@ -459,18 +461,19 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     _make.__func__.__doc__ = (f'Make a new {typename} object from a sequence '
                               'or iterable')
 
-    # PyPy modification (https://foss.heptapod.net/pypy/pypy/-/issues/3884)
-    # Generate direct field replacements so the JIT can eliminate allocations.
-    parameters = "\n".join(f"    {field}=_not_given," for field in field_names)
-    if field_names:
-        star = "    *,"
-    else:
-        star = ""
-    arguments = "\n".join(
-        f"            {field}=_self[{i}] if {field} is _not_given else {field},"
-        for i, field in enumerate(field_names)
-    )
-    code = f"""\
+    if is_pypy:
+        # PyPy modification (https://foss.heptapod.net/pypy/pypy/-/issues/3884)
+        # Generate direct field replacements so the JIT can eliminate allocations.
+        parameters = "\n".join(f"    {field}=_not_given," for field in field_names)
+        if field_names:
+            star = "    *,"
+        else:
+            star = ""
+        arguments = "\n".join(
+            f"            {field}=_self[{i}] if {field} is _not_given else {field},"
+            for i, field in enumerate(field_names)
+        )
+        code = f"""\
 _not_given = object()
 _type = type
 _ValueError = ValueError
@@ -489,8 +492,14 @@ def _replace(
 {arguments}
             )
         """
-    exec(code, namespace)
-    _replace = namespace["_replace"]
+        exec(code, namespace)
+        _replace = namespace["_replace"]
+    else:
+        def _replace(self, /, **kwds):
+            result = self._make(_map(kwds.pop, field_names, self))
+            if kwds:
+                raise ValueError(f'Got unexpected field names: {list(kwds)!r}')
+            return result
 
     _replace.__doc__ = (f'Return a new {typename} object replacing specified '
                         'fields with new values')
@@ -547,7 +556,7 @@ def _replace(
     if module is None:
         try:
             module = _sys._getframemodulename(1) or '__main__'
-        except AttributeError:
+        except (AttributeError, ValueError):
             try:
                 module = _sys._getframe(1).f_globals.get('__name__', '__main__')
             except (AttributeError, ValueError):
