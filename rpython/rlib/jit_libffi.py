@@ -69,6 +69,22 @@ def jit_ffi_prep_cif(cif_description):
     return rffi.cast(lltype.Signed, res)
 
 
+def jit_ffi_prep_cif_var(cif_description, nfixedargs):
+    """Same as jit_ffi_prep_cif(), but for a call to a variadic function.
+    'nfixedargs' is the number of arguments declared before the '...' in
+    the C signature.  Some ABIs (notably arm64 on macOS/iOS) pass the
+    variadic arguments differently from the fixed ones, so libffi must be
+    told where the variadic part starts.
+    """
+    res = clibffi.c_ffi_prep_cif_var(cif_description.cif,
+                                     cif_description.abi,
+                                     nfixedargs,
+                                     cif_description.nargs,
+                                     cif_description.rtype,
+                                     cif_description.atypes)
+    return rffi.cast(lltype.Signed, res)
+
+
 # =============================
 # jit_ffi_call and its helpers
 # =============================
