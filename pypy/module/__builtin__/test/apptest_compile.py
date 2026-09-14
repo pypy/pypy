@@ -289,3 +289,10 @@ def test_allow_incomplete_input_decorator():
     # codeop.compile_command() must return None (more input needed), not raise.
     import codeop
     assert codeop.compile_command('@int') is None
+
+def test_allow_incomplete_input_try_without_except():
+    import codeop
+    assert codeop.compile_command('try:\n    x = 1') is None
+    flags = codeop.PyCF_DONT_IMPLY_DEDENT | codeop.PyCF_ALLOW_INCOMPLETE_INPUT
+    exc = raises(SyntaxError, compile, 'try:\n    x = 1\n', '<input>', 'single', flags)
+    assert 'incomplete input' in str(exc.value)

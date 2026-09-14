@@ -828,3 +828,16 @@ class TestIncompleteInput(object):
             assert excinfo.value.msg == "incomplete input", (
                 "src=%r got %r" % (src, excinfo.value.msg))
 
+    def test_try_without_except_is_incomplete(self):
+        # A try body ending at the end of input is incomplete, not a missing
+        # except/finally block: the tokenizer already hit EOF on CPython.
+        both = consts.PyCF_ALLOW_INCOMPLETE_INPUT | consts.PyCF_DONT_IMPLY_DEDENT
+        for src in ("try:\n    x = 1", "try:\n    x = 1\n"):
+            info = pyparse.CompileInfo("<test>", "single", flags=both)
+            with pytest.raises(SyntaxError) as excinfo:
+                self.parser.parse_source(src, info)
+            assert excinfo.value.msg == "incomplete input", (
+                "src=%r got %r" % (src, excinfo.value.msg))
+        msg = self.check_error("try:\n    x = 1\nfinally\n")
+        assert "incomplete input" not in msg, msg
+
