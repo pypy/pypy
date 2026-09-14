@@ -87,9 +87,9 @@ static inline PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
 #define FRAME_CODE(f) PyFrame_GetCode(f)
 
 #if CPYTHON_HAS_FRAME_EVALUATION
-#define IS_VMPROF_EVAL(PTR) PTR == (void*)_PyEval_EvalFrameDefault
+#define IS_VMPROF_EVAL(PTR) ((PTR) == (void*)_PyEval_EvalFrameDefault)
 #else
-#define IS_VMPROF_EVAL(PTR) (PTR == (void*)PyEval_EvalFrameEx || PTR == (void*)PyEval_EvalFrame)
+#define IS_VMPROF_EVAL(PTR) ((PTR) == (void*)PyEval_EvalFrameEx || (PTR) == (void*)PyEval_EvalFrame)
 #endif
 
 #endif
