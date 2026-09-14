@@ -91,7 +91,8 @@ class W_CTypeFunc(W_CTypePtrBase):
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
         #ctypefunc.cif_descr = NULL --- already provided as the default
-        CifDescrBuilder(fvarargs, self.ctitem, self.abi).rawallocate(ctypefunc)
+        CifDescrBuilder(fvarargs, self.ctitem, self.abi,
+                        nargs_declared).rawallocate(ctypefunc)
         return ctypefunc
 
     @rgc.must_be_light_finalizer
@@ -317,10 +318,16 @@ _SUPPORTED_IN_API_MODE = (
 class CifDescrBuilder(object):
     rawmem = lltype.nullptr(rffi.CCHARP.TO)
 
-    def __init__(self, fargs, fresult, fabi):
+    def __init__(self, fargs, fresult, fabi, nargs_declared=-1):
         self.fargs = fargs
         self.fresult = fresult
         self.fabi = fabi
+        # 'nargs_declared' is -1 for a non-variadic function, or else the
+        # number of arguments declared before the '...'.  In the latter case
+        # we must use ffi_prep_cif_var() instead of ffi_prep_cif(): some
+        # ABIs (notably arm64 on macOS/iOS) pass the variadic arguments
+        # differently from the fixed ones.
+        self.nargs_declared = nargs_declared
 
     def fb_alloc(self, size):
         size = llmemory.raw_malloc_usage(size)
@@ -538,7 +545,10 @@ class CifDescrBuilder(object):
         self.fb_extra_fields(rawmem)
 
         # call libffi's ffi_prep_cif() function
-        res = jit_libffi.jit_ffi_prep_cif(rawmem)
+        if self.nargs_declared < 0:
+            res = jit_libffi.jit_ffi_prep_cif(rawmem)
+        else:
+            res = jit_libffi.jit_ffi_prep_cif_var(rawmem, self.nargs_declared)
         if res != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this function type")

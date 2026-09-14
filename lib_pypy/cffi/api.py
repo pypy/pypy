@@ -603,9 +603,20 @@ class FFI:
                 if hasattr(sys, 'prefix'):
                     ensure('library_dirs', os.path.join(sys.prefix, 'bin'))
             # On uninstalled pypy's, the libpypy-c is typically found in
-            # .../pypy/goal/.
+            # .../pypy/goal/, or next to the executable of an in-place
+            # translation.
             if hasattr(sys, 'prefix'):
                 ensure('library_dirs', os.path.join(sys.prefix, 'pypy', 'goal'))
+                ensure('library_dirs', sys.prefix)
+            if sys.platform == "darwin":
+                # libpypy-c.dylib is built with an install name of
+                # '@rpath/libpypy-c.dylib', so whatever links against it
+                # must carry an LC_RPATH pointing to the directory it is
+                # in.  Without this, loading the extension module fails
+                # with "Library not loaded: @rpath/libpypy-c.dylib ...
+                # Reason: no LC_RPATH's found".
+                for libdir in kwds.get('library_dirs', []):
+                    ensure('extra_link_args', '-Wl,-rpath,' + libdir)
         else:
             if sys.platform == "win32":
                 template = "python%d%d"
