@@ -86,8 +86,13 @@ def test_create_dynamic_null():
 
 def test_ext_suffixes():
     import _imp
-    for suffix in _imp.extension_suffixes():
+    suffixes = _imp.extension_suffixes()
+    for suffix in suffixes:
         assert suffix.endswith(('.pyd', '.so'))
+    import sys
+    if sys.platform != 'win32' and 'cpyext' in sys.builtin_module_names:
+        assert '.abi3.so' in suffixes
+    assert '.so' not in suffixes
 
 
 def test_obscure_functions():
