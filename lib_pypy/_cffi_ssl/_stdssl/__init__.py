@@ -120,7 +120,7 @@ if lib.Cryptography_HAS_TLSv1_2:
     PROTOCOL_TLSv1_2 = 5
 HAS_SSLv2 = bool(lib.Cryptography_HAS_SSL2)
 HAS_SSLv3 = SSLv3_method_ok
-HAS_TLSv1 = True # XXX
+HAS_TLSv1 = False # XXX
 HAS_TLSv1_1 = bool(lib.Cryptography_HAS_TLSv1_1)
 HAS_TLSv1_2 = bool(lib.Cryptography_HAS_TLSv1_2)
 HAS_TLSv1_3 = bool(lib.Cryptography_HAS_TLSv1_3)
@@ -990,7 +990,7 @@ class _SSLContext(object):
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
-        if protocol == PROTOCOL_TLSv1:
+        if HAS_TLSv1 and protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
             method = lib.TLSv1_1_method()
