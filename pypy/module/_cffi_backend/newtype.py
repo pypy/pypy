@@ -268,6 +268,11 @@ else:
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
+elif (rffi_platform.getdefined('__APPLE__', '') and
+      rffi_platform.getdefined('__aarch64__', '')):
+    # Apple's arm64 ABI follows the x86/gcc bitfield rules, not AAPCS:
+    # anonymous bitfields don't cause alignment
+    DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS
 else:
     if (rffi_platform.getdefined('__arm__', '') or
         rffi_platform.getdefined('__aarch64__', '')):

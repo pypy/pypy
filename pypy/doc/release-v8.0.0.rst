@@ -4,7 +4,7 @@ PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
 
 
 ..
-  updated to 3230035a4700d82f996c283f90e1f5d969730021
+  updated to 66e9c29e04c506aa1111b519adc7ac3912ffdc01
 
 .. note::
    This is a pre-release announcement. When the release actually happens, it
@@ -187,6 +187,9 @@ For all versions
   arm64 tests
 - Add docstrings and python2 typing to public functions and methods in
   ``rpython.rlib.parsing.deterministic``
+- Expose unstable DAWG packing layouts, and stabilize DAWG offset encoding.
+  Remove the unicodedata txt files, download them on demand. Regenerate all the
+  unicodedbs with a new optimized DAWG, and add unicodedb 15.0.0 (:issue:`5581`)
 
 Bugfixes
 ~~~~~~~~
@@ -198,6 +201,9 @@ Bugfixes
 - Prevent fixpoint length occilation in unicodedata dawg encoding
 - Do not allow ``sys.setrecursionlimit`` to go over 75% of stack size.
 - Reverse logic in `os.linkat` to fix longstanding bug (:issue:`5545`)
+- When creating portable builds, compile ``_openssl`` without tests
+- ``rstruct.pack`` with ``'0p'`` format no longer errors
+- Teach the JIT about variadic ffi calls for macos-arm64
 
 
 Speedups and enhancements
@@ -243,6 +249,7 @@ Python 2.7
 ----------
 
 - opt-out of ``_cppyy``, ``micronumpy``, for 8.0.0
+- Improve ``ctype.find_library`` like on python3
 
 Python 3.11
 -----------
@@ -303,6 +310,13 @@ Bugfixes including missing compatibility with CPython 3.11
 - Add a lock for ``textio`` (:issue:`5575`)
 - Fix typo in ``decode_never_raise`` around BOM handling
 - Accept bytes in ``os._add_dll_directory`` on windows
+- Error on unexpected keyword errors for builtins like ``"".split(max_split=1)``
+- Make ``id()`` posonly, more ``__builtin__`` functions should also have this
+- Add implementations of ``os.sched_{g,s}etaffinity`` (:issue:`5582`)
+- Mark the signal module ``_fired_bitmask`` non-JITable (:issue:`4946`)
+- Make ``_pickle.Unpickler.find_class`` available to app-level and check for
+  overrides (:issue:`5583`)
+- Fix parser for incomplete single line input (:issue:`5505`)
 
 
 Speedups and enhancements
