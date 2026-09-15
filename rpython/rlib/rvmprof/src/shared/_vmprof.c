@@ -14,7 +14,6 @@
 
 #ifndef RPYTHON_VMPROF
   #if PY_VERSION_HEX >= 0x030b00f0 /* >= 3.11 */
-  #include "internal/pycore_frame.h"
   #include "populate_frames.h"
   #endif
 #endif
@@ -140,7 +139,11 @@ void emit_all_code_objects(PyObject * seen_code_ids)
     Py_ssize_t i, size;
     void * param[2];
 
+#if PY_VERSION_HEX >= 0x030D0000  /* >= 3.13 */
+    gc_module = PyImport_ImportModule("gc");
+#else
     gc_module = PyImport_ImportModuleNoBlock("gc");
+#endif
     if (gc_module == NULL)
         goto error;
 
