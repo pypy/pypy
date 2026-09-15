@@ -57,23 +57,15 @@ cffi_dependencies = {
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-    'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.2.12/xz-5.2.12.tar.gz',
-             '61bda930767dcb170a5328a895ec74cab0f5aac4558cdda561c83559db582a13',
-             [configure_args,
+
+    'gdbm': (
+              'https://ftp.gnu.org/gnu/gdbm/gdbm-1.23.tar.gz',
+              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
+              [configure_args + ['--without-readline', '--with-pic'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
-
-if sys.platform == "darwin":
-    # this does not compile on the linux buildbot, linker is missing '_history_list'
-    cffi_dependencies['gdbm'] = (
-              'https://ftp.gnu.org/gnu/gdbm/gdbm-1.23.tar.gz',
-              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
-              [configure_args + ['--without-readline'],
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ])
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
