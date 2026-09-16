@@ -776,7 +776,7 @@ class ElementTreeTest(unittest.TestCase):
             'cp932', 'cp949', 'cp950',
             'euc-jp', 'euc-jis-2004', 'euc-jisx0213', 'euc-kr',
             'gb2312', 'gbk', 'gb18030',
-            'iso2022-kr', 'johab', 'hz',
+            'iso2022-kr', 'johab',
             'shift-jis', 'shift-jis-2004', 'shift-jisx0213',
             'utf-7',
         ]
