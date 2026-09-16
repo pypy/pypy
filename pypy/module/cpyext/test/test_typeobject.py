@@ -3445,11 +3445,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert module.pep697_meta.__basicsize__ == moffset + msize
         assert type.__basicsize__ == type_basicsize
         assert Sub.__basicsize__ >= T.__basicsize__
+        # an app-level subclass adds a managed __dict__
+        assert Sub.__dictoffset__ == -1
         import sys
         if sys.implementation.name == 'pypy':
-            # cpyext keeps an app-level __dict__ on the PyPy side: there is
-            # no dict pointer in the C mirror of an app-level subclass
-            assert Sub.__dictoffset__ == 0
+            # instances of cpyext types always have a __dict__ on PyPy
+            assert Slotted.__dictoffset__ == -1
+        else:
             assert Slotted.__dictoffset__ == 0
 
         # a larger relative basicsize really is allocated: fill all of it
@@ -3493,26 +3495,45 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert list.__basicsize__ > object.__basicsize__
         assert list.__itemsize__ == 0
         assert dict.__basicsize__ >= object.__basicsize__
+        assert type.__weakrefoffset__ > 0
         class A:
             pass
         class S:
             __slots__ = ('x',)
-        import sys
-        if sys.implementation.name == 'pypy':
-            # app-level classes keep their __dict__ and weakrefs on the
-            # PyPy side: the C mirror has no slot for either
-            assert A.__dictoffset__ == 0
-            assert A.__weakrefoffset__ == 0
-        else:
-            # CPython 3.12: managed dict and weakref, at negative offsets
-            assert A.__dictoffset__ == -1
-            assert A.__weakrefoffset__ < 0
+        class W:
+            __slots__ = ('__weakref__',)
+        class D:
+            __slots__ = ('__dict__',)
+        class Sub(A):
+            pass
+        class SubS(S):
+            __slots__ = ()
+        # managed dict and weakref, at negative offsets
+        assert A.__dictoffset__ == -1
+        assert A.__weakrefoffset__ == -4 * ptrsize
         assert A.__basicsize__ >= object.__basicsize__
         assert S.__dictoffset__ == 0
+        assert S.__weakrefoffset__ == 0
         assert S.__basicsize__ >= object.__basicsize__
+        assert W.__dictoffset__ == 0
+        assert W.__weakrefoffset__ == -4 * ptrsize
+        assert D.__dictoffset__ == -1
+        assert D.__weakrefoffset__ == 0
+        assert Sub.__dictoffset__ == -1
+        assert Sub.__weakrefoffset__ == -4 * ptrsize
+        assert SubS.__dictoffset__ == 0
+        assert SubS.__weakrefoffset__ == 0
         for name in ('__basicsize__', '__itemsize__', '__dictoffset__',
                      '__weakrefoffset__'):
             raises(TypeError, vars(type)[name].__get__, 42, int)
+
+        # dataclasses uses the offsets to find inherited implicit slots
+        import dataclasses
+        @dataclasses.dataclass(slots=True, weakref_slot=True)
+        class DC(A):
+            pass
+        assert DC.__slots__ == ()
+        DC()
 
     def test_vectorcall2(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
@@ -4020,9 +4041,27 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # types created via PyType_FromSpec that carry tp_dictoffset or
         # tp_weaklistoffset should be combinable in multiple inheritance
         # without raising "instance layout conflicts".
-        module = self.import_extension('foo_heapctype', [],
+        module = self.import_extension('foo_heapctype', [
+            ("dictptr_is_null", "METH_O",
+            """
+                return PyBool_FromLong(_PyObject_GetDictPtr(args) == NULL);
+            """),
+            ("visit_managed_dict", "METH_O",
+            """
+                return PyLong_FromLong(
+                    _PyObject_VisitManagedDict(args, count_visit, NULL));
+            """),
+            ("managed_flags", "METH_O",
+            """
+                unsigned long f = ((PyTypeObject *)args)->tp_flags;
+                return PyLong_FromUnsignedLong(
+                    f & (Py_TPFLAGS_MANAGED_DICT | Py_TPFLAGS_MANAGED_WEAKREF));
+            """),
+            ],
             prologue="""
                 #include <structmember.h>
+
+                static int count_visit(PyObject *o, void *arg) { return 1; }
 
                 typedef struct {
                     PyObject_HEAD
@@ -4146,6 +4185,37 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 pass
             class B2(Both2, cls):
                 pass
+
+        # app-level subclasses inherit a C base's real slot offsets ...
+        import struct
+        ptrsize = struct.calcsize('P')
+        class SubDict(module.HeapCTypeWithDict):
+            pass
+        class SubWeakref(module.HeapCTypeWithWeakref):
+            pass
+        assert SubDict.__dictoffset__ == module.HeapCTypeWithDict.__dictoffset__ > 0
+        assert SubDict.__weakrefoffset__ == -4 * ptrsize
+        assert SubWeakref.__weakrefoffset__ == module.HeapCTypeWithWeakref.__weakrefoffset__ > 0
+        assert SubWeakref.__dictoffset__ == -1
+        assert module.managed_flags(SubDict) == (1 << 3)
+        assert module.managed_flags(SubWeakref) == (1 << 4)
+        sd = SubDict()
+        sd.x = 1
+        assert not module.dictptr_is_null(sd)
+        # ... while plain app-level classes get the managed sentinels,
+        # which C never dereferences
+        class A:
+            pass
+        class S:
+            __slots__ = ()
+        a = A()
+        a.x = 1
+        assert module.dictptr_is_null(a)
+        assert module.dictptr_is_null(S())
+        assert module.visit_managed_dict(a) == 0
+        assert module.managed_flags(A) == (1 << 3) | (1 << 4)
+        assert module.managed_flags(S) == 0
+        assert module.managed_flags(object) == 0
 
     def test_have_gc_flag_inherited(self):
         # Regression test for issue 5556: Py_TPFLAGS_HAVE_GC (together with

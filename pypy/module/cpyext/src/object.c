@@ -305,7 +305,8 @@ int
 _PyObject_VisitManagedDict(PyObject *obj, visitproc visit, void *arg)
 {
     PyTypeObject *tp = Py_TYPE(obj);
-    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset) {
+    if ((tp->tp_flags & Py_TPFLAGS_MANAGED_DICT) == 0 || !tp->tp_dictoffset
+            || tp->tp_dictoffset == MANAGED_DICT_OFFSET) {
         return 0;
     }
     Py_ssize_t dictoffset = tp->tp_dictoffset;

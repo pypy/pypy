@@ -7,7 +7,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObject, PyObjectP, ADDR,
     CANNOT_FAIL, Py_TPFLAGS_HEAPTYPE, PyTypeObjectPtr, is_PyObject,
-    PyVarObject, Py_ssize_t, init_function, cts)
+    PyVarObject, Py_ssize_t, init_function, cts, MANAGED_DICT_OFFSET)
 from pypy.module.cpyext.state import State
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.noneobject import W_NoneObject
@@ -365,7 +365,7 @@ def cpyext_dict_slot(py_obj):
     """The tp_dictoffset slot of py_obj, NULL if its type has none."""
     pto = py_obj.c_ob_type
     dictoffset = pto.c_tp_dictoffset
-    if not dictoffset:
+    if not dictoffset or dictoffset == MANAGED_DICT_OFFSET:
         return lltype.nullptr(PyObjectP.TO)
     if dictoffset < 0:
         dictoffset += pto.c_tp_basicsize

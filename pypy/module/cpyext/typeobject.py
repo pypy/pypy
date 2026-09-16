@@ -23,7 +23,8 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_METHOD_DESCRIPTOR, Py_TPFLAGS_IMMUTABLETYPE,
     Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_ITEMS_AT_END, Py_RELATIVE_OFFSET,
-    ALIGNOF_MAX_ALIGN_T,
+    ALIGNOF_MAX_ALIGN_T, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
+    MANAGED_DICT_OFFSET, MANAGED_WEAKREF_OFFSET,
     PyObject, PyVarObject,
     )
 
@@ -775,6 +776,28 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
 
     return rffi.cast(PyObject, heaptype)
 
+def _set_dict_and_weaklist_offsets(space, w_type, pto):
+    # inherit a base's nonzero offset, else a type that adds a __dict__ or
+    # __weakref__ gets the managed sentinel (never dereferenced, see
+    # cpyext_dict_slot)
+    base = pto.c_tp_base
+    flags = widen(pto.c_tp_flags)
+    if not pto.c_tp_dictoffset:
+        if base and base.c_tp_dictoffset:
+            pto.c_tp_dictoffset = base.c_tp_dictoffset
+            flags |= widen(base.c_tp_flags) & Py_TPFLAGS_MANAGED_DICT
+        elif w_type.hasdict:
+            pto.c_tp_dictoffset = MANAGED_DICT_OFFSET
+            flags |= Py_TPFLAGS_MANAGED_DICT
+    if not pto.c_tp_weaklistoffset:
+        if base and base.c_tp_weaklistoffset:
+            pto.c_tp_weaklistoffset = base.c_tp_weaklistoffset
+            flags |= widen(base.c_tp_flags) & Py_TPFLAGS_MANAGED_WEAKREF
+        elif w_type.weakrefable:
+            pto.c_tp_weaklistoffset = MANAGED_WEAKREF_OFFSET
+            flags |= Py_TPFLAGS_MANAGED_WEAKREF
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
+
 def type_attach(space, py_obj, w_type, w_userdata=None):
     """
     Fills a newly allocated PyTypeObject from an existing type.
@@ -798,6 +821,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         # as on CPython; limited-API code reads type.__dictoffset__ to
         # reach tp_dict of a type object
         pto.c_tp_dictoffset = rffi.offsetof(PyTypeObject, 'c_tp_dict')
+        pto.c_tp_weaklistoffset = rffi.offsetof(PyTypeObject, 'c_tp_weaklist')
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -852,6 +876,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
         # Do not override pto.c_tp_itemsize here, it is done elsewhere
+    _set_dict_and_weaklist_offsets(space, w_type, pto)
     if w_type.is_heaptype():
         update_all_slots(space, w_type, pto)
     else:

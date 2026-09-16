@@ -424,6 +424,11 @@ given type object has a specified feature.
  */
 #define Py_TPFLAGS_MANAGED_DICT (1 << 4)
 
+/* tp_dictoffset / tp_weaklistoffset of managed types; on PyPy the dict
+ * and weakrefs live on the PyPy side, these are never dereferenced. */
+#define MANAGED_DICT_OFFSET (-1)
+#define MANAGED_WEAKREF_OFFSET (((Py_ssize_t)sizeof(PyObject *))*-4)
+
 /* Set if instances of the type object are treated as sequences for pattern matching */
 #define Py_TPFLAGS_SEQUENCE (1 << 5)
 /* Set if instances of the type object are treated as mappings for pattern matching */
