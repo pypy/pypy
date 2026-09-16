@@ -8,6 +8,8 @@
 
 volatile int thread_started = 0;
 volatile int enabled = 0;
+/* Set by the sampler thread while it takes and writes one sample. */
+static volatile LONG sampler_busy = 0;
 #ifndef RPYTHON_VMPROF
 static PY_WIN_THREAD_STATE *target_tstate = NULL;
 #endif
@@ -16,9 +18,23 @@ HANDLE write_mutex;
 
 int prepare_concurrent_bufs(void)
 {
-    if (!(write_mutex = CreateMutex(NULL, FALSE, NULL)))
-        return -1;
+    if (write_mutex == NULL) {
+        if (!(write_mutex = CreateMutex(NULL, FALSE, NULL)))
+            return -1;
+    }
     return 0;
+}
+
+/* Wait for the sampler thread to finish the sample it may be in the middle
+   of. Callers clear `enabled` first so that no new sample starts; without
+   this wait a stale sample could be written into the next profile, ahead of
+   its header. */
+static void wait_for_sampler(void)
+{
+    MemoryBarrier();
+    while (sampler_busy) {
+        SwitchToThread();
+    }
 }
 
 int vmprof_register_virtual_function(char *code_name, intptr_t code_uid,
@@ -126,8 +142,9 @@ int vmprof_snapshot_thread(DWORD thread_id, PY_WIN_THREAD_STATE *tstate, prof_st
 #else
         frame = PyThreadState_GetFrame(tstate);
 #endif
+        /* leave room for the thread id appended below */
         depth = vmp_walk_and_record_stack(frame, stack->stack,
-                                          MAX_STACK_DEPTH, 0, 0);
+                                          MAX_STACK_DEPTH - 1, 0, 0);
 #ifdef _MSC_VER
     } __except (EXCEPTION_EXECUTE_HANDLER) {
         depth = -1;
@@ -193,19 +210,25 @@ long __stdcall vmprof_mainloop(void *arg)
     // cpython version
     while (1) {
         Sleep(vmprof_get_profile_interval_usec() * 1000);
+        sampler_busy = 1;
+        MemoryBarrier();
         if (!enabled) {
+            sampler_busy = 0;
             continue;
         }
         tstate = get_current_thread_state();
         if (!tstate)
             tstate = target_tstate;
-        if (!tstate)
+        if (!tstate) {
+            sampler_busy = 0;
             continue;
+        }
         depth = vmprof_snapshot_thread(tstate->thread_id, tstate, stack);
         if (depth > 0) {
             vmp_write_all((char*)stack + offsetof(prof_stacktrace_s, marker),
                           SIZEOF_PROF_STACKTRACE + depth * sizeof(void*));
         }
+        sampler_busy = 0;
     }
 #else
     // pypy version
@@ -255,10 +278,9 @@ int vmprof_enable(int memory, int native, int real_time)
 RPY_EXTERN
 int vmprof_disable(void)
 {
-    char marker = MARKER_TRAILER;
-    (void)vmp_write_time_now(MARKER_TRAILER);
-
     enabled = 0;
+    wait_for_sampler();
+    (void)vmp_write_time_now(MARKER_TRAILER);
 #ifndef RPYTHON_VMPROF
     target_tstate = NULL;
 #endif
@@ -270,6 +292,9 @@ RPY_EXTERN
 void vmprof_ignore_signals(int ignored)
 {
     enabled = !ignored;
+    if (ignored) {
+        wait_for_sampler();
+    }
 }
 
 int vmp_native_enable(void)
