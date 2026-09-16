@@ -90,18 +90,23 @@ def test_decode_hz_error():
     #
     e = py.test.raises(EncodeDecodeError, decode, c, "~{xyz}").value
     assert e.start == 2
-    assert e.end == 4
+    assert e.end == 3
     assert e.reason == "illegal multibyte sequence"
 
 def test_decode_hz_ignore():
     c = getcodec("hz")
     u = decode(c, 'def~{}abc', 'ignore')
-    assert u == u'def\u5fcf'.encode('utf8')
+    assert u == u'def\u5f95'.encode('utf8')
 
 def test_decode_hz_replace():
     c = getcodec("hz")
     u = decode(c, 'def~{}abc', 'replace')
-    assert u == u'def\ufffd\u5fcf'.encode('utf8')
+    assert u == u'def\ufffd\u5f95\ufffd'.encode('utf8')
+
+def test_decode_hz_tilde():
+    # bpo-30003
+    c = getcodec("hz")
+    assert decode(c, 'ab~~cd') == 'ab~cd'
 
 def test_encode_hz():
     c = getcodec("hz")

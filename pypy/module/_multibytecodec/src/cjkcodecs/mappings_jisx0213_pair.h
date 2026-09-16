@@ -1,9 +1,10 @@
+// AUTO-GENERATED FILE FROM genmap_japanese.py: DO NOT EDIT
 #define JISX0213_ENCPAIRS 46
 #ifdef EXTERN_JISX0213_PAIR
 static const struct widedbcs_index *jisx0213_pair_decmap;
 static const struct pair_encodemap *jisx0213_pair_encmap;
 #else
-static const ucs4_t __jisx0213_pair_decmap[49] = {
+static const Py_UCS4 __jisx0213_pair_decmap[49] = {
 810234010,810365082,810496154,810627226,810758298,816525466,816656538,
 816787610,816918682,817049754,817574042,818163866,818426010,838283418,
 15074048,U,U,U,39060224,39060225,42730240,42730241,39387904,39387905,39453440,

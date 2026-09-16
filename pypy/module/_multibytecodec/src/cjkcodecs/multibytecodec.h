@@ -18,13 +18,6 @@ typedef ssize_t pypymbc_ssize_t;
 #endif
 
 #ifdef _WIN32
-#define pypymbc_UNICODE_SIZE 2
-#else
-#define pypymbc_UNICODE_SIZE 4
-#endif
-typedef wchar_t pypymbc_wchar_t;
-
-#ifdef _WIN32
 typedef unsigned int pypymbc_ucs4_t;
 typedef unsigned short pypymbc_ucs2_t;
 #else
@@ -34,36 +27,41 @@ typedef uint16_t pypymbc_ucs2_t;
 #endif
 
 
+/* The declarations below mirror CPython's Modules/cjkcodecs/multibytecodec.h
+   so that the _codecs_*.c files can be verbatim copies of CPython's.
+   The decoders write into a 'struct pypy_cjk_dec_s', which plays the role
+   of CPython's _PyUnicodeWriter. */
 
-typedef union {
-    void *p;
-    int i;
+typedef struct {
     unsigned char c[8];
-    pypymbc_ucs2_t u2[4];
-    pypymbc_ucs4_t u4[2];
 } MultibyteCodec_State;
 
-typedef int (*mbcodec_init)(const void *config);
+struct _cjk_mod_state;
+struct _multibyte_codec;
+struct pypy_cjk_dec_s;
+
+typedef int (*mbcodec_init)(const struct _multibyte_codec *codec);
 typedef pypymbc_ssize_t (*mbencode_func)(MultibyteCodec_State *state,
-                        const void *config,
-                        const pypymbc_wchar_t **inbuf, pypymbc_ssize_t inleft,
+                        const struct _multibyte_codec *codec,
+                        int kind, const void *data,
+                        pypymbc_ssize_t *inpos, pypymbc_ssize_t inlen,
                         unsigned char **outbuf, pypymbc_ssize_t outleft,
                         int flags);
 typedef int (*mbencodeinit_func)(MultibyteCodec_State *state,
-                                 const void *config);
+                                 const struct _multibyte_codec *codec);
 typedef pypymbc_ssize_t (*mbencodereset_func)(MultibyteCodec_State *state,
-                        const void *config,
+                        const struct _multibyte_codec *codec,
                         unsigned char **outbuf, pypymbc_ssize_t outleft);
 typedef pypymbc_ssize_t (*mbdecode_func)(MultibyteCodec_State *state,
-                        const void *config,
+                        const struct _multibyte_codec *codec,
                         const unsigned char **inbuf, pypymbc_ssize_t inleft,
-                        pypymbc_wchar_t **outbuf, pypymbc_ssize_t outleft);
+                        struct pypy_cjk_dec_s *writer);
 typedef int (*mbdecodeinit_func)(MultibyteCodec_State *state,
-                                 const void *config);
+                                 const struct _multibyte_codec *codec);
 typedef pypymbc_ssize_t (*mbdecodereset_func)(MultibyteCodec_State *state,
-                                         const void *config);
+                                         const struct _multibyte_codec *codec);
 
-typedef struct MultibyteCodec_s {
+typedef struct _multibyte_codec {
     const char *encoding;
     const void *config;
     mbcodec_init codecinit;
@@ -73,6 +71,7 @@ typedef struct MultibyteCodec_s {
     mbdecode_func decode;
     mbdecodeinit_func decinit;
     mbdecodereset_func decreset;
+    struct _cjk_mod_state *modstate;
 } MultibyteCodec;
 
 
@@ -87,11 +86,41 @@ typedef struct MultibyteCodec_s {
 #define MBENC_MAX               MBENC_FLUSH
 
 
+/* Each _codecs_*.c file registers itself with one of these; see
+   I_AM_A_MODULE_FOR() in cjkcodecs.h.  In CPython the mapping tables are
+   exported between the modules as capsules; here they are looked up by
+   name in the registry. */
+
+struct dbcs_map {
+    const char *charset;
+    const void *encmap;
+    const void *decmap;
+};
+
+struct pypy_cjk_module_s {
+    const char *name;
+    void (*add_mappings)(void);
+    void (*add_codecs)(void);
+    struct dbcs_map *mapping_list;
+    int num_mappings;
+    MultibyteCodec *codec_list;
+    int num_codecs;
+    struct _cjk_mod_state *modstate;
+    int initialized;
+};
+
+RPY_EXTERN
+const MultibyteCodec *pypy_cjk_getcodec(const char *name);
+RPY_EXTERN
+int pypy_cjk_importmap(const char *locale, const char *charset,
+                       const void **encmap, const void **decmap);
+
+
 struct pypy_cjk_dec_s {
   const MultibyteCodec *codec;
   MultibyteCodec_State state;
   const unsigned char *inbuf_start, *inbuf, *inbuf_end;
-  pypymbc_wchar_t *outbuf_start, *outbuf, *outbuf_end;
+  pypymbc_ucs4_t *outbuf_start, *outbuf, *outbuf_end;
 };
 
 RPY_EXTERN
@@ -102,9 +131,11 @@ pypymbc_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
 RPY_EXTERN
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *);
 RPY_EXTERN
+int pypy_cjk_dec_expand(struct pypy_cjk_dec_s *, pypymbc_ssize_t esize);
+RPY_EXTERN
 pypymbc_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
 RPY_EXTERN
-pypymbc_wchar_t *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
+pypymbc_ucs4_t *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);
 RPY_EXTERN
 pypymbc_ssize_t pypy_cjk_dec_outlen(struct pypy_cjk_dec_s *);
 RPY_EXTERN
@@ -113,12 +144,13 @@ RPY_EXTERN
 pypymbc_ssize_t pypy_cjk_dec_inbuf_consumed(struct pypy_cjk_dec_s* d);
 RPY_EXTERN
 pypymbc_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
-                            pypymbc_wchar_t *, pypymbc_ssize_t, pypymbc_ssize_t);
+                            pypymbc_ucs4_t *, pypymbc_ssize_t, pypymbc_ssize_t);
 
 struct pypy_cjk_enc_s {
   const MultibyteCodec *codec;
   MultibyteCodec_State state;
-  const pypymbc_wchar_t *inbuf_start, *inbuf, *inbuf_end;
+  const pypymbc_ucs4_t *inbuf_start;
+  pypymbc_ssize_t inpos, inlen;
   unsigned char *outbuf_start, *outbuf, *outbuf_end;
 };
 
@@ -126,7 +158,7 @@ RPY_EXTERN
 struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec);
 RPY_EXTERN
 pypymbc_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
-                             pypymbc_wchar_t *inbuf, pypymbc_ssize_t inlen);
+                             pypymbc_ucs4_t *inbuf, pypymbc_ssize_t inlen);
 RPY_EXTERN
 void pypy_cjk_enc_free(struct pypy_cjk_enc_s *);
 RPY_EXTERN
@@ -148,49 +180,6 @@ RPY_EXTERN
 const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
 RPY_EXTERN
 void pypy_cjk_enc_copystate(struct pypy_cjk_enc_s *dst, struct pypy_cjk_enc_s *src);
-
-/* list of codecs defined in the .c files */
-
-#define DEFINE_CODEC(name)                              \
-    RPY_EXTERN MultibyteCodec *pypy_cjkcodec_##name(void);
-
-// _codecs_cn
-DEFINE_CODEC(gb2312)
-DEFINE_CODEC(gbk)
-DEFINE_CODEC(gb18030)
-DEFINE_CODEC(hz)
-
-//_codecs_hk
-DEFINE_CODEC(big5hkscs)
-
-//_codecs_iso2022
-DEFINE_CODEC(iso2022_kr)
-DEFINE_CODEC(iso2022_jp)
-DEFINE_CODEC(iso2022_jp_1)
-DEFINE_CODEC(iso2022_jp_2)
-DEFINE_CODEC(iso2022_jp_2004)
-DEFINE_CODEC(iso2022_jp_3)
-DEFINE_CODEC(iso2022_jp_ext)
-
-//_codecs_jp
-DEFINE_CODEC(shift_jis)
-DEFINE_CODEC(cp932)
-DEFINE_CODEC(euc_jp)
-DEFINE_CODEC(shift_jis_2004)
-DEFINE_CODEC(euc_jis_2004)
-DEFINE_CODEC(euc_jisx0213)
-DEFINE_CODEC(shift_jisx0213)
-
-//_codecs_kr
-DEFINE_CODEC(euc_kr)
-DEFINE_CODEC(cp949)
-DEFINE_CODEC(johab)
-
-//_codecs_tw
-DEFINE_CODEC(big5)
-DEFINE_CODEC(cp950)
-
-#undef DEFINE_CODEC
 
 
 #endif

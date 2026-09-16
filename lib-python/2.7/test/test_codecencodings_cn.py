@@ -12,12 +12,12 @@ class Test_GB2312(multibytecodec_support.TestBase, unittest.TestCase):
     tstring = multibytecodec_support.load_teststring('gb2312')
     codectests = (
         # invalid bytes
-        ("abc\x81\x81\xc1\xc4", "strict",  None),
-        ("abc\xc8", "strict",  None),
-        ("abc\x81\x81\xc1\xc4", "replace", u"abc\ufffd\u804a"),
-        ("abc\x81\x81\xc1\xc4\xc8", "replace", u"abc\ufffd\u804a\ufffd"),
-        ("abc\x81\x81\xc1\xc4", "ignore",  u"abc\u804a"),
-        ("\xc1\x64", "strict", None),
+        (b"abc\x81\x81\xc1\xc4", "strict",  None),
+        (b"abc\xc8", "strict",  None),
+        (b"abc\x81\x81\xc1\xc4", "replace", u"abc\ufffd\ufffd\u804a"),
+        (b"abc\x81\x81\xc1\xc4\xc8", "replace", u"abc\ufffd\ufffd\u804a\ufffd"),
+        (b"abc\x81\x81\xc1\xc4", "ignore",  u"abc\u804a"),
+        (b"\xc1\x64", "strict", None),
     )
 
 class Test_GBK(multibytecodec_support.TestBase, unittest.TestCase):
@@ -25,12 +25,12 @@ class Test_GBK(multibytecodec_support.TestBase, unittest.TestCase):
     tstring = multibytecodec_support.load_teststring('gbk')
     codectests = (
         # invalid bytes
-        ("abc\x80\x80\xc1\xc4", "strict",  None),
-        ("abc\xc8", "strict",  None),
-        ("abc\x80\x80\xc1\xc4", "replace", u"abc\ufffd\u804a"),
-        ("abc\x80\x80\xc1\xc4\xc8", "replace", u"abc\ufffd\u804a\ufffd"),
-        ("abc\x80\x80\xc1\xc4", "ignore",  u"abc\u804a"),
-        ("\x83\x34\x83\x31", "strict", None),
+        (b"abc\x80\x80\xc1\xc4", "strict",  None),
+        (b"abc\xc8", "strict",  None),
+        (b"abc\x80\x80\xc1\xc4", "replace", u"abc\ufffd\ufffd\u804a"),
+        (b"abc\x80\x80\xc1\xc4\xc8", "replace", u"abc\ufffd\ufffd\u804a\ufffd"),
+        (b"abc\x80\x80\xc1\xc4", "ignore",  u"abc\u804a"),
+        (b"\x83\x34\x83\x31", "strict", None),
         (u"\u30fb", "strict", None),
     )
 
@@ -39,19 +39,22 @@ class Test_GB18030(multibytecodec_support.TestBase, unittest.TestCase):
     tstring = multibytecodec_support.load_teststring('gb18030')
     codectests = (
         # invalid bytes
-        ("abc\x80\x80\xc1\xc4", "strict",  None),
-        ("abc\xc8", "strict",  None),
-        ("abc\x80\x80\xc1\xc4", "replace", u"abc\ufffd\u804a"),
-        ("abc\x80\x80\xc1\xc4\xc8", "replace", u"abc\ufffd\u804a\ufffd"),
-        ("abc\x80\x80\xc1\xc4", "ignore",  u"abc\u804a"),
-        ("abc\x84\x39\x84\x39\xc1\xc4", "replace", u"abc\ufffd\u804a"),
-        (u"\u30fb", "strict", "\x819\xa79"),
+        (b"abc\x80\x80\xc1\xc4", "strict",  None),
+        (b"abc\xc8", "strict",  None),
+        (b"abc\x80\x80\xc1\xc4", "replace", u"abc\ufffd\ufffd\u804a"),
+        (b"abc\x80\x80\xc1\xc4\xc8", "replace", u"abc\ufffd\ufffd\u804a\ufffd"),
+        (b"abc\x80\x80\xc1\xc4", "ignore",  u"abc\u804a"),
+        (b"abc\x84\x39\x84\x39\xc1\xc4", "replace", u"abc\ufffd9\ufffd9\u804a"),
+        (u"\u30fb", "strict", b"\x819\xa79"),
+        (b"abc\x84\x32\x80\x80def", "replace", u'abc\ufffd2\ufffd\ufffddef'),
+        (b"abc\x81\x30\x81\x30def", "strict", u'abc\x80def'),
+        (b"abc\x86\x30\x81\x30def", "replace", u'abc\ufffd0\ufffd0def'),
         # issue29990
-        ("\xff\x30\x81\x30", "strict", None),
-        ("\x81\x30\xff\x30", "strict", None),
-        ("abc\x81\x39\xff\x39\xc1\xc4", "replace", u"abc\ufffd\u804a"),
-        ("abc\xab\x36\xff\x30def", "replace", u'abc\ufffddef'),
-        ("abc\xbf\x38\xff\x32\xc1\xc4", "ignore", u"abc\u804a"),
+        (b"\xff\x30\x81\x30", "strict", None),
+        (b"\x81\x30\xff\x30", "strict", None),
+        (b"abc\x81\x39\xff\x39\xc1\xc4", "replace", u"abc\ufffd\x39\ufffd\x39\u804a"),
+        (b"abc\xab\x36\xff\x30def", "replace", u'abc\ufffd\x36\ufffd\x30def'),
+        (b"abc\xbf\x38\xff\x32\xc1\xc4", "ignore",  u"abc\x38\x32\u804a"),
     )
     has_iso10646 = True
 
@@ -79,11 +82,13 @@ class Test_HZ(multibytecodec_support.TestBase, unittest.TestCase):
          u'\u5df1\u6240\u4e0d\u6b32\uff0c\u52ff\u65bd\u65bc\u4eba\u3002'
          u'Bye.\n'),
         # invalid bytes
-        (b'ab~cd', 'replace', u'ab\uFFFDd'),
-        (b'ab\xffcd', 'replace', u'ab\uFFFDcd'),
-        (b'ab~{\x81\x81\x41\x44~}cd', 'replace', u'ab\uFFFD\uFFFD\u804Acd'),
+        (b'ab~cd', 'replace', u'ab\ufffdcd'),
+        (b'ab\xffcd', 'replace', u'ab\ufffdcd'),
+        (b'ab~{\x81\x81\x41\x44~}cd', 'replace', u'ab\ufffd\ufffd\u804acd'),
+        (b'ab~{\x41\x44~}cd', 'replace', u'ab\u804acd'),
+        (b"ab~{\x79\x79\x41\x44~}cd", "replace", u"ab\ufffd\ufffd\u804acd"),
         # issue 30003
-        (u'ab~cd', 'strict',  b'ab~~cd'), # escape ~
+        (u'ab~cd', 'strict',  b'ab~~cd'),  # escape ~
         (b'~{Dc~~:C~}', 'strict', None),  # ~~ only in ASCII mode
         (b'~{Dc~\n:C~}', 'strict', None), # ~\n only in ASCII mode
     )

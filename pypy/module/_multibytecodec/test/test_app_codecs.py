@@ -30,23 +30,37 @@ class AppTestCodecs:
         assert e.reason == "incomplete multibyte sequence"
         #
         e = raises(UnicodeDecodeError, codec.decode, "~{xyz}").value
-        assert e.args == ('hz', '~{xyz}', 2, 4, 'illegal multibyte sequence')
+        assert e.args == ('hz', '~{xyz}', 2, 3, 'illegal multibyte sequence')
+
+    def test_decode_hz_tilde(self):
+        # bpo-30003
+        assert "ab~~cd".decode("hz") == u"ab~cd"
+        assert u"ab~cd".encode("hz") == "ab~~cd"
+
+    def test_jisx0213_pair_lookahead(self):
+        # a kana that can start a JIS X 0213 pair, followed by one
+        # that does not complete it, must not swallow the second one
+        s = u'\u304b\u3057'
+        for codec in ("iso-2022-jp-3", "iso-2022-jp-2004",
+                      "euc-jis-2004", "shift-jis-2004"):
+            assert s.encode(codec).decode(codec) == s
+        assert u'\u304b\u309a'.encode("iso-2022-jp-3") == '\x1b$(O$w\x1b(B'
 
     def test_decode_hz_ignore(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
         r = codec.decode("def~{}abc", errors='ignore')
-        assert r == (u'def\u5fcf', 9)
+        assert r == (u'def\u5f95', 9)
         r = codec.decode("def~{}abc", 'ignore')
-        assert r == (u'def\u5fcf', 9)
+        assert r == (u'def\u5f95', 9)
 
     def test_decode_hz_replace(self):
         import _codecs_cn
         codec = _codecs_cn.getcodec("hz")
         r = codec.decode("def~{}abc", errors='replace')
-        assert r == (u'def\ufffd\u5fcf', 9)
+        assert r == (u'def\ufffd\u5f95\ufffd', 9)
         r = codec.decode("def~{}abc", 'replace')
-        assert r == (u'def\ufffd\u5fcf', 9)
+        assert r == (u'def\ufffd\u5f95\ufffd', 9)
 
     def test_decode_custom_error_handler(self):
         import codecs

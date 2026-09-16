@@ -1,9 +1,11 @@
 /*
- * cjkcodecs.h is inspired by the file of the same name from CPython,
- * but was heavily modified to suit PyPy.
+ * cjkcodecs.h: common header for cjkcodecs
  *
- * Original author: Hye-Shik Chang <perky@FreeBSD.org>
- * Modified by: Armin Rigo <arigo@tunes.org>
+ * Written by Hye-Shik Chang <perky@FreeBSD.org>
+ *
+ * PyPy version: this follows CPython's Modules/cjkcodecs/cjkcodecs.h
+ * (3.12) with the Python C API replaced by the glue in multibytecodec.c,
+ * so that the _codecs_*.c files can be verbatim copies of CPython's.
  */
 
 #ifndef _CJKCODECS_H_
@@ -13,10 +15,10 @@
 #include "src/cjkcodecs/fixnames.h"
 
 
-/* a unicode "undefined" codepoint */
+/* a unicode "undefined" code point */
 #define UNIINV  0xFFFE
 
-/* internal-use DBCS codepoints which aren't used by any charsets */
+/* internal-use DBCS code points which aren't used by any charsets */
 #define NOCHAR  0xFFFF
 #define MULTIC  0xFFFE
 #define DBCINV  0xFFFD
@@ -34,7 +36,7 @@ struct dbcs_index {
 typedef struct dbcs_index decode_map;
 
 struct widedbcs_index {
-    const ucs4_t *map;
+    const Py_UCS4 *map;
     unsigned char bottom, top;
 };
 typedef struct widedbcs_index widedecode_map;
@@ -50,179 +52,204 @@ struct unim_index_bytebased {
     unsigned char bottom, top;
 };
 
-struct dbcs_map {
-    const char *charset;
-    const struct unim_index *encmap;
-    const struct dbcs_index *decmap;
-};
-
 struct pair_encodemap {
-    ucs4_t uniseq;
+    Py_UCS4 uniseq;
     DBCHAR code;
 };
 
+#ifndef CJK_MOD_SPECIFIC_STATE
+#define CJK_MOD_SPECIFIC_STATE
+#endif
+
+typedef struct _cjk_mod_state {
+    int num_mappings;
+    int num_codecs;
+    struct dbcs_map *mapping_list;
+    MultibyteCodec *codec_list;
+
+    CJK_MOD_SPECIFIC_STATE
+} cjkcodecs_module_state;
+
 #define CODEC_INIT(encoding)                                            \
-    static int encoding##_codec_init(const void *config)
+    static int encoding##_codec_init(const MultibyteCodec *codec)
 
 #define ENCODER_INIT(encoding)                                          \
     static int encoding##_encode_init(                                  \
-        MultibyteCodec_State *state, const void *config)
+        MultibyteCodec_State *state, const MultibyteCodec *codec)
 #define ENCODER(encoding)                                               \
     static Py_ssize_t encoding##_encode(                                \
-        MultibyteCodec_State *state, const void *config,                \
-        const Py_UNICODE **inbuf, Py_ssize_t inleft,                    \
+        MultibyteCodec_State *state, const MultibyteCodec *codec,       \
+        int kind, const void *data,                                     \
+        Py_ssize_t *inpos, Py_ssize_t inlen,                            \
         unsigned char **outbuf, Py_ssize_t outleft, int flags)
 #define ENCODER_RESET(encoding)                                         \
     static Py_ssize_t encoding##_encode_reset(                          \
-        MultibyteCodec_State *state, const void *config,                \
+        MultibyteCodec_State *state, const MultibyteCodec *codec,       \
         unsigned char **outbuf, Py_ssize_t outleft)
 
 #define DECODER_INIT(encoding)                                          \
     static int encoding##_decode_init(                                  \
-        MultibyteCodec_State *state, const void *config)
+        MultibyteCodec_State *state, const MultibyteCodec *codec)
 #define DECODER(encoding)                                               \
     static Py_ssize_t encoding##_decode(                                \
-        MultibyteCodec_State *state, const void *config,                \
+        MultibyteCodec_State *state, const MultibyteCodec *codec,       \
         const unsigned char **inbuf, Py_ssize_t inleft,                 \
-        Py_UNICODE **outbuf, Py_ssize_t outleft)
+        _PyUnicodeWriter *writer)
 #define DECODER_RESET(encoding)                                         \
     static Py_ssize_t encoding##_decode_reset(                          \
-        MultibyteCodec_State *state, const void *config)
-
-#if Py_UNICODE_SIZE == 4
-#define UCS4INVALID(code)       \
-    if ((code) > 0xFFFF)        \
-    return 1;
-#else
-#define UCS4INVALID(code)       \
-    if (0) ;
-#endif
+        MultibyteCodec_State *state, const MultibyteCodec *codec)
 
 #define NEXT_IN(i)                              \
-    (*inbuf) += (i);                            \
-    (inleft) -= (i);
+    do {                                        \
+        (*inbuf) += (i);                        \
+        (inleft) -= (i);                        \
+    } while (0)
+#define NEXT_INCHAR(i)                          \
+    do {                                        \
+        (*inpos) += (i);                        \
+    } while (0)
 #define NEXT_OUT(o)                             \
-    (*outbuf) += (o);                           \
-    (outleft) -= (o);
+    do {                                        \
+        (*outbuf) += (o);                       \
+        (outleft) -= (o);                       \
+    } while (0)
 #define NEXT(i, o)                              \
-    NEXT_IN(i) NEXT_OUT(o)
+    do {                                        \
+        NEXT_INCHAR(i);                         \
+        NEXT_OUT(o);                            \
+    } while (0)
 
 #define REQUIRE_INBUF(n)                        \
-    if (inleft < (n))                           \
-        return MBERR_TOOFEW;
+    do {                                        \
+        if (inleft < (n))                       \
+            return MBERR_TOOFEW;                \
+    } while (0)
+
 #define REQUIRE_OUTBUF(n)                       \
-    if (outleft < (n))                          \
-        return MBERR_TOOSMALL;
+    do {                                        \
+        if (outleft < (n))                      \
+            return MBERR_TOOSMALL;              \
+    } while (0)
 
-#define IN1 ((*inbuf)[0])
-#define IN2 ((*inbuf)[1])
-#define IN3 ((*inbuf)[2])
-#define IN4 ((*inbuf)[3])
+#define INBYTE1 ((*inbuf)[0])
+#define INBYTE2 ((*inbuf)[1])
+#define INBYTE3 ((*inbuf)[2])
+#define INBYTE4 ((*inbuf)[3])
 
-#define OUT1(c) ((*outbuf)[0]) = (c);
-#define OUT2(c) ((*outbuf)[1]) = (c);
-#define OUT3(c) ((*outbuf)[2]) = (c);
-#define OUT4(c) ((*outbuf)[3]) = (c);
+/* the RPython side always passes the input as an array of Py_UCS4 */
+#define PyUnicode_READ(kind, data, index) (((const Py_UCS4 *)(data))[index])
 
-#define WRITE1(c1)              \
-    REQUIRE_OUTBUF(1)           \
-    (*outbuf)[0] = (c1);
-#define WRITE2(c1, c2)          \
-    REQUIRE_OUTBUF(2)           \
-    (*outbuf)[0] = (c1);        \
-    (*outbuf)[1] = (c2);
-#define WRITE3(c1, c2, c3)      \
-    REQUIRE_OUTBUF(3)           \
-    (*outbuf)[0] = (c1);        \
-    (*outbuf)[1] = (c2);        \
-    (*outbuf)[2] = (c3);
-#define WRITE4(c1, c2, c3, c4)  \
-    REQUIRE_OUTBUF(4)           \
-    (*outbuf)[0] = (c1);        \
-    (*outbuf)[1] = (c2);        \
-    (*outbuf)[2] = (c3);        \
-    (*outbuf)[3] = (c4);
+#define INCHAR1 (PyUnicode_READ(kind, data, *inpos))
+#define INCHAR2 (PyUnicode_READ(kind, data, *inpos + 1))
 
-#if Py_UNICODE_SIZE == 2
-# define WRITEUCS4(c)                                           \
-    REQUIRE_OUTBUF(2)                                           \
-    (*outbuf)[0] = 0xd800 + (((c) - 0x10000) >> 10);            \
-    (*outbuf)[1] = 0xdc00 + (((c) - 0x10000) & 0x3ff);          \
-    NEXT_OUT(2)
-#else
-# define WRITEUCS4(c)                                           \
-    REQUIRE_OUTBUF(1)                                           \
-    **outbuf = (Py_UNICODE)(c);                                 \
-    NEXT_OUT(1)
-#endif
+#define OUTCHAR(c)                                                         \
+    do {                                                                   \
+        if (writer->outbuf >= writer->outbuf_end &&                        \
+            pypy_cjk_dec_expand(writer, 1) < 0)                            \
+            return MBERR_NOMEMORY;                                         \
+        *writer->outbuf++ = (Py_UCS4)(c);                                  \
+    } while (0)
+
+#define OUTCHAR2(c1, c2)                                                   \
+    do {                                                                   \
+        if (writer->outbuf + 2 > writer->outbuf_end &&                     \
+            pypy_cjk_dec_expand(writer, 2) < 0)                            \
+            return MBERR_NOMEMORY;                                         \
+        writer->outbuf[0] = (Py_UCS4)(c1);                                 \
+        writer->outbuf[1] = (Py_UCS4)(c2);                                 \
+        writer->outbuf += 2;                                               \
+    } while (0)
+
+#define OUTBYTEI(c, i)                     \
+    do {                                   \
+        assert((unsigned char)(c) == (c)); \
+        ((*outbuf)[i]) = (c);              \
+    } while (0)
+
+#define OUTBYTE1(c) OUTBYTEI(c, 0)
+#define OUTBYTE2(c) OUTBYTEI(c, 1)
+#define OUTBYTE3(c) OUTBYTEI(c, 2)
+#define OUTBYTE4(c) OUTBYTEI(c, 3)
+
+#define WRITEBYTE1(c1)              \
+    do {                            \
+        REQUIRE_OUTBUF(1);          \
+        OUTBYTE1(c1);               \
+    } while (0)
+#define WRITEBYTE2(c1, c2)          \
+    do {                            \
+        REQUIRE_OUTBUF(2);          \
+        OUTBYTE1(c1);               \
+        OUTBYTE2(c2);               \
+    } while (0)
+#define WRITEBYTE3(c1, c2, c3)      \
+    do {                            \
+        REQUIRE_OUTBUF(3);          \
+        OUTBYTE1(c1);               \
+        OUTBYTE2(c2);               \
+        OUTBYTE3(c3);               \
+    } while (0)
+#define WRITEBYTE4(c1, c2, c3, c4)  \
+    do {                            \
+        REQUIRE_OUTBUF(4);          \
+        OUTBYTE1(c1);               \
+        OUTBYTE2(c2);               \
+        OUTBYTE3(c3);               \
+        OUTBYTE4(c4);               \
+    } while (0)
 
 #define _TRYMAP_ENC(m, assi, val)                               \
     ((m)->map != NULL && (val) >= (m)->bottom &&                \
         (val)<= (m)->top && ((assi) = (m)->map[(val) -          \
         (m)->bottom]) != NOCHAR)
-#define TRYMAP_ENC_COND(charset, assi, uni)                     \
+#define TRYMAP_ENC(charset, assi, uni)                     \
     _TRYMAP_ENC(&charset##_encmap[(uni) >> 8], assi, (uni) & 0xff)
-#define TRYMAP_ENC(charset, assi, uni)                          \
-    if TRYMAP_ENC_COND(charset, assi, uni)
+#define TRYMAP_ENC_ST(charset, assi, uni) \
+    _TRYMAP_ENC(&(codec->modstate->charset##_encmap)[(uni) >> 8], \
+                assi, (uni) & 0xff)
 
-#define _TRYMAP_DEC(m, assi, val)                               \
-    ((m)->map != NULL && (val) >= (m)->bottom &&                \
-        (val)<= (m)->top && ((assi) = (m)->map[(val) -          \
-        (m)->bottom]) != UNIINV)
-#define TRYMAP_DEC(charset, assi, c1, c2)                       \
-    if _TRYMAP_DEC(&charset##_decmap[c1], assi, c2)
+#define _TRYMAP_DEC(m, assi, val)                             \
+    ((m)->map != NULL &&                                        \
+     (val) >= (m)->bottom &&                                    \
+     (val)<= (m)->top &&                                        \
+     ((assi) = (m)->map[(val) - (m)->bottom]) != UNIINV)
+#define TRYMAP_DEC(charset, assi, c1, c2)                     \
+    _TRYMAP_DEC(&charset##_decmap[c1], assi, c2)
+#define TRYMAP_DEC_ST(charset, assi, c1, c2) \
+    _TRYMAP_DEC(&(codec->modstate->charset##_decmap)[c1], assi, c2)
 
-#define _TRYMAP_ENC_MPLANE(m, assplane, asshi, asslo, val)      \
-    ((m)->map != NULL && (val) >= (m)->bottom &&                \
-        (val)<= (m)->top &&                                     \
-        ((assplane) = (m)->map[((val) - (m)->bottom)*3]) != 0 && \
-        (((asshi) = (m)->map[((val) - (m)->bottom)*3 + 1]), 1) && \
-        (((asslo) = (m)->map[((val) - (m)->bottom)*3 + 2]), 1))
-#define TRYMAP_ENC_MPLANE(charset, assplane, asshi, asslo, uni) \
-    if _TRYMAP_ENC_MPLANE(&charset##_encmap[(uni) >> 8], \
-                       assplane, asshi, asslo, (uni) & 0xff)
-#define TRYMAP_DEC_MPLANE(charset, assi, plane, c1, c2)         \
-    if _TRYMAP_DEC(&charset##_decmap[plane][c1], assi, c2)
+/* The lists of mappings and codecs are filled in at first use by
+   multibytecodec.c, see pypy_cjk_getcodec(). */
 
-#if Py_UNICODE_SIZE == 2
-#define DECODE_SURROGATE(c)                                     \
-    if (c >> 10 == 0xd800 >> 10) { /* high surrogate */         \
-        REQUIRE_INBUF(2)                                        \
-        if (IN2 >> 10 == 0xdc00 >> 10) { /* low surrogate */ \
-            c = 0x10000 + ((ucs4_t)(c - 0xd800) << 10) + \
-            ((ucs4_t)(IN2) - 0xdc00);                           \
-        }                                                       \
-    }
-#define GET_INSIZE(c)   ((c) > 0xffff ? 2 : 1)
-#else
-#define DECODE_SURROGATE(c) {;}
-#define GET_INSIZE(c)   1
-#endif
+#define BEGIN_MAPPINGS_LIST(NUM)                                    \
+enum { _pypy_num_mappings = (NUM) };                                \
+static struct dbcs_map _pypy_mapping_list[(NUM) + 1];               \
+static void                                                         \
+add_mappings(void)                                                  \
+{                                                                   \
+    int idx = 0;                                                    \
+    (void)idx;
 
-#define BEGIN_MAPPINGS_LIST /* empty */
-#define MAPPING_ENCONLY(enc)                                            \
-  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
-  const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, NULL};
-#define MAPPING_DECONLY(enc)                                            \
-  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
-  const struct dbcs_map pypy_cjkmap_##enc = {#enc, NULL, (void*)enc##_decmap};
-#define MAPPING_ENCDEC(enc)                                             \
-  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##enc;                   \
-  const struct dbcs_map pypy_cjkmap_##enc = {#enc, (void*)enc##_encmap, \
-                                             (void*)enc##_decmap};
-#define END_MAPPINGS_LIST /* empty */
+#define MAPPING_ENCONLY(enc) \
+    _pypy_mapping_list[idx++] = (struct dbcs_map){#enc, (void*)enc##_encmap, NULL};
+#define MAPPING_DECONLY(enc) \
+    _pypy_mapping_list[idx++] = (struct dbcs_map){#enc, NULL, (void*)enc##_decmap};
+#define MAPPING_ENCDEC(enc) \
+    _pypy_mapping_list[idx++] = (struct dbcs_map){#enc, (void*)enc##_encmap, (void*)enc##_decmap};
 
-#define BEGIN_CODECS_LIST /* empty */
-#define _CODEC(name)                                                    \
-  static MultibyteCodec _pypy_cjkcodec_##name;                          \
-  MultibyteCodec *pypy_cjkcodec_##name(void) {                          \
-    if (_pypy_cjkcodec_##name.codecinit != NULL) {                      \
-      int r = _pypy_cjkcodec_##name.codecinit(_pypy_cjkcodec_##name.config); \
-      assert(r == 0);                                                   \
-    }                                                                   \
-    return &_pypy_cjkcodec_##name;                                      \
-  }                                                                     \
-  static MultibyteCodec _pypy_cjkcodec_##name
+#define END_MAPPINGS_LIST               \
+    assert(_pypy_num_mappings == idx);  \
+}
+
+#define BEGIN_CODECS_LIST(NUM)                                  \
+enum { _pypy_num_codecs = (NUM) };                              \
+static MultibyteCodec _pypy_codec_list[(NUM) + 1];              \
+static void                                                     \
+add_codecs(void)                                                \
+{                                                               \
+    int idx = 0;                                                \
+    (void)idx;
+
 #define _STATEFUL_METHODS(enc)          \
     enc##_encode,                       \
     enc##_encode_init,                  \
@@ -233,31 +260,20 @@ struct pair_encodemap {
 #define _STATELESS_METHODS(enc)         \
     enc##_encode, NULL, NULL,           \
     enc##_decode, NULL, NULL,
-#define CODEC_STATEFUL(enc) _CODEC(enc) = {     \
-    #enc, NULL, NULL,                           \
-    _STATEFUL_METHODS(enc)                      \
-  };
-#define CODEC_STATELESS(enc) _CODEC(enc) = {    \
-    #enc, NULL, NULL,                           \
-    _STATELESS_METHODS(enc)                     \
-  };
-#define CODEC_STATELESS_WINIT(enc) _CODEC(enc) = {      \
-    #enc, NULL,                                         \
-    enc##_codec_init,                                   \
-    _STATELESS_METHODS(enc)                             \
-  };
-#define CODEC_STATELESS_CONFIG(enc, config, baseenc) _CODEC(enc) = {    \
-    #enc, config, NULL,                                                 \
-    _STATELESS_METHODS(baseenc)                                         \
-  };
-#define CODEC_STATEFUL_CONFIG(enc, variation, config)   \
-  _CODEC(enc##_##variation) = {                         \
-    #enc "_" #variation,                                \
-    config,                                             \
-    enc##_codec_init,                                   \
-    _STATEFUL_METHODS(enc)                              \
-  };
-#define END_CODECS_LIST /* empty */
+
+#define NEXT_CODEC \
+    _pypy_codec_list[idx++]
+
+#define CODEC_STATEFUL(enc) \
+    NEXT_CODEC = (MultibyteCodec){#enc, NULL, NULL, _STATEFUL_METHODS(enc)};
+#define CODEC_STATELESS(enc) \
+    NEXT_CODEC = (MultibyteCodec){#enc, NULL, NULL, _STATELESS_METHODS(enc)};
+#define CODEC_STATELESS_WINIT(enc) \
+    NEXT_CODEC = (MultibyteCodec){#enc, NULL, enc##_codec_init, _STATELESS_METHODS(enc)};
+
+#define END_CODECS_LIST                         \
+    assert(_pypy_num_codecs == idx);            \
+}
 
 
 #ifdef USING_BINARY_PAIR_SEARCH
@@ -266,7 +282,7 @@ find_pairencmap(ucs2_t body, ucs2_t modifier,
                 const struct pair_encodemap *haystack, int haystacksize)
 {
     int pos, min, max;
-    ucs4_t value = body << 16 | modifier;
+    Py_UCS4 value = body << 16 | modifier;
 
     min = 0;
     max = haystacksize;
@@ -294,24 +310,19 @@ find_pairencmap(ucs2_t body, ucs2_t modifier,
 }
 #endif
 
-
 #ifdef USING_IMPORTED_MAPS
-#define USING_IMPORTED_MAP(charset) \
-  RPY_EXTERN const struct dbcs_map pypy_cjkmap_##charset;
-
-#define IMPORT_MAP(locale, charset, encmap, decmap)                     \
-  importmap(&pypy_cjkmap_##charset, encmap, decmap)
-
-static void importmap(const struct dbcs_map *src, void *encmp,
-                      void *decmp)
-{
-  if (encmp) *(const encode_map **)encmp = src->encmap;
-  if (decmp) *(const decode_map **)decmp = src->decmap;
-}
+#define IMPORT_MAP(locale, charset, encmap, decmap) \
+    pypy_cjk_importmap(#locale, #charset, \
+                       (const void**)encmap, (const void**)decmap)
 #endif
 
-
-#define I_AM_A_MODULE_FOR(loc) /* empty */
-
+#define I_AM_A_MODULE_FOR(loc)                                          \
+    static cjkcodecs_module_state _pypy_modstate;                       \
+    RPY_EXTERN struct pypy_cjk_module_s pypy_cjkmodule_##loc;           \
+    struct pypy_cjk_module_s pypy_cjkmodule_##loc = {                   \
+        #loc, add_mappings, add_codecs,                                 \
+        _pypy_mapping_list, _pypy_num_mappings,                         \
+        _pypy_codec_list, _pypy_num_codecs,                             \
+        &_pypy_modstate, 0 };
 
 #endif
