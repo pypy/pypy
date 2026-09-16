@@ -18,6 +18,10 @@ import pypy.module.cpyext.moduledef  # Make sure all the functions are registere
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
+# report raw allocations a test class never freed (see teardown_class);
+# off until the existing backlog of leaks is triaged
+REPORT_OUTLIVED = False
+
 @api.cpython_api([], api.PyObject)
 def PyPy_Crash1(space):
     1/0
@@ -284,6 +288,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             # same name).  Prevents their raw allocations from being freed
             # inside a later test's leakfinder tracking window.
             cls._module_keepalive = []
+            cls._outlived_before = set(leakfinder.OUTLIVED)
             # Establish the allocation baseline once for the whole class
             # (moved from setup_method so we don't pay the cleanup cost
             # per test -- see teardown_class).
@@ -512,6 +517,19 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         assert not space.finalizer_queue.next_dead()
         state = space.fromcache(State)
         assert 'operror' not in dir(state)
+        if REPORT_OUTLIVED:
+            cls.report_outlived()
+
+    @classmethod
+    def report_outlived(cls):
+        leaked = {}
+        for key, (obj, tb) in leakfinder.OUTLIVED.items():
+            if key in cls._outlived_before:
+                continue
+            if not is_allowed_to_leak(cls.space, obj):
+                leaked[obj] = (obj, tb)
+        if leaked:
+            raise CpyextLeak(leaked, cls.space)
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
