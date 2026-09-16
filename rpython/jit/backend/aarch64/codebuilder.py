@@ -593,7 +593,7 @@ class InstrBuilder(BlockBuilderMixin, AbstractAarch64Builder):
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
         self.clear_cache(addr)
-        self._dump(addr, "jit-backend-dump", 'arm')
+        self._dump(addr, "jit-backend-dump", 'aarch64')
 
     def currpos(self):
         return self.get_relative_pos()
