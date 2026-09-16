@@ -276,6 +276,8 @@ def test_seek_and_tell(tempfile):
                 assert res == decoded[i:]
 
 def test_telling(tempfile):
+    import os
+    linelen = 2 + len(os.linesep)   # "\xff" is 2 bytes in utf8
     with _io.open(tempfile, "w+", encoding="utf8") as f:
         p0 = f.tell()
         f.write("\xff\n")
@@ -284,8 +286,8 @@ def test_telling(tempfile):
         p2 = f.tell()
         f.seek(0)
         assert p0 == 0
-        assert p1 == 3
-        assert p2 == 6
+        assert p1 == linelen
+        assert p2 == 2 * linelen
 
         assert f.tell() == p0
         res = f.readline()
@@ -370,7 +372,8 @@ def _check_warn_on_dealloc(*args, **kwargs):
         f = None
         gc.collect()
     assert len(w) == 1, len(w)
-    assert r in str(w[0])
+    # str(w[0]) is a repr, which would double the backslashes of a path
+    assert r in str(w[0].message)
 
 def test_warn_on_dealloc(tempfile):
     _check_warn_on_dealloc(tempfile, 'wb', buffering=0)
@@ -548,7 +551,7 @@ def test_tell_univnewlines(tempfile):
         
     NEWLINE = '\r\n'
 
-    with io.open(tempfile, "w") as fp:
+    with io.open(tempfile, "w", newline='') as fp:
         fp.write(DATA_CRLF)
 
     with io.open(tempfile, "r") as fp:

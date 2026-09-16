@@ -3,7 +3,6 @@ try:
     from hypothesis import given, strategies as st, settings, example
 except ImportError:
     pytest.skip("hypothesis required")
-import os
 from rpython.rlib.rbigint import rbigint
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import (W_TextIOWrapper, DecodeBuffer,
@@ -16,9 +15,9 @@ from pypy.module._io.interp_textio import (W_TextIOWrapper, DecodeBuffer,
 st.text().example()
 
 def translate_newlines(text):
+    # what reading with universal newlines produces, on any platform
     text = text.replace(u'\r\n', u'\n')
-    text = text.replace(u'\r', u'\n')
-    return text.replace(u'\n', os.linesep)
+    return text.replace(u'\r', u'\n')
 
 @st.composite
 def st_readline(
