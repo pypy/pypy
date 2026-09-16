@@ -1,16 +1,17 @@
 Source
 ------
-The .c and .h files come directly from CPython, with the exception of
-cjkcodecs.h and multibytecodec.h, which have been ripped of their
-CPython dependencies.
+The _codecs_*.c, mappings_*.h, alg_jisx0201.h and emu_jisx0213_2000.h
+files are verbatim copies of CPython's Modules/cjkcodecs (currently
+from CPython 3.12.14).  To update them, copy the files over and diff;
+there should be no local changes.
 
-
-To generate or modify mapping headers
--------------------------------------
-Mapping headers are imported from CJKCodecs as pre-generated form.
-If you need to tweak or add something on it, please look at tools/
-subdirectory of CJKCodecs' distribution.
-
+cjkcodecs.h, multibytecodec.h, multibytecodec.c and fixnames.h are
+PyPy's own: cjkcodecs.h follows CPython's file of the same name but
+implements its macros without the Python C API, on top of the small
+runtime in multibytecodec.c, which is driven from c_codecs.py.  The
+decoders write into a 'struct pypy_cjk_dec_s', which plays the role of
+CPython's _PyUnicodeWriter; the encoders read an array of UCS4 code
+points, on all platforms.
 
 
 Notes on implmentation characteristics of each codecs
@@ -83,4 +84,3 @@ Notes on implmentation characteristics of each codecs
    - U+005C REVERSE SOLIDUS is mapped to SHIFT-JIS 0x5c.
    - U+007E TILDE is mapped to SHIFT-JIS 0x7e.
    - U+FF3C FULL-WIDTH REVERSE SOLIDUS is mapped to SHIFT-JIS 815f.
-

@@ -405,6 +405,8 @@ typedef BOOL (WINAPI *DisconnectExPtr)(SOCKET, LPOVERLAPPED, DWORD, DWORD);
 typedef BOOL (WINAPI *TransmitFilePtr)(SOCKET, HANDLE, DWORD, DWORD,
                                        LPOVERLAPPED, LPTRANSMIT_FILE_BUFFERS, DWORD);
 
+BOOL UnmapViewOfFile(LPCVOID);
+
 
 USHORT htons(USHORT);
 """)

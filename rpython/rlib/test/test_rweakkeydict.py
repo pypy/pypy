@@ -18,70 +18,77 @@ class VY(VX):
 
 
 def make_test(loop=100, prebuilt=None):
+    # Instead of asserting, return the number of the first failed check
+    # (0 means success): an RPython-level assert inside interpret() only
+    # shows up as an anonymous LLException('AssertionError').
     def g(d):
-        assert d.get(KX()) is None
-        assert d.get(KY()) is None
         k1 = KX(); k2 = KX(); k3 = KX()
         v1 = VX(); v2 = VX(); v3 = VX()
-        d.set(k1, v1)
-        d.set(k2, v2)
-        d.set(k3, v3)
-        assert d.get(k1) is v1
-        assert d.get(k2) is v2
-        assert d.get(k3) is v3
-        assert d.get(KX()) is None
-        assert d.length() == 3
-        return k1, k3, v1, v2, v3    # k2 dies
+        err = 0
+        if d.get(KX()) is not None: err = 1
+        elif d.get(KY()) is not None: err = 2
+        if err == 0:
+            d.set(k1, v1)
+            d.set(k2, v2)
+            d.set(k3, v3)
+            if d.get(k1) is not v1: err = 3
+            elif d.get(k2) is not v2: err = 4
+            elif d.get(k3) is not v3: err = 5
+            elif d.get(KX()) is not None: err = 6
+            elif d.length() != 3: err = 7
+        return err, k1, k3, v1, v2, v3    # k2 dies
     def f():
         d = prebuilt
         if d is None:
             d = RWeakKeyDictionary(KX, VX)
-        k1, k3, v1, v2, v3 = g(d)
+        err, k1, k3, v1, v2, v3 = g(d)
+        if err: return err
         rgc.collect(); rgc.collect()
-        assert d.get(k1) is v1
-        assert d.get(k3) is v3
-        assert d.get(k1) is not v2
-        assert d.get(k3) is not v2
-        assert d.length() == 2
+        if d.get(k1) is not v1: return 10
+        if d.get(k3) is not v3: return 11
+        if d.get(k1) is v2: return 12
+        if d.get(k3) is v2: return 13
+        if d.length() != 2: return 14
         d.set(k1, None)
-        assert d.get(k1) is None
-        assert d.get(k3) is v3
-        assert d.length() == 1
+        if d.get(k1) is not None: return 15
+        if d.get(k3) is not v3: return 16
+        if d.length() != 1: return 17
         # resizing should also work
         lots_of_keys = [KX() for i in range(loop)]
         for k in lots_of_keys:
             d.set(k, v1)
         for k in lots_of_keys:
-            assert d.get(k) is v1
-        assert d.get(k1) is None
-        assert d.get(k3) is v3
-        assert d.length() == loop + 1
+            if d.get(k) is not v1: return 20
+        if d.get(k1) is not None: return 21
+        if d.get(k3) is not v3: return 22
+        if d.length() != loop + 1: return 23
         # a subclass
         ky = KY()
         vy = VY()
         d.set(ky, vy)
-        assert d.get(ky) is vy
-        assert d.length() == loop + 2
+        if d.get(ky) is not vy: return 30
+        if d.length() != loop + 2: return 31
         # deleting by storing Nones
         for k in lots_of_keys:
             d.set(k, None)
         for k in lots_of_keys:
-            assert d.get(k) is None
-        assert d.get(k1) is None
-        assert d.get(k3) is v3
-        assert d.get(ky) is vy
-        assert d.length() == 2
+            if d.get(k) is not None: return 40
+        if d.get(k1) is not None: return 41
+        if d.get(k3) is not v3: return 42
+        if d.get(ky) is not vy: return 43
+        if d.length() != 2: return 44
+        return 0
     return f
 
 def test_RWeakKeyDictionary():
-    make_test()()
+    assert make_test()() == 0
 
 def test_rpython_RWeakKeyDictionary():
-    interpret(make_test(loop=12), [])
+    assert interpret(make_test(loop=12), []) == 0
 
 def test_rpython_prebuilt():
     f = make_test(loop=12, prebuilt=RWeakKeyDictionary(KX, VX))
-    interpret(f, [])
+    assert interpret(f, []) == 0
 
 def test_rpython_merge_RWeakKeyDictionary():
     empty = RWeakKeyDictionary(KX, VX)

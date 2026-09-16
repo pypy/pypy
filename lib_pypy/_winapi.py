@@ -533,6 +533,9 @@ def MapViewOfFile(handle, *args):
         RaiseFromWindowsErr(0)
     return address
         
+def UnmapViewOfFile(address):
+    return _ffi.UnmapViewOfFile(address)
+
 def VirtualQuerySize(address):
     mem_basic_info = _ffi.new("MEMORY_BASIC_INFORMATION[1]")
   

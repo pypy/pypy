@@ -103,6 +103,11 @@ def test_decode_hz_replace(space):
     utf8 = decode(space, c, 'def~{}abc', 'replace')
     assert utf8.decode('utf8') == u'def\ufffd\u5f95\ufffd'
 
+def test_decode_hz_tilde(space):
+    # bpo-30003
+    c = getcodec("hz")
+    assert decode(space, c, 'ab~~cd') == 'ab~cd'
+
 def test_encode_hz(space):
     c = getcodec("hz")
     s = encode(space, c, u'foobar'.encode('utf8'), 6)

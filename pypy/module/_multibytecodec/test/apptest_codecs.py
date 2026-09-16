@@ -41,6 +41,22 @@ def test_decode_hz_error():
     assert e.args == ('hz', b'~{xyz}', 2, 3, 'illegal multibyte sequence')
 
 
+def test_decode_hz_tilde():
+    # bpo-30003
+    assert b"ab~~cd".decode("hz") == "ab~cd"
+    assert "ab~cd".encode("hz") == b"ab~~cd"
+
+
+def test_jisx0213_pair_lookahead():
+    # a kana that can start a JIS X 0213 pair, followed by one
+    # that does not complete it, must not swallow the second one
+    s = '\u304b\u3057'
+    for codec in ("iso-2022-jp-3", "iso-2022-jp-2004",
+                  "euc-jis-2004", "shift-jis-2004"):
+        assert s.encode(codec).decode(codec) == s
+    assert '\u304b\u309a'.encode("iso-2022-jp-3") == b'\x1b$(O$w\x1b(B'
+
+
 def test_decode_hz_ignore():
     codec = _codecs_cn.getcodec("hz")
     r = codec.decode(b"def~{}abc", errors='ignore')

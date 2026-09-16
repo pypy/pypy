@@ -1,3 +1,4 @@
+// AUTO-GENERATED FILE FROM genmap_schinese.py: DO NOT EDIT
 static const ucs2_t __gb2312_decmap[7482] = {
 12288,12289,12290,12539,713,711,168,12291,12293,8213,65374,8214,8230,8216,
 8217,8220,8221,12308,12309,12296,12297,12298,12299,12300,12301,12302,12303,
@@ -4049,7 +4050,7 @@ __gb18030ext_encmap+3126,0,100},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0
 
 
 static const struct _gb18030_to_unibmp_ranges {
-    Py_UNICODE   first, last;
+    Py_UCS4   first, last;
     DBCHAR       base;
 } gb18030_to_unibmp_ranges[] = {
 {128,163,0},{165,166,36},{169,175,38},{178,182,45},{184,214,50},{216,223,81},{

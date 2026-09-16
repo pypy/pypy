@@ -3,6 +3,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
 from rpython.rlib import rutf8
+from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rstring import StringBuilder
 
 UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'.encode("utf8")
 
@@ -51,7 +53,8 @@ eci = ExternalCompilationInfo(
         srcdir.join('src', 'cjkcodecs', 'multibytecodec.c'),
     ],
     includes = ['src/cjkcodecs/multibytecodec.h'],
-    include_dirs = [str(srcdir), cdir],
+    # the verbatim CPython sources include their headers by bare name
+    include_dirs = [str(srcdir), str(srcdir.join('src', 'cjkcodecs')), cdir],
 )
 
 MBERR_TOOSMALL = -1  # insufficient output buffer space
@@ -59,8 +62,10 @@ MBERR_TOOFEW   = -2  # incomplete input buffer
 MBERR_INTERNAL = -3  # internal runtime error
 MBERR_NOMEMORY = -4  # out of memory
 
-MULTIBYTECODEC_P = rffi.COpaquePtr('struct MultibyteCodec_s',
+MULTIBYTECODEC_P = rffi.COpaquePtr('struct _multibyte_codec',
                                    compilation_info=eci)
+# the C side works on arrays of UCS4 code points, on all platforms
+UCS4P = rffi.UINTP
 
 def llexternal(*args, **kwds):
     kwds.setdefault('compilation_info', eci)
@@ -68,15 +73,29 @@ def llexternal(*args, **kwds):
     kwds.setdefault('_nowrapper', True)
     return rffi.llexternal(*args, **kwds)
 
-def getter_for(name):
-    return llexternal('pypy_cjkcodec_%s' % name, [], MULTIBYTECODEC_P)
-
-_codecs_getters = dict([(name, getter_for(name)) for name in codecs])
-assert len(_codecs_getters) == len(codecs)
+pypy_cjk_getcodec = llexternal('pypy_cjk_getcodec', [rffi.CCHARP],
+                               MULTIBYTECODEC_P)
 
 def getcodec(name):
-    getter = _codecs_getters[name]
-    return getter()
+    with rffi.scoped_str2charp(name) as p:
+        codec = pypy_cjk_getcodec(p)
+    if not codec:
+        raise KeyError(name)
+    return codec
+
+def utf82ucs4p(utf8, length):
+    buf = lltype.malloc(UCS4P.TO, length + 1, flavor='raw')
+    i = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        buf[i] = rffi.cast(rffi.UINT, ch)
+        i += 1
+    return buf
+
+def ucs4p2utf8(src, length):
+    s = StringBuilder(length)
+    for i in range(length):
+        rutf8.unichr_as_utf8_append(s, intmask(src[i]), True)
+    return s.build()
 
 # ____________________________________________________________
 # Decoding
@@ -92,7 +111,7 @@ pypy_cjk_dec_free = llexternal('pypy_cjk_dec_free', [DECODEBUF_P],
 pypy_cjk_dec_chunk = llexternal('pypy_cjk_dec_chunk', [DECODEBUF_P],
                                 rffi.SSIZE_T)
 pypy_cjk_dec_outbuf = llexternal('pypy_cjk_dec_outbuf', [DECODEBUF_P],
-                                 rffi.CWCHARP)
+                                 UCS4P)
 pypy_cjk_dec_outlen = llexternal('pypy_cjk_dec_outlen', [DECODEBUF_P],
                                  rffi.SSIZE_T)
 pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
@@ -100,7 +119,7 @@ pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
 pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
                                          [DECODEBUF_P], rffi.SSIZE_T)
 pypy_cjk_dec_replace_on_error = llexternal('pypy_cjk_dec_replace_on_error',
-                                           [DECODEBUF_P, rffi.CWCHARP,
+                                           [DECODEBUF_P, UCS4P,
                                             rffi.SSIZE_T, rffi.SSIZE_T],
                                            rffi.SSIZE_T)
 
@@ -127,7 +146,7 @@ def decodeex(space, decodebuf, stringdata, errors="strict", errorcb=None, namecb
                                     errorcb, namecb, stringdata)
         src = pypy_cjk_dec_outbuf(decodebuf)
         length = pypy_cjk_dec_outlen(decodebuf)
-        return rffi.wcharpsize2utf8(src, length) # assumes no out-of-range chars
+        return ucs4p2utf8(src, length)
 
 def multibytecodec_decerror(space, decodebuf, e, errors,
                             errorcb, namecb, stringdata):
@@ -159,7 +178,7 @@ def multibytecodec_decerror(space, decodebuf, e, errors,
                                w_s, start, end)
         # 'replace' is UTF8 encoded unicode, rettype is 'u'
     lgt = rutf8.codepoints_in_utf8(replace)
-    inbuf = rffi.utf82wcharp(replace, lgt)
+    inbuf = utf82ucs4p(replace, lgt)
     try:
         r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, lgt, end)
     finally:
@@ -173,7 +192,7 @@ ENCODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_enc_s', compilation_info=eci)
 pypy_cjk_enc_new = llexternal('pypy_cjk_enc_new',
                                [MULTIBYTECODEC_P], ENCODEBUF_P)
 pypy_cjk_enc_init = llexternal('pypy_cjk_enc_init',
-                               [ENCODEBUF_P, rffi.CWCHARP, rffi.SSIZE_T],
+                               [ENCODEBUF_P, UCS4P, rffi.SSIZE_T],
                                rffi.SSIZE_T)
 pypy_cjk_enc_free = llexternal('pypy_cjk_enc_free', [ENCODEBUF_P],
                                lltype.Void)
@@ -233,7 +252,7 @@ def encode(space, codec, unicodedata, length, errors="strict", errorcb=None,
 def encodeex(space, encodebuf, utf8data, length, errors="strict", errorcb=None,
              namecb=None, ignore_error=0):
     inleft = length
-    inbuf = rffi.utf82wcharp(utf8data, length)
+    inbuf = utf82ucs4p(utf8data, length)
     w_s = space.newtext(utf8data)
     try:
         if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
