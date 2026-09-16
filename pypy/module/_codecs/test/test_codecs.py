@@ -1415,22 +1415,36 @@ class AppTestPartialEvaluation:
             return
         # sanity test
         from _codecs import mbcs_encode, mbcs_decode
-        toencode = u'caf\xe9', 'caf\xe9'
-
         try:
-            # test for non-latin1 codepage, more general test needed
             import winreg
             key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
                         r'System\CurrentControlSet\Control\Nls\CodePage')
-            if winreg.QueryValueEx(key, 'ACP')[0] == u'1255':  # non-latin1
-                toencode = u'caf\xbf',b'caf\xbf'
+            acp = int(winreg.QueryValueEx(key, 'ACP')[0])
         except:
             assert False, 'cannot test mbcs on this windows system, check code page'
+        # 'mbcs' is the ANSI code page, which may be e.g. 1252, 1255 or
+        # 65001 (UTF-8): derive the expectations from that codec
+        enc = 'cp%d' % acp
         assert u'test'.encode('mbcs') == b'test'
-        assert toencode[0].encode('mbcs') == toencode[1]
-        raises(UnicodeEncodeError, u'\u040a'.encode, 'mbcs')
+        for s in (u'caf\xe9', u'caf\xbf', u'caf\u4e00'):
+            try:
+                expected = s.encode(enc)
+                break
+            except UnicodeEncodeError:
+                continue
+        else:
+            assert False, 'no encodable test character for %s' % enc
+        assert s.encode('mbcs') == expected
+        assert expected.decode('mbcs') == s
+        for s in (u'\u040a', u'\xe9', u'\u4e00'):
+            try:
+                s.encode(enc)
+            except UnicodeEncodeError:
+                raises(UnicodeEncodeError, s.encode, 'mbcs')
+                break
         assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
-        assert b'\xe6'.decode('mbcs') == u'\xe6'
+        assert (b'\xe6'.decode('mbcs', 'replace') ==
+                b'\xe6'.decode(enc, 'replace'))
 
     def test_handler_string_result(self):
         import _codecs

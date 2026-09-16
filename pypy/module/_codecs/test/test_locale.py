@@ -1,4 +1,5 @@
 # coding: utf-8
+import sys
 import pytest
 from pypy.module._codecs import interp_codecs
 from pypy.module._codecs.locale import (
@@ -60,9 +61,14 @@ class TestLocaleCodec(object):
     def test_decode_locale(self):
         self.setlocale("en_US.UTF-8")
         utf8_decoder = self.getdecoder('utf-8')
+        values = ['foo', ' \xe6\x97\xa5\xe6\x9c\xac']
+        if sys.platform != 'win32':
+            # the UCRT's mbstowcs() emits one wchar_t per character, so a
+            # non-BMP character decodes to U+FFFD, in CPython as well
+            values.append('\xf0\x93\x88\x8c')
         for locale_decoder in (str_decode_locale_surrogateescape,
                                str_decode_locale_strict):
-            for val in 'foo', ' \xe6\x97\xa5\xe6\x9c\xac', '\xf0\x93\x88\x8c':
+            for val in values:
                 w_s = self.space.newbytes(val)
                 assert (locale_decoder(val) ==
                                 utf8_decoder(self.space, val, w_s, 'strict',
@@ -86,3 +92,20 @@ class TestLocaleCodec(object):
         expected = utf8_decoder(self.space, val, w_val, 'surrogateescape', True,
                                 decode_error_handler)
         assert locale_decoder(val) == expected[:2]
+
+    def test_utf16_wchar_buffer(self, monkeypatch):
+        # with a 16-bit wchar_t (Windows), non-BMP code points must be
+        # passed to the C library as surrogate pairs and merged back
+        from pypy.module._codecs import locale
+        from rpython.rlib.rarithmetic import r_uint
+        monkeypatch.setattr(locale, '_should_split_surrogates', lambda: True)
+        monkeypatch.setattr(locale, '_should_merge_surrogates', lambda: False)
+        utf8 = u'a\U0001320C\udcffz'.encode('utf-8')
+        with locale.scoped_utf82rawwcharp(utf8, 4) as buf:
+            units = [int(r_uint(buf[i])) for i in range(6)]
+            assert units == [0x61, 0xD80C, 0xDE0C, 0xDCFF, 0x7A, 0]
+            assert locale.rawwcharp2utf8en(buf, 5) == (utf8, 4)
+        assert locale._wchar_pos_to_index(utf8, 0) == 0
+        assert locale._wchar_pos_to_index(utf8, 1) == 1
+        assert locale._wchar_pos_to_index(utf8, 3) == 2
+        assert locale._wchar_pos_to_index(utf8, 4) == 3

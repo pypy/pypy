@@ -90,7 +90,7 @@ class AppTestKqueue(object):
     def test_queue_event(self):
         import errno
         import select
-        import socket
+        import _socket as socket
         import sys
         import time
 
@@ -174,7 +174,7 @@ class AppTestKqueue(object):
 
     def test_pair(self):
         import select
-        import socket
+        import _socket as socket
 
         kq = select.kqueue()
         a, b = socket.socketpair()
@@ -201,7 +201,7 @@ class AppTestKqueue(object):
 
     def test_issue30058(self):
         import select
-        import socket
+        import _socket as socket
         # changelist must be an iterable
         kq = select.kqueue()
         a, b = socket.socketpair()

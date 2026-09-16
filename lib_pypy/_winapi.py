@@ -534,7 +534,7 @@ def MapViewOfFile(handle, *args):
     return address
         
 def UnmapViewOfFile(address):
-    return _ffi.UnmapViewOfFile(address)
+    return _kernel32.UnmapViewOfFile(address)
 
 def VirtualQuerySize(address):
     mem_basic_info = _ffi.new("MEMORY_BASIC_INFORMATION[1]")

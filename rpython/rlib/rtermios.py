@@ -82,6 +82,7 @@ CONSTANT_NAMES = (
     
 for name in CONSTANT_NAMES:
     setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
+CConfig.SPEED_T = rffi_platform.SimpleType('speed_t', rffi.UINT)
 
 c_config = rffi_platform.configure(CConfig)
 
@@ -102,7 +103,7 @@ for name in CONSTANT_NAMES:
         globals()[name] = value
         all_constants[name] = value
             
-SPEED_T = rffi.UINT
+SPEED_T = c_config['SPEED_T']
 
 def c_external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
