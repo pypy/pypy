@@ -394,15 +394,18 @@ XML_SetBase = expat_external(
 XML_UseForeignDTD = expat_external(
     'XML_UseForeignDTD', [XML_Parser, rffi.INT], lltype.Void)
 XML_SetAllocTrackerActivationThreshold = expat_external(
-    'XML_SetAllocTrackerActivationThreshold', [XML_Parser, rffi.ULONGLONG], rffi.INT)
+    'XML_SetAllocTrackerActivationThreshold', [XML_Parser, rffi.ULONGLONG],
+    rffi.INT_real)
 XML_SetAllocTrackerMaximumAmplification = expat_external(
-    'XML_SetAllocTrackerMaximumAmplification', [XML_Parser, rffi.FLOAT], rffi.INT)
+    'XML_SetAllocTrackerMaximumAmplification', [XML_Parser, rffi.FLOAT],
+    rffi.INT_real)
+# these return XML_Bool, an unsigned char: INT_real, not the word-sized INT
 XML_SetBillionLaughsAttackProtectionActivationThreshold = expat_external(
     'XML_SetBillionLaughsAttackProtectionActivationThreshold',
-    [XML_Parser, rffi.ULONGLONG], rffi.INT)
+    [XML_Parser, rffi.ULONGLONG], rffi.INT_real)
 XML_SetBillionLaughsAttackProtectionMaximumAmplification = expat_external(
     'XML_SetBillionLaughsAttackProtectionMaximumAmplification',
-    [XML_Parser, rffi.FLOAT], rffi.INT)
+    [XML_Parser, rffi.FLOAT], rffi.INT_real)
 XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
@@ -425,7 +428,7 @@ XML_ExternalEntityParserCreate = expat_external(
     XML_Parser)
 if XML_COMBINED_VERSION >= 20600:
     XML_SetReparseDeferralEnabled = expat_external(
-        'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.INT)
+        'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.INT_real)
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
 
