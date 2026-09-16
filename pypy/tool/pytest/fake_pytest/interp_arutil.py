@@ -13,15 +13,18 @@ def saferepr(space, w_obj):
     """
     return space.newtext(space.text_w(space.repr(w_obj)).replace('\n', '\\n'))
 
-def format_assertmsg(space, __args__):
+def format_assertmsg(space, w_obj):
     """Format the custom assertion message given.
 
     For strings this simply replaces newlines with '\n~' so that
     util.format_explanation() will preserve them instead of escaping
-    newlines.  For other objects py.io.saferepr() is used first.
+    newlines.  For other objects repr() is used first.
 
     """
-    obj = space.text_w(__args__.firstarg())
+    if space.isinstance_w(w_obj, space.w_text):
+        obj = space.text_w(w_obj)
+    else:
+        obj = space.text_w(space.repr(w_obj)).replace("\\n", "\n~")
     return space.newtext(obj.replace("\n", "\n~").replace("%", "%%"))
 
 

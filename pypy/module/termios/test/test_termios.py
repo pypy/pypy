@@ -166,7 +166,10 @@ class AppTestTermios(object):
             val = getattr(termios, name)
             if name.isupper() and type(val) is int:
                 d[name] = val
-        assert sorted(d.items()) == sorted(self.orig_module_dict.items())
+        # the host's termios may lack constants we export (e.g. an older
+        # host without TIOCGSIZE on macOS), but all of its values must match
+        for name, val in self.orig_module_dict.items():
+            assert d[name] == val, name
 
     def test_error(self):
         import termios, errno, os

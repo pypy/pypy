@@ -23,8 +23,8 @@ def info_symbol(exe, symbol):
     lines = out.splitlines()
     return lines[-1]
 
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason='strip not supported on windows')
+@pytest.mark.skipif(sys.platform != 'linux2',
+                    reason='linux only')
 class TestSmarStrip(object):
 
     def test_info_symbol(self, exe):
@@ -36,8 +36,6 @@ class TestSmarStrip(object):
         info = info_symbol(exe, "foo")
         assert info.startswith("No symbol table is loaded")
 
-    @pytest.mark.skipif(sys.platform != 'linux2',
-                        reason='keep_debug not supported')
     def test_keep_debug(self, exe, tmpdir):
         smartstrip(exe, keep_debug=True)
         debug = tmpdir.join("myprog.debug")
