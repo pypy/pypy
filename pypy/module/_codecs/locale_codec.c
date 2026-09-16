@@ -429,8 +429,8 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
 {
     const size_t len = wcslen(text);
     char *result = NULL, *bytes = NULL;
-    size_t i, size, converted;
-    wchar_t c, buf[2];
+    size_t i, start, size, converted;
+    wchar_t c, buf[3];
 
 #if !defined(__APPLE__) && !defined(MS_WINDOWS)
 /*#ifndef MS_WINDOWS*/
@@ -445,7 +445,6 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
        1. compute the length of the output buffer in bytes (size)
        2. outputs the bytes */
     size = 0;
-    buf[1] = 0;
     while (1) {
         for (i=0; i < len; i++) {
             c = text[i];
@@ -460,7 +459,17 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
                 continue;
             }
             else {
+                start = i;
                 buf[0] = c;
+                buf[1] = 0;
+                if (sizeof(wchar_t) == 2 && c >= 0xd800 && c <= 0xdbff &&
+                    i + 1 < len && text[i + 1] >= 0xdc00 &&
+                    text[i + 1] <= 0xdfff) {
+                    /* UTF-16: convert a surrogate pair as one character */
+                    i++;
+                    buf[1] = text[i];
+                    buf[2] = 0;
+                }
                 if (bytes != NULL)
                     converted = wcstombs(bytes, buf, size);
                 else
@@ -469,7 +478,7 @@ pypy_wchar2char(const wchar_t *text, size_t *error_pos)
                     if (result != NULL)
                         PyMem_Free(result);
                     if (error_pos != NULL)
-                        *error_pos = i;
+                        *error_pos = start;
                     return NULL;
                 }
                 if (bytes != NULL) {
