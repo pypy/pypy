@@ -313,16 +313,20 @@ class CConfig:
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
     CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
-    _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
-            '_HAVE_STRUCT_TERMIOS_C_ISPEED')
-    _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
-            '_HAVE_STRUCT_TERMIOS_C_OSPEED')
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT_real)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT_real)
         ID_T = rffi_platform.SimpleType('id_t', rffi.UINT_real)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
         NCCS = rffi_platform.DefinedConstantInteger('NCCS')
+        # the sizes of the flag fields and of c_cc, and the presence of
+        # c_line and of the speed fields, differ between platforms: let
+        # the compiler lay out the struct.  The speeds are accessed via
+        # cfgetispeed() and friends.
+        TERMIOS = rffi_platform.Struct('struct termios', [
+            ('c_iflag', rffi.UINT), ('c_oflag', rffi.UINT),
+            ('c_cflag', rffi.UINT), ('c_lflag', rffi.UINT),
+            ('c_cc', lltype.FixedSizeArray(rffi.UCHAR, 1))])
 
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
@@ -957,19 +961,7 @@ def spawnve(mode, path, args, env):
     return handle_posix_error('spawnve', childpid)
 
 if not _WIN32:
-    TCFLAG_T = rffi.UINT
-    CC_T = rffi.UCHAR
-    SPEED_T = rffi.UINT
-    _add = []
-    if config['_HAVE_STRUCT_TERMIOS_C_ISPEED']:
-        _add.append(('c_ispeed', SPEED_T))
-    if config['_HAVE_STRUCT_TERMIOS_C_OSPEED']:
-        _add.append(('c_ospeed', SPEED_T))
-
-    TERMIOS = rffi.CStruct('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
-                               ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
-                               ('c_line', CC_T),
-                               ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
+    TERMIOS = config['TERMIOS']
     WINSIZE = rffi.CStruct('winsize', ('ws_row', rffi.USHORT),
                        ('ws_col', rffi.USHORT),
                        ('ws_xpixel', rffi.USHORT),
