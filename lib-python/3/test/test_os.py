@@ -1611,6 +1611,10 @@ class FwalkTests(WalkTests):
         # Since we're opening a lot of FDs, we must be careful to avoid leaks:
         # we both check that calling fwalk() a large number of times doesn't
         # yield EMFILE, and that the minimum allocated FD hasn't changed.
+        # PyPy: garbage from earlier tests may still hold fds, and a
+        # collection during the loop would then lower the minimum fd;
+        # only a raised minimum indicates a leak
+        support.gc_collect()
         minfd = os.dup(1)
         os.close(minfd)
         for i in range(256):
@@ -1618,7 +1622,9 @@ class FwalkTests(WalkTests):
                 pass
         newfd = os.dup(1)
         self.addCleanup(os.close, newfd)
-        self.assertEqual(newfd, minfd)
+        # PyPy change: see above
+        # self.assertEqual(newfd, minfd)
+        self.assertLessEqual(newfd, minfd)
 
     # fwalk() keeps file descriptors open
     test_walk_many_open_files = None
