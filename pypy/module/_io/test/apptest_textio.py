@@ -145,7 +145,8 @@ def test_flush_detaches():
                "reconfigure(encoding='latin-1')", "reconfigure(newline='')"]:
         t = T(_io.BytesIO(b''), encoding='utf-8')
         t.attached = True
-        excinfo = raises(ValueError, eval, "t." + op)
+        with raises(ValueError) as excinfo:
+            eval("t." + op)
         assert "detached" in str(excinfo.value), op
 
 def test_buffer_method_detaches():
