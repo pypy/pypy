@@ -486,7 +486,7 @@ def add_tp_new_wrapper(space, dict_w, pto):
 
 def add_disallow_new(space, dict_w, pto):
     from typeobjectdefs import newfunc
-    dict_w["__new__"] = space.lookup(space.w_DisallowNewC, '__new__')
+    dict_w["__new__"] = space.lookup(space.w_DisallowNew, '__new__')
     pto.c_tp_new = rffi.cast(newfunc, 0)
 
 def inherit_special(space, pto, w_obj, base_pto):
@@ -623,12 +623,11 @@ class W_PyCTypeObject(W_TypeObject):
 
         flags = widen(pto.c_tp_flags)
         flag_heaptype = flags & Py_TPFLAGS_HEAPTYPE
-        if flag_heaptype:
-            type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
-            name = type_name
-        else:
+        if pto.c_tp_name:
             name = rffi.constcharp2str(pto.c_tp_name)
-            type_name = get_type_name(name)
+        else:
+            name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
+        type_name = get_type_name(name)
         _add_operators(space, self, dict_w, pto, type_name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self, type_name=type_name)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -692,6 +691,11 @@ class W_PyCTypeObject(W_TypeObject):
             rawdoc = rffi.constcharp2str(pto.c_tp_doc)
             self.w_doc = space.newtext_or_none(extract_doc(rawdoc, name))
             self.text_signature = extract_txtsig(rawdoc, name)
+
+    def getname(self, space):
+        # self.name is tp_name, which is module-qualified for static and
+        # spec-created types
+        return get_type_name(self.name)
 
     def get_terminator(self, space, typedef):
         if self._cpyext_dictoffset:
@@ -1725,7 +1729,7 @@ def resync_slot_wrappers(space, w_type, pto):
             space, w_type, method_name, doc, func_voidp, type_name)
 
     if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
-        w_type.dict_w["__new__"] = space.lookup(space.w_DisallowNewC, '__new__')
+        w_type.dict_w["__new__"] = space.lookup(space.w_DisallowNew, '__new__')
     elif pto.c_tp_new:
         pyo = rffi.cast(PyObject, pto)
         w_type.dict_w["__new__"] = W_PyCFunctionObject(

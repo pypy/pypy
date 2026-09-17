@@ -579,8 +579,7 @@ from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
-from pypy.interpreter.special import (NotImplemented, Ellipsis, DisallowNew,
-    DisallowNewC)
+from pypy.interpreter.special import NotImplemented, Ellipsis, DisallowNew
 
 
 def descr_get_dict(space, w_obj):
@@ -987,11 +986,6 @@ DisallowNew.typedef = TypeDef("DisallowNewType",
     __new__ = interp2app(DisallowNew.descr_new_disallow),
 )
 DisallowNew.typedef.acceptable_as_base_class = False
-
-DisallowNewC.typedef = TypeDef("DisallowNewTypeC",
-    __new__ = interp2app(DisallowNewC.descr_new_disallow),
-)
-DisallowNewC.typedef.acceptable_as_base_class = False
 
 SApplicationException.typedef = TypeDef("SApplicationException")
 SApplicationException.typedef.acceptable_as_base_class = False

@@ -3593,6 +3593,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert args_value == set([1234]) and kwargs_value == {"foo" : "bar"}
 
     def test_subclass_from_spec(self):
+        import sys
         module = self.import_extension("foo", [
             ("subclass_from_class", "METH_O",
             """
@@ -3669,17 +3670,18 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         with raises(TypeError):
             module.subclass_from_class((bool,))
 
-        inttype = module.subclass_from_class((int,))
+        if sys.implementation.name == 'pypy':
+            inttype = module.subclass_from_class((int,))
 
-        # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
-        with raises(TypeError):
-            class int2(inttype):
-                pass
+            # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
+            with raises(TypeError):
+                class int2(inttype):
+                    pass
 
-        # Make sure the flag passes to app-level
-        assert isinstance(inttype(), int)
+            # Make sure the flag passes to app-level
+            assert isinstance(inttype(), int)
 
-        assert module.get_qualname(inttype) == "HeapType"
+            assert module.get_qualname(inttype) == "HeapType"
 
         custom = module.get_type()
         assert custom.__name__ == "CustomHeap"
