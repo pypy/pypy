@@ -162,6 +162,9 @@ def dispatch_global_event(space, event_id, w_code, offset, w_extra):
     state = space.fromcache(MonitoringState)
     if state.firing or not _event_is_set(state.any_events, event_id):
         return
+    if space.getexecutioncontext().is_tracing:
+        # like CPython: no events inside trace functions or audit hooks
+        return
     w_offset = space.newint(offset)
     for tool_id in range(NUM_TOOLS):
         if _event_is_set(state.global_events[tool_id], event_id):
@@ -308,6 +311,9 @@ def _dispatch_code_event(space, event_id, pycode, callback_offset,
         return
     state = space.fromcache(MonitoringState)
     if state.firing:
+        return
+    if space.getexecutioncontext().is_tracing:
+        # like CPython: no events inside trace functions or audit hooks
         return
     monitoring = jit.promote(pycode.monitoring_state)
     control_event_id = _control_event_id(event_id)
