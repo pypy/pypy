@@ -276,7 +276,7 @@ def test_restore_signals():
                     break
             if errpipe_data:
                 newpid, sts = os.waitpid(pid, 0)
-                raise RuntimeError('running commande returned %s' % sts)
+                raise RuntimeError('running command returned %s: %r' % (sts, bytes(errpipe_data)))
             out = os.read(c2pread, 50000)
         finally:
             os.close(c2pwrite)
