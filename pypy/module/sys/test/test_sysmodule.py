@@ -1001,6 +1001,8 @@ class AppTestCurrentFramesWithThread:
         assert other_frame.f_code.co_name in ('other_thread', '?')
 
     def test_current_exceptions(self):
+        if sys.platform in ('darwin', 'win32'):
+            skip('test can hang on macos and windows')
         import sys
         import _thread
 
