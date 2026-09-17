@@ -700,12 +700,9 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module4.finish_registration()
         # DISALLOW_INSTANTIATION rejects any arguments with the same message
         e = raises(TypeError, module4.Meta, "X", (), {})
-        import sys
-        if sys.implementation.name == 'pypy':
-            assert str(e.value) == "cannot create 'Meta' instances"
-        else:
-            assert str(e.value) == "cannot create 'probe_extra_args_meta.Meta' instances"
-        raises(TypeError, module4.Meta)
+        assert str(e.value) == "cannot create 'probe_extra_args_meta.Meta' instances"
+        e = raises(TypeError, module4.Meta)
+        assert str(e.value) == "cannot create 'probe_extra_args_meta.Meta' instances"
         # establish the MetaLeaf singleton without excess args first
         module4.DescrLike()
         # This mirrors `np.dtype(rational2)` exactly.
@@ -3688,8 +3685,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert custom.__name__ == "CustomHeap"
 
         assert module.B.__bases__ == (module.A,)
-        with raises(TypeError):
-            module.B()
+        e = raises(TypeError, module.B)
+        assert str(e.value) == "cannot create 'B' instances"
+        # a Python subclass reports its own tp_name, like CPython
+        class SubB(module.B):
+            pass
+        e = raises(TypeError, SubB)
+        assert str(e.value) == "cannot create 'SubB' instances"
 
     def test_multi_inherit_missing_basetype_flag(self):
         # Mirrors numpy gh-23737: combining a C type that does *not* set
