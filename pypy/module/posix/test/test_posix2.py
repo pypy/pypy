@@ -1622,6 +1622,8 @@ class AppTestPosix:
         import sys
         if sys.maxsize < 2**32:
             skip("2GB allocation is too large for 32-bit")
+        if sys.platform == 'win32':
+            skip("untranslated 2GB lltype array raises MemoryError")
         length = 2147479553
         s = os.urandom(length)
         assert len(s) == length
