@@ -1934,7 +1934,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             '''
                 /* Simulate pybind11: instance struct is PyObject_HEAD + one ptr,
                    which is << sizeof(PyHeapTypeObject). */
-                typedef struct { PyObject_HEAD; void *extra; } SmallInst;
+                typedef struct { PyObject_HEAD void *extra; } SmallInst;
                 Py_ssize_t inst_size = (Py_ssize_t)sizeof(SmallInst);
 
                 PyTypeObject *B1, *B2, *B12;
@@ -1981,7 +1981,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 /* Simulate two independent pybind11-style types: both have the
                    same tp_basicsize (larger than PyObject but smaller than
                    PyHeapTypeObject), both inherit from the same base. */
-                typedef struct { PyObject_HEAD; void *holder; } PybindInst;
+                typedef struct { PyObject_HEAD void *holder; } PybindInst;
                 Py_ssize_t inst_size = (Py_ssize_t)sizeof(PybindInst);
 
                 /* Shared object base (analogous to pybind11_object). */
