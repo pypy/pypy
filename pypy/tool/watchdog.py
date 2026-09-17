@@ -12,6 +12,17 @@ def childkill():
     timedout = True
     sys.stderr.write("==== test running for %d seconds ====\n" % timeout)
     sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")
+    # regrtest registers faulthandler on SIGUSR1: ask for a traceback of
+    # all threads before killing the process
+    try:
+        os.kill(pid, signal.SIGUSR1)
+    except OSError:
+        return
+    t = threading.Timer(10, childterm)
+    t.daemon = True
+    t.start()
+
+def childterm():
     try:
         os.kill(pid, signal.SIGTERM)
     except OSError:
@@ -40,7 +51,7 @@ if __name__ == '__main__':
         else:
             assert os.WIFSIGNALED(status)
             sign = os.WTERMSIG(status)
-            if timedout and sign == signal.SIGTERM:
+            if timedout and sign in (signal.SIGTERM, signal.SIGUSR1):
                 sys.exit(1)
             signame = getsignalname(sign)
             sys.stderr.write("="*26 + "timedout" + "="*26 + "\n")        
