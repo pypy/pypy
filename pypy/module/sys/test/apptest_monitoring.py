@@ -1130,3 +1130,40 @@ def test_call_c_return_balance_for_builtin_type_method():
 
     append_events = [e for e in events if getattr(e[1], '__name__', None) == 'append']
     assert [kind for kind, _ in append_events] == ["call", "c_return"]
+
+
+def test_no_events_while_tracing():
+    # like CPython: code run from an audit hook or a trace function does
+    # not produce monitoring events
+    M = sys.monitoring
+    TOOL = 4
+    started = []
+    def cb(code, offset):
+        started.append(code.co_name)
+    def in_hook():
+        pass
+    def hook(name, args):
+        if name == 'probe':
+            in_hook()
+    sys.addaudithook(hook)
+    def tracefunc(frame, event, arg):
+        in_hook()
+        return None
+    def traced():
+        pass
+    M.use_tool_id(TOOL, "test")
+    M.register_callback(TOOL, M.events.PY_START, cb)
+    M.set_events(TOOL, M.events.PY_START)
+    try:
+        sys.audit('probe')
+        sys.settrace(tracefunc)
+        try:
+            traced()
+        finally:
+            sys.settrace(None)
+    finally:
+        M.set_events(TOOL, 0)
+        M.register_callback(TOOL, M.events.PY_START, None)
+        M.free_tool_id(TOOL)
+    assert 'in_hook' not in started
+    assert 'traced' in started

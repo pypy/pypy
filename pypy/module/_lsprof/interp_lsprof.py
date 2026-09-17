@@ -2,8 +2,12 @@ import py
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.function import BuiltinFunction, Method, Function
+from pypy.interpreter.function import (BuiltinFunction, Method, Function,
+    FunctionWithFixedCode, is_builtin_code)
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pymonitoring import (PY_START, PY_RESUME, PY_THROW,
+    PY_RETURN, PY_YIELD, PY_UNWIND, CALL, C_RETURN, C_RAISE, w_missing)
 from pypy.interpreter.typedef import (TypeDef, GetSetProperty,
                                       interp_attrproperty)
 from rpython.rlib import jit
@@ -235,7 +239,7 @@ def create_spec_for_object(space, w_type):
 
 class W_DelayedBuiltinStr(W_Root):
     # This class should not be seen at app-level, but is useful to
-    # contain a (w_func, w_type) pair returned by prepare_spec().
+    # contain a (w_func, w_type) pair returned by get_cfunc_spec().
     # Turning this pair into a string cannot be done eagerly in
     # an @elidable function because of space.text_w(), but it can
     # be done lazily when we really want it.
@@ -269,31 +273,44 @@ def returns_code(space, w_frame):
     return w_frame    # actually a PyCode object
 
 @always_inline
-def prepare_spec(space, w_arg):
-    if isinstance(w_arg, Method):
-        return (w_arg.w_function, space.type(w_arg.w_instance))
-    elif isinstance(w_arg, Function):
-        return (w_arg, None)
-    else:
-        return (None, space.type(w_arg))
+def get_cfunc_spec(space, w_callable, w_self_arg):
+    # like CPython's get_cfunc_from_callable(): only builtin functions and
+    # methods are profiled as C calls; everything else is either a Python
+    # function (covered by PY_START/PY_RETURN) or ignored.  Returns
+    # (w_func, w_type) or (None, None).
+    if isinstance(w_callable, Method):
+        w_func = w_callable.w_function
+        if is_builtin_code(w_func):
+            return (w_func, space.type(w_callable.w_instance))
+    elif isinstance(w_callable, BuiltinFunction):
+        return (w_callable, None)
+    elif isinstance(w_callable, FunctionWithFixedCode):
+        # a builtin method called through LOAD_METHOD: the function is
+        # unbound and w_self_arg is the instance
+        if space.is_w(w_self_arg, w_missing(space)):
+            return (w_callable, None)
+        return (w_callable, space.type(w_self_arg))
+    return (None, None)
 
-def lsprof_call(space, w_self, frame, event, w_arg):
-    assert isinstance(w_self, W_Profiler)
-    if event == 'call':
-        code = frame.getcode()
-        w_self._enter_call(code)
-    elif event == 'return':
-        code = frame.getcode()
-        w_self._enter_return(code)
-    elif event == 'c_call':
-        if w_self.builtins:
-            w_self._enter_builtin_call(w_arg)
-    elif event == 'c_return' or event == 'c_exception':
-        if w_self.builtins:
-            w_self._enter_builtin_return(w_arg)
-    else:
-        # ignore or raise an exception???
-        pass
+def unwrap_code(space, w_code):
+    if not isinstance(w_code, PyCode):
+        raise oefmt(space.w_TypeError, "expected a code object, got '%T'",
+                    w_code)
+    return w_code
+
+PROFILER_ID = 2     # sys.monitoring.PROFILER_ID
+
+CALLBACK_TABLE = [
+    (PY_START, '_pystart_callback'),
+    (PY_RESUME, '_pystart_callback'),
+    (PY_THROW, '_pystart_callback'),
+    (PY_RETURN, '_pyreturn_callback'),
+    (PY_YIELD, '_pyreturn_callback'),
+    (PY_UNWIND, '_pyreturn_callback'),
+    (CALL, '_ccall_callback'),
+    (C_RETURN, '_creturn_callback'),
+    (C_RAISE, '_creturn_callback'),
+]
 
 
 class W_Profiler(W_Root):
@@ -335,12 +352,26 @@ class W_Profiler(W_Root):
         # We want total_real_time and total_timestamp to end up containing
         # (endtime - starttime).  Now we are at the start, so we first
         # have to subtract the current time.
+        from pypy.module.sys import interp_monitoring
+        try:
+            interp_monitoring.use_tool_id(space, PROFILER_ID,
+                                          space.newtext("cProfile"))
+        except OperationError as e:
+            if not e.match(space, space.w_ValueError):
+                raise
+            raise oefmt(space.w_ValueError,
+                        "Another profiling tool is already active")
+        all_events = 0
+        for event_id, name in CALLBACK_TABLE:
+            w_callback = space.getattr(self, space.newtext(name))
+            interp_monitoring.register_callback(space, PROFILER_ID,
+                                                1 << event_id, w_callback)
+            all_events |= 1 << event_id
         self.is_enabled = True
         self.total_real_time -= time.time()
         self.total_timestamp -= read_timestamp()
-        # set profiler hook
         c_setup_profiling()
-        space.getexecutioncontext().setllprofile(lsprof_call, self)
+        interp_monitoring.set_events(space, PROFILER_ID, all_events)
 
     @jit.elidable
     def _get_or_make_entry(self, f_code, make=True):
@@ -384,16 +415,14 @@ class W_Profiler(W_Root):
             context._stop(self, entry)
         self.current_context = context.previous
 
-    def _enter_builtin_call(self, w_arg):
-        w_func, w_type = prepare_spec(self.space, w_arg)
+    def _enter_builtin_call(self, w_func, w_type):
         entry = self._get_or_make_builtin_entry(w_func, w_type, True)
         self.current_context = ProfilerContext(self, entry)
 
-    def _enter_builtin_return(self, w_arg):
+    def _enter_builtin_return(self, w_func, w_type):
         context = self.current_context
         if context is None:
             return
-        w_func, w_type = prepare_spec(self.space, w_arg)
         try:
             entry = self._get_or_make_builtin_entry(w_func, w_type, False)
         except KeyError:
@@ -401,6 +430,26 @@ class W_Profiler(W_Root):
         else:
             context._stop(self, entry)
         self.current_context = context.previous
+
+    # sys.monitoring callbacks, registered by enable()
+
+    def _pystart_callback(self, space, w_code, w_offset, w_extra=None):
+        self._enter_call(unwrap_code(space, w_code))
+
+    def _pyreturn_callback(self, space, w_code, w_offset, w_retval):
+        self._enter_return(unwrap_code(space, w_code))
+
+    def _ccall_callback(self, space, w_code, w_offset, w_callable, w_self_arg):
+        if self.builtins:
+            w_func, w_type = get_cfunc_spec(space, w_callable, w_self_arg)
+            if w_func is not None:
+                self._enter_builtin_call(w_func, w_type)
+
+    def _creturn_callback(self, space, w_code, w_offset, w_callable, w_self_arg):
+        if self.builtins:
+            w_func, w_type = get_cfunc_spec(space, w_callable, w_self_arg)
+            if w_func is not None:
+                self._enter_builtin_return(w_func, w_type)
 
     def _flush_unmatched(self):
         context = self.current_context
@@ -417,11 +466,15 @@ class W_Profiler(W_Root):
         # We want total_real_time and total_timestamp to end up containing
         # (endtime - starttime), or the sum of such intervals if
         # enable() and disable() are called several times.
+        from pypy.module.sys import interp_monitoring
         self.is_enabled = False
         self.total_timestamp += read_timestamp()
         self.total_real_time += time.time()
-        # unset profiler hook
-        space.getexecutioncontext().setllprofile(None, None)
+        for event_id, name in CALLBACK_TABLE:
+            interp_monitoring.register_callback(space, PROFILER_ID,
+                                                1 << event_id, space.w_None)
+        interp_monitoring.set_events(space, PROFILER_ID, 0)
+        interp_monitoring.free_tool_id(space, PROFILER_ID)
         c_teardown_profiling()
         self._flush_unmatched()
 
@@ -461,4 +514,8 @@ W_Profiler.typedef = TypeDef(
     disable = interp2app(W_Profiler.disable),
     clear = interp2app(W_Profiler.clear),
     getstats = interp2app(W_Profiler.getstats),
+    _pystart_callback = interp2app(W_Profiler._pystart_callback),
+    _pyreturn_callback = interp2app(W_Profiler._pyreturn_callback),
+    _ccall_callback = interp2app(W_Profiler._ccall_callback),
+    _creturn_callback = interp2app(W_Profiler._creturn_callback),
 )

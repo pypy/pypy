@@ -153,6 +153,60 @@ class AppTestCProfile(object):
             assert 0.9 < subentry.totaltime < 2.9
             #assert 0.9 < subentry.inlinetime < 2.9
 
+    def test_monitoring_tool(self):
+        import _lsprof, sys
+        prof = _lsprof.Profiler()
+        prof2 = _lsprof.Profiler()
+        assert sys.monitoring.get_tool(sys.monitoring.PROFILER_ID) is None
+        prof.enable()
+        try:
+            assert sys.monitoring.get_tool(sys.monitoring.PROFILER_ID) == "cProfile"
+            raises(ValueError, prof2.enable)
+        finally:
+            prof.disable()
+        assert sys.monitoring.get_tool(sys.monitoring.PROFILER_ID) is None
+        assert sys.monitoring.get_events(sys.monitoring.PROFILER_ID) == 0
+        # the tool id is free again
+        prof2.enable()
+        prof2.disable()
+
+    def test_disable_entry_with_audit_hook(self):
+        # regrtest installs a Python audit hook; register_callback() audits,
+        # and the hook must not produce profiler events while disable()
+        # is unregistering the callbacks
+        import _lsprof, sys
+        sys.addaudithook(lambda name, args: None)
+        prof = _lsprof.Profiler()
+        prof.enable()
+        prof.disable()
+        names = [entry.code for entry in prof.getstats()]
+        assert "<method 'disable' of '_lsprof.Profiler' objects>" in names
+
+    def test_callbacks_not_enough_args(self):
+        import _lsprof
+        prof = _lsprof.Profiler()
+        for name in ["_pystart_callback", "_pyreturn_callback",
+                     "_ccall_callback", "_creturn_callback"]:
+            raises(TypeError, getattr(prof, name))
+
+    def test_throw(self):
+        # gh-106152: generator.throw() and generator resumption count as
+        # calls; the genexpr below is entered twice (once by __next__,
+        # once when it is closed)
+        import _lsprof
+        prof = _lsprof.Profiler()
+        prof.enable()
+        gen = (a == 1 for a in (1, 2))
+        any(gen)
+        gen.close()
+        prof.disable()
+        for entry in prof.getstats():
+            if getattr(entry.code, 'co_name', None) == '<genexpr>':
+                assert entry.callcount == 2, entry.callcount
+                break
+        else:
+            assert False, "no <genexpr> entry"
+
     def test_builtin_exception(self):
         import math
         import _lsprof
