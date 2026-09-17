@@ -1162,6 +1162,22 @@ def strftime(space, format, w_tup=None):
         builder.append_utf8(chunk_utf8, chunk_len)
     return space.newutf8(builder.build(), builder.getlength())
 
+def _wcharp_utf16_to_utf8(w, maxlen):
+    # like rffi.wcharp2utf8n, but combines surrogate pairs and lets lone
+    # surrogates through, as PyUnicode_FromWideChar does
+    s = Utf8StringBuilder(maxlen)
+    i = 0
+    while i < maxlen and ord(w[i]):
+        ch = ord(w[i])
+        i += 1
+        if 0xD800 <= ch <= 0xDBFF and i < maxlen:
+            ch2 = ord(w[i])
+            if 0xDC00 <= ch2 <= 0xDFFF:
+                ch = 0x10000 + (((ch - 0xD800) << 10) | (ch2 - 0xDC00))
+                i += 1
+        s.append_code(ch)
+    return s.build(), s.getlength()
+
 def _strftime1(space, buf_value, format):
     # Use wcsftime(), not strftime(): it operates on whole wide characters,
     # so unlike the byte-oriented strftime() it never needs to round-trip
@@ -1172,7 +1188,11 @@ def _strftime1(space, buf_value, format):
     # happen to form valid UTF-8) as a real character.  This also matches
     # what CPython does on POSIX (it uses wcsftime() whenever the libc
     # provides it, which in practice is unconditionally on Linux/macOS).
-    format_for_call = rffi.utf82wcharp(format, codepoints_in_utf8(format))
+    if _WIN:
+        # wchar_t is 16 bits: astral codepoints need surrogate pairs
+        format_for_call = rffi.utf82wcharp_ex(format, codepoints_in_utf8(format))
+    else:
+        format_for_call = rffi.utf82wcharp(format, codepoints_in_utf8(format))
     try:
         i = 1024
         while True:
@@ -1188,7 +1208,10 @@ def _strftime1(space, buf_value, format):
                     # More likely, the format yields an empty result,
                     # e.g. an empty format, or %Z when the timezone
                     # is unknown.
-                    decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
+                    if _WIN:
+                        decoded, size = _wcharp_utf16_to_utf8(outbuf, intmask(buflen))
+                    else:
+                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     return space.newutf8(decoded, size)
             finally:
                 lltype.free(outbuf, flavor='raw')
