@@ -1350,7 +1350,7 @@ class TestUnicode(BaseApiTest):
         finally:
             rffi.free_wcharp(wbuf)
         assert space.type(w_bytes) is space.w_bytes
-        assert space.utf8_w(w_bytes) == "abc"
+        assert space.bytes_w(w_bytes) == b"abc"
 
     def test_codepage(self, space):
         if sys.platform != 'win32':
@@ -1359,7 +1359,7 @@ class TestUnicode(BaseApiTest):
         w_obj = space.newtext(chars)
         w_bytes = PyUnicode_EncodeCodePage(space, 932, w_obj, None)
         assert space.type(w_bytes) is space.w_bytes
-        assert space.utf8_w(w_bytes) == "abc"
+        assert space.bytes_w(w_bytes) == b"abc"
 
     def test_escape(self, space):
         def test(ustr):
