@@ -960,6 +960,7 @@ class AppTestFfi(object):
             # UCS2 build
             print(b[0:4])
             assert b[0:4] == b'x\x00y\x00'
+        a.free()
 
     def test_wide_char_out_of_range(self):
         import _rawffi, sys

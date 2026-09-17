@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib import rgc, jit, rutf8, rstackovf
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -530,6 +531,7 @@ By default, parser objects have an allocation activation threshold of 64 MiB.
 [clinic start generated code]"""
 
         ret = XML_SetAllocTrackerActivationThreshold(self.itself, threshold)
+        ret = widen(ret)
         if ret == XML_TRUE:
             return None
         raise self.set_error_msg(space, "parser must be a root parser")
@@ -556,6 +558,7 @@ By default, parser objects have a maximum amplification factor of 100.0."""
             raise self.set_error_msg(space, "'max_factor' must be at least 1.0")
         max_factorF = rffi.cast(rffi.FLOAT, max_factor)
         ret = XML_SetAllocTrackerMaximumAmplification(self.itself, max_factorF)
+        ret = widen(ret)
         if ret == XML_TRUE:
             return None
         raise self.set_error_msg(space, "parser must be a root parser")
@@ -575,6 +578,7 @@ payload and are hence not recommended."""
 
         ret = XML_SetBillionLaughsAttackProtectionActivationThreshold(
             self.itself, threshold)
+        ret = widen(ret)
         if ret == XML_TRUE:
             return None
         raise self.set_error_msg(space, "parser must be a root parser")
@@ -601,6 +605,7 @@ By default, parser objects have a maximum amplification factor of 100.0."""
         max_factorF = rffi.cast(rffi.FLOAT, max_factor)
         ret = XML_SetBillionLaughsAttackProtectionMaximumAmplification(
             self.itself, max_factorF)
+        ret = widen(ret)
         if ret == XML_TRUE:
             return None
         raise self.set_error_msg(space, "parser must be a root parser")
