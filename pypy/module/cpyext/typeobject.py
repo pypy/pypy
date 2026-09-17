@@ -484,21 +484,9 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
-def disallow_new(space, w_type, __args__):
-    """Create and return a new object.  See help(type) for accurate signature."""
-    # like CPython's type_call, report tp_name (module-qualified for C types)
-    if isinstance(w_type, W_PyCTypeObject):
-        pto = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
-        name = rffi.constcharp2str(pto.c_tp_name)
-    else:
-        name = w_type.getname(space)
-    raise oefmt(space.w_TypeError, "cannot create '%s' instances", name)
-
-disallow_new_gateway = interp2app(disallow_new)
-
 def add_disallow_new(space, dict_w, pto):
     from typeobjectdefs import newfunc
-    dict_w["__new__"] = space.wrap(disallow_new_gateway)
+    dict_w["__new__"] = space.lookup(space.w_DisallowNewC, '__new__')
     pto.c_tp_new = rffi.cast(newfunc, 0)
 
 def inherit_special(space, pto, w_obj, base_pto):
@@ -1737,7 +1725,7 @@ def resync_slot_wrappers(space, w_type, pto):
             space, w_type, method_name, doc, func_voidp, type_name)
 
     if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
-        w_type.dict_w["__new__"] = space.wrap(disallow_new_gateway)
+        w_type.dict_w["__new__"] = space.lookup(space.w_DisallowNewC, '__new__')
     elif pto.c_tp_new:
         pyo = rffi.cast(PyObject, pto)
         w_type.dict_w["__new__"] = W_PyCFunctionObject(

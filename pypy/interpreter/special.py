@@ -38,3 +38,21 @@ class DisallowNew(W_Root):
         """Create and return a new object.  See help(type) for accurate signature."""
         name = w_type.getname(space)
         raise oefmt(space.w_TypeError, "cannot create '%s' instances", name)
+
+class DisallowNewC(W_Root):
+    @staticmethod
+    def descr_new_disallow(space, w_type, __args__):
+        """Create and return a new object.  See help(type) for accurate signature."""
+        from pypy.module.cpyext.typeobject import W_PyCTypeObject
+        if isinstance(w_type, W_PyCTypeObject):
+            w_mod = w_type.get_module()
+            if w_mod is None or not space.isinstance_w(w_mod, space.w_text):
+                mod = 'builtins'
+            else:
+                mod = space.utf8_w(w_mod)
+            name = mod + '.' + w_type.getname(space)
+        else:
+            name = w_type.getname(space)
+        raise oefmt(space.w_TypeError, "cannot create '%s' instances", name)
+
+
