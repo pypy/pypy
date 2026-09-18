@@ -275,8 +275,13 @@ def test_simple_tcp(do_recv):
     print 'received ok'
     def sendstuff():
         print 'sending'
-        s2.sendall('x'*50000)
-        print 'sent'
+        try:
+            s2.sendall('x'*50000)
+            print 'sent'
+        finally:
+            sendlock.release()
+    sendlock = rthread.allocate_lock()
+    sendlock.acquire(True)
     rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
@@ -286,6 +291,9 @@ def test_simple_tcp(do_recv):
         buf += data
     assert buf == 'x'*50000
     print 'data received ok'
+    # wait for the sender to leave sendall, or leakfinder can see its
+    # nonmoving buffer still allocated at teardown
+    sendlock.acquire(True)
     s1.shutdown(SHUT_RDWR)
     s1.close()
     s2.close()
