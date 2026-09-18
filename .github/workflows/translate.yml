@@ -148,6 +148,9 @@ jobs:
 
     - name: upload
       if: success() || failure()
+      # the artifact service is flaky (transient ENOTFOUND) and nobody
+      # consumes these artifacts yet, so don't let the upload fail the job
+      continue-on-error: true
       uses: actions/upload-artifact@v7.0.0
       with:
         name: pypy-ci-build-${{ matrix.platform }}

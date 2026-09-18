@@ -84,11 +84,13 @@ def test_RWeakKeyDictionary():
     assert make_test()() == 0
 
 def test_rpython_RWeakKeyDictionary():
-    assert interpret(make_test(loop=12), []) == 0
+    err = interpret(make_test(loop=12), [])
+    assert err == 0
 
 def test_rpython_prebuilt():
     f = make_test(loop=12, prebuilt=RWeakKeyDictionary(KX, VX))
-    assert interpret(f, []) == 0
+    err = interpret(f, [])
+    assert err == 0
 
 def test_rpython_merge_RWeakKeyDictionary():
     empty = RWeakKeyDictionary(KX, VX)
