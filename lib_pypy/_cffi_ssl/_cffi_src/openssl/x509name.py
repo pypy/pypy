@@ -38,13 +38,13 @@ X509_NAME *X509_NAME_dup(X509_NAME *);
 int Cryptography_X509_NAME_ENTRY_set(X509_NAME_ENTRY *);
 /* These became const X509_NAME * in 1.1.0 */
 int X509_NAME_entry_count(X509_NAME *);
-X509_NAME_ENTRY *X509_NAME_get_entry(X509_NAME *, int);
+const X509_NAME_ENTRY *X509_NAME_get_entry(X509_NAME *, int);
 char *X509_NAME_oneline(X509_NAME *, char *, int);
 int X509_NAME_print_ex(BIO *, X509_NAME *, int, unsigned long);
 
 /* These became const X509_NAME_ENTRY * in 1.1.0 */
-ASN1_OBJECT *X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *);
-ASN1_STRING *X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *);
+const ASN1_OBJECT *X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *);
+const ASN1_STRING *X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *);
 int X509_NAME_add_entry(X509_NAME *, X509_NAME_ENTRY *, int, int);
 
 /* this became const unsigned char * in 1.1.0 */
