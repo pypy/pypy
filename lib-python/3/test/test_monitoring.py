@@ -1082,7 +1082,7 @@ class TestLineAndInstructionEvents(CheckEvents):
             line3 = 3
 
         if sys.implementation.name == 'pypy':
-            # no RESUME opcode, no RETURN_CONST fusion
+            # no RESUME opcode
             expected = [
                 ('line', 'get_events', 10),
                 ('line', 'func1', 1),
@@ -1095,7 +1095,6 @@ class TestLineAndInstructionEvents(CheckEvents):
                 ('instruction', 'func1', 8),
                 ('instruction', 'func1', 10),
                 ('instruction', 'func1', 12),
-                ('instruction', 'func1', 14),
                 ('line', 'get_events', 11)]
         else:
             expected = [
@@ -1121,7 +1120,7 @@ class TestLineAndInstructionEvents(CheckEvents):
             line3 = 3
 
         if sys.implementation.name == 'pypy':
-            # no RESUME opcode, no inline-cache padding, no RETURN_CONST
+            # no RESUME opcode, no inline-cache padding
             expected = [
                 ('line', 'get_events', 10),
                 ('line', 'func2', 1),
@@ -1137,7 +1136,6 @@ class TestLineAndInstructionEvents(CheckEvents):
                 ('instruction', 'func2', 14),
                 ('instruction', 'func2', 16),
                 ('instruction', 'func2', 18),
-                ('instruction', 'func2', 20),
                 ('line', 'get_events', 11)]
         else:
             expected = [
@@ -1169,7 +1167,7 @@ class TestLineAndInstructionEvents(CheckEvents):
             line = 6
 
         if sys.implementation.name == 'pypy':
-            # no RESUME opcode, no RETURN_CONST, extra except-cleanup instr
+            # no RESUME opcode, extra except-cleanup instr
             expected = [
                 ('line', 'get_events', 10),
                 ('line', 'func3', 1),
@@ -1192,7 +1190,6 @@ class TestLineAndInstructionEvents(CheckEvents):
                 ('instruction', 'func3', 30),
                 ('instruction', 'func3', 32),
                 ('instruction', 'func3', 34),
-                ('instruction', 'func3', 36),
                 ('line', 'get_events', 11)]
         else:
             expected = [
@@ -1226,7 +1223,7 @@ class TestLineAndInstructionEvents(CheckEvents):
             line3 = 3
 
         if sys.implementation.name == 'pypy':
-            # no RESUME opcode, no RETURN_CONST fusion
+            # no RESUME opcode
             expected = [
                 ('line', 'get_events', 10),
                 ('line', 'func1', 1),
@@ -1239,7 +1236,6 @@ class TestLineAndInstructionEvents(CheckEvents):
                 ('instruction', 'func1', 8),
                 ('instruction', 'func1', 10),
                 ('instruction', 'func1', 12),
-                ('instruction', 'func1', 14),
                 ('line', 'get_events', 11)]
         else:
             expected = [
@@ -1289,11 +1285,19 @@ class TestInstallIncrementally(MonitoringTestBase, unittest.TestCase):
     def func1():
         line1 = 1
 
-    MUST_INCLUDE_LI = [
-            ('instruction', 'func1', 2),
-            ('line', 'func1', 2),
-            ('instruction', 'func1', 4),
-            ('instruction', 'func1', 6)]
+    if sys.implementation.name == 'pypy':
+        # no RESUME opcode
+        MUST_INCLUDE_LI = [
+                ('instruction', 'func1', 0),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 2),
+                ('instruction', 'func1', 4)]
+    else:
+        MUST_INCLUDE_LI = [
+                ('instruction', 'func1', 2),
+                ('line', 'func1', 2),
+                ('instruction', 'func1', 4),
+                ('instruction', 'func1', 6)]
 
     def test_line_then_instruction(self):
         recorders = [ LineRecorder, InstructionRecorder ]

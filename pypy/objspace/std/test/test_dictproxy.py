@@ -103,6 +103,15 @@ class AppTestUserObject:
         mapping = dictproxy(dict(a=1, b=2, c=3))
         assert list(reversed(mapping)) == list(reversed(list(mapping)))
 
+    def test_hash(self):
+        dictproxy = type(int.__dict__)
+        raises(TypeError, hash, dictproxy({'a': 1}))
+        class HashableDict(dict):
+            def __hash__(self):
+                return 3844817361
+        mapping = HashableDict({'a': 1, 'b': 2})
+        assert hash(dictproxy(mapping)) == hash(mapping)
+
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

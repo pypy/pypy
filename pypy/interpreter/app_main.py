@@ -537,7 +537,7 @@ default_options["check_hash_based_pycs"] = "default"
 default_options["dev_mode"] = False  # needs to be bool
 default_options["utf8_mode"] = -1
 default_options["warn_default_encoding"] = 0
-default_options["int_max_str_digits"] = -1
+default_options["int_max_str_digits"] = 4300
 default_options["safe_path"] = False  # needs to be bool
 
 def simple_option(options, name, iterargv):

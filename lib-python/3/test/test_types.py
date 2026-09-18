@@ -624,7 +624,8 @@ class TypesTests(unittest.TestCase):
 
         self.assertIsInstance(int.__dict__['from_bytes'], types.ClassMethodDescriptorType)
         self.assertIsInstance(int.from_bytes, types.BuiltinMethodType)
-        self.assertIsInstance(int.__new__, types.BuiltinMethodType)
+        # Not on PyPy ...
+        # self.assertIsInstance(int.__new__, types.BuiltinMethodType)
 
     def test_ellipsis_type(self):
         self.assertIsInstance(Ellipsis, types.EllipsisType)
@@ -1717,7 +1718,12 @@ class ClassCreationTests(unittest.TestCase):
             X = types.new_class("X", (int(), C))
 
     def test_one_argument_type(self):
-        expected_message = 'type.__new__() takes exactly 3 arguments (1 given)'
+        if sys.implementation.name == 'pypy':
+            expected_message1 = 'M.__new__() takes exactly 3 arguments (1 given)'
+            expected_message2 = 'N.__new__() takes exactly 3 arguments (1 given)'
+        else:
+            expected_message1 = 'type.__new__() takes exactly 3 arguments (1 given)'
+            expected_message2 = expected_message1
 
         # Only type itself can use the one-argument form (#27157)
         self.assertIs(type(5), int)
@@ -1726,13 +1732,13 @@ class ClassCreationTests(unittest.TestCase):
             pass
         with self.assertRaises(TypeError) as cm:
             M(5)
-        self.assertEqual(str(cm.exception), expected_message)
+        self.assertEqual(str(cm.exception), expected_message1)
 
         class N(type, metaclass=M):
             pass
         with self.assertRaises(TypeError) as cm:
             N(5)
-        self.assertEqual(str(cm.exception), expected_message)
+        self.assertEqual(str(cm.exception), expected_message2)
 
     def test_metaclass_new_error(self):
         # bpo-44232: The C function type_new() must properly report the
@@ -1838,8 +1844,11 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns2._y = 5
         name = "namespace"
 
-        self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
-        self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
+        # self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
+        # self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
+        # PyPy sorts the kwarg
+        self.assertEqual(repr(ns1), "{name}(w=3, x=1, y=2)".format(name=name))
+        self.assertEqual(repr(ns2), "{name}(_y=5, x='spam')".format(name=name))
 
     def test_equal(self):
         ns1 = types.SimpleNamespace(x=1)
@@ -1888,7 +1897,9 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns3.spam = ns2
         name = "namespace"
         repr1 = "{name}(c='cookie', spam={name}(...))".format(name=name)
-        repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
+        # PyPy sorts the kwargs
+        # repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
+        repr2 = "{name}(spam={name}(spam={name}(...), x=1))".format(name=name)
 
         self.assertEqual(repr(ns1), repr1)
         self.assertEqual(repr(ns2), repr2)
