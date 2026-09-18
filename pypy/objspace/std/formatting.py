@@ -525,14 +525,14 @@ def make_formatter_subclass(do_unicode):
                                                  allow_surrogates=True)
                     except rutf8.OutOfRange:
                         raise oefmt(space.w_OverflowError,
-                                    "unicode character code out of range")
+                                    "%c arg not in range(0x110000)")
                     self.std_wp(c, False)
                 else:
                     try:
                         s = chr(n)
                     except ValueError:
                         raise oefmt(space.w_OverflowError,
-                                    "character code not in range(256)")
+                                    "%c arg not in range(256)")
                     self.std_wp(s, True)
                 return
             if not do_unicode:
@@ -547,7 +547,8 @@ def make_formatter_subclass(do_unicode):
                 if len(s) == 1:
                     self.std_wp(s)
                     return
-                raise oefmt(space.w_TypeError, "%c requires int or single byte")
+                raise oefmt(space.w_TypeError,
+                            "%c requires an integer in range(256) or a single byte")
             else:
                 if space.isinstance_w(w_value, space.w_unicode):
                     ustr = space.utf8_w(w_value)

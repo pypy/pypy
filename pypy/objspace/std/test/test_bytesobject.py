@@ -1042,6 +1042,12 @@ class AppTestBytesObject:
         assert b'%04X' % 10 == b'000A'
         assert b'%c' % 48 == b'0'
         assert b'%c' % b'a' == b'a'
+        with raises(TypeError) as excinfo:
+            b'%c' % 3.14
+        assert str(excinfo.value) == "%c requires an integer in range(256) or a single byte"
+        with raises(OverflowError) as excinfo:
+            b'%c' % 256
+        assert str(excinfo.value) == "%c arg not in range(256)"
         """
 
     def test_format_b(self):
