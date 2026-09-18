@@ -885,3 +885,22 @@ def test_assert_raise_points_at_condition():
         r = [i for i in dis.get_instructions(code) if i.opname == 'RAISE_VARARGS']
         p = r[0].positions
         assert (p.col_offset, p.end_col_offset) == span, (src, p)
+
+def test_except_star_wrapped_naked_traceback():
+    # gh-128799: the ExceptionGroup wrapping a naked exception gets a
+    # traceback entry for the frame of the except* clause
+    caught = []
+    def f():
+        try:
+            raise ValueError(42)
+        except* ValueError as e:
+            caught.append(e)
+    f()
+    eg = caught[0]
+    assert isinstance(eg, ExceptionGroup)
+    tb = eg.__traceback__
+    assert tb is not None
+    assert tb.tb_frame.f_code is f.__code__
+    assert tb.tb_lineno == f.__code__.co_firstlineno + 3
+    assert tb.tb_next is None
+    assert eg.exceptions[0].__traceback__.tb_lineno == f.__code__.co_firstlineno + 2

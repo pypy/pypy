@@ -2023,7 +2023,7 @@ class __extend__(pyframe.PyFrame):
         w_typ = self.popvalue()
         check_except_star_type_valid(space, w_typ)
         w_eg = self.peekvalue()
-        w_match, w_rest = exception_group_match(space, w_eg, w_typ)
+        w_match, w_rest = exception_group_match(space, w_eg, w_typ, self)
         if space.is_w(w_match, space.w_None):
             self.pushvalue(w_match)
         else:
@@ -2309,7 +2309,7 @@ def check_except_star_type_valid(space, w_typ):
     else:
         check(space, w_typ, w_BaseExceptionGroup)
 
-def exception_group_match(space, w_eg, w_typ):
+def exception_group_match(space, w_eg, w_typ, frame):
     if space.is_w(w_eg, space.w_None):
         return space.w_None, space.w_None
     assert space.isinstance_w(w_eg, space.w_Exception)
@@ -2320,6 +2320,10 @@ def exception_group_match(space, w_eg, w_typ):
             return w_eg, space.w_None
         w_list = space.newlist([w_eg])
         w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
+        if not frame.pycode.hidden_applevel:
+            from pypy.interpreter.pytraceback import PyTraceback
+            tb = PyTraceback(space, frame, frame.last_instr, None)
+            space.setattr(w_wrapped, space.newtext('__traceback__'), tb)
         return w_wrapped, space.w_None
     elif space.isinstance_w(w_eg, w_BaseExceptionGroup):
         w_pair = space.call_method(w_eg, 'split', w_typ)
