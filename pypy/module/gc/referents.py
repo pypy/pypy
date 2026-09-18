@@ -144,10 +144,16 @@ def get_referents(space, args_w):
     rgc.assert_no_more_gcflags()
     return space.newlist(result_w)
 
-def get_referrers(space, args_w):
+def get_referrers(space, __args__):
     """Return the list of objects that directly refer to any of objs."""
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
+    # use __args__ rather than args_w to avoid creating a tuple that would
+    # itself show up as a referrer
+    args_w, kwds_w = __args__.unpack()
+    if kwds_w:
+        raise oefmt(space.w_TypeError,
+                    "get_referrers() takes no keyword arguments")
     # xxx uses a lot of memory to make the list of all W_Root objects,
     # but it's simpler this way and more correct than the previous
     # version of this code (issue #2612).  It is potentially very slow

@@ -159,3 +159,6 @@ class AppTestReferentsMore(object):
         assert a in lst
         lst = gc.get_referrers(A)
         assert a in lst
+        # the call itself must not add a referrer (e.g. a varargs tuple)
+        assert not [x for x in lst if type(x) is tuple and x == (A,)]
+        raises(TypeError, gc.get_referrers, A, foo=1)

@@ -2359,3 +2359,25 @@ def test_lines_after_trace_started_via_settrace_only():
     firstlineno = f.__code__.co_firstlineno
     f()
     assert [l - firstlineno for l in tracer.events] == [3, 4, 5]
+
+def test_no_opcode_event_after_settrace_none_in_line_event():
+    import sys
+    events = []
+    def trace(frame, event, arg):
+        events.append(event)
+        if event == 'line':
+            sys.settrace(None)
+        return trace
+
+    def f():
+        frame = sys._getframe()
+        frame.f_trace_opcodes = True
+        frame.f_trace = trace
+        sys.settrace(trace)
+        a = 1
+        b = 2
+        return a + b
+
+    f()
+    assert 'line' in events
+    assert events[events.index('line') + 1:] == []

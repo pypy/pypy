@@ -1940,6 +1940,27 @@ def test_pdb_issue_gh_101517():
     (Pdb) continue
     """
 
+if sys.implementation.name == 'pypy':
+    # PyPy change: the frame has a valid line number inside the except* handler
+    test_pdb_issue_gh_101517.__doc__ = """See GH-101517
+
+    Make sure pdb doesn't crash when the exception is caught in a try/except* block
+
+    >>> def test_function():
+    ...     try:
+    ...         raise KeyError
+    ...     except* Exception as e:
+    ...         import pdb; pdb.Pdb(nosigint=True, readrc=False).set_trace()
+
+    >>> with PdbTestInput([  # doctest: +NORMALIZE_WHITESPACE
+    ...     'continue'
+    ... ]):
+    ...    test_function()
+    > <doctest test.test_pdb.test_pdb_issue_gh_101517[0]>(4)test_function()
+    -> except* Exception as e:
+    (Pdb) continue
+    """
+
 def test_pdb_issue_gh_108976():
     """See GH-108976
     Make sure setting f_trace_opcodes = True won't crash pdb
@@ -2877,10 +2898,12 @@ def bœr():
         commands = 'q\n'
         # We check that pdb stopped at line 0, but anything reasonable
         # is acceptable here, as long as it does not halt
+        # PyPy change: PyPy stops at line 1
+        lineno = 1 if sys.implementation.name == 'pypy' else 0
         stdout, _ = self.run_pdb_script(script, commands)
-        self.assertIn('main.py(0)', stdout)
+        self.assertIn(f'main.py({lineno})', stdout)
         stdout, _ = self.run_pdb_module(script, commands)
-        self.assertIn('__main__.py(0)', stdout)
+        self.assertIn(f'__main__.py({lineno})', stdout)
 
     def test_non_utf8_encoding(self):
         script_dir = os.path.join(os.path.dirname(__file__), 'encoded_modules')

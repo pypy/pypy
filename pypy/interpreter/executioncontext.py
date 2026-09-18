@@ -196,7 +196,8 @@ class ExecutionContext(object):
             # produce a line event
             if lastline != lineno or frame.last_instr < d.instr_prev_plus_one:
                 self._trace(frame, 'line', self.space.w_None)
-        if d.f_trace_opcodes:
+        if d.f_trace_opcodes and self.gettrace() is not None:
+            # the line event may have called sys.settrace(None)
             self._trace(frame, 'opcode', self.space.w_None)
         d.instr_prev_plus_one = frame.last_instr + 1
 
