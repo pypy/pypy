@@ -68,6 +68,8 @@ jobs:
           - platform: win64
             runner: windows-latest
             arch: win64
+            # MSVC compile-per-test files take ~5x longer than on linux
+            test_timeout: 3600
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -91,6 +93,15 @@ jobs:
       env:
         PYTHONPATH: .
       run: pypy get_externals.py
+    - name: Exclude the workspace from Windows Defender
+      if: ${{ matrix.platform == 'win64' }}
+      # real-time scanning of every freshly linked test exe slows the
+      # compile-heavy suites down a lot on hosted runners
+      shell: pwsh
+      run: |
+        Add-MpPreference -ExclusionPath $env:GITHUB_WORKSPACE
+        Add-MpPreference -ExclusionPath $env:RUNNER_TEMP
+        Add-MpPreference -ExclusionPath $env:TEMP
     - name: Create machine config
       shell: bash
       # hosted runners differ (macos arm64 has 3 vCPUs, the rest 4), so
@@ -106,6 +117,7 @@ jobs:
         CONTAINER: ${{ matrix.container }}
         PYTHONPATH: .
         PYPY_LOCALBASE: ${{ matrix.localbase }}
+        TEST_TIMEOUT: ${{ matrix.test_timeout || 1759 }}
       shell: bash
       run: |
         set -o pipefail
@@ -142,7 +154,7 @@ jobs:
               --config=pypy/testrunner_cfg.py \
               --config=machine_cfg.py \
               --root=rpython \
-              --timeout=1759 \
+              --timeout=$TEST_TIMEOUT \
               --logfile=testrun.log \
             2>&1 | tee testrun-output.log
         else
@@ -150,10 +162,57 @@ jobs:
             --config=pypy/testrunner_cfg.py \
             --config=machine_cfg.py \
             --root=rpython \
-            --timeout=1759 \
+            --timeout=$TEST_TIMEOUT \
             --logfile=testrun.log \
           2>&1 | tee testrun-output.log
         fi
+    - name: Report per-file times and timeouts
+      if: ${{ always() }}
+      env:
+        TEST_TIMEOUT: ${{ matrix.test_timeout || 1759 }}
+      shell: bash
+      # annotates the run with files the runner killed or that are close
+      # to the per-file timeout, and puts the slowest files in the summary
+      run: |
+        limit="${TEST_TIMEOUT:-1759}"
+        warn=$(( limit * 3 / 4 ))
+        [ -f testrun-output.log ] || { echo "no testrun-output.log"; exit 0; }
+        {
+          # per-file wall time from the pytest summary line of each section
+          awk '
+            match($0, /__ [^ ]+ \[[0-9]+ done in total/) {
+              sec = substr($0, RSTART + 3, RLENGTH - 3); sub(/ \[.*/, "", sec)
+            }
+            / in [0-9.]+ seconds/ && /(passed|failed|error|skipped|xfailed)/ {
+              match($0, /in [0-9.]+ seconds/)
+              printf "%d ok %s\n", substr($0, RSTART + 3, RLENGTH - 11), sec
+            }
+          ' testrun-output.log
+          # files the runner killed: "! <file>" followed by " TIMEOUT" in the resultlog
+          [ -f testrun.log ] && awk -v limit="$limit" '
+            /^! / { f = $2; getline; if ($1 == "TIMEOUT") printf "%d TIMEOUT %s\n", limit, f }
+          ' testrun.log
+        } | sort -rn > file-times.txt
+        {
+          echo "### Per-file test time (timeout ${limit}s, warning above ${warn}s)"
+          echo
+          echo "| seconds | file | note |"
+          echo "|---:|---|---|"
+          head -15 file-times.txt | while read secs status file; do
+            if [ "$status" = TIMEOUT ]; then
+              echo "| $secs | $file | TIMED OUT, killed by the runner |"
+              echo "::error title=test file hit the ${limit}s timeout::$file was killed after ${limit}s" >&2
+            elif [ "$secs" -ge "$warn" ]; then
+              echo "| $secs | $file | above ${warn}s, close to the timeout |"
+              echo "::warning title=test file close to the timeout::$file took ${secs}s of the ${limit}s limit" >&2
+            else
+              echo "| $secs | $file | |"
+            fi
+          done
+        } > file-times.md
+        cat file-times.md
+        [ -n "$GITHUB_STEP_SUMMARY" ] && cat file-times.md >> "$GITHUB_STEP_SUMMARY"
+        true
     - name: Upload test logs
       if: ${{ always() }}
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -162,3 +221,4 @@ jobs:
         path: |
           testrun.log
           testrun-output.log
+          file-times.md
