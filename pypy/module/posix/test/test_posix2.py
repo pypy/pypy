@@ -11,7 +11,8 @@ from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
-USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket']
+USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket',
+              '_pickle']
 if os.name != 'nt':
     USEMODULES += ['pwd']
 
@@ -817,6 +818,11 @@ class AppTestPosix:
                               self.expected_minor_12345) == 12345
             with raises((ValueError, OverflowError)):
                 os.major(-1)
+            for x in -2, 2**32, 2**64, -2**63-1:
+                with raises((ValueError, OverflowError)):
+                    os.makedev(x, 0)
+                with raises((ValueError, OverflowError)):
+                    os.makedev(0, x)
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
@@ -1109,6 +1115,16 @@ class AppTestPosix:
             os = self.posix
             sp = os.sched_param(sched_priority=1)
             assert sp.sched_priority == 1
+
+        def test_sched_param_pickle(self):
+            import _pickle, copy
+            os = self.posix
+            sp = os.sched_param(1)
+            assert sp.__reduce__() == (os.sched_param, (1,))
+            for proto in range(6):
+                assert _pickle.loads(_pickle.dumps(sp, proto)) == sp
+            assert copy.copy(sp) == sp
+            assert copy.deepcopy(sp) == sp
 
     if hasattr(rposix, 'sched_setaffinity'):
         def test_sched_affinity(self):

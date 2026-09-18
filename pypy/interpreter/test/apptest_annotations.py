@@ -210,3 +210,14 @@ def test_annotation_builtin_type():
     with pytest.raises(TypeError):
         int.__annotations__ = 12
     assert getattr(int, "__annotations__", None) is None
+    with pytest.raises(AttributeError):
+        type.__annotations__
+    assert getattr(type, "__annotations__", None) is None
+
+def test_annotation_descriptor_in_class_dict():
+    class Desc:
+        def __get__(self, obj, cls):
+            return {'cls': cls}
+    class D:
+        __annotations__ = Desc()
+    assert D.__annotations__ == {'cls': D}

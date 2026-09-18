@@ -146,6 +146,9 @@ class sched_param(metaclass=structseqtype):
     def __new__(cls, sched_priority):
         return structseq_new(cls, sched_priority)
 
+    def __reduce__(self):
+        return type(self), (self.sched_priority,)
+
 def waitstatus_to_exitcode(status):
     """
     Convert a wait status to an exit code.

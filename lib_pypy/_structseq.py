@@ -77,7 +77,8 @@ class structseqtype(type):
         dict['_extra_fields'] = tuple(extra_fields)
         if '__new__' not in dict:
             dict['__new__'] = structseq_new
-        dict['__reduce__'] = structseq_reduce
+        if '__reduce__' not in dict:
+            dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr
         dict['__str__'] = structseq_repr

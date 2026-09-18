@@ -2612,9 +2612,9 @@ def getloadavg(space):
                            space.newfloat(load[1]),
                            space.newfloat(load[2])])
 
-@unwrap_spec(major=c_int, minor=c_int)
+@unwrap_spec(major="c_uint", minor="c_uint")
 def makedev(space, major, minor):
-    result = os.makedev(major, minor)
+    result = os.makedev(intmask(major), intmask(minor))
     return space.newint(result)
 
 @unwrap_spec(device="c_uint")
