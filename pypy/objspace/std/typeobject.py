@@ -868,15 +868,16 @@ class W_TypeObject(W_Root):
     # lazy initialization of __annotations__ if not present
 
     def descr_get_annotations(self, space):
+        if not self.is_heaptype():
+            raise oefmt_attribute_error(
+                space, self, space.newtext("__annotations__"),
+                "type object '%N' has no attribute %R")
         w_ann = self.getdictvalue(space, '__annotations__')
         if w_ann is None:
-            if not self.is_heaptype():
-                raise oefmt_attribute_error(
-                    space, self, space.newtext("__annotations__"),
-                    "type object '%N' has no attribute %R")
             w_ann = space.newdict()
             self.setdictvalue(space, '__annotations__', w_ann)
-        return w_ann
+            return w_ann
+        return space.get(w_ann, space.w_None, self)
 
     def descr_set_annotations(self, space, w_ann):
         self.setdictvalue(space, '__annotations__', w_ann)
