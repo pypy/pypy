@@ -9,9 +9,11 @@ def build(cls, *args):
         token.end_lineno, token.end_column)
     return cls(*newargs)
 
-def add_constant_string(astbuilder, joined_pieces, constant):
+def add_constant_string(astbuilder, joined_pieces, constant, fmode):
     space = astbuilder.space
     is_unicode = space.isinstance_w(constant.value, space.w_unicode)
+    if fmode and is_unicode and not space.is_true(constant.value):
+        return
     # Implement implicit string concatenation.
     if joined_pieces:
         prev = joined_pieces[-1]
@@ -35,16 +37,19 @@ def concatenate_strings(astbuilder, nodes):
     # encoding = astbuilder.compile_info.encoding
     joined_pieces = []
     fmode = False
+    for node in nodes:
+        if isinstance(node, ast.JoinedStr):
+            fmode = True
+            break
     for i in range(len(nodes)):
         node = nodes[i]
         if isinstance(node, ast.Constant):
-            add_constant_string(astbuilder, joined_pieces, node)
+            add_constant_string(astbuilder, joined_pieces, node, fmode)
         else:
             assert isinstance(node, ast.JoinedStr)
-            fmode = True
             for piece in node.values:
                 if isinstance(piece, ast.Constant):
-                    add_constant_string(astbuilder, joined_pieces, piece)
+                    add_constant_string(astbuilder, joined_pieces, piece, fmode)
                 elif isinstance(piece, ast.FormattedValue):
                     joined_pieces.append(piece)
                 else:

@@ -525,3 +525,13 @@ def test_invalid_literal_in_parenthesized_expression():
                 "<test>", "exec")
     assert info.value.msg == "invalid decimal literal"
     assert (info.value.lineno, info.value.offset) == (3, 17)
+
+def test_concat_drops_empty_strings():
+    for src in ["f'{1}' ''", "'' f'{1}'", "'' f'{1}' ''"]:
+        values = ast.parse(src).body[0].value.values
+        assert len(values) == 1
+        assert isinstance(values[0], ast.FormattedValue)
+    for src in ["f'' ''", "'' f''", "f'' '' f'' ''"]:
+        assert ast.parse(src).body[0].value.values == []
+    assert ast.parse("'' ''").body[0].value.value == ''
+    raises(SyntaxError, ast.parse, "b'' f'{1}'")
