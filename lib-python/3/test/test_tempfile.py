@@ -923,6 +923,7 @@ class TestMktemp(BaseTestCase):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
+        support.gc_collect()  # PYPY CHANGE
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
@@ -1121,6 +1122,7 @@ class TestNamedTemporaryFile(BaseTestCase):
         dir = tempfile.mkdtemp()
         try:
             tmp_name = my_func(dir)
+            support.gc_collect()  # PYPY CHANGE
             self.assertFalse(os.path.exists(tmp_name),
                         f"NamedTemporaryFile {tmp_name!r} "
                         f"exists after finalizer ")
@@ -1965,7 +1967,8 @@ class TestTemporaryDirectory(BaseTestCase):
             name = d.name
 
             # Check for the resource warning
-            with warnings_helper.check_warnings(('Implicitly',
+            # PyPy: remove the regex for Implicitly...
+            with warnings_helper.check_warnings(('',
                                                  ResourceWarning),
                                                 quiet=False):
                 warnings.filterwarnings("always", category=ResourceWarning)

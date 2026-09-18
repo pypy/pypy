@@ -110,6 +110,7 @@ class ContextVar(metaclass=Unsubclassable):
     def __init__(self, name, *, default=_NO_DEFAULT):
         if not isinstance(name, str):
             raise TypeError("context variable name must be a str")
+        hash(name)
         self._name = name
         self._default = default
 
