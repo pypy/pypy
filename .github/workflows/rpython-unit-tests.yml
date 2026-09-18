@@ -93,7 +93,12 @@ jobs:
       run: pypy get_externals.py
     - name: Create machine config
       shell: bash
-      run: echo "parallel_runs=4" > machine_cfg.py
+      # hosted runners differ (macos arm64 has 3 vCPUs, the rest 4), so
+      # size the parallelism to the machine instead of hardcoding it
+      run: |
+        ncpu=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "${NUMBER_OF_PROCESSORS:-4}")
+        echo "parallel_runs=$ncpu" > machine_cfg.py
+        cat machine_cfg.py
     - name: Run tests
       env:
         SUITE: ${{ matrix.suite }}
