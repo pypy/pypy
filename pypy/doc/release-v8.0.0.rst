@@ -6,11 +6,6 @@ PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
 ..
   updated to 4f564267b310cc77a7e53037cb5a9d4bc79abe3e
 
-.. note::
-   This is a pre-release announcement. When the release actually happens, it
-   will be announced on the PyPy blog_
-
-
 The PyPy team is proud to release version 8.0.0 of PyPy after the previous
 release on May 26, 2026. This is a major new version, hence the bump to 8.0.0.
 It is our first release of Python 3.12, which may still have some bugs so we
@@ -125,9 +120,7 @@ making RPython's JIT even better.
 If you are a python library maintainer and use C-extensions, please consider
 making a CFFI_ version of your library that would be performant
 on PyPy. Failing that, PyPy will soon support the cp312-abi3 tag for limited
-ABI wheels supporting the CPython 3.12 ABI contract for 3.12 and above (which
-makes ``Py_DECREF`` a function call, not a macro).  In any case,
-`cibuildwheel`_ supports building wheels for PyPy.
+ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
 .. rubric:: Footnotes
 
