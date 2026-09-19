@@ -118,6 +118,7 @@ jobs:
         PYTHONPATH: .
         PYPY_LOCALBASE: ${{ matrix.localbase }}
         TEST_TIMEOUT: ${{ matrix.test_timeout || 1759 }}
+        PYPY_SIGTERM_DUMP_DIR: ${{ github.workspace }}/sigterm-dumps
       shell: bash
       run: |
         set -o pipefail
@@ -149,6 +150,7 @@ jobs:
             -w /workspace \
             -e PYPYCHERRYPICK \
             -e PYTHONPATH \
+            -e PYPY_SIGTERM_DUMP_DIR=/workspace/sigterm-dumps \
             "$CONTAINER" \
             pypy testrunner/runner.py \
               --config=pypy/testrunner_cfg.py \
@@ -212,6 +214,13 @@ jobs:
         } > file-times.md
         cat file-times.md
         [ -n "$GITHUB_STEP_SUMMARY" ] && cat file-times.md >> "$GITHUB_STEP_SUMMARY"
+        # stack dumps written by rpython/conftest.py when the runner SIGTERMed a hung test file
+        for dump in sigterm-dumps/*.log; do
+          [ -f "$dump" ] || continue
+          echo "::group::stack dump of the killed test process ($dump)"
+          cat "$dump"
+          echo "::endgroup::"
+        done
         true
     - name: Upload test logs
       if: ${{ always() }}
@@ -222,3 +231,4 @@ jobs:
           testrun.log
           testrun-output.log
           file-times.md
+          sigterm-dumps/
