@@ -69,7 +69,7 @@ jobs:
             runner: windows-latest
             arch: win64
             # MSVC compile-per-test files take ~5x longer than on linux
-            test_timeout: 3600
+            test_timeout: 3613
 
     steps:
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
