@@ -153,6 +153,7 @@ jobs:
             -e PYPYCHERRYPICK \
             -e PYTHONPATH \
             -e PYPY_SIGTERM_DUMP_DIR=/workspace/sigterm-dumps \
+            -e GC_MARKERS=1 \
             "$CONTAINER" \
             pypy testrunner/runner.py \
               --config=pypy/testrunner_cfg.py \
