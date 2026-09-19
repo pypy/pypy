@@ -61,6 +61,8 @@ jobs:
             runner: macos-15-intel
             arch: x86
             localbase: /usr/local
+            # translator/c/test/test_backendoptimized.py took 939 to 1759+ s here
+            test_timeout: 3613
           - platform: macos-arm64
             runner: macos-latest
             arch: arm64
