@@ -87,7 +87,8 @@ def _dealloc(space, obj):
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
     dictptr = cpyext_dict_slot(op)
-    if dictptr and not dictptr[0]:
+    if dictptr and not dictptr[0] and pyobj_has_w_obj(space, op):
+        # inside tp_dealloc the w_obj is gone: leave the slot NULL
         publish_dict_to_c(space, from_ref(space, op), op)
     return dictptr
 

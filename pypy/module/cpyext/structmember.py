@@ -8,7 +8,7 @@ from pypy.module.cpyext.api import (PyObjectP, cpython_api, CONST_STRING,
 from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import (PyObject, decref, from_ref, make_ref,
-    cpyext_dict_slot, publish_dict_to_c)
+    cpyext_dict_slot, publish_dict_to_c, pyobj_has_w_obj)
 from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
 from pypy.module.cpyext.floatobject import PyFloat_AsDouble
 from pypy.module.cpyext.longobject import (
@@ -104,7 +104,9 @@ def _publish_if_dict_slot(space, obj, obj_ptr):
     # _PyObject_GetDictPtr
     py_obj = rffi.cast(PyObject, obj)
     slot = cpyext_dict_slot(py_obj)
-    if rffi.cast(lltype.Signed, slot) == rffi.cast(lltype.Signed, obj_ptr):
+    if (rffi.cast(lltype.Signed, slot) == rffi.cast(lltype.Signed, obj_ptr)
+            and pyobj_has_w_obj(space, py_obj)):
+        # inside tp_dealloc the w_obj is gone: leave the slot NULL
         publish_dict_to_c(space, from_ref(space, py_obj), py_obj)
 
 
