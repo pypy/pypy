@@ -588,4 +588,5 @@ FakeObjSpace.sys = FakeModule()
 FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.sys.dlopenflags = 123
+FakeObjSpace.sys.recursionlimit = 4321
 FakeObjSpace.builtin = FakeModule()
