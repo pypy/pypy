@@ -2948,6 +2948,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             """
                     return PyLong_FromLong(ndealloc);
             """),
+            ("ndealloc_bad", "METH_NOARGS",
+            """
+                    return PyLong_FromLong(ndealloc_bad);
+            """),
             ("get_dict_ptr", "METH_O",
             """
                     PyObject **dp = _PyObject_GetDictPtr(args);
@@ -2962,6 +2966,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     PyObject *d;
                 } CustomObject;
                 static long ndealloc = 0;
+                static long ndealloc_bad = 0;
+
+                static PyMemberDef Custom_members[] = {
+                    {"__dictoffset__", T_PYSSIZET, offsetof(CustomObject, d),
+                        READONLY, 0},
+                    {"dictobj", T_OBJECT, offsetof(CustomObject, d),
+                        READONLY, 0},
+                    {NULL}
+                };
 
                 static int
                 Custom_traverse(CustomObject *self, visitproc visit, void *arg)
@@ -2982,18 +2995,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Custom_dealloc(CustomObject *self)
                 {
                     PyTypeObject *tp = Py_TYPE(self);
+                    PyObject **dp, *member;
                     ndealloc++;
                     PyObject_GC_UnTrack(self);
+                    /* pybind11 reads the dict slot from tp_dealloc, when the
+                       dict may exist only on the PyPy side */
+                    dp = _PyObject_GetDictPtr((PyObject *)self);
+                    if (dp != &self->d)
+                        ndealloc_bad++;
+                    member = PyMember_GetOne((const char *)self,
+                                             &Custom_members[1]);
+                    if (member != (self->d ? self->d : Py_None))
+                        ndealloc_bad++;
+                    Py_XDECREF(member);
                     Custom_clear(self);
                     tp->tp_free(self);
                     Py_DECREF(tp);
                 }
-
-                static PyMemberDef Custom_members[] = {
-                    {"__dictoffset__", T_PYSSIZET, offsetof(CustomObject, d),
-                        READONLY, 0},
-                    {NULL}
-                };
 
                 static PyGetSetDef Custom_getsets[] = {
                     {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
@@ -3030,6 +3048,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         del objs
         self.debug_collect()
         assert module.ndealloc() == before + n
+        assert module.ndealloc_bad() == 0
 
         # once C code has looked at the dict slot, PyPy holds the dict from
         # the C struct and can no longer collect a cycle through it
@@ -3055,6 +3074,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert module.ndealloc() == before
         else:
             assert module.ndealloc() == before + 2
+        assert module.ndealloc_bad() == 0
 
     def test_managed_dict(self):
         # Cython sets Py_TPFLAGS_MANAGED_DICT without an explicit
