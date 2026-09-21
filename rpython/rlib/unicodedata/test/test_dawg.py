@@ -1,5 +1,5 @@
 import pytest
-from hypothesis import given, settings, strategies
+from hypothesis import HealthCheck, given, settings, strategies
 
 from rpython.rlib.unicodedata.dawg import (Dawg, lookup, inverse_lookup,
         build_compression_dawg, _inverse_lookup,
@@ -86,7 +86,8 @@ packed_words = strategies.integers(min_value=10, max_value=100).flatmap(
         unique=True,
     ))
 
-@settings(max_examples=500, deadline=None)
+@settings(max_examples=500, deadline=None,
+          suppress_health_check=[HealthCheck.too_slow])
 @given(packed_words)
 def test_packed_offset_varint_width_stabilizes(words):
     # Multiple branches with enough label data frequently put target offsets

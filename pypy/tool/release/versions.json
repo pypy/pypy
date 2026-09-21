@@ -1,5 +1,139 @@
 [
   {
+    "pypy_version": "8.0.0",
+    "python_version": "3.12.14",
+    "stable": true,
+    "latest_pypy": true,
+    "date": "2026-09-19",
+    "files": [
+      {
+        "filename": "pypy3.12-v8.0.0-aarch64.tar.gz",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-aarch64.tar.gz"
+      },
+      {
+        "filename": "pypy3.12-v8.0.0-linux32.tar.gz",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-linux32.tar.gz"
+      },
+      {
+        "filename": "pypy3.12-v8.0.0-linux64.tar.gz",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-linux64.tar.gz"
+      },
+      {
+        "filename": "pypy3.12-v8.0.0-macos_x86_64.tar.gz",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-macos_x86_64.tar.gz"
+      },
+      {
+        "filename": "pypy3.12-v8.0.0-macos_arm64.tar.gz",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-macos_arm64.tar.gz"
+      },
+      {
+        "filename": "pypy3.12-v8.0.0-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy3.12-v8.0.0-win64.zip"
+      }
+    ]
+  },
+{
+    "pypy_version": "8.0.0",
+    "python_version": "3.11.16",
+    "stable": true,
+    "latest_pypy": true,
+    "date": "2026-09-19",
+    "files": [
+      {
+        "filename": "pypy3.11-v8.0.0-aarch64.tar.gz",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-aarch64.tar.gz"
+      },
+      {
+        "filename": "pypy3.11-v8.0.0-linux32.tar.gz",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-linux32.tar.gz"
+      },
+      {
+        "filename": "pypy3.11-v8.0.0-linux64.tar.gz",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-linux64.tar.gz"
+      },
+      {
+        "filename": "pypy3.11-v8.0.0-macos_x86_64.tar.gz",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-macos_x86_64.tar.gz"
+      },
+      {
+        "filename": "pypy3.11-v8.0.0-macos_arm64.tar.gz",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-macos_arm64.tar.gz"
+      },
+      {
+        "filename": "pypy3.11-v8.0.0-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v8.0.0-win64.zip"
+      }
+    ]
+  },
+  {
+    "pypy_version": "8.0.0",
+    "python_version": "2.7.18",
+    "stable": true,
+    "latest_pypy": true,
+    "date": "2026-09-19",
+    "files": [
+      {
+        "filename": "pypy2.7-v8.0.0-aarch64.tar.gz",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-aarch64.tar.gz"
+      },
+      {
+        "filename": "pypy2.7-v8.0.0-linux32.tar.gz",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-linux32.tar.gz"
+      },
+      {
+        "filename": "pypy2.7-v8.0.0-linux64.tar.gz",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-linux64.tar.gz"
+      },
+      {
+        "filename": "pypy2.7-v8.0.0-macos_x86_64.tar.gz",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-macos_x86_64.tar.gz"
+      },
+      {
+        "filename": "pypy2.7-v8.0.0-macos_arm64.tar.gz",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-macos_arm64.tar.gz"
+      },
+      {
+        "filename": "pypy2.7-v8.0.0-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v8.0.0-win64.zip"
+      }
+    ]
+  },  {
     "pypy_version": "7.3.23",
     "python_version": "3.11.15",
     "stable": true,
@@ -48,7 +182,7 @@
     "pypy_version": "7.3.23",
     "python_version": "2.7.18",
     "stable": true,
-    "latest_pypy": true,
+    "latest_pypy": false,
     "date": "2026-05-26",
     "files": [
       {
@@ -88,7 +222,8 @@
         "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.23-win64.zip"
       }
     ]
-  },  {
+  },
+  {
     "pypy_version": "7.3.22",
     "python_version": "3.11.15",
     "stable": true,

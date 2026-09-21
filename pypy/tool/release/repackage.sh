@@ -6,10 +6,10 @@ set -e
 # like this but replace the versions and branch
 # git tag -a release-pypy3.11-v7.3.22 release-pypy3.11-v7.x -m"tag release pypy3.11-v7.3.22"
 pmaj=3  # python main version: 2 or 3
-pmin=11  # python minor version
-maj=7
-min=3
-rev=23
+pmin=12  # python minor version
+maj=8
+min=0
+rev=0
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {
