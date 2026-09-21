@@ -42,6 +42,11 @@ def compile(tmpdir, ext, compiler_verbose=0, debug=None):
 
     backend = _pypy_compile_backend()
     if backend is not None:
+        # paths in ext are relative to the current directory, not to tmpdir
+        for key in LIST_OF_FILE_NAMES:
+            value = getattr(ext, key, None)
+            if value:
+                setattr(ext, key, [os.path.abspath(p) for p in value])
         oldir = os.getcwd()
         os.chdir(tmpdir)
         try:
