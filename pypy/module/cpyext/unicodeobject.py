@@ -992,7 +992,7 @@ if sys.platform == 'win32':
     make_conversion_functions('MBCS', 'mbcs')
 
     @cpython_api([rffi.INT_real, PyObject, CONST_STRING], PyObject)
-    def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors):
+    def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors, abi3=True):
         if errors:
             errors = rffi.charp2str(errors)
         else:
