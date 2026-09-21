@@ -1,15 +1,10 @@
-======================================================================
-PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
-======================================================================
+===========================================================================
+PyPy v8.0.0: release of python 2.7, 3.11, and 3.12 beta released 2026-09-19
+===========================================================================
 
 
 ..
-  updated to 66e9c29e04c506aa1111b519adc7ac3912ffdc01
-
-.. note::
-   This is a pre-release announcement. When the release actually happens, it
-   will be announced on the PyPy blog_
-
+  updated to 4f564267b310cc77a7e53037cb5a9d4bc79abe3e
 
 The PyPy team is proud to release version 8.0.0 of PyPy after the previous
 release on May 26, 2026. This is a major new version, hence the bump to 8.0.0.
@@ -32,7 +27,7 @@ version would be prudent.
 cp12-abi3 support
 -----------------
 
-PyPy's Python3.12 support comes with a new model for the C layer ``PyObject``.
+PyPy's Python 3.12 support comes with a new model for the C layer ``PyObject``.
 In order to link the C object to the internal RPython one, we have an extra
 field in the object ``ob_pypy_link``, as described in-depth in
 :ref:`rawrefcount-and-the-gc`. In previous versions, this field was
@@ -101,7 +96,7 @@ The release includes three different interpreters:
   Python 3.11, including the stdlib for CPython 3.11.16. Barring security
   issues, this will be the last release to support 3.11.
 
-- PyPy3.12, supporting the syntax and features of Python3.12, including the
+- PyPy3.12, supporting the syntax and features of Python 3.12, including the
   stdlib for CPython 3.12.14.
 
 The interpreters are based on much the same codebase, thus the triple
@@ -125,9 +120,7 @@ making RPython's JIT even better.
 If you are a python library maintainer and use C-extensions, please consider
 making a CFFI_ version of your library that would be performant
 on PyPy. Failing that, PyPy will soon support the cp312-abi3 tag for limited
-ABI wheels supporting the CPython 3.12 ABI contract for 3.12 and above (which
-makes ``Py_DECREF`` a function call, not a macro).  In any case,
-`cibuildwheel`_ supports building wheels for PyPy.
+ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
 .. rubric:: Footnotes
 
@@ -190,6 +183,8 @@ For all versions
 - Expose unstable DAWG packing layouts, and stabilize DAWG offset encoding.
   Remove the unicodedata txt files, download them on demand. Regenerate all the
   unicodedbs with a new optimized DAWG, and add unicodedb 15.0.0 (:issue:`5581`)
+- Fix bitfield handling in cffi on macos
+- Backport cpython's ``_multibytecodec`` C code from 3.12.14
 
 Bugfixes
 ~~~~~~~~
@@ -251,12 +246,13 @@ Python 2.7
 - opt-out of ``_cppyy``, ``micronumpy``, for 8.0.0
 - Improve ``ctype.find_library`` like on python3
 
-Python 3.11
------------
+Python 3.11 and 3.12
+--------------------
 
 - Opt-out of ``_cppyy``, ``micronumpy``, ``_hpy_universal`` for 8.0.0
 - Update CFFI to v2.1.0
 - Update stdlib to 3.11.16 and vendored expat to 2.8.4
+- On portable builds, update lzma to 5.8.4
 
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -317,6 +313,9 @@ Bugfixes including missing compatibility with CPython 3.11
 - Make ``_pickle.Unpickler.find_class`` available to app-level and check for
   overrides (:issue:`5583`)
 - Fix parser for incomplete single line input (:issue:`5505`)
+- Add ``_winapi.UnmapViewOfFile`` (:issue:`5361`)
+- Fix locale encode/decode on windows (``sizeof(wchar_t)`` is 2 not 4)
+- Get ``termios`` struct layouts from the compiler, fixes macos failures
 
 
 Speedups and enhancements

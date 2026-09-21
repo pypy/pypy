@@ -275,8 +275,13 @@ def test_simple_tcp(do_recv):
     print 'received ok'
     def sendstuff():
         print 'sending'
-        s2.sendall('x'*50000)
-        print 'sent'
+        try:
+            s2.sendall('x'*50000)
+            print 'sent'
+        finally:
+            sendlock.release()
+    sendlock = rthread.allocate_lock()
+    sendlock.acquire(True)
     rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
@@ -286,6 +291,9 @@ def test_simple_tcp(do_recv):
         buf += data
     assert buf == 'x'*50000
     print 'data received ok'
+    # wait for the sender to leave sendall, or leakfinder can see its
+    # nonmoving buffer still allocated at teardown
+    sendlock.acquire(True)
     s1.shutdown(SHUT_RDWR)
     s1.close()
     s2.close()
@@ -530,7 +538,7 @@ def test_get_socket_family():
 def test_dup():
     s = RSocket(AF_INET, SOCK_STREAM)
     try:
-        s.bind(INETAddress('localhost', 50007))
+        s.bind(INETAddress('localhost', 0))
         if sys.platform == "win32":
             assert not hasattr(s, 'dup')
             return
@@ -548,7 +556,7 @@ def test_c_dup():
     # (but only on socket handles!)
     s = RSocket(AF_INET, SOCK_STREAM)
     try:
-        s.bind(INETAddress('localhost', 50007))
+        s.bind(INETAddress('localhost', 0))
         s2 = RSocket(fd=dup(s.fd))
         try:
             assert s.fd != s2.fd
@@ -621,7 +629,8 @@ def do_test_unix_socket_connect(do_recv):
     s.close()
 
 class TestTCP:
-    PORT = 50007
+    # port 0: windows CI runners reserve random port ranges per boot
+    PORT = 0
     HOST = 'localhost'
 
     def setup_method(self, method):

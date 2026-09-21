@@ -88,6 +88,9 @@ def load_checksums(source):
 
 
 pypy_versions = {
+                 '8.0.0': {'python_version': ['3.12.14', '3.11.16', '2.7.18'],
+                           'date': '2026-09-19',
+                          },
                  '7.3.23': {'python_version': ['3.11.15', '2.7.18'],
                            'date': '2026-05-26',
                           },
