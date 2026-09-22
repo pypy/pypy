@@ -23,7 +23,7 @@ static const long OCSP_RESPID_KEY;
 FUNCTIONS = """
 int OCSP_response_status(OCSP_RESPONSE *);
 OCSP_BASICRESP *OCSP_response_get1_basic(OCSP_RESPONSE *);
-int OCSP_BASICRESP_get_ext_count(OCSP_BASICRESP *);
+const int OCSP_BASICRESP_get_ext_count(OCSP_BASICRESP *);
 const ASN1_OCTET_STRING *OCSP_resp_get0_signature(const OCSP_BASICRESP *);
 const Cryptography_STACK_OF_X509 *OCSP_resp_get0_certs(const OCSP_BASICRESP *);
 const ASN1_GENERALIZEDTIME *OCSP_resp_get0_produced_at(
@@ -33,21 +33,21 @@ int OCSP_resp_get0_id(const OCSP_BASICRESP *, const ASN1_OCTET_STRING **,
                       const X509_NAME **);
 const X509_ALGOR *OCSP_resp_get0_tbs_sigalg(const OCSP_BASICRESP *);
 const OCSP_RESPDATA *OCSP_resp_get0_respdata(const OCSP_BASICRESP *);
-X509_EXTENSION *OCSP_BASICRESP_get_ext(OCSP_BASICRESP *, int);
+const X509_EXTENSION *OCSP_BASICRESP_get_ext(OCSP_BASICRESP *, int);
 int OCSP_resp_count(OCSP_BASICRESP *);
 OCSP_SINGLERESP *OCSP_resp_get0(OCSP_BASICRESP *, int);
 int OCSP_SINGLERESP_get_ext_count(OCSP_SINGLERESP *);
-X509_EXTENSION *OCSP_SINGLERESP_get_ext(OCSP_SINGLERESP *, int);
+const X509_EXTENSION *OCSP_SINGLERESP_get_ext(OCSP_SINGLERESP *, int);
 
 int OCSP_single_get0_status(OCSP_SINGLERESP *, int *, ASN1_GENERALIZEDTIME **,
                             ASN1_GENERALIZEDTIME **, ASN1_GENERALIZEDTIME **);
 
-int OCSP_REQUEST_get_ext_count(OCSP_REQUEST *);
-X509_EXTENSION *OCSP_REQUEST_get_ext(OCSP_REQUEST *, int);
+const int OCSP_REQUEST_get_ext_count(OCSP_REQUEST *);
+const X509_EXTENSION *OCSP_REQUEST_get_ext(OCSP_REQUEST *, int);
 int OCSP_request_onereq_count(OCSP_REQUEST *);
 OCSP_ONEREQ *OCSP_request_onereq_get0(OCSP_REQUEST *, int);
-int OCSP_ONEREQ_get_ext_count(OCSP_ONEREQ *);
-X509_EXTENSION *OCSP_ONEREQ_get_ext(OCSP_ONEREQ *, int);
+const int OCSP_ONEREQ_get_ext_count(OCSP_ONEREQ *);
+const X509_EXTENSION *OCSP_ONEREQ_get_ext(OCSP_ONEREQ *, int);
 OCSP_CERTID *OCSP_onereq_get0_id(OCSP_ONEREQ *);
 OCSP_ONEREQ *OCSP_request_add0_id(OCSP_REQUEST *, OCSP_CERTID *);
 OCSP_CERTID *OCSP_cert_to_id(const EVP_MD *, const X509 *, const X509 *);
