@@ -152,9 +152,14 @@ def test_apptest_skipif(testdir):
         def test_bad():
             assert False
 
+        @pytest.mark.skipif(True, reason="Bad test")
+        @pytest.mark.skipif(False, reason="not this one")
+        def test_bad_stacked():
+            assert False
+
         def test_success():
             assert True
     """)
     result = testdir.runpytest(p)
     assert result.ret == 0
-    result.assert_outcomes(passed=1, skipped=1)
+    result.assert_outcomes(passed=1, skipped=2)

@@ -164,17 +164,18 @@ def test_traceback_positions_on_cause():
     assert processed_lines == expected_exc_format
 
 def test_colors_in_traceback():
-    import os
     def division_by_zero(a, b):
         return (
             a      + b / 0 # abc
         )
 
-    old_value = os.environ.get('FORCE_COLOR', None)
-    os.environ['FORCE_COLOR'] = '1'
+    # on win32 can_colorize() checks the console mode of stderr before
+    # FORCE_COLOR, so swap the function like test.support._force_color does
+    import _colorize
+    from _colorize import ANSIColors
+    old_can_colorize = _colorize.can_colorize
+    _colorize.can_colorize = lambda: True
     try:
-        from _colorize import can_colorize, ANSIColors
-        assert can_colorize()
         with raises(ZeroDivisionError) as exc_info:
             division_by_zero(1, 2)
 
@@ -192,10 +193,7 @@ def test_colors_in_traceback():
         assert buffer.get_lines()[-3:] == expected_exc_format
 
     finally:
-        if old_value is None:
-            del os.environ['FORCE_COLOR']
-        else:
-            os.environ['FORCE_COLOR'] = old_value
+        _colorize.can_colorize = old_can_colorize
 
 def test_old_format_works():
     """test that overriding traceback.TracebackException with a class

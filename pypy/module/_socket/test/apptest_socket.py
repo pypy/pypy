@@ -369,13 +369,12 @@ def test_listen_default():
         _socket.socket().listen()
     assert isinstance(_socket.SOMAXCONN, int)
 
-def test_unix_socket_connect():
-    import _socket, os, tempfile
+def test_unix_socket_connect(tmpdir):
+    import _socket, os
     if not hasattr(_socket, 'AF_UNIX'):
         pytest.skip('AF_UNIX not supported.')
-    udir = tempfile.mkdtemp()
     oldcwd = os.getcwd()
-    os.chdir(udir)
+    os.chdir(tmpdir)
     try:
       for sockpath in ['app_test_unix_socket_connect',
                        b'b_app_test_unix_socket_connect',

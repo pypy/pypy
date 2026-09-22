@@ -2,20 +2,25 @@
 # cpyext or _cffi_backend is required for _imp.create_dynamic();
 # use _cffi_backend since it is difficult to import cpyext untranslated
 import os
-import tempfile
 
 
-def _py_file():
-    fname = os.path.join(tempfile.mkdtemp(), '@TEST.py')
+def _subdir(tmpdir, name):
+    path = os.path.join(tmpdir, name)
+    os.mkdir(path)
+    return path
+
+
+def _py_file(tmpdir, name):
+    fname = os.path.join(_subdir(tmpdir, name), '@TEST.py')
     with open(fname, 'w') as f:
         f.write('MARKER = 42\n')
     return fname
 
 
-def _pyc_file():
+def _pyc_file(tmpdir, name):
     import marshal, importlib.util
     co = compile("marker=42", "x.py", "exec")
-    fname = os.path.join(tempfile.mkdtemp(), '@TEST.pyc')
+    fname = os.path.join(_subdir(tmpdir, name), '@TEST.pyc')
     with open(fname, 'wb') as f:
         f.write(importlib.util.MAGIC_NUMBER)
         f.write(b'\x00\x00\x00\x00')
@@ -154,17 +159,17 @@ def test_is_builtin():
         assert spec is not None
 
 
-def test_load_source():
-    fn = _py_file()
+def test_load_source(tmpdir):
+    fn = _py_file(tmpdir, 'load_source')
     mod = load_source('test_imp_extra_AUTO3', fn)
     assert mod.MARKER == 42
     import test_imp_extra_AUTO3
     assert mod is test_imp_extra_AUTO3
 
 
-def test_load_module_pyc_2():
+def test_load_module_pyc_2(tmpdir):
     import os
-    fn = _pyc_file()
+    fn = _pyc_file(tmpdir, 'load_module_pyc_2')
     try:
         mod = load_compiled('test_imp_extra_AUTO4', fn)
         assert mod.marker == 42
@@ -174,8 +179,8 @@ def test_load_module_pyc_2():
         os.unlink(fn)
 
 
-def test_load_broken_pyc():
-    fn = _py_file()
+def test_load_broken_pyc(tmpdir):
+    fn = _py_file(tmpdir, 'load_broken_pyc')
     try:
         load_compiled('test_imp_extra_AUTO5', fn)
     except ImportError:
@@ -202,13 +207,11 @@ def test_path_importer_cache():
     assert sys.path_importer_cache.get(lib_pypy) is None
 
 
-def test_rewrite_pyc_check_code_name():
+def test_rewrite_pyc_check_code_name(tmpdir):
     # This one is adapted from cpython's Lib/test/test_import.py
     from os import chmod
     from os.path import join
     from sys import modules, path
-    from shutil import rmtree
-    from tempfile import mkdtemp
     code = b"""if 1:
         import sys
         code_filename = sys._getframe().f_code.co_filename
@@ -220,7 +223,7 @@ def test_rewrite_pyc_check_code_name():
         """
 
     module_name = "unlikely_module_name"
-    dir_name = mkdtemp(prefix='pypy_test')
+    dir_name = _subdir(tmpdir, 'rewrite_pyc_check_code_name')
     file_name = join(dir_name, module_name + '.py')
     with open(file_name, "wb") as f:
         f.write(code)
@@ -255,7 +258,6 @@ def test_rewrite_pyc_check_code_name():
                 del modules[module_name]
             except KeyError:
                 pass
-        rmtree(dir_name, True)
 
 
 def test_builtin_reimport():

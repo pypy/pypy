@@ -92,11 +92,12 @@ class AppTestFunction(pytest.Item):
     def check_run(self, space, w_func):
         space.appexec([w_func], """(func):
             if hasattr(func, 'skipif'):
-                marker = func.skipif
-                arg = marker.args[0]
-                if isinstance(arg, str):
-                    raise ValueError("str argument to skipif isn't supported")
-                else:
+                # stacked skipif decorators merge into one MarkInfo;
+                # iterating yields one entry per decorator
+                for marker in func.skipif:
+                    arg = marker.args[0]
+                    if isinstance(arg, str):
+                        raise ValueError("str argument to skipif isn't supported")
                     if arg:
                         import pytest
                         reason = marker.kwargs.get('reason', "Skipping.")
