@@ -597,7 +597,8 @@ class _SSLSocket(object):
         
 
     def write(self, bytestring):
-        return self._write_with_length(_str_to_ffi_buffer(bytestring), len(bytestring))
+        with _str_to_ffi_buffer(bytestring) as buf:
+            return self._write_with_length(buf, len(bytestring))
 
     def _write_with_length(self, b, lgt):
         sock = self.get_socket_or_connection_gone()
@@ -720,10 +721,13 @@ class _SSLSocket(object):
             return _bytes_with_len(dest, count[0])
 
     def _read_buf(self, length, buffer_into):
+        with ffi.from_buffer(buffer_into) as mem:
+            return self._read_buf_mem(length, mem)
+
+    def _read_buf_mem(self, length, mem):
         ssl = self.ssl
         sock = self.get_socket_or_connection_gone()
 
-        mem = ffi.from_buffer(buffer_into)
         max_mem = len(mem)
         if length <= 0 or length > max_mem:
             length = max_mem
@@ -2119,13 +2123,13 @@ class MemoryBIO(object):
         if isinstance(strlike, memoryview):
             if not strlike.c_contiguous:
                 raise BufferError("memoryview: underlying buffer is not C-contiguous")
-        buf = ffi.from_buffer(strlike)
-        if len(buf) > INT_MAX:
-            raise OverflowError("string longer than %d bytes", INT_MAX)
+        with ffi.from_buffer(strlike) as buf:
+            if len(buf) > INT_MAX:
+                raise OverflowError("string longer than %d bytes", INT_MAX)
 
-        if self.eof_written:
-            raise ssl_error("cannot write() after write_eof()")
-        nbytes = lib.BIO_write(self.bio, buf, len(buf));
+            if self.eof_written:
+                raise ssl_error("cannot write() after write_eof()")
+            nbytes = lib.BIO_write(self.bio, buf, len(buf));
         if nbytes < 0:
             raise ssl_error(None)
         return nbytes

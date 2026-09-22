@@ -134,10 +134,9 @@ def make_blake_hash(class_name, cffi_mod):
 
         def update(self, data):
             if isinstance(data, memoryview):
-                buf = data.tobytes()
-            else:
-                buf = _ffi.from_buffer(data)
-            _lib.blake_update(self._state, buf, len(buf))
+                data = data.tobytes()
+            with _ffi.from_buffer(data) as buf:
+                _lib.blake_update(self._state, buf, len(buf))
 
         def digest(self):
             digest = _ffi.new("char[]", _lib.BLAKE_OUTBYTES)
