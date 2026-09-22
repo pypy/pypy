@@ -768,6 +768,198 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_sub_sub_cancel(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_sub(i2, i0)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_neg(i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("left", ["i0, i2", "i2, i0"])
+    @pytest.mark.parametrize("right", ["i1, i2", "i2, i1"])
+    def test_rule_sub_add_add_cancel(self, left, right):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_sub(i3, i4)
+        jump(i5)
+        """ % (left, right)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_sub(i0, i1)
+        jump(i5)
+        """ % (left, right)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("left, right, args, result", [
+        ("i0, i2", "i1, i2", "i3, i4", "i0, i1"),
+        ("i2, i0", "i1, i2", "i3, i4", "i1, i0"),
+        ("i0, i2", "i2, i1", "i3, i4", "i0, i1"),
+        ("i2, i0", "i2, i1", "i3, i4", "i0, i1"),
+        ("i0, i2", "i1, i2", "i4, i3", "i1, i0"),
+        ("i2, i0", "i1, i2", "i4, i3", "i1, i0"),
+        ("i0, i2", "i2, i1", "i4, i3", "i0, i1"),
+        ("i2, i0", "i2, i1", "i4, i3", "i1, i0")])
+    def test_rule_eq_add_add_cancel(self, left, right, args, result):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % (left, right, args)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % (left, right, result)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args", ["i2, 0", "0, i2"])
+    def test_rule_ne_sub_zero(self, args):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_ne(%s)
+        jump(i3)
+        """ % args
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_ne(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("left, right, args, result", [
+        ("i0, i1", "i0, i2", "i3, i4", "i1, i2"),
+        ("i1, i0", "i0, i2", "i3, i4", "i2, i1"),
+        ("i0, i1", "i2, i0", "i3, i4", "i1, i2"),
+        ("i1, i0", "i2, i0", "i3, i4", "i1, i2"),
+        ("i0, i1", "i0, i2", "i4, i3", "i2, i1"),
+        ("i1, i0", "i0, i2", "i4, i3", "i2, i1"),
+        ("i0, i1", "i2, i0", "i4, i3", "i1, i2"),
+        ("i1, i0", "i2, i0", "i4, i3", "i2, i1")])
+    def test_rule_xor_xor_xor_cancel(self, left, right, args, result):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_xor(%s)
+        i4 = int_xor(%s)
+        i5 = int_xor(%s)
+        jump(i5)
+        """ % (left, right, args)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_xor(%s)
+        i4 = int_xor(%s)
+        i5 = int_xor(%s)
+        jump(i5)
+        """ % (left, right, result)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("inner", ["i0, i1", "i1, i0"])
+    @pytest.mark.parametrize("outer", ["i2, i0", "i0, i2"])
+    def test_rule_or_xor(self, inner, outer):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(%s)
+        i3 = int_or(%s)
+        jump(i3)
+        """ % (inner, outer)
+        expected = """
+        [i0, i1]
+        i2 = int_xor(%s)
+        i3 = int_or(i0, i1)
+        jump(i3)
+        """ % inner
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args, result", [
+        ("i2, i3", "i0, i1"), ("i3, i2", "i1, i0")])
+    def test_rule_xor_invert_invert(self, args, result):
+        ops = """
+        [i0, i1]
+        i2 = int_invert(i0)
+        i3 = int_invert(i1)
+        i4 = int_xor(%s)
+        jump(i4)
+        """ % args
+        expected = """
+        [i0, i1]
+        i2 = int_invert(i0)
+        i3 = int_invert(i1)
+        i4 = int_xor(%s)
+        jump(i4)
+        """ % result
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args, result", [
+        ("i2, i3", "i0, i1"), ("i3, i2", "i1, i0")])
+    def test_rule_mul_neg_neg(self, args, result):
+        ops = """
+        [i0, i1]
+        i2 = int_neg(i0)
+        i3 = int_neg(i1)
+        i4 = int_mul(%s)
+        jump(i4)
+        """ % args
+        expected = """
+        [i0, i1]
+        i2 = int_neg(i0)
+        i3 = int_neg(i1)
+        i4 = int_mul(%s)
+        jump(i4)
+        """ % result
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args", ["i1, 1", "1, i1"])
+    def test_rule_add_invert_one(self, args):
+        ops = """
+        [i0]
+        i1 = int_invert(i0)
+        i2 = int_add(%s)
+        jump(i2)
+        """ % args
+        expected = """
+        [i0]
+        i1 = int_invert(i0)
+        i2 = int_neg(i0)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("inner, canonical", [
+        ("int_add(i0, -1)", "int_add(i0, -1)"),
+        ("int_add(-1, i0)", "int_add(-1, i0)"),
+        ("int_sub(i0, 1)", "int_add(i0, -1)")])
+    def test_rule_invert_add_minus_one(self, inner, canonical):
+        ops = """
+        [i0]
+        i1 = %s
+        i2 = int_invert(i1)
+        jump(i2)
+        """ % inner
+        expected = """
+        [i0]
+        i1 = %s
+        i2 = int_neg(i0)
+        jump(i2)
+        """ % canonical
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]

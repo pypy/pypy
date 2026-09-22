@@ -74,8 +74,8 @@ mul_lshift: int_mul(x, int_lshift(1, y))
     check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
     => int_lshift(x, y)
 
-#mul_neg_neg: int_mul(int_neg(x), int_neg(y))
-#    => int_mul(x, y)
+mul_neg_neg: int_mul(int_neg(x), int_neg(y))
+    => int_mul(x, y)
 
 
 and_x_x: int_and(a, a)
@@ -397,3 +397,29 @@ mul_reassociate_const: int_mul(int_mul(C1, z), C2)
     C = C1 * C2
     => int_mul(C, z)
 
+sub_sub_cancel: int_sub(int_sub(x, y), x)
+    => int_neg(y)
+
+sub_add_add_cancel: int_sub(int_add(x, z), int_add(y, z))
+    => int_sub(x, y)
+
+eq_add_add_cancel: int_eq(int_add(x, z), int_add(y, z))
+    => int_eq(x, y)
+
+ne_sub_zero: int_ne(int_sub(x, y), 0)
+    => int_ne(x, y)
+
+xor_xor_xor_cancel: int_xor(int_xor(x, y), int_xor(x, z))
+    => int_xor(y, z)
+
+or_xor: int_or(int_xor(x, y), x)
+    => int_or(x, y)
+
+xor_invert_invert: int_xor(int_invert(x), int_invert(y))
+    => int_xor(x, y)
+
+add_invert_one: int_add(int_invert(x), 1)
+    => int_neg(x)
+
+invert_add_minus_one: int_invert(int_add(x, -1))
+    => int_neg(x)
