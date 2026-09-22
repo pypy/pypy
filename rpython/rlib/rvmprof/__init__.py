@@ -61,6 +61,9 @@ def stop_sampling():
 def start_sampling():
     return _get_vmprof().start_sampling()
 
+def resolve_addr(addr):
+    return _get_vmprof().resolve_addr(addr)
+
 # ----------------
 # stacklet support
 # ----------------

@@ -76,9 +76,12 @@ def make_eci():
         else:
             _libs = []
 
+    includes = ['rvmprof.h', 'vmprof_stack.h']
+    if sys.platform != 'win32':
+        includes.append('symboltable.h')
     eci_kwds = dict(
         include_dirs = [SRC, SHARED, BACKTRACE],
-        includes = ['rvmprof.h','vmprof_stack.h'],
+        includes = includes,
         libraries = _libs,
         separate_module_files = [
             SRC.join('rvmprof.c'),
@@ -155,6 +158,11 @@ def setup():
     vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
                                             lltype.Void, compilation_info=eci,
                                             _nowrapper=True)
+    if sys.platform != 'win32':
+        vmp_resolve_addr = rffi.llexternal("vmp_resolve_addr",
+                                           [rffi.VOIDP, rffi.CCHARP, rffi.INT,
+                                            rffi.INTP, rffi.CCHARP, rffi.INT],
+                                           rffi.INT, compilation_info=eci)
     return CInterface(locals())
 
 

@@ -5,6 +5,7 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.baseobjspace import W_Root
 from rpython.rlib import rvmprof, jit
 from pypy.interpreter.error import oefmt
+from rpython.rlib.rarithmetic import r_uint
 
 # ____________________________________________________________
 
@@ -91,3 +92,25 @@ def stop_sampling(space):
 def start_sampling(space):
     rvmprof.start_sampling()
     return space.w_None
+
+@unwrap_spec(addr=r_uint)
+def resolve_addr(space, addr):
+    """Symbolicate a native code address.  Returns a tuple
+    (name, lineno, srcfile), or None if no symbol covers the address.
+    """
+    name, lineno, srcfile = rvmprof.resolve_addr(addr)
+    if not name:
+        return space.w_None
+    return space.newtuple([space.newtext(name), space.newint(lineno),
+                           space.newtext(srcfile)])
+
+def resolve_many_addr(space, w_addrs):
+    """Symbolicate every address in the iterable 'addrs'.  Returns a dict
+    mapping the addresses that could be resolved to (name, lineno, srcfile).
+    """
+    w_res = space.newdict()
+    for w_addr in space.unpackiterable(w_addrs):
+        w_info = resolve_addr(space, space.uint_w(w_addr))
+        if not space.is_w(w_info, space.w_None):
+            space.setitem(w_res, w_addr, w_info)
+    return w_res

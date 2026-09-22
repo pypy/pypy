@@ -187,7 +187,35 @@ class VMProf(object):
         Undo the effect of stop_sampling
         """
         self.cintf.vmprof_start_sampling()
-    
+
+    RESOLVE_NAME_LEN = 128
+    RESOLVE_SRCFILE_LEN = 256
+
+    @jit.dont_look_inside
+    def resolve_addr(self, addr):
+        """Symbolicate the native code address 'addr'.  Returns a tuple
+        (name, lineno, srcfile); 'name' is empty if no symbol covers the
+        address, and 'srcfile' is the shared object when no debug info is
+        available.
+        """
+        if PLAT_WINDOWS:
+            return ('', 0, '')
+        with rffi.scoped_alloc_buffer(self.RESOLVE_NAME_LEN) as name:
+            with rffi.scoped_alloc_buffer(self.RESOLVE_SRCFILE_LEN) as srcfile:
+                with lltype.scoped_alloc(rffi.INTP.TO, 1) as p_lineno:
+                    name.raw[0] = '\x00'
+                    srcfile.raw[0] = '\x00'
+                    p_lineno[0] = rffi.cast(rffi.INT, 0)
+                    res = self.cintf.vmp_resolve_addr(
+                        rffi.cast(rffi.VOIDP, addr),
+                        name.raw, self.RESOLVE_NAME_LEN, p_lineno,
+                        srcfile.raw, self.RESOLVE_SRCFILE_LEN)
+                    if rffi.cast(lltype.Signed, res) != 0:
+                        return ('', 0, '')
+                    return (rffi.charp2str(name.raw),
+                            rffi.cast(lltype.Signed, p_lineno[0]),
+                            rffi.charp2str(srcfile.raw))
+
 
 def vmprof_execute_code(name, get_code_fn, result_class=None,
                         _hack_update_stack_untranslated=False):

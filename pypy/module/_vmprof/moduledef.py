@@ -11,9 +11,6 @@ class Module(MixedModule):
     """
     appleveldefs = {
     }
-    if sys.platform.startswith('linux'):
-        appleveldefs['resolve_addr'] = 'app_vmprof.resolve_addr'
-        appleveldefs['resolve_many_addr'] = 'app_vmprof.resolve_many_addr'
 
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
@@ -25,6 +22,9 @@ class Module(MixedModule):
 
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
+    if sys.platform != 'win32':
+        interpleveldefs['resolve_addr'] = 'interp_vmprof.resolve_addr'
+        interpleveldefs['resolve_many_addr'] = 'interp_vmprof.resolve_many_addr'
 
 
 # Force the __extend__ hacks and method replacements to occur

@@ -30,6 +30,18 @@ class RVMProfTest(object):
                                            self.MyCode.get_name)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='no symbolizer on windows')
+def test_resolve_addr():
+    import ctypes
+    libc = ctypes.CDLL(None)
+    addr = ctypes.cast(libc.malloc, ctypes.c_void_p).value
+    name, lineno, srcfile = rvmprof.resolve_addr(addr)
+    assert 'malloc' in name
+    assert lineno >= 0
+    assert 'libc' in srcfile
+    assert rvmprof.resolve_addr(1) == ('', 0, '')
+
+
 class TestExecuteCode(RVMProfTest):
 
     def entry_point(self):

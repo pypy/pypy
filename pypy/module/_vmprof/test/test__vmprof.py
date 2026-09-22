@@ -3,6 +3,22 @@ import sys
 from rpython.rlib import rvmprof
 from rpython.tool.udir import udir
 
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='no symbolizer on windows')
+def test_resolve_addr(space):
+    import ctypes
+    from pypy.module._vmprof import interp_vmprof
+    addr = ctypes.cast(ctypes.CDLL(None).malloc, ctypes.c_void_p).value
+    w_res = interp_vmprof.resolve_addr(space, addr)
+    name, lineno, srcfile = space.unwrap(w_res)
+    assert 'malloc' in name
+    assert 'libc' in srcfile
+    assert space.is_w(interp_vmprof.resolve_addr(space, 1), space.w_None)
+    w_many = interp_vmprof.resolve_many_addr(
+        space, space.newlist([space.newint(addr), space.newint(1)]))
+    assert space.unwrap(w_many) == {addr: (name, lineno, srcfile)}
+
+
 class AppTestVMProf(object):
     spaceconfig = {'usemodules': ['_vmprof', 'struct']}
 
