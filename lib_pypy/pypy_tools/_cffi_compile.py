@@ -38,7 +38,7 @@ class Extension(object):
     def __init__(self, name, sources, include_dirs=None, define_macros=None,
                  undef_macros=None, library_dirs=None, libraries=None,
                  extra_compile_args=None, extra_link_args=None,
-                 extra_objects=None, **ignored):
+                 extra_objects=None, export_symbols=None, **ignored):
         self.name = name
         self.sources = list(sources)
         self.include_dirs = list(include_dirs or [])
@@ -49,6 +49,8 @@ class Extension(object):
         self.extra_compile_args = list(extra_compile_args or [])
         self.extra_link_args = list(extra_link_args or [])
         self.extra_objects = list(extra_objects or [])
+        # keep the caller's list: cffi's vengine_gen fills it after creation
+        self.export_symbols = export_symbols or []
 
 
 def _split(cmd):
@@ -205,7 +207,11 @@ def _build_msvc(ext, verbose):
     _ensure_parent(out)
     # the C extension must export its module init function
     init = 'PyInit_' + ext.name.split('.')[-1]
-    args = list(link) + ['/nologo', '/DLL', '/EXPORT:' + init]
+    export_symbols = list(ext.export_symbols)
+    if init not in export_symbols:
+        export_symbols.append(init)
+    args = list(link) + ['/nologo', '/DLL']
+    args += ['/EXPORT:' + sym for sym in export_symbols]
     args += ['/OUT:' + out] + objects + ext.extra_objects
     args += ['/LIBPATH:' + d for d in _msvc_library_dirs(ext)]
     args += [l if l.lower().endswith('.lib') else l + '.lib'
