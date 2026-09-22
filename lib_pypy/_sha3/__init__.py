@@ -31,10 +31,9 @@ class _sha3(metaclass=Immutable):
 
     def update(self, string):
         if isinstance(string, memoryview):
-            buf = string.tobytes()
-        else:
-            buf = _ffi.from_buffer(string)
-        res = _lib.Keccak_HashUpdate(self._hash_state, buf, len(buf) * 8)
+            string = string.tobytes()
+        with _ffi.from_buffer(string) as buf:
+            res = _lib.Keccak_HashUpdate(self._hash_state, buf, len(buf) * 8)
 
     def digest(self):
         digest = _ffi.new("char[]",
