@@ -518,6 +518,7 @@ def _lex_search(needle, len_needle, invert_alphabet):
 
 @specialize.argtype(0)
 def _factorize(needle, len_needle):
+    assert needle is not None
     # Critical factorization: returns (cut, period) where the local period
     # of the cut is maximal (= the global period of the string).
     cut1, period1 = _lex_search(needle, len_needle, False)
@@ -819,6 +820,7 @@ def _search_elidable(value, other, start, end, mode):
 @specialize.argtype(0, 1)
 def _search_normal(value, other, start, end, mode):
     assert value is not None
+    assert other is not None
     if start < 0:
         start = 0
     if end > len(value):
