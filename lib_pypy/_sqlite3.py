@@ -2071,8 +2071,8 @@ class Blob(object):
         remaining_len = blob_len - offset
         if len(data) > remaining_len:
             raise ValueError("data longer than blob length")
-        rc = _lib.sqlite3_blob_write(self.__blob, _ffi.from_buffer(data),
-                                     len(data), offset)
+        with _ffi.from_buffer(data) as buf:
+            rc = _lib.sqlite3_blob_write(self.__blob, buf, len(data), offset)
         if rc != _lib.SQLITE_OK:
             raise self.__connection._get_exception(rc)
 
@@ -2162,8 +2162,9 @@ class Blob(object):
             if length != len(value):
                 raise IndexError("Blob slice assignment is wrong size")
             if stride == 1:
-                rc = _lib.sqlite3_blob_write(self.__blob, _ffi.from_buffer(value),
-                                             len(value), start)
+                with _ffi.from_buffer(value) as buf:
+                    rc = _lib.sqlite3_blob_write(self.__blob, buf,
+                                                 len(value), start)
                 if rc != _lib.SQLITE_OK:
                     raise self.__connection._get_exception(rc)
             else:

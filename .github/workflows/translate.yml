@@ -22,24 +22,24 @@ jobs:
         include:
           - platform: linux64
             runner: ubuntu-24.04
-            # latest as of 2026-09-08
-            container: ghcr.io/pypy/buildworker_x86_64@sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
+            # latest as of 2026-09-22, pypy-ci 50c29d65 (pypy 8.0.0)
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:c1838412cc6cd01472fd64614dc45b4ba1eea6f21df0a5d0824cdca07cd44a54
             arch: x86
           - platform: linux64-revdb
             runner: ubuntu-24.04
-            # latest as of 2026-09-08
-            container: ghcr.io/pypy/buildworker_x86_64@sha256:4b502665cce7a324fe07eb22f755e4a0040affca8d04fb8085828fab99c24b0d
+            # latest as of 2026-09-22, pypy-ci 50c29d65 (pypy 8.0.0)
+            container: ghcr.io/pypy/buildworker_x86_64@sha256:c1838412cc6cd01472fd64614dc45b4ba1eea6f21df0a5d0824cdca07cd44a54
             arch: x86
             revdb: true
           - platform: linux32
             runner: ubuntu-24.04
-            # latest as of 2026-09-08
-            container: ghcr.io/pypy/buildworker_i686@sha256:b38c4b362539b5a1a4825c9d4415a4939dd9aece01e164cf44c7792535738451
+            # latest as of 2026-09-22, pypy-ci 50c29d65 (pypy 8.0.0)
+            container: ghcr.io/pypy/buildworker_i686@sha256:d52f49ee206bf62401c2db796666660ad5b94388baf392827a4bfc47ee8312c0
             arch: x86
           - platform: arm64
             runner: ubuntu-24.04-arm
-            # latest as of 2026-07-22
-            container: ghcr.io/pypy/buildworker_aarch64@sha256:04d6f9b5b3a44940be6a2c9e6ffc2c4aa4841e5e2b1a88a5b9e605ceb50dc928
+            # latest as of 2026-09-22, pypy-ci 50c29d65 (pypy 8.0.0)
+            container: ghcr.io/pypy/buildworker_aarch64@sha256:8cf86ab26b3eaf4c0cdfd6bfd462511c47be7469ad5e76e5d55b4131eb4e8048
             arch: arm64
           - platform: macos-x86_64
             runner: macos-15-intel
@@ -62,7 +62,7 @@ jobs:
       if: ${{ !matrix.container }}
       uses: actions/setup-python@v6
       with:
-        python-version: "pypy-2.7-v7.3.23"
+        python-version: "pypy-2.7-v8.0.0"
         cache: 'pip' # caching pip dependencies
 
     - name: install Linux system dependencies

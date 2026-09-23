@@ -49,7 +49,9 @@ def new(name, string=b'', usedforsecurity=True):
         dtype = py_digest_by_name(name_lower, py_ht)
         digest_size = lib.EVP_MD_size(dtype)
         md = ffi.new("unsigned char[]", digest_size)
-        if lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL):
+        with ffi.from_buffer(string) as buf:
+            ok = lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL)
+        if ok:
             return _OneShotHash(name_lower, digest_size,
                                 _bytes_with_len(md, digest_size),
                                 string, usedforsecurity)
@@ -185,8 +187,8 @@ class HASH(object, metaclass=Immutable):
         elif isinstance(string, memoryview):
             # issue 2756: ffi.from_buffer() cannot handle memoryviews
             string = string.tobytes()
-        buf = ffi.from_buffer(string)
-        self._update(buf)
+        with ffi.from_buffer(string) as buf:
+            self._update(buf)
 
     def _update(self, buf):
         with self.lock:
@@ -438,10 +440,9 @@ def scrypt(password, *, salt, n=None, r=None, p=None, maxmem=0, dklen=64):
     if not retval:
         ValueError("Invalid parameter combination for n, r, p, maxmem.")
     key = ffi.new("unsigned char[]", dklen)
-    c_password = ffi.from_buffer(password)
-    c_salt = ffi.from_buffer(salt)
-    reval = lib.EVP_PBE_scrypt(c_password, len(password), c_salt, len(salt),
-                               n, r, p, maxmem, key, dklen)
+    with ffi.from_buffer(password) as c_password, ffi.from_buffer(salt) as c_salt:
+        retval = lib.EVP_PBE_scrypt(c_password, len(password), c_salt, len(salt),
+                                    n, r, p, maxmem, key, dklen)
     if not retval:
         raise ValueError()
     return _bytes_with_len(key, dklen)
