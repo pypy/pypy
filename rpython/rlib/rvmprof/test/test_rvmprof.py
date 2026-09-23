@@ -30,14 +30,46 @@ class RVMProfTest(object):
                                            self.MyCode.get_name)
 
 
+def _build_stripped_so(tmpdir):
+    """A shared library with its symbols moved into a sibling debug file
+    and linked by .gnu_debuglink, the way a packaged PyPy is built.
+    Returns the library path, or None if the binutils are missing."""
+    import subprocess
+    src = tmpdir.join('debuglink.c')
+    src.write("""
+    static int stripped_func(int x) { return x * 5; }
+    long stripped_func_addr(void) { return (long)stripped_func; }
+    """)
+    so = tmpdir.join('debuglink.so')
+    debug = tmpdir.join('debuglink.so.debug')
+    try:
+        subprocess.check_call(['gcc', '-shared', '-fPIC', '-g', '-O1',
+                               '-o', str(so), str(src)])
+        subprocess.check_call(['objcopy', '--only-keep-debug',
+                               str(so), str(debug)])
+        subprocess.check_call(['objcopy', '--strip-all', str(so)])
+        subprocess.check_call(['objcopy', '--add-gnu-debuglink=' + str(debug),
+                               str(so)])
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return so
+
+
 @pytest.mark.skipif(sys.platform == 'win32', reason='no symbolizer on windows')
-def test_resolve_addr():
+def test_resolve_addr(tmpdir):
     import ctypes
-<<<<<<< Updated upstream
-=======
-    # a local symbol, only present in .symtab and invisible to dladdr;
-    # load it before the first resolve_addr, which is when libbacktrace
-    # scans the loaded objects
+    # libbacktrace scans the loaded objects once, when the first
+    # resolve_addr call creates its state, so every library this test
+    # looks up has to be loaded before that
+    stripped_addr = 0
+    if sys.platform.startswith('linux'):
+        stripped = _build_stripped_so(tmpdir)
+        if stripped is not None:
+            stripped_lib = ctypes.CDLL(str(stripped))
+            stripped_lib.stripped_func_addr.restype = ctypes.c_long
+            stripped_addr = stripped_lib.stripped_func_addr()
+
+    # a local symbol, only present in .symtab and invisible to dladdr
     eci = ExternalCompilationInfo(
         post_include_bits=['long hidden_func_addr(void);'],
         separate_module_sources=["""
@@ -50,7 +82,6 @@ def test_resolve_addr():
                                        compilation_info=eci)
     hidden_addr = hidden_func_addr()
 
->>>>>>> Stashed changes
     libc = ctypes.CDLL(None)
     addr = ctypes.cast(libc.malloc, ctypes.c_void_p).value
     name, lineno, srcfile = rvmprof.resolve_addr(addr)
@@ -59,13 +90,14 @@ def test_resolve_addr():
     assert 'libc' in srcfile
     assert rvmprof.resolve_addr(1) == ('', 0, '')
 
-<<<<<<< Updated upstream
-=======
     name, lineno, srcfile = rvmprof.resolve_addr(hidden_addr)
     assert name == 'hidden_func'
     assert srcfile.endswith('.so')
 
->>>>>>> Stashed changes
+    if stripped_addr:
+        name, lineno, srcfile = rvmprof.resolve_addr(stripped_addr)
+        assert name == 'stripped_func'
+
 
 class TestExecuteCode(RVMProfTest):
 

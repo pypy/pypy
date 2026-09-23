@@ -32,9 +32,12 @@ POSSIBILITY OF SUCH DAMAGE.  */
 
 #include "config.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #ifdef HAVE_DL_ITERATE_PHDR
 #include <link.h>
@@ -510,16 +513,353 @@ elf_syminfo (struct backtrace_state *state, uintptr_t addr,
     callback (data, addr, sym->name, sym->address, sym->size);
 }
 
+/* Compute the CRC-32 of BUF/LEN.  This uses the CRC used for
+   .gnu_debuglink files.  */
+
+static uint32_t
+elf_crc32 (uint32_t crc, const unsigned char *buf, size_t len)
+{
+  static const uint32_t crc32_table[256] =
+    {
+      0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419,
+      0x706af48f, 0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4,
+      0xe0d5e91e, 0x97d2d988, 0x09b64c2b, 0x7eb17cbd, 0xe7b82d07,
+      0x90bf1d91, 0x1db71064, 0x6ab020f2, 0xf3b97148, 0x84be41de,
+      0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7, 0x136c9856,
+      0x646ba8c0, 0xfd62f97a, 0x8a65c9ec, 0x14015c4f, 0x63066cd9,
+      0xfa0f3d63, 0x8d080df5, 0x3b6e20c8, 0x4c69105e, 0xd56041e4,
+      0xa2677172, 0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b,
+      0x35b5a8fa, 0x42b2986c, 0xdbbbc9d6, 0xacbcf940, 0x32d86ce3,
+      0x45df5c75, 0xdcd60dcf, 0xabd13d59, 0x26d930ac, 0x51de003a,
+      0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423, 0xcfba9599,
+      0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
+      0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d, 0x76dc4190,
+      0x01db7106, 0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f,
+      0x9fbfe4a5, 0xe8b8d433, 0x7807c9a2, 0x0f00f934, 0x9609a88e,
+      0xe10e9818, 0x7f6a0dbb, 0x086d3d2d, 0x91646c97, 0xe6635c01,
+      0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e, 0x6c0695ed,
+      0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
+      0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3,
+      0xfbd44c65, 0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2,
+      0x4adfa541, 0x3dd895d7, 0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a,
+      0x346ed9fc, 0xad678846, 0xda60b8d0, 0x44042d73, 0x33031de5,
+      0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa, 0xbe0b1010,
+      0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
+      0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17,
+      0x2eb40d81, 0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6,
+      0x03b6e20c, 0x74b1d29a, 0xead54739, 0x9dd277af, 0x04db2615,
+      0x73dc1683, 0xe3630b12, 0x94643b84, 0x0d6d6a3e, 0x7a6a5aa8,
+      0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1, 0xf00f9344,
+      0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
+      0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a,
+      0x67dd4acc, 0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5,
+      0xd6d6a3e8, 0xa1d1937e, 0x38d8c2c4, 0x4fdff252, 0xd1bb67f1,
+      0xa6bc5767, 0x3fb506dd, 0x48b2364b, 0xd80d2bda, 0xaf0a1b4c,
+      0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55, 0x316e8eef,
+      0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
+      0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe,
+      0xb2bd0b28, 0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31,
+      0x2cd99e8b, 0x5bdeae1d, 0x9b64c2b0, 0xec63f226, 0x756aa39c,
+      0x026d930a, 0x9c0906a9, 0xeb0e363f, 0x72076785, 0x05005713,
+      0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38, 0x92d28e9b,
+      0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
+      0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1,
+      0x18b74777, 0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c,
+      0x8f659eff, 0xf862ae69, 0x616bffd3, 0x166ccf45, 0xa00ae278,
+      0xd70dd2ee, 0x4e048354, 0x3903b3c2, 0xa7672661, 0xd06016f7,
+      0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc, 0x40df0b66,
+      0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
+      0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605,
+      0xcdd70693, 0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8,
+      0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b,
+      0x2d02ef8d
+    };
+  const unsigned char *end;
+
+  crc = ~crc;
+  for (end = buf + len; buf < end; ++ buf)
+    crc = crc32_table[(crc ^ *buf) & 0xff] ^ (crc >> 8);
+  return ~crc;
+}
+
+/* Return the CRC-32 of the entire file open at DESCRIPTOR.  */
+
+static uint32_t
+elf_crc32_file (struct backtrace_state *state, int descriptor,
+		backtrace_error_callback error_callback, void *data)
+{
+  struct stat st;
+  struct backtrace_view file_view;
+  uint32_t ret;
+
+  if (fstat (descriptor, &st) < 0)
+    {
+      error_callback (data, "fstat", errno);
+      return 0;
+    }
+
+  if (!backtrace_get_view (state, descriptor, 0, st.st_size, error_callback,
+			   data, &file_view))
+    return 0;
+
+  ret = elf_crc32 (0, (const unsigned char *) file_view.data, st.st_size);
+
+  backtrace_release_view (state, &file_view, error_callback, data);
+
+  return ret;
+}
+
+/* Return whether FILENAME is a symbolic link.  */
+
+static int
+elf_is_symlink (const char *filename)
+{
+  struct stat st;
+
+  if (lstat (filename, &st) < 0)
+    return 0;
+  return S_ISLNK (st.st_mode);
+}
+
+/* Return the results of reading the symlink FILENAME in a buffer
+   allocated by backtrace_alloc.  Return the length of the buffer in
+   *LEN.  */
+
+static char *
+elf_readlink (struct backtrace_state *state, const char *filename,
+	      backtrace_error_callback error_callback, void *data,
+	      size_t *plen)
+{
+  size_t len;
+  char *buf;
+
+  len = 128;
+  while (1)
+    {
+      ssize_t rl;
+
+      buf = backtrace_alloc (state, len, error_callback, data);
+      if (buf == NULL)
+	return NULL;
+      rl = readlink (filename, buf, len);
+      if (rl < 0)
+	{
+	  backtrace_free (state, buf, len, error_callback, data);
+	  return NULL;
+	}
+      if ((size_t) rl < len - 1)
+	{
+	  buf[rl] = '\0';
+	  *plen = len;
+	  return buf;
+	}
+      backtrace_free (state, buf, len, error_callback, data);
+      len *= 2;
+    }
+}
+
+/* Try to open a file whose name is PREFIX (length PREFIX_LEN)
+   concatenated with PREFIX2 (length PREFIX2_LEN) concatenated with
+   DEBUGLINK_NAME.  Returns an open file descriptor, or -1.  */
+
+static int
+elf_try_debugfile (struct backtrace_state *state, const char *prefix,
+		   size_t prefix_len, const char *prefix2, size_t prefix2_len,
+		   const char *debuglink_name,
+		   backtrace_error_callback error_callback, void *data)
+{
+  size_t debuglink_len;
+  size_t try_len;
+  char *try;
+  int does_not_exist;
+  int ret;
+
+  debuglink_len = strlen (debuglink_name);
+  try_len = prefix_len + prefix2_len + debuglink_len + 1;
+  try = backtrace_alloc (state, try_len, error_callback, data);
+  if (try == NULL)
+    return -1;
+
+  memcpy (try, prefix, prefix_len);
+  memcpy (try + prefix_len, prefix2, prefix2_len);
+  memcpy (try + prefix_len + prefix2_len, debuglink_name, debuglink_len);
+  try[prefix_len + prefix2_len + debuglink_len] = '\0';
+
+  ret = backtrace_open (try, error_callback, data, &does_not_exist);
+
+  backtrace_free (state, try, try_len, error_callback, data);
+
+  return ret;
+}
+
+/* Find a separate debug info file, using the debuglink section data
+   to find it.  Returns an open file descriptor, or -1.  */
+
+static int
+elf_find_debugfile_by_debuglink (struct backtrace_state *state,
+				 const char *filename,
+				 const char *debuglink_name,
+				 backtrace_error_callback error_callback,
+				 void *data)
+{
+  int ret;
+  char *alc;
+  size_t alc_len;
+  const char *slash;
+  int ddescriptor;
+  const char *prefix;
+  size_t prefix_len;
+
+  /* Resolve symlinks in FILENAME.  Since FILENAME is fairly likely to
+     be /proc/self/exe, symlinks are common.  We don't try to resolve
+     the whole path name, just the base name.  */
+  ret = -1;
+  alc = NULL;
+  alc_len = 0;
+  while (elf_is_symlink (filename))
+    {
+      char *new_buf;
+      size_t new_len;
+
+      new_buf = elf_readlink (state, filename, error_callback, data, &new_len);
+      if (new_buf == NULL)
+	break;
+
+      if (new_buf[0] == '/')
+	filename = new_buf;
+      else
+	{
+	  slash = strrchr (filename, '/');
+	  if (slash == NULL)
+	    filename = new_buf;
+	  else
+	    {
+	      size_t clen;
+	      char *c;
+
+	      slash++;
+	      clen = slash - filename + strlen (new_buf) + 1;
+	      c = backtrace_alloc (state, clen, error_callback, data);
+	      if (c == NULL)
+		goto done;
+
+	      memcpy (c, filename, slash - filename);
+	      memcpy (c + (slash - filename), new_buf, strlen (new_buf));
+	      c[slash - filename + strlen (new_buf)] = '\0';
+	      backtrace_free (state, new_buf, new_len, error_callback, data);
+	      filename = c;
+	      new_buf = c;
+	      new_len = clen;
+	    }
+	}
+
+      if (alc != NULL)
+	backtrace_free (state, alc, alc_len, error_callback, data);
+      alc = new_buf;
+      alc_len = new_len;
+    }
+
+  /* Look for DEBUGLINK_NAME in the same directory as FILENAME.  */
+
+  slash = strrchr (filename, '/');
+  if (slash == NULL)
+    {
+      prefix = "";
+      prefix_len = 0;
+    }
+  else
+    {
+      slash++;
+      prefix = filename;
+      prefix_len = slash - filename;
+    }
+
+  ddescriptor = elf_try_debugfile (state, prefix, prefix_len, "", 0,
+				   debuglink_name, error_callback, data);
+  if (ddescriptor >= 0)
+    {
+      ret = ddescriptor;
+      goto done;
+    }
+
+  /* Look for DEBUGLINK_NAME in a .debug subdirectory of FILENAME.  */
+
+  ddescriptor = elf_try_debugfile (state, prefix, prefix_len, ".debug/",
+				   strlen (".debug/"), debuglink_name,
+				   error_callback, data);
+  if (ddescriptor >= 0)
+    {
+      ret = ddescriptor;
+      goto done;
+    }
+
+  /* Look for DEBUGLINK_NAME in /usr/lib/debug.  */
+
+  ddescriptor = elf_try_debugfile (state, "/usr/lib/debug/",
+				   strlen ("/usr/lib/debug/"), prefix,
+				   prefix_len, debuglink_name,
+				   error_callback, data);
+  if (ddescriptor >= 0)
+    ret = ddescriptor;
+
+ done:
+  if (alc != NULL && alc_len > 0)
+    backtrace_free (state, alc, alc_len, error_callback, data);
+  return ret;
+}
+
+/* Open a separate debug info file, using the debuglink section data
+   to find it.  Returns an open file descriptor, or -1.  */
+
+static int
+elf_open_debugfile_by_debuglink (struct backtrace_state *state,
+				 const char *filename,
+				 const char *debuglink_name,
+				 uint32_t debuglink_crc,
+				 backtrace_error_callback error_callback,
+				 void *data)
+{
+  int ddescriptor;
+
+  ddescriptor = elf_find_debugfile_by_debuglink (state, filename,
+						 debuglink_name,
+						 error_callback, data);
+  if (ddescriptor < 0)
+    return -1;
+
+  if (debuglink_crc != 0)
+    {
+      uint32_t got_crc;
+
+      got_crc = elf_crc32_file (state, ddescriptor, error_callback, data);
+      if (got_crc != debuglink_crc)
+	{
+	  backtrace_close (ddescriptor, error_callback, data);
+	  return -1;
+	}
+    }
+
+  return ddescriptor;
+}
+
 /* Add the backtrace data for one ELF file.  Returns 1 on success,
    0 on failure (in both cases descriptor is closed) or -1 if exe
    is non-zero and the ELF file is ET_DYN, which tells the caller that
    elf_add will need to be called on the descriptor again after
-   base_address is determined.  */
+   base_address is determined.
+
+   FILENAME is the name the file was opened under, used to locate a
+   separate debug info file; it may be NULL or empty, in which case
+   .gnu_debuglink is not followed.  DEBUGINFO is non-zero when this is
+   itself a separate debug info file, so that a debuglink in it is not
+   followed again.  */
 
 static int
-elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
+elf_add (struct backtrace_state *state, const char *filename, int descriptor,
+	 uintptr_t base_address,
 	 backtrace_error_callback error_callback, void *data,
-	 fileline *fileline_fn, int *found_sym, int *found_dwarf, int exe)
+	 fileline *fileline_fn, int *found_sym, int *found_dwarf, int exe,
+	 int debuginfo)
 {
   struct backtrace_view ehdr_view;
   b_elf_ehdr ehdr;
@@ -547,6 +887,10 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
   off_t max_offset;
   struct backtrace_view debug_view;
   int debug_view_valid;
+  struct backtrace_view debuglink_view;
+  int debuglink_view_valid;
+  const char *debuglink_name;
+  uint32_t debuglink_crc;
 
   *found_sym = 0;
   *found_dwarf = 0;
@@ -556,6 +900,9 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
   symtab_view_valid = 0;
   strtab_view_valid = 0;
   debug_view_valid = 0;
+  debuglink_view_valid = 0;
+  debuglink_name = NULL;
+  debuglink_crc = 0;
 
   if (!backtrace_get_view (state, descriptor, 0, sizeof ehdr, error_callback,
 			   data, &ehdr_view))
@@ -707,6 +1054,34 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
 	      break;
 	    }
 	}
+
+      /* Read the debuglink file if present.  */
+      if (!debuginfo
+	  && !debuglink_view_valid
+	  && strcmp (name, ".gnu_debuglink") == 0)
+	{
+	  const char *debuglink_data;
+	  size_t crc_offset;
+
+	  if (!backtrace_get_view (state, descriptor, shdr->sh_offset,
+				   shdr->sh_size, error_callback, data,
+				   &debuglink_view))
+	    goto fail;
+
+	  debuglink_view_valid = 1;
+	  debuglink_data = (const char *) debuglink_view.data;
+	  crc_offset = 0;
+	  while (crc_offset < shdr->sh_size
+		 && debuglink_data[crc_offset] != '\0')
+	    ++crc_offset;
+	  crc_offset = (crc_offset + 3) & ~(size_t) 3;
+	  if (crc_offset + 4 <= shdr->sh_size)
+	    {
+	      debuglink_name = debuglink_data;
+	      memcpy (&debuglink_crc, debuglink_data + crc_offset,
+		      sizeof debuglink_crc);
+	    }
+	}
     }
 
   if (symtab_shndx == 0)
@@ -771,6 +1146,41 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
   shdrs_view_valid = 0;
   backtrace_release_view (state, &names_view, error_callback, data);
   names_view_valid = 0;
+
+  /* A stripped file keeps its symbols and DWARF in a separate debug
+     info file.  Read that too, at the same base address.  */
+
+  if (debuglink_name != NULL && filename != NULL && filename[0] != '\0')
+    {
+      int d;
+
+      d = elf_open_debugfile_by_debuglink (state, filename, debuglink_name,
+					   debuglink_crc, error_callback,
+					   data);
+      if (d >= 0)
+	{
+	  int dfound_sym;
+	  int dfound_dwarf;
+
+	  dfound_sym = 0;
+	  dfound_dwarf = 0;
+	  if (elf_add (state, "", d, base_address, error_callback, data,
+		       fileline_fn, &dfound_sym, &dfound_dwarf, 0, 1))
+	    {
+	      if (dfound_sym)
+		*found_sym = 1;
+	      if (dfound_dwarf)
+		*found_dwarf = 1;
+	    }
+	}
+    }
+
+  if (debuglink_view_valid)
+    {
+      backtrace_release_view (state, &debuglink_view, error_callback, data);
+      debuglink_view_valid = 0;
+      debuglink_name = NULL;
+    }
 
   /* Read all the debug sections in a single view, since they are
      probably adjacent in the file.  We never release this view.  */
@@ -840,6 +1250,8 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
     backtrace_release_view (state, &shdrs_view, error_callback, data);
   if (names_view_valid)
     backtrace_release_view (state, &names_view, error_callback, data);
+  if (debuglink_view_valid)
+    backtrace_release_view (state, &debuglink_view, error_callback, data);
   if (symtab_view_valid)
     backtrace_release_view (state, &symtab_view, error_callback, data);
   if (strtab_view_valid)
@@ -862,6 +1274,7 @@ struct phdr_data
   int *found_sym;
   int *found_dwarf;
   int exe_descriptor;
+  const char *exe_filename;
 };
 
 /* Callback passed to dl_iterate_phdr.  Load debug info from shared
@@ -879,6 +1292,7 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
   int does_not_exist;
   fileline elf_fileline_fn;
   int found_dwarf;
+  const char *filename;
 
   /* There is not much we can do if we don't have the module name,
      unless executable is ET_DYN, where we expect the very first
@@ -889,9 +1303,11 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
 	return 0;
       descriptor = pd->exe_descriptor;
       pd->exe_descriptor = -1;
+      filename = pd->exe_filename;
     }
   else
     {
+      filename = info->dlpi_name;
       if (pd->exe_descriptor != -1)
 	{
 	  backtrace_close (pd->exe_descriptor, pd->error_callback, pd->data);
@@ -904,8 +1320,9 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
 	return 0;
     }
 
-  if (elf_add (pd->state, descriptor, info->dlpi_addr, pd->error_callback,
-	       pd->data, &elf_fileline_fn, pd->found_sym, &found_dwarf, 0))
+  if (elf_add (pd->state, filename, descriptor, info->dlpi_addr,
+	       pd->error_callback, pd->data, &elf_fileline_fn, pd->found_sym,
+	       &found_dwarf, 0, 0))
     {
       if (found_dwarf)
 	{
@@ -931,9 +1348,14 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
   int found_dwarf;
   fileline elf_fileline_fn = elf_nodebug;
   struct phdr_data pd;
+  const char *exe_filename;
 
-  ret = elf_add (state, descriptor, 0, error_callback, data, &elf_fileline_fn,
-		 &found_sym, &found_dwarf, 1);
+  /* fileline_initialize falls back to /proc/self/exe when the state has
+     no file name; the debuglink lookup resolves the symlink.  */
+  exe_filename = state->filename != NULL ? state->filename : "/proc/self/exe";
+
+  ret = elf_add (state, exe_filename, descriptor, 0, error_callback, data,
+		 &elf_fileline_fn, &found_sym, &found_dwarf, 1, 0);
   if (!ret)
     return 0;
 
@@ -944,6 +1366,7 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
   pd.found_sym = &found_sym;
   pd.found_dwarf = &found_dwarf;
   pd.exe_descriptor = ret < 0 ? descriptor : -1;
+  pd.exe_filename = exe_filename;
 
   dl_iterate_phdr (phdr_callback, (void *) &pd);
 
