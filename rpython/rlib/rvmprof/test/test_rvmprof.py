@@ -33,6 +33,24 @@ class RVMProfTest(object):
 @pytest.mark.skipif(sys.platform == 'win32', reason='no symbolizer on windows')
 def test_resolve_addr():
     import ctypes
+<<<<<<< Updated upstream
+=======
+    # a local symbol, only present in .symtab and invisible to dladdr;
+    # load it before the first resolve_addr, which is when libbacktrace
+    # scans the loaded objects
+    eci = ExternalCompilationInfo(
+        post_include_bits=['long hidden_func_addr(void);'],
+        separate_module_sources=["""
+        static int hidden_func(int x) { return x * 3; }
+        RPY_EXTERN long hidden_func_addr(void) {
+            return (long)hidden_func;
+        }
+        """])
+    hidden_func_addr = rffi.llexternal('hidden_func_addr', [], lltype.Signed,
+                                       compilation_info=eci)
+    hidden_addr = hidden_func_addr()
+
+>>>>>>> Stashed changes
     libc = ctypes.CDLL(None)
     addr = ctypes.cast(libc.malloc, ctypes.c_void_p).value
     name, lineno, srcfile = rvmprof.resolve_addr(addr)
@@ -41,6 +59,13 @@ def test_resolve_addr():
     assert 'libc' in srcfile
     assert rvmprof.resolve_addr(1) == ('', 0, '')
 
+<<<<<<< Updated upstream
+=======
+    name, lineno, srcfile = rvmprof.resolve_addr(hidden_addr)
+    assert name == 'hidden_func'
+    assert srcfile.endswith('.so')
+
+>>>>>>> Stashed changes
 
 class TestExecuteCode(RVMProfTest):
 

@@ -757,6 +757,8 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
       /* We no longer need the symbol table, but we hold on to the
 	 string table permanently.  */
       backtrace_release_view (state, &symtab_view, error_callback, data);
+      symtab_view_valid = 0;
+      strtab_view_valid = 0;
 
       *found_sym = 1;
 

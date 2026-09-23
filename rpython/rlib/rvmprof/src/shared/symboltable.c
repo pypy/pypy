@@ -205,6 +205,16 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
     *info->lineno = lineno;
     return 0;
 }
+
+void backtrace_syminfo_cb(void *data, uintptr_t pc, const char *symname,
+                          uintptr_t symval, uintptr_t symsize)
+{
+    addr_info_t * info = (addr_info_t*)data;
+    if (symname != NULL && info->name[0] == 0) {
+        (void)strncpy(info->name, symname, info->name_len-1);
+        info->name[info->name_len-1] = 0;
+    }
+}
 #endif
 
 static
@@ -238,6 +248,13 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
                          backtrace_error_cb, (void*)&info)) {
         // failed
         return 1;
+    }
+
+    // no debug info: look the address up in the symbol tables of the loaded
+    // objects, which unlike dladdr also covers local (non-exported) symbols
+    if (info.name[0] == 0) {
+        backtrace_syminfo(bstate, (uintptr_t)addr, backtrace_syminfo_cb,
+                          backtrace_error_cb, (void*)&info);
     }
 
     // nothing found, try with dladdr
