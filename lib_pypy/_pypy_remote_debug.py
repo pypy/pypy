@@ -277,12 +277,12 @@ if sys.platform.startswith('linux'):
     def write_memory(pid, address, content):
         iovec = ffi.new('struct iovec[2]')
         # transfers data from the local, to the remote process
-        source = ffi.from_buffer(content)
-        iovec[0].iov_base = source
-        iovec[0].iov_len = len(content)
-        iovec[1].iov_base = ffi.cast('void*', address)
-        iovec[1].iov_len = len(content)
-        result = lib.process_vm_writev(pid, iovec, 1, iovec + 1, 1, 0)
+        with ffi.from_buffer(content) as source:
+            iovec[0].iov_base = source
+            iovec[0].iov_len = len(content)
+            iovec[1].iov_base = ffi.cast('void*', address)
+            iovec[1].iov_len = len(content)
+            result = lib.process_vm_writev(pid, iovec, 1, iovec + 1, 1, 0)
         if result != len(content):
             raise OSError(os.strerror(ffi.errno))
 
