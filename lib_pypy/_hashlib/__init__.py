@@ -39,18 +39,23 @@ def get_errstr():
 
 def new(name, string=b'', usedforsecurity=True):
     try:
-        buf = ffi.from_buffer(string)
+        cbuf = ffi.from_buffer(string)
     except TypeError:
-        buf = None
-    if buf is not None and len(buf):
-        # Fast one-shot path: one C call, no EVP_MD_CTX allocation, no ffi.gc.
-        name_lower = str(name).lower()
-        py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
-        dtype = py_digest_by_name(name_lower, py_ht)
-        digest_size = lib.EVP_MD_size(dtype)
-        md = ffi.new("unsigned char[]", digest_size)
-        with ffi.from_buffer(string) as buf:
-            ok = lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL)
+        cbuf = None
+    if cbuf is not None:
+        with cbuf as buf:
+            if len(buf):
+                # Fast one-shot path: one C call, no EVP_MD_CTX allocation,
+                # no ffi.gc.
+                name_lower = str(name).lower()
+                py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
+                dtype = py_digest_by_name(name_lower, py_ht)
+                digest_size = lib.EVP_MD_size(dtype)
+                md = ffi.new("unsigned char[]", digest_size)
+                ok = lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype,
+                                    ffi.NULL)
+            else:
+                ok = False
         if ok:
             return _OneShotHash(name_lower, digest_size,
                                 _bytes_with_len(md, digest_size),
