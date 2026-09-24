@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os, sys
 
 def restart_process():
@@ -8,17 +10,17 @@ def restartable_point_fork(auto=None, extra_msg=None):
     while True:
         while True:
             if extra_msg:
-                print extra_msg
-            print '---> Checkpoint: cont / restart-it-all / quit / pdb ?'
+                print(extra_msg)
+            print('---> Checkpoint: cont / restart-it-all / quit / pdb ?')
             if auto:
-                print 'auto-%s' % (auto,)
+                print('auto-%s' % (auto,))
                 line = auto
                 auto = None
             else:
                 try:
                     line = raw_input().strip().lower()
                 except (KeyboardInterrupt, EOFError) as e:
-                    print '(%s ignored)' % e.__class__.__name__
+                    print('(%s ignored)' % e.__class__.__name__)
                     continue
             if line in ('run', 'cont'):
                 break
@@ -29,7 +31,7 @@ def restartable_point_fork(auto=None, extra_msg=None):
                     import pdb; pdb.set_trace()
                     dummy_for_pdb = 1    # for pdb to land
                 except Exception as e:
-                    print '(%s ignored)' % e.__class__.__name__
+                    print('(%s ignored)' % e.__class__.__name__)
                     continue
             if line == 'restart-it-all':
                 restart_process()
@@ -48,19 +50,19 @@ def restartable_point_fork(auto=None, extra_msg=None):
                     continue
                 else:
                     break
-            print
-            print '_'*78
-            print 'Child %d exited' % pid,
+            print()
+            print('_'*78)
+            print('Child %d exited' % pid, end=' ')
             if os.WIFEXITED(status):
-                print '(exit code %d)' % os.WEXITSTATUS(status)
+                print('(exit code %d)' % os.WEXITSTATUS(status))
             elif os.WIFSIGNALED(status):
-                print '(caught signal %d)' % os.WTERMSIG(status)
+                print('(caught signal %d)' % os.WTERMSIG(status))
             else:
-                print 'abnormally (status 0x%x)' % status
+                print('abnormally (status 0x%x)' % status)
             continue
 
         # in child
-        print '_'*78
+        print('_'*78)
         break
 
 # special version for win32 which does not have fork() at all,
@@ -77,9 +79,9 @@ else:
     restartable_point = restartable_point_fork
 
 if __name__ == '__main__':
-    print 'doing stuff...'
-    print 'finished'
+    print('doing stuff...')
+    print('finished')
     restartable_point()
-    print 'doing more stuff'
-    print 'press Enter to quit...'
+    print('doing more stuff')
+    print('press Enter to quit...')
     raw_input()

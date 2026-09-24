@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys, os, re
 import textwrap
@@ -139,12 +141,12 @@ class TestStandalone(StandaloneTestsVerified):
 
     def test_print(self):
         def entry_point(argv):
-            print "hello simpler world"
+            print("hello simpler world")
             argv = argv[1:]
-            print "argument count:", len(argv)
-            print "arguments:", argv
-            print "argument lengths:",
-            print [len(s) for s in argv]
+            print("argument count:", len(argv))
+            print("arguments:", argv)
+            print("argument lengths:", end=' ')
+            print([len(s) for s in argv])
             return 0
 
         t, cbuilder = self.compile(entry_point)
@@ -229,7 +231,7 @@ class TestStandalone(StandaloneTestsVerified):
         def entry_point(argv):
             m, e = math.frexp(0)
             x, y = math.frexp(0)
-            print m, x
+            print(m, x)
             return 0
 
         t, cbuilder = self.compile(entry_point)
@@ -310,9 +312,9 @@ class TestStandalone(StandaloneTestsVerified):
             os.lseek(fd, r4800000000, 0)
             newpos = os.lseek(fd, 0, 1)
             if newpos == r4800000000:
-                print "OK"
+                print("OK")
             else:
-                print "BAD POS"
+                print("BAD POS")
             os.close(fd)
             return 0
         t, cbuilder = self.compile(entry_point)
@@ -535,9 +537,9 @@ class TestStandalone(StandaloneTestsVerified):
             ts1 = debug_start("foo", timestamp=timestamp)
             ts2 = read_timestamp()
             ts3 = debug_stop("foo", timestamp=timestamp)
-            print ts1
-            print ts2
-            print ts3
+            print(ts1)
+            print(ts2)
+            print(ts3)
             return 0
         t, cbuilder = self.compile(entry_point)
 
@@ -590,7 +592,7 @@ class TestStandalone(StandaloneTestsVerified):
             py.test.skip("requires fork()")
 
         def entry_point(argv):
-            print "parentpid =", os.getpid()
+            print("parentpid =", os.getpid())
             debug_start("foo")
             debug_print("test line")
             childpid = os.fork()
@@ -817,7 +819,7 @@ class TestStandalone(StandaloneTestsVerified):
             try:
                 g(len(argv))
             finally:
-                print 'done'
+                print('done')
         def entry_point(argv):
             f(argv)
             return 0
@@ -840,7 +842,7 @@ class TestStandalone(StandaloneTestsVerified):
         def entry_point(argv):
             a = int(argv[1])
             b = int(argv[2])
-            print a << b
+            print(a << b)
             return 0
 
         t, cbuilder = self.compile(entry_point, debug=True)
@@ -857,7 +859,7 @@ class TestStandalone(StandaloneTestsVerified):
         def entry_point(argv):
             a = r_longlong(int(argv[1]))
             b = r_longlong(int(argv[2]))
-            print a >> b
+            print(a >> b)
             return 0
 
         t, cbuilder = self.compile(entry_point, debug=True)
@@ -889,7 +891,7 @@ class TestStandalone(StandaloneTestsVerified):
             try:
                 g(len(argv))
             finally:
-                print 'done'
+                print('done')
         def entry_point(argv):
             f(argv)
             return 0
@@ -909,7 +911,7 @@ class TestStandalone(StandaloneTestsVerified):
 
     def test_shared1(self, monkeypatch):
         def f(argv):
-            print len(argv)
+            print(len(argv))
         def entry_point(argv):
             f(argv)
             return 0
@@ -937,7 +939,7 @@ class TestStandalone(StandaloneTestsVerified):
 
     def test_shared2(self, monkeypatch):
         def f(argv):
-            print len(argv)
+            print(len(argv))
         def entry_point(argv):
             f(argv)
             return 0
@@ -987,7 +989,7 @@ class TestStandalone(StandaloneTestsVerified):
             try:
                 return f(1)
             except StackOverflow:
-                print 'hi!', glob.n
+                print('hi!', glob.n)
                 return 0
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         out = cbuilder.cmdexec("")
@@ -1018,13 +1020,13 @@ class TestStandalone(StandaloneTestsVerified):
             try:
                 return f(1)
             except StackOverflow:
-                print glob.n
+                print(glob.n)
                 return 0
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         counts = {}
         for fraction in [0.1, 0.4, 1.0]:
             out = cbuilder.cmdexec(str(fraction))
-            print 'counts[%s]: %r' % (fraction, out)
+            print('counts[%s]: %r' % (fraction, out))
             counts[fraction] = int(out.strip())
         #
         assert counts[1.0] >= 1000
@@ -1058,9 +1060,9 @@ class TestStandalone(StandaloneTestsVerified):
             try:
                 f(1)
             except StackOverflow:
-                print glob.n
+                print(glob.n)
                 return 0
-            print 'no overflow!'
+            print('no overflow!')
             return 1
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         soft, hard = resource.getrlimit(resource.RLIMIT_STACK)
@@ -1093,7 +1095,7 @@ class TestStandalone(StandaloneTestsVerified):
                 return f(n+1)
             except StackOverflow:
                 if glob.caught:
-                    print 'Oups! already caught!'
+                    print('Oups! already caught!')
                 glob.caught = True
                 _stack_criticalcode_start()
                 critical(100)   # recurse another 100 times here
@@ -1105,7 +1107,7 @@ class TestStandalone(StandaloneTestsVerified):
             return n - 42
         def entry_point(argv):
             glob.caught = False
-            print f(1)
+            print(f(1))
             return 0
         t, cbuilder = self.compile(entry_point, stackcheck=True)
         out = cbuilder.cmdexec('')
@@ -1164,7 +1166,7 @@ class TestStandalone(StandaloneTestsVerified):
             b = UnicodeBuilder(32)
             for x in to_do:
                 if x < 1500:
-                    print "``%s''" % str(b.build())
+                    print("``%s''" % str(b.build()))
                     if x < 1000:
                         b = UnicodeBuilder(32)
                 elif x < 20000:
@@ -1192,7 +1194,7 @@ class TestStandalone(StandaloneTestsVerified):
         def entry_point(argv):
             state.seen += 100
             assert state.seen == 101
-            print 'ok'
+            print('ok')
             enablestartup()
             return 0
 
@@ -1353,17 +1355,18 @@ class TestThread(object):
         # and it should eventually work with more stack
         for test_kb in [32, 128, 512, 1024, 2048, 4096, 8192, 16384,
                         32768, 65536]:
-            print >> sys.stderr, 'Trying with %d KB of stack...' % (test_kb,),
+            print('Trying with %d KB of stack...' % (test_kb,), end=' ',
+                  file=sys.stderr)
             try:
                 data = cbuilder.cmdexec(str(test_kb * 1024))
             except Exception as e:
                 if e.__class__ is not Exception:
                     raise
-                print >> sys.stderr, 'segfault'
+                print('segfault', file=sys.stderr)
                 # got a segfault! try with the next stack size...
             else:
                 # it worked
-                print >> sys.stderr, 'ok'
+                print('ok', file=sys.stderr)
                 assert data == 'hello world\ndone\n'
                 assert test_kb > 32   # it cannot work with just 32 KB of stack
                 break    # finish
@@ -1458,17 +1461,17 @@ class TestThread(object):
         def entry_point(argv):
             childpid = os.fork()
             if childpid == 0:
-                print "Testing..."
+                print("Testing...")
             else:
                 pid, status = os.waitpid(childpid, 0)
                 assert pid == childpid
                 assert status == 0
-                print "OK."
+                print("OK.")
             return 0
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('')
-        print repr(data)
+        print(repr(data))
         assert data.startswith('Testing...\nOK.')
 
     def test_thread_and_gc_with_fork(self):
@@ -1563,7 +1566,7 @@ class TestThread(object):
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('')
-        print repr(data)
+        print(repr(data))
         header, footer = data.splitlines()
         assert header == 'hello world'
         assert footer.startswith('got: ')
