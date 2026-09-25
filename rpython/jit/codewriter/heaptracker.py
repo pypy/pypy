@@ -105,7 +105,10 @@ def get_fielddescr_index_in(STRUCT, fieldname, cur_index=0):
             r = get_fielddescr_index_in(FIELD, fieldname, cur_index)
             if r >= 0:
                 return r
-            cur_index += -r - 1
+            # the recursive call was seeded with 'cur_index', so its
+            # not-found answer already accounts for it: assign, don't add,
+            # or the fields before the inlined struct are counted twice
+            cur_index = -r - 1
             continue
         elif name == fieldname:
             return cur_index
