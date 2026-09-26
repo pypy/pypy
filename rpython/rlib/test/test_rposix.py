@@ -820,7 +820,7 @@ def test_pwrite():
 
 @rposix_requires('posix_fadvise')
 def test_posix_fadvise():
-    if sys.maxint <= 2**32:
+    if sys.maxsize <= 2**32:
         py.test.skip("ll2ctypes run of posix_fadvise() on 32-bit "
                      "gets confused by the size of OFF_T")
     fname = str(udir.join('test_os_posix_fadvise'))
@@ -839,7 +839,7 @@ def test_posix_fadvise():
 
 @rposix_requires('posix_fallocate')
 def test_posix_fallocate():
-    if sys.maxint <= 2**32:
+    if sys.maxsize <= 2**32:
         py.test.skip("ll2ctypes run of posix_fallocate() on 32-bit "
                      "gets confused by the size of OFF_T")
     fname = str(udir.join('os_test.txt'))
@@ -1074,7 +1074,7 @@ def test_get_and_set_scheduler_and_param():
         rposix.sched_setscheduler(-1, mine, param)
 
     large = 214748364700
-    if large < sys.maxint:
+    if large < sys.maxsize:
         param = large # rposix.sched_param(large)
         with pytest.raises(OSError):
             rposix.sched_setparam(0, param)

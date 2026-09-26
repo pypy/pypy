@@ -69,7 +69,7 @@ def test_assemble_float_consts():
                                    longlong.getfloatstorage(128.1)]
 
 def test_assemble_llong_consts():
-    if sys.maxint > 2147483647:
+    if sys.maxsize > 2147483647:
         py.test.skip("only for 32-bit platforms")
     from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
     ssarepr = SSARepr("test")

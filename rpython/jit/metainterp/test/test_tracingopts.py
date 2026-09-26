@@ -764,7 +764,7 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [3])
         assert res == 4
         self.check_operations_history(int_add_ovf=0)
-        res = self.interp_operations(fn, [sys.maxint])
+        res = self.interp_operations(fn, [sys.maxsize])
         assert res == 12
 
     def test_opaque_list(self):

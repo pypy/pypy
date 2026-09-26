@@ -932,14 +932,14 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
                 while 1:
                     self.check_random_function_z3(cpu, r, i)
                     i += 1
-                    seed = r.randrange(sys.maxint)
+                    seed = r.randrange(sys.maxsize)
                     r.seed(seed)
             else:
                 for i in range(pytest.config.option.repeat):
                     r.seed(seed)
                     self.check_random_function_z3(cpu, r, i,
                                              pytest.config.option.repeat)
-                    seed = r.randrange(sys.maxint)
+                    seed = r.randrange(sys.maxsize)
         except Exception as e:
             print("_" * 60)
             print("got exception", e)

@@ -332,7 +332,7 @@ class UsingFrameworkTest(object):
 
     def define_framework_malloc_failure(cls):
         def f():
-            a = [1] * (sys.maxint // 2)
+            a = [1] * (sys.maxsize // 2)
             return len(a) + a[0]
         return f
 

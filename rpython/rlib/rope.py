@@ -6,7 +6,7 @@ from rpython.rlib.rarithmetic import intmask, ovfcheck
 from rpython.rlib.rarithmetic import r_uint, LONG_BIT
 
 LOG2 = math.log(2)
-NBITS = int(math.log(sys.maxint) / LOG2) + 2
+NBITS = int(math.log(sys.maxsize) / LOG2) + 2
 
 # XXX should optimize the numbers
 NEW_NODE_WHEN_LENGTH = 32
@@ -597,7 +597,7 @@ def rebalance(nodelist, sizehint=-1):
     l = [None] * (find_fib_index(sizehint) + 2)
     stack = nodelist
     empty_up_to = len(l)
-    a = b = sys.maxint
+    a = b = sys.maxsize
     first_node = None
     while stack:
         curr = stack.pop()

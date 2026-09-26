@@ -434,7 +434,7 @@ class TestLowLevelType(object):
 
         def getmin(cls):
             if cls is int:
-                return -sys.maxint-1
+                return -sys.maxsize-1
             elif cls.SIGNED:
                 return cls(-(cls.MASK>>1)-1)
             else:
@@ -443,7 +443,7 @@ class TestLowLevelType(object):
 
         def getmax(cls):
             if cls is int:
-                return sys.maxint
+                return sys.maxsize
             elif cls.SIGNED:
                 return cls(cls.MASK>>1)
             else:
@@ -477,21 +477,21 @@ class TestLowLevelType(object):
         print(res)
         assert eval(res) == (
             # int
-            -sys.maxint, undefined,               # add
-            undefined, sys.maxint-1,              # sub
-            -sys.maxint-1, sys.maxint,            # mul
-            -sys.maxint-1, sys.maxint,            # floordiv
+            -sys.maxsize, undefined,               # add
+            undefined, sys.maxsize-1,              # sub
+            -sys.maxsize-1, sys.maxsize,            # mul
+            -sys.maxsize-1, sys.maxsize,            # floordiv
             0, 0,                                 # mod
             0, -2,                                # lshift
-            (-sys.maxint-1)//2, sys.maxint//2,    # rshift
+            (-sys.maxsize-1)//2, sys.maxsize//2,    # rshift
             # r_uint
             1, 0,                                 # add
-            sys.maxint*2+1, sys.maxint*2,         # sub
-            0, sys.maxint*2+1,                    # mul
-            0, sys.maxint*2+1,                    # floordiv
+            sys.maxsize*2+1, sys.maxsize*2,         # sub
+            0, sys.maxsize*2+1,                    # mul
+            0, sys.maxsize*2+1,                    # floordiv
             0, 0,                                 # mod
-            0, sys.maxint*2,                      # lshift
-            0, sys.maxint,                        # rshift
+            0, sys.maxsize*2,                      # lshift
+            0, sys.maxsize,                        # rshift
             # r_longlong
             -maxlonglong, undefined,              # add
             undefined, maxlonglong-1,             # sub
@@ -514,21 +514,21 @@ class TestLowLevelType(object):
         print(res)
         assert eval(res) == (
             # int
-            -sys.maxint+4, undefined,             # add
-            undefined, sys.maxint-5,              # sub
+            -sys.maxsize+4, undefined,             # add
+            undefined, sys.maxsize-5,              # sub
             undefined, undefined,                 # mul
-            (-sys.maxint-1)//5, sys.maxint//5,    # floordiv
-            (-sys.maxint-1)%5, sys.maxint%5,      # mod
+            (-sys.maxsize-1)//5, sys.maxsize//5,    # floordiv
+            (-sys.maxsize-1)%5, sys.maxsize%5,      # mod
             0, -32,                               # lshift
-            (-sys.maxint-1)//32, sys.maxint//32,  # rshift
+            (-sys.maxsize-1)//32, sys.maxsize//32,  # rshift
             # r_uint
             5, 4,                                 # add
-            sys.maxint*2-3, sys.maxint*2-4,       # sub
-            0, sys.maxint*2-3,                    # mul
-            0, (sys.maxint*2+1)//5,               # floordiv
-            0, (sys.maxint*2+1)%5,                # mod
-            0, sys.maxint*2-30,                   # lshift
-            0, sys.maxint>>4,                     # rshift
+            sys.maxsize*2-3, sys.maxsize*2-4,       # sub
+            0, sys.maxsize*2-3,                    # mul
+            0, (sys.maxsize*2+1)//5,               # floordiv
+            0, (sys.maxsize*2+1)%5,                # mod
+            0, sys.maxsize*2-30,                   # lshift
+            0, sys.maxsize>>4,                     # rshift
             # r_longlong
             -maxlonglong+4, undefined,            # add
             undefined, maxlonglong-5,             # sub
@@ -754,7 +754,7 @@ class TestLowLevelType(object):
         from rpython.rtyper.lltypesystem import llgroup
         from rpython.rtyper.lltypesystem.lloperation import llop
         from rpython.translator.platform import CompilationError
-        if toobig and sys.maxint > 2147483647:
+        if toobig and sys.maxsize > 2147483647:
             py.test.skip("not easy to test groups too big on 64-bit platforms")
         grp = llgroup.group("big")
         S1 = Struct('S1', ('x', Signed), ('y', Signed),

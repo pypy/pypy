@@ -1166,7 +1166,7 @@ class TestRclass(BaseRtypingTest):
         r = names.index('inst_as_reference')
         assert v == 1      # void fields are first
         assert sorted([c, b]) == [7, 8]
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert sorted([u, i, r]) == [4, 5, 6]        # 32-bit types
             assert sorted([d, l]) == [2, 3]              # 64-bit types
         else:

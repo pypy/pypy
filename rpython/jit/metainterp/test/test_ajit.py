@@ -287,8 +287,8 @@ class BasicTests:
                     res += 1
                 y -= 1
             return res
-        res = self.meta_interp(f, [sys.maxint, 7])
-        assert res == f(sys.maxint, 7)
+        res = self.meta_interp(f, [sys.maxsize, 7])
+        assert res == f(sys.maxsize, 7)
         self.check_trace_count(1)
         res = self.meta_interp(f, [6, 7])
         assert res == 308
@@ -308,9 +308,9 @@ class BasicTests:
                     x1, x2 = x2, x1
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, sys.maxint, 48])
+        res = self.meta_interp(f, [6, sys.maxsize, 48])
         self.check_trace_count(6)
-        assert res == f(6, sys.maxint, 48)
+        assert res == f(6, sys.maxsize, 48)
 
     def test_loop_invariant_mul_bridge_ovf2(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x1', 'x2', 'n'])
@@ -327,10 +327,10 @@ class BasicTests:
                 if y&4 == 0:
                     x1, x2 = x2, x1
             return res
-        res = self.meta_interp(f, [6, sys.maxint, 32, 48])
-        assert res == f(6, sys.maxint, 32, 48)
-        res = self.meta_interp(f, [sys.maxint, 6, 32, 48])
-        assert res == f(sys.maxint, 6, 32, 48)
+        res = self.meta_interp(f, [6, sys.maxsize, 32, 48])
+        assert res == f(6, sys.maxsize, 32, 48)
+        res = self.meta_interp(f, [sys.maxsize, 6, 32, 48])
+        assert res == f(sys.maxsize, 6, 32, 48)
 
 
     def test_loop_invariant_intbox(self):
@@ -919,7 +919,7 @@ class BasicTests:
                 return -42
         res = self.interp_operations(f, [-100, 2])
         assert res == -98
-        res = self.interp_operations(f, [1, sys.maxint])
+        res = self.interp_operations(f, [1, sys.maxsize])
         assert res == -42
 
     def test_ovf_raise(self):
@@ -935,7 +935,7 @@ class BasicTests:
             except OverflowError:
                 return 3
 
-        res = self.interp_operations(f, [sys.maxint, 2])
+        res = self.interp_operations(f, [sys.maxsize, 2])
         assert res == 3
         res = self.interp_operations(f, [3, 2])
         assert res == 6
@@ -965,7 +965,7 @@ class BasicTests:
                 return 3
 
         for fn in [f, g]:
-            res = self.interp_operations(fn, [sys.maxint, 2])
+            res = self.interp_operations(fn, [sys.maxsize, 2])
             assert res == 3
             res = self.interp_operations(fn, [3, 2])
             assert res == 6
@@ -978,7 +978,7 @@ class BasicTests:
                 return -42
         res = self.interp_operations(f, [-100, 2])
         assert res == -102
-        res = self.interp_operations(f, [1, -sys.maxint])
+        res = self.interp_operations(f, [1, -sys.maxsize])
         assert res == -42
 
     def test_int_mul_ovf(self):
@@ -989,7 +989,7 @@ class BasicTests:
                 return -42
         res = self.interp_operations(f, [-100, 2])
         assert res == -200
-        res = self.interp_operations(f, [-3, sys.maxint//2])
+        res = self.interp_operations(f, [-3, sys.maxsize//2])
         assert res == -42
 
     def test_mod_ovf(self):
@@ -1313,20 +1313,20 @@ class BasicTests:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 try:
-                    res += ovfcheck((-sys.maxint-1) // x)
+                    res += ovfcheck((-sys.maxsize-1) // x)
                     x += 5
                 except OverflowError:
                     res += 100
                 y -= 1
             return res
-        expected =    ((-sys.maxint-1) // (-41) +
-                       (-sys.maxint-1) // (-36) +
-                       (-sys.maxint-1) // (-31) +
-                       (-sys.maxint-1) // (-26) +
-                       (-sys.maxint-1) // (-21) +
-                       (-sys.maxint-1) // (-16) +
-                       (-sys.maxint-1) // (-11) +
-                       (-sys.maxint-1) // (-6) +
+        expected =    ((-sys.maxsize-1) // (-41) +
+                       (-sys.maxsize-1) // (-36) +
+                       (-sys.maxsize-1) // (-31) +
+                       (-sys.maxsize-1) // (-26) +
+                       (-sys.maxsize-1) // (-21) +
+                       (-sys.maxsize-1) // (-16) +
+                       (-sys.maxsize-1) // (-11) +
+                       (-sys.maxsize-1) // (-6) +
                        100 * 8)
         assert f(-41, 16) == expected
         res = self.meta_interp(f, [-41, 16])
@@ -2332,7 +2332,7 @@ class BasicTests:
                 x += 1
                 n += 1
             return n
-        res = self.meta_interp(f, [sys.maxint-10])
+        res = self.meta_interp(f, [sys.maxsize-10])
         assert res == 11
         self.check_jitcell_token_count(1)
 
@@ -2348,7 +2348,7 @@ class BasicTests:
                 x *= 2
                 n += 1
             return n
-        res = self.meta_interp(f, [sys.maxint>>10])
+        res = self.meta_interp(f, [sys.maxsize>>10])
         assert res == 11
         self.check_jitcell_token_count(1)
 
@@ -2364,7 +2364,7 @@ class BasicTests:
                 x -= 1
                 n += 1
             return n
-        res = self.meta_interp(f, [10-sys.maxint])
+        res = self.meta_interp(f, [10-sys.maxsize])
         assert res == 12
         self.check_jitcell_token_count(1)
 
@@ -2487,7 +2487,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if 0 < a < promote(sys.maxint/2): pass
+                if 0 < a < promote(sys.maxsize/2): pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
@@ -2532,7 +2532,7 @@ class BasicTests:
             n = sa = 0
             while n < 10:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
-                if -promote(sys.maxint/2) < a < 0: pass
+                if -promote(sys.maxsize/2) < a < 0: pass
                 if 0 < b < 100: pass
                 sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
@@ -4382,7 +4382,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         topt = {'taggedpointers': True}
         x = self.interp_operations(f, [-128, 0], translationoptions=topt)
         assert x == -128
-        bigint = sys.maxint//2 + 1
+        bigint = sys.maxsize//2 + 1
         x = self.interp_operations(f, [bigint, 0], translationoptions=topt)
         assert x == -42
         x = self.interp_operations(f, [1000, 1], translationoptions=topt)
@@ -4757,7 +4757,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         def f(x):
             return ord(rffi.cast(lltype.UniChar, x))
         res = self.interp_operations(f, [-1])
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert res == -1
         else:
             assert res == 4294967295

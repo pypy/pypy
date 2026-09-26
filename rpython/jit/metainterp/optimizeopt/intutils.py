@@ -60,7 +60,7 @@ from rpython.jit.metainterp.history import ConstInt
 MAXINT = maxint
 MININT = -maxint - 1
 
-IS_64_BIT = sys.maxint > 2**32
+IS_64_BIT = sys.maxsize > 2**32
 
 TNUM_UNKNOWN = r_uint(0), r_uint(-1)
 TNUM_KNOWN_ZERO = r_uint(0), r_uint(0)

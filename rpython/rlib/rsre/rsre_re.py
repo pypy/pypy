@@ -70,15 +70,15 @@ class RSREPattern(object):
         self.groupindex = groupindex
         self._indexgroup = indexgroup
 
-    def match(self, string, pos=0, endpos=sys.maxint):
+    def match(self, string, pos=0, endpos=sys.maxsize):
         return self._make_match(rsre_core.match(self._code, string,
                                                 pos, endpos))
 
-    def search(self, string, pos=0, endpos=sys.maxint):
+    def search(self, string, pos=0, endpos=sys.maxsize):
         return self._make_match(rsre_core.search(self._code, string,
                                                  pos, endpos))
 
-    def findall(self, string, pos=0, endpos=sys.maxint):
+    def findall(self, string, pos=0, endpos=sys.maxsize):
         matchlist = []
         scanner = self.scanner(string, pos, endpos)
         while True:
@@ -94,7 +94,7 @@ class RSREPattern(object):
             matchlist.append(item)
         return matchlist
 
-    def finditer(self, string, pos=0, endpos=sys.maxint):
+    def finditer(self, string, pos=0, endpos=sys.maxsize):
         scanner = self.scanner(string, pos, endpos)
         while True:
             match = scanner.search()
@@ -178,7 +178,7 @@ class RSREPattern(object):
         splitlist.append(string[last:])
         return splitlist
 
-    def scanner(self, string, start=0, end=sys.maxint):
+    def scanner(self, string, start=0, end=sys.maxsize):
         return SREScanner(self, string, start, end)
 
     def _make_match(self, res):

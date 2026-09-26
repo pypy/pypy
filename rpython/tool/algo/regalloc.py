@@ -48,7 +48,7 @@ class RegAllocator(object):
                     die_at.pop(v, None)
             die_at = [(value, key) for (key, value) in die_at.items()]
             die_at.sort()
-            die_at.append((sys.maxint,))
+            die_at.append((sys.maxsize,))
             # Done.  XXX the code above this line runs 3 times
             # (for kind in KINDS) to produce the same result...
             livevars = [v for v in block.inputargs

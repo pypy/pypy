@@ -135,7 +135,7 @@ def test_get_field_descr_nonneg():
         assert descr_y.get_integer_min() < 0
 
 def test_get_field_descr_longlong():
-    if sys.maxint > 2147483647:
+    if sys.maxsize > 2147483647:
         py.test.skip("long long: for 32-bit only")
     c0 = GcCache(False)
     S = lltype.GcStruct('S', ('y', lltype.UnsignedLongLong))
@@ -280,7 +280,7 @@ def test_get_call_descr_not_translated():
     assert descr5.arg_classes == "S"
 
 def test_get_call_descr_not_translated_longlong():
-    if sys.maxint > 2147483647:
+    if sys.maxsize > 2147483647:
         py.test.skip("long long: for 32-bit only")
     c0 = GcCache(False)
     #

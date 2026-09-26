@@ -9,11 +9,11 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.resoperation import InputArgInt
 from rpython.jit.metainterp.executor import execute
 
-not_power_of_two = (strategies.integers(min_value=3, max_value=sys.maxint)
+not_power_of_two = (strategies.integers(min_value=3, max_value=sys.maxsize)
                     .filter(lambda m: (m & (m - 1)) != 0))
 
 
-@given(strategies.integers(min_value=0, max_value=sys.maxint),
+@given(strategies.integers(min_value=0, max_value=sys.maxsize),
        not_power_of_two)
 def test_magic_numbers(n, m):
     k, i = magic_numbers(m)
@@ -22,7 +22,7 @@ def test_magic_numbers(n, m):
     assert a == n // m
 
 
-@given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+@given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize),
        not_power_of_two,
        strategies.booleans())
 def test_division_operations(n, m, known_nonneg):
@@ -41,7 +41,7 @@ def test_division_operations(n, m, known_nonneg):
     assert constants[op].getint() == n // m
 
 
-@given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+@given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize),
        not_power_of_two,
        strategies.booleans())
 def test_modulo_operations(n, m, known_nonneg):

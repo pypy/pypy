@@ -226,7 +226,7 @@ def _ll_list_resize_hint_really(l, newsize, overallocate):
         new_allocated = newsize
     # new_allocated is a bit more than newsize, enough to ensure an amortized
     # linear complexity for e.g. repeated usage of l.append().  In case
-    # it overflows sys.maxint, it is guaranteed negative, and the following
+    # it overflows sys.maxsize, it is guaranteed negative, and the following
     # malloc() will fail.
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)

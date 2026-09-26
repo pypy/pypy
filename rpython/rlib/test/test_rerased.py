@@ -47,12 +47,12 @@ def test_simple_int():
     assert unerase_int(e) == 15
 
 def test_simple_int_overflow():
-    erase_int(sys.maxint//2)
-    py.test.raises(OverflowError, erase_int, sys.maxint//2 + 1)
-    py.test.raises(OverflowError, erase_int, sys.maxint)
-    py.test.raises(OverflowError, erase_int, sys.maxint-1)
-    py.test.raises(OverflowError, erase_int, -sys.maxint)
-    py.test.raises(OverflowError, erase_int, -sys.maxint-1)
+    erase_int(sys.maxsize//2)
+    py.test.raises(OverflowError, erase_int, sys.maxsize//2 + 1)
+    py.test.raises(OverflowError, erase_int, sys.maxsize)
+    py.test.raises(OverflowError, erase_int, sys.maxsize-1)
+    py.test.raises(OverflowError, erase_int, -sys.maxsize)
+    py.test.raises(OverflowError, erase_int, -sys.maxsize-1)
 
 def test_list():
     l = [X()]
@@ -264,7 +264,7 @@ class TestRErased(BaseRtypingTest):
             return unerase_int(e)
         x = self.interpret(f, [16])
         assert x == 16
-        x = self.interpret(f, [sys.maxint])
+        x = self.interpret(f, [sys.maxsize])
         assert x == -1
 
     def test_none(self):

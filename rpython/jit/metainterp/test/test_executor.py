@@ -132,7 +132,7 @@ def test_execute_nonspec():
 # ints
 
 def _int_binary_operations():
-    minint = -sys.maxint-1
+    minint = -sys.maxsize-1
     # Test cases.  Note that for each operation there should be at least
     # one case in which the two input arguments are equal.
     for opnum, testcases in [
@@ -168,14 +168,14 @@ def _int_binary_operations():
 
 def _int_comparison_operations():
     cpu = FakeCPU()            
-    random_numbers = [-sys.maxint-1, -1, 0, 1, sys.maxint]
+    random_numbers = [-sys.maxsize-1, -1, 0, 1, sys.maxsize]
     def pick():
         r = random.randrange(-99999, 100000)
         if r & 1:
             return r
         else:
             return random_numbers[r % len(random_numbers)]
-    minint = -sys.maxint-1
+    minint = -sys.maxsize-1
     for opnum, operation in [
         (rop.INT_LT, lambda x, y: x <  y),
         (rop.INT_LE, lambda x, y: x <= y),
@@ -198,7 +198,7 @@ def _int_comparison_operations():
             yield opnum, [x, y], z
 
 def _int_unary_operations():
-    minint = -sys.maxint-1
+    minint = -sys.maxsize-1
     for opnum, testcases in [
         (rop.INT_IS_TRUE, [(0, 0), (1, 1), (2, 1), (-1, 1), (minint, 1)]),
         (rop.INT_NEG, [(0, 0), (123, -123), (-23127, 23127)]),

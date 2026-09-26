@@ -228,7 +228,7 @@ class Bookkeeper(object):
         elif tp is int:
             result = SomeInteger(nonneg = x>=0)
         elif tp is long:
-            if -sys.maxint-1 <= x <= sys.maxint:
+            if -sys.maxsize-1 <= x <= sys.maxsize:
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)
             else:

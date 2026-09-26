@@ -1045,7 +1045,7 @@ class FixedRegisterPositions(object):
                     # too much, and can say that the variable is free until
                     # index
                     return index
-        return sys.maxint
+        return sys.maxsize
 
     def __repr__(self):
         return "%s: fixed at %s" % (self.register, self.index_lifetimes)
@@ -1100,7 +1100,7 @@ class LifetimeManager(object):
             reg = free_regs[i]
             fixed_reg_pos = self.fixed_register_use.get(reg, None)
             if fixed_reg_pos is None:
-                return reg, sys.maxint
+                return reg, sys.maxsize
             else:
                 free_until_pos = fixed_reg_pos.free_until_pos(position)
                 if free_until_pos > max_free_pos:
@@ -1113,7 +1113,7 @@ class LifetimeManager(object):
         free for the whole lifetime of v. pick the one that is blocked first
         *after* the lifetime of v. """
         longevityvar = self[v]
-        min_fixed_use_after = sys.maxint
+        min_fixed_use_after = sys.maxsize
         best_reg = None
         unfixed_reg = None
         for reg in free_regs:

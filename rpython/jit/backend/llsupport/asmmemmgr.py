@@ -119,7 +119,7 @@ class AsmMemoryManager(object):
             if self._allocated is None:
                 self._allocated = []
             self._allocated.append((data, size))
-            if sys.maxint > 2147483647:
+            if sys.maxsize > 2147483647:
                 # Hack to make sure that mcs are not within 32-bits of one
                 # another for testing purposes
                 rmmap.hint.pos += 0x80000000 - size

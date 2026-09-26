@@ -381,7 +381,7 @@ def test_translate_and_large_input():
 
     test_list = [1, 2, 3, 5, 8, 87, 876, 8765, 87654, 876543, 8765432,
                  127329129]       # up to ~128MB
-    if sys.maxint > 2**32:
+    if sys.maxsize > 2**32:
         test_list.append(4305704715)    # 4.01GB
         # XXX should we have a way to say "I don't have enough RAM,
         # don't run this"?

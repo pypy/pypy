@@ -24,7 +24,7 @@ special_values_set = (
     [-2 ** i - 1 for i in range(1, LONG_BIT)] +
     [2 ** i + 1 for i in range(1, LONG_BIT)] +
     [-2 ** i + 1 for i in range(1, LONG_BIT)] +
-    [sys.maxint, -sys.maxint-1]
+    [sys.maxsize, -sys.maxsize-1]
 )
 
 special_values = strategies.sampled_from(
@@ -32,7 +32,7 @@ special_values = strategies.sampled_from(
 
 pos_special_values_set = (
     range(0, 100) +
-    [sys.maxint] +
+    [sys.maxsize] +
     [2 ** i for i in range(1, LONG_BIT)] +
     [2 ** i - 1 for i in range(1, LONG_BIT)] +
     [2 ** i + 1 for i in range(1, LONG_BIT)])
@@ -46,14 +46,14 @@ pos_relatively_small_values = strategies.sampled_from(
 ints = strategies.builds(
     int, # strategies.integers sometimes returns a long?
     special_values | strategies.integers(
-    min_value=int(-sys.maxint-1), max_value=sys.maxint))
+    min_value=int(-sys.maxsize-1), max_value=sys.maxsize))
 
 ints_or_none = strategies.none() | ints
 
 pos_ints = strategies.builds(
     int,
     pos_special_values | strategies.integers(
-    min_value=int(0), max_value=sys.maxint))
+    min_value=int(0), max_value=sys.maxsize))
 
 def bound_eq(a, b):
     return a.__dict__ == b.__dict__
@@ -463,7 +463,7 @@ def test_shift_bound():
 def test_shift_overflow():
     b10 = IntBound(0, 10)
     b100 = IntBound(0, 100)
-    bmax = IntBound(0, sys.maxint/2)
+    bmax = IntBound(0, sys.maxsize/2)
     assert b10.lshift_bound(b100).upper == MAXINT
     assert bmax.lshift_bound(b10).upper == MAXINT
     assert b10.lshift_bound(b10).upper == 10 << 10
@@ -837,7 +837,7 @@ def test_div_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.py_div_bound(b2)
-    if n1 == -sys.maxint-1 and n2 == -1:
+    if n1 == -sys.maxsize-1 and n2 == -1:
         return # overflow
     if n2 != 0:
         assert b3.contains(n1 / n2)   # Python-style div
@@ -878,7 +878,7 @@ def test_mod_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.mod_bound(b2)
-    if n1 == -sys.maxint-1 and n2 == -1:
+    if n1 == -sys.maxsize-1 and n2 == -1:
         return # overflow
     if n2 != 0:
         assert b3.contains(n1 % n2)   # Python-style mod
@@ -959,7 +959,7 @@ def test_neg_random(t1):
 def test_neg_const_random(t1):
     b1 = IntBound.from_constant(t1)
     r = b1.neg_bound()
-    if t1 != -sys.maxint-1:
+    if t1 != -sys.maxsize-1:
         assert r.is_constant()
         assert r.known_eq_const(-t1)
 
@@ -1668,7 +1668,7 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     assert r3c.is_constant()
     assert r3c.known_eq_const(0)
 
-@pytest.mark.skipif('sys.maxint <= 2**31 - 1')
+@pytest.mark.skipif('sys.maxsize <= 2**31 - 1')
 def test_urshift_bound_improvements():
     # (0x7ff02a56 <= 0b0...0???????????????????????????????0 <= 0x80102a54)
     b = IntBound(0x7ff02a56, 0x80102a54, r_uint(0b0), r_uint(0b11111111111111111111111111111110))

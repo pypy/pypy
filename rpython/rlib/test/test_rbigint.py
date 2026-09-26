@@ -31,8 +31,8 @@ from hypothesis import given, strategies, example, settings, assume, HealthCheck
 
 longs = strategies.builds(
     long, strategies.integers())
-ints = strategies.integers(-sys.maxint-1, sys.maxint)
-_BIG_INT_MAX = 10000 if sys.maxint > 2 ** 32 else 2000
+ints = strategies.integers(-sys.maxsize-1, sys.maxsize)
+_BIG_INT_MAX = 10000 if sys.maxsize > 2 ** 32 else 2000
 
 
 def makelong(data):
@@ -95,8 +95,8 @@ def makerarithint(data):
     classlist = platform.numbertype_to_rclass.values()
     cls = data.draw(strategies.sampled_from(classlist))
     if cls is int:
-        minimum = -sys.maxint-1
-        maximum = sys.maxint
+        minimum = -sys.maxsize-1
+        maximum = sys.maxsize
     else:
         BITS = cls.BITS
         if cls.SIGNED:
@@ -120,7 +120,7 @@ def gen_signs(l):
 
 long_vals_not_too_big = range(17) + [
         37, 39, 50,
-        127, 128, 129, 511, 512, 513, sys.maxint, sys.maxint + 1,
+        127, 128, 129, 511, 512, 513, sys.maxsize, sys.maxsize + 1,
         12345678901234567890,
         123456789123456789000000,
 ]
@@ -131,9 +131,9 @@ long_vals = long_vals_not_too_big + [
 int_vals = range(33) + [
         1000,
         0x11111111, 0x11111112, 8888,
-        9999, sys.maxint, 2 ** 19, 2 ** 18 - 1
+        9999, sys.maxsize, 2 ** 19, 2 ** 18 - 1
 ]
-signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxint-1]
+signed_int_vals = list(gen_signs(int_vals)) + [-sys.maxsize-1]
 
 class TestRLong(object):
     def test_simple(self):
@@ -191,7 +191,7 @@ class TestRLong(object):
             r.int_floordiv(0)
 
         # Error pointed out by Armin Rigo
-        n = sys.maxint+1
+        n = sys.maxsize+1
         r = rbigint.fromlong(n)
         assert r.int_floordiv(int(-n)).tolong() == -1
 
@@ -208,8 +208,8 @@ class TestRLong(object):
             assert res3.tolong() == -1
 
     def test_floordiv2(self):
-        n1 = rbigint.fromlong(sys.maxint + 1)
-        n2 = rbigint.fromlong(-(sys.maxint + 1))
+        n1 = rbigint.fromlong(sys.maxsize + 1)
+        n2 = rbigint.fromlong(-(sys.maxsize + 1))
         assert n1.floordiv(n2).tolong() == -1
         assert n2.floordiv(n1).tolong() == -1
 
@@ -345,13 +345,13 @@ class TestRLong(object):
                     assert r3.tolong() == r4
 
     def test_int_pow_big(self):
-        if sys.maxint < 2**32:
+        if sys.maxsize < 2**32:
             pytest.skip("64-bit only")
         for op1 in gen_signs(int_vals):
             rl_op1 = rbigint.fromint(op1)
             for op2 in [2**31, 2**32-1, 2**32]:
-                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxint))
-                r2 = pow(op1, op2, sys.maxint)
+                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxsize))
+                r2 = pow(op1, op2, sys.maxsize)
                 assert r1.tolong() == r2
 
     def test_pow_raises(self):
@@ -363,8 +363,8 @@ class TestRLong(object):
             r1.pow(r1, r0)
 
     def test_touint(self):
-        result = r_uint(sys.maxint + 42)
-        rl = rbigint.fromint(sys.maxint).add(rbigint.fromint(42))
+        result = r_uint(sys.maxsize + 42)
+        rl = rbigint.fromint(sys.maxsize).add(rbigint.fromint(42))
         assert rl.touint() == result
 
     def test_eq_ne_operators(self):
@@ -437,8 +437,8 @@ class Test_rbigint(object):
         assert rbigint.fromlong(-(BASE-1)).eq(bigint([intmask(BASE-1)], -1))
         assert rbigint.fromlong(-BASE).eq(bigint([0, 1], -1))
         assert rbigint.fromlong(-(BASE**2)).eq(bigint([0, 0, 1], -1))
-#        assert rbigint.fromlong(-sys.maxint-1).eq(
-#            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
+#        assert rbigint.fromlong(-sys.maxsize-1).eq(
+#            rbigint.digits_for_most_neg_long(-sys.maxsize-1), -1)
 
     def test_args_from_int(self):
         BASE = 1 << 31 # Can't can't shift here. Shift might be from longlonglong
@@ -455,8 +455,8 @@ class Test_rbigint(object):
         """assert rbigint.fromrarith_int(-MAX-1).eq(bigint([0, 1], -1))
         assert rbigint.fromrarith_int(r_longlong(-(BASE**2))).eq(
             bigint([0, 0, 1], -1))"""
-#        assert rbigint.fromrarith_int(-sys.maxint-1).eq((
-#            rbigint.digits_for_most_neg_long(-sys.maxint-1), -1)
+#        assert rbigint.fromrarith_int(-sys.maxsize-1).eq((
+#            rbigint.digits_for_most_neg_long(-sys.maxsize-1), -1)
 
     def test_args_from_uint(self):
         BASE = 1 << SHIFT
@@ -465,12 +465,12 @@ class Test_rbigint(object):
         assert rbigint.fromrarith_int(r_uint(BASE-1)).eq(bigint([intmask(BASE-1)], 1))
         assert rbigint.fromrarith_int(r_uint(BASE)).eq(bigint([0, 1], 1))
         #assert rbigint.fromrarith_int(r_uint(BASE**2)).eq(bigint([0], 0))
-        assert rbigint.fromrarith_int(r_uint(sys.maxint)).eq(
-            rbigint.fromint(sys.maxint))
-        assert rbigint.fromrarith_int(r_uint(sys.maxint+1)).eq(
-            rbigint.fromlong(sys.maxint+1))
-        assert rbigint.fromrarith_int(r_uint(2*sys.maxint+1)).eq(
-            rbigint.fromlong(2*sys.maxint+1))
+        assert rbigint.fromrarith_int(r_uint(sys.maxsize)).eq(
+            rbigint.fromint(sys.maxsize))
+        assert rbigint.fromrarith_int(r_uint(sys.maxsize+1)).eq(
+            rbigint.fromlong(sys.maxsize+1))
+        assert rbigint.fromrarith_int(r_uint(2*sys.maxsize+1)).eq(
+            rbigint.fromlong(2*sys.maxsize+1))
 
     def test_fromdecimalstr(self):
         x = rbigint.fromdecimalstr("12345678901234567890523897987")
@@ -774,7 +774,7 @@ class Test_rbigint(object):
         assert type(u) is r_uint
 
     def test_conversions(self):
-        for v in (0, 1, -1, sys.maxint, -sys.maxint-1):
+        for v in (0, 1, -1, sys.maxsize, -sys.maxsize-1):
             assert rbigint.fromlong(long(v)).tolong() == long(v)
             l = rbigint.fromint(v)
             assert l.toint() == v
@@ -786,22 +786,22 @@ class Test_rbigint(object):
                 with pytest.raises(ValueError):
                     l.touint()
 
-        toobig_lv1 = rbigint.fromlong(sys.maxint+1)
-        assert toobig_lv1.tolong() == sys.maxint+1
-        toobig_lv2 = rbigint.fromlong(sys.maxint+2)
-        assert toobig_lv2.tolong() == sys.maxint+2
-        toobig_lv3 = rbigint.fromlong(-sys.maxint-2)
-        assert toobig_lv3.tolong() == -sys.maxint-2
+        toobig_lv1 = rbigint.fromlong(sys.maxsize+1)
+        assert toobig_lv1.tolong() == sys.maxsize+1
+        toobig_lv2 = rbigint.fromlong(sys.maxsize+2)
+        assert toobig_lv2.tolong() == sys.maxsize+2
+        toobig_lv3 = rbigint.fromlong(-sys.maxsize-2)
+        assert toobig_lv3.tolong() == -sys.maxsize-2
 
         for lv in (toobig_lv1, toobig_lv2, toobig_lv3):
             with pytest.raises(OverflowError):
                 lv.toint()
 
-        lmaxuint = rbigint.fromlong(2*sys.maxint+1)
-        toobig_lv4 = rbigint.fromlong(2*sys.maxint+2)
+        lmaxuint = rbigint.fromlong(2*sys.maxsize+1)
+        toobig_lv4 = rbigint.fromlong(2*sys.maxsize+2)
 
         u = lmaxuint.touint()
-        assert u == 2*sys.maxint+1
+        assert u == 2*sys.maxsize+1
 
         with pytest.raises(ValueError):
             toobig_lv3.touint()
@@ -846,7 +846,7 @@ class Test_rbigint(object):
                 t = t.add(rbigint.fromint(1))
             if i not in enabled:
                 continue    # don't take forever
-            n = randint(1, sys.maxint)
+            n = randint(1, sys.maxsize)
             v = two.pow(t, rbigint.fromint(n))
             assert v.toint() == pow(2, t.tolong(), n)
 
@@ -911,7 +911,7 @@ class Test_rbigint(object):
 
     def test_shift_optimization(self):
         # does not crash with memory error
-        assert rbigint.fromint(0).lshift(sys.maxint).tolong() == 0
+        assert rbigint.fromint(0).lshift(sys.maxsize).tolong() == 0
 
     def test_qshift(self):
         for x in range(10):
@@ -1024,12 +1024,12 @@ class Test_rbigint(object):
     def test_bit_length_int(self):
         assert bit_length_int(0) == 0
         assert bit_length_int(1) == 1
-        assert bit_length_int(sys.maxint) in (31, 63)
-        assert bit_length_int(-sys.maxint-1) in (32, 64)
+        assert bit_length_int(sys.maxsize) in (31, 63)
+        assert bit_length_int(-sys.maxsize-1) in (32, 64)
 
     def test_hash(self):
         for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-                  sys.maxint-3, sys.maxint-2, sys.maxint-1, sys.maxint,
+                  sys.maxsize-3, sys.maxsize-2, sys.maxsize-1, sys.maxsize,
                   ]:
             # hash of machine-sized integers
             assert rbigint.fromint(i).hash() == i
@@ -1160,7 +1160,7 @@ def test_frombytes_int():
         frombytes_int(s, byteorder='big', signed=False)
     # Test minint (two's complement asymmetry)
     import sys
-    minint = -sys.maxint - 1
+    minint = -sys.maxsize - 1
     # minint in 8 bytes (for 64-bit) or 4 bytes (for 32-bit)
     nbytes = LONG_BIT // 8
     s = tobytes_int(minint, nbytes, 'big', signed=True)
@@ -1214,7 +1214,7 @@ def test_frombytes_tobytes_int_hypothesis(s, big, signed):
     try:
         value2 = frombytes_int(s, byteorder, signed)
     except OverflowError:
-        assert not (-sys.maxint-1 <= bigint.tolong() <= sys.maxint)
+        assert not (-sys.maxsize-1 <= bigint.tolong() <= sys.maxsize)
     else:
         assert bigint.bit_length() <= LONG_BIT
         assert value2 == bigint.toint()
@@ -1329,13 +1329,13 @@ class TestInternalFunctions(object):
 
     def test_int_divmod(self):
         for x in long_vals:
-            for y in int_vals + [-sys.maxint-1]:
+            for y in int_vals + [-sys.maxsize-1]:
                 if not y:
                     continue
                 for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
                     sx *= x
                     sy *= y
-                    if sy == sys.maxint + 1:
+                    if sy == sys.maxsize + 1:
                         continue
                     f1 = rbigint.fromlong(sx)
                     div, rem = f1.int_divmod(sy)
@@ -1395,16 +1395,16 @@ class TestInternalFunctions(object):
     def test_uintmask(self):
         assert rbigint.fromint(-1).uintmask() == r_uint(-1)
         assert rbigint.fromint(0).uintmask() == r_uint(0)
-        assert (rbigint.fromint(sys.maxint).uintmask() ==
-                r_uint(sys.maxint))
-        assert (rbigint.fromlong(sys.maxint+1).uintmask() ==
-                r_uint(-sys.maxint-1))
+        assert (rbigint.fromint(sys.maxsize).uintmask() ==
+                r_uint(sys.maxsize))
+        assert (rbigint.fromlong(sys.maxsize+1).uintmask() ==
+                r_uint(-sys.maxsize-1))
 
     def test_ulonglongmask(self):
         assert rbigint.fromlong(-1).ulonglongmask() == r_ulonglong(-1)
         assert rbigint.fromlong(0).ulonglongmask() == r_ulonglong(0)
-        assert (rbigint.fromlong(sys.maxint).ulonglongmask() ==
-                r_ulonglong(sys.maxint))
+        assert (rbigint.fromlong(sys.maxsize).ulonglongmask() ==
+                r_ulonglong(sys.maxsize))
         assert (rbigint.fromlong(9**50).ulonglongmask() ==
                 r_ulonglong(9**50))
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
@@ -1418,10 +1418,10 @@ class TestInternalFunctions(object):
         assert rbigint.fromlong(0).fits_int()
         assert rbigint.fromlong(42).fits_int()
         assert rbigint.fromlong(-42).fits_int()
-        assert rbigint.fromlong(sys.maxint).fits_int()
-        assert not rbigint.fromlong(sys.maxint + 1).fits_int()
-        assert rbigint.fromlong(-sys.maxint - 1).fits_int()
-        assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
+        assert rbigint.fromlong(sys.maxsize).fits_int()
+        assert not rbigint.fromlong(sys.maxsize + 1).fits_int()
+        assert rbigint.fromlong(-sys.maxsize - 1).fits_int()
+        assert not rbigint.fromlong(-sys.maxsize - 2).fits_int()
         assert not rbigint.fromlong(-73786976294838206459).fits_int()
         assert not rbigint.fromlong(1 << 1000).fits_int()
 
@@ -1511,7 +1511,7 @@ class TestTranslatable(object):
             if r in (r_int, r_int_real, r_uint_real):  # and also r_longlong on 64-bit
                 continue
             if r is int:
-                mask = sys.maxint*2+1
+                mask = sys.maxsize*2+1
                 signed = True
             else:
                 mask = r.MASK
@@ -1560,13 +1560,13 @@ class TestTranslatable(object):
         def fn(x, y):
             res = rbigint.mul_int_int_bigint_result(x, y)
             return len(res.str())
-        res = interpret(fn, [sys.maxint, sys.maxint])
+        res = interpret(fn, [sys.maxsize, sys.maxsize])
 
 
 class TestTranslated(StandaloneTests):
 
     def test_gcc_4_9(self):
-        MIN = -sys.maxint-1
+        MIN = -sys.maxsize-1
 
         def entry_point(argv):
             print(rbigint.fromint(MIN+1)._digits)
@@ -1576,7 +1576,7 @@ class TestTranslated(StandaloneTests):
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
         if SHIFT == LONG_BIT-1:
-            assert data == '[%d]\n[0, 1]\n' % sys.maxint
+            assert data == '[%d]\n[0, 1]\n' % sys.maxsize
         else:
             # assume 64-bit without native 128-bit type
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
@@ -2007,7 +2007,7 @@ class TestHypothesis(object):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
 
-    @example(-sys.maxint-1, 5)
+    @example(-sys.maxsize-1, 5)
     @example(-1, 10)
     @example(1, 1071)
     @given(ints, strategies.integers(0, 2000))

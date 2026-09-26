@@ -32,7 +32,7 @@ def set_unicode_db(newunicodedb):
 
 #### Constants
 
-if sys.maxint > 2**32:
+if sys.maxsize > 2**32:
     MAXREPEAT = int(2**32 - 1)
     MAXGROUPS = int(2**31 - 1)
 else:

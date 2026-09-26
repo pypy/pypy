@@ -711,7 +711,7 @@ def op_gc_writebarrier(addr):
 
 def op_gc_bit(hdr, bitmask):
     if hdr.tid & bitmask:
-        return random.randrange(1, sys.maxint)
+        return random.randrange(1, sys.maxsize)
     return 0
 
 def op_shrink_array(array, smallersize):

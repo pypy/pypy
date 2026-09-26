@@ -743,12 +743,12 @@ class BaseTestBufferingInputOutputStreamTests(BaseRtypingTest):
             filter.write("123456789")
             for chunk in base.chunks:
                 assert len(chunk[1]) >= 4
-            s = filter.read(sys.maxint)
+            s = filter.read(sys.maxsize)
             assert base.buf == "123456789"
             base.chunks = []
             filter.write("abc")
             assert not base.chunks
-            s = filter.read(sys.maxint)
+            s = filter.read(sys.maxsize)
             assert base.buf == "123456789abc"
             base.chunks = []
             filter.write("012")

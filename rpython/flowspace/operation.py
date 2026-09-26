@@ -22,6 +22,7 @@ from rpython.flowspace.specialcase import SPECIAL_CASES
 NOT_REALLY_CONST = {
     Constant(sys): {
         Constant('maxint'): True,
+        Constant('maxsize'): True,
         Constant('maxunicode'): True,
         Constant('api_version'): True,
         Constant('exit'): True,

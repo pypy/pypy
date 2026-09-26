@@ -261,7 +261,7 @@ class TestRx86_32(object):
         g.close()
         error = [line for line in got.splitlines() if 'error' in line.lower()]
         if error:
-            if (sys.maxint <= 2**32 and
+            if (sys.maxsize <= 2**32 and
                     'no compiled in support for x86_64' in error[0]):
                 py.test.skip(error)
             raise Exception("Assembler got an error: %r" % error[0])

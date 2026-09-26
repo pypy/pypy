@@ -3,7 +3,7 @@ import py
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
 
-IS_32_BIT = sys.maxint < 2**32
+IS_32_BIT = sys.maxsize < 2**32
 
 class TestLLTypeLLGraph(LLtypeBackendTest):
     # for individual tests see:

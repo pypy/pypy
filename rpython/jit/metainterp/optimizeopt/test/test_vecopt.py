@@ -20,7 +20,7 @@ from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 
-if sys.maxint == 2**31-1:
+if sys.maxsize == 2**31-1:
     pytest.skip("32bit platforms are not supported", allow_module_level=True)
 
 class FakeJitDriverStaticData(object):

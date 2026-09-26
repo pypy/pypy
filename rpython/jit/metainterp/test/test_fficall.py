@@ -231,8 +231,8 @@ class FfiCallTests(object):
 
     def test_handle_unsigned(self):
         self._run([types.ulong], types.ulong,
-                  [rffi.cast(rffi.ULONG, r_uint(sys.maxint + 91348))],
-                  rffi.cast(rffi.ULONG, r_uint(sys.maxint + 4242)))
+                  [rffi.cast(rffi.ULONG, r_uint(sys.maxsize + 91348))],
+                  rffi.cast(rffi.ULONG, r_uint(sys.maxsize + 4242)))
 
     def test_handle_unsignedchar(self):
         self._run([types.uint8], types.uint8,

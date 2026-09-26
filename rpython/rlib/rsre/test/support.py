@@ -108,7 +108,7 @@ class MatchContextForTests(StrMatchContext):
         return Position(base_position._p + index)
 
 
-def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
+def match(pattern, string, start=0, end=sys.maxsize, fullmatch=False):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)
@@ -120,10 +120,10 @@ def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     else:
         return None
 
-def fullmatch(pattern, string, start=0, end=sys.maxint):
+def fullmatch(pattern, string, start=0, end=sys.maxsize):
     return match(pattern, string, start, end, fullmatch=True)
 
-def search(pattern, string, start=0, end=sys.maxint):
+def search(pattern, string, start=0, end=sys.maxsize):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)

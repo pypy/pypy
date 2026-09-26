@@ -75,7 +75,7 @@ class TestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [1.0])
         assert res == 1
         # r_longlong is int on a 64 bit system
-        if sys.maxint == 2**63 - 1:
+        if sys.maxsize == 2**63 - 1:
             assert self.is_of_type(res, int)
         else:
             assert self.is_of_type(res, r_longlong)
@@ -92,7 +92,7 @@ class TestRfloat(BaseRtypingTest):
 
         res = self.interpret(fn, [12.34])
         assert res == 12
-        bigval = sys.maxint * 1.234
+        bigval = sys.maxsize * 1.234
         res = self.interpret(fn, [bigval])
         assert long(res) == long(bigval)
 
@@ -103,14 +103,14 @@ class TestRfloat(BaseRtypingTest):
         res = self.interpret(fn, [41])
         assert self.float_eq(res, 20.5)
         res = self.interpret(fn, [-9])
-        assert self.float_eq(res, 0.5 * ((sys.maxint+1)*2 - 9))
+        assert self.float_eq(res, 0.5 * ((sys.maxsize+1)*2 - 9))
 
     def test_to_r_ulonglong(self):
         def fn(x):
             return r_ulonglong(x)
         res = self.interpret(fn, [12.34])
         assert res == 12
-        bigval = sys.maxint * 1.234
+        bigval = sys.maxsize * 1.234
         res = self.interpret(fn, [bigval])
         assert long(res) == long(bigval)
 

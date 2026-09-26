@@ -229,7 +229,7 @@ class TestTypedOptimizedRaisingOps:
         # unsigned arithmetic. The problem with using signed arithmetic is that
         # signed overflow is undefined in C and the optimizer is allowed to
         # remove the overflow check.
-        from sys import maxint
+        from sys import maxsize
         from rpython.rlib.rarithmetic import ovfcheck
         def f(x, y):
             ret = 0
@@ -241,4 +241,4 @@ class TestTypedOptimizedRaisingOps:
             return ret
         fc = self.getcompiled(f, [int, int])
         assert fc(10, 10) == 19
-        assert fc(maxint, 10) == maxint
+        assert fc(maxsize, 10) == maxsize

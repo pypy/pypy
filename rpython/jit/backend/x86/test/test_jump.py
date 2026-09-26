@@ -423,6 +423,6 @@ def test_overflow_bug():
     # it works when run directly
     main()
     # but it used to crash when translated,
-    # because of a -sys.maxint-2 overflowing to sys.maxint
+    # because of a -sys.maxsize-2 overflowing to sys.maxsize
     from rpython.rtyper.test.test_llinterp import interpret
     interpret(main, [])

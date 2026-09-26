@@ -246,7 +246,7 @@ class ArrayDefNode(NodeWithDependencies):
         return '(&%s.items[0])[%s]' % (baseexpr, index)
 
     def ptr_access_expr(self, baseexpr, index, dummy=False):
-        assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
+        assert 0 <= index <= sys.maxsize, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
@@ -350,7 +350,7 @@ class BareBoneArrayDefNode(NodeWithDependencies):
     access_expr_varindex = access_expr
 
     def ptr_access_expr(self, baseexpr, index, dummy=False):
-        assert 0 <= index <= sys.maxint, "invalid constant index %r" % (index,)
+        assert 0 <= index <= sys.maxsize, "invalid constant index %r" % (index,)
         return self.itemindex_access_expr(baseexpr, index)
 
     def itemindex_access_expr(self, baseexpr, indexexpr):
