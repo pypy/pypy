@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import thread
+from rpython.tool.twothree import thread
 
 class MonitorList(list):
     def append(self, obj):

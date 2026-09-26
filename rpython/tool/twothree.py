@@ -18,6 +18,22 @@ except ImportError:
     import __builtin__ as builtins
 
 try:
+    # a str buffer on either version: a byte string on Python 2, text on 3
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+
+try:
+    from collections.abc import MutableMapping
+except ImportError:
+    from collections import MutableMapping
+
+try:
+    import thread
+except ImportError:
+    import _thread as thread
+
+try:
     intern = sys.intern
 except AttributeError:
     intern = builtins.intern

@@ -113,10 +113,7 @@ class Entry(ExtRegistryEntry):
 
 class EmulatedGilHolder:
     def __init__(self):
-        try:
-            import thread
-        except ImportError:
-            import dummy_thread as thread
+        from rpython.tool.twothree import thread
         self._tid = self._get_ident()
         self._lock = thread.allocate_lock()
         self._lock.acquire()

@@ -188,11 +188,15 @@ def builtin_max(*s_values):
         return s
 
 # collect all functions
-import __builtin__
-for name, value in globals().items():
+from rpython.tool.twothree import builtins
+# list(): the loop variables are globals too, so on Python 3 the first
+# iteration would change the dict being iterated over
+for name, value in list(globals().items()):
     if name.startswith('builtin_'):
-        original = getattr(__builtin__, name[8:])
-        BUILTIN_ANALYZERS[original] = value
+        # unicode, unichr and friends are not built-ins on Python 3
+        original = getattr(builtins, name[8:], None)
+        if original is not None:
+            BUILTIN_ANALYZERS[original] = value
 
 
 @analyzer_for(getattr(object.__init__, 'im_func', object.__init__))

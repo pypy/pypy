@@ -55,7 +55,7 @@ class TestDarwin(BasicTest):
         self.check_res(res)
 
     def test_frameworks_with_makefile(self):
-        from StringIO import StringIO
+        from rpython.tool.twothree import StringIO
         tmpdir = udir.join('fw_mk' + self.__class__.__name__).ensure(dir=1)
         objcfile = tmpdir.join('test_simple.m')
         objcfile.write(r'''

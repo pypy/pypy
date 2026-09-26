@@ -39,7 +39,7 @@ def llexternal(name, args, result, **kwds):
 
 @not_rpython
 def _emulated_start_new_thread(func):
-    import thread
+    from rpython.tool.twothree import thread
     try:
         ident = thread.start_new_thread(func, ())
     except thread.error:
@@ -116,7 +116,7 @@ def get_ident():
         return tlfield_thread_ident.getraw()
     else:
         try:
-            import thread
+            from rpython.tool.twothree import thread
         except ImportError:
             return 42
         return thread.get_ident()
