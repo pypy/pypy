@@ -661,7 +661,7 @@ class MetaPackratParser(type):
         if 'Status' not in frame.f_globals:
             raise Exception("must import Status")
         result = type.__new__(cls, name_, bases, dct)
-        for key, value in pcls.__dict__.iteritems():
+        for key, value in pcls.__dict__.items():
             if isinstance(value, type):
                 value.__module__ = result.__module__ #XXX help the annotator
             if isinstance(value, type(lambda: None)):
@@ -739,10 +739,10 @@ class PyPackratSyntaxParser(PackratParser):
 forbidden = dict.fromkeys(("__weakref__ __doc__ "
                            "__dict__ __module__").split())
 initthere = "__init__" in PyPackratSyntaxParser.__dict__
-for key, value in Parser.__dict__.iteritems():
+for key, value in Parser.__dict__.items():
     if key not in PyPackratSyntaxParser.__dict__ and key not in forbidden:
         setattr(PyPackratSyntaxParser, key, value)
-PyPackratSyntaxParser.init_parser = Parser.__init__.im_func
+PyPackratSyntaxParser.init_parser = Parser.__dict__['__init__']
 """ % (code, )
     print(content)
     f.write(content)
