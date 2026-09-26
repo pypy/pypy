@@ -768,6 +768,276 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.parametrize("left", ["i0, i2", "i2, i0"])
+    @pytest.mark.parametrize("right", ["i1, i2", "i2, i1"])
+    def test_rule_sub_add_add_cancel(self, left, right):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_sub(i3, i4)
+        jump(i5)
+        """ % (left, right)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_sub(i0, i1)
+        jump(i5)
+        """ % (left, right)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("left, right, args, result", [
+        ("i0, i2", "i1, i2", "i3, i4", "i0, i1"),
+        ("i2, i0", "i1, i2", "i3, i4", "i1, i0"),
+        ("i0, i2", "i2, i1", "i3, i4", "i0, i1"),
+        ("i2, i0", "i2, i1", "i3, i4", "i0, i1"),
+        ("i0, i2", "i1, i2", "i4, i3", "i1, i0"),
+        ("i2, i0", "i1, i2", "i4, i3", "i1, i0"),
+        ("i0, i2", "i2, i1", "i4, i3", "i0, i1"),
+        ("i2, i0", "i2, i1", "i4, i3", "i1, i0")])
+    def test_rule_eq_add_add_cancel(self, left, right, args, result):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % (left, right, args)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_add(%s)
+        i4 = int_add(%s)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % (left, right, result)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args", ["i2, 0", "0, i2"])
+    def test_rule_ne_sub_zero(self, args):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_ne(%s)
+        jump(i3)
+        """ % args
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_ne(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("inner", ["i1, i3", "i3, i1"])
+    @pytest.mark.parametrize("outer", ["i0, i4", "i4, i0"])
+    def test_rule_add_add_sub_cancel(self, inner, outer):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_sub(i2, i0)
+        i4 = int_add(%s)
+        i5 = int_add(%s)
+        jump(i5)
+        """ % (inner, outer)
+        expected = """
+        [i0, i1, i2]
+        i3 = int_sub(i2, i0)
+        i4 = int_add(%s)
+        i5 = int_add(i1, i2)
+        jump(i5)
+        """ % inner
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args", ["i2, i3", "i3, i2"])
+    def test_rule_eq_add_commute(self, args):
+        ops = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_add(i1, i0)
+        i4 = int_eq(%s)
+        jump(i4)
+        """ % args
+        expected = """
+        [i0, i1]
+        i2 = int_add(i0, i1)
+        jump(1)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_rule_sub_add_consts(self, c1, c2, reverse):
+        args = "%s, i0" % c1 if reverse else "i0, %s" % c1
+        ops = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_sub(i1, %s)
+        jump(i2)
+        """ % (args, c2)
+        expected = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_add(i0, %s)
+        jump(i2)
+        """ % (args, intmask(c1 - c2))
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("constant", [3, -5, MININT])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_rule_sub_add_const_cancel(self, constant, reverse):
+        args = "%s, i0" % constant if reverse else "i0, %s" % constant
+        ops = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_sub(i0, i1)
+        jump(i2)
+        """ % args
+        expected = """
+        [i0]
+        i1 = int_add(%s)
+        jump(%s)
+        """ % (args, intmask(-constant))
+        self.optimize_loop(ops, expected)
+
+    def test_rule_invert_neg(self):
+        ops = """
+        [i0]
+        i1 = int_neg(i0)
+        i2 = int_invert(i1)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_neg(i0)
+        i2 = int_add(i0, -1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("inner", ["i0, i1", "i1, i0"])
+    @pytest.mark.parametrize("outer", ["i2, i0", "i0, i2"])
+    def test_rule_eq_xor_cancel(self, inner, outer):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(%s)
+        i3 = int_eq(%s)
+        jump(i3)
+        """ % (inner, outer)
+        expected = """
+        [i0, i1]
+        i2 = int_xor(%s)
+        i3 = int_is_zero(i1)
+        jump(i3)
+        """ % inner
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
+    @pytest.mark.parametrize("reverse_left", [False, True])
+    @pytest.mark.parametrize("reverse_right", [False, True])
+    def test_rule_sub_add_add_consts(
+            self, c1, c2, reverse_left, reverse_right):
+        left = "%s, i0" % c1 if reverse_left else "i0, %s" % c1
+        right = "%s, i0" % c2 if reverse_right else "i0, %s" % c2
+        ops = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_add(%s)
+        i3 = int_sub(i1, i2)
+        jump(i3)
+        """ % (left, right)
+        expected = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_add(%s)
+        jump(%s)
+        """ % (left, right, intmask(c1 - c2))
+        self.optimize_loop(ops, expected)
+
+    def test_rule_rshift_minus_one(self):
+        ops = """
+        [i0]
+        i1 = int_rshift(-1, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(-1)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_rule_sub_const_add(
+            self, c1, c2, reverse):
+        args = "%s, i0" % c1 if reverse else "i0, %s" % c1
+        ops = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_sub(%s, i1)
+        jump(i2)
+        """ % (args, c2)
+        expected = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_sub(%s, i0)
+        jump(i2)
+        """ % (args, intmask(c2 - c1))
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("constant", [3, -5, MAXINT])
+    @pytest.mark.parametrize("args", ["i0, -1", "-1, i0"])
+    def test_rule_sub_add_minus_one_const(self, constant, args):
+        ops = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_sub(i1, %s)
+        jump(i2)
+        """ % (args, constant)
+        expected = """
+        [i0]
+        i1 = int_add(%s)
+        i2 = int_add(i0, %s)
+        jump(i2)
+        """ % (args, ~constant)
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
+    @pytest.mark.parametrize("reverse", [False, True])
+    def test_rule_eq_sub_consts(self, c1, c2, reverse):
+        args = "%s, i1" % c2 if reverse else "i1, %s" % c2
+        ops = """
+        [i0]
+        i1 = int_sub(%s, i0)
+        i2 = int_eq(%s)
+        jump(i2)
+        """ % (c1, args)
+        expected = """
+        [i0]
+        i1 = int_sub(%s, i0)
+        i2 = int_eq(i0, %s)
+        jump(i2)
+        """ % (c1, intmask(c1 - c2))
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args, result", [
+        ("i3, i4", "i0, i1"), ("i4, i3", "i1, i0")])
+    def test_rule_eq_sub_sub_cancel(self, args, result):
+        ops = """
+        [i0, i1, i2]
+        i3 = int_sub(i0, i2)
+        i4 = int_sub(i1, i2)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % args
+        expected = """
+        [i0, i1, i2]
+        i3 = int_sub(i0, i2)
+        i4 = int_sub(i1, i2)
+        i5 = int_eq(%s)
+        jump(i5)
+        """ % result
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]
