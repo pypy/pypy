@@ -500,8 +500,7 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             # instance attributes
-            attrs = self.classdef.attrs.items()
-            attrs.sort()
+            attrs = sorted(self.classdef.attrs.items())
             myllfields = []
             nonneg_ints = set()
             for name, attrdef in attrs:
@@ -753,8 +752,7 @@ class InstanceRepr(Repr):
                 inputconst(lltype.Signed, 0), llops)
         # initialize instance attributes from their defaults from the class
         if self.classdef is not None:
-            flds = self.allinstancefields.keys()
-            flds.sort()
+            flds = sorted(self.allinstancefields.keys())
             for fldname in flds:
                 if fldname == '__class__':
                     continue

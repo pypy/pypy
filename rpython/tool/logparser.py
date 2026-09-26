@@ -410,8 +410,7 @@ def print_summary(log, out):
         outfile = sys.stdout
     else:
         outfile = open(out, "w")
-    l = totaltimes.items()
-    l.sort(cmp=lambda a, b: cmp(b[1], a[1]))
+    l = sorted(totaltimes.items(), cmp=lambda a, b: cmp(b[1], a[1]))
     total = sum([b for a, b in l])
     for a, b in l:
         if a is None:

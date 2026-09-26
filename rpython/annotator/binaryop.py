@@ -131,7 +131,7 @@ class __extend__(pairtype(SomeObject, SomeObject)):
         obj1, obj2 = args
         return pair(obj1, obj2).xor()
 
-    for name, func in locals().items():
+    for name, func in list(locals().items()):
         if name.startswith('inplace_'):
             func.can_only_throw = []
 

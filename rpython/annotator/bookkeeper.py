@@ -430,8 +430,7 @@ class Bookkeeper(object):
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
                       flags={}):
-        flagskey = flags.items()
-        flagskey.sort()
+        flagskey = sorted(flags.items())
         key = funcdesc, originclassdef, selfclassdef, name, tuple(flagskey)
         try:
             return self.methoddescs[key]

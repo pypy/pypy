@@ -767,8 +767,7 @@ class MultipleFrozenPBCRepr(MultipleFrozenPBCReprBase):
         fields = []
         self.fieldmap = {}
         if self.access_set is not None:
-            attrlist = self.access_set.attrs.keys()
-            attrlist.sort()
+            attrlist = sorted(self.access_set.attrs.keys())
             for attr in attrlist:
                 s_value = self.access_set.attrs[attr]
                 r_value = self.rtyper.getrepr(s_value)

@@ -204,8 +204,7 @@ def show_help(translateconfig, opt_parser, targetspec_dic, config):
 def log_options(options, header="options in effect"):
     # list options (xxx filter, filter for target)
     log('%s:' % header)
-    optnames = options.__dict__.keys()
-    optnames.sort()
+    optnames = sorted(options.__dict__.keys())
     for name in optnames:
         optvalue = getattr(options, name)
         log('%25s: %s' % (name, optvalue))

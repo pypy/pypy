@@ -189,8 +189,7 @@ def %(name)s(index):
         print(")", file=self.outfile)
 
     def print_dict(self, name, d, category=None, outfunc=repr):
-        items = d.items()
-        items.sort()
+        items = sorted(d.items())
         print('%s = {' % name, file=self.outfile)
         for key, value in items:
             self._estimate_any(name, key, category)

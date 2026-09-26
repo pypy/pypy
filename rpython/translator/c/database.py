@@ -383,8 +383,7 @@ class LowLevelDatabase(object):
                     produce(othernode)
                 result.append(node)
                 seen.add(node)
-        nodes = self.structdefnodes.values()
-        nodes.sort(key=lambda x: x.name)
+        nodes = sorted(self.structdefnodes.values(), key=lambda x: x.name)
         for node in nodes:
             produce(node)
         return result
