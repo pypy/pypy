@@ -16,6 +16,7 @@ class Rule(object):
 #    def __hash__(self):
 #        return hash(self.getkey())
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return self.getkey() == other.getkey()
 

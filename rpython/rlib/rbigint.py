@@ -189,6 +189,7 @@ class rbigint(object):
         self._size = abs(self._size) * sign
 
     # __eq__ and __ne__ method exist for testing only, they are not RPython!
+    __hash__ = object.__hash__
     @not_rpython
     def __eq__(self, other):
         if not isinstance(other, rbigint):

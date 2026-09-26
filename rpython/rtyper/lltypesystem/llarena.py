@@ -224,6 +224,7 @@ class fakearenaaddress(llmemory.fakeaddress):
                 offset += objectsize // 2      # arbitrary
         return arena, offset
 
+    __hash__ = llmemory.fakeaddress.__hash__
     def __eq__(self, other):
         if isinstance(other, fakearenaaddress):
             arena = other.arena

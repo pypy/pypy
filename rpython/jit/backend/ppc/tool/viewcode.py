@@ -155,6 +155,7 @@ class CodeRange(object):
         return _cmp
     __lt__ = cmpop(operator.lt)
     __le__ = cmpop(operator.le)
+    __hash__ = object.__hash__
     __eq__ = cmpop(operator.eq)
     __ne__ = cmpop(operator.ne)
     __gt__ = cmpop(operator.gt)

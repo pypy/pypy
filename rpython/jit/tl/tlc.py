@@ -41,6 +41,7 @@ class ClassDescr(object):
         self.attributes = attributes
         self.methods = methods
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         "NOT_RPYTHON"
         return self.__dict__ == other.__dict__
@@ -65,6 +66,7 @@ class ConstantPool(object):
             self.strings.append(s)
             return idx
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         "NOT_RPYTHON"
         return self.__dict__ == other.__dict__

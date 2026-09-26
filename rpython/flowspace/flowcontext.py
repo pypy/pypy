@@ -1218,6 +1218,7 @@ class FlowSignal(Exception):
     def nomoreblocks(self, ctx):
         raise BytecodeCorruption("misplaced bytecode - should not return")
 
+    __hash__ = Exception.__hash__
     def __eq__(self, other):
         return type(other) is type(self) and other.args == self.args
 

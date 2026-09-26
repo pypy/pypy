@@ -14,6 +14,7 @@ class Label(object):
         self.name = name
     def __repr__(self):
         return "Label(%r)" % (self.name, )
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return isinstance(other, Label) and other.name == self.name
 
@@ -22,6 +23,7 @@ class TLabel(object):
         self.name = name
     def __repr__(self):
         return "TLabel(%r)" % (self.name, )
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return isinstance(other, TLabel) and other.name == self.name
 
@@ -47,6 +49,7 @@ class ListOfKind(object):
     def __nonzero__(self):
         return bool(self.content)
     __bool__ = __nonzero__
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return (isinstance(other, ListOfKind) and
                 self.kind == other.kind and self.content == other.content)

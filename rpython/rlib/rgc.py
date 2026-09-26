@@ -1415,6 +1415,7 @@ class _ResizableListSupportingRawPtr(list):
         self.__resize()
         return list.__iadd__(self, other)
 
+    __hash__ = list.__hash__
     def __eq__(self, other):
         return list.__eq__(self.__as_list(), other)
     def __ne__(self, other):

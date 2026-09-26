@@ -115,6 +115,7 @@ class TypeIDSymbolic(Symbolic):
     def __init__(self, STRUCT_OR_ARRAY):
         self.STRUCT_OR_ARRAY = STRUCT_OR_ARRAY
 
+    __hash__ = Symbolic.__hash__
     def __eq__(self, other):
         return self.STRUCT_OR_ARRAY is other.STRUCT_OR_ARRAY
 
@@ -1083,6 +1084,7 @@ class LLFrame(object):
         for box, arg in zip(argboxes, args):
             self.setenv(box, arg)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         # this is here to avoid crashes in 'token == TOKEN_TRACING_RESCALL'
         from rpython.jit.metainterp.virtualizable import TOKEN_NONE

@@ -5443,6 +5443,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         from rpython.rtyper.lltypesystem import lltype, llmemory
         class IntObj1242(object):
             _TYPE = llmemory.GCREF.TO
+            __hash__ = object.__hash__
             def __eq__(self, other):
                 return other.container.intval == 1242
             def _normalizedcontainer(self):
@@ -5476,6 +5477,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         class PtrObj1242(object):
             _TYPE = llmemory.GCREF.TO
+            __hash__ = object.__hash__
             def __eq__(slf, other):
                 if slf is other:
                     return 1
@@ -5524,6 +5526,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         from rpython.rtyper.lltypesystem import lltype, llmemory
         class PtrObjSelf(object):
             _TYPE = llmemory.GCREF.TO
+            __hash__ = object.__hash__
             def __eq__(slf, other):
                 if slf is other:
                     return 1
@@ -5552,6 +5555,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         class PtrObjSelf2(object):
             _TYPE = llmemory.GCREF.TO
+            __hash__ = object.__hash__
             def __eq__(slf, other):
                 if slf is other:
                     return 1

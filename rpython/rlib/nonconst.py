@@ -20,6 +20,7 @@ class NonConstant(object):
         return bool(self.__dict__['constant'])
     __bool__ = __nonzero__
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return self.__dict__['constant'] == other
 

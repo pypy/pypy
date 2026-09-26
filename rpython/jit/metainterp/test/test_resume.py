@@ -419,6 +419,7 @@ class FakeResumeDataReader(AbstractResumeDataReader):
 class FakeBuiltObject(object):
     def __init__(self, **kwds):
         self.__dict__ = kwds
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return (self.__class__ == other.__class__ and
                 self.__dict__ == other.__dict__)
@@ -523,6 +524,7 @@ class FakeFrame(object):
     def setup_resume_at_op(self, pc, exception_target, env):
         self.__init__(self.jitcode, pc, exception_target, *env)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 

@@ -59,6 +59,7 @@ class SomeObject(with_metaclass(extendabletype, object)):
     def __init__(self):
         assert type(self) is not SomeObject
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
                 self.__dict__  == other.__dict__)
@@ -167,6 +168,7 @@ class SomeFloat(SomeObject):
                         # pretend it's a float.
     immutable = True
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if (type(self) is SomeFloat and type(other) is SomeFloat and
             self.is_constant() and other.is_constant()):
@@ -263,6 +265,7 @@ class SomeStringOrUnicode(SomeObject):
     def can_be_none(self):
         return self.can_be_None
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -336,6 +339,7 @@ class SomeList(SomeObject):
     def __init__(self, listdef):
         self.listdef = listdef
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False
@@ -378,6 +382,7 @@ class SomeDict(SomeObject):
     def __init__(self, dictdef):
         self.dictdef = dictdef
 
+    __hash__ = SomeObject.__hash__
     def __eq__(self, other):
         if self.__class__ is not other.__class__:
             return False

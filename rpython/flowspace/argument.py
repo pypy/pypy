@@ -46,6 +46,7 @@ class Signature(object):
         return "Signature(%r, %r, %r)" % (
                 self.argnames, self.varargname, self.kwargname)
 
+    __hash__ = object.__hash__
     def __eq__(self, other):
         if not isinstance(other, Signature):
             return NotImplemented

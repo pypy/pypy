@@ -1517,6 +1517,7 @@ class _lladdress(long):
     def __repr__(self):
         return '<_lladdress %s>' % (self.void_p,)
 
+    __hash__ = long.__hash__
     def __eq__(self, other):
         if not isinstance(other, (int, long)):
             other = cast_adr_to_int(other)

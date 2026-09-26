@@ -15,6 +15,7 @@ class W_Object(W_AbstractObject):
 class W_Integer(W_AbstractObject):
     def __init__(self, value):
         self.value = value
+    __hash__ = W_AbstractObject.__hash__
     def __eq__(self, other):
         return isinstance(other, W_Integer) and self.value == other.value
 

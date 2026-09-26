@@ -242,6 +242,7 @@ class Typedef(LowLevelType):
     def __repr__(self):
         return '<Typedef "%s" of %r>' % (self.c_name, self.OF)
 
+    __hash__ = LowLevelType.__hash__
     def __eq__(self, other):
         return other == self.OF
 

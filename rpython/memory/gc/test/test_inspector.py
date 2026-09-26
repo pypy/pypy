@@ -28,6 +28,7 @@ class InspectorTest(BaseDirectGCTest):
             inspector.HeapDumper.flush = saved
         #
         class ASize(object):
+            __hash__ = object.__hash__
             def __eq__(self, other):
                 return isinstance(other, llmemory.AddressOffset)
         adr_p = seen[0]
