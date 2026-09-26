@@ -10,6 +10,7 @@ Deliberately has no dependencies outside the standard library, because the
 translation toolchain has to keep working during bootstrapping.
 """
 
+import inspect
 import sys
 
 try:
@@ -75,6 +76,16 @@ except AttributeError:
         with open(filename) as f:
             code = compile(f.read(), filename, 'exec')
         exec(code, globals, locals)
+
+if hasattr(inspect, 'getfullargspec'):
+    def getargspec(func):
+        """inspect.getargspec(), which Python 3.11 removed: the
+        (args, varargs, keywords, defaults) of a function."""
+        spec = inspect.getfullargspec(func)
+        return spec.args, spec.varargs, spec.varkw, spec.defaults
+else:
+    getargspec = inspect.getargspec
+
 
 def with_metaclass(meta, *bases):
     """Base class list for a class that 'meta' creates, on both versions.

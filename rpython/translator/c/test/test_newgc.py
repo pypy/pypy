@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import gc
-import inspect
 import os
 import sys
 import subprocess
@@ -23,6 +22,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.test import snippet
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
+from rpython.tool.twothree import getargspec
 
 
 class UsingFrameworkTest(object):
@@ -90,7 +90,7 @@ class UsingFrameworkTest(object):
                 funcs0.append(None)
                 funcs1.append(None)
             else:
-                numargs = len(inspect.getargspec(func)[0])
+                numargs = len(getargspec(func)[0])
                 funcsstr.append(None)
                 if numargs == 0:
                     funcs0.append(func)

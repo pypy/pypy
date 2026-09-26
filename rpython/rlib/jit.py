@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, 
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
-from rpython.tool.twothree import long, unicode
+from rpython.tool.twothree import getargspec, long, unicode
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -171,9 +171,8 @@ def loop_invariant(func):
     return func
 
 def _get_args(func):
-    import inspect
 
-    args, varargs, varkw, defaults = inspect.getargspec(func)
+    args, varargs, varkw, defaults = getargspec(func)
     assert varargs is None and varkw is None
     assert not defaults
     return args
