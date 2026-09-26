@@ -9,7 +9,7 @@ import types
 from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
-from rpython.tool.twothree import builtins
+from rpython.tool.twothree import builtins, with_metaclass
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
@@ -66,8 +66,7 @@ class HLOperationMeta(type):
             cls._transform = DoubleDispatchRegistry()
 
 
-class HLOperation(SpaceOperation):
-    __metaclass__ = HLOperationMeta
+class HLOperation(with_metaclass(HLOperationMeta, SpaceOperation)):
     pure = False
     can_overflow = False
     dispatch = None  # number of arguments to dispatch on

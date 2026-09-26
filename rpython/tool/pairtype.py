@@ -1,8 +1,7 @@
 """
 Two magic tricks for classes:
 
-    class X:
-        __metaclass__ = extendabletype
+    class X(with_metaclass(extendabletype, object)):
         ...
 
     # in some other file...

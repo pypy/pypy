@@ -1,6 +1,7 @@
 from rpython.tool.pairtype import (
     pairtype, pair, extendabletype, pairmro, DoubleDispatchRegistry,
     doubledispatch)
+from rpython.tool.twothree import with_metaclass
 
 def test_binop():
     ### Binary operation example
@@ -104,11 +105,11 @@ def test_some_multimethod():
     assert g.progn == ["(do 'something)"]
 
 def test_multiple_extend():
-    class A:
-        __metaclass__ = extendabletype
+    class A(with_metaclass(extendabletype)):
+        pass
 
-    class B:
-        __metaclass__ = extendabletype
+    class B(with_metaclass(extendabletype)):
+        pass
 
     class __extend__(A, B):
         def f(self):

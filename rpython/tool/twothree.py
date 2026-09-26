@@ -76,6 +76,27 @@ except AttributeError:
             code = compile(f.read(), filename, 'exec')
         exec(code, globals, locals)
 
+def with_metaclass(meta, *bases):
+    """Base class list for a class that 'meta' creates, on both versions.
+
+        class X(with_metaclass(Meta, Base)):
+            ...
+
+    Python 2 reads the metaclass from a '__metaclass__' class attribute and
+    Python 3 from a 'metaclass=' keyword that Python 2 cannot parse.  The
+    temporary class returned here has a metaclass that creates the real
+    class with 'meta' and the real bases, so X never inherits from it.
+    """
+    class metaclass(type):
+        def __new__(cls, name, this_bases, d):
+            return meta(name, bases, d)
+
+        @classmethod
+        def __prepare__(cls, name, this_bases):
+            return meta.__prepare__(name, bases)
+    return type.__new__(metaclass, 'temporary_class', (), {})
+
+
 if sys.version_info[0] == 2:
     # 'raise tp, value, tb' is a syntax error on Python 3 and there is no way
     # to write the three-argument form so that both parsers accept it, so it
