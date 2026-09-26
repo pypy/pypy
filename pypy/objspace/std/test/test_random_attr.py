@@ -11,7 +11,7 @@ import sys
 try:
     from hypothesis import given, strategies, settings, example, HealthCheck
 except ImportError:
-    pytest.skip("requires hypothesis")
+    pytest.skip("requires hypothesis", allow_module_level=True)
 
 base_initargs = strategies.sampled_from([
     ("object", (), False),

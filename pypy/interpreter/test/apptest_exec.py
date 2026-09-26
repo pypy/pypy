@@ -116,25 +116,33 @@ def test_nested_names_are_not_confused():
     assert t.method_and_var() == 'method'
 
 def test_import_star_shadows_global():
+    import warnings
     d = {'platform' : 3}
-    exec """if 1:
-        def f():
-            from sys import *
-            return platform
-        res = f()\n""" in d
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        exec """if 1:
+            def f():
+                from sys import *
+                return platform
+            res = f()\n""" in d
     import sys
     assert d['res'] == sys.platform
+    assert any(issubclass(x.category, SyntaxWarning) for x in w)
 
 def test_import_global_takes_precendence():
+    import warnings
     d = {'platform' : 3}
-    exec """if 1:
-        def f():
-            global platform
-            from sys import *
-            return platform
-        res = f()\n""" in d
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        exec """if 1:
+            def f():
+                global platform
+                from sys import *
+                return platform
+            res = f()\n""" in d
     import sys
     assert d['platform'] == 3
+    assert any(issubclass(x.category, SyntaxWarning) for x in w)
 
 def test_exec_load_name():
     d = {'x': 2}

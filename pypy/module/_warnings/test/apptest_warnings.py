@@ -12,9 +12,15 @@ def test_defaults():
     assert "PendingDeprecationWarning" in str(_warnings.filters)
 
 def test_warn():
-    _warnings.warn("some message", DeprecationWarning)
-    _warnings.warn("some message", Warning)
-    _warnings.warn(("some message",1), Warning)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _warnings.warn("some message", DeprecationWarning)
+        _warnings.warn("some message", Warning)
+        _warnings.warn(("some message",1), Warning)
+    assert len(w) == 3
+    assert issubclass(w[0].category, DeprecationWarning)
+    assert issubclass(w[1].category, Warning)
+    assert issubclass(w[2].category, Warning)
 
 def test_lineno():
     with warnings.catch_warnings(record=True) as w:
@@ -23,10 +29,15 @@ def test_lineno():
         assert w[-1].lineno == lineno
 
 def test_warn_explicit():
-    _warnings.warn_explicit("some message", DeprecationWarning,
-                            "<string>", 1, module_globals=globals())
-    _warnings.warn_explicit("some message", Warning,
-                            "<string>", 1, module_globals=globals())
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _warnings.warn_explicit("some message", DeprecationWarning,
+                                "<string>", 1, module_globals=globals())
+        _warnings.warn_explicit("some message", Warning,
+                                "<string>", 1, module_globals=globals())
+    assert len(w) == 2
+    assert issubclass(w[0].category, DeprecationWarning)
+    assert issubclass(w[1].category, Warning)
 
 def test_default_action():
     warnings.defaultaction = 'ignore'
@@ -74,10 +85,15 @@ def test_show_source_line():
 
 
 def test_filename_none():
-    globals()['__file__'] = 'test.pyc'
-    _warnings.warn('test', UserWarning)
-    globals()['__file__'] = None
-    _warnings.warn('test', UserWarning)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        globals()['__file__'] = 'test.pyc'
+        _warnings.warn('test', UserWarning)
+        globals()['__file__'] = None
+        _warnings.warn('test', UserWarning)
+    assert len(w) == 2
+    assert issubclass(w[0].category, UserWarning)
+    assert issubclass(w[1].category, UserWarning)
 
 
 def test_warn_unicode():
@@ -125,11 +141,15 @@ def test_issue31285():
                         return splitlines_ret_val
                 return BadSource('spam')
         return BadLoader()
-    # does not raise:
-    _warnings.warn_explicit(
-        'eggs', UserWarning, 'bar', 1,
-        module_globals={'__loader__': get_bad_loader(42),
-                        '__name__': 'foobar'})
+    # does not raise, and does emit the warning:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        _warnings.warn_explicit(
+            'eggs', UserWarning, 'bar', 1,
+            module_globals={'__loader__': get_bad_loader(42),
+                            '__name__': 'foobar'})
+    assert len(w) == 1
+    assert issubclass(w[0].category, UserWarning)
 
 def test_once_is_not_broken():
     def f():

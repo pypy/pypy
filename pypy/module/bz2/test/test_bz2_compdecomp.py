@@ -2,7 +2,7 @@ import os
 
 if os.name == "nt":
     from pytest import skip
-    skip("bz2 module is not available on Windows")
+    skip("bz2 module is not available on Windows", allow_module_level=True)
 
 import py
 

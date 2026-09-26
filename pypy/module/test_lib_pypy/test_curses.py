@@ -2,7 +2,7 @@ import pytest
 import sys
 if sys.platform == 'win32':
     #This module does not exist in windows
-    pytest.skip('no curses on windows')
+    pytest.skip('no curses on windows', allow_module_level=True)
 
 # Check that lib_pypy.cffi finds the correct version of _cffi_backend.
 # Otherwise, the test is skipped.  It should never be skipped when run
@@ -11,7 +11,8 @@ try:
     from lib_pypy import _curses_cffi
 except ImportError:
     # On CPython, "pip install cffi".  On old PyPy's, no chance
-    pytest.skip("install cffi and run lib_pypy/_curses_build.py manually first")
+    pytest.skip("install cffi and run lib_pypy/_curses_build.py manually first",
+                allow_module_level=True)
 
 from lib_pypy import _curses
 

@@ -29,7 +29,7 @@ from rpython.jit.metainterp.history import (AbstractFailDescr,
 CPU = getcpuclass()
 
 if sys.maxint == 2**31-1:
-    pytest.skip("32bit platforms are not supported")
+    pytest.skip("32bit platforms are not supported", allow_module_level=True)
 
 @specialize.argtype(0,1)
 def malloc(T,n):

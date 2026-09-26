@@ -3,7 +3,7 @@ import py
 from rpython.tool.udir import udir
 
 if os.name != 'posix':
-    py.test.skip("fcntl module only available on unix")
+    py.test.skip("fcntl module only available on unix", allow_module_level=True)
 
 def teardown_module(mod):
     for i in "abcde":

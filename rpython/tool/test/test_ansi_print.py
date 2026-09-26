@@ -1,4 +1,4 @@
-from _pytest.monkeypatch import monkeypatch
+from _pytest.monkeypatch import MonkeyPatch as monkeypatch
 from rpython.tool import ansi_print, ansi_mandelbrot
 
 

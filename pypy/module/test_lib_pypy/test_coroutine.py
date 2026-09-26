@@ -1,12 +1,12 @@
 from __future__ import absolute_import
 from py.test import skip, raises
 
-skip('test needs to be updated')
+skip('test needs to be updated', allow_module_level=True)
 
 try:
     from stackless import coroutine, CoroutineExit
 except ImportError as e:
-    skip('cannot import stackless: %s' % (e,))
+    skip('cannot import stackless: %s' % (e,), allow_module_level=True)
 
 
 class Test_Coroutine:

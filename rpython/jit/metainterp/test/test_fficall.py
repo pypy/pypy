@@ -1,5 +1,5 @@
 import py
-from _pytest.monkeypatch import monkeypatch
+from _pytest.monkeypatch import MonkeyPatch as monkeypatch
 import sys
 import ctypes, math
 from rpython.rtyper.lltypesystem import lltype, rffi

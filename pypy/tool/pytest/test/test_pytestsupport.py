@@ -23,8 +23,9 @@ def test_AppFrame(space):
     runner = AppFrame(space, pyframe)
     interpret("f = lambda x: x+1", runner, should_fail=False)
     msg = interpret("assert isinstance(f(2), float)", runner)
-    assert msg.startswith("assert isinstance(3, float)\n"
-                          " +  where 3 = ")
+    assert msg.startswith("assert False\n"
+                          " +  where False = isinstance(3, float)\n"
+                          " +    where 3 = "), msg
 
 
 def test_myexception(space):

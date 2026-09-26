@@ -4,7 +4,7 @@
 
 import py, sys, platform
 if sys.platform != 'darwin':
-    py.test.skip("Darwin only")
+    py.test.skip("Darwin only", allow_module_level=True)
 
 from rpython.tool.udir import udir
 from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC, Darwin_arm64

@@ -9,7 +9,7 @@ del path
 CRASH_FILE = os.path.abspath(jitcrashers.__file__.rstrip("c"))
 
 if not JIT_EXECUTABLE.check():
-    py.test.skip("no JIT executable")
+    py.test.skip("no JIT executable", allow_module_level=True)
 
 def setup_module(mod):
     mod._old_cwd = os.getcwd()
