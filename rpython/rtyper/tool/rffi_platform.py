@@ -482,9 +482,9 @@ class DefinedConstantDouble(CConfigEntry):
 
     def build_result(self, info, config_result):
         if info["defined"]:
-            data = [chr(info["value_%d" % (i,)]) for i in range(8)]
+            data = bytearray([info["value_%d" % (i,)] for i in range(8)])
             # N.B. This depends on IEEE 754 being implemented.
-            return struct.unpack("d", ''.join(data))[0]
+            return struct.unpack("d", bytes(data))[0]
         return None
 
 class DefinedConstantString(CConfigEntry):

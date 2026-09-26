@@ -18,7 +18,7 @@ Light Gray  0;37     White         1;37
 import os
 if os.environ.get('TERM', 'dumb').find('256') > 0:
     try:
-        from ansiramp import ansi_ramp80
+        from rpython.tool.ansiramp import ansi_ramp80
         palette = map(lambda x: "38;5;%d" % x, ansi_ramp80)
     except ImportError:
         import warnings

@@ -6,6 +6,7 @@ from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.tool.ansi_print import AnsiLogger
+from rpython.tool.twothree import native_bytes
 
 log = AnsiLogger("platform")
 
@@ -145,7 +146,7 @@ class Platform(object):
     def _handle_error(self, returncode, stdout, stderr, outname):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
-            errorfile.write(stderr, 'wb')
+            errorfile.write(native_bytes(stderr), 'wb')
             if self.log_errors:
                 stderrlines = stderr.splitlines()
                 for line in stderrlines:

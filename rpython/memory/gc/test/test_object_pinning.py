@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from rpython.memory.gc.incminimark import GCFLAG_VISITED
-from test_direct import BaseDirectGCTest
+from rpython.memory.gc.test.test_direct import BaseDirectGCTest
 from rpython.tool.twothree import xrange
 
 T = lltype.GcForwardReference()

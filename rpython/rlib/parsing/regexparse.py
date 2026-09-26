@@ -1979,8 +1979,8 @@ def test_generate():
     s = "# GENERATED CODE BETWEEN THIS LINE AND ITS OTHER OCCURENCE\n".lower()
     pre, gen, after = oldcontent.split(s)
 
-    from pypackrat import PyPackratSyntaxParser
-    from makepackrat import TreeOptimizer, ParserBuilder
+    from rpython.rlib.parsing.pypackrat import PyPackratSyntaxParser
+    from rpython.rlib.parsing.makepackrat import TreeOptimizer, ParserBuilder
     p = PyPackratSyntaxParser(syntax)
     t = p.file()
     t = t.visit(TreeOptimizer())

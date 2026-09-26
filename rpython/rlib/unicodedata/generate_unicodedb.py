@@ -741,7 +741,7 @@ def write_character_names(outfile, table, base_mod):
 
 def writeUnicodedata(version, version_tuple, table, outfile, base):
     if base:
-        outfile.print_code('import %s as base_mod' % base)
+        outfile.print_code('from rpython.rlib.unicodedata import %s as base_mod' % base)
         base_mod = __import__(base)
     else:
         outfile.print_code("base_mod = None")

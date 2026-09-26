@@ -8,7 +8,7 @@ from rpython.jit.backend.arm.test.support import requires_arm_as
 from rpython.jit.backend.arm.test.support import get_as_version
 from rpython.jit.backend.arm.test.support import define_test
 from rpython.jit.backend.arm.test.support import gen_test_function
-from gen import assemble
+from rpython.jit.backend.arm.test.gen import assemble
 import py
 
 requires_arm_as()
