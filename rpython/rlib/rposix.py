@@ -16,6 +16,7 @@ from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.tool.twothree import unicode, xrange
 
 
 if _WIN32:

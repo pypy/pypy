@@ -4,6 +4,7 @@ from rpython.rlib import rposix_stat
 from rpython.tool.udir import udir
 from rpython.translator.c.test.test_genc import compile
 from rpython.rtyper.lltypesystem import lltype
+from rpython.tool.twothree import unicode
 
 
 class TestPosixStatFunctions:

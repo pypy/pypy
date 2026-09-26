@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys
 import py
 from rpython.jit.tl.tla.test_tla import assemble
+from rpython.tool.twothree import execfile
 py.path.local(__file__)
 
 def usage():

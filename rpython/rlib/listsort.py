@@ -1,5 +1,6 @@
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib.objectmodel import specialize
+from rpython.tool.twothree import xrange
 
 
 ## ------------------------------------------------------------------------

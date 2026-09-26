@@ -2,6 +2,7 @@ from __future__ import print_function
 
 
 import re, os, sys, operator
+from functools import reduce
 
 """
 This script parses a log produced by rstrategies_logger.py into a graph and converts it to various outputs.

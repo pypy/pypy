@@ -12,6 +12,7 @@ from __future__ import print_function
 import sys, re
 from rpython.rlib.debug import DebugLog
 from rpython.tool import progressbar
+from rpython.tool.twothree import cmp
 
 def parse_log_file(filename, verbose=True):
     f = open(filename, 'r')

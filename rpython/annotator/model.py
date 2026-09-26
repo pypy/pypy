@@ -39,6 +39,8 @@ import rpython
 from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype, doubledispatch
 from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
+from functools import reduce
+from rpython.tool.twothree import unicode
 
 
 class State(object):

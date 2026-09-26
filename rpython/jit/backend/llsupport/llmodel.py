@@ -24,6 +24,7 @@ from rpython.jit.backend.llsupport.descr import (
 from rpython.jit.backend.llsupport.memcpy import memset_fn
 from rpython.jit.backend.llsupport import asmmemmgr, codemap
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.tool.twothree import unichr
 
 
 class AbstractLLCPU(AbstractCPU):

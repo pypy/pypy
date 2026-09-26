@@ -4,6 +4,7 @@ import operator
 import sys, os
 import math
 from random import random, randint, sample
+from rpython.tool.twothree import long, xrange
 
 try:
     import pytest

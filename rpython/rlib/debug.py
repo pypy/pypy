@@ -19,6 +19,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.debug import (
     ll_assert, FatalError, fatalerror, fatalerror_notb, debug_print_traceback,
     ll_assert_not_none)
+from rpython.tool.twothree import unicode, xrange
 
 
 class DebugLog(list):

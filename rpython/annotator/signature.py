@@ -9,6 +9,7 @@ from rpython.annotator.model import (
 from rpython.annotator.listdef import ListDef
 from rpython.annotator.dictdef import DictDef
 from rpython.rtyper import extregistry
+from rpython.tool.twothree import unicode
 
 _annotation_cache = {}
 

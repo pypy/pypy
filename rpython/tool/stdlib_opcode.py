@@ -1,3 +1,4 @@
+from rpython.tool.twothree import cmp
 class _BaseOpcodeDesc(object):
     def __init__(self, bytecode_spec, name, index, methodname):
         self.bytecode_spec = bytecode_spec

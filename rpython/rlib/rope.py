@@ -4,6 +4,7 @@ import math
 
 from rpython.rlib.rarithmetic import intmask, ovfcheck
 from rpython.rlib.rarithmetic import r_uint, LONG_BIT
+from rpython.tool.twothree import unichr, unicode, xrange
 
 LOG2 = math.log(2)
 NBITS = int(math.log(sys.maxsize) / LOG2) + 2

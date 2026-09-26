@@ -5,6 +5,7 @@ from __future__ import print_function
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.rsre_re import compile
+from rpython.tool.twothree import unichr
 
 def main(n):
     assert n >= 0

@@ -13,6 +13,7 @@ from rpython.jit.metainterp.executor import execute
 from rpython.jit.backend.test.runner_test import LLtypeBackendTest
 from rpython.jit.tool.oparser import parse
 import ctypes
+from rpython.tool.twothree import unichr
 
 CPU = getcpuclass()
 

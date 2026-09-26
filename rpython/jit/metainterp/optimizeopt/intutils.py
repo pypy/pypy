@@ -55,6 +55,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
      INFO_UNKNOWN, INFO_NULL
 from rpython.jit.metainterp.history import ConstInt
+from rpython.tool.twothree import long
 
 
 MAXINT = maxint

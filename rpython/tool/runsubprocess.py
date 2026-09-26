@@ -7,6 +7,7 @@ import sys
 import gc
 import os
 from subprocess import PIPE, Popen
+from rpython.tool.twothree import unicode
 
 PY2 = (sys.version_info.major == 2)
 if PY2:

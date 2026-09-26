@@ -11,6 +11,7 @@ from rpython.rtyper.lltypesystem.rstr import (STR, UNICODE, char_repr,
 from rpython.rtyper.rbuilder import AbstractStringBuilderRepr
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.annlowlevel import llstr, llunicode
+from rpython.tool.twothree import xrange
 
 
 

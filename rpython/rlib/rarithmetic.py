@@ -42,6 +42,7 @@ from rpython.rlib import objectmodel
 from rpython.flowspace.model import Constant, const
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.rlib.objectmodel import specialize, not_rpython
+from rpython.tool.twothree import long
 
 """
 Long-term target:

@@ -473,7 +473,7 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         src = FACTORIAL_SOURCE
     elif len(sys.argv) == 2:
-        src = file(sys.argv[1]).read()
+        src = open(sys.argv[1]).read()
     else:
         print('Usage: python tlc.py [sourcefile]', file=sys.stderr)
         sys.exit(2)

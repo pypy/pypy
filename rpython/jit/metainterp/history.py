@@ -18,6 +18,7 @@ from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.jit.codewriter import longlong
 import weakref
 from rpython.jit.metainterp import jitexc
+from rpython.tool.twothree import unicode
 
 # ____________________________________________________________
 

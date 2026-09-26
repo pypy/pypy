@@ -15,6 +15,7 @@ from rpython.tool.sourcetools import rpython_wrapper, func_with_new_name
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.flowspace.model import Constant
+from rpython.tool.twothree import unicode
 
 # specialize is a decorator factory for attaching _annspecialcase_
 # attributes to functions: for example

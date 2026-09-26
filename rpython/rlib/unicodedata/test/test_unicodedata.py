@@ -9,6 +9,7 @@ from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0,
     unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0,
     unicodedb_14_0_0, unicodedb_15_0_0)
+from rpython.tool.twothree import unichr
 
 
 class TestUnicodeData(object):

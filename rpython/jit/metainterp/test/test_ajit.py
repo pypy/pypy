@@ -21,6 +21,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.twothree import long, unichr, xrange
 
 
 class BasicTests:

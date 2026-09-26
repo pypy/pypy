@@ -7,6 +7,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.error import TyperError
 from rpython.rlib.objectmodel import compute_hash
 from rpython.translator.translator import TranslationContext
+from rpython.tool.twothree import unichr
 
 
 def test_rtuple():

@@ -17,6 +17,7 @@ import re
 import sys
 import subprocess
 from bisect import bisect_left
+from rpython.tool.twothree import long
 
 # ____________________________________________________________
 # Some support code from Psyco.  There is more over there,

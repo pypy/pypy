@@ -9,6 +9,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
 from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator.classdesc import ClassDesc
+from rpython.tool.twothree import cmp
 
 
 def normalize_call_familes(annotator):

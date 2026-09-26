@@ -22,6 +22,7 @@ from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
+from rpython.tool.twothree import unichr, unicode
 
 def graphof(a, func):
     return tgraphof(a.translator, func)

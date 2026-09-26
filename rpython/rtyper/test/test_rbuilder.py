@@ -7,6 +7,7 @@ from rpython.rtyper.annlowlevel import llstr, hlstr, llunicode, hlunicode
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem.rbuilder import StringBuilderRepr, UnicodeBuilderRepr
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.tool.twothree import unicode
 
 
 class TestStringBuilderDirect(object):

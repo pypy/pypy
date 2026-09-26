@@ -46,6 +46,36 @@ try:
 except AttributeError:
     intern = builtins.intern
 
+# The Python 2 built-ins that Python 3 removed.  On Python 2 each name is the
+# built-in itself; on Python 3 it is the nearest equivalent there.  Import the
+# ones a module uses from here, instead of relying on them being built-ins.
+long = getattr(builtins, 'long', int)
+unicode = getattr(builtins, 'unicode', str)
+unichr = getattr(builtins, 'unichr', chr)
+xrange = getattr(builtins, 'xrange', range)
+basestring = getattr(builtins, 'basestring', (str, bytes))
+buffer = getattr(builtins, 'buffer', memoryview)
+raw_input = getattr(builtins, 'raw_input', input)
+
+try:
+    cmp = builtins.cmp
+except AttributeError:
+    def cmp(a, b):
+        return (a > b) - (a < b)
+
+try:
+    reload = builtins.reload
+except AttributeError:
+    from importlib import reload
+
+try:
+    execfile = builtins.execfile
+except AttributeError:
+    def execfile(filename, globals=None, locals=None):
+        with open(filename) as f:
+            code = compile(f.read(), filename, 'exec')
+        exec(code, globals, locals)
+
 if sys.version_info[0] == 2:
     # 'raise tp, value, tb' is a syntax error on Python 3 and there is no way
     # to write the three-argument form so that both parsers accept it, so it

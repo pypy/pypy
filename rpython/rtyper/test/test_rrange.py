@@ -2,6 +2,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.rrange import ll_rangelen, ll_rangeitem, ll_rangeitem_nonneg, dum_nocheck
 from rpython.rtyper.lltypesystem import rrange
 from rpython.rtyper.test.tool import BaseRtypingTest
+from rpython.tool.twothree import xrange
 
 
 class TestRrange(BaseRtypingTest):

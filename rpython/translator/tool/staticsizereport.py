@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem.lltype import GcOpaqueType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.memory.lltypelayout import convert_offset_to_int
 from rpython.rtyper.lltypesystem import llgroup
+from rpython.tool.twothree import cmp
 
 class Info:
     pass

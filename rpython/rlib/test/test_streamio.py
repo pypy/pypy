@@ -11,6 +11,7 @@ import pytest
 from rpython.rlib import streamio
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
+from rpython.tool.twothree import unicode
 
 
 class TSource(streamio.Stream):

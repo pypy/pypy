@@ -3,6 +3,7 @@
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
 from rpython.jit.backend.riscv.test.test_basic import JitRISCVMixin
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
+from rpython.tool.twothree import cmp
 
 
 class TestRecursive(JitRISCVMixin, RecursiveTests):

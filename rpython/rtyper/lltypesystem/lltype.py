@@ -13,6 +13,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
+from rpython.tool.twothree import long, unichr, unicode
 
 class State(_local):
     pass

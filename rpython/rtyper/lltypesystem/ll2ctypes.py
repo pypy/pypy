@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import sys
+from rpython.tool.twothree import long, unichr, unicode
 
 try:
     import ctypes

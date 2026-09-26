@@ -7,6 +7,7 @@ from rpython.rlib.rsocket import *
 import socket as cpy_socket
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.buffer import RawByteBuffer
+from rpython.tool.twothree import unicode
 
 try:
     import fcntl

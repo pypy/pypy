@@ -1,6 +1,7 @@
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator.tool.staticsizereport import group_static_size, guess_size
 from rpython.rtyper.lltypesystem import llmemory, lltype, rffi
+from rpython.tool.twothree import xrange
 
 class TestStaticSizeReport(object):
     def test_simple(self):

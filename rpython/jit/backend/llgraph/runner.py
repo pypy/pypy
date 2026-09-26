@@ -23,6 +23,8 @@ from rpython.rtyper import rclass
 from rpython.rlib.clibffi import FFI_DEFAULT_ABI
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, r_ulonglong, intmask
 from rpython.rlib.objectmodel import Symbolic, compute_hash
+from functools import reduce
+from rpython.tool.twothree import unichr
 
 class LLAsmInfo(object):
     def __init__(self, lltrace):

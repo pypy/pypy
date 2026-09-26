@@ -5,6 +5,7 @@ from rpython.rlib import rstring
 from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.twothree import unicode
 
 
 _CYGWIN = sys.platform == 'cygwin'

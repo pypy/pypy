@@ -16,6 +16,7 @@ from __future__ import print_function
 import sys
 
 from .sre_constants import *
+from rpython.tool.twothree import unichr
 
 SPECIAL_CHARS = ".\\[{()*+?^$|"
 REPEAT_CHARS = "*+?{"

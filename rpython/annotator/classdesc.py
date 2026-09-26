@@ -13,6 +13,7 @@ from rpython.annotator.model import (
     SomeString, SomeImpossibleValue, SomeList, HarmlesslyBlocked)
 from rpython.annotator.description import (
     Desc, FunctionDesc, MethodDesc, NODEFAULT)
+from rpython.tool.twothree import basestring
 
 
 # The main purpose of a ClassDef is to collect information about class/instance

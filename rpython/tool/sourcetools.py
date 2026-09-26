@@ -52,7 +52,7 @@ class NiceCompile(object):
             srcname = srcname[:-1]
         if os.path.exists(srcname):
             self.srcname = srcname
-            self.srctext = file(srcname).read()
+            self.srctext = open(srcname).read()
         else:
             # missing source, what to do?
             self.srctext = None

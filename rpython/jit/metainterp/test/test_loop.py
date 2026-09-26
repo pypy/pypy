@@ -10,6 +10,7 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp import history
+from rpython.tool.twothree import unichr
 
 class LoopTest(object):
     enable_opts = ''

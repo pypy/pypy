@@ -14,6 +14,7 @@ from rpython.rtyper.rmodel import Repr, IteratorRepr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
 from rpython.tool.pairtype import pairtype, pair
+from rpython.tool.twothree import unichr
 
 
 ADTIFixedList = ADTInterface(None, {

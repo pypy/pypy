@@ -2,6 +2,7 @@ from rpython.jit.backend.ppc.field import Field
 from py.test import raises
 
 import random
+from rpython.tool.twothree import long
 
 maxppcint = 0x7fffffff
 

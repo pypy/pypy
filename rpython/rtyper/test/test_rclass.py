@@ -16,6 +16,7 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext, graphof
 
 from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.tool.twothree import unichr
 
 
 class EmptyBase(object):

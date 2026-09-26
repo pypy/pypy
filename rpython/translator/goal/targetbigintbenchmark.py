@@ -5,6 +5,7 @@ from __future__ import print_function
 import sys
 from time import time
 from rpython.rlib.rbigint import rbigint
+from rpython.tool.twothree import xrange
 
 # __________  Entry point  __________
 

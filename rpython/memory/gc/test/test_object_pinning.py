@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.memory.gc.incminimark import IncrementalMiniMarkGC, WORD
 from rpython.memory.gc.incminimark import GCFLAG_VISITED
 from test_direct import BaseDirectGCTest
+from rpython.tool.twothree import xrange
 
 T = lltype.GcForwardReference()
 T.become(lltype.GcStruct('pinning_test_struct2',

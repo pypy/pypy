@@ -22,6 +22,7 @@ from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int
+from rpython.tool.twothree import cmp, unichr, xrange
 
 if False:    # for now, please keep it False by default
     from rpython.rtyper.lltypesystem import ll2ctypes

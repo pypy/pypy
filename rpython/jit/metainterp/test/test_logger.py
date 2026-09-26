@@ -8,6 +8,7 @@ from rpython.jit.metainterp import logger
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
 from rpython.jit.metainterp.history import (
     AbstractDescr, JitCellToken, BasicFailDescr, BasicFinalDescr)
+from rpython.tool.twothree import xrange
 
 
 class Descr(AbstractDescr):

@@ -18,6 +18,7 @@ from rpython.conftest import option
 from rpython.flowspace.model import summary
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.tool.twothree import unicode, xrange
 
 PYPY_HOST = '__pypy__' in sys.modules
 

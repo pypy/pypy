@@ -7,6 +7,7 @@ from rpython.rlib.parsing.regex import StringExpression, RangeExpression
 from rpython.rlib.parsing.lexer import Lexer, DummyLexer
 from rpython.rlib.parsing.deterministic import compress_char_set, DFA
 import string
+from functools import reduce
 
 set = py.builtin.set
 

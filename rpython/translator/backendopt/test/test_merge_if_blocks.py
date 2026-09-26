@@ -8,6 +8,7 @@ from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, r_int
 from rpython.annotator.model import SomeChar, SomeUnicodeCodePoint
 from rpython.rlib.objectmodel import CDefinedIntSymbolic
+from rpython.tool.twothree import unichr
 
 def do_test_merge(fn, testvalues):
     t = TranslationContext()

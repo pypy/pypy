@@ -8,6 +8,7 @@ from rpython.rlib.rstring import ParseStringError, ParseStringOverflowError
 from hypothesis import given, strategies, assume
 import sys
 import py
+from rpython.tool.twothree import long, xrange
 
 maxint_mask = (sys.maxsize*2 + 1)
 machbits = 0

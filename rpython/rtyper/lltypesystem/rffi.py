@@ -22,6 +22,7 @@ from rpython.rtyper.lltypesystem import llmemory
 from rpython.rlib.rarithmetic import maxint, LONG_BIT
 from rpython.translator.platform import CompilationError
 import os, sys
+from rpython.tool.twothree import unichr, unicode
 
 class CConstant(Symbolic):
     """ A C-level constant, maybe #define, rendered directly.

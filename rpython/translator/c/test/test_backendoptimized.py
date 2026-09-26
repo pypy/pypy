@@ -2,6 +2,7 @@ import gc
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from rpython.translator.c.test.test_genc import compile
+from rpython.tool.twothree import unichr
 
 
 class TestTypedOptimizedTestCase(_TestTypedTestCase):

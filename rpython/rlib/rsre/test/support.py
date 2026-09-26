@@ -3,6 +3,7 @@ from rpython.rlib import debug
 from rpython.rlib.rsre.rsre_core import _adjust, match_context, search_context
 from rpython.rlib.rsre.rsre_core import MODE_FULL
 from rpython.rlib.rsre.rsre_core import StrMatchContext, EndOfString
+from rpython.tool.twothree import cmp
 
 
 class Position(object):

@@ -10,6 +10,7 @@ from rpython.rlib.objectmodel import newlist_hint, resizelist_hint, specialize, 
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT as BLOOM_WIDTH, intmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
+from rpython.tool.twothree import unicode, xrange
 
 
 # -------------- public API for string functions -----------------------

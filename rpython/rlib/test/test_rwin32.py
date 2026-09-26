@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import os, py
+from rpython.tool.twothree import unicode
 if os.name != 'nt':
     py.test.skip('tests for win32 only', allow_module_level=True)
 

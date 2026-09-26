@@ -9,6 +9,7 @@ from rpython.translator.platform import platform as target_platform
 from rpython.rlib.rarithmetic import intmask, r_uint, widen
 import os,sys
 from textwrap import dedent
+from rpython.tool.twothree import long
 
 _POSIX = os.name == "posix"
 _WIN32 = sys.platform == "win32"

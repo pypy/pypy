@@ -12,6 +12,7 @@ from rpython.rtyper.rint import signed_repr
 from rpython.rtyper.rlist import *
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext
+from rpython.tool.twothree import unicode
 
 
 # undo the specialization parameters

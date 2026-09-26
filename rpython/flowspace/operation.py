@@ -17,6 +17,7 @@ from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
+from rpython.tool.twothree import long
 
 
 NOT_REALLY_CONST = {

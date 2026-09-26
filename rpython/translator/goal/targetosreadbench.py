@@ -3,6 +3,7 @@ A benchmark for read()
 """
 
 import os
+from rpython.tool.twothree import xrange
 
 # __________  Entry point  __________
 

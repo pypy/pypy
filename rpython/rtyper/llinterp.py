@@ -19,6 +19,7 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
 from rpython.tool.ansi_print import AnsiLogger
+from rpython.tool.twothree import long
 
 # by default this logger's output is disabled.
 # e.g. tests can then switch on logging to get more help

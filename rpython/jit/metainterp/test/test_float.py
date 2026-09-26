@@ -1,6 +1,7 @@
 import math, sys
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.tool.twothree import long
 
 
 class FloatTests:

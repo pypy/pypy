@@ -8,6 +8,7 @@ from rpython.rtyper.rmodel import IteratorRepr, inputconst, Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.tool.pairtype import pairtype, pair
+from rpython.tool.twothree import unichr, unicode
 
 def str_decode_utf8(s):
     from rpython.rlib.rstring import UnicodeBuilder

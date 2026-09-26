@@ -1,6 +1,7 @@
 import sys, os, py
 from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre import rsre_re as re
+from rpython.tool.twothree import unichr, unicode
 
 
 class TestRe:

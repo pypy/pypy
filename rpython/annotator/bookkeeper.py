@@ -27,6 +27,7 @@ from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
+from rpython.tool.twothree import long, unicode
 
 
 BUILTIN_ANALYZERS = {}

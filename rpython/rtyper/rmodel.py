@@ -4,6 +4,7 @@ from rpython.rtyper.error import TyperError, MissingRTypeOperation
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lltype import Void, Bool, LowLevelType, Ptr
 from rpython.tool.pairtype import pairtype, extendabletype, pair
+from rpython.tool.twothree import unicode
 
 # initialization states for Repr instances
 

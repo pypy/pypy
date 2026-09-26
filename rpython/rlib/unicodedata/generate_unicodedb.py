@@ -4,6 +4,7 @@ from __future__ import print_function
 import sys, os
 import itertools
 from collections import defaultdict
+from rpython.tool.twothree import unichr
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 

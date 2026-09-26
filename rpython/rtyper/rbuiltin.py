@@ -9,6 +9,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
 from rpython.rtyper import rclass
 from rpython.rtyper.rmodel import Repr
 from rpython.tool.pairtype import pairtype
+from rpython.tool.twothree import unichr, unicode, xrange
 
 
 BUILTIN_TYPER = {}

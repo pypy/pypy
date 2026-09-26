@@ -5,6 +5,7 @@ import types
 import code
 import sys
 from rpython.flowspace.model import FunctionGraph
+from rpython.tool.twothree import cmp
 
 class NoTTY(Exception):
     pass

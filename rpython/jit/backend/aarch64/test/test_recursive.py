@@ -3,6 +3,7 @@ import py
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.aarch64.test.test_basic import JitAarch64Mixin
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
+from rpython.tool.twothree import cmp
 
 class TestRecursive(JitAarch64Mixin, RecursiveTests):
     # for the individual tests see

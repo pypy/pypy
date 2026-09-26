@@ -16,6 +16,7 @@ import re
 import sys
 import subprocess
 from bisect import bisect_left
+from rpython.tool.twothree import long
 
 # don't use pypy.tool.udir here to avoid removing old usessions which
 # might still contain interesting executables

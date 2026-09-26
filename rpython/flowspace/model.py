@@ -9,6 +9,7 @@ import py
 from rpython.tool import twothree
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
+from rpython.tool.twothree import unicode
 
 
 class FunctionGraph(object):
