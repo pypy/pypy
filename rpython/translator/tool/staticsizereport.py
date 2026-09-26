@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-import cPickle as pickle
+import pickle
 
 from rpython.tool.ansicolor import red, yellow, green
 from rpython.rtyper.lltypesystem.lltype import typeOf, _ptr, Ptr, ContainerType

@@ -333,7 +333,7 @@ class ThreadLocalField(object):
     def __init__(self, FIELDTYPE, fieldname, loop_invariant=False):
         "must be prebuilt"
         try:
-            from thread import _local
+            from threading import local as _local
         except ImportError:
             class _local(object):
                 pass

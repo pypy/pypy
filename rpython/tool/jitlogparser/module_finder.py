@@ -1,5 +1,5 @@
 
-import os, sys, marshal, types, struct, imp
+import os, sys, marshal, types, struct
 
 def _all_codes_from(code):
     res = {}

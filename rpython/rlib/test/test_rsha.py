@@ -28,22 +28,23 @@ class TestSHA:
                    "34aa973cd4c4daa4f61eeb2bdbad27316534016f")
 
     def test_copy(self):
-        import sha
+        from hashlib import sha1
         for repeat in [1, 10, 100]:
             d1 = rsha.sha("abc" * repeat)
             d2 = d1.copy()
             d1.update("def" * repeat)
             d2.update("gh" * repeat)
-            assert d1.digest() == sha.sha("abc"*repeat+"def"*repeat).digest()
-            assert d2.digest() == sha.sha("abc"*repeat+"gh"*repeat).digest()
+            assert d1.digest() == sha1("abc"*repeat+"def"*repeat).digest()
+            assert d2.digest() == sha1("abc"*repeat+"gh"*repeat).digest()
 
     def test_random(self):
-        import random, sha
+        import random
+        from hashlib import sha1
         for i in range(20):
             input = ''.join([chr(random.randrange(256))
                              for i in range(random.randrange(1000))])
             m1 = rsha.RSHA()
             m1.update(input)
-            m2 = sha.new()
+            m2 = sha1()
             m2.update(input)
             assert m2.hexdigest() == m1.hexdigest()
