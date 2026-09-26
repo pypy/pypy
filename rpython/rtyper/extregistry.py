@@ -1,5 +1,4 @@
 import weakref
-import UserDict
 from rpython.tool.uid import Hashable
 
 
@@ -73,7 +72,7 @@ class ExtRegistryEntry(object):
 
 # ____________________________________________________________
 
-class FlexibleWeakDict(UserDict.DictMixin):
+class FlexibleWeakDict(object):
     """A WeakKeyDictionary that accepts more or less anything as keys:
     weakly referenceable objects or not, hashable objects or not.
     """
@@ -106,9 +105,13 @@ class FlexibleWeakDict(UserDict.DictMixin):
         d, key = self.ref(key)
         del d[key]
 
+    def __contains__(self, key):
+        d, key = self.ref(key)
+        return key in d
+
     def keys(self):
-        return (self._regdict.keys() +
-                self._weakdict.keys() +
+        return (list(self._regdict) +
+                list(self._weakdict.keys()) +
                 [hashable.value for hashable in self._iddict])
 
 
