@@ -82,6 +82,23 @@ except AttributeError:
 # instance of type, so a check for "type or ClassType" is a check for type.
 ClassType = getattr(types, 'ClassType', type)
 
+def native_str(data):
+    """Bytes from outside the process, such as a subprocess's output, as
+    the native str type: unchanged on Python 2, where str is bytes, and
+    decoded on Python 3.  surrogateescape keeps undecodable bytes intact."""
+    if isinstance(data, str):
+        return data
+    return data.decode('utf-8', 'surrogateescape')
+
+
+def native_bytes(data):
+    """The inverse of native_str(): a native str as bytes, for writing to
+    a binary file or a pipe.  Unchanged on Python 2."""
+    if isinstance(data, bytes):
+        return data
+    return data.encode('utf-8', 'surrogateescape')
+
+
 def get_function(method):
     """The function behind a method: 'method.im_func' on Python 2.
 

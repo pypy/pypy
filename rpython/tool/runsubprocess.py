@@ -7,7 +7,7 @@ import sys
 import gc
 import os
 from subprocess import PIPE, Popen
-from rpython.tool.twothree import unicode
+from rpython.tool.twothree import native_str, unicode
 
 PY2 = (sys.version_info.major == 2)
 if PY2:
@@ -19,7 +19,8 @@ def run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, list) and sys.platform != 'win32':
         args = [a.encode('latin1') if isinstance(a, text) else a
                 for a in args]
-    return _run(executable, args, env, cwd)
+    returncode, stdout, stderr = _run(executable, args, env, cwd)
+    return returncode, native_str(stdout), native_str(stderr)
 
 shell_default = False
 if sys.platform == 'win32':
