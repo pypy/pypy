@@ -3128,7 +3128,7 @@ class PyPackratSyntaxParser(PackratParser):
 forbidden = dict.fromkeys(("__weakref__ __doc__ "
                            "__dict__ __module__").split())
 initthere = "__init__" in PyPackratSyntaxParser.__dict__
-for key, value in Parser.__dict__.iteritems():
+for key, value in Parser.__dict__.items():
     if key not in PyPackratSyntaxParser.__dict__ and key not in forbidden:
         setattr(PyPackratSyntaxParser, key, value)
-PyPackratSyntaxParser.init_parser = Parser.__init__.im_func
+PyPackratSyntaxParser.init_parser = Parser.__dict__['__init__']

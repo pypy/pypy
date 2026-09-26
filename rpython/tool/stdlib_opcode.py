@@ -49,8 +49,10 @@ class BytecodeSpec(object):
         self.HAVE_ARGUMENT = HAVE_ARGUMENT
         # opname -> opcode
         self.opmap = opmap
-        # opcode -> method name
-        self.method_names = tbl = ['MISSING_OPCODE'] * 256
+        # opcode -> method name.  Python 3.12 and later put pseudo-opcodes
+        # above 255 into opmap, so the table is as long as opmap needs.
+        size = max([256] + [index + 1 for index in opmap.values()])
+        self.method_names = tbl = ['MISSING_OPCODE'] * size
         # opcode -> opdesc
         self.opdescmap = {}
         for name, index in opmap.items():
@@ -59,12 +61,12 @@ class BytecodeSpec(object):
             setattr(self.opcodedesc, methodname, desc)
             self.opdescmap[index] = desc
         # fill the ordered opdesc list
-        self.ordered_opdescs = lst = self.opdescmap.values() 
-        lst.sort()
+        self.ordered_opdescs = sorted(self.opdescmap.values(),
+                                      key=_BaseOpcodeDesc.sortkey)
     
     def to_globals(self, globals_dict):
         """NOT_RPYTHON. Add individual opcodes to the module constants."""
-        for name, value in self.opmap.iteritems():
+        for name, value in self.opmap.items():
             # Rename 'STORE_SLICE+0' opcodes
             if name.endswith('+0'):
                 name = name[:-2]

@@ -9,7 +9,7 @@ Try:
 """
 from __future__ import print_function
 
-import new
+import types
 import operator
 import os
 import py
@@ -458,7 +458,7 @@ if __name__ == '__main__':
 
     # hack hack
     import rpython.tool
-    mod = new.module('rpython.tool.udir')
+    mod = types.ModuleType('rpython.tool.udir')
     mod.udir = udir
     sys.modules['rpython.tool.udir'] = mod
     rpython.tool.udir = mod
