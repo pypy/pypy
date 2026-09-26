@@ -2,7 +2,6 @@
 This module defines all the SpaceOperations used in rpython.flowspace.
 """
 
-import __builtin__
 import __future__
 import operator
 import sys
@@ -10,6 +9,7 @@ import types
 from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
+from rpython.tool.twothree import builtins
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
@@ -39,9 +39,10 @@ builtins_exceptions = {
     int: [ValueError],
     float: [ValueError],
     chr: [ValueError],
-    unichr: [ValueError],
-    unicode: [UnicodeDecodeError],
 }
+if hasattr(builtins, 'unicode'):
+    builtins_exceptions[builtins.unichr] = [ValueError]
+    builtins_exceptions[builtins.unicode] = [UnicodeDecodeError]
 
 
 class _OpHolder(object):
@@ -508,14 +509,19 @@ add_operator('eq', 2, dispatch=2, pure=True)
 add_operator('ne', 2, dispatch=2, pure=True)
 add_operator('gt', 2, dispatch=2, pure=True)
 add_operator('ge', 2, dispatch=2, pure=True)
-add_operator('cmp', 2, dispatch=2, pyfunc=cmp, pure=True)   # rich cmps preferred
-add_operator('coerce', 2, dispatch=2, pyfunc=coerce, pure=True)
+# cmp, coerce and buffer are not built-ins on Python 3: the operations still
+# exist, but no host function maps to them there
+add_operator('cmp', 2, dispatch=2, pyfunc=getattr(builtins, 'cmp', None),
+             pure=True)   # rich cmps preferred
+add_operator('coerce', 2, dispatch=2, pyfunc=getattr(builtins, 'coerce', None),
+             pure=True)
 add_operator('contains', 2, pure=True)
 add_operator('get', 3, pyfunc=get, pure=True)
 add_operator('set', 3, pyfunc=set)
 add_operator('delete', 2, pyfunc=delete)
 add_operator('userdel', 1, pyfunc=userdel)
-add_operator('buffer', 1, pyfunc=buffer, pure=True)   # see buffer.py
+add_operator('buffer', 1, pyfunc=getattr(builtins, 'buffer', None),
+             pure=True)   # see buffer.py
 add_operator('yield_', 1)
 add_operator('newslice', 3)
 add_operator('hint', None, dispatch=1)
@@ -655,7 +661,7 @@ class CallOp(HLOperation):
                                types.BuiltinMethodType,
                                types.ClassType,
                                types.TypeType)) and
-                    c.__module__ in ['__builtin__', 'exceptions']):
+                    c.__module__ in [builtins.__name__, 'exceptions']):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins
         return [Exception]
@@ -706,9 +712,9 @@ func2op[type] = op.type
 func2op[operator.truth] = op.bool
 func2op[pow] = op.pow
 func2op[operator.pow] = op.pow
-func2op[__builtin__.iter] = op.iter
+func2op[builtins.iter] = op.iter
 func2op[getattr] = op.getattr
-func2op[__builtin__.next] = op.next
+func2op[builtins.next] = op.next
 
 for fn, oper in func2op.items():
     register_flow_sc(fn)(oper.make_sc())

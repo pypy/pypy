@@ -6,6 +6,7 @@
 import types
 import py
 
+from rpython.tool import twothree
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
 
@@ -346,7 +347,7 @@ class Variable(object):
 
     def set_name(self, name, nr):
         # this is for wrapper.py which wants to assign a name explicitly
-        self._name = intern(name)
+        self._name = twothree.intern(name)
         self._nr = nr
 
     def foldable(self):
@@ -447,7 +448,7 @@ def const(obj):
 class SpaceOperation(object):
 
     def __init__(self, opname, args, result, offset=-1):
-        self.opname = intern(opname)      # operation name
+        self.opname = twothree.intern(opname)      # operation name
         self.args = list(args)    # mixed list of var/const
         self.result = result      # either Variable or Constant instance
         self.offset = offset      # offset in code string

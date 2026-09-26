@@ -4,9 +4,9 @@ from __future__ import print_function
 import sys
 import collections
 import types
-import __builtin__
 
 from rpython.tool.error import source_lines
+from rpython.tool.twothree import builtins
 from rpython.rlib import rstackovf
 from rpython.flowspace.argument import CallSpec
 from rpython.flowspace.model import (Constant, Variable, Block, Link,
@@ -848,7 +848,7 @@ class FlowContext(object):
         except KeyError:
             # not in the globals, now look in the built-ins
             try:
-                value = getattr(__builtin__, varname)
+                value = getattr(builtins, varname)
             except AttributeError:
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
