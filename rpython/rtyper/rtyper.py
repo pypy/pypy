@@ -30,6 +30,7 @@ from rpython.rtyper.rclass import RootClassRepr
 from rpython.tool.pairtype import pair
 from rpython.translator.unsimplify import insert_empty_block
 from rpython.translator.sandbox.rsandbox import make_sandbox_trampoline
+from rpython.tool.twothree import get_function
 
 
 class RTyperBackend(object):
@@ -596,7 +597,7 @@ class RPythonTyper(object):
         if hasattr(ll_function, 'im_func'):
             bk = self.annotator.bookkeeper
             args_s.insert(0, bk.immutablevalue(ll_function.im_self))
-            ll_function = ll_function.im_func
+            ll_function = get_function(ll_function)
         helper_graph = annotate_lowlevel_helper(self.annotator,
                                                 ll_function, args_s,
                                                 policy=self.lowlevel_ann_policy)
@@ -868,7 +869,7 @@ class LowLevelOpList(list):
                 bk = rtyper.annotator.bookkeeper
                 args_s.insert(0, bk.immutablevalue(ll_function.im_self))
                 newargs_v.insert(0, inputconst(Void, ll_function.im_self))
-                ll_function = ll_function.im_func
+                ll_function = get_function(ll_function)
 
         graph = annotate_lowlevel_helper(rtyper.annotator, ll_function, args_s,
                                          rtyper.lowlevel_ann_policy)

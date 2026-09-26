@@ -4,6 +4,7 @@ import py
 from rpython.rlib.parsing.lexer import SourcePos
 from rpython.rlib.parsing.tree import Node, Symbol, Nonterminal
 from rpython.rlib.objectmodel import not_rpython
+from rpython.tool.twothree import get_function
 
 class Rule(object):
     def __init__(self, nonterminal, expansions):
@@ -236,7 +237,7 @@ class ParserCompiler(object):
         # XXX
         parsetable = self.parser.parsetablefactory([], self.parser)
         kls.terminal_equality = func_with_new_name(
-            parsetable.terminal_equality.im_func,
+            get_function(parsetable.terminal_equality),
             "terminal_equality_compileable")
         return kls
 

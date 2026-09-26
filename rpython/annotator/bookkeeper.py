@@ -27,7 +27,7 @@ from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
-from rpython.tool.twothree import ClassType, long, unicode
+from rpython.tool.twothree import ClassType, get_function, long, unicode
 
 
 BUILTIN_ANALYZERS = {}
@@ -217,7 +217,7 @@ class Bookkeeper(object):
         immutable value x."""
         # convert unbound methods to the underlying function
         if hasattr(x, 'im_self') and x.im_self is None:
-            x = x.im_func
+            x = get_function(x)
             assert not hasattr(x, 'im_self')
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
@@ -320,7 +320,7 @@ class Bookkeeper(object):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
                 s_self = self.immutablevalue(x.im_self)
-                result = s_self.find_method(x.im_func.__name__)
+                result = s_self.find_method(get_function(x).__name__)
             elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
                 s_self = self.immutablevalue(x.__self__)
@@ -374,13 +374,13 @@ class Bookkeeper(object):
                     result = ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
                 if pyobj.im_self is None:   # unbound
-                    return self.getdesc(pyobj.im_func)
+                    return self.getdesc(get_function(pyobj))
                 if hasattr(pyobj.im_self, '_cleanup_'):
                     pyobj.im_self._cleanup_()
                 if hasattr(pyobj.im_self, '_freeze_'):  # method of frozen
                     assert pyobj.im_self._freeze_() is True
                     result = description.MethodOfFrozenDesc(self,
-                        self.getdesc(pyobj.im_func),            # funcdesc
+                        self.getdesc(get_function(pyobj)),            # funcdesc
                         self.getdesc(pyobj.im_self))            # frozendesc
                 else: # regular method
                     origincls, name = origin_of_meth(pyobj)
@@ -391,7 +391,7 @@ class Bookkeeper(object):
                     # emulate a getattr to make sure it's on the classdef
                     classdef.find_attribute(name)
                     result = self.getmethoddesc(
-                        self.getdesc(pyobj.im_func),            # funcdesc
+                        self.getdesc(get_function(pyobj)),            # funcdesc
                         self.getuniqueclassdef(origincls),      # originclassdef
                         classdef,                               # selfclassdef
                         name)
@@ -581,7 +581,7 @@ class Bookkeeper(object):
         return self.annotator.warning(msg)
 
 def origin_of_meth(boundmeth):
-    func = boundmeth.im_func
+    func = get_function(boundmeth)
     candname = func.__name__
     for cls in inspect.getmro(boundmeth.im_class):
         dict = cls.__dict__

@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem.lltype import (RttiStruct,
 from rpython.translator.c.node import ContainerNode
 from rpython.translator.c.support import cdecl
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.tool.twothree import get_function
 
 class BasicGcPolicy(object):
 
@@ -292,7 +293,7 @@ class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
 
 class NoneGcPolicy(BoehmGcPolicy):
 
-    gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
+    gc_startup_code = get_function(RefcountingGcPolicy.gc_startup_code)
 
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)

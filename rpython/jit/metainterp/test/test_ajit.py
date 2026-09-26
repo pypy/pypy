@@ -21,7 +21,7 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero, LONG_BIT
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.tool.twothree import long, unichr, xrange
+from rpython.tool.twothree import get_function, long, unichr, xrange
 
 
 class BasicTests:
@@ -371,7 +371,7 @@ class BasicTests:
                 y -= 1
             return res
         wr_loops = []
-        old_init = history.TreeLoop.__init__.im_func
+        old_init = get_function(history.TreeLoop.__init__)
         try:
             def track_init(self, name):
                 old_init(self, name)

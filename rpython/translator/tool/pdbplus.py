@@ -5,7 +5,7 @@ import types
 import code
 import sys
 from rpython.flowspace.model import FunctionGraph
-from rpython.tool.twothree import ClassType, cmp
+from rpython.tool.twothree import ClassType, cmp, get_function
 
 class NoTTY(Exception):
     pass
@@ -182,7 +182,7 @@ if obj is a class or ClassDef the class definition graph is shown"""
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             page = graphpage.LocalizedCallGraphPage(translator, self._allgraphs(obj))
         elif isinstance(obj, FunctionGraph):
@@ -364,7 +364,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             graphs = self._allgraphs(obj)
         elif isinstance(obj, FunctionGraph):
@@ -394,7 +394,7 @@ show localized call-graph for function obj, obj can be an expression or a dotted
         if obj is None:
             return
         if hasattr(obj, 'im_func'):
-            obj = obj.im_func
+            obj = get_function(obj)
         if isinstance(obj, types.FunctionType):
             graphs = self._allgraphs(obj)
         elif isinstance(obj, FunctionGraph):

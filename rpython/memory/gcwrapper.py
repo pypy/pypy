@@ -4,6 +4,7 @@ from rpython.rtyper import llinterp, rclass
 from rpython.rtyper.annlowlevel import llhelper, cast_nongc_instance_to_adr
 from rpython.memory import gctypelayout
 from rpython.flowspace.model import Constant
+from rpython.tool.twothree import get_function
 
 
 class GCManagedHeap(object):
@@ -202,7 +203,7 @@ class GCManagedHeap(object):
         pass
 
     def _get_finalizer_trigger(self, fq):
-        graph = self.translator._graphof(fq.finalizer_trigger.im_func)
+        graph = self.translator._graphof(get_function(fq.finalizer_trigger))
         def ll_trigger():
             try:
                 self.llinterp.eval_graph(graph, [None], recursive=True)

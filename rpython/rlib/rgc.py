@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.tool.twothree import ClassType
+from rpython.tool.twothree import ClassType, get_function
 
 # ____________________________________________________________
 # General GC features
@@ -714,7 +714,7 @@ def _fq_patch_class(Cls):
 _fq_patched_classes = set()
 
 class FqTagEntry(ExtRegistryEntry):
-    _about_ = FinalizerQueue._get_tag.im_func
+    _about_ = get_function(FinalizerQueue._get_tag)
 
     def compute_result_annotation(self, s_fq):
         assert s_fq.is_constant()
@@ -732,7 +732,7 @@ class FqTagEntry(ExtRegistryEntry):
         from rpython.rtyper.rclass import InstanceRepr
         translator = hop.rtyper.annotator.translator
         fq = hop.args_s[0].const
-        graph = translator._graphof(fq.finalizer_trigger.im_func)
+        graph = translator._graphof(get_function(fq.finalizer_trigger))
         InstanceRepr.check_graph_of_del_does_not_call_too_much(hop.rtyper,
                                                                graph)
         hop.exception_cannot_occur()

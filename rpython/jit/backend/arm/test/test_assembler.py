@@ -15,6 +15,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.debug import ll_assert
+from rpython.tool.twothree import get_function
 
 CPU = getcpuclass()
 
@@ -34,7 +35,7 @@ class TestRunningAssembler(object):
         i = rop.INT_ADD
         from rpython.jit.backend.arm import assembler
         assert assembler.asm_operations[i] \
-            is AssemblerARM.emit_op_int_add.im_func
+            is get_function(AssemblerARM.emit_op_int_add)
 
     def test_load_small_int_to_reg(self):
         self.a.gen_func_prolog()

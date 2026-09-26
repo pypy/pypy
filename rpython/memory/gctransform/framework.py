@@ -20,6 +20,7 @@ from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc
 import types
+from rpython.tool.twothree import get_function
 
 
 TYPE_ID = llgroup.HALFWORD
@@ -280,7 +281,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         #malloc_zero_filled == Flase -> malloc_fixedsize/varsize
         malloc_fixedsize_meth = None
         if GCClass.malloc_zero_filled:
-            malloc_fixedsize_clear_meth = GCClass.malloc_fixedsize_clear.im_func
+            malloc_fixedsize_clear_meth = get_function(GCClass.malloc_fixedsize_clear)
             self.malloc_fixedsize_ptr = getfn(
                 malloc_fixedsize_clear_meth,
                 [s_gc, s_typeid16,
@@ -290,12 +291,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 annmodel.SomeBool()], s_gcref,
                 inline = False)
             self.malloc_varsize_ptr = getfn(
-                    GCClass.malloc_varsize_clear.im_func,
+                    get_function(GCClass.malloc_varsize_clear),
                     [s_gc, s_typeid16]
                     + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
 
         else:
-            malloc_fixedsize_meth = GCClass.malloc_fixedsize.im_func
+            malloc_fixedsize_meth = get_function(GCClass.malloc_fixedsize)
             self.malloc_fixedsize_ptr = getfn(
                 malloc_fixedsize_meth,
                 [s_gc, s_typeid16,
@@ -305,36 +306,36 @@ class BaseFrameworkGCTransformer(GCTransformer):
                  annmodel.SomeBool()], s_gcref,
                 inline = False)
             self.malloc_varsize_ptr = getfn(
-                    GCClass.malloc_varsize.im_func,
+                    get_function(GCClass.malloc_varsize),
                     [s_gc, s_typeid16]
                     + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
 
-        self.collect_ptr = getfn(GCClass.collect.im_func,
+        self.collect_ptr = getfn(get_function(GCClass.collect),
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
-        self.collect_step_ptr = getfn(GCClass.collect_step.im_func, [s_gc],
+        self.collect_step_ptr = getfn(get_function(GCClass.collect_step), [s_gc],
                                       annmodel.SomeInteger())
-        self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
-        self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
-        self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
+        self.enable_ptr = getfn(get_function(GCClass.enable), [s_gc], annmodel.s_None)
+        self.disable_ptr = getfn(get_function(GCClass.disable), [s_gc], annmodel.s_None)
+        self.isenabled_ptr = getfn(get_function(GCClass.isenabled), [s_gc],
                                    annmodel.s_Bool)
-        self.can_move_ptr = getfn(GCClass.can_move.im_func,
+        self.can_move_ptr = getfn(get_function(GCClass.can_move),
                                   [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
 
         if hasattr(GCClass, 'shrink_array'):
             self.shrink_array_ptr = getfn(
-                GCClass.shrink_array.im_func,
+                get_function(GCClass.shrink_array),
                 [s_gc, SomeAddress(),
                  annmodel.SomeInteger(nonneg=True)], annmodel.s_Bool)
         else:
             self.shrink_array_ptr = None
 
         if hasattr(GCClass, 'heap_stats'):
-            self.heap_stats_ptr = getfn(GCClass.heap_stats.im_func,
+            self.heap_stats_ptr = getfn(get_function(GCClass.heap_stats),
                     [s_gc], SomePtr(lltype.Ptr(ARRAY_TYPEID_MAP)),
                     minimal_transform=False)
             self.get_member_index_ptr = getfn(
-                GCClass.get_member_index.im_func,
+                get_function(GCClass.get_member_index),
                 [s_gc, annmodel.SomeInteger(knowntype=llgroup.r_halfword)],
                 annmodel.SomeInteger())
 
@@ -344,7 +345,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if hasattr(GCClass, 'writebarrier_before_copy'):
             self.wb_before_copy_ptr = \
-                    getfn(GCClass.writebarrier_before_copy.im_func,
+                    getfn(get_function(GCClass.writebarrier_before_copy),
                     [s_gc] + [SomeAddress()] * 2 +
                     [annmodel.SomeInteger()] * 3, annmodel.SomeBool())
         elif GCClass.needs_write_barrier:
@@ -352,7 +353,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         if hasattr(GCClass, 'writebarrier_before_move'):
             self.wb_before_move_ptr = \
-                    getfn(GCClass.writebarrier_before_move.im_func,
+                    getfn(get_function(GCClass.writebarrier_before_move),
                     [s_gc, SomeAddress()], annmodel.s_None)
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_move functionality")
@@ -390,11 +391,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
             # independently and the constants are folded inside
             if hasattr(GCClass, 'malloc_varsize'):
                 malloc_varsize_fast = func_with_new_name(
-                    GCClass.malloc_varsize.im_func,
+                    get_function(GCClass.malloc_varsize),
                     "malloc_varsize_fast")
             elif hasattr(GCClass, 'malloc_varsize_clear'):
                  malloc_varsize_fast = func_with_new_name(
-                    GCClass.malloc_varsize_clear.im_func,
+                    get_function(GCClass.malloc_varsize_clear),
                     "malloc_varsize_clear_fast")
             s_False = annmodel.SomeBool()
             s_False.const = False
@@ -433,17 +434,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                 annmodel.SomeInteger())
 
 
-        self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
+        self.identityhash_ptr = getfn(get_function(GCClass.identityhash),
                                       [s_gc, s_gcref],
                                       annmodel.SomeInteger(),
                                       minimal_transform=False)
         if getattr(GCClass, 'obtain_free_space', False):
-            self.obtainfreespace_ptr = getfn(GCClass.obtain_free_space.im_func,
+            self.obtainfreespace_ptr = getfn(get_function(GCClass.obtain_free_space),
                                              [s_gc, annmodel.SomeInteger()],
                                              SomeAddress())
 
         if GCClass.moving_gc:
-            self.id_ptr = getfn(GCClass.id.im_func,
+            self.id_ptr = getfn(get_function(GCClass.id),
                                 [s_gc, s_gcref], annmodel.SomeInteger(),
                                 minimal_transform = False)
         else:
@@ -483,7 +484,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                            lltype.Array(llgroup.HALFWORD))),
                                        minimal_transform=False)
 
-        self.set_max_heap_size_ptr = getfn(GCClass.set_max_heap_size.im_func,
+        self.set_max_heap_size_ptr = getfn(get_function(GCClass.set_max_heap_size),
                                            [s_gc,
                                             annmodel.SomeInteger(nonneg=True)],
                                            annmodel.s_None)
@@ -531,7 +532,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.write_barrier_ptr = None
         self.write_barrier_from_array_ptr = None
         if GCClass.needs_write_barrier:
-            self.write_barrier_ptr = getfn(GCClass.write_barrier.im_func,
+            self.write_barrier_ptr = getfn(get_function(GCClass.write_barrier),
                                            [s_gc, SomeAddress()],
                                            annmodel.s_None,
                                            inline=True)
@@ -544,7 +545,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                                annmodel.s_None)
             func = getattr(GCClass, 'write_barrier_from_array', None)
             if func is not None:
-                self.write_barrier_from_array_ptr = getfn(func.im_func,
+                self.write_barrier_from_array_ptr = getfn(get_function(func),
                                            [s_gc, SomeAddress(),
                                             annmodel.SomeInteger()],
                                            annmodel.s_None,

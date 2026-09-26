@@ -82,6 +82,16 @@ except AttributeError:
 # instance of type, so a check for "type or ClassType" is a check for type.
 ClassType = getattr(types, 'ClassType', type)
 
+def get_function(method):
+    """The function behind a method: 'method.im_func' on Python 2.
+
+    Python 3 has no unbound methods, so 'Class.method' is already the
+    function there and has no __func__.  A bound method has __func__ on
+    both versions, and so does an unbound one on Python 2.
+    """
+    return getattr(method, '__func__', method)
+
+
 if hasattr(inspect, 'getfullargspec'):
     def getargspec(func):
         """inspect.getargspec(), which Python 3.11 removed: the

@@ -39,6 +39,7 @@ from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.backend.ppc.jump import remap_frame_layout_mixed
+from rpython.tool.twothree import get_function
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -1455,7 +1456,7 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'emit_%s' % key
     if hasattr(AssemblerPPC, methname):
-        func = getattr(AssemblerPPC, methname).im_func
+        func = get_function(getattr(AssemblerPPC, methname))
         operations[value] = func
 
 class BridgeAlreadyCompiled(Exception):

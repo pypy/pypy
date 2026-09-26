@@ -4,6 +4,7 @@ import py
 from rpython.annotator.test.test_annrpython import graphof
 from rpython.annotator.test.test_annrpython import TestAnnotateTestCase as parent
 from rpython.annotator.model import AnnotatorError
+from rpython.tool.twothree import get_function
 
 
 class TestAnnotateAndSimplifyTestCase(parent):
@@ -99,9 +100,9 @@ class TestAnnotateAndSimplifyTestCase(parent):
         assert famA_m is famC_m
         assert famB_n is not famA_m
 
-        gfB_n = graphof(a, B.n.im_func)
-        gfA_m = graphof(a, A.m.im_func)
-        gfC_m = graphof(a, C.m.im_func)
+        gfB_n = graphof(a, get_function(B.n))
+        gfA_m = graphof(a, get_function(A.m))
+        gfC_m = graphof(a, get_function(C.m))
 
         assert famB_n.calltables == {(1, (), False): [{mdescB_n.funcdesc: gfB_n}]}
         assert famA_m.calltables == {(1, (), False): [
@@ -109,7 +110,7 @@ class TestAnnotateAndSimplifyTestCase(parent):
 
         mdescCinit = getmdesc(C().__init__)
         famCinit = mdescCinit.getcallfamily()
-        gfCinit = graphof(a, C.__init__.im_func)
+        gfCinit = graphof(a, get_function(C.__init__))
 
         assert famCinit.calltables == {(1, (), False): [{mdescCinit.funcdesc: gfCinit}]}
 

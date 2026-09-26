@@ -14,7 +14,7 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 import os
 import operator
-from rpython.tool.twothree import unichr, unicode
+from rpython.tool.twothree import get_function, unichr, unicode
 is_operator = getattr(operator, 'is_', operator.eq) # it's not there 2.2
 
 @contextmanager
@@ -36,7 +36,7 @@ class Base:
     def codetest(self, func, **kwds):
         import inspect
         try:
-            func = func.im_func
+            func = get_function(func)
         except AttributeError:
             pass
         #name = func.func_name

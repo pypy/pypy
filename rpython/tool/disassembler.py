@@ -12,7 +12,7 @@ import inspect
 
 from opcode import *
 from opcode import __all__ as _opcodes_all
-from rpython.tool.twothree import ClassType
+from rpython.tool.twothree import ClassType, get_function
 
 __all__ = ["dis","disassemble","distb","disco"] + _opcodes_all
 del _opcodes_all
@@ -94,7 +94,7 @@ def dis(x=None):
     if type(x) is types.InstanceType:
         x = x.__class__
     if hasattr(x, 'im_func'):
-        x = x.im_func
+        x = get_function(x)
     if hasattr(x, 'func_code'):
         x = x.__code__
     if hasattr(x, '__dict__'):

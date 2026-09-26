@@ -29,6 +29,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.backend.ppc.vector_ext import VectorRegalloc
+from rpython.tool.twothree import get_function
 
 LIMIT_LOOP_BREAK = 15000      # should be much smaller than 32 KB
 
@@ -1072,5 +1073,5 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'prepare_%s' % key
     if hasattr(Regalloc, methname):
-        func = getattr(Regalloc, methname).im_func
+        func = get_function(getattr(Regalloc, methname))
         oplist[value] = func

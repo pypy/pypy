@@ -23,6 +23,7 @@ from rpython.jit.codewriter import longlong
 
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.tool.twothree import get_function
 
 
 class TempInt(TempVar):
@@ -1132,14 +1133,14 @@ for key, value in rop.__dict__.items():
         continue
     methname = 'prepare_op_%s' % key
     if hasattr(Regalloc, methname):
-        func = getattr(Regalloc, methname).im_func
+        func = get_function(getattr(Regalloc, methname))
         operations[value] = func
     methname = 'prepare_guard_op_%s' % key
     if hasattr(Regalloc, methname):
-        func = getattr(Regalloc, methname).im_func
+        func = get_function(getattr(Regalloc, methname))
         guard_operations[value] = func
     methname = 'prepare_comp_op_%s' % key
     if hasattr(Regalloc, methname):
-        func = getattr(Regalloc, methname).im_func
+        func = get_function(getattr(Regalloc, methname))
         comp_operations[value] = func
     

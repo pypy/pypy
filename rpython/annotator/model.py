@@ -40,7 +40,7 @@ from rpython.tool import descriptor
 from rpython.tool.pairtype import pair, extendabletype, doubledispatch
 from rpython.rlib.rarithmetic import r_uint, base_int, r_singlefloat, r_longfloat
 from functools import reduce
-from rpython.tool.twothree import unicode, with_metaclass
+from rpython.tool.twothree import get_function, unicode, with_metaclass
 
 
 class State(object):
@@ -639,7 +639,7 @@ class SomeBuiltin(SomeObject):
     def __init__(self, analyser, s_self=None, methodname=None):
         if isinstance(analyser, MethodType):
             analyser = descriptor.InstanceMethod(
-                analyser.im_func,
+                get_function(analyser),
                 analyser.im_self,
                 analyser.im_class)
         self.analyser = analyser
@@ -656,7 +656,7 @@ class SomeBuiltinMethod(SomeBuiltin):
     def __init__(self, analyser, s_self, methodname):
         if isinstance(analyser, MethodType):
             analyser = descriptor.InstanceMethod(
-                analyser.im_func,
+                get_function(analyser),
                 analyser.im_self,
                 analyser.im_class)
         self.analyser = analyser

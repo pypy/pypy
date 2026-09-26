@@ -22,7 +22,7 @@ from rpython.flowspace.flowcontext import FlowingError
 from rpython.flowspace.operation import op
 
 from rpython.translator.test import snippet
-from rpython.tool.twothree import unichr, unicode
+from rpython.tool.twothree import get_function, unichr, unicode
 
 def graphof(a, func):
     return tgraphof(a.translator, func)
@@ -1328,7 +1328,7 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [int, int])
 
-        executedesc = a.bookkeeper.getdesc(I.execute.im_func)
+        executedesc = a.bookkeeper.getdesc(get_function(I.execute))
         assert len(executedesc._cache) == 2
 
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
@@ -2452,7 +2452,7 @@ class TestAnnotateTestCase:
         t = a.translator
         s = a.build_types(f, [])
         assert s.knowntype == int
-        graph = tgraphof(t, A.__del__.im_func)
+        graph = tgraphof(t, get_function(A.__del__))
         assert graph.startblock in a.annotated
 
     def test_annotate__del__baseclass(self):
@@ -2470,7 +2470,7 @@ class TestAnnotateTestCase:
         t = a.translator
         s = a.build_types(f, [])
         assert s.knowntype == int
-        graph = tgraphof(t, A.__del__.im_func)
+        graph = tgraphof(t, get_function(A.__del__))
         assert graph.startblock in a.annotated
 
     def test_annotate_type(self):

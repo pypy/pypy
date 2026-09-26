@@ -22,7 +22,7 @@ from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rtyper import RPythonTyper
 from rpython.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 from rpython.rlib.rarithmetic import is_valid_int
-from rpython.tool.twothree import cmp, unichr, xrange
+from rpython.tool.twothree import cmp, get_function, unichr, xrange
 
 if False:    # for now, please keep it False by default
     from rpython.rtyper.lltypesystem import ll2ctypes
@@ -1074,7 +1074,7 @@ class TestLL2Ctypes(object):
         graph = a.translator.graphs[0]
         op = graph.startblock.operations[-1]
         assert op.opname == 'direct_call'
-        assert op.args[0].value._obj._callable == LLHelpers.ll_stritem.im_func
+        assert op.args[0].value._obj._callable == get_function(LLHelpers.ll_stritem)
         assert op.args[1].value == LLHelpers
         assert op.args[3].value == -2
 

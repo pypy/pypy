@@ -22,6 +22,7 @@ from rpython.rlib.debug import debug_print
 from rpython.rlib.test.test_debug import debuglog
 from rpython.rlib import rgc
 import pdb
+from rpython.tool.twothree import get_function
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -1364,8 +1365,8 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             GC_PARAMS = {}
         if random_data['use_simple_arena']:
             GC_PARAMS['ArenaCollectionClass'] = SimpleArenaCollection
-        self.test_random.im_func.GC_PARAMS = GC_PARAMS
-        self.setup_method(self.test_random.im_func)
+        get_function(self.test_random).GC_PARAMS = GC_PARAMS
+        self.setup_method(get_function(self.test_random))
         self.gc.TEST_VISIT_SINGLE_STEP = random_data['visit_single_step']
         self.gc.DEBUG = random_data['debug_level']
         self.make_prebuilts(random_data)

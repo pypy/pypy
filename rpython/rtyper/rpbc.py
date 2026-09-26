@@ -21,6 +21,7 @@ from rpython.rtyper.rmodel import (Repr, inputconst, CanBeNull, mangle,
     warning, impossible_repr)
 from rpython.tool.pairtype import pair, pairtype
 from rpython.translator.unsimplify import varoftype
+from rpython.tool.twothree import get_function
 
 
 def small_cand(rtyper, s_pbc):
@@ -288,7 +289,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
 
     def convert_const(self, value):
         if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func  # unbound method -> bare function
+            value = get_function(value)  # unbound method -> bare function
         elif isinstance(value, staticmethod):
             value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
         if value is None:
@@ -434,7 +435,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
 
     def convert_const(self, value):
         if isinstance(value, types.MethodType) and value.im_self is None:
-            value = value.im_func   # unbound method -> bare function
+            value = get_function(value)   # unbound method -> bare function
         if value is None:
             assert self.descriptions[0] is None
             return chr(0)

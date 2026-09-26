@@ -3,6 +3,7 @@ from rpython.tool.udir import udir
 from rpython.memory.gc.test.test_direct import BaseDirectGCTest, S
 from rpython.memory.gc import inspector
 from rpython.rtyper.lltypesystem import llmemory
+from rpython.tool.twothree import get_function
 
 
 class InspectorTest(BaseDirectGCTest):
@@ -15,7 +16,7 @@ class InspectorTest(BaseDirectGCTest):
         self.write(p, 'next', q)
         self.stackroots.append(p)
         #
-        saved = inspector.HeapDumper.flush.im_func
+        saved = get_function(inspector.HeapDumper.flush)
         try:
             seen = []
             def my_flush(self):

@@ -13,7 +13,7 @@ from rpython.rlib.rarithmetic import (
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
-from rpython.tool.twothree import long, unichr, unicode
+from rpython.tool.twothree import get_function, long, unichr, unicode
 
 class State(_local):
     pass
@@ -1545,7 +1545,7 @@ class SomePtr(SomeObject):
             if isinstance(v, MethodType):
                 ll_ptrtype = typeOf(v.im_self)
                 assert isinstance(ll_ptrtype, (Ptr, InteriorPtr))
-                return SomeLLADTMeth(ll_ptrtype, v.im_func)
+                return SomeLLADTMeth(ll_ptrtype, get_function(v))
             return immutablevalue(v)
     getattr.can_only_throw = []
 

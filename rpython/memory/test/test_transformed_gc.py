@@ -18,7 +18,7 @@ from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.rtyper import llinterp_backend
 from rpython.memory.gc.hook import GcHooks
-from rpython.tool.twothree import getargspec
+from rpython.tool.twothree import get_function, getargspec
 
 
 WORD = LONG_BIT // 8
@@ -73,7 +73,7 @@ class GCTest(object):
                 continue
             definefunc = getattr(cls, fullname)
             _, name = fullname.split('_', 1)
-            func_fixup = definefunc.im_func(cls)
+            func_fixup = get_function(definefunc)(cls)
             cleanup = None
             if isinstance(func_fixup, tuple):
                 func, cleanup, fixup = func_fixup

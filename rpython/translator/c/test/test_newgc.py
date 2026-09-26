@@ -22,7 +22,7 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.memory.test import snippet
 from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
-from rpython.tool.twothree import getargspec
+from rpython.tool.twothree import get_function, getargspec
 
 
 class UsingFrameworkTest(object):
@@ -83,7 +83,7 @@ class UsingFrameworkTest(object):
                     continue
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
-            func = definefunc.im_func(cls)
+            func = get_function(definefunc)(cls)
             func.__name__ = 'f_' + name
             if prefix == 'definestr':
                 funcsstr.append(func)
@@ -1784,7 +1784,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         res = self.run("random_pin")
         assert res == 28495
 
-    define_limited_memory_linux = TestMiniMarkGC.define_limited_memory.im_func
+    define_limited_memory_linux = get_function(TestMiniMarkGC.define_limited_memory)
 
     def test_limited_memory_linux(self):
         if not sys.platform.startswith('linux'):

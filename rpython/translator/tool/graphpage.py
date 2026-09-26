@@ -8,6 +8,7 @@ from rpython.tool.uid import uid
 from rpython.tool.udir import udir
 
 from dotviewer.graphpage import GraphPage as BaseGraphPage
+from rpython.tool.twothree import get_function
 
 class GraphPage(BaseGraphPage):
     save_tmp_file = str(udir.join('graph.dot'))
@@ -300,7 +301,7 @@ class TranslatorPage(BaseTranslatorPage):
         if len(graphs) > huge:
             assert graphs, "no graph to show!"
             graphs = [center_graph or graphs[0]]
-            LocalizedCallGraphPage.do_compute.im_func(self, dotgen, graphs)
+            get_function(LocalizedCallGraphPage.do_compute)(self, dotgen, graphs)
             return
 
         blocked_graphs = self.get_blocked_graphs(graphs)
