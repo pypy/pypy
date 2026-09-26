@@ -9,7 +9,7 @@ import types
 from rpython.tool.pairtype import pair, DoubleDispatchRegistry
 from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
-from rpython.tool.twothree import builtins, with_metaclass
+from rpython.tool.twothree import ClassType, builtins, with_metaclass
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
 from rpython.flowspace.specialcase import register_flow_sc
@@ -660,8 +660,8 @@ class CallOp(HLOperation):
             c = w_callable.value
             if (isinstance(c, (types.BuiltinFunctionType,
                                types.BuiltinMethodType,
-                               types.ClassType,
-                               types.TypeType)) and
+                               ClassType,
+                               type)) and
                     c.__module__ in [builtins.__name__, 'exceptions']):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins

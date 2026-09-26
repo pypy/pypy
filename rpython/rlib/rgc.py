@@ -1,13 +1,13 @@
 from __future__ import absolute_import
 
 import gc
-import types
 
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.tool.twothree import ClassType
 
 # ____________________________________________________________
 # General GC features
@@ -808,7 +808,7 @@ def get_rpy_referents(gcref):
     return [_GcRef(x) for x in d if _keep_object(x)]
 
 def _keep_object(x):
-    if isinstance(x, type) or type(x) is types.ClassType:
+    if isinstance(x, type) or type(x) is ClassType:
         return False      # don't keep any type
     if isinstance(x, (list, dict, str)):
         return True       # keep lists and dicts and strings

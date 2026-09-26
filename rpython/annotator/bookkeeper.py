@@ -27,7 +27,7 @@ from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
-from rpython.tool.twothree import long, unicode
+from rpython.tool.twothree import ClassType, long, unicode
 
 
 BUILTIN_ANALYZERS = {}
@@ -365,7 +365,7 @@ class Bookkeeper(object):
         except KeyError:
             if isinstance(pyobj, types.FunctionType):
                 result = self.newfuncdesc(pyobj)
-            elif isinstance(pyobj, (type, types.ClassType)):
+            elif isinstance(pyobj, (type, ClassType)):
                 if pyobj is object:
                     raise AnnotatorError("ClassDesc for object not supported")
                 if pyobj.__module__ == '__builtin__': # avoid making classdefs for builtin types

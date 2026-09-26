@@ -12,6 +12,7 @@ translation toolchain has to keep working during bootstrapping.
 
 import inspect
 import sys
+import types
 
 try:
     import builtins
@@ -76,6 +77,10 @@ except AttributeError:
         with open(filename) as f:
             code = compile(f.read(), filename, 'exec')
         exec(code, globals, locals)
+
+# The type of classic classes.  Python 3 has none: every class is an
+# instance of type, so a check for "type or ClassType" is a check for type.
+ClassType = getattr(types, 'ClassType', type)
 
 if hasattr(inspect, 'getfullargspec'):
     def getargspec(func):

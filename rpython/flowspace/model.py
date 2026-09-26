@@ -9,7 +9,7 @@ import py
 from rpython.tool import twothree
 from rpython.tool.uid import uid, Hashable
 from rpython.tool.sourcetools import PY_IDENTIFIER, nice_repr_for_func
-from rpython.tool.twothree import unicode
+from rpython.tool.twothree import ClassType, unicode
 
 
 class FunctionGraph(object):
@@ -378,7 +378,7 @@ class Constant(Hashable):
         to_check = self.value
         if hasattr(to_check, 'im_self'):
             to_check = to_check.im_self
-        if isinstance(to_check, (type, types.ClassType, types.ModuleType)):
+        if isinstance(to_check, (type, ClassType, types.ModuleType)):
             # classes/types/modules are assumed immutable
             return True
         if (hasattr(to_check, '__class__') and

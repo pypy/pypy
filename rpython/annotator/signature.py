@@ -9,7 +9,7 @@ from rpython.annotator.model import (
 from rpython.annotator.listdef import ListDef
 from rpython.annotator.dictdef import DictDef
 from rpython.rtyper import extregistry
-from rpython.tool.twothree import unicode
+from rpython.tool.twothree import ClassType, unicode
 
 _annotation_cache = {}
 
@@ -69,7 +69,7 @@ def _compute_annotation(t, bookkeeper=None):
         return SomeDict(
                 DictDef(bookkeeper,
                         annotation(t.keys()[0]), annotation(t.values()[0])))
-    elif type(t) is types.NoneType:
+    elif type(t) is type(None):
         return s_None
     elif extregistry.is_registered(t):
         entry = extregistry.lookup(t)
@@ -83,7 +83,7 @@ def annotationoftype(t, bookkeeper=False):
 
     """The most precise SomeValue instance that contains all
     objects of type t."""
-    assert isinstance(t, (type, types.ClassType))
+    assert isinstance(t, (type, ClassType))
     if t is bool:
         return SomeBool()
     elif t is int:
@@ -94,7 +94,7 @@ def annotationoftype(t, bookkeeper=False):
         return SomeString()
     elif t is unicode:
         return SomeUnicodeString()
-    elif t is types.NoneType:
+    elif t is type(None):
         return s_None
     elif bookkeeper and extregistry.is_registered_type(t):
         return (extregistry.lookup_type(t)

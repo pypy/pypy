@@ -15,6 +15,7 @@ from rpython.annotator.model import (
     typeof, s_ImpossibleValue, SomeInstance, intersection, difference)
 from rpython.annotator.bookkeeper import Bookkeeper
 from rpython.rtyper.normalizecalls import perform_normalizations
+from rpython.tool.twothree import ClassType
 
 log = AnsiLogger("annrpython")
 
@@ -577,7 +578,7 @@ class RPythonAnnotator(object):
 
 
     def follow_link(self, graph, link, constraints):
-        assert not (isinstance(link.exitcase, (types.ClassType, type)) and
+        assert not (isinstance(link.exitcase, (ClassType, type)) and
                 issubclass(link.exitcase, BaseException))
 
         ignore_link = False
@@ -606,7 +607,7 @@ class RPythonAnnotator(object):
         v_last_exc_type = link.last_exception
         v_last_exc_value = link.last_exc_value
 
-        assert (isinstance(link.exitcase, (types.ClassType, type)) and
+        assert (isinstance(link.exitcase, (ClassType, type)) and
                 issubclass(link.exitcase, BaseException))
 
         assert v_last_exc_type and v_last_exc_value

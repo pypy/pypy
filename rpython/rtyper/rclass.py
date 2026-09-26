@@ -20,6 +20,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
     Repr, getgcflavor, inputconst, warning, mangle)
+from rpython.tool.twothree import ClassType
 
 
 class FieldListAccessor(object):
@@ -221,7 +222,7 @@ class ClassRepr(Repr):
         return r_subclass.getruntime(self.lowleveltype)
 
     def convert_const(self, value):
-        if not isinstance(value, (type, types.ClassType)):
+        if not isinstance(value, (type, ClassType)):
             raise TyperError("not a class: %r" % (value,))
         bk = self.rtyper.annotator.bookkeeper
         return self.convert_desc(bk.getdesc(value))

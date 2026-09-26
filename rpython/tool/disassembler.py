@@ -12,6 +12,7 @@ import inspect
 
 from opcode import *
 from opcode import __all__ as _opcodes_all
+from rpython.tool.twothree import ClassType
 
 __all__ = ["dis","disassemble","distb","disco"] + _opcodes_all
 del _opcodes_all
@@ -103,7 +104,7 @@ def dis(x=None):
             if type(x1) in (types.MethodType,
                             types.FunctionType,
                             types.CodeType,
-                            types.ClassType):
+                            ClassType):
                 print("Disassembly of %s:" % name)
                 try:
                     dis(x1)
