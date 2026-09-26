@@ -4055,6 +4055,7 @@ class TestAnnotateTestCase:
 
             def next(self):
                 return 1
+            __next__ = next
 
         def fn():
             s = 0

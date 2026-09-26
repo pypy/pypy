@@ -1208,6 +1208,7 @@ class _abstract_ptr(object):
             return self._obj is not None
         except DelayedPointer:
             return True    # assume it's not a delayed null
+    __bool__ = __nonzero__
 
     # _setobj, _getobj and _obj0 are really _internal_ implementations
     # details of _ptr, use _obj if necessary instead !
@@ -1598,6 +1599,7 @@ class _interior_ptr(_abstract_ptr):
 
     def __nonzero__(self):
         raise RuntimeError("do not test an interior pointer for nullity")
+    __bool__ = __nonzero__
 
     def _get_obj(self):
         ob = self._parent

@@ -49,6 +49,7 @@ class ImmutableRanking(object):
 
     def __nonzero__(self):
         return self.is_immutable
+    __bool__ = __nonzero__
 
     def __repr__(self):
         return '<%s>' % self.name

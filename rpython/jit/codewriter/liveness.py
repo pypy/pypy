@@ -198,4 +198,5 @@ class LivenessIterator(object):
                 self.count = count + 1
                 return count
             count += 1
+    __next__ = next
 

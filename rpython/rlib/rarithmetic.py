@@ -655,6 +655,7 @@ class r_singlefloat(object):
 
     def __nonzero__(self):
         raise TypeError("not supported on r_singlefloat instances")
+    __bool__ = __nonzero__
 
     def __cmp__(self, other):
         raise TypeError("not supported on r_singlefloat instances")
@@ -685,6 +686,7 @@ class r_longfloat(object):
 
     def __nonzero__(self):
         raise TypeError("not supported on r_longfloat instances")
+    __bool__ = __nonzero__
 
     def __cmp__(self, other):
         raise TypeError("not supported on r_longfloat instances")
