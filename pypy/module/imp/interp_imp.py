@@ -12,6 +12,10 @@ def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
     suffixes_w.append(space.newtext(so_ext))
+    if space.config.objspace.usemodules.cpyext and not importing._WIN32:
+        # CPython abi3 wheels ship <name>.abi3.so; deliberately not a bare
+        # '.so', so full-API CPython extensions stay unfindable
+        suffixes_w.append(space.newtext('.abi3' + importing.SO))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
