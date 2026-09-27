@@ -416,5 +416,5 @@ def define_instructions(target):
         except KeyError:
             print('No instr generator for %s instructions' % name)
             continue
-        for key, value in getattr(instructions, name).iteritems():
+        for key, value in getattr(instructions, name).items():
             define_instruction(func, key, value, target)

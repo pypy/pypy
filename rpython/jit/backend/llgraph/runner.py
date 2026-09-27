@@ -1637,7 +1637,7 @@ def _setup():
         execute.__name__ = 'execute_' + opname
         return execute
 
-    for k, v in rop.__dict__.iteritems():
+    for k, v in rop.__dict__.items():
         if not k.startswith("_"):
             fname = 'execute_' + k.lower()
             if not hasattr(LLFrame, fname):

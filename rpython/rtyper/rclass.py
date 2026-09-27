@@ -29,7 +29,7 @@ class FieldListAccessor(object):
         assert type(fields) is dict
         self.TYPE = TYPE
         self.fields = fields
-        for x in fields.itervalues():
+        for x in fields.values():
             assert isinstance(x, ImmutableRanking)
 
     def all_immutable_fields(self):

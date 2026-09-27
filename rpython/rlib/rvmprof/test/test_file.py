@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import os
 import json
-import urllib2, py
+import py
+from rpython.tool.twothree import urlopen
 from os.path import join
 
 RVMPROF = py.path.local(__file__).join('..', '..')
@@ -11,7 +12,7 @@ def last_released_version(package):
     # compare against the last release rather than master, so that plain
     # commits upstream do not fail this test
     url = "https://pypi.org/pypi/{}/json".format(package)
-    return json.loads(urllib2.urlopen(url).read())['info']['version']
+    return json.loads(urlopen(url).read())['info']['version']
 
 def github_raw_file(repo, path, ref):
     url = "https://raw.githubusercontent.com/{repo}/{ref}/{path}"
@@ -47,7 +48,7 @@ def test_same_file():
     for file in files:
         path = file.relto(shared)
         url = github_raw_file("vmprof/vmprof-python", "src/%s" % path, version)
-        source = urllib2.urlopen(url).read()
+        source = urlopen(url).read()
         dest = file.read()
         shortname = file.relto(RVMPROF)
         if source == dest:

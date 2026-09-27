@@ -497,7 +497,6 @@ else:
 # these global vars only list the fields defined in the underlying platform
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
-del _name, _TYPE
 
 # Negative indices locating the nsec_Xtime fields in the stat tuple.
 # On non-Windows len(STAT_FIELDS)==13 so these are -3,-2,-1.

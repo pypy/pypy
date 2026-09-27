@@ -80,7 +80,7 @@ class IDesc(object):
 
     def default(self, **defs):
         assert len(defs) == 1
-        f, v = defs.items()[0]
+        f, v = list(defs.items())[0]
         self.defaults = self.defaults + ((self.fieldmap[f], v),)
         return self
 
@@ -88,7 +88,7 @@ class IDesc(object):
         s = self.specializations.copy()
         ms = {}
         ds = {}
-        for fname, v in more_specializatons.iteritems():
+        for fname, v in more_specializatons.items():
             field = self.fieldmap[fname]
             if field not in self.fields:
                 raise FormException("don't know about '%s' here" % field)

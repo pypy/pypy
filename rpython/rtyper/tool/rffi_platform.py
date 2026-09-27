@@ -710,7 +710,7 @@ def fixup_ctype(fieldtype, fieldname, expected_size_and_sign):
                     return ctype
     if isinstance(fieldtype, lltype.FixedSizeArray):
         size, _ = expected_size_and_sign
-        return lltype.FixedSizeArray(fieldtype.OF, size/_sizeof(fieldtype.OF))
+        return lltype.FixedSizeArray(fieldtype.OF, size // _sizeof(fieldtype.OF))
     raise TypeError("conflict between translating python and compiler field"
                     " type %r for symbol %r, expected size+sign %r" % (
                         fieldtype, fieldname, expected_size_and_sign))

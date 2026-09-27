@@ -1077,7 +1077,7 @@ def dict_to_switch(d, inline=True, default=NO_DEFAULT):
             return key[0]
 
     cached_size = len(d)
-    unrolling_iteritems = unrolling_iterable(d.iteritems())
+    unrolling_iteritems = unrolling_iterable(d.items())
 
     def lookup(query):
         if we_are_translated():

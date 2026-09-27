@@ -1537,7 +1537,7 @@ asm_operations = [not_implemented_op] * (rop._LAST + 1)
 asm_guard_operations = [not_implemented_guard_op] * (rop._LAST + 1)
 asm_comp_operations = [not_implemented_comp_op] * (rop._LAST + 1)
 
-for name, value in OpAssembler.__dict__.iteritems():
+for name, value in OpAssembler.__dict__.items():
     if name.startswith('emit_op_'):
         opname = name[len('emit_op_'):]
         num = getattr(rop, opname.upper())

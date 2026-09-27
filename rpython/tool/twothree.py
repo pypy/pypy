@@ -82,6 +82,12 @@ except AttributeError:
 # instance of type, so a check for "type or ClassType" is a check for type.
 ClassType = getattr(types, 'ClassType', type)
 
+try:
+    from urllib.request import urlopen
+except ImportError:
+    from urllib2 import urlopen
+
+
 def native_str(data):
     """Bytes from outside the process, such as a subprocess's output, as
     the native str type: unchanged on Python 2, where str is bytes, and

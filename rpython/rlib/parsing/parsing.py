@@ -198,7 +198,7 @@ class PackratParser(object):
         changed = True
         while changed:
             changed = False
-            for nonterminal, follow in follows.iteritems():
+            for nonterminal, follow in follows.items():
                 for nt in follow:
                     subfollow = follows[nt]
                     update = subfollow - follow
@@ -206,7 +206,7 @@ class PackratParser(object):
                         changed = True
                         follow.update(update)
                         break
-        for nonterminal, follow in follows.iteritems():
+        for nonterminal, follow in follows.items():
             if nonterminal in follow:
                 print("nonterminal %s is in its own follow %s" % (nonterminal, follow))
                 return True

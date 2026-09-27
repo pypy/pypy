@@ -17,7 +17,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from hypothesis import given, strategies, example, seed, assume
 
 special_values_set = (
-    range(100) + range(-1, -100, -1) +
+    list(range(100)) + list(range(-1, -100, -1)) +
     [2 ** i for i in range(1, LONG_BIT)] +
     [-2 ** i for i in range(1, LONG_BIT)] +
     [2 ** i - 1 for i in range(1, LONG_BIT)] +
@@ -31,7 +31,7 @@ special_values = strategies.sampled_from(
     [int(v) for v in special_values_set if type(int(v)) is int])
 
 pos_special_values_set = (
-    range(0, 100) +
+    list(range(0, 100)) +
     [sys.maxsize] +
     [2 ** i for i in range(1, LONG_BIT)] +
     [2 ** i - 1 for i in range(1, LONG_BIT)] +

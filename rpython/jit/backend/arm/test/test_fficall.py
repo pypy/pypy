@@ -17,7 +17,7 @@ class TestFfiCall(JitARMMixin, test_fficall.FfiCallTests):
         # Try to comment this code out and run the test to see how it fails :)
         from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
         from rpython.rlib.jit_libffi import types
-        for key, value in types.__dict__.iteritems():
+        for key, value in types.__dict__.items():
             if isinstance(value, lltype._ptr):
                 addr = rffi.cast(lltype.Signed, value)
                 ll2ctypes._int2obj[addr] = value

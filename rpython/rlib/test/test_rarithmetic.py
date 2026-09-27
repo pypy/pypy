@@ -11,14 +11,8 @@ import py
 from rpython.tool.twothree import long, xrange
 
 maxint_mask = (sys.maxsize*2 + 1)
-machbits = 0
-i = 1
-l = 1
-while i == l and type(i) is int:
-    i *= 2
-    l *= 2
-    machbits += 1
-#print machbits
+# the number of doublings of 1 that still fit in a machine int
+machbits = sys.maxsize.bit_length()
 
 
 class Test_r_int:

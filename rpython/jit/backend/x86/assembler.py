@@ -2731,8 +2731,8 @@ genop_math_list = {}
 genop_guard_list = [Assembler386.not_implemented_op_guard] * rop._LAST
 
 import itertools
-iterate = itertools.chain(Assembler386.__dict__.iteritems(),
-                          VectorAssemblerMixin.__dict__.iteritems())
+iterate = itertools.chain(Assembler386.__dict__.items(),
+                          VectorAssemblerMixin.__dict__.items())
 for name, value in iterate:
     if name.startswith('genop_discard_'):
         opname = name[len('genop_discard_'):]
