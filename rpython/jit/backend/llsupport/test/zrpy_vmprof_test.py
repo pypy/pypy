@@ -7,6 +7,7 @@ from rpython.rlib import rthread
 from rpython.translator.translator import TranslationContext
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.rlib.rweaklist import RWeakListMixin
+from rpython.rlib.rvmprof.test.profile_reader import read_profile
 
 class CompiledVmprofTest(CCompiledMixin):
     CPUClass = getcpuclass()
@@ -74,7 +75,6 @@ class CompiledVmprofTest(CCompiledMixin):
             return 0
         
         def check_vmprof_output():
-            from vmprof import read_profile
             tmpfile = str(udir.join('test_rvmprof'))
             stats = read_profile(tmpfile)
             t = stats.get_tree()
@@ -82,9 +82,4 @@ class CompiledVmprofTest(CCompiledMixin):
             assert len(t.children) == 1 # jit
 
         self.meta_interp(f, [1000000], inline=True)
-        try:
-            import vmprof
-        except ImportError:
-            pass
-        else:
-            check_vmprof_output()
+        check_vmprof_output()
