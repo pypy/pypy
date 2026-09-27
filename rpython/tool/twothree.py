@@ -115,6 +115,16 @@ def get_function(method):
     return getattr(method, '__func__', method)
 
 
+def is_builtin_type(cls):
+    """Whether cls is a built-in type other than an exception class.
+
+    Python 2 keeps the built-in exceptions in a module of their own,
+    'exceptions'; Python 3 puts them into builtins with the other types.
+    """
+    return (cls.__module__ == builtins.__name__ and
+            not issubclass(cls, BaseException))
+
+
 def get_class(method):
     """The class a bound method was looked up on: 'method.im_class' on
     Python 2.  Python 3 does not record it; there it is the class of the

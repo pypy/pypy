@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, 
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
-from rpython.tool.twothree import getargspec, long, unicode
+from rpython.tool.twothree import getargspec, is_builtin_type, long, unicode
 
 DEBUG_ELIDABLE_FUNCTIONS = False
 
@@ -721,7 +721,7 @@ class JitDriver(object):
                     elif isinstance(value, (list, dict)):
                         kind = '2:REF'
                     elif (hasattr(value, '__class__')
-                          and value.__class__.__module__ != '__builtin__'):
+                          and not is_builtin_type(value.__class__)):
                         if hasattr(value, '_freeze_'):
                             continue   # value._freeze_() is better not called
                         elif getattr(value, '_alloc_flavor_', 'gc') == 'gc':

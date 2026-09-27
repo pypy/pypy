@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, not_rpython
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory
-from rpython.tool.twothree import ClassType, get_function
+from rpython.tool.twothree import ClassType, get_function, is_builtin_type
 
 # ____________________________________________________________
 # General GC features
@@ -814,7 +814,7 @@ def _keep_object(x):
         return True       # keep lists and dicts and strings
     if hasattr(x, '_freeze_'):
         return False
-    return type(x).__module__ != '__builtin__'   # keep non-builtins
+    return not is_builtin_type(type(x))   # keep non-builtins
 
 def add_memory_pressure(estimate, object=None):
     """Add memory pressure for OpaquePtrs."""
