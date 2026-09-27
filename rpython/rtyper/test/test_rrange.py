@@ -9,7 +9,7 @@ class TestRrange(BaseRtypingTest):
 
     def test_rlist_range(self):
         def test1(start, stop, step, varstep):
-            expected = range(start, stop, step)
+            expected = list(range(start, stop, step))
             length = len(expected)
             if varstep:
                 l = rrange.ll_newrangest(start, stop, step)
@@ -69,6 +69,50 @@ class TestRrange(BaseRtypingTest):
         res = self.interpret(dummyfn, [10])
         assert res == 45
 
+    def test_prebuilt_range(self):
+        r = xrange(5, 2147418112)
+        def dummyfn(N):
+            total = 0
+            for i in r:
+                if i == N:
+                    break
+                total += i
+            return total + len(r) + r[2]
+        res = self.interpret(dummyfn, [10])
+        assert res == 5 + 6 + 7 + 8 + 9 + (2147418112 - 5) + 7
+
+    def test_prebuilt_range_step(self):
+        r = xrange(10, 0, -3)
+        def dummyfn(i):
+            return r[i] * 100 + len(r)
+        res = self.interpret(dummyfn, [1])
+        assert res == 7 * 100 + 4
+
+    def test_prebuilt_range_and_call(self):
+        r = xrange(3)
+        def dummyfn(n):
+            if n:
+                lst = r
+            else:
+                lst = xrange(n, n + 3)
+            total = 0
+            for i in lst:
+                total = total * 10 + i
+            return total
+        assert self.interpret(dummyfn, [1]) == 12
+        assert self.interpret(dummyfn, [0]) == 12
+
+    def test_prebuilt_range_as_list(self):
+        r = xrange(3)
+        def dummyfn(n):
+            lst = [7] * n
+            if n > 2:
+                lst = r
+            return lst[n - 1]
+        # merged with a real list, the prebuilt range becomes a list
+        assert self.interpret(dummyfn, [3]) == 2
+        assert self.interpret(dummyfn, [2]) == 7
+
     def test_range_len_nostep(self):
         def dummyfn(start, stop):
             r = range(start, stop)
@@ -104,7 +148,7 @@ class TestRrange(BaseRtypingTest):
 
     def test_range2list(self):
         def dummyfn(start, stop):
-            r = range(start, stop)
+            r = list(range(start, stop))
             r.reverse()
             return r[0]
         start, stop = 10, 17

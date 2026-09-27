@@ -29,6 +29,26 @@ class AbstractRangeRepr(Repr):
             v_step = self._getstep(v_rng, hop)
         return hop.gendirectcall(ll_rangelen, v_rng, v_step)
 
+    def rtype_bltn_list(self, hop):
+        # list(range(...)): a real list, to mutate
+        v_rng = hop.inputarg(self, 0)
+        v_start = hop.genop(self.getfield_opname,
+                            [v_rng, hop.inputconst(Void, 'start')],
+                            resulttype=Signed)
+        v_stop = hop.genop(self.getfield_opname,
+                           [v_rng, hop.inputconst(Void, 'stop')],
+                           resulttype=Signed)
+        if self.step != 0:
+            v_step = hop.inputconst(Signed, self.step)
+        else:
+            v_step = self._getstep(v_rng, hop)
+        LIST = hop.r_result.lowleveltype
+        if isinstance(LIST, Ptr):
+            LIST = LIST.TO
+        cLIST = hop.inputconst(Void, LIST)
+        hop.exception_is_here()
+        return hop.gendirectcall(ll_range2list, cLIST, v_start, v_stop, v_step)
+
 class __extend__(pairtype(AbstractRangeRepr, IntegerRepr)):
 
     def rtype_getitem(args, hop):

@@ -104,6 +104,20 @@ def native_str(data):
     return data.decode('utf-8', 'surrogateescape')
 
 
+def range_bounds(rng):
+    """(start, stop, step) of a range object: Python 3's range has them as
+    attributes, Python 2's xrange only shows them in its repr, with the
+    stop normalized."""
+    if hasattr(rng, 'step'):
+        return rng.start, rng.stop, rng.step
+    args = [int(part) for part in repr(rng)[len('xrange('):-1].split(',')]
+    if len(args) == 1:
+        return 0, args[0], 1
+    if len(args) == 2:
+        return args[0], args[1], 1
+    return tuple(args)
+
+
 def str_from_bytes(data):
     """Binary data as the host string that stands for an RPython string:
     unchanged on Python 2, one character per byte (latin-1) on Python 3,

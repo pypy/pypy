@@ -325,10 +325,12 @@ class LLFrame(object):
             for i, op in enumerate(block.operations):
                 self.curr_operation_index = i
                 self.eval_operation(op)
-        except LLException as e:
+        except LLException as exc:
+            # Python 3 unbinds the name of 'except ... as' at its end
+            e = exc
             if op is not block.raising_op:
                 raise
-        except RuntimeError as e:
+        except RuntimeError:
             rstackovf.check_stack_overflow()
             # xxx fish fish fish for proper etype and evalue to use
             rtyper = self.llinterpreter.typer

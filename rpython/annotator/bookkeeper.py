@@ -28,7 +28,7 @@ from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
 from rpython.tool.twothree import (ClassType, get_class, get_function,
-    is_builtin_type, long, unicode)
+    is_builtin_type, long, range_bounds, unicode, xrange)
 
 
 BUILTIN_ANALYZERS = {}
@@ -262,6 +262,22 @@ class Bookkeeper(object):
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
+                result.const_box = key
+                return result
+        elif tp is xrange:
+            # a prebuilt range: Python 3's range, Python 2's xrange.  It is
+            # a list that comes from range(), as the result of a call is.
+            key = Constant(x)
+            try:
+                return self.immutable_cache[key]
+            except KeyError:
+                listdef = ListDef(self)
+                listdef.listitem.range_step = range_bounds(x)[2]
+                if len(x):
+                    listdef.generalize(SomeInteger(
+                        nonneg=x[0] >= 0 and x[-1] >= 0))
+                result = SomeList(listdef)
+                self.immutable_cache[key] = result
                 result.const_box = key
                 return result
         elif (tp is dict or tp is r_dict or

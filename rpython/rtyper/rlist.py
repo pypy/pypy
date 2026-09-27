@@ -14,7 +14,7 @@ from rpython.rtyper.rmodel import Repr, IteratorRepr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import AbstractStringRepr, AbstractCharRepr
 from rpython.tool.pairtype import pairtype, pair
-from rpython.tool.twothree import unichr
+from rpython.tool.twothree import unichr, xrange
 
 
 ADTIFixedList = ADTInterface(None, {
@@ -72,7 +72,7 @@ class AbstractBaseListRepr(Repr):
         # get object from bound list method
         if listobj is None:
             return self.null_const()
-        if not isinstance(listobj, list):
+        if not isinstance(listobj, (list, xrange)):
             raise TyperError("expected a list: %r" % (listobj,))
         try:
             key = Constant(listobj)
