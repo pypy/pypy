@@ -193,7 +193,7 @@ class Bookkeeper(object):
         for s_value in s_values:
             listdef.generalize(s_value)
         if flags:
-            assert flags.keys() == ['range_step']
+            assert list(flags) == ['range_step']
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 

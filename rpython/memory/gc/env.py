@@ -510,7 +510,7 @@ if sys.platform == 'win32':
                 free(buffer);
                 return -1;
             }
-            count = length / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+            count = length // sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
             for (i = 0; i < count; i++) {
                 if (buffer[i].Relationship == RelationCache &&
                     buffer[i].Cache.Level == 2) {

@@ -63,8 +63,8 @@ class __extend__(annmodel.SomePBC):
         return getRepr(rtyper, self)
 
     def rtyper_makekey(self):
-        lst = list(self.descriptions)
-        lst.sort()
+        # any canonical order; Python 2 compared the descs by address
+        lst = sorted(self.descriptions, key=id)
         if self.subset_of:
             t = self.subset_of.rtyper_makekey()
         else:
