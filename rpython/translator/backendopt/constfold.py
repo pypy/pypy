@@ -236,8 +236,8 @@ def rewire_links(splitblocks, graph):
         # folded with the knowledge of an incoming link's constant.
         # Various incoming links may cause various splitting positions.
         # We split the block gradually, starting from the end.
-        splits.sort()
-        splits.reverse()
+        # by position only: Python 3 cannot compare the links of a tie
+        splits.sort(key=lambda split: split[0], reverse=True)
         for position, link, constants in splits:
             assert link.target is block
             if position == len(block.operations) and block.exitswitch is None:

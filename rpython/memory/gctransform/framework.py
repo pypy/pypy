@@ -20,7 +20,7 @@ from rpython.translator.backendopt.collectanalyze import CollectAnalyzer
 from rpython.translator.backendopt.finalizer import FinalizerAnalyzer
 from rpython.translator.backendopt.support import var_needsgc
 import types
-from rpython.tool.twothree import get_function
+from rpython.tool.twothree import get_function, str_from_bytes
 
 
 TYPE_ID = llgroup.HALFWORD
@@ -755,9 +755,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
         f.close()
         try:
             import zlib
-            z_data = zlib.compress(udir.join("typeids.txt").read(), 9)
+            z_data = zlib.compress(udir.join("typeids.txt").read_binary(), 9)
         except ImportError:
-            z_data = ''
+            z_data = b''
+        z_data = str_from_bytes(z_data)
         return z_data, list_data
 
     def transform_graph(self, graph):

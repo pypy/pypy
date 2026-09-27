@@ -1,3 +1,4 @@
+import types
 from collections import OrderedDict
 
 from rpython.rtyper.lltypesystem.lltype import (Primitive, Ptr, typeOf,
@@ -335,7 +336,7 @@ class LowLevelDatabase(object):
 
             if finish_callbacks:
                 logmsg, finish = finish_callbacks.pop(0)
-                if not hasattr(finish, 'next'):
+                if not isinstance(finish, types.GeneratorType):
                     newdependencies = finish()
                 else:
                     # if 'finish' is a generator, consume the next element
@@ -383,7 +384,9 @@ class LowLevelDatabase(object):
                     produce(othernode)
                 result.append(node)
                 seen.add(node)
-        nodes = sorted(self.structdefnodes.values(), key=lambda x: x.name)
+        # nameless nodes first, as None sorted first on Python 2
+        nodes = sorted(self.structdefnodes.values(),
+                       key=lambda x: (x.name is not None, x.name or ''))
         for node in nodes:
             produce(node)
         return result

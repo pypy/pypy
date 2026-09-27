@@ -104,6 +104,15 @@ def native_str(data):
     return data.decode('utf-8', 'surrogateescape')
 
 
+def str_from_bytes(data):
+    """Binary data as the host string that stands for an RPython string:
+    unchanged on Python 2, one character per byte (latin-1) on Python 3,
+    where low-level Chars are one-character strs."""
+    if isinstance(data, str):
+        return data
+    return data.decode('latin-1')
+
+
 def native_bytes(data):
     """The inverse of native_str(): a native str as bytes, for writing to
     a binary file or a pipe.  Unchanged on Python 2."""

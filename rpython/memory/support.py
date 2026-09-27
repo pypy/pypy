@@ -358,7 +358,7 @@ class BasicAddressDict(object):
     def foreach(self, callback, arg):
         """Invoke 'callback(key, value, arg)' for all items in the dict.
         Typically, 'callback' is a bound method and 'arg' can be None."""
-        for key, value in self.data.iteritems():
+        for key, value in self.data.items():
             callback(self._wrapkey(key), value, arg)
 
 
