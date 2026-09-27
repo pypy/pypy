@@ -9,7 +9,7 @@ from rpython.rtyper.error import TyperError
 from rpython.rtyper.rmodel import getgcflavor
 from rpython.tool.sourcetools import valid_identifier
 from rpython.annotator.classdesc import ClassDesc
-from rpython.tool.twothree import cmp
+from rpython.tool.twothree import cmp, ordering_from_cmp
 
 
 def normalize_call_familes(annotator):
@@ -300,6 +300,7 @@ def create_instantiate_function(annotator, classdef):
 class TooLateForNewSubclass(Exception):
     pass
 
+@ordering_from_cmp
 class TotalOrderSymbolic(ComputedIntSymbolic):
 
     def __init__(self, orderwitness, peers):

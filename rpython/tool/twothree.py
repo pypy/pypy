@@ -125,6 +125,20 @@ def is_builtin_type(cls):
             not issubclass(cls, BaseException))
 
 
+def ordering_from_cmp(cls):
+    """Class decorator: the rich comparisons from __cmp__, which Python 3
+    ignores.  The class keeps its __hash__."""
+    hash_ = cls.__hash__
+    cls.__eq__ = lambda self, other: self.__cmp__(other) == 0
+    cls.__ne__ = lambda self, other: self.__cmp__(other) != 0
+    cls.__lt__ = lambda self, other: self.__cmp__(other) < 0
+    cls.__le__ = lambda self, other: self.__cmp__(other) <= 0
+    cls.__gt__ = lambda self, other: self.__cmp__(other) > 0
+    cls.__ge__ = lambda self, other: self.__cmp__(other) >= 0
+    cls.__hash__ = hash_
+    return cls
+
+
 def get_class(method):
     """The class a bound method was looked up on: 'method.im_class' on
     Python 2.  Python 3 does not record it; there it is the class of the

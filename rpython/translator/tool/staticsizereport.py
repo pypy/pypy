@@ -7,11 +7,12 @@ from rpython.rtyper.lltypesystem.lltype import GcOpaqueType
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.memory.lltypelayout import convert_offset_to_int
 from rpython.rtyper.lltypesystem import llgroup
-from rpython.tool.twothree import cmp
+from rpython.tool.twothree import cmp, ordering_from_cmp
 
 class Info:
     pass
 
+@ordering_from_cmp
 class ModuleReport:
     def __init__(self, modulename, totalsize, typereports):
         self.modulename = modulename
@@ -24,6 +25,7 @@ class ModuleReport:
     def __cmp__(self, other):
         return cmp((self.totalsize, self.modulename), (other.totalsize, other.modulename))
 
+@ordering_from_cmp
 class TypeReport:
     def __init__(self, typename, size, numobjects):
         self.typename = typename
