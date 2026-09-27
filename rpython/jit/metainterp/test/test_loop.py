@@ -202,39 +202,47 @@ class LoopTest(object):
                 assert found == 1
 
     def test_interp_many_paths(self):
-        myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
-        NODE = self._get_NODE()
-        bytecode = "xxxxxxxb"
-        def f(node):
-            x = 0
-            i = 0
-            while i < len(bytecode):
-                myjitdriver.jit_merge_point(i=i, x=x, node=node)
-                op = bytecode[i]
-                if op == 'x':
-                    if not node:
-                        break
-                    if node.value < 100:   # a pseudo-random choice
-                        x += 1
-                    node = node.next
-                elif op == 'b':
-                    i = 0
-                    myjitdriver.can_enter_jit(i=i, x=x, node=node)
-                    continue
-                i += 1
-            return x
+        import sys
+        oldlimit = sys.getrecursionlimit()
+        try:
+            # the default limit reserves too little stack for this on the
+            # windows main thread, see test_interp_many_paths_2
+            sys.setrecursionlimit(10000)
+            myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
+            NODE = self._get_NODE()
+            bytecode = "xxxxxxxb"
+            def f(node):
+                x = 0
+                i = 0
+                while i < len(bytecode):
+                    myjitdriver.jit_merge_point(i=i, x=x, node=node)
+                    op = bytecode[i]
+                    if op == 'x':
+                        if not node:
+                            break
+                        if node.value < 100:   # a pseudo-random choice
+                            x += 1
+                        node = node.next
+                    elif op == 'b':
+                        i = 0
+                        myjitdriver.can_enter_jit(i=i, x=x, node=node)
+                        continue
+                    i += 1
+                return x
 
-        node1 = self.nullptr(NODE)
-        for i in range(300):
-            prevnode = self.malloc(NODE)
-            prevnode.value = pow(47, i, 199)
-            prevnode.next = node1
-            node1 = prevnode
+            node1 = self.nullptr(NODE)
+            for i in range(300):
+                prevnode = self.malloc(NODE)
+                prevnode.value = pow(47, i, 199)
+                prevnode.next = node1
+                node1 = prevnode
 
-        expected = f(node1)
-        res = self.meta_interp(f, [node1])
-        assert res == expected
-        self.check_trace_count_at_most(19)
+            expected = f(node1)
+            res = self.meta_interp(f, [node1])
+            assert res == expected
+            self.check_trace_count_at_most(19)
+        finally:
+            sys.setrecursionlimit(oldlimit)
 
     def test_interp_many_paths_2(self):
         import sys
