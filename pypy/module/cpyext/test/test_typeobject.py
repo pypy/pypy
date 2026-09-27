@@ -829,6 +829,258 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert htype.__qualname__ == 'HeapType'
 
 
+    def test_static_type_members_filled_from_c(self):
+        # mirrors numpy's PyArrayDescr_Type: a static type declared inside a
+        # larger struct, whose metaclass is a custom static type, with
+        # tp_members reading fields that C code fills in directly
+        module = self.import_extension('foo', [
+            ("get_descr", "METH_NOARGS",
+             '''
+                Py_INCREF(descr_singleton);
+                return (PyObject *)descr_singleton;
+             '''),
+            ("wrap_legacy", "METH_NOARGS",
+             '''
+                /* mirrors dtypemeta_wrap_legacy_descriptor: build a heap
+                   subclass through the metaclass, then retype the existing
+                   instance in place */
+                PyType_Slot slots[] = {
+                    {Py_tp_base, &Descr_Type},
+                    {0, NULL},
+                };
+                PyType_Spec spec = {
+                    "foo.Float64DType",
+                    sizeof(DescrObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
+                    slots,
+                };
+                PyObject *cls;
+#if PY_VERSION_HEX >= 0x030c0000
+                cls = PyType_FromMetaclass(&DTypeMeta_Type, NULL, &spec, NULL);
+#else
+                cls = PyType_FromSpec(&spec);
+#endif
+                if (cls == NULL) {
+                    return NULL;
+                }
+                Py_INCREF(cls);
+                Py_SET_TYPE(descr_singleton, (PyTypeObject *)cls);
+                return cls;
+             '''),
+            ], prologue='''
+                #include <structmember.h>
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *typeobj;
+                    char kind;
+                    char type;
+                    char byteorder;
+                    int type_num;
+                    Py_ssize_t elsize;
+                } DescrObject;
+
+                /* like PyArray_DTypeMeta */
+                typedef struct {
+                    PyHeapTypeObject super;
+                    DescrObject *singleton;
+                    int type_num;
+                } DTypeMeta;
+
+                static PyMemberDef descr_members[] = {
+                    {"type", T_OBJECT, offsetof(DescrObject, typeobj),
+                     READONLY, NULL},
+                    {"kind", T_CHAR, offsetof(DescrObject, kind),
+                     READONLY, NULL},
+                    {"char", T_CHAR, offsetof(DescrObject, type),
+                     READONLY, NULL},
+                    {"byteorder", T_CHAR, offsetof(DescrObject, byteorder),
+                     READONLY, NULL},
+                    {"num", T_INT, offsetof(DescrObject, type_num),
+                     READONLY, NULL},
+                    {"itemsize", T_PYSSIZET, offsetof(DescrObject, elsize),
+                     READONLY, NULL},
+                    {NULL},
+                };
+
+                static PyTypeObject DTypeMeta_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "foo.dtypemeta",
+                    sizeof(DTypeMeta),
+                    0,
+                };
+
+                /* NOTE: declared as the metaclass instance struct, like
+                   numpy's PyArrayDescr_TypeFull */
+                static DTypeMeta Descr_TypeFull = {
+                    {{
+                        PyVarObject_HEAD_INIT(NULL, 0)
+                        "foo.descr",
+                        sizeof(DescrObject),
+                        0,
+                    },},
+                    NULL,
+                    -1,
+                };
+                #define Descr_Type (*(PyTypeObject *)&Descr_TypeFull)
+
+                static DescrObject *descr_singleton;
+            ''', more_init='''
+                DTypeMeta_Type.tp_base = &PyType_Type;
+                DTypeMeta_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&DTypeMeta_Type) < 0) INITERROR;
+
+                Py_SET_TYPE(&Descr_Type, &DTypeMeta_Type);
+                Descr_Type.tp_base = &PyBaseObject_Type;
+                Descr_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Descr_Type.tp_members = descr_members;
+                if (PyType_Ready(&Descr_Type) < 0) INITERROR;
+                PyModule_AddObject(mod, "descr_type", (PyObject *)&Descr_Type);
+                PyModule_AddObject(mod, "dtypemeta",
+                                   (PyObject *)&DTypeMeta_Type);
+
+                descr_singleton = PyObject_New(DescrObject, &Descr_Type);
+                if (descr_singleton == NULL) INITERROR;
+                Py_INCREF(&PyFloat_Type);
+                descr_singleton->typeobj = (PyObject *)&PyFloat_Type;
+                descr_singleton->kind = 'f';
+                descr_singleton->type = 'd';
+                descr_singleton->byteorder = '=';
+                descr_singleton->type_num = 12;
+                descr_singleton->elsize = 8;
+            ''')
+        d = module.get_descr()
+        assert type(d) is module.descr_type
+        assert type(type(d)).__name__ == 'dtypemeta'
+        assert d.kind == 'f'
+        assert d.char == 'd'
+        assert d.byteorder == '='
+        assert d.num == 12
+        assert d.itemsize == 8
+        assert d.type is float
+
+        # numpy retypes the descr in place to a heap subclass built through
+        # the metaclass; the member descriptors are then found by inheritance
+        cls = module.wrap_legacy()
+        assert cls.__name__ == 'Float64DType'
+        assert cls.__base__ is module.descr_type
+        assert d.kind == 'f'
+        assert d.char == 'd'
+        assert d.byteorder == '='
+        assert d.num == 12
+        assert d.itemsize == 8
+        assert d.type is float
+        d2 = module.get_descr()
+        assert d2 is d
+        assert d2.kind == 'f'
+        assert d2.type is float
+        import sys
+        if sys.implementation.name != 'pypy':
+            # cpyext does not see an in-place Py_SET_TYPE of a live instance
+            assert type(d) is cls
+
+    def test_static_instance_members(self):
+        # mirrors numpy's builtin dtypes: statically allocated instances of a
+        # static type, `PyObject_HEAD_INIT(&Descr_Type)`, never allocated
+        # through tp_alloc/PyObject_New, read through tp_members
+        module = self.import_extension('foo', [
+            ("get_descr", "METH_O",
+             '''
+                long i = PyLong_AsLong(args);
+                if (i < 0 || i >= 4) {
+                    PyErr_SetString(PyExc_IndexError, "bad index");
+                    return NULL;
+                }
+                Py_INCREF(&static_descrs[i]);
+                return (PyObject *)&static_descrs[i];
+             '''),
+            ("check_from_c", "METH_O",
+             '''
+                /* read the same fields from C, to tell a member-lookup
+                   problem apart from an actually clobbered struct */
+                long i = PyLong_AsLong(args);
+                DescrObject *d = &static_descrs[i];
+                return Py_BuildValue("Oiii", d->typeobj ? d->typeobj : Py_None,
+                                     (int)d->kind, d->type_num,
+                                     (int)d->elsize);
+             '''),
+            ], prologue='''
+                #include <structmember.h>
+
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *typeobj;
+                    char kind;
+                    char type;
+                    char byteorder;
+                    int type_num;
+                    Py_ssize_t elsize;
+                } DescrObject;
+
+                static PyMemberDef descr_members[] = {
+                    {"type", T_OBJECT, offsetof(DescrObject, typeobj),
+                     READONLY, NULL},
+                    {"kind", T_CHAR, offsetof(DescrObject, kind),
+                     READONLY, NULL},
+                    {"char", T_CHAR, offsetof(DescrObject, type),
+                     READONLY, NULL},
+                    {"byteorder", T_CHAR, offsetof(DescrObject, byteorder),
+                     READONLY, NULL},
+                    {"num", T_INT, offsetof(DescrObject, type_num),
+                     READONLY, NULL},
+                    {"itemsize", T_PYSSIZET, offsetof(DescrObject, elsize),
+                     READONLY, NULL},
+                    {NULL},
+                };
+
+                static PyTypeObject Descr_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "foo.descr",
+                    sizeof(DescrObject),
+                    0,
+                };
+
+                /* laid out consecutively in .data, like numpy's
+                   BOOL_Descr, BYTE_Descr, ... _builtin_descrs[] */
+                static DescrObject static_descrs[4] = {
+                    {PyObject_HEAD_INIT(&Descr_Type) NULL, 'b', '?', '|',
+                     0, 1},
+                    {PyObject_HEAD_INIT(&Descr_Type) NULL, 'i', 'l', '=',
+                     7, 8},
+                    {PyObject_HEAD_INIT(&Descr_Type) NULL, 'f', 'd', '=',
+                     12, 8},
+                    {PyObject_HEAD_INIT(&Descr_Type) NULL, 'U', 'U', '=',
+                     19, 0},
+                };
+            ''', more_init='''
+                Descr_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
+                Descr_Type.tp_members = descr_members;
+                if (PyType_Ready(&Descr_Type) < 0) INITERROR;
+                PyModule_AddObject(mod, "descr_type", (PyObject *)&Descr_Type);
+
+                static_descrs[0].typeobj = (PyObject *)&PyBool_Type;
+                static_descrs[1].typeobj = (PyObject *)&PyLong_Type;
+                static_descrs[2].typeobj = (PyObject *)&PyFloat_Type;
+                static_descrs[3].typeobj = (PyObject *)&PyUnicode_Type;
+            ''')
+        expected = [(bool, 'b', '?', 0, 1),
+                    (int, 'i', 'l', 7, 8),
+                    (float, 'f', 'd', 12, 8),
+                    (str, 'U', 'U', 19, 0)]
+        descrs = [module.get_descr(i) for i in range(4)]
+        for i, (typeobj, kind, char, num, elsize) in enumerate(expected):
+            d = descrs[i]
+            # what C still sees in the struct
+            assert module.check_from_c(i) == (typeobj, ord(kind), num, elsize)
+            # what the member descriptors report
+            assert d.kind == kind
+            assert d.char == char
+            assert d.num == num
+            assert d.itemsize == elsize
+            assert d.type is typeobj
+            assert module.get_descr(i) is d
+
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
         w_class = space.appexec([], """():

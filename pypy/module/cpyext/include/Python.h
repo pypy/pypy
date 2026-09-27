@@ -125,6 +125,12 @@ extern "C" {
 #endif
 #endif  /* PYPY_STANDALONE */
 
+/* cython 3.3.0 will look for this macro, must come after pypy_decl.h which
+ * may already define it */
+#ifndef PyObject_Format
+#define PyObject_Format PyObject_Format
+#endif
+
 /* Define macros for inline documentation. */
 #define PyDoc_STRVAR(name,str) PyDoc_VAR(name) = PyDoc_STR(str)
 #ifdef WITH_DOC_STRINGS
