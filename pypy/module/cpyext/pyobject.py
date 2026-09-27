@@ -82,44 +82,55 @@ def check_true(s_arg, bookeeper):
     assert s_arg.const is True
 
 def w_root_as_pyobj(w_obj, space):
+    """Two mapping methods, because rawrefcount's mapping can only be filled by
+    create_link_pypy, which writes ob_pypy_link and enlists the object in the
+    GC's rawrefcount lists.  A prefix-less py_obj has no ob_pypy_link, so
+    track_reference() puts it in static_w2py instead. The
+    add_direct_pyobj_storage classes get by with their
+    _cpy_ref field alone and never reach this function."""
     # make sure that translation crashes if we see this while translating
     # without cpyext
     check_annotation(space.config.objspace.usemodules.cpyext, check_true)
-    # immortal static objects are mapped out-of-band (they have no ob_pypy_link)
-    py_obj = space.fromcache(State).static_w2py.get(
-        w_obj, lltype.nullptr(PyObject.TO))
+    py_obj = rawrefcount.from_obj(PyObject, w_obj)
     if py_obj:
         return py_obj
-    # default implementation of _cpyext_as_pyobj
-    return rawrefcount.from_obj(PyObject, w_obj)
+    return space.fromcache(State).static_w2py.get(
+        w_obj, lltype.nullptr(PyObject.TO))
 
 def w_root_attach_pyobj(w_obj, space, py_obj):
-    check_annotation(space.config.objspace.usemodules.cpyext, check_true)
+    """Implementation of _cpyext_attach_pyobj for w_obj that is
+    not built with add_direct_pyobj_storage: use the op_pypy_link"""
     assert space.config.objspace.usemodules.cpyext
-    # default implementation of _cpyext_attach_pyobj
     rawrefcount.create_link_pypy(w_obj, py_obj)
 
 def w_root_attach_pyobj_static(w_obj, space, py_obj):
-    # default implementation of _cpyext_attach_pyobj_static: forward mapping for an
-    # immortal static object, with NO rawrefcount link (it has no ob_pypy_link prefix).
-    # Direct-storage types (W_BaseCPyObject, W_TypeObject) override this to use _cpy_ref.
+    """Implementation of _cpyext_attach_pyobj_static for w_obj that is
+    not built with add_direct_pyobj_storage: forward mapping for a
+    prefix-less py_obj, with NO rawrefcount link. Used in w_root_as_pyobj"""
+    assert space.config.objspace.usemodules.cpyext
     space.fromcache(State).static_w2py[w_obj] = py_obj
 
-def track_static_reference(space, py_obj, w_obj):
-    """Register an immortal static object (one of pypy_static_pyobjs[]).  Creates NO
-    rawrefcount link -- the object is bare, with no ob_pypy_link prefix.  Marks it
-    immortal (_Py_IMMORTAL_REFCNT, no REFCNT_FROM_PYPY tag since there is no prefix),
-    records the forward mapping through the object's native storage (_cpy_ref for
-    direct-storage types, else State.static_w2py via _cpyext_attach_pyobj_static) and
-    the reverse mapping in State.static_py2w (consulted by from_ref)."""
-    py_obj.c_ob_refcnt = _Py_IMMORTAL_REFCNT
-    w_obj._cpyext_attach_pyobj_static(space, py_obj)
+def track_prefixless_reference(space, py_obj, w_obj):
+    """Record the py_obj -> w_obj connection for a py_obj that has no ob_pypy_link
+    prefix: put it in the State.static_py2w dict, keyed by address. 
+
+    Keeps a reference: the mapping is permanent and keyed by address, so the
+    py_obj must not be freed and its address reused while it is still mapped."""
+    if not refcnt_is_immortal(py_obj.c_ob_refcnt):
+        py_obj.c_ob_refcnt += 1
     space.fromcache(State).static_py2w[rffi.cast(lltype.Signed, py_obj)] = w_obj
+
+def track_static_reference(space, py_obj, w_obj):
+    """Register a static prefixless object. Make it immortal, which
+ 
+    track_reference() then links it out-of-band."""
+    py_obj.c_ob_refcnt = _Py_IMMORTAL_REFCNT
+    track_reference(space, py_obj, w_obj)
 
 
 def add_direct_pyobj_storage(cls):
     """ Add the necessary methods to a class to store a reference to the py_obj
-    on its instances directly. """
+    on its instances directly. Runs only during translation"""
 
     cls._cpy_ref = lltype.nullptr(PyObject.TO)
 
@@ -133,7 +144,7 @@ def add_direct_pyobj_storage(cls):
     cls._cpyext_attach_pyobj = _cpyext_attach_pyobj
 
     def _cpyext_attach_pyobj_static(self, space, py_obj):
-        # immortal static object: forward mapping only, no rawrefcount link
+        # prefix-less py_obj: forward mapping only, no rawrefcount link
         self._cpy_ref = py_obj
     cls._cpyext_attach_pyobj_static = _cpyext_attach_pyobj_static
 
@@ -402,12 +413,17 @@ def _warn_dict_pinned(space, w_obj):
 
 def track_reference(space, py_obj, w_obj):
     """
-    Ties py_obj's prefix (marked by refcnt >= REFCNT_FROM_PYPY) to w_obj.
-    A foreign py_obj (below the tag, no prefix) is left unlinked.
-    """
-    # XXX looks like a PyObject_GC_TRACK
+    Ties py_obj to w_obj, in both directions, and the only place that attaches the
+    w_obj -> py_obj side.  An owned py_obj (marked by refcnt >= REFCNT_FROM_PYPY)
+    is linked through its ob_pypy_link prefix.  A prefix-less py_obj -- below the
+    tag, typically a statically allocated extension instance such as numpy's
+    builtin dtypes, `PyObject_HEAD_INIT(&PyArrayDescr_Type)` -- is mapped
+    out-of-band like the internal statics."""
     if py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY:
         w_obj._cpyext_attach_pyobj(space, py_obj)
+    else:
+        track_prefixless_reference(space, py_obj, w_obj)
+        w_obj._cpyext_attach_pyobj_static(space, py_obj)
 
 
 w_marker_deallocating = W_Root()
@@ -416,23 +432,21 @@ w_marker_deallocating = W_Root()
 def from_ref(space, ref):
     """
     Finds the interpreter object corresponding to the given reference.  If the
-    object is not yet realized (see bytesobject.py), creates it.
+    object is not yet realized, this creates it.
     """
     assert is_pyobj(ref)
     if not ref:
         return None
     ref = rffi.cast(PyObject, ref)
-    if refcnt_is_immortal(ref.c_ob_refcnt):
-        if ref.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY:
-            # prefix-less immortal (bare static): mapped out-of-band.  A miss
-            # means an immortal object we did not create (e.g. immortalized by
-            # an extension): fall through and realize it like a foreign object.
-            w_obj = space.fromcache(State).static_py2w.get(
-                rffi.cast(lltype.Signed, ref), None)
-            if w_obj is not None:
-                return w_obj
-        # else: owned immortal, found through its prefix link below
-    if ref.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY:
+    if ref.c_ob_refcnt < rawrefcount.REFCNT_FROM_PYPY:
+        # prefix-less (usually a static object mapped out-of-band.  A miss
+        # means we have not seen it yet.
+        w_obj = space.fromcache(State).static_py2w.get(
+            rffi.cast(lltype.Signed, ref), None)
+        if w_obj is not None:
+            return w_obj
+    else:
+        # owned (immortal or not): found through its prefix link
         w_obj = rawrefcount.to_obj(W_Root, ref)
         if w_obj is not None:
             if w_obj is not w_marker_deallocating:
@@ -479,10 +493,11 @@ def as_pyobj(space, w_obj, w_userdata=None, immortal=False):
         if not py_obj:
             py_obj = create_ref(space, w_obj, w_userdata, immortal=immortal)
         #
-        # Try to crash here, instead of randomly, if we don't keep w_obj alive
-        # (immortals are prefix-less statics with refcnt pinned below the tag)
-        ll_assert(py_obj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY or
-                  refcnt_is_immortal(py_obj.c_ob_refcnt),
+        # Try to crash here, instead of randomly, if we don't keep w_obj alive.
+        # An owned py_obj keeps its REFCNT_FROM_PYPY tag as long as w_obj is
+        # alive; a prefix-less one (a bare static, or a foreign instance linked
+        # out-of-band) never had a tag, just a plain positive refcount.
+        ll_assert(py_obj.c_ob_refcnt > 0,
                   "Bug in cpyext: The W_Root object was garbage-collected "
                   "while being converted to PyObject.")
         return py_obj
@@ -494,11 +509,9 @@ def pyobj_has_w_obj(space, pyobj):
     """Whether a W_Root is already tied to pyobj (and it is not being deallocated)."""
     refcnt = pyobj.c_ob_refcnt
     if refcnt < rawrefcount.REFCNT_FROM_PYPY:
-        if refcnt_is_immortal(refcnt):
-            # prefix-less static object, mapped out-of-band as in from_ref
-            key = rffi.cast(lltype.Signed, pyobj)
-            return key in space.fromcache(State).static_py2w
-        return False   # foreign object, no prefix link to read
+        # prefix-less object, mapped out-of-band as in from_ref
+        key = rffi.cast(lltype.Signed, pyobj)
+        return key in space.fromcache(State).static_py2w
     if not we_are_translated() and rawrefcount._ob_link_get(pyobj) == 0xDEADFFF:
         return False   # untranslated stand-in for w_marker_deallocating, see src/object.c
     w_obj = rawrefcount.to_obj(W_Root, pyobj)
@@ -528,7 +541,9 @@ def get_pyobj_and_incref(space, w_obj, w_userdata=None, immortal=False):
     pyobj = as_pyobj(space, w_obj, w_userdata, immortal=immortal)
     if pyobj:  # != NULL
         if not refcnt_is_immortal(pyobj.c_ob_refcnt):
-            assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+            # below the tag means prefix-less: a foreign instance linked
+            # out-of-band, whose refcount is a plain one
+            assert pyobj.c_ob_refcnt > 0
             pyobj.c_ob_refcnt += 1
         keepalive_until_here(w_obj)
     return pyobj
@@ -571,7 +586,9 @@ def get_w_obj_and_decref(space, pyobj):
             from pypy.module.cpyext.api import generic_cpy_call
             generic_cpy_call(space, space.fromcache(State).C._Py_Dealloc, pyobj)
         else:
-            assert pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+            # as in get_pyobj_and_incref: a prefix-less object linked
+            # out-of-band is below the tag and keeps a plain refcount
+            assert pyobj.c_ob_refcnt > 0
         keepalive_until_here(w_obj)
     return w_obj
 
