@@ -44,6 +44,15 @@ def our_issubclass(bk, cls1, cls2):
     return toclassdesc(cls1).issubclass(toclassdesc(cls2))
 
 
+def is_other_machine_int(knowntype, typ):
+    """Whether typ is one of the machine-sized integer classes of rarithmetic
+    and knowntype is int or bool.  An int is no r_int or r_uint instance;
+    Python 2 knew that because they subclass long, but on Python 3 they
+    subclass int."""
+    from rpython.rlib.rarithmetic import base_int
+    return (issubclass(typ, base_int) and issubclass(knowntype, int) and
+            not issubclass(knowntype, base_int))
+
 def s_isinstance(annotator, s_obj, s_type, variables):
     if not s_type.is_constant():
         return SomeBool()
@@ -55,7 +64,8 @@ def s_isinstance(annotator, s_obj, s_type, variables):
     elif our_issubclass(bk, s_obj.knowntype, typ):
         if not s_obj.can_be_none():
             r.const = True
-    elif not our_issubclass(bk, typ, s_obj.knowntype):
+    elif (not our_issubclass(bk, typ, s_obj.knowntype) or
+              is_other_machine_int(s_obj.knowntype, typ)):
         r.const = False
     elif s_obj.knowntype == int and typ == bool: # xxx this will explode in case of generalisation
                                             # from bool to int, notice that isinstance( , bool|int)

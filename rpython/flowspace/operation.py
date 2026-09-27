@@ -17,7 +17,7 @@ from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
-from rpython.tool.twothree import long
+from rpython.tool.twothree import long, unichr
 
 
 NOT_REALLY_CONST = {
@@ -42,8 +42,8 @@ builtins_exceptions = {
     float: [ValueError],
     chr: [ValueError],
 }
+builtins_exceptions[unichr] = [ValueError]
 if hasattr(builtins, 'unicode'):
-    builtins_exceptions[builtins.unichr] = [ValueError]
     builtins_exceptions[builtins.unicode] = [UnicodeDecodeError]
 
 

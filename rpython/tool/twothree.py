@@ -53,7 +53,14 @@ except AttributeError:
 # ones a module uses from here, instead of relying on them being built-ins.
 long = getattr(builtins, 'long', int)
 unicode = getattr(builtins, 'unicode', str)
-unichr = getattr(builtins, 'unichr', chr)
+if hasattr(builtins, 'unichr'):
+    unichr = builtins.unichr
+else:
+    def unichr(i):
+        """chr() on Python 3, but not the same object: RPython's chr()
+        makes a Char and its unichr() a UniChar, and the annotator and the
+        rtyper key their built-ins by object."""
+        return chr(i)
 xrange = getattr(builtins, 'xrange', range)
 basestring = getattr(builtins, 'basestring', (str, bytes))
 buffer = getattr(builtins, 'buffer', memoryview)
