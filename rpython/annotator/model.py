@@ -552,7 +552,7 @@ class SomePBC(SomeObject):
                         "RPython that are different underlying functions")
 
     def any_description(self):
-        return iter(self.descriptions).next()
+        return next(iter(self.descriptions))
 
     def getKind(self):
         "Return the common Desc class of all descriptions in this PBC."

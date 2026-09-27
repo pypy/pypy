@@ -42,7 +42,7 @@ def parse_file(f, callback):
             new = LifeTime(typeid, address, size, varsize, current)
             unknown_lifetime[address] = new
             current += size
-    for unknown in unknown_lifetime.itervalues():
+    for unknown in unknown_lifetime.values():
         unknown.death = current
         callback(unknown)
 

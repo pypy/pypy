@@ -203,7 +203,7 @@ class FunctionReprBase(Repr):
         descs = list(s_pbc.descriptions)
         shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
-        anygraph = row_of_graphs.itervalues().next()  # pick any witness
+        anygraph = next(iter(row_of_graphs.values()))  # pick any witness
         vfn = hop.inputarg(self, arg=0)
         vlist = [self.convert_to_concrete_llfn(vfn, shape, index,
                                                hop.llops)]
@@ -484,7 +484,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
 
     def _invent_dispatcher_name(self, row):
         import os
-        names = [value.name.rsplit(".", 1)[-1] for value in row.itervalues()]
+        names = [value.name.rsplit(".", 1)[-1] for value in row.values()]
         commonprefix = os.path.commonprefix(names) # bit silly, but works well
 
         if not commonprefix:
@@ -498,7 +498,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         descs = list(s_pbc.descriptions)
         shape, index = self.callfamily.find_row(bk, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
-        anygraph = row_of_graphs.itervalues().next()  # pick any witness
+        anygraph = next(iter(row_of_graphs.values()))  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]
         vlist += callparse.callparse(self.rtyper, anygraph, hop)
         rresult = callparse.getrresult(self.rtyper, anygraph)

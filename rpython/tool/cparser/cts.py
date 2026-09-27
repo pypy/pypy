@@ -169,7 +169,7 @@ class CTypeSpace(object):
             include_dirs=self.include_dirs)
 
     def configure_types(self):
-        for name, (obj, quals) in self.ctx._declarations.iteritems():
+        for name, (obj, quals) in self.ctx._declarations.items():
             if obj in self.ctx._included_declarations:
                 continue
             if name in self._handled:

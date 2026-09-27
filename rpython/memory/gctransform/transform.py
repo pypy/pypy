@@ -247,9 +247,9 @@ class BaseGCTransformer(object):
             e.args = ('[function %s]: %s' % (graph.name, e.message),)
             raise
 
-        for link, livecounts in self.links_to_split.iteritems():
+        for link, livecounts in self.links_to_split.items():
             llops = LowLevelOpList()
-            for var, livecount in livecounts.iteritems():
+            for var, livecount in livecounts.items():
                 for i in range(livecount):
                     self.pop_alive(var, llops)
                 for i in range(-livecount):

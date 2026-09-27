@@ -251,7 +251,7 @@ class InteriorPtrRepr(Repr):
         if None in self.v_offsets:
             INTERIOR_TYPE = v_self.concretetype.TO
             nameiter = iter(INTERIOR_TYPE._names)
-            name = nameiter.next()
+            name = next(nameiter)
             vlist.append(
                 hop.genop('getfield',
                           [v_self, flowmodel.Constant(name, lltype.Void)],
@@ -260,7 +260,7 @@ class InteriorPtrRepr(Repr):
             vlist.append(v_self)
         for v_offset in self.v_offsets:
             if v_offset is None:
-                name = nameiter.next()
+                name = next(nameiter)
                 vlist.append(
                     hop.genop('getfield',
                               [v_self, flowmodel.Constant(name, lltype.Void)],
@@ -269,7 +269,7 @@ class InteriorPtrRepr(Repr):
                 vlist.append(v_offset)
         if None in self.v_offsets:
             try:
-                nameiter.next()
+                next(nameiter)
             except StopIteration:
                 pass
             else:
