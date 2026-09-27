@@ -8,6 +8,7 @@ from rpython.memory.support import get_address_stack, get_address_deque
 from rpython.memory.support import AddressDict, null_address_dict
 from rpython.memory.gc.hook import GcHooks
 from rpython.rtyper.lltypesystem.llmemory import NULL, raw_malloc_usage
+from rpython.tool.twothree import get_function
 from rpython.rtyper.annlowlevel import cast_adr_to_nongc_instance
 
 TYPEID_MAP = lltype.GcStruct('TYPEID_MAP', ('count', lltype.Signed),
@@ -595,7 +596,7 @@ def choose_gc_from_config(config):
     return GCClass, GCClass.TRANSLATION_PARAMS
 
 def _convert_callback_formats(callback):
-    callback = getattr(callback, 'im_func', callback)
+    callback = get_function(callback)
     if callback not in _converted_callback_formats:
         def callback2(gc, root):
             obj = root.address[0]

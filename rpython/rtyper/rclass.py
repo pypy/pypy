@@ -780,7 +780,7 @@ class InstanceRepr(Repr):
         if value is None:
             return self.null_instance()
         if isinstance(value, types.MethodType):
-            value = value.im_self   # bound method -> instance
+            value = value.__self__   # bound method -> instance
         bk = self.rtyper.annotator.bookkeeper
         try:
             classdef = bk.getuniqueclassdef(value.__class__)

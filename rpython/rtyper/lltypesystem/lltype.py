@@ -1543,7 +1543,7 @@ class SomePtr(SomeObject):
             return ll_to_annotation(v)
         else:
             if isinstance(v, MethodType):
-                ll_ptrtype = typeOf(v.im_self)
+                ll_ptrtype = typeOf(v.__self__)
                 assert isinstance(ll_ptrtype, (Ptr, InteriorPtr))
                 return SomeLLADTMeth(ll_ptrtype, get_function(v))
             return immutablevalue(v)

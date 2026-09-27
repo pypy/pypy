@@ -115,6 +115,16 @@ def get_function(method):
     return getattr(method, '__func__', method)
 
 
+def get_class(method):
+    """The class a bound method was looked up on: 'method.im_class' on
+    Python 2.  Python 3 does not record it; there it is the class of the
+    method's __self__."""
+    try:
+        return method.im_class
+    except AttributeError:
+        return type(method.__self__)
+
+
 if hasattr(inspect, 'getfullargspec'):
     def getargspec(func):
         """inspect.getargspec(), which Python 3.11 removed: the

@@ -288,7 +288,7 @@ class FunctionsPBCRepr(CanBeNull, FunctionReprBase):
         return result
 
     def convert_const(self, value):
-        if isinstance(value, types.MethodType) and value.im_self is None:
+        if isinstance(value, types.MethodType) and value.__self__ is None:
             value = get_function(value)  # unbound method -> bare function
         elif isinstance(value, staticmethod):
             value = value.__get__(42)  # hackish, get the function wrapped by staticmethod
@@ -434,7 +434,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         return chr(self.descriptions.index(funcdesc))
 
     def convert_const(self, value):
-        if isinstance(value, types.MethodType) and value.im_self is None:
+        if isinstance(value, types.MethodType) and value.__self__ is None:
             value = get_function(value)   # unbound method -> bare function
         if value is None:
             assert self.descriptions[0] is None
@@ -916,7 +916,7 @@ class MethodOfFrozenPBCRepr(Repr):
         hop2.args_r[0] = self.r_im_self   # (same lowleveltype as 'self')
         if isinstance(hop2.args_v[0], Constant):
             boundmethod = hop2.args_v[0].value
-            hop2.args_v[0] = Constant(boundmethod.im_self)
+            hop2.args_v[0] = Constant(boundmethod.__self__)
         if call_args:
             hop2.swap_fst_snd_args()
             _, s_shape = hop2.r_s_popfirstarg() # temporarely remove shape
@@ -1178,9 +1178,9 @@ class MethodsPBCRepr(Repr):
     def convert_const(self, method):
         if method is None:
             return nullptr(self.lowleveltype.TO)
-        if getattr(method, 'im_func', None) is None:
+        if getattr(method, '__func__', None) is None:
             raise TyperError("not a bound method: %r" % method)
-        return self.r_im_self.convert_const(method.im_self)
+        return self.r_im_self.convert_const(method.__self__)
 
     def get_r_implfunc(self):
         r_class = self.r_im_self.rclass

@@ -13,7 +13,7 @@ from rpython.annotator.model import (
     SomeString, SomeImpossibleValue, SomeList, HarmlesslyBlocked)
 from rpython.annotator.description import (
     Desc, FunctionDesc, MethodDesc, NODEFAULT)
-from rpython.tool.twothree import basestring
+from rpython.tool.twothree import basestring, get_function
 
 
 # The main purpose of a ClassDef is to collect information about class/instance
@@ -629,7 +629,7 @@ class ClassDesc(Desc):
             # pretend that built-in exceptions have no __init__,
             # unless explicitly specified in builtin.py
             from rpython.annotator.builtin import BUILTIN_ANALYZERS
-            value = getattr(value, 'im_func', value)
+            value = get_function(value)
             if value not in BUILTIN_ANALYZERS:
                 return
         self.classdict[name] = Constant(value)

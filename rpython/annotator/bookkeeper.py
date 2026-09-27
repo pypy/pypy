@@ -27,7 +27,7 @@ from rpython.annotator.specialize import memo
 from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
-from rpython.tool.twothree import ClassType, get_function, long, unicode
+from rpython.tool.twothree import ClassType, get_class, get_function, long, unicode
 
 
 BUILTIN_ANALYZERS = {}
@@ -216,9 +216,8 @@ class Bookkeeper(object):
         """The most precise SomeValue instance that contains the
         immutable value x."""
         # convert unbound methods to the underlying function
-        if hasattr(x, 'im_self') and x.im_self is None:
-            x = get_function(x)
-            assert not hasattr(x, 'im_self')
+        if isinstance(x, types.MethodType) and x.__self__ is None:
+            x = get_function(x)       # Python 2 only
         tp = type(x)
         if issubclass(tp, Symbolic): # symbolic constants support
             result = x.annotation()
@@ -316,10 +315,10 @@ class Bookkeeper(object):
         elif tp is type:
             result = SomeConstantType(x, self)
         elif callable(x):
-            if hasattr(x, 'im_self') and hasattr(x, 'im_func'):
+            if isinstance(x, types.MethodType):
                 # on top of PyPy, for cases like 'l.append' where 'l' is a
                 # global constant list, the find_method() returns non-None
-                s_self = self.immutablevalue(x.im_self)
+                s_self = self.immutablevalue(x.__self__)
                 result = s_self.find_method(get_function(x).__name__)
             elif hasattr(x, '__self__') and x.__self__ is not None:
                 # for cases like 'l.append' where 'l' is a global constant list
@@ -373,21 +372,21 @@ class Bookkeeper(object):
                 else:
                     result = ClassDesc(self, pyobj)
             elif isinstance(pyobj, types.MethodType):
-                if pyobj.im_self is None:   # unbound
+                if pyobj.__self__ is None:   # unbound, Python 2 only
                     return self.getdesc(get_function(pyobj))
-                if hasattr(pyobj.im_self, '_cleanup_'):
-                    pyobj.im_self._cleanup_()
-                if hasattr(pyobj.im_self, '_freeze_'):  # method of frozen
-                    assert pyobj.im_self._freeze_() is True
+                if hasattr(pyobj.__self__, '_cleanup_'):
+                    pyobj.__self__._cleanup_()
+                if hasattr(pyobj.__self__, '_freeze_'):  # method of frozen
+                    assert pyobj.__self__._freeze_() is True
                     result = description.MethodOfFrozenDesc(self,
                         self.getdesc(get_function(pyobj)),            # funcdesc
-                        self.getdesc(pyobj.im_self))            # frozendesc
+                        self.getdesc(pyobj.__self__))            # frozendesc
                 else: # regular method
                     origincls, name = origin_of_meth(pyobj)
-                    classdef = self.getuniqueclassdef(pyobj.im_class)
-                    classdef.see_instance(pyobj.im_self)
-                    assert pyobj == getattr(pyobj.im_self, name), (
-                        "%r is not %s.%s ??" % (pyobj, pyobj.im_self, name))
+                    classdef = self.getuniqueclassdef(get_class(pyobj))
+                    classdef.see_instance(pyobj.__self__)
+                    assert pyobj == getattr(pyobj.__self__, name), (
+                        "%r is not %s.%s ??" % (pyobj, pyobj.__self__, name))
                     # emulate a getattr to make sure it's on the classdef
                     classdef.find_attribute(name)
                     result = self.getmethoddesc(
@@ -583,7 +582,7 @@ class Bookkeeper(object):
 def origin_of_meth(boundmeth):
     func = get_function(boundmeth)
     candname = func.__name__
-    for cls in inspect.getmro(boundmeth.im_class):
+    for cls in inspect.getmro(get_class(boundmeth)):
         dict = cls.__dict__
         if dict.get(candname) is func:
             return cls, candname
