@@ -96,9 +96,48 @@ int vmp_write_time_now(int marker) {
     vmp_write_all(buffer, __SIZE);
     return 0;
 }
+
+#if defined(VMPROF_APPLE) && !defined(CLOCK_MONOTONIC)
+/* SDK older than macOS 10.12: no clock_gettime.  mach_absolute_time is a
+   monotonic clock; there is no signal-safe process cpu clock, so both
+   modes use it (it is what setitimer(ITIMER_REAL) measures anyway). */
+#include <mach/mach_time.h>
+int64_t vmp_sample_time_ns(int cpu_time)
+{
+    mach_timebase_info_data_t tb;
+    uint64_t t = mach_absolute_time();
+    (void)cpu_time;
+    if (mach_timebase_info(&tb) != KERN_SUCCESS || tb.denom == 0)
+        return (int64_t)t;
+    return (int64_t)(t / tb.denom * tb.numer + t % tb.denom * tb.numer / tb.denom);
+}
+#else
+int64_t vmp_sample_time_ns(int cpu_time)
+{
+    struct timespec ts;
+    clockid_t clk = cpu_time ? CLOCK_PROCESS_CPUTIME_ID : CLOCK_MONOTONIC;
+    if (clock_gettime(clk, &ts) != 0)
+        return 0;
+    return (int64_t)ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+#endif
 #endif
 
 #ifdef VMPROF_WINDOWS
+int64_t vmp_sample_time_ns(int cpu_time)
+{
+    /* the frequency is fixed at boot, so it is safe to cache it */
+    static LARGE_INTEGER freq;
+    LARGE_INTEGER now;
+    (void)cpu_time;
+    if (freq.QuadPart == 0 && !QueryPerformanceFrequency(&freq))
+        return 0;
+    if (!QueryPerformanceCounter(&now))
+        return 0;
+    return (int64_t)(now.QuadPart / freq.QuadPart * 1000000000LL +
+                     now.QuadPart % freq.QuadPart * 1000000000LL / freq.QuadPart);
+}
+
 int vmp_write_time_now(int marker) {
     char buffer[__SIZE];
     struct timezone_buf buf;
