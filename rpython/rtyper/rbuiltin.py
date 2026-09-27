@@ -55,7 +55,7 @@ def call_args_expand(hop):
     from rpython.annotator.argument import ArgumentsForTranslation
     arguments = ArgumentsForTranslation.fromshape(
             hop.args_s[1].const, # shape
-            range(hop.nb_args-2))
+            list(range(hop.nb_args-2)))
     assert arguments.w_stararg is None
     keywords = arguments.keywords
     # prefix keyword arguments with 'i_'
@@ -155,7 +155,7 @@ class __extend__(pairtype(BuiltinMethodRepr, BuiltinMethodRepr)):
 def parse_kwds(hop, *argspec_i_r):
     lst = [i for (i, r) in argspec_i_r if i is not None]
     lst.sort()
-    if lst != range(hop.nb_args - len(lst), hop.nb_args):
+    if lst != list(range(hop.nb_args - len(lst), hop.nb_args)):
         raise TyperError("keyword args are expected to be at the end of "
                          "the 'hop' arg list")
     result = []

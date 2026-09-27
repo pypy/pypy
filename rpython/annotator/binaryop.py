@@ -767,7 +767,7 @@ class __extend__(pairtype(SomeInstance, SomeInstance)):
         flags = ins1.flags
         if flags:
             flags = flags.copy()
-            for key, value in flags.items():
+            for key, value in list(flags.items()):
                 if key not in ins2.flags or ins2.flags[key] != value:
                     del flags[key]
         return SomeInstance(basedef,

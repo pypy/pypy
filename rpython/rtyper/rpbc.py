@@ -596,7 +596,7 @@ def conversion_table(r_from, r_to):
                 t[i] = chr(j)
             else:
                 l.append(None)
-        if l == range(len(r_from.descriptions)):
+        if l == list(range(len(r_from.descriptions))):
             r = None
         else:
             r = inputconst(typeOf(t), t)

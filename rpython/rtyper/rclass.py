@@ -1119,14 +1119,15 @@ def attr_reverse_size(args):
     # "likely size", as reported by rffi.sizeof(), to minimize padding
     # holes in C.  Fields should first be sorted by name, just to minimize
     # randomness, and then (stably) sorted by 'attr_reverse_size'.
+    # the fields of unknown size go first, as None sorted first on Python 2
     _, T = args
     if T is lltype.Void:
-        return None
+        return (0, 0)
     from rpython.rtyper.lltypesystem.rffi import sizeof
     try:
-        return -sizeof(T)
-    except StandardError:
-        return None
+        return (1, -sizeof(T))
+    except Exception:
+        return (0, 0)
 
 # ____________________________________________________________
 #

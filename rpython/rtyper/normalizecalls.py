@@ -103,12 +103,12 @@ def normalize_calltable_row_signature(annotator, shape, row):
         assert not varargname, "XXX not implemented"
         assert not kwargname, "XXX not implemented" # ?
         inputargs_s = [annotator.binding(v) for v in graph.getargs()]
-        argorder = range(shape_cnt)
+        argorder = list(range(shape_cnt))
         for key in shape_keys:
             i = list(argnames).index(key)
             assert i not in argorder
             argorder.append(i)
-        need_reordering = (argorder != range(call_nbargs))
+        need_reordering = (argorder != list(range(call_nbargs)))
         if need_reordering or len(graph.getargs()) != call_nbargs:
             oldblock = graph.startblock
             inlist = []

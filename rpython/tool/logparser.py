@@ -324,7 +324,7 @@ def get_timesummary_single_image(totaltimes, totaltime0, componentdict,
     # subkeys in totaltimes and adding them to the superkeys specified
     # in componentdict.
     totaltimes = totaltimes.copy()
-    for key, value in totaltimes.items():
+    for key, value in list(totaltimes.items()):
         if key in componentdict:
             continue
         del totaltimes[key]

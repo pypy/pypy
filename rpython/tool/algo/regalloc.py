@@ -136,7 +136,7 @@ class RegAllocator(object):
             return False
 
     def swapcolors(self, col1, col2):
-        for key, value in self._coloring.items():
+        for key, value in list(self._coloring.items()):
             if value == col1:
                 self._coloring[key] = col2
             elif value == col2:

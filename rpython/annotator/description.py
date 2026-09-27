@@ -487,7 +487,7 @@ class MethodDesc(Desc):
         # only keep the intersection of all the flags, that's good enough
         lst = list(descs)
         commonflags = lst[0].flags.copy()
-        for key, value in commonflags.items():
+        for key, value in list(commonflags.items()):
             for desc in lst[1:]:
                 if key not in desc.flags or desc.flags[key] != value:
                     del commonflags[key]

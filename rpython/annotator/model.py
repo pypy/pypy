@@ -237,7 +237,7 @@ class SomeBool(SomeInteger):
 
     def set_knowntypedata(self, knowntypedata):
         assert not hasattr(self, 'knowntypedata')
-        for key, value in knowntypedata.items():
+        for key, value in list(knowntypedata.items()):
             if not value:
                 del knowntypedata[key]
         if knowntypedata:

@@ -61,7 +61,7 @@ class RPythonAnnotator(object):
         attrs = """translator genpendingblocks annotated links_followed
         notify bookkeeper frozen policy added_blocks""".split()
         ret = self.__dict__.copy()
-        for key, value in ret.items():
+        for key, value in list(ret.items()):
             if key not in attrs:
                 assert type(value) is dict, (
                     "%r is not dict. please update %s.__getstate__" %
@@ -246,7 +246,7 @@ class RPythonAnnotator(object):
             raise annmodel.AnnotatorError(text)
 
         if got_blocked_blocks:
-            for graph in self.blocked_graphs.values():
+            for graph in list(self.blocked_graphs.values()):
                 self.blocked_graphs[graph] = True
 
             blocked_blocks = [block for block, done in self.annotated.items()

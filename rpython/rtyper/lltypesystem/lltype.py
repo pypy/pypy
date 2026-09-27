@@ -2046,7 +2046,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         raise NotImplementedError('_subarray._getid()')
 
     def _cleanup_cache():
-        for T, d in _subarray._cache.items():
+        for T, d in list(_subarray._cache.items()):
             newcache = weakref.WeakKeyDictionary()
             for key, value in d.items():
                 try:
