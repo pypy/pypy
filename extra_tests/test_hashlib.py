@@ -36,4 +36,17 @@ def test_hmac_digest_itemsize():
     assert hmac.digest(b'key', msg, 'sha256') == \
            hmac.digest(b'key', msg.tobytes(), 'sha256')
 
+def test_hmac_new_itemsize():
+    # like issue 5544: the length is in bytes, not in items
+    import array
+    import hmac
+    msg = array.array('i', [1, 2])
+    assert hmac.new(b'key', msg, 'sha256').digest() == \
+           hmac.digest(b'key', msg.tobytes(), 'sha256')
 
+def test_hmac_new_releases_buffers():
+    # like issue 5589: the msg buffer must be released once hashed
+    import hmac
+    msg = bytearray(b'msg')
+    hmac.new(b'key', msg, 'sha256')
+    msg.extend(b'more')
