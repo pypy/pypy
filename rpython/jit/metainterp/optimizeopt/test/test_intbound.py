@@ -12,6 +12,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
 from rpython.jit.metainterp.optimizeopt.info import (INFO_NONNULL,
      INFO_UNKNOWN, INFO_NULL)
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
+from rpython.tool.twothree import is_long
 from rpython.jit.metainterp.optimize import InvalidLoop
 
 from hypothesis import given, strategies, example, seed, assume
@@ -28,7 +29,7 @@ special_values_set = (
 )
 
 special_values = strategies.sampled_from(
-    [int(v) for v in special_values_set if type(int(v)) is int])
+    [int(v) for v in special_values_set if not is_long(int(v))])
 
 pos_special_values_set = (
     list(range(0, 100)) +
@@ -38,7 +39,7 @@ pos_special_values_set = (
     [2 ** i + 1 for i in range(1, LONG_BIT)])
 
 pos_special_values = strategies.sampled_from(
-    [int(v) for v in pos_special_values_set if type(int(v)) is int])
+    [int(v) for v in pos_special_values_set if not is_long(int(v))])
 
 pos_relatively_small_values = strategies.sampled_from(
     [int(v) for v in range(0, 128)])

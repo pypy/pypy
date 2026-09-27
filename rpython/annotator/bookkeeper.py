@@ -226,15 +226,17 @@ class Bookkeeper(object):
             return result
         if tp is bool:
             result = SomeBool()
-        elif tp is int:
-            result = SomeInteger(nonneg = x>=0)
         elif tp is long:
+            # first: on Python 3 long is int, and only the range check
+            # tells an int from what Python 2 made a long
             if -sys.maxsize-1 <= x <= sys.maxsize:
                 x = int(x)
                 result = SomeInteger(nonneg = x>=0)
             else:
                 # XXX: better error reporting?
                 raise ValueError("seeing a prebuilt long (value %s)" % hex(x))
+        elif tp is int:
+            result = SomeInteger(nonneg = x>=0)
         elif issubclass(tp, str): # py.lib uses annotated str subclasses
             no_nul = not '\x00' in x
             if len(x) == 1:

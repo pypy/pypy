@@ -145,6 +145,15 @@ def get_function(method):
     return getattr(method, '__func__', method)
 
 
+def is_long(x):
+    """Whether x is a long of Python 2.  Python 3 has no separate long;
+    there an int outside the range of a machine word, which Python 2 would
+    have made a long, counts as one."""
+    if long is not int:
+        return type(x) is long
+    return type(x) is int and not -sys.maxsize - 1 <= x <= sys.maxsize
+
+
 def is_builtin_type(cls):
     """Whether cls is a built-in type other than an exception class.
 

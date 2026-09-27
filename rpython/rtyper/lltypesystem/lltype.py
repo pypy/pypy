@@ -814,9 +814,10 @@ def typeOf(val):
             raise UninitializedMemoryAccess("typeOf uninitialized value")
         if tp is NoneType:
             return Void   # maybe
-        if tp is int:
+        if tp is int and int is not long:
             return Signed
         if tp is long:
+            # on Python 3 long is int, and only the range tells them apart
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
