@@ -412,8 +412,45 @@ class AppTestPyBuffer(AppTestCpythonExtensionBase):
             if (PyBuffer_FillInfo(&info, NULL, NULL, 1, 1, PyBUF_FULL_RO) < 0)
                 return NULL;
             return PyMemoryView_FromBuffer(&info);
+             """),
+            ('freed_shape', 'METH_NOARGS', """
+            /* like pybind11's memoryview::from_buffer, the shape and strides
+               handed to PyMemoryView_FromBuffer do not outlive the call */
+            static short data[] = {3, 1, 4, 1, 5};
+            static char fmt[] = "h";
+            Py_buffer info;
+            PyObject *ret;
+            Py_ssize_t *shape = (Py_ssize_t *)malloc(sizeof(Py_ssize_t));
+            Py_ssize_t *strides = (Py_ssize_t *)malloc(sizeof(Py_ssize_t));
+            if (shape == NULL || strides == NULL) {
+                free(shape);
+                free(strides);
+                return PyErr_NoMemory();
+            }
+            shape[0] = 5;
+            strides[0] = sizeof(short);
+            memset(&info, 0, sizeof(info));
+            info.buf = (void *)data;
+            info.len = sizeof(data);
+            info.itemsize = sizeof(short);
+            info.readonly = 1;
+            info.ndim = 1;
+            info.format = fmt;
+            info.shape = shape;
+            info.strides = strides;
+            ret = PyMemoryView_FromBuffer(&info);
+            memset(shape, 0xff, sizeof(Py_ssize_t));
+            memset(strides, 0xff, sizeof(Py_ssize_t));
+            free(shape);
+            free(strides);
+            return ret;
              """)])
         raises(ValueError, module.new)
+        mv = module.freed_shape()
+        assert mv.format == 'h'
+        assert mv.shape == (5,)
+        assert mv.strides == (2,)
+        assert mv.tolist() == [3, 1, 4, 1, 5]
 
     def test_release_before_dealloc(self):
         module = self.import_extension("foo", [

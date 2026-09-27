@@ -231,6 +231,11 @@ def PyMemoryView_FromBuffer(space, view):
     if not view.c_buf:
         raise oefmt(space.w_ValueError,
             "PyMemoryView_FromBuffer(): info->buf must not be NULL")
+    ndim = widen(view.c_ndim)
+    if ndim > PyBUF_MAX_NDIM:
+        raise oefmt(space.w_ValueError,
+            "memoryview: number of dimensions must not exceed %d",
+            PyBUF_MAX_NDIM)
 
     # XXX this should allocate a PyMemoryViewObject and
     # copy view into obj.c_view, without creating a new view.c_obj
@@ -247,20 +252,20 @@ def PyMemoryView_FromBuffer(space, view):
     mview.c_readonly = view.c_readonly
     mview.c_ndim = view.c_ndim
     mview.c_format = view.c_format
-    if view.c_strides == rffi.cast(Py_ssize_tP, view.c__strides):
-        py_mem.c_view.c_strides = rffi.cast(Py_ssize_tP, py_mem.c_view.c__strides)
-        for i in range(view.c_ndim):
-            py_mem.c_view.c_strides[i] = view.c_strides[i]
+    # copy into the inline arrays, like CPython: the caller's shape and
+    # strides need not outlive the call
+    if view.c_strides:
+        mview.c_strides = rffi.cast(Py_ssize_tP, py_mem.c_view.c__strides)
+        for i in range(ndim):
+            mview.c_strides[i] = view.c_strides[i]
     else:
-        # some externally allocated memory chunk
-        py_mem.c_view.c_strides = view.c_strides
-    if view.c_shape == rffi.cast(Py_ssize_tP, view.c__shape):
-        py_mem.c_view.c_shape = rffi.cast(Py_ssize_tP, py_mem.c_view.c__shape)
-        for i in range(view.c_ndim):
-            py_mem.c_view.c_shape[i] = view.c_shape[i]
+        mview.c_strides = lltype.nullptr(Py_ssize_tP.TO)
+    if view.c_shape:
+        mview.c_shape = rffi.cast(Py_ssize_tP, py_mem.c_view.c__shape)
+        for i in range(ndim):
+            mview.c_shape[i] = view.c_shape[i]
     else:
-        # some externally allocated memory chunk
-        py_mem.c_view.c_shape = view.c_shape
+        mview.c_shape = lltype.nullptr(Py_ssize_tP.TO)
     # XXX ignore suboffsets?
     return py_obj
 
