@@ -444,12 +444,14 @@ class StorageGraph(object):
         for node in collapsed_nodes:
             for edge in node.incoming:
                 edge.origin.outgoing.remove(edge)
-                new_edges = filter(lambda filtered: filtered.origin == edge.origin, new_node.incoming)
+                new_edges = [filtered for filtered in new_node.incoming
+                             if filtered.origin == edge.origin]
                 assert len(new_edges) == 1
                 edge.origin.outgoing.add(new_edges[0])
             for edge in node.outgoing:
                 edge.target.incoming.remove(edge)
-                new_edges = filter(lambda filtered: filtered.target == edge.target, new_node.outgoing)
+                new_edges = [filtered for filtered in new_node.outgoing
+                             if filtered.target == edge.target]
                 assert len(new_edges) == 1
                 edge.target.incoming.add(new_edges[0])
         for edge in new_node.incoming:
@@ -459,12 +461,11 @@ class StorageGraph(object):
         self.assert_sanity()
 
     def collapse_nonstorage_nodes(self, new_name=None):
-        nodes = filter(lambda x: not x.is_storage_node(), self.nodes.values())
+        nodes = [x for x in self.nodes.values() if not x.is_storage_node()]
         self.collapse_nodes(nodes, new_name)
 
     def sorted_nodes(self):
-        nodes = self.nodes.values()
-        nodes.sort()
+        nodes = sorted(self.nodes.values())
         return nodes
 
 def make_graph(logfile, flags):
@@ -519,8 +520,8 @@ def StorageEdge_print_with_name(self, prefix, edgename, total_reference, flags):
     if flags.classes:
         print("%s%s:" % (prefix, edgename))
         prefix += "\t\t"
-        operations = self.classes.classes.items()
-        operations.sort(reverse=True, key=operator.itemgetter(1))
+        operations = sorted(self.classes.classes.items(), reverse=True,
+                            key=operator.itemgetter(1))
     else:
         operations = [ (edgename, self.total()) ]
     for classname, classops in operations:
@@ -623,8 +624,7 @@ def dot_string(graph, flags):
 
 def command_aggregate(logfile, flags):
     graph = make_graph(logfile, flags)
-    edges = graph.edges.values()
-    edges.sort()
+    edges = sorted(graph.edges.values())
     for edge in edges:
         logentries = edge.as_log_entries()
         logentries.sort()

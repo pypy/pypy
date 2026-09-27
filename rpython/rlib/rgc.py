@@ -793,11 +793,11 @@ def get_rpy_referents(gcref):
     if isinstance(x, list):
         d = x
     elif isinstance(x, dict):
-        d = x.keys() + x.values()
+        d = list(x.keys()) + list(x.values())
     else:
         d = []
         if hasattr(x, '__dict__'):
-            d = x.__dict__.values()
+            d = list(x.__dict__.values())
         if hasattr(type(x), '__slots__'):
             for slot in type(x).__slots__:
                 try:

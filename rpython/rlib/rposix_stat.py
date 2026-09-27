@@ -299,7 +299,7 @@ def make_stat_result(tup):
         kwds['st_atime'] = tup[7] + 1e-9 * tup[-3]
         kwds['st_mtime'] = tup[8] + 1e-9 * tup[-2]
         kwds['st_ctime'] = tup[9] + 1e-9 * tup[-1]
-    for value, (name, TYPE) in zip(tup, STAT_FIELDS)[N_INDEXABLE_FIELDS:]:
+    for value, (name, TYPE) in list(zip(tup, STAT_FIELDS))[N_INDEXABLE_FIELDS:]:
         if name.startswith('nsec_'):
             continue   # ignore the nsec_Xtime here
         kwds[name] = lltype.cast_primitive(TYPE, value)

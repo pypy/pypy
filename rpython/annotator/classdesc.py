@@ -453,7 +453,7 @@ class InstanceSource(object):
         return s_value
 
     def all_instance_attributes(self):
-        result = getattr(self.obj, '__dict__', {}).keys()
+        result = list(getattr(self.obj, '__dict__', {}))
         tp = self.obj.__class__
         if isinstance(tp, type):
             for basetype in tp.__mro__:

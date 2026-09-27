@@ -44,7 +44,7 @@ def normalize_calltable(annotator, callfamily):
 
 def raise_call_table_too_complex_error(callfamily, annotator):
     msg = []
-    items = callfamily.calltables.items()
+    items = list(callfamily.calltables.items())
     for i, (shape1, table1) in enumerate(items):
         for shape2, table2 in items[i + 1:]:
             if shape1 == shape2:
@@ -77,7 +77,7 @@ def raise_call_table_too_complex_error(callfamily, annotator):
     raise TyperError("\n".join(msg))
 
 def normalize_calltable_row_signature(annotator, shape, row):
-    graphs = row.values()
+    graphs = list(row.values())
     assert graphs, "no graph??"
     sig0 = graphs[0].signature
     defaults0 = graphs[0].defaults
@@ -244,7 +244,7 @@ def create_class_constructors(annotator):
     for family in call_families.infos():
         if len(family.descs) <= 1:
             continue
-        descs = family.descs.keys()
+        descs = list(family.descs)
         if not isinstance(descs[0], ClassDesc):
             continue
         # Note that if classes are in the same callfamily, their __init__

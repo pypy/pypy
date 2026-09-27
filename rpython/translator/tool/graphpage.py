@@ -354,7 +354,7 @@ class LocalizedCallGraphPage(BaseTranslatorPage):
             if g1 in graphs and g2 in graphs:
                 dotgen.emit_edge(nameof(g1), nameof(g2))
 
-        graphs = graphs.keys()
+        graphs = list(graphs)
 
         # show the call graph
         blocked_graphs = self.get_blocked_graphs(graphs)

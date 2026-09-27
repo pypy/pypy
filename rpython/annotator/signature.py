@@ -20,7 +20,7 @@ def _annotation_key(t):
         return ('list', _annotation_key(t[0]))
     elif isinstance(t, dict):
         assert len(t.keys()) == 1
-        return ('dict', _annotation_key(t.items()[0]))
+        return ('dict', _annotation_key(list(t.items())[0]))
     elif isinstance(t, tuple):
         return tuple([_annotation_key(i) for i in t])
     elif extregistry.is_registered(t):
@@ -68,7 +68,8 @@ def _compute_annotation(t, bookkeeper=None):
     elif isinstance(t, dict):
         return SomeDict(
                 DictDef(bookkeeper,
-                        annotation(t.keys()[0]), annotation(t.values()[0])))
+                        annotation(list(t.keys())[0]),
+                        annotation(list(t.values())[0])))
     elif type(t) is type(None):
         return s_None
     elif extregistry.is_registered(t):
