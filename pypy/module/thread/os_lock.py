@@ -66,8 +66,10 @@ class Lock(W_Root):
     # allocated lazily by _get_lock(): a Lock that is only constructed but
     # never acquired holds no interp-level lock, so it can be created safely
     # at translation time (e.g. during the frozen importlib bootstrap) without
-    # freezing a prebuilt rthread.Lock.
-    _immutable_fields_ = ["lock?"]
+    # freezing a prebuilt rthread.Lock.  'lock' is deliberately not
+    # quasi-immutable: _get_lock() reads it before writing it, which would
+    # make the JIT abort every trace that acquires a fresh lock
+    # (ABORT_FORCE_QUASIIMMUT).
 
     def __init__(self, space):
         self.space = space
@@ -207,7 +209,6 @@ class W_RLock(W_Root):
     # see the comment on Lock: allocate the interp-level lock lazily so an
     # RLock constructed but never acquired (e.g. a module lock created during
     # the frozen importlib bootstrap) does not freeze a prebuilt rthread.Lock.
-    _immutable_fields_ = ["lock?"]
 
     def __init__(self, space):
         self.rlock_count = 0
