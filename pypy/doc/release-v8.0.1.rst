@@ -107,6 +107,7 @@ Python 3.11 and 3.12
   ``w_obj`` during deallocation
 - Any use of ``_ffi.from_buffer`` in lib_pypy needs to release the buffer (:issue:`5589`)
 - Fix ``HMAC_CTX`` leak in ``_hashlib.hmac_new`` (:issue:`5599`)
+- Make ``Lock`` and ``RLock`` 's 'lock' field mutable instead of quasi-immutable (:issue:`5602`)
 
 Python 3.12
 -----------
