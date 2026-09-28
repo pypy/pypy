@@ -131,7 +131,8 @@ class SomeWeakValueDict(annmodel.SomeObject):
         assert s_oldvalue.contains(s_value)
 
 class __extend__(pairtype(SomeWeakValueDict, SomeWeakValueDict)):
-    def union((s_wvd1, s_wvd2)):
+    def union(args):
+        s_wvd1, s_wvd2 = args
         if s_wvd1.valueclassdef is not s_wvd2.valueclassdef:
             raise UnionError(s_wvd1, s_wvd2, "not the same class!")
         s_key = annmodel.unionof(s_wvd1.s_key, s_wvd2.s_key)
@@ -196,7 +197,8 @@ class SomeWeakKeyDict(annmodel.SomeObject):
         return annmodel.SomeInteger(nonneg=True)
 
 class __extend__(pairtype(SomeWeakKeyDict, SomeWeakKeyDict)):
-    def union((s_wkd1, s_wkd2)):
+    def union(args):
+        s_wkd1, s_wkd2 = args
         if s_wkd1.keyclassdef is not s_wkd2.keyclassdef:
             raise UnionError(s_wkd1, s_wkd2, "not the same key class!")
         if s_wkd1.valueclassdef is not s_wkd2.valueclassdef:

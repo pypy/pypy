@@ -201,7 +201,8 @@ class SomeStatResult(annmodel.SomeObject):
 
 
 class __extend__(pairtype(SomeStatResult, annmodel.SomeInteger)):
-    def getitem((s_sta, s_int)):
+    def getitem(args):
+        s_sta, s_int = args
         assert s_int.is_constant(), "os.stat()[index]: index must be constant"
         index = s_int.const
         n_extra = len(STAT_FIELDS) - N_INDEXABLE_FIELDS
@@ -267,7 +268,8 @@ def _ll_get_st_ctime(tup):
 
 
 class __extend__(pairtype(StatResultRepr, IntegerRepr)):
-    def rtype_getitem((r_sta, r_int), hop):
+    def rtype_getitem(args, hop):
+        r_sta, r_int = args
         s_int = hop.args_s[1]
         index = s_int.const
         if index < 0:
@@ -337,7 +339,8 @@ class SomeStatvfsResult(annmodel.SomeObject):
 
 
 class __extend__(pairtype(SomeStatvfsResult, annmodel.SomeInteger)):
-    def getitem((s_stat, s_int)):
+    def getitem(args):
+        s_stat, s_int = args
         assert s_int.is_constant()
         name, TYPE = STATVFS_FIELDS[s_int.const]
         return lltype_to_annotation(TYPE)
@@ -381,7 +384,8 @@ class StatvfsResultRepr(Repr):
 
 
 class __extend__(pairtype(StatvfsResultRepr, IntegerRepr)):
-    def rtype_getitem((r_sta, r_int), hop):
+    def rtype_getitem(args, hop):
+        r_sta, r_int = args
         s_int = hop.args_s[1]
         index = s_int.const
         return r_sta.redispatch_getfield(hop, index)

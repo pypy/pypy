@@ -29,7 +29,7 @@ class TestStaticSizeReport(object):
         fixlist = [x for x in range(100)]
         dynlist = [x for x in range(100)]
         test_dict = dict(map(lambda x: (x, hex(x)), range(256, 4096)))
-        reverse_dict = dict(map(lambda (x,y): (y,x), test_dict.items()))
+        reverse_dict = dict((y, x) for (x, y) in test_dict.items())
         class wrap:
             pass
         for x in xrange(100):
