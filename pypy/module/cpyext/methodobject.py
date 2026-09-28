@@ -731,6 +731,7 @@ def _PyObject_FastCall(space, w_func, py_args, n):
 @cts.decl("PyObject *PyObject_VectorcallDict(PyObject *, PyObject *const *, "
           "size_t, PyObject *)")
 def PyObject_VectorcallDict(space, w_func, py_args, n, w_kwargs):
+    n = PyVectorcall_NARGS(n)
     w_args = argtuple_from_pyobject_array(space, py_args, n)
     w_result = space.call(w_func, w_args, w_kwargs)
     return w_result
