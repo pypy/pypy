@@ -4,7 +4,7 @@ PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
 
 
 ..
-  updated to 66e9c29e04c506aa1111b519adc7ac3912ffdc01
+  updated to 4f564267b310cc77a7e53037cb5a9d4bc79abe3e
 
 .. note::
    This is a pre-release announcement. When the release actually happens, it
@@ -190,6 +190,8 @@ For all versions
 - Expose unstable DAWG packing layouts, and stabilize DAWG offset encoding.
   Remove the unicodedata txt files, download them on demand. Regenerate all the
   unicodedbs with a new optimized DAWG, and add unicodedb 15.0.0 (:issue:`5581`)
+- Fix bitfield handling in cffi on macos
+- Backport cpython's ``_multibytecodec`` C code from 3.12.14
 
 Bugfixes
 ~~~~~~~~
@@ -251,12 +253,13 @@ Python 2.7
 - opt-out of ``_cppyy``, ``micronumpy``, for 8.0.0
 - Improve ``ctype.find_library`` like on python3
 
-Python 3.11
------------
+Python 3.11 and 3.12
+--------------------
 
 - Opt-out of ``_cppyy``, ``micronumpy``, ``_hpy_universal`` for 8.0.0
 - Update CFFI to v2.1.0
 - Update stdlib to 3.11.16 and vendored expat to 2.8.4
+- On portable builds, update lzma to 5.8.4
 
 Bugfixes including missing compatibility with CPython 3.11
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -317,6 +320,9 @@ Bugfixes including missing compatibility with CPython 3.11
 - Make ``_pickle.Unpickler.find_class`` available to app-level and check for
   overrides (:issue:`5583`)
 - Fix parser for incomplete single line input (:issue:`5505`)
+- Add ``_winapi.UnmapViewOfFile`` (:issue:`5361`)
+- Fix locale encode/decode on windows (``sizeof(wchar_t)`` is 2 not 4)
+- Get ``termios`` struct layouts from the compiler, fixes macos failures
 
 
 Speedups and enhancements

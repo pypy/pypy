@@ -1269,11 +1269,14 @@ def _ll_dictnext_reversed(iter):
     if dict:
         entries = dict.entries
         index = iter.index - 1
-        while index >= 0:
-            if entries.valid(index):
-                iter.index = index
-                return index
-            index = index - 1
+        # the dict may have been cleared and refilled since 'index' was
+        # computed, in which case it now points outside 'entries'
+        if index < dict.num_ever_used_items:
+            while index >= 0:
+                if entries.valid(index):
+                    iter.index = index
+                    return index
+                index = index - 1
         # clear the reference to the dict and prevent restarts
         iter.dict = lltype.nullptr(lltype.typeOf(iter).TO.dict.TO)
     raise StopIteration
