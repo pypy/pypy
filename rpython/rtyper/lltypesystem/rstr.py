@@ -776,9 +776,14 @@ class LLHelpers(AbstractLLHelpers):
         from rpython.rlib import rstring
         tp = typeOf(s1)
         if tp == string_repr.lowleveltype or tp == Char:
-            return rstring._search(hlstr(s1), hlstr(s2), start, end, mode)
+            value = hlstr(s1)
+            other = hlstr(s2)
         else:
-            return rstring._search(hlunicode(s1), hlunicode(s2), start, end, mode)
+            value = hlunicode(s1)
+            other = hlunicode(s2)
+        assert value is not None
+        assert other is not None
+        return rstring._search(value, other, start, end, mode)
 
     @staticmethod
     @signature(types.int(), types.any(), types.any(), returns=types.any())
