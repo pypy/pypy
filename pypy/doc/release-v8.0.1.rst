@@ -116,6 +116,7 @@ Python 3.12
 - cpyext: Refactor handling of out-of-band malloced objects with no room for a
   ``ob_pypy_link`` prefix
 - cpyext: When handling a memoryviewobject, copy strides/shape instead of aliasing them
+- cpyext: Implement PY_VECTORCALL_ARGUMENTS_OFFSET protocol in PyObject_VectorcallDict
 
 
 Speedups and enhancements
