@@ -77,8 +77,8 @@ def replace(self, kwds):
     for attr in ("co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
                  "co_nlocals", "co_stacksize", "co_flags", "co_code",
                  "co_consts", "co_names", "co_varnames", "co_filename",
-                 "co_name", "co_qualname", "co_firstlineno", "co_linetable", "co_freevars",
-                 "co_cellvars", "co_exceptiontable"):
+                 "co_name", "co_qualname", "co_firstlineno", "co_linetable",
+                 "co_exceptiontable", "co_freevars", "co_cellvars"):
         if attr not in kwds:
             args.append(getattr(self, attr))
         else:
@@ -376,7 +376,9 @@ class PyCode(eval.Code):
                     len(self.co_names_w) == len(w_other.co_names_w) and
                     self.co_varnames == w_other.co_varnames and
                     self.co_freevars == w_other.co_freevars and
-                    self.co_cellvars == w_other.co_cellvars)
+                    self.co_cellvars == w_other.co_cellvars and
+                    self.co_linetable == w_other.co_linetable and
+                    self.co_exceptiontable == w_other.co_exceptiontable)
         if not areEqual:
             return space.w_False
 
@@ -435,8 +437,9 @@ class PyCode(eval.Code):
                           nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
                           w_varnames, filename, name, qualname, firstlineno,
-                          linetable, w_freevars=None, w_cellvars=None,
-                          exceptiontable='', magic=default_magic):
+                          linetable, exceptiontable='',
+                          w_freevars=None, w_cellvars=None,
+                          magic=default_magic):
         if argcount < 0:
             raise oefmt(space.w_ValueError,
                         "code: argcount must not be negative")
@@ -454,6 +457,9 @@ class PyCode(eval.Code):
         consts_w = space.fixedview(w_constants)
         names = unpack_text_tuple(space, w_names)
         varnames = unpack_text_tuple(space, w_varnames)
+        if nlocals != len(varnames):
+            raise oefmt(space.w_ValueError,
+                        "code: co_nlocals != len(co_varnames)")
         if w_freevars is not None:
             freevars = unpack_text_tuple(space, w_freevars)
         else:
@@ -489,9 +495,9 @@ class PyCode(eval.Code):
             space.newtext(self.co_qualname),
             space.newint(self.co_firstlineno),
             space.newbytes(self.co_linetable),
+            space.newbytes(self.co_exceptiontable),
             space.newtuple([space.newtext(v) for v in self.co_freevars]),
             space.newtuple([space.newtext(v) for v in self.co_cellvars]),
-            space.newbytes(self.co_exceptiontable),
             space.newint(self.magic),
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
