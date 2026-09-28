@@ -33,11 +33,6 @@ def pytest_configure(config):
         config._resultlog = ResultLog(config, logfile)
         config.pluginmanager.register(config._resultlog)
 
-        from _pytest.deprecated import RESULT_LOG
-        from _pytest.warnings import _issue_config_warning
-
-        _issue_config_warning(RESULT_LOG, config)
-
 
 def pytest_unconfigure(config):
     resultlog = getattr(config, "_resultlog", None)
