@@ -100,6 +100,11 @@ For all versions
 - Fix translation when using CPython2.7 (:issue:`5586`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
 
+Python 3.11
+-----------
+
+- Change the order of arguments to CodeType() to match CPython and PyPy3.12 (:issue:`uqfoundation/dill#781`)
+
 Python 3.11 and 3.12
 --------------------
 
