@@ -2693,6 +2693,41 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 }
                 return PyObject_VectorcallDict(func, stack, nargs, kwargs);
              '''),
+            ("test_fastcalldict_offset", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args, *kwargs = NULL;
+                PyObject *buf[9];
+                PyObject **stack = buf + 1;
+                Py_ssize_t i, nargs;
+
+                if (!PyArg_ParseTuple(args, "OOO", &func, &func_args, &kwargs)) {
+                    return NULL;
+                }
+                if (!PyTuple_Check(func_args)) {
+                    PyErr_SetString(PyExc_TypeError, "args must be a tuple");
+                    return NULL;
+                }
+                nargs = PyTuple_GET_SIZE(func_args);
+                if (nargs > 8) {
+                    PyErr_SetString(PyExc_ValueError, "too many arguments");
+                    return NULL;
+                }
+                /* the offset flag promises stack[-1] is scratch space, so
+                   copy out of the tuple instead of pointing into it */
+                buf[0] = NULL;
+                for (i = 0; i < nargs; i++) {
+                    stack[i] = PyTuple_GET_ITEM(func_args, i);
+                }
+                if (kwargs == Py_None) {
+                    kwargs = NULL;
+                }
+                else if (!PyDict_Check(kwargs)) {
+                    PyErr_SetString(PyExc_TypeError, "kwargs must be None or a dict");
+                    return NULL;
+                }
+                return PyObject_VectorcallDict(func, stack,
+                        (size_t)nargs | PY_VECTORCALL_ARGUMENTS_OFFSET, kwargs);
+             '''),
             ],
             prologue="""
                 #include <stddef.h>
@@ -2941,6 +2976,15 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, 2), {})
         assert res == [1, 2]
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
+        assert res == [1, 2]
+
+        # PY_VECTORCALL_ARGUMENTS_OFFSET must be masked off nargsf, not
+        # counted as part of the argument count
+        res = module.test_fastcalldict_offset(pyfunc, (1, 2), None)
+        assert res == [1, 2]
+        res = module.test_fastcalldict_offset(pyfunc, (1, 2), {})
+        assert res == [1, 2]
+        res = module.test_fastcalldict_offset(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
     def test_vectorcall_flag_cascade_subclass(self):
