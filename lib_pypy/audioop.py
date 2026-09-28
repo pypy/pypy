@@ -422,7 +422,8 @@ def tostereo(cp, size, fac1, fac2):
     sample_count = _sample_count(cp, size)
 
     rv = ffi.new("char[]", len(cp) * 2)
-    lib.tostereo(rv, ffi.from_buffer(cp), len(cp), size, fac1, fac2)
+    with ffi.from_buffer(cp) as cpbuf:
+        lib.tostereo(rv, cpbuf, len(cp), size, fac1, fac2)
     return ffi.buffer(rv)[:]
 
 
@@ -433,7 +434,8 @@ def add(cp1, cp2, size):
         raise error("Lengths should be the same")
 
     rv = ffi.new("char[]", len(cp1))
-    lib.add(rv, ffi.from_buffer(cp1), ffi.from_buffer(cp2), len(cp1), size)
+    with ffi.from_buffer(cp1) as buf1, ffi.from_buffer(cp2) as buf2:
+        lib.add(rv, buf1, buf2, len(cp1), size)
     return ffi.buffer(rv)[:]
 
 
@@ -541,11 +543,11 @@ def ratecv(cp, size, nchannels, inrate, outrate, state, weightA=1, weightB=0):
     nbytes = ceiling * bytes_per_frame
 
     rv = ffi.new("char[]", nbytes)
-    cpbuf = ffi.from_buffer(cp)
-    trim_index = lib.ratecv(rv, cpbuf, frame_count, size,
-                            nchannels, inrate, outrate,
-                            state_d, prev_i, cur_i,
-                            weightA, weightB)
+    with ffi.from_buffer(cp) as cpbuf:
+        trim_index = lib.ratecv(rv, cpbuf, frame_count, size,
+                                nchannels, inrate, outrate,
+                                state_d, prev_i, cur_i,
+                                weightA, weightB)
     result = ffi.buffer(rv)[:trim_index]
     d = state_d[0]
     samps = zip(prev_i, cur_i)
@@ -617,8 +619,9 @@ def lin2adpcm(cp, size, state):
     state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) // size // 2)
     state_ptr = ffi.new("int[]", state)
-    cpbuf = ffi.cast("unsigned char*", ffi.from_buffer(cp))
-    lib.lin2adcpm(rv, cpbuf, len(cp), size, state_ptr)
+    with ffi.from_buffer(cp) as buf:
+        lib.lin2adcpm(rv, ffi.cast("unsigned char*", buf), len(cp), size,
+                      state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
 
@@ -627,8 +630,9 @@ def adpcm2lin(cp, size, state):
     state = _check_state(state)
     rv = ffi.new("unsigned char[]", len(cp) * size * 2)
     state_ptr = ffi.new("int[]", state)
-    cpbuf = ffi.cast("unsigned char*", ffi.from_buffer(cp))
-    lib.adcpm2lin(rv, cpbuf, len(cp), size, state_ptr)
+    with ffi.from_buffer(cp) as buf:
+        lib.adcpm2lin(rv, ffi.cast("unsigned char*", buf), len(cp), size,
+                      state_ptr)
     return ffi.buffer(rv)[:], tuple(state_ptr)
 
 def byteswap(cp, size):
