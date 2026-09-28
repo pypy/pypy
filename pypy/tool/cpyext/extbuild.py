@@ -21,6 +21,22 @@ if os.name != 'nt':
 else:
     so_ext = 'dll'
 
+def _native_str(s):
+    # py2 host: app-level snippets arrive as unicode and may hold non-ascii
+    # characters (a non-ascii filename in a string literal). The C source
+    # templates are byte strings, so mixing the two would use the ascii codec.
+    if not isinstance(s, str):
+        return s.encode('utf-8')
+    return s
+
+def _utf8(s):
+    """The bytes to hash or to write out, whichever string type the host uses.
+    """
+    s = _native_str(s)
+    if not isinstance(s, bytes):
+        s = s.encode('utf-8')
+    return s
+
 # Process-lifetime cache of compiled extension modules, keyed by a hash of
 # their source content and compile/link flags. Helps repeat compiles within
 # a single test and -A mode, which has no higher-level cache of its own.
@@ -29,15 +45,15 @@ _compiled_module_cache = {}
 def _compile_cache_key(modname, include_dirs, compile_extra, link_extra,
         libraries, source_files, source_strings):
     h = hashlib.sha256()
-    h.update(modname.encode('utf-8'))
+    h.update(_utf8(modname))
     include_dirs = sorted(str(d) for d in include_dirs)
     for part in (include_dirs, compile_extra or [], link_extra or [],
             libraries or []):
         for item in part:
-            h.update(str(item).encode('utf-8'))
+            h.update(_utf8(str(item)))
     if source_strings:
         for s in source_strings:
-            h.update(str(s).encode('utf-8'))
+            h.update(_utf8(s))
     else:
         for fname in source_files:
             with open(str(fname), 'rb') as f:
@@ -136,6 +152,8 @@ class SystemCompilationInfo(object):
 
     def import_extension(self, modname, functions, prologue="",
             include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
+        prologue = _native_str(prologue)
+        more_init = _native_str(more_init)
         body = prologue + make_methods(functions, modname)
         init = """PyObject *mod = PyModule_Create(&moduledef);
                """
@@ -165,10 +183,8 @@ def convert_sources_to_files(sources, dirname):
         # (e.g. a non-ascii filename in a string literal).  Text-mode write of
         # a unicode source encodes with the host's default codec, which is
         # ASCII on some buildbots (win, macos) and raises UnicodeEncodeError.
-        if not isinstance(source, bytes):
-            source = source.encode('utf-8')
         with filename.open('wb') as f:
-            f.write(source)
+            f.write(_utf8(source))
         files.append(filename)
     return files
 
@@ -176,7 +192,11 @@ def convert_sources_to_files(sources, dirname):
 def make_methods(functions, modname):
     methods_table = []
     codes = []
+    modname = _native_str(modname)
     for funcname, flags, code in functions:
+        funcname = _native_str(funcname)
+        flags = _native_str(flags)
+        code = _native_str(code)
         cfuncname = "%s_%s" % (modname, funcname)
         if 'METH_FASTCALL' in flags and 'METH_KEYWORDS' in flags:
             signature = ('(PyObject *self, PyObject *const *args, '
@@ -214,6 +234,9 @@ def make_methods(functions, modname):
     return body
 
 def make_source(name, init, body, PY_SSIZE_T_CLEAN):
+    name = _native_str(name)
+    init = _native_str(init)
+    body = _native_str(body)
     code = """
     %(PY_SSIZE_T_CLEAN)s
     #include <Python.h>
