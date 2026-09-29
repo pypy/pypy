@@ -208,6 +208,24 @@ class TestRDictDirect(object):
         assert ll_d.num_ever_used_items == 0
         assert ll_d.lookup_function_no == rordereddict.FUNC_BYTE   # reset
 
+    def test_reversed_iteration_after_clear(self):
+        # issue 5596: the stale index of a reversed iterator must not be
+        # used against the smaller entries array installed by clear()
+        DICT = self._get_int_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        for i in range(12):
+            rordereddict.ll_dict_setitem(ll_d, i, i)
+        ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
+        ll_iter = rordereddict.ll_dictiter_reversed(ITER, ll_d)
+        num = rordereddict._ll_dictnext_reversed(ll_iter)
+        assert ll_d.entries[num].key == 11
+        rordereddict.ll_dict_clear(ll_d)
+        for i in range(3):
+            rordereddict.ll_dict_setitem(ll_d, i, i)
+        assert len(ll_d.entries) < ll_iter.index
+        pytest.raises(StopIteration,
+                      rordereddict._ll_dictnext_reversed, ll_iter)
+
     def _get_int_dict(self):
         def eq(a, b):
             return a == b

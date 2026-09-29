@@ -309,7 +309,7 @@ class GraphFlattener(object):
                for i, v in enumerate(link.args)
                if v.concretetype is not lltype.Void and
                   v not in (link.last_exception, link.last_exc_value)]
-        lst.sort(key=lambda(v, w): w.index)
+        lst.sort(key=lambda vw: vw[1].index)
         for v, w in lst:
             if v == w:
                 continue

@@ -341,3 +341,37 @@ def test_closure_freevars_mismatch():
     with pytest.raises(ValueError) as e:
         f()()
     assert "closure" in str(e.value)
+
+def test_constructor_argument_order():
+    # CodeType's positional argument order must match CPython's:
+    # ..., linetable, exceptiontable, freevars=(), cellvars=()
+    def func():
+        try:
+            x = 1
+        except ValueError:
+            x = 2
+        return x
+    co = func.__code__
+    assert co.co_exceptiontable != b''
+    CodeType = type(co)
+    co2 = CodeType(co.co_argcount,
+                    co.co_posonlyargcount,
+                    co.co_kwonlyargcount,
+                    co.co_nlocals,
+                    co.co_stacksize,
+                    co.co_flags,
+                    co.co_code,
+                    co.co_consts,
+                    co.co_names,
+                    co.co_varnames,
+                    co.co_filename,
+                    co.co_name,
+                    co.co_qualname,
+                    co.co_firstlineno,
+                    co.co_linetable,
+                    co.co_exceptiontable,
+                    co.co_freevars,
+                    co.co_cellvars)
+    assert co2.co_freevars == co.co_freevars
+    assert co2.co_cellvars == co.co_cellvars
+    assert co2.co_exceptiontable == co.co_exceptiontable

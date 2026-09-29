@@ -967,6 +967,7 @@ class AppTestCurrentFramesWithThread:
 
     def test_current_frames(self):
         import sys
+        import time
         import _thread
         if sys.platform in ('darwin', 'win32'):
             skip('test can hang on macos and windows')
@@ -976,68 +977,85 @@ class AppTestCurrentFramesWithThread:
         # This is an issue in non-translated versions only.
         sys._current_frames()
 
-        thread_id = _thread.get_ident()
+        TIMEOUT = 30.0
+        main_id = _thread.get_ident()
+        started = _thread.allocate_lock()
+        started.acquire()
+        finish = _thread.allocate_lock()
+        finish.acquire()
+        other_id = []
+
         def other_thread():
-            #print("thread started")
-            lock2.release()
-            lock1.acquire()
-        lock1 = _thread.allocate_lock()
-        lock2 = _thread.allocate_lock()
-        lock1.acquire()
-        lock2.acquire()
+            other_id.append(_thread.get_ident())
+            started.release()
+            finish.acquire(True, TIMEOUT)
+
         _thread.start_new_thread(other_thread, ())
+        try:
+            assert started.acquire(True, TIMEOUT), "thread never started"
 
-        def f():
-            lock2.acquire()
-            return sys._current_frames()
+            def f():
+                return sys._current_frames()
 
-        frames = f()
-        lock1.release()
-        thisframe = frames.pop(thread_id)
-        assert thisframe.f_code.co_name in ('f', '?')
-
-        assert len(frames) == 1
-        _, other_frame = frames.popitem()
-        assert other_frame.f_code.co_name in ('other_thread', '?')
+            deadline = time.time() + TIMEOUT
+            while True:
+                frames = f()
+                assert frames[main_id].f_code.co_name in ('f', '?')
+                other_frame = frames.get(other_id[0])
+                if other_frame is not None:
+                    assert other_frame.f_code.co_name in ('other_thread', '?')
+                    break
+                assert time.time() < deadline, "other thread not reported"
+                time.sleep(0.01)
+        finally:
+            finish.release()
 
     def test_current_exceptions(self):
         import sys
-        if sys.platform in ('darwin', 'win32'):
-            skip('test can hang on macos and windows')
-        import sys
+        import time
         import _thread
 
-        # XXX workaround for now: to prevent deadlocks, call
+        # XX workaround for now: to prevent deadlocks, call
         # sys._current_frames() once before starting threads.
         # This is an issue in non-translated versions only.
         sys._current_frames()
 
-        thread_id = _thread.get_ident()
+        TIMEOUT = 30.0
+        main_id = _thread.get_ident()
+        started = _thread.allocate_lock()
+        started.acquire()
+        finish = _thread.allocate_lock()
+        finish.acquire()
+        other_id = []
+
         def other_thread():
-            #print("thread started")
-            lock2.release()
+            other_id.append(_thread.get_ident())
+            started.release()
             try:
                 raise ValueError("oops")
             except ValueError:
-                lock1.acquire()
-        lock1 = _thread.allocate_lock()
-        lock2 = _thread.allocate_lock()
-        lock1.acquire()
-        lock2.acquire()
+                finish.acquire(True, TIMEOUT)
+
         _thread.start_new_thread(other_thread, ())
+        try:
+            assert started.acquire(True, TIMEOUT), "thread never started"
 
-        def f():
-            lock2.acquire()
-            return sys._current_exceptions()
+            def f():
+                return sys._current_exceptions()
 
-        exc = f()
-        lock1.release()
-        thisexc = exc.pop(thread_id)
-        assert thisexc is None
-
-        assert len(exc) == 1
-        key, exc_value = exc.popitem()
-        assert str(exc_value) == "oops"
+            deadline = time.time() + TIMEOUT
+            while True:
+                exc = f()
+                assert exc[main_id] == (None, None, None)
+                values = exc.get(other_id[0])
+                if values is not None and values != (None, None, None):
+                    exc_type, exc_value, exc_tb = values
+                    assert str(exc_value) == "oops"
+                    break
+                assert time.time() < deadline, "other thread not reported"
+                time.sleep(0.01)
+        finally:
+            finish.release()
 
     def test_intern(self):
         from sys import intern

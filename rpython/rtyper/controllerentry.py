@@ -189,19 +189,23 @@ class SomeControlledInstance(annmodel.SomeObject):
 
 class __extend__(pairtype(SomeControlledInstance, annmodel.SomeObject)):
 
-    def getitem((s_cin, s_key)):
+    def getitem(args):
+        s_cin, s_key = args
         return delegate(s_cin.controller.getitem, s_cin.s_real_obj, s_key)
 
-    def setitem((s_cin, s_key), s_value):
+    def setitem(args, s_value):
+        s_cin, s_key = args
         delegate(s_cin.controller.setitem, s_cin.s_real_obj, s_key, s_value)
 
-    def delitem((s_cin, s_key)):
+    def delitem(args):
+        s_cin, s_key = args
         delegate(s_cin.controller.delitem, s_cin.s_real_obj, s_key)
 
 
 class __extend__(pairtype(SomeControlledInstance, SomeControlledInstance)):
 
-    def union((s_cin1, s_cin2)):
+    def union(args):
+        s_cin1, s_cin2 = args
         if s_cin1.controller is not s_cin2.controller:
             raise annmodel.UnionError("different controller!")
         return SomeControlledInstance(annmodel.unionof(s_cin1.s_real_obj,
@@ -241,13 +245,16 @@ class ControlledInstanceRepr(Repr):
 
 class __extend__(pairtype(ControlledInstanceRepr, Repr)):
 
-    def rtype_getitem((r_controlled, r_key), hop):
+    def rtype_getitem(args, hop):
+        r_controlled, r_key = args
         return rtypedelegate(r_controlled.controller.getitem, hop)
 
-    def rtype_setitem((r_controlled, r_key), hop):
+    def rtype_setitem(args, hop):
+        r_controlled, r_key = args
         return rtypedelegate(r_controlled.controller.setitem, hop)
 
-    def rtype_delitem((r_controlled, r_key), hop):
+    def rtype_delitem(args, hop):
+        r_controlled, r_key = args
         return rtypedelegate(r_controlled.controller.delitem, hop)
 
 

@@ -184,7 +184,8 @@ def stack_sp(argnum):
 # ____________________________________________________________
 # Emit a mod/rm referencing a memory location [reg1+offset]
 
-def encode_mem_reg_plus_const(mc, (reg, offset), _, orbyte):
+def encode_mem_reg_plus_const(mc, args, _, orbyte):
+    reg, offset = args
     assert reg != R.esp and reg != R.ebp
     #
     reg1 = reg_number_3bits(mc, reg)
@@ -211,7 +212,8 @@ def encode_mem_reg_plus_const(mc, (reg, offset), _, orbyte):
         mc.writeimm32(offset)
     return 0
 
-def rex_mem_reg_plus_const(mc, (reg, offset), _):
+def rex_mem_reg_plus_const(mc, args, _):
+    reg, offset = args
     if reg >= 8:
         return REX_B
     return 0
@@ -222,9 +224,8 @@ def mem_reg_plus_const(argnum):
 # ____________________________________________________________
 # Emit a mod/rm referencing an array memory location [reg1+reg2*scale+offset]
 
-def encode_mem_reg_plus_scaled_reg_plus_const(mc,
-                                              (reg1, reg2, scaleshift, offset),
-                                              _, orbyte):
+def encode_mem_reg_plus_scaled_reg_plus_const(mc, args, _, orbyte):
+    reg1, reg2, scaleshift, offset = args
     # emit "reg1 + (reg2 << scaleshift) + offset"
     assert reg1 != R.ebp and reg2 != R.esp
     assert 0 <= scaleshift < 4
@@ -264,9 +265,8 @@ def encode_mem_reg_plus_scaled_reg_plus_const(mc,
         mc.writeimm32(offset)
     return 0
 
-def rex_mem_reg_plus_scaled_reg_plus_const(mc,
-                                           (reg1, reg2, scaleshift, offset),
-                                           _):
+def rex_mem_reg_plus_scaled_reg_plus_const(mc, args, _):
+    reg1, reg2, scaleshift, offset = args
     rex = 0
     if reg1 >= 8: rex |= REX_B
     if reg2 >= 8: rex |= REX_X
