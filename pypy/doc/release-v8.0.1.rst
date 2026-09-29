@@ -123,6 +123,7 @@ Python 3.12
   ``ob_pypy_link`` prefix
 - cpyext: When handling a memoryviewobject, copy strides/shape instead of aliasing them
 - cpyext: Implement PY_VECTORCALL_ARGUMENTS_OFFSET protocol in PyObject_VectorcallDict
+- Make ``ElementTree::ParseError`` messages strings (:issue:`5605`)
 
 
 Speedups and enhancements

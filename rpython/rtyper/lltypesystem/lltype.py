@@ -1,4 +1,5 @@
 import weakref
+from thread import _local
 from types import MethodType, NoneType
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
@@ -13,7 +14,7 @@ from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
 
-class State(object):
+class State(_local):
     pass
 
 TLS = State()
@@ -32,7 +33,7 @@ class WeakValueDictionary(weakref.WeakValueDictionary):
                 return
             if TLS is None: # Happens when the interpreter is shutting down
                 return remove_base(*args)
-            nested_hash_level = TLS.nested_hash_level
+            nested_hash_level = getattr(TLS, 'nested_hash_level', 0)
             try:
                 # The 'remove' function is called when an object dies.  This
                 # can happen anywhere when they are reference cycles,
@@ -138,13 +139,12 @@ class LowLevelType(object):
         # NB. the __cached_hash should neither be used nor updated
         # if we enter with hash_level > 0, because the computed
         # __hash__ can be different in this situation.
-        hash_level = 0
-        try:
-            hash_level = TLS.nested_hash_level
-            if hash_level == 0:
+        hash_level = getattr(TLS, 'nested_hash_level', 0)
+        if hash_level == 0:
+            try:
                 return self.__cached_hash
-        except AttributeError:
-            pass
+            except AttributeError:
+                pass
         if hash_level >= 3:
             return 0
         items = self.__dict__.items()

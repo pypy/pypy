@@ -682,7 +682,7 @@ def test_no_AF_PACKET():
 def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
 
-@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
+@pytest.mark.skip(reason="hits non-thread-safe issues with ll2ctypes")
 def test_thread_safe_gethostbyaddr():
     import threading
     nthreads = 10
@@ -702,7 +702,7 @@ def test_thread_safe_gethostbyaddr():
         threads[i].join()
     assert sum(result) == nthreads
 
-@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
+@pytest.mark.skip(reason="hits non-thread-safe issues with ll2ctypes")
 def test_thread_safe_gethostbyname_ex():
     import threading
     nthreads = 10
@@ -721,7 +721,7 @@ def test_thread_safe_gethostbyname_ex():
         threads[i].join()
     assert sum(result) == nthreads
 
-@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
+@pytest.mark.skip(reason="hits non-thread-safe issues with ll2ctypes")
 def test_getaddrinfo_pydotorg_threadsafe():
     import threading
     nthreads = 10
