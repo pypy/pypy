@@ -67,6 +67,7 @@ jobs:
             runner: macos-latest
             arch: arm64
             localbase: /opt/homebrew
+            test_timeout: 3613
           - platform: win64
             runner: windows-latest
             arch: win64
