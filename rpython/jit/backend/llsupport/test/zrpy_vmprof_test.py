@@ -64,7 +64,7 @@ class CompiledVmprofTest(CCompiledMixin):
             rthread.get_ident() # register TLOFS_thread_ident
             code = MyCode("py:x:foo:3")
             rvmprof.register_code(code, get_name)
-            fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
+            fd = os.open(tmpfilename, os.O_WRONLY | os.O_CREAT, 0o666)
             period = 0.0001
             rvmprof.enable(fd, period)
             res = main(code, num)

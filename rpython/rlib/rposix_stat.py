@@ -865,13 +865,13 @@ if _WIN32:
         m = 0
         attributes = widen(attributes)
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
-            m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
+            m |= win32traits._S_IFDIR | 0o111 # IFEXEC for user,group,other
         else:
             m |= win32traits._S_IFREG
         if attributes & win32traits.FILE_ATTRIBUTE_READONLY:
-            m |= 0444
+            m |= 0o444
         else:
-            m |= 0666
+            m |= 0o666
         return m
 
     @specialize.arg(0)
@@ -891,7 +891,7 @@ if _WIN32:
         if (st_file_attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT
                 and st_reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
             # first clear the S_IMFT bits
-            st_mode ^= (st_mode & 0170000)  # S_IFMT
+            st_mode ^= (st_mode & 0o170000)  # S_IFMT
             # now set the bits that make this a symlink
             st_mode |= win32traits._S_IFLNK
 
