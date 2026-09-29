@@ -54,3 +54,4 @@ class TestCode:
         assert not cmp_code_consts(space.newcomplex(0.0, -0.0), space.newcomplex(-0.0, -0.0))
 
         # code objects: we compare them by identity, PyPy doesn't share them ever
+
