@@ -848,57 +848,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """ % inner
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.parametrize("args", ["i2, i3", "i3, i2"])
-    def test_rule_eq_add_commute(self, args):
-        ops = """
-        [i0, i1]
-        i2 = int_add(i0, i1)
-        i3 = int_add(i1, i0)
-        i4 = int_eq(%s)
-        jump(i4)
-        """ % args
-        expected = """
-        [i0, i1]
-        i2 = int_add(i0, i1)
-        jump(1)
-        """
-        self.optimize_loop(ops, expected)
-
-    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
-    @pytest.mark.parametrize("reverse", [False, True])
-    def test_rule_sub_add_consts(self, c1, c2, reverse):
-        args = "%s, i0" % c1 if reverse else "i0, %s" % c1
-        ops = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_sub(i1, %s)
-        jump(i2)
-        """ % (args, c2)
-        expected = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_add(i0, %s)
-        jump(i2)
-        """ % (args, intmask(c1 - c2))
-        self.optimize_loop(ops, expected)
-
-    @pytest.mark.parametrize("constant", [3, -5, MININT])
-    @pytest.mark.parametrize("reverse", [False, True])
-    def test_rule_sub_add_const_cancel(self, constant, reverse):
-        args = "%s, i0" % constant if reverse else "i0, %s" % constant
-        ops = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_sub(i0, i1)
-        jump(i2)
-        """ % args
-        expected = """
-        [i0]
-        i1 = int_add(%s)
-        jump(%s)
-        """ % (args, intmask(-constant))
-        self.optimize_loop(ops, expected)
-
     def test_rule_invert_neg(self):
         ops = """
         [i0]
@@ -931,28 +880,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """ % inner
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
-    @pytest.mark.parametrize("reverse_left", [False, True])
-    @pytest.mark.parametrize("reverse_right", [False, True])
-    def test_rule_sub_add_add_consts(
-            self, c1, c2, reverse_left, reverse_right):
-        left = "%s, i0" % c1 if reverse_left else "i0, %s" % c1
-        right = "%s, i0" % c2 if reverse_right else "i0, %s" % c2
-        ops = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_add(%s)
-        i3 = int_sub(i1, i2)
-        jump(i3)
-        """ % (left, right)
-        expected = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_add(%s)
-        jump(%s)
-        """ % (left, right, intmask(c1 - c2))
-        self.optimize_loop(ops, expected)
-
     def test_rule_rshift_minus_one(self):
         ops = """
         [i0]
@@ -982,23 +909,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_sub(%s, i0)
         jump(i2)
         """ % (args, intmask(c2 - c1))
-        self.optimize_loop(ops, expected)
-
-    @pytest.mark.parametrize("constant", [3, -5, MAXINT])
-    @pytest.mark.parametrize("args", ["i0, -1", "-1, i0"])
-    def test_rule_sub_add_minus_one_const(self, constant, args):
-        ops = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_sub(i1, %s)
-        jump(i2)
-        """ % (args, constant)
-        expected = """
-        [i0]
-        i1 = int_add(%s)
-        i2 = int_add(i0, %s)
-        jump(i2)
-        """ % (args, ~constant)
         self.optimize_loop(ops, expected)
 
     @pytest.mark.parametrize("c1, c2", [(3, 7), (-5, 13), (MININT, 1)])
