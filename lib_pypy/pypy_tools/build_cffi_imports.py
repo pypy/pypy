@@ -58,8 +58,8 @@ configure_args = ['./configure',
             '--disable-dependency-tracking',
         ]
 cffi_dependencies = {
-    '_ssl': ('https://www.openssl.org/source/openssl-3.3.1.tar.gz',
-              '777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e',
+    '_ssl': ('https://www.openssl.org/source/openssl-3.5.9.tar.gz',
+              '603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'no-tests', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
