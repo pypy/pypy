@@ -31,7 +31,7 @@ def test_time_sleep():
 def test_os_open():
     tmpfile = str(udir.join('test_os_open.txt'))
     def does_stuff():
-        fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0777)
+        fd = os.open(tmpfile, os.O_WRONLY | os.O_CREAT, 0o777)
         os.close(fd)
         return fd
 
@@ -42,7 +42,7 @@ def test_os_open():
 def test_failing_os_open():
     tmpfile = str(udir.join('test_failing_os_open.DOESNTEXIST'))
     def does_stuff():
-        fd = os.open(tmpfile, os.O_RDONLY, 0777)
+        fd = os.open(tmpfile, os.O_RDONLY, 0o777)
         return fd
 
     f1 = compile(does_stuff, [])
@@ -52,11 +52,11 @@ def test_failing_os_open():
 def test_open_read_write_seek_close():
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
-        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0o777)
         count = os.write(fd, "hello world\n")
         assert count == len("hello world\n")
         os.close(fd)
-        fd = os.open(filename, os.O_RDONLY, 0777)
+        fd = os.open(filename, os.O_RDONLY, 0o777)
         result = os.lseek(fd, 1, 0)
         assert result == 1
         data = os.read(fd, 500)
@@ -72,10 +72,10 @@ def test_open_read_write_seek_close():
 def test_big_read():
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
-        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0o777)
         count = os.write(fd, "hello world\n")
         os.close(fd)
-        fd = os.open(filename, os.O_RDONLY, 0777)
+        fd = os.open(filename, os.O_RDONLY, 0o777)
         data = os.read(fd, 500000)
         os.close(fd)
 
@@ -89,10 +89,10 @@ def test_ftruncate():
         py.test.skip("this os has no ftruncate :-(")
     filename = str(udir.join('test_open_read_write_close.txt'))
     def does_stuff():
-        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+        fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0o777)
         os.write(fd, "hello world\n")
         os.close(fd)
-        fd = os.open(filename, os.O_RDWR, 0777)
+        fd = os.open(filename, os.O_RDWR, 0o777)
         os.ftruncate(fd, 5)
         data = os.read(fd, 500)
         assert data == "hello"
@@ -120,7 +120,7 @@ def test_largefile():
     r9900000000  = r_longlong(9900000000L)
     r10000000000 = r_longlong(10000000000L)
     def does_stuff():
-        fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0666)
+        fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0o666)
         os.ftruncate(fd, r10000000000)
         res = os.lseek(fd, r9900000000, 0)
         assert res == r9900000000
@@ -198,7 +198,7 @@ def test_os_fstat():
         py.test.skip("segfault with tcc :-(")
     filename = str(py.path.local(__file__))
     def call_fstat():
-        fd = os.open(filename, os.O_RDONLY, 0777)
+        fd = os.open(filename, os.O_RDONLY, 0o777)
         st = os.fstat(fd)
         os.close(fd)
         return str((st.st_mode, st[1], st.st_mtime))
@@ -310,7 +310,7 @@ def test_mkdir_rmdir():
         if delete:
             os.rmdir(path)
         else:
-            os.mkdir(path, 0777)
+            os.mkdir(path, 0o777)
     f1 = compile(does_stuff, [str, bool])
     dirname = str(udir.join('test_mkdir_rmdir'))
     f1(dirname, False)
@@ -372,23 +372,23 @@ def test_os_chmod():
     def does_stuff(mode):
         os.chmod(tmpfile, mode)
     f1 = compile(does_stuff, [int])
-    f1(0000)
-    os.chmod(tmpfile2, 0000)
-    assert os.stat(tmpfile).st_mode & 0777 == os.stat(tmpfile2).st_mode & 0777
-    f1(0644)
-    os.chmod(tmpfile2, 0644)
-    assert os.stat(tmpfile).st_mode & 0777 == os.stat(tmpfile2).st_mode & 0777
+    f1(0o000)
+    os.chmod(tmpfile2, 0o000)
+    assert os.stat(tmpfile).st_mode & 0o777 == os.stat(tmpfile2).st_mode & 0o777
+    f1(0o644)
+    os.chmod(tmpfile2, 0o644)
+    assert os.stat(tmpfile).st_mode & 0o777 == os.stat(tmpfile2).st_mode & 0o777
 
 if hasattr(os, 'fchmod'):
     def test_os_fchmod():
         tmpfile1 = str(udir.join('test_os_fchmod.txt'))
         def does_stuff():
-            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0777)
-            os.fchmod(fd, 0200)
+            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0o777)
+            os.fchmod(fd, 0o200)
             os.close(fd)
         f1 = compile(does_stuff, [])
         f1()
-        assert os.stat(tmpfile1).st_mode & 0777 == 0200
+        assert os.stat(tmpfile1).st_mode & 0o777 == 0o200
 
 def test_os_rename():
     tmpfile1 = str(udir.join('test_os_rename_1.txt'))
@@ -406,7 +406,7 @@ if hasattr(os, 'mkfifo'):
     def test_os_mkfifo():
         tmpfile = str(udir.join('test_os_mkfifo.txt'))
         def does_stuff():
-            os.mkfifo(tmpfile, 0666)
+            os.mkfifo(tmpfile, 0o666)
         f1 = compile(does_stuff, [])
         f1()
         import stat
@@ -418,7 +418,7 @@ if hasattr(os, 'mknod'):
         import stat
         tmpfile = str(udir.join('test_os_mknod.txt'))
         def does_stuff():
-            os.mknod(tmpfile, 0600 | stat.S_IFIFO, 0)
+            os.mknod(tmpfile, 0o600 | stat.S_IFIFO, 0)
         f1 = compile(does_stuff, [])
         f1()
         st = os.lstat(tmpfile)
@@ -426,7 +426,7 @@ if hasattr(os, 'mknod'):
 
 def test_os_umask():
     def does_stuff():
-        mask1 = os.umask(0660)
+        mask1 = os.umask(0o660)
         mask2 = os.umask(mask1)
         return mask2
     f1 = compile(does_stuff, [])
@@ -601,7 +601,7 @@ if hasattr(os, 'fchown'):
         tmpfile1 = str(path1)
         def does_stuff():
             # xxx not really a test, just checks that it is callable
-            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0777)
+            fd = os.open(tmpfile1, os.O_WRONLY | os.O_CREAT, 0o777)
             os.fchown(fd, os.getuid(), os.getgid())
             os.close(fd)
         f1 = compile(does_stuff, [])
@@ -890,7 +890,7 @@ if hasattr(os, 'major'):
 if hasattr(os, 'fchdir'):
     def test_os_fchdir():
         def does_stuff():
-            fd = os.open('/', os.O_RDONLY, 0400)
+            fd = os.open('/', os.O_RDONLY, 0o400)
             try:
                 os.fchdir(fd)
                 s = os.getcwd()

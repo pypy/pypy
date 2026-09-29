@@ -359,7 +359,8 @@ def weakly_contains(s_bigger, s_smaller):
 
 class __extend__(pairtype(MTag, annmodel.SomeObject)):
 
-    def install_marshaller((tag, s_obj)):
+    def install_marshaller(args):
+        tag, s_obj = args
         if not hasattr(s_obj, '_get_rmarshall_support_'):
             raise CannotMarshal(s_obj)
         # special support for custom annotation like SomeStatResult:
@@ -372,7 +373,8 @@ class __extend__(pairtype(MTag, annmodel.SomeObject)):
         reduceddumper = get_marshaller(s_reduced_obj)
         add_dumper(s_obj, dump_with_custom_reduce)
 
-    def install_unmarshaller((tag, s_obj)):
+    def install_unmarshaller(args):
+        tag, s_obj = args
         if not hasattr(s_obj, '_get_rmarshall_support_'):
             raise CannotUnmarshall(s_obj)
         # special support for custom annotation like SomeStatResult
@@ -386,7 +388,8 @@ class __extend__(pairtype(MTag, annmodel.SomeObject)):
 
 class __extend__(pairtype(MTag, annmodel.SomeList)):
 
-    def install_marshaller((tag, s_list)):
+    def install_marshaller(args):
+        tag, s_list = args
         def dump_list_or_none(buf, x):
             if x is None:
                 dump_none(buf, x)
@@ -404,7 +407,8 @@ class __extend__(pairtype(MTag, annmodel.SomeList)):
             s_general_list = annotation([s_item])
         add_dumper(s_general_list, dump_list_or_none)
 
-    def install_unmarshaller((tag, s_list)):
+    def install_unmarshaller(args):
+        tag, s_list = args
         def load_list_or_none(loader):
             t = readchr(loader)
             if t == TYPE_LIST:
@@ -424,7 +428,8 @@ class __extend__(pairtype(MTag, annmodel.SomeList)):
 
 class __extend__(pairtype(MTag, annmodel.SomeDict)):
 
-    def install_marshaller((tag, s_dict)):
+    def install_marshaller(args):
+        tag, s_dict = args
         def dump_dict_or_none(buf, x):
             if x is None:
                 dump_none(buf, x)
@@ -446,7 +451,8 @@ class __extend__(pairtype(MTag, annmodel.SomeDict)):
             s_general_dict = annotation({s_key: s_value})
         add_dumper(s_general_dict, dump_dict_or_none)
 
-    def install_unmarshaller((tag, s_dict)):
+    def install_unmarshaller(args):
+        tag, s_dict = args
         def load_dict_or_none(loader):
             t = readchr(loader)
             if t == TYPE_DICT:
@@ -469,7 +475,8 @@ class __extend__(pairtype(MTag, annmodel.SomeDict)):
 
 class __extend__(pairtype(MTag, annmodel.SomeTuple)):
 
-    def install_marshaller((tag, s_tuple)):
+    def install_marshaller(args):
+        tag, s_tuple = args
         def dump_tuple(buf, x):
             buf.append(TYPE_TUPLE)
             w_long(buf, len(x))
@@ -483,7 +490,8 @@ class __extend__(pairtype(MTag, annmodel.SomeTuple)):
         s_general_tuple = annmodel.SomeTuple(dumper_annotations)
         add_dumper(s_general_tuple, dump_tuple)
 
-    def install_unmarshaller((tag, s_tuple)):
+    def install_unmarshaller(args):
+        tag, s_tuple = args
         def load_tuple(loader):
             if readchr(loader) != TYPE_TUPLE:
                 raise ValueError("expected a tuple")

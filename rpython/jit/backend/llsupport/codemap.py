@@ -91,7 +91,8 @@ class CodemapStorage(object):
         if items:
             lltype.free(items, flavor='raw', track_allocation=False)
 
-    def register_codemap(self, (start, size, l)):
+    def register_codemap(self, args):
+        start, size, l = args
         items = lltype.malloc(INT_LIST_PTR.TO, len(l), flavor='raw',
                               track_allocation=False)
         for i in range(len(l)):

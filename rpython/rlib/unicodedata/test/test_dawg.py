@@ -135,7 +135,7 @@ def test_generate():
     out = tmpdir.join('dawg.py')
     # print(out)
     o = out.open('w')
-    d = dict(map(lambda (x,y):(y,x), enumerate(lines)))
+    d = dict((y, x) for (x, y) in enumerate(lines))
     trie = build_compression_dawg(CodeWriter(o), d)
     o.close()
     # print out.read()

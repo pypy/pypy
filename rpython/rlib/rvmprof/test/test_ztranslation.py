@@ -43,7 +43,7 @@ def main(argv=[]):
         # Hack to give os.open() the correct annotation
         os.open('foo', 1, 1)
     code1 = MyCode(6500)
-    fd = os.open(PROF_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
+    fd = os.open(PROF_FILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o666)
     rvmprof.enable(fd, 0.01)
     #
     code2 = MyCode(9100)
