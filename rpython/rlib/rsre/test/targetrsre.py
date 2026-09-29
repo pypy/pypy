@@ -16,7 +16,7 @@ r_code1 = [17, 18, 1, 21, 131091, 6, 6, 60, 105, 116, 101, 109, 62, 0,
 
 
 def read(filename):
-    fd = os.open(filename, os.O_RDONLY, 0666)
+    fd = os.open(filename, os.O_RDONLY, 0o666)
     if fd < 0:
         raise OSError
     end = os.lseek(fd, 0, 2)

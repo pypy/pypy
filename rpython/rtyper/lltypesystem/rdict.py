@@ -341,7 +341,8 @@ class DictRepr(AbstractDictRepr):
 
 class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
-    def rtype_getitem((r_dict, r_key), hop):
+    def rtype_getitem(args, hop):
+        r_dict, r_key = args
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         if not r_dict.custom_eq_hash:
             hop.has_implicit_exception(KeyError)   # record that we know about it
@@ -349,14 +350,16 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         v_res = hop.gendirectcall(ll_dict_getitem, v_dict, v_key)
         return r_dict.recast_value(hop.llops, v_res)
 
-    def rtype_delitem((r_dict, r_key), hop):
+    def rtype_delitem(args, hop):
+        r_dict, r_key = args
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         if not r_dict.custom_eq_hash:
             hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
         return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
-    def rtype_setitem((r_dict, r_key), hop):
+    def rtype_setitem(args, hop):
+        r_dict, r_key = args
         v_dict, v_key, v_value = hop.inputargs(r_dict, r_dict.key_repr, r_dict.value_repr)
         if r_dict.custom_eq_hash:
             hop.exception_is_here()
@@ -364,15 +367,17 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
             hop.exception_cannot_occur()
         hop.gendirectcall(ll_dict_setitem, v_dict, v_key, v_value)
 
-    def rtype_contains((r_dict, r_key), hop):
+    def rtype_contains(args, hop):
+        r_dict, r_key = args
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         hop.exception_is_here()
         return hop.gendirectcall(ll_contains, v_dict, v_key)
 
 class __extend__(pairtype(DictRepr, DictRepr)):
-    def convert_from_to((r_dict1, r_dict2), v, llops):
+    def convert_from_to(args, v, llops):
         # check that we don't convert from Dicts with
         # different key/value types
+        r_dict1, r_dict2 = args
         if r_dict1.dictkey is None or r_dict2.dictkey is None:
             return NotImplemented
         if r_dict1.dictkey is not r_dict2.dictkey:

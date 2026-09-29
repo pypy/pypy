@@ -49,7 +49,7 @@ class TestLLTermios(object):
         from rpython.rlib import rtermios
         import os, errno
         def runs_tcgetattr():
-            fd = os.open('.', 0, 0777)
+            fd = os.open('.', 0, 0o777)
             try:
                 rtermios.tcgetattr(fd)
             except OSError as e:

@@ -27,6 +27,9 @@
 #define VERSION_MODE_AWARE '\x04'
 #define VERSION_DURATION '\x05'
 #define VERSION_TIMESTAMP '\x06'
+/* every MARKER_STACKTRACE record ends with a 64-bit nanosecond timestamp,
+   see vmp_sample_time_ns() */
+#define VERSION_SAMPLE_TIME '\x07'
 
 #define PROFILE_MEMORY '\x01'
 #define PROFILE_LINES  '\x02'

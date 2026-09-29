@@ -30,7 +30,7 @@ def compress_char_set(chars):
     # Change the above list into a list of sorted tuples
     real_result = [(c,l) for [c,l] in result]
     # Sort longer runs first (hence -c), then alphabetically
-    real_result.sort(key=lambda (l,c): (-c,l))
+    real_result.sort(key=lambda lc: (-lc[1], lc[0]))
     return real_result
 
 def make_nice_charset_repr(chars):
@@ -114,13 +114,16 @@ class DFA(object):
         return state
 
     # DFA returns transitions like a dict()
-    def __setitem__(self, (state, input), next_state):
+    def __setitem__(self, args, next_state):
+        state, input = args
         self.transitions[state, input] = next_state
 
-    def __getitem__(self, (state, input)):
+    def __getitem__(self, args):
+        state, input = args
         return self.transitions[state, input]
 
-    def __contains__(self, (state, input)):
+    def __contains__(self, args):
+        state, input = args
         return (state, input) in self.transitions
 
     def get_all_chars(self):

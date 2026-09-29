@@ -35,7 +35,9 @@ HAS_AF_ALG = 'AF_ALG' in constants
 
 # Copy CPython: needed for AF_ALG but sometimes not defined in headers
 for name, value in (("SOL_ALG", 279), ("ALG_SET_AEAD_ASSOCLEN", 4),
-        ("ALG_SET_AEAD_AUTHSIZE", 5), ("ALG_SET_PUB_KEY", 6), ("ALG_OP_SIGN", 2),
+        ("ALG_SET_AEAD_AUTHSIZE", 5) , ("ALG_OP_SIGN", 2),
+        # Internal libkcapi constant, was changed in 2022 to 7
+        # ("ALG_SET_PUBKEY", 6),  
         ("ALG_OP_VERIFY", 3)):
     if name not in constants:
         constants[name] = value
