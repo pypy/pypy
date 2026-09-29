@@ -204,7 +204,7 @@ class AppTestCodeIntrospection:
 
     def test_issue1844(self):
         import types
-        args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 'operator', 0, b'')
+        args = (1, 0, 0, 1, 0, 0, b'', (), (), ('a'), '', 'operator', 'operator', 0, b'')
         # previously raised a MemoryError when translated
         types.CodeType(*args)
 
