@@ -126,15 +126,18 @@ def pyssl_error(obj, ret):
                     errtype = SSLSyscallError
                     errstr = "Some I/O error occurred"
                     errval = SSL_ERROR_SYSCALL
+            elif lib.ERR_GET_LIB(e) == lib.ERR_LIB_SYS:
+                # OpenSSL 3 records system errors on the error queue, using
+                # the errno as the reason code
+                errno = lib.ERR_GET_REASON(e)
+                lib.ERR_clear_error()
+                return SSLError(errno, os.strerror(errno))
             else:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
         elif err.ssl == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
             if e == 0:
                 errstr = "A failure in the SSL library occurred"
-            else:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(e))
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE
@@ -150,7 +153,15 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
         reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
         lib_str = LIB_CODES_TO_NAMES.get(err_lib, None)
         # Set last part of msg to a lower-case version of reason_str
-        errstr = _str_from_buf(lib.ERR_reason_error_string(errcode))
+        errbuf = lib.ERR_reason_error_string(errcode)
+        if errbuf:
+            errstr = _str_from_buf(errbuf)
+        elif err_lib == lib.ERR_LIB_SYS:
+            # ERR_reason_error_string refuses to return strerror results,
+            # it has no buffer to format them into
+            errstr = os.strerror(err_reason)
+        else:
+            errstr = "unknown error for errcode %d" % errcode
     msg = errstr
     if not errstr:
         msg = "unknown error"
