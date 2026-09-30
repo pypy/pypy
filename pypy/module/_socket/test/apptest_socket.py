@@ -106,6 +106,8 @@ def test_setblocking_invalidfd():
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     _socket.socket(fileno=s.fileno()).close()
     pytest.raises(OSError, s.setblocking, False)
+    # detach the stale fd to avoid a double close from the finalizer
+    s.detach()
 
 def test_socket_connect():
     import _socket

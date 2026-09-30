@@ -1046,10 +1046,9 @@ class AppTestCurrentFramesWithThread:
             deadline = time.time() + TIMEOUT
             while True:
                 exc = f()
-                assert exc[main_id] == (None, None, None)
-                values = exc.get(other_id[0])
-                if values is not None and values != (None, None, None):
-                    exc_type, exc_value, exc_tb = values
+                assert exc[main_id] is None
+                exc_value = exc.get(other_id[0])
+                if exc_value is not None:
                     assert str(exc_value) == "oops"
                     break
                 assert time.time() < deadline, "other thread not reported"
