@@ -3362,9 +3362,10 @@ class ThreadedTests(unittest.TestCase):
                                         server_hostname=hostname,
                                         suppress_ragged_eofs=False) as s:
             s.connect((HOST, server.port))
+            # PyPy change: a RST can beat the server's alert to the client
             with self.assertRaisesRegex(
-                ssl.SSLError,
-                'alert unknown ca|EOF occurred'
+                (ssl.SSLError, ConnectionResetError),
+                'alert unknown ca|EOF occurred|Connection reset by peer'
             ):
                 # TLS 1.3 perform client cert exchange after handshake
                 s.write(b'data')
