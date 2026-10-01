@@ -408,11 +408,11 @@ class BasicSocketTests(unittest.TestCase):
         # Some sanity checks follow
         # >= 0.9
         self.assertGreaterEqual(n, 0x900000)
-        # < 4.0
-        self.assertLess(n, 0x40000000)
+        # < 5.0
+        self.assertLess(n, 0x50000000)
         major, minor, fix, patch, status = t
         self.assertGreaterEqual(major, 1)
-        self.assertLess(major, 4)
+        self.assertLess(major, 5)
         self.assertGreaterEqual(minor, 0)
         self.assertLess(minor, 256)
         self.assertGreaterEqual(fix, 0)
@@ -2375,8 +2375,7 @@ else:
             with server, \
                     closing(socket.socket()) as sock, \
                     closing(ssl.wrap_socket(sock,
-                                        certfile=certfile,
-                                        ssl_version=ssl.PROTOCOL_TLSv1)) as s:
+                                        certfile=certfile)) as s:
                 try:
                     # Expect either an SSL error about the server rejecting
                     # the connection, or a low-level connection reset (which
@@ -3189,10 +3188,10 @@ else:
                 (['abc', 'def'], 'abc')
             ]
             for client_protocols, expected in protocol_tests:
-                server_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                server_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
                 server_context.load_cert_chain(CERTFILE)
                 server_context.set_npn_protocols(server_protocols)
-                client_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                client_context = ssl.SSLContext(ssl.PROTOCOL_TLS)
                 client_context.load_cert_chain(CERTFILE)
                 client_context.set_npn_protocols(client_protocols)
                 stats = server_params_test(client_context, server_context,

@@ -5,7 +5,10 @@
 from __future__ import absolute_import, division, print_function
 
 INCLUDES = """
+#include <openssl/configuration.h>
+#ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
+#endif
 """
 
 TYPES = """
