@@ -15,6 +15,13 @@ def test_memory_doesnt_jump_during_sweeping():
     memory[:] = []
     for i in range(100):
         gc.collect_step()
+    assert memory, (
+        "on_gc_collect_step never fired during 100 gc.collect_step() calls. "
+        "Either the major collection was already complete, or the events were "
+        "dropped as reentrant deliveries (NoRecursiveAction.perform in "
+        "pypy/module/gc/hook.py: the callback allocates, so a GC inside it "
+        "re-fires the action and the delivery is discarded). A drop prints "
+        "to stderr.")
     minimum = min(x[1] for x in memory)
     maximum = max(x[1] for x in memory)
     assert minimum != 0

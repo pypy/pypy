@@ -1,6 +1,7 @@
 from rpython.memory.gc.hook import GcHooks
 from rpython.memory.gc import incminimark
 from rpython.rlib import rgc
+from rpython.rlib.debug import debug_print, fatalerror
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_longlong, longlongmax
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
@@ -122,6 +123,16 @@ class W_AppLevelHooks(W_Root):
 class NoRecursiveAction(AsyncAction):
     depth = 0
 
+    # A reentrant delivery is dropped, and _do_perform() has already called
+    # reset(), so the event's counters are lost for good.  The callback itself
+    # allocates, so a GC triggered inside it can fire this action again and
+    # land here.  Count the losses; ABORT_ON_DROP turns them into a crash with
+    # an RPython traceback showing who reentered.
+    REPORT_DROPS = True
+    ABORT_ON_DROP = False
+    HOOK_NAME = 'gc hook'
+    dropped = 0
+
     def perform(self, ec, frame):
         if self.depth == 0:
             try:
@@ -129,9 +140,18 @@ class NoRecursiveAction(AsyncAction):
                 return self._do_perform(ec, frame)
             finally:
                 self.depth -= 1
+        elif self.REPORT_DROPS:
+            self.dropped += 1
+            if self.ABORT_ON_DROP:
+                fatalerror("gc hook event dropped: reentrant delivery of " +
+                           self.HOOK_NAME + " (dropped so far: " +
+                           str(self.dropped) + ")")
+            debug_print("gc hook event dropped (reentrant):", self.HOOK_NAME,
+                        "total", self.dropped)
 
 
 class GcMinorHookAction(NoRecursiveAction):
+    HOOK_NAME = 'on_gc_minor'
     total_memory_used = 0
     pinned_objects = 0
 
@@ -172,6 +192,7 @@ class GcMinorHookAction(NoRecursiveAction):
 
 
 class GcCollectStepHookAction(NoRecursiveAction):
+    HOOK_NAME = 'on_gc_collect_step'
     oldstate = 0
     newstate = 0
 
@@ -213,6 +234,7 @@ class GcCollectStepHookAction(NoRecursiveAction):
 
 
 class GcCollectHookAction(NoRecursiveAction):
+    HOOK_NAME = 'on_gc_collect'
     num_major_collects = 0
     arenas_count_before = 0
     arenas_count_after = 0
