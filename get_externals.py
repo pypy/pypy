@@ -9,23 +9,32 @@ import os
 import shutil
 import sys
 import zipfile
-from subprocess import Popen, PIPE, check_call
+from subprocess import Popen, PIPE, check_call, check_output
 from rpython.translator.platform import host
 
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
     url = 'https://github.com/{}/externals'.format(org)
+
+    def run(cmd):
+        if verbose:
+            print(' '.join(cmd))
+        check_call(cmd)
+
+    if os.path.exists(dest) and not os.path.exists(os.path.join(dest, '.git')):
+        # remove a mercurial clone
+        shutil.rmtree(dest)
     if os.path.exists(dest):
-        if os.path.exists(os.path.join(dest, ".git")):
-            cmd = ['git', '-C', dest, 'pull', url]
-        else:
-            # remove a mercurial clone
-            shutil.rmtree(dest)
-            cmd = ['git','clone',url, dest]
+        # Fetch the branch explicitly: a bare 'git pull url' would merge the
+        # remote's default branch into whatever is checked out, leaving
+        # 'branch' at the revision it was first cloned at.
+        run(['git', '-C', dest, 'fetch', url, branch])
+        run(['git', '-C', dest, 'checkout', '-B', branch, 'FETCH_HEAD'])
     else:
-        cmd = ['git','clone',url, dest]
-    check_call(cmd, verbose)
-    cmd = ['git','-C', dest, 'checkout',branch]
-    check_call(cmd)
+        run(['git', 'clone', '--branch', branch, url, dest])
+    head = check_output(['git', '-C', dest, 'log', '-1',
+                         '--format=%H %cs %s'],
+                        universal_newlines=True).strip()
+    print('externals branch {} at {}'.format(branch, head))
 
 def parse_args():
     p = argparse.ArgumentParser()
