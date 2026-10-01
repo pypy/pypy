@@ -92,8 +92,6 @@ conda, OpenBSD, FreeBSD, Gentoo, and more.
 Changelog
 =========
 
-The changelog does not describe the hundreds of changes made for PyPy3.12.
-
 For all versions
 ----------------
 
