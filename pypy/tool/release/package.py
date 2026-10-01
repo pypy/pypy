@@ -105,9 +105,15 @@ def create_package(basedir, options, _fake=False):
         python_ver = '2.7'
     else:
         python_ver = get_python_ver(pypy_c)
+    IMPLEMENTATION = 'pypy{}'.format(python_ver)
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
+        target = pypydir.join('Lib')
+    elif _fake:
+        target = pypydir.join('lib', IMPLEMENTATION)
+    else:
+        target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
