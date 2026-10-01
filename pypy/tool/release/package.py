@@ -105,15 +105,9 @@ def create_package(basedir, options, _fake=False):
         python_ver = '2.7'
     else:
         python_ver = get_python_ver(pypy_c)
-    IMPLEMENTATION = 'pypy{}'.format(python_ver)
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
-        target = pypydir.join('Lib')
-    elif _fake:
-        target = pypydir.join('lib', IMPLEMENTATION)
-    else:
-        target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
@@ -177,35 +171,39 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
         binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
         print('Picking {} as python{}.exe'.format(src, python_ver[0]))
-        # Can't rename a DLL
-        win_extras = [('lib' + POSIX_EXE + '-c.dll', None)]
+        # Can't rename a DLL. Entries are (name, target_dir, optional):
+        # an optional dll is packaged only if found, without warning
+        win_extras = [('lib' + POSIX_EXE + '-c.dll', None, False)]
         if options.copy_dlls:
             win_extras +=[
-                          ('sqlite3.dll', target),
-                          # Needs fixing for openssl3
-                          ('libssl-1_1.dll', target),
-                          ('libcrypto-1_1.dll', target),
-                          ('libffi-8.dll', None),
+                          ('sqlite3.dll', lib_pypy, False),
+                          ('libffi-8.dll', None, False),
+                          # win64 externals ship OpenSSL 3, win32 OpenSSL 1.1
+                          ('libssl-3.dll', lib_pypy, True),
+                          ('libcrypto-3.dll', lib_pypy, True),
+                          ('libssl-1_1.dll', lib_pypy, True),
+                          ('libcrypto-1_1.dll', lib_pypy, True),
                          ]
             if not options.no__tkinter:
-                tkinter_dir = target.join('_tkinter')
+                tkinter_dir = lib_pypy.join('_tkinter')
                 win_extras += [
-                               ('tcl86t.dll', tkinter_dir),
-                               ('tk86t.dll', tkinter_dir),
+                               ('tcl86t.dll', tkinter_dir, False),
+                               ('tk86t.dll', tkinter_dir, False),
                               ]
                 # for testing, copy the dlls to the `base_dir` as well
                 tkinter_dir = basedir.join('lib_pypy', '_tkinter')
                 win_extras += [
-                               ('tcl86t.dll', tkinter_dir),
-                               ('tk86t.dll', tkinter_dir),
+                               ('tcl86t.dll', tkinter_dir, False),
+                               ('tk86t.dll', tkinter_dir, False),
                               ]
-        for extra, target_dir in win_extras:
+        for extra, target_dir, optional in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
                 if not p:
-                    print("%s not found, expect trouble if this "
-                          "is a shared build" % (extra,))
+                    if not optional:
+                        print("%s not found, expect trouble if this "
+                              "is a shared build" % (extra,))
                     continue
             print("Picking %s" % p)
             binaries.append((p, p.basename, target_dir))
@@ -239,7 +237,7 @@ def create_package(basedir, options, _fake=False):
                 import traceback;traceback.print_exc()
                 raise MissingDependenciesError('Tk runtime')
 
-    print('* Binaries:', [source.relto(str(basedir))
+    print('* Binaries:', [source.relto(str(basedir)) or str(source)
                           for source, target, target_dir in binaries])
 
     # Careful: to copy lib_pypy, copying just the hg-tracked files
