@@ -565,37 +565,51 @@ def _symbolify(value):
                 return sym.name_as_bytes, filename
     return None
 
+def _read_symbols_of_file(map_entry):
+    filename = map_entry['file']
+    with open(filename, 'rb') as f:
+        phdr = elf_read_first_load_section(f)
+        assert phdr.vaddr % phdr.align == 0
+    filename = _check_elf_debuglink(filename)
+    with open(filename, 'rb') as f:
+        syms = [sym for sym in _iter_symbol_and_dynsym(f) if sym.name_as_bytes]
+    syms.sort(key=lambda sym: sym.value)
+    return {'syms': syms, 'vaddr': phdr.vaddr, 'filename': filename, 'index': 0}
+
+
 def _symbolify_all(values):
     # this is quite efficient, because it sorts the values, then sorts the
     # symbols within a shared library, and proceeds in a sorted order, merging
     # values and symbols
     values = sorted(values)
     res = {}
-    map_entry = None
+    maps = _read_and_parse_maps()
+    per_file = {}
     for value in values:
-        if map_entry is None or map_entry['to_'] < value:
-            map_entry = _proc_map_find_base_map(value)
-            if map_entry is None:
-                continue
-            filename = map_entry['file']
-            base_addr = map_entry['from_']
-            with open(filename, 'rb') as f:
-                phdr = elf_read_first_load_section(f)
-                assert phdr.vaddr % phdr.align == 0
-            filename = _check_elf_debuglink(filename)
-            with open(filename, 'rb') as f:
-                syms = [sym for sym in _iter_symbol_and_dynsym(f) if sym.name_as_bytes]
-                syms.sort(key=lambda sym: sym.value)
-                symindex = 0
-        symbol_value = value - base_addr + phdr.vaddr
-        for symindex in range(symindex, len(syms)):
-            sym = syms[symindex]
-            if sym.value <= symbol_value < sym.value + sym.size:
-                res[value] = (sym.name_as_bytes, filename)
-            if sym.value > symbol_value:
-                break
-        else:
+        map_entry = _proc_map_find_base_map(value, maps)
+        if map_entry is None:
             continue
+        entry = per_file.get(map_entry['file'])
+        if entry is None:
+            entry = per_file[map_entry['file']] = _read_symbols_of_file(map_entry)
+        syms = entry['syms']
+        if not syms:
+            continue
+        symbol_value = value - map_entry['from_'] + entry['vaddr']
+        index = entry['index']
+        # a symbol ending before this value cannot match it nor any later
+        # one, so the shared scan position only ever moves forward; the
+        # containing symbol stays in place for the values that follow it
+        while (index < len(syms) and
+               syms[index].value + syms[index].size <= symbol_value):
+            index += 1
+        entry['index'] = index
+        j = index
+        while j < len(syms) and syms[j].value <= symbol_value:
+            sym = syms[j]
+            if sym.value <= symbol_value < sym.value + sym.size:
+                res[value] = (sym.name_as_bytes, entry['filename'])
+            j += 1
     return res
 
 # __________________________________________________________
