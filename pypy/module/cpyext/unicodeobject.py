@@ -90,7 +90,7 @@ def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     value = space.utf8_w(w_obj)
     length = w_obj._len()
-    _readify(space, py_obj, value)
+    _readify(space, py_obj, length, value)
 
 def unicode_realize(space, py_obj):
     """
