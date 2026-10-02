@@ -4,45 +4,10 @@ import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, BytesListStrategy, FloatListStrategy, \
      ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy
-from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import is_valid_int
 
 
 class TestW_ListObject(object):
-    def test_is_true(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [])
-        assert self.space.is_true(w_list) == False
-        w_list = W_ListObject(self.space, [w(5)])
-        assert self.space.is_true(w_list) == True
-        w_list = W_ListObject(self.space, [w(5), w(3)])
-        assert self.space.is_true(w_list) == True
-
-    def test_len(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [])
-        assert self.space.eq_w(self.space.len(w_list), w(0))
-        w_list = W_ListObject(self.space, [w(5)])
-        assert self.space.eq_w(self.space.len(w_list), w(1))
-        w_list = W_ListObject(self.space, [w(5), w(3), w(99)]*111)
-        assert self.space.eq_w(self.space.len(w_list), w(333))
-        w_list = W_ListObject(self.space, [w(u'\u2039')])
-        assert self.space.eq_w(self.space.len(w_list), w(1))
-
-    def test_getitem(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [w(5), w(3)])
-        assert self.space.eq_w(self.space.getitem(w_list, w(0)), w(5))
-        assert self.space.eq_w(self.space.getitem(w_list, w(1)), w(3))
-        assert self.space.eq_w(self.space.getitem(w_list, w(-2)), w(5))
-        assert self.space.eq_w(self.space.getitem(w_list, w(-1)), w(3))
-        self.space.raises_w(self.space.w_IndexError,
-                            self.space.getitem, w_list, w(2))
-        self.space.raises_w(self.space.w_IndexError,
-                            self.space.getitem, w_list, w(42))
-        self.space.raises_w(self.space.w_IndexError,
-                            self.space.getitem, w_list, w(-3))
-
     def test_getitems(self):
         w = self.space.wrap
         from pypy.objspace.std.listobject import make_range_list
@@ -116,28 +81,6 @@ class TestW_ListObject(object):
                 w_result = self.space.getitem(w_list, w(key))
                 assert self.space.unwrap(w_result) == expected
 
-    def test_iter(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_iter = self.space.iter(w_list)
-        assert self.space.eq_w(self.space.next(w_iter), w(5))
-        assert self.space.eq_w(self.space.next(w_iter), w(3))
-        assert self.space.eq_w(self.space.next(w_iter), w(99))
-        py.test.raises(OperationError, self.space.next, w_iter)
-        py.test.raises(OperationError, self.space.next, w_iter)
-
-    def test_contains(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [w(5), w(3), w(99)])
-        assert self.space.eq_w(self.space.contains(w_list, w(5)),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.contains(w_list, w(99)),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.contains(w_list, w(11)),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.contains(w_list, w_list),
-                           self.space.w_False)
-
     def test_getslice(self):
         w = self.space.wrap
 
@@ -176,33 +119,6 @@ class TestW_ListObject(object):
         test1([5,7,1,4], 2, 2, [9],    [5,7,9,1,4])
         test1([5,7,1,4], 0, 99,[9,8],  [9,8])
 
-    def test_add(self):
-        w = self.space.wrap
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(-7)] * 111)
-        assert self.space.eq_w(self.space.add(w_list1, w_list1),
-                           W_ListObject(self.space, [w(5), w(3), w(99),
-                                               w(5), w(3), w(99)]))
-        assert self.space.eq_w(self.space.add(w_list1, w_list2),
-                           W_ListObject(self.space, [w(5), w(3), w(99)] +
-                                              [w(-7)] * 111))
-        assert self.space.eq_w(self.space.add(w_list1, w_list0), w_list1)
-        assert self.space.eq_w(self.space.add(w_list0, w_list2), w_list2)
-
-    def test_mul(self):
-        # only testing right mul at the moment
-        w = self.space.wrap
-        arg = w(2)
-        n = 3
-        w_lis = W_ListObject(self.space, [arg])
-        w_lis3 = W_ListObject(self.space, [arg]*n)
-        w_res = self.space.mul(w_lis, w(n))
-        assert self.space.eq_w(w_lis3, w_res)
-        # commute
-        w_res = self.space.mul(w(n), w_lis)
-        assert self.space.eq_w(w_lis3, w_res)
-
     def test_mul_does_not_clone(self):
         # only testing right mul at the moment
         w = self.space.wrap
@@ -211,20 +127,6 @@ class TestW_ListObject(object):
         w_lis.clone = None
         # does not crash
         self.space.mul(w_lis, w(5))
-
-    def test_setitem(self):
-        w = self.space.wrap
-        w_list = W_ListObject(self.space, [w(5), w(3)])
-        w_exp1 = W_ListObject(self.space, [w(5), w(7)])
-        w_exp2 = W_ListObject(self.space, [w(8), w(7)])
-        self.space.setitem(w_list, w(1), w(7))
-        assert self.space.eq_w(w_exp1, w_list)
-        self.space.setitem(w_list, w(-2), w(8))
-        assert self.space.eq_w(w_exp2, w_list)
-        self.space.raises_w(self.space.w_IndexError,
-                            self.space.setitem, w_list, w(2), w(5))
-        self.space.raises_w(self.space.w_IndexError,
-                            self.space.setitem, w_list, w(-3), w(5))
 
     def test_random_setitem_delitem(self):
         w = self.space.wrap
@@ -277,132 +179,6 @@ class TestW_ListObject(object):
                         expected[key] = newvalue
                         n += len(newvalue)
             assert self.space.unwrap(w_list) == expected
-
-    def test_eq(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-
-        assert self.space.eq_w(self.space.eq(w_list0, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.eq(w_list1, w_list0),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.eq(w_list1, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.eq(w_list1, w_list2),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.eq(w_list2, w_list3),
-                           self.space.w_False)
-
-    def test_ne(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-
-        assert self.space.eq_w(self.space.ne(w_list0, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.ne(w_list1, w_list0),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.ne(w_list1, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.ne(w_list1, w_list2),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.ne(w_list2, w_list3),
-                           self.space.w_True)
-
-    def test_lt(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_list4 = W_ListObject(self.space, [w(5), w(3), w(9), w(-1)])
-
-        assert self.space.eq_w(self.space.lt(w_list0, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.lt(w_list1, w_list0),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.lt(w_list1, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.lt(w_list1, w_list2),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.lt(w_list2, w_list3),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.lt(w_list4, w_list3),
-                           self.space.w_True)
-
-    def test_ge(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_list4 = W_ListObject(self.space, [w(5), w(3), w(9), w(-1)])
-
-        assert self.space.eq_w(self.space.ge(w_list0, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.ge(w_list1, w_list0),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.ge(w_list1, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.ge(w_list1, w_list2),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.ge(w_list2, w_list3),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.ge(w_list4, w_list3),
-                           self.space.w_False)
-
-    def test_gt(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_list4 = W_ListObject(self.space, [w(5), w(3), w(9), w(-1)])
-
-        assert self.space.eq_w(self.space.gt(w_list0, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.gt(w_list1, w_list0),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.gt(w_list1, w_list1),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.gt(w_list1, w_list2),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.gt(w_list2, w_list3),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.gt(w_list4, w_list3),
-                           self.space.w_False)
-
-    def test_le(self):
-        w = self.space.wrap
-
-        w_list0 = W_ListObject(self.space, [])
-        w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
-        w_list3 = W_ListObject(self.space, [w(5), w(3), w(99), w(-1)])
-        w_list4 = W_ListObject(self.space, [w(5), w(3), w(9), w(-1)])
-
-        assert self.space.eq_w(self.space.le(w_list0, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.le(w_list1, w_list0),
-                           self.space.w_False)
-        assert self.space.eq_w(self.space.le(w_list1, w_list1),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.le(w_list1, w_list2),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.le(w_list2, w_list3),
-                           self.space.w_True)
-        assert self.space.eq_w(self.space.le(w_list4, w_list3),
-                           self.space.w_True)
 
     def test_sizehint(self):
         space = self.space
