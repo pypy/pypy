@@ -274,7 +274,8 @@ class W_UnicodeObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "first maketrans argument must be a string if "
                             "there is a second argument")
-            if space.len_w(w_x) != space.len_w(w_y):
+            if (rutf8.codepoints_in_utf8(x) !=
+                    rutf8.codepoints_in_utf8(y)):
                 raise oefmt(space.w_ValueError,
                             "the first two maketrans arguments must have "
                             "equal length")
@@ -308,11 +309,11 @@ class W_UnicodeObject(W_Root):
                 w_key, w_value = space.unpackiterable(w_item, 2)
                 if space.isinstance_w(w_key, space.w_unicode):
                     # convert string keys to integer keys
-                    if space.len_w(w_key) != 1:
+                    val = space.utf8_w(w_key)
+                    if rutf8.codepoints_in_utf8(val) != 1:
                         raise oefmt(space.w_ValueError,
                                     "string keys in translate table must be "
                                     "of length 1")
-                    val = space.utf8_w(w_key)
                     w_key = space.newint(rutf8.codepoint_at_pos(val, 0))
                 else:
                     # just keep integer keys
@@ -1100,10 +1101,11 @@ class W_UnicodeObject(W_Root):
     @unwrap_spec(width=int, w_fillchar=WrappedDefault(u' '))
     def descr_center(self, space, width, w_fillchar):
         value = self._utf8
-        fillchar = space.utf8_w(w_fillchar)
-        if space.len_w(w_fillchar) != 1:
+        w_fillchar = self.convert_arg_to_w_unicode(space, w_fillchar)
+        if w_fillchar._len() != 1:
             raise oefmt(space.w_TypeError,
                         "center() argument 2 must be a single character")
+        fillchar = w_fillchar._utf8
 
         d = width - self._len()
         if d > 0:
