@@ -3,7 +3,7 @@ from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
 from rpython.rlib.debug import debug_start, debug_print, debug_stop
-from rpython.rlib.debug import have_debug_prints
+from rpython.rlib.debug import have_debug_prints, fatalerror
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -29,11 +29,30 @@ class AsmMemoryManager(object):
         """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
         return (self.total_memory_allocated, self.total_mallocs)
 
+    # The three statements at the end of _add_free_block each allocate, and
+    # the structures disagree until all of them are done.  A GC there runs
+    # finalizers, and CompiledLoopToken.__del__ -> free_loop_and_bridges ->
+    # free() reenters us inside that window.  Flag it.
+    DETECT_REENTRANCY = True
+    _updating = False
+    _update_start = 0
+    _update_stop = 0
+
+    def _check_not_reentered(self, name, a, b):
+        if not self.DETECT_REENTRANCY:
+            return
+        if self._updating:
+            fatalerror("AsmMemoryManager reentered: " + name + "(" +
+                       str(a) + ", " + str(b) + ") entered while "
+                       "_add_free_block(" + str(self._update_start) + ", " +
+                       str(self._update_stop) + ") was mid-update")
+
     def malloc(self, minsize, maxsize):
         """Allocate executable memory, between minsize and maxsize bytes,
         and return a pair (start, stop).  Does not perform any rounding
         of minsize and maxsize.
         """
+        self._check_not_reentered('malloc', minsize, maxsize)
         result = self._allocate_block(minsize)
         (start, stop) = result
         if maxsize <= stop - start - self.min_fragment:
@@ -46,12 +65,14 @@ class AsmMemoryManager(object):
 
     def free(self, start, stop):
         """Free a block (start, stop) returned by a previous malloc()."""
+        self._check_not_reentered('free', start, stop)
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
         self._add_free_block(start, stop)
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
+        self._check_not_reentered('open_malloc', minsize, -1)
         result = self._allocate_block(minsize)
         (start, stop) = result
         self.total_mallocs += r_uint(stop - start)
@@ -59,6 +80,7 @@ class AsmMemoryManager(object):
 
     def open_free(self, middle, stop):
         """Used for freeing the end of an open-allocated block of memory."""
+        self._check_not_reentered('open_free', middle, stop)
         if stop - middle >= self.min_fragment:
             self.total_mallocs -= r_uint(stop - middle)
             self._add_free_block(middle, stop)
@@ -113,13 +135,19 @@ class AsmMemoryManager(object):
             self._del_free_block(stop, right_stop)
             stop = right_stop
             assert stop not in self.free_blocks
-        # Add it to the dicts
+        # Add it to the dicts and check reentrancy
+        if self.DETECT_REENTRANCY:
+            self._update_start = start
+            self._update_stop = stop
+            self._updating = True
         assert start not in self.free_blocks
         self.free_blocks[start] = stop
         assert stop not in self.free_blocks_end
         self.free_blocks_end[stop] = start
         i = self._get_index(stop - start)
         self.blocks_by_size[i].append(start)
+        if self.DETECT_REENTRANCY:
+            self._updating = False
         return start
 
     def _del_free_block(self, start, stop):

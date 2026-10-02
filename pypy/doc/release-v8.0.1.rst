@@ -7,7 +7,7 @@ PyPy v8.0.1: bug-fix release of python 2.7, 3.11, and 3.12 beta released 2026-10
    will be announced on the PyPy blog_
 
 ..
-  updated to 87cc84072a489295e51102289fa1ecd37661cf64
+  updated to 71e2dba58c4
 
 The PyPy team is proud to release version 8.0.1 of PyPy after the previous
 release on Sept 25, 2026. This is a bugfix release. Some problems with buffer
@@ -92,13 +92,12 @@ conda, OpenBSD, FreeBSD, Gentoo, and more.
 Changelog
 =========
 
-The changelog does not describe the hundreds of changes made for PyPy3.12.
-
 For all versions
 ----------------
 
 - Fix translation when using CPython2.7 (:issue:`5586`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
+- Update embedded OpenSSL to version 3.5.9
 
 Python 3.11
 -----------
