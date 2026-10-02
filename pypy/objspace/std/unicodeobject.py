@@ -334,7 +334,9 @@ class W_UnicodeObject(W_Root):
         if space.is_w(space.type(self), space.w_unicode):
             return self
         # Subtype -- return genuine unicode string with the same value.
-        return space.newtext(space.utf8_w(self), space.len_w(self))
+        # Use the stored length, not space.len_w, which calls a __len__
+        # override and would build a str whose length belies its data
+        return space.newutf8(self._utf8, self._len())
 
     def hash_w(self):
         # shortcut for UnicodeDictStrategy

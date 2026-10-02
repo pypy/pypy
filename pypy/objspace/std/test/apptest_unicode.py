@@ -102,8 +102,9 @@ def test_split():
 def test_split_unexpected_keyword_error():
     with raises(TypeError) as exc:
         "".split(max_split=1)
-    assert str(exc.value) == (
-        "str.split() got an unexpected keyword argument 'max_split'")
+    assert str(exc.value) in (
+        "str.split() got an unexpected keyword argument 'max_split'",  #PyPY
+        "'max_split' is an invalid keyword argument for split()")     #CPython
 
 def test_split_nonascii():
     assert "\u2029".split() == []
@@ -1297,3 +1298,31 @@ def test_mul():
     assert u'abc'.__mul__(2) == u'abcabc'
     with raises(TypeError):
         u'abc'.__mul__('')
+
+def test_str_of_subclass_overriding_len():
+    # str() of a subtype copies the characters it holds; __len__ must not be
+    # consulted, or the result's length disagrees with its own data
+    class Ten(str):
+        def __len__(self):
+            return 10
+
+    class Two(str):
+        def __len__(self):
+            return 2
+
+    assert len(Ten('abcdef')) == 10
+    assert str.__len__(Ten('abcdef')) == 6
+
+    assert len(str(Ten('abcedf'))) == 6
+    assert len(str(Two('abcedf'))) == 6
+
+def test_str_of_subclass_does_not_call_len():
+    # untranslated, newtext() recomputes the length, hiding a wrong value;
+    # the call to __len__ itself is what is observable
+    class S(str):
+        def __len__(self):
+            raise ValueError('__len__ must not be consulted')
+
+    s = str(S('abcdef'))
+    assert type(s) is str
+    assert s == 'abcdef'
