@@ -223,6 +223,13 @@ class AbstractAarch64Builder(object):
         assert offset & 0x3 == 0
         self.write32((base << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt)
 
+    def LDR_d_literal(self, rt, offset):
+        # 64-bit SIMD LDR (literal). Same imm19 as LDR_r_literal.
+        base = 0b01011100
+        assert -(1 << 20) <= offset < (1 << 20)
+        assert offset & 0x3 == 0
+        self.write32((base << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt)
+
     def ADD_rr(self, rd, rn, rm, s=0):
         base = 0b10001011000 | (s << 8)
         self.write32((base << 21) | (rm << 16) | (rn << 5) | (rd))

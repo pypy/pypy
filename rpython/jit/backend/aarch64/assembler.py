@@ -28,12 +28,22 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import rgc, rmmap
 
 
+# Flush when the first pending LDR is more than this far behind.
+# The flush point is at most this distance plus one operation's code
+# after the first pending LDR, and the pool holds at most one 8-byte
+# entry per 4-byte LDR emitted since then, so the farthest entry stays
+# well inside +-1MB.
+LITERAL_POOL_FLUSH_DISTANCE = 256 * 1024
+
+
 class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.stack_check_slowpath = 0
+        # (pos, rt, address of the 8-byte float)
+        self.pending_literals = []
 
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -1004,8 +1014,10 @@ class AssemblerARM64(ResOpAssembler):
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
+            self._maybe_flush_literal_pool()
             #generate the exit stub and the encoded representation
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        self._flush_literal_pool()
 
     def reserve_gcref_table(self, allgcrefs):
         gcref_table_size = len(allgcrefs) * WORD
@@ -1041,6 +1053,7 @@ class AssemblerARM64(ResOpAssembler):
         self.mc.LDR_r_literal(regnum, offset)
 
     def materialize_loop(self, looptoken):
+        assert not self.pending_literals
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
@@ -1160,8 +1173,10 @@ class AssemblerARM64(ResOpAssembler):
 
     def _assemble(self, regalloc, inputargs, operations):
         #self.guard_success_cc = c.cond_none
+        self.pending_literals = []
         regalloc.compute_hint_frame_locations(operations)
         self._walk_operations(inputargs, operations, regalloc)
+        self._flush_literal_pool()
         #assert self.guard_success_cc == c.cond_none
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
@@ -1178,6 +1193,7 @@ class AssemblerARM64(ResOpAssembler):
             regalloc.next_instruction()
             i = regalloc.position()
             op = operations[i]
+            self._maybe_flush_literal_pool()
             self.mc.mark_op(op)
             opnum = op.getopnum()
             if rop.has_no_side_effect(opnum) and op not in regalloc.longevity:
@@ -1243,8 +1259,40 @@ class AssemblerARM64(ResOpAssembler):
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
         elif value.is_imm_float():
-            self.mc.gen_load_int(r.ip0.value, value.getint())
-            self.mc.LDR_di(loc.value, r.ip0.value, 0)
+            # One PC-relative LDR; the 8-byte constant is in the literal pool.
+            pos = self.mc.currpos()
+            self.mc.LDR_d_literal(loc.value, 0)
+            self.pending_literals.append((pos, loc.value, value.getint()))
+
+    def _maybe_flush_literal_pool(self):
+        pending = self.pending_literals
+        if not pending:
+            return
+        if self.mc.currpos() - pending[0][0] > LITERAL_POOL_FLUSH_DISTANCE:
+            self._flush_literal_pool()
+
+    def _flush_literal_pool(self):
+        pending = self.pending_literals
+        if not pending:
+            return
+        self.pending_literals = []
+        # The loop falls off its last instruction only on a trace that
+        # does not jump. Branch over the pool either way.
+        after_b = self.mc.currpos() + 4
+        pad = (8 - (after_b % 8)) % 8
+        self.mc.B_ofs(4 + pad + len(pending) * 8)
+        for _ in range(pad // 4):
+            self.mc.NOP()
+        for pos, rt, addr in pending:
+            pool = self.mc.currpos()
+            src = rffi.cast(rffi.CCHARP, addr)
+            for i in range(8):
+                self.mc.writechar(src[i])
+            offset = pool - pos
+            assert -(1 << 20) <= offset < (1 << 20)
+            assert offset & 3 == 0
+            word = (0b01011100 << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt
+            self.mc.overwrite32(pos, word)
 
     def _mov_stack_to_loc(self, prev_loc, loc):
         offset = prev_loc.value
