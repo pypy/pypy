@@ -113,7 +113,6 @@ def test_setblocking_invalidfd():
     try:
         pytest.raises(OSError, s.setblocking, False)
     finally:
-        # detach the stale fd to avoid a double close from the finalizer
         s.detach()
 
 def test_socket_connect():

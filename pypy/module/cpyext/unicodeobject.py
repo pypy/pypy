@@ -87,9 +87,10 @@ def PyUnicode_CheckExact(space, ref):
 
 def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     "Fills a newly allocated PyUnicodeObject with a unicode string"
+    assert isinstance(w_obj, unicodeobject.W_UnicodeObject)
     value = space.utf8_w(w_obj)
-    length = space.len_w(w_obj)
-    _readify(space, py_obj, length, value)
+    length = w_obj._len()
+    _readify(space, py_obj, value)
 
 def unicode_realize(space, py_obj):
     """

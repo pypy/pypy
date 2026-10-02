@@ -141,6 +141,13 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.unsafe_len(u'aАbБcСdД') == 8
         assert module.unsafe_len(u"café\U0001F4A9") == 5
 
+        # the C-level length of a subclass comes from the characters it
+        # holds, not from __len__
+        class len_override(str):
+            def __len__(self):
+                return 10
+        assert module.unsafe_len(len_override(u"abcdef")) == 6
+
         itemsize = module.itemsize()
         assert itemsize == 0
 
