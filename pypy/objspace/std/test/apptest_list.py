@@ -134,6 +134,15 @@ def test_gt():
     assert not l2 > l3
     assert not l4 > l3
 
+def test_reversed_subclass_overriding_len():
+    # list.__reversed__ uses the real length, not a __len__ override
+    class L(list):
+        def __len__(self):
+            return 10
+
+    assert list(reversed(L([1, 2, 3]))) == [3, 2, 1]
+    assert list(reversed(L([]))) == []
+
 def test_le():
     l0 = []
     l1 = [5, 3, 99]
