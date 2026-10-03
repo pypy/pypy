@@ -447,3 +447,33 @@ def test_match_class_kwd_attrs_not_bound_as_name():
                 return val, unlikely_kwd
     assert f(C()) == (42, "should not be overwritten")
     assert "unlikely_kwd" not in globals()
+
+
+def test_match_class_attr_error_propagates():
+    class R:
+        __match_args__ = ('a',)
+
+        @property
+        def a(self):
+            raise ValueError('boom')
+
+        @property
+        def b(self):
+            raise AttributeError('nope')
+
+    # only AttributeError means "no match", anything else propagates
+    with pytest.raises(ValueError):
+        match R():
+            case R(x):
+                pass
+
+    with pytest.raises(ValueError):
+        match R():
+            case R(a=x):
+                pass
+
+    matched = False
+    match R():
+        case R(b=x):
+            matched = True
+    assert not matched
