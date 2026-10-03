@@ -3,7 +3,7 @@ import pytest
 try:
     from hypothesis import given, strategies as st, example, settings, assume
 except ImportError:
-    pytest.skip("hypothesis required")
+    pytest.skip("hypothesis required", allow_module_level=True)
 
 from pypy.module.unicodedata.interp_ucd import ucd
 from rpython.rlib.rutf8 import codepoints_in_utf8
