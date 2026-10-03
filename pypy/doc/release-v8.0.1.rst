@@ -113,7 +113,7 @@ Python 3.11 and 3.12
 - Fix ``HMAC_CTX`` leak in ``_hashlib.hmac_new`` (:issue:`5599`)
 - Make ``Lock`` and ``RLock`` 's 'lock' field mutable instead of quasi-immutable (:issue:`5602`)
 - Avoid consulting ``__len__`` when creating a str, use ``len(value)`` instead (:issue:`5609`)
-- Propogate lookup error in ``match_class_attr`` (:issue:`5611`)
+- Propagate lookup error in ``match_class_attr`` (:issue:`5611`)
 
 Python 3.12
 -----------
