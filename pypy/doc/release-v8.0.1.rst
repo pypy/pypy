@@ -112,6 +112,8 @@ Python 3.11 and 3.12
 - Any use of ``_ffi.from_buffer`` in lib_pypy needs to release the buffer (:issue:`5589`)
 - Fix ``HMAC_CTX`` leak in ``_hashlib.hmac_new`` (:issue:`5599`)
 - Make ``Lock`` and ``RLock`` 's 'lock' field mutable instead of quasi-immutable (:issue:`5602`)
+- Avoid consulting ``__len__`` when creating a str, use ``len(value)`` instead (:issue:`5609`)
+- Propogate lookup error in ``match_class_attr`` (:issue:`5611`)
 
 Python 3.12
 -----------
@@ -123,8 +125,4 @@ Python 3.12
 - cpyext: When handling a memoryviewobject, copy strides/shape instead of aliasing them
 - cpyext: Implement PY_VECTORCALL_ARGUMENTS_OFFSET protocol in PyObject_VectorcallDict
 - Make ``ElementTree::ParseError`` messages strings (:issue:`5605`)
-
-
-Speedups and enhancements
-~~~~~~~~~~~~~~~~~~~~~~~~~
 
