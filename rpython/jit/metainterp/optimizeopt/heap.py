@@ -88,6 +88,8 @@ class AbstractCachedEntry(object):
         if not cached_field or not cached_field.same_box(arg1):
             # common case: store the 'op' as lazy_set
             self._lazy_set = op
+            # The next guard snapshots this store.
+            optheap.optimizer._last_guard_op = None
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,

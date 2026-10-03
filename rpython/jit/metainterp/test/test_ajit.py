@@ -2056,8 +2056,7 @@ class BasicTests:
         res = self.meta_interp(g, [6, 20])
         assert res == g(6, 20)
         self.check_trace_count(8)
-        # 6 extra from sharing guard data
-        self.check_resops(getarrayitem_gc_i=10 + 6)
+        self.check_resops(getarrayitem_gc_i=10)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
