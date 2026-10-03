@@ -154,5 +154,8 @@ class ZeroRegister(AssemblerLocation):
 def imm(i):
     return ImmLocation(i)
 
+def imm_float_addr(addr):
+    return ConstFloatLoc(addr)
+
 def get_fp_offset(base_ofs, position):
     return base_ofs + WORD * (position + JITFRAME_FIXED_SIZE)

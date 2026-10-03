@@ -10,8 +10,8 @@ from rpython.jit.metainterp.history import (Const, ConstInt, ConstFloat,
 from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
-        RegisterManager, TempVar, compute_vars_longevity, BaseRegalloc, \
-        get_scale
+        RegisterManager, TempVar, Lifetime, compute_vars_longevity, \
+        BaseRegalloc, get_scale
 from rpython.rtyper.lltypesystem import lltype, rffi, rstr, llmemory
 from rpython.jit.backend.aarch64 import registers as r
 from rpython.jit.backend.aarch64.jump import remap_frame_layout_mixed
@@ -64,12 +64,61 @@ class ARMFrameManager(FrameManager):
         assert loc.is_stack()
         return loc.position
 
+def _imm_mov_count(value):
+    if value < 0:
+        if value >= -65536:
+            return 1
+        n = 1
+        value = value >> 16
+        shift = 16
+        while shift < 64:
+            if (value & 0xFFFF) != 0xFFFF:
+                n += 1
+            shift += 16
+            value >>= 16
+        return n
+    n = 1
+    value = value >> 16
+    while value:
+        n += 1
+        value >>= 16
+    return n
+
+
 class ARMRegisterManager(RegisterManager):
     FORBID_TEMP_BOXES = True
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         self._check_type(v)
         if isinstance(v, Const):
+            if isinstance(v, ConstFloat):
+                # FloatStorage is a C double on 64-bit. Cast to Signed
+                # truncates the value, so 0.125 and 0.0 both become 0.
+                bits = rffi.cast(lltype.Signed,
+                                 longlong.extract_bits(v.getfloatstorage()))
+                if (selected_reg is None and
+                        self.assembler.have_pinned_float and
+                        bits == self.assembler.pinned_float and
+                        self.reg_bindings.get(
+                            self.assembler.pinned_float_box)
+                        is self.assembler.pinned_float_loc):
+                    return self.assembler.pinned_float_loc
+            elif isinstance(v, ConstInt):
+                val = rffi.cast(lltype.Signed, v.value)
+                if (selected_reg is None and
+                        self.assembler.have_pinned_int0 and
+                        val == self.assembler.pinned_int0 and
+                        self.reg_bindings.get(
+                            self.assembler.pinned_int0_box)
+                        is self.assembler.pinned_int0_loc):
+                    return self.assembler.pinned_int0_loc
+                if (selected_reg is None and
+                        self.assembler.have_pinned_int1 and
+                        val == self.assembler.pinned_int1 and
+                        self.reg_bindings.get(
+                            self.assembler.pinned_int1_box)
+                        is self.assembler.pinned_int1_loc):
+                    return self.assembler.pinned_int1_loc
             if isinstance(v, ConstPtr):
                 tp = REF
             elif isinstance(v, ConstFloat):
@@ -339,6 +388,21 @@ class Regalloc(BaseRegalloc):
         return [l0, l1, res]
 
     def prepare_op_int_add(self, op):
+        a0 = op.getarg(0)
+        a1 = op.getarg(1)
+        # i = i + 1 should update i in place. A fresh result reg becomes
+        # a move on the back-edge.
+        if not isinstance(a0, Const) and check_imm_box(a1):
+            boxes = [a0, a1]
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
+            if (a0 in self.rm.longevity and
+                    self.rm.longevity[a0].last_usage == self.rm.position):
+                res = self.rm.force_result_in_reg(op, a0, boxes)
+            else:
+                res = self.force_allocate_reg(op)
+            self.possibly_free_vars_for_op(op)
+            return [l0, l1, res]
         return self.prepare_int_ri(op, False)
 
     def prepare_op_int_sub(self, op):
@@ -482,10 +546,31 @@ class Regalloc(BaseRegalloc):
         loc2 = self.make_sure_var_in_reg(op.getarg(1), op.getarglist())
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
-        res = self.force_allocate_reg(op)
+        # float_lt and the other comparisons produce an int. A vfp
+        # selected_reg makes the core allocator skip every candidate.
+        selected = None
+        if op.type == FLOAT:
+            selected = self._free_reg(loc1, self.vfprm)
+        res = self.force_allocate_reg(op, selected_reg=selected)
         return [loc1, loc2, res]
 
-    prepare_op_float_add = prepare_two_regs_op
+    def prepare_op_float_add(self, op):
+        a0 = op.getarg(0)
+        loc1 = self.make_sure_var_in_reg(a0)
+        loc2 = self.make_sure_var_in_reg(op.getarg(1), op.getarglist())
+        # s = s + prod should update s in place so the back-edge has no fmov.
+        if (not isinstance(a0, Const) and a0 in self.vfprm.longevity and
+                self.vfprm.longevity[a0].last_usage == self.vfprm.position):
+            res = self.vfprm.force_result_in_reg(op, a0, op.getarglist())
+        else:
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            selected = self._free_reg(loc1, self.vfprm)
+            res = self.force_allocate_reg(op, selected_reg=selected)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        return [loc1, loc2, res]
+
     prepare_op_float_sub = prepare_two_regs_op
     prepare_op_float_mul = prepare_two_regs_op
     prepare_op_float_truediv = prepare_two_regs_op
@@ -701,6 +786,26 @@ class Regalloc(BaseRegalloc):
                 self.frame_manager.mark_as_free(arg)
         #
         descr._arm_arglocs = arglocs
+        jump_op = self.final_jump_op
+        asm = self.assembler
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._emit_loop_pins()
+            descr._arm_pin_f = asm.have_pinned_float
+            descr._arm_pin_i0 = asm.have_pinned_int0
+            descr._arm_pin_i1 = asm.have_pinned_int1
+            if asm.have_pinned_float:
+                descr._arm_pin_f_reg = asm.pinned_float_loc.value
+                descr._arm_pin_f_addr = asm.pinned_float_addr
+            if asm.have_pinned_int0:
+                descr._arm_pin_i0_reg = asm.pinned_int0_loc.value
+                descr._arm_pin_i0_val = asm.pinned_int0
+            if asm.have_pinned_int1:
+                descr._arm_pin_i1_reg = asm.pinned_int1_loc.value
+                descr._arm_pin_i1_val = asm.pinned_int1
+        else:
+            descr._arm_pin_f = False
+            descr._arm_pin_i0 = False
+            descr._arm_pin_i1 = False
         descr._ll_loop_code = self.assembler.mc.currpos()
         descr._arm_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
@@ -714,6 +819,92 @@ class Regalloc(BaseRegalloc):
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
         return []
+
+    def _emit_loop_pins(self):
+        asm = self.assembler
+        if asm.emitting_bridge or asm.have_pinned_float or asm.have_pinned_int0:
+            return
+        ops = self.operations
+        i = self.rm.position + 1
+        floatbox = None
+        ints = []
+        # A call or a write barrier reuses caller-saved regs.
+        has_call = False
+        while i < len(ops):
+            op = ops[i]
+            opnum = op.getopnum()
+            if opnum == rop.LABEL:
+                break
+            if (rop.is_call(opnum) or opnum == rop.COND_CALL_GC_WB or
+                    opnum == rop.COND_CALL_GC_WB_ARRAY):
+                has_call = True
+                break
+            if floatbox is None or len(ints) < 2:
+                for j in range(op.numargs()):
+                    arg = op.getarg(j)
+                    if isinstance(arg, ConstFloat):
+                        if floatbox is None:
+                            floatbox = arg
+                    elif isinstance(arg, ConstInt):
+                        val = rffi.cast(lltype.Signed, arg.value)
+                        if _imm_mov_count(val) < 2:
+                            continue
+                        seen = False
+                        for prev in ints:
+                            if prev == val:
+                                seen = True
+                        if not seen:
+                            ints.append(val)
+            i += 1
+        if has_call:
+            return
+        end_pos = len(ops)
+        if floatbox is not None:
+            loc, box = self._reserve_pin_reg(self.vfprm, end_pos, TempFloat)
+            if loc is not None:
+                floc = self.vfprm.convert_to_imm(floatbox)
+                self.assembler.load(loc, floc)
+                asm.have_pinned_float = True
+                asm.pinned_float_loc = loc
+                asm.pinned_float_box = box
+                asm.pinned_float_addr = floc.getint()
+                asm.pinned_float = rffi.cast(
+                    lltype.Signed,
+                    longlong.extract_bits(floatbox.getfloatstorage()))
+        if len(ints) > 0:
+            loc, box = self._reserve_pin_reg(self.rm, end_pos, TempInt)
+            if loc is not None:
+                self.assembler.load(loc, imm(ints[0]))
+                asm.have_pinned_int0 = True
+                asm.pinned_int0_loc = loc
+                asm.pinned_int0_box = box
+                asm.pinned_int0 = ints[0]
+        if len(ints) > 1:
+            loc, box = self._reserve_pin_reg(self.rm, end_pos, TempInt)
+            if loc is not None:
+                self.assembler.load(loc, imm(ints[1]))
+                asm.have_pinned_int1 = True
+                asm.pinned_int1_loc = loc
+                asm.pinned_int1_box = box
+                asm.pinned_int1 = ints[1]
+
+    def _reserve_pin_reg(self, manager, end_pos, boxcls):
+        # Leave registers for the temps of later operations.
+        if len(manager.free_regs) < 3:
+            return None, None
+        box = boxcls()
+        loc = manager.force_allocate_reg(box)
+        lifetime = manager.longevity[box]
+        lifetime.last_usage = end_pos
+        # A real use at the end keeps this register from being spilled first.
+        lifetime.real_usages = [end_pos]
+        return loc, box
+
+    def _free_reg(self, loc, manager):
+        if loc is not None and (loc.is_core_reg() or loc.is_vfp_reg()):
+            if loc in manager.free_regs:
+                return loc
+        return None
 
     def _prepare_op_cond_call(self, op, res_in_cc):
         assert 2 <= op.numargs() <= 4 + 2

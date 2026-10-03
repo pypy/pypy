@@ -477,6 +477,17 @@ class JitCellToken(AbstractDescr):
 class TargetToken(AbstractDescr):
     _ll_loop_code = 0     # for the backend.  If 0, we know that it is
                           # a LABEL that was not compiled yet.
+    # aarch64: constants parked in regs before the loop head. A bridge
+    # that jumps back must reload them; the back-edge does not.
+    _arm_pin_f = False
+    _arm_pin_f_reg = 0
+    _arm_pin_f_addr = 0
+    _arm_pin_i0 = False
+    _arm_pin_i0_reg = 0
+    _arm_pin_i0_val = 0
+    _arm_pin_i1 = False
+    _arm_pin_i1_reg = 0
+    _arm_pin_i1_val = 0
 
     def __init__(self, targeting_jitcell_token=None,
                  original_jitcell_token=None):
