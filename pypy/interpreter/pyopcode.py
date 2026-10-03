@@ -2057,7 +2057,12 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
         raise oefmt(space.w_TypeError,
                 "%N() got multiple sub-patterns for attribute %R", w_type, w_name)
     seen[name] = None
-    return space.findattr(w_subject, w_name)
+    try:
+        return space.getattr(w_subject, w_name)
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return None
 
 @jit.unroll_safe
 def _match_class(space, nargs, w_names, w_type, w_subject):
