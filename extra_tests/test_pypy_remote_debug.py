@@ -352,7 +352,7 @@ def test_symbolify_all_parses_each_library_once(monkeypatch):
 
     so = load_so_or_skip('libexpat.so')
     addrs = []
-    for name in (b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write'):
+    for name in (b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_seek'):
         addrs.append(_pypy_remote_debug.compute_remote_addr('self', name))
     for name in ('XML_Parse', 'XML_GetBase'):
         addrs.append((ctypes.cast(getattr(so, name), ctypes.c_void_p)).value)
