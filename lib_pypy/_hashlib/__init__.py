@@ -472,14 +472,15 @@ types and lengths of a and b--but not their values."""
         except Exception:
             raise TypeError("unsupported operand types(s) or combination of "
                             f"types: '{type(a)}' and '{type(b)}'")
-        if b_a.ndim > 1:
-            raise BufferError("Buffer must be a single dimension")
-        if b_b.ndim > 1:
-            raise BufferError("Buffer must be a single dimension")
-        c_a = ffi.from_buffer(b_a.tobytes())
-        c_b = ffi.from_buffer(b_b.tobytes())
-        length_a = len(b_a)
-        length_b = len(b_b)
+        with b_a, b_b:
+            if b_a.ndim > 1:
+                raise BufferError("Buffer must be a single dimension")
+            if b_b.ndim > 1:
+                raise BufferError("Buffer must be a single dimension")
+            c_a = ffi.from_buffer(b_a.tobytes())
+            c_b = ffi.from_buffer(b_b.tobytes())
+            length_a = len(b_a)
+            length_b = len(b_b)
     if length_a != length_b:
         res = False
     return (lib.CRYPTO_memcmp(c_a, c_b, length_b) == 0) and res

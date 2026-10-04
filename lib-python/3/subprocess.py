@@ -2104,10 +2104,13 @@ class Popen:
 
             self._save_input(input)
 
+            # PyPy: release the view on exit, the GC would only do it later
             if self._input:
                 input_view = memoryview(self._input)
+            else:
+                input_view = contextlib.nullcontext()
 
-            with _PopenSelector() as selector:
+            with _PopenSelector() as selector, input_view:
                 if self.stdin and input:
                     selector.register(self.stdin, selectors.EVENT_WRITE)
                 if self.stdout and not self.stdout.closed:

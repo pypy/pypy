@@ -785,7 +785,11 @@ def parse_qsl(qs, keep_blank_values=False, strict_parsing=False,
             return []
         # Use memoryview() to reject integers and iterables,
         # acceptable by the bytes constructor.
-        qs = bytes(memoryview(qs))
+        # PyPy: release the view now, the GC would only do it later (a bytes
+        # object needs no conversion)
+        if type(qs) is not bytes:
+            with memoryview(qs) as view:
+                qs = bytes(view)
         if isinstance(separator, str):
             separator = bytes(separator, 'ascii')
         eq = b'='
