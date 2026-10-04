@@ -57,6 +57,15 @@ to the authors and explaining the problem to them: they need to close
 their open files in order to run on any non-CPython-based implementation
 of Python.
 
+On PyPy3, a ``memoryview`` is likewise not released when it goes out of
+scope.  Resizing a ``bytearray`` (or another object that can be resized,
+like an ``io.BytesIO``) raises ``BufferError`` while a view of it is alive,
+and PyPy3 keeps a view alive until the garbage collector frees it.  So code
+like ``memoryview(buf)[:n].tobytes()`` followed by ``del buf[:n]`` can raise
+``BufferError`` on PyPy3, while it works on CPython.  Release the view
+explicitly, with ``view.release()`` or ``with memoryview(buf) as view:``,
+before resizing the object.
+
 ---------------------------------
 
 Here are some more technical details.  This issue affects the precise
