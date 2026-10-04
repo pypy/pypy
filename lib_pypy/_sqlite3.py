@@ -2156,9 +2156,10 @@ class Blob(object):
         if isinstance(item, slice):
             start, stop, stride = item.indices(blob_len)
             length = len(range(start, stop, stride))
-            if not memoryview(value).contiguous:
-                raise BufferError(
-                    "memoryview: underlying buffer is not C-contiguous")
+            with memoryview(value) as view:
+                if not view.contiguous:
+                    raise BufferError(
+                        "memoryview: underlying buffer is not C-contiguous")
             if length != len(value):
                 raise IndexError("Blob slice assignment is wrong size")
             if stride == 1:

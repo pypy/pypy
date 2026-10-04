@@ -1081,6 +1081,10 @@ class _SelectorSocketTransport(_SelectorTransport):
                 self._fatal_error(exc, 'Fatal write error on socket transport')
                 return
             else:
+                # PyPy: no view of data if all of it was sent, the GC would
+                # only release it later
+                if n == len(data):
+                    return
                 data = memoryview(data)[n:]
                 if not data:
                     return
@@ -1088,6 +1092,10 @@ class _SelectorSocketTransport(_SelectorTransport):
             self._loop._add_writer(self._sock_fd, self._write_ready)
 
         # Add it to the buffer.
+        # PyPy: the views in the buffer are released once sent, so don't
+        # put the caller's own memoryview there
+        if type(data) is memoryview:
+            data = memoryview(data)
         self._buffer.append(data)
         self._maybe_pause_protocol()
 
@@ -1129,6 +1137,9 @@ class _SelectorSocketTransport(_SelectorTransport):
             b_len = len(b)
             if b_len <= nbytes:
                 nbytes -= b_len
+                # PyPy: release the view now, the GC would only do it later
+                if type(b) is memoryview:
+                    b.release()
             else:
                 buffer.appendleft(b[nbytes:])
                 break
@@ -1143,6 +1154,9 @@ class _SelectorSocketTransport(_SelectorTransport):
             if n != len(buffer):
                 # Not all data was written
                 self._buffer.appendleft(buffer[n:])
+            elif type(buffer) is memoryview:
+                # PyPy: release the view now, the GC would only do it later
+                buffer.release()
         except (BlockingIOError, InterruptedError):
             pass
         except (SystemExit, KeyboardInterrupt):

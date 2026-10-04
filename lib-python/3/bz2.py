@@ -222,12 +222,13 @@ class BZ2File(_compression.BaseStream):
         self._check_can_write()
         if isinstance(data, (bytes, bytearray)):
             length = len(data)
+            compressed = self._compressor.compress(data)
         else:
             # accept any data that supports the buffer protocol
-            data = memoryview(data)
-            length = data.nbytes
-
-        compressed = self._compressor.compress(data)
+            # PyPy: release the view now, the GC would only do it later
+            with memoryview(data) as data:
+                length = data.nbytes
+                compressed = self._compressor.compress(data)
         self._fp.write(compressed)
         self._pos += length
         return length
