@@ -1098,7 +1098,7 @@ class _SelectorSocketTransport(_SelectorTransport):
 
         # Add it to the buffer.
         # PyPy: the views in the buffer are released once sent, so don't
-        # put the caller's own memoryview there
+        # use the caller's memoryview, create a new one
         if type(data) is memoryview:
             data = memoryview(data)
         self._buffer.append(data)
