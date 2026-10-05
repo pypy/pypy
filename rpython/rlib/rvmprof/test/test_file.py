@@ -1,12 +1,19 @@
 import os
+import json
 import urllib2, py
 from os.path import join
 
 RVMPROF = py.path.local(__file__).join('..', '..')
 
-def github_raw_file(repo, path, branch='master'):
-    url = "https://raw.githubusercontent.com/{repo}/{branch}/{path}"
-    return url.format(repo=repo, path=path, branch=branch)
+def last_released_version(package):
+    # compare against the last release rather than master, so that plain
+    # commits upstream do not fail this test
+    url = "https://pypi.org/pypi/{}/json".format(package)
+    return json.loads(urllib2.urlopen(url).read())['info']['version']
+
+def github_raw_file(repo, path, ref):
+    url = "https://raw.githubusercontent.com/{repo}/{ref}/{path}"
+    return url.format(repo=repo, path=path, ref=ref)
 
 def get_list_of_files(shared):
     files = list(shared.visit('*.[ch]'))
@@ -26,10 +33,12 @@ def test_same_file():
     files = get_list_of_files(shared)
     assert files, 'cannot find any C file, probably the directory is wrong?'
     no_matches = []
+    version = last_released_version('vmprof')
     print
+    print 'comparing to vmprof %s' % version
     for file in files:
         path = file.relto(shared)
-        url = github_raw_file("vmprof/vmprof-python", "src/%s" % path)
+        url = github_raw_file("vmprof/vmprof-python", "src/%s" % path, version)
         source = urllib2.urlopen(url).read()
         dest = file.read()
         shortname = file.relto(RVMPROF)

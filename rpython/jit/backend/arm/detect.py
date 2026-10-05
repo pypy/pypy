@@ -32,7 +32,7 @@ def detect_float():
 
 
 def detect_arch_version(filename="/proc/cpuinfo"):
-    fd = os.open(filename, os.O_RDONLY, 0644)
+    fd = os.open(filename, os.O_RDONLY, 0o644)
     n = 0
     debug_start("jit-backend-arch")
     try:
@@ -69,7 +69,7 @@ def detect_arch_version(filename="/proc/cpuinfo"):
 # from rpython.rtyper.lltypesystem import lltype, rffi
 # getauxval = rffi.llexternal("getauxval", [lltype.Unsigned], lltype.Unsigned)
 def getauxval(type_, filename='/proc/self/auxv'):
-    fd = os.open(filename, os.O_RDONLY, 0644)
+    fd = os.open(filename, os.O_RDONLY, 0o644)
 
     buf_size = 2048
     struct_size = 8  # 2x uint32

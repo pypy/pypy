@@ -183,21 +183,22 @@ class _ConnectionBase:
         """Send the bytes data from a bytes-like object"""
         self._check_closed()
         self._check_writable()
-        m = memoryview(buf)
-        if m.itemsize > 1:
-            m = m.cast('B')
-        n = m.nbytes
-        if offset < 0:
-            raise ValueError("offset is negative")
-        if n < offset:
-            raise ValueError("buffer length < offset")
-        if size is None:
-            size = n - offset
-        elif size < 0:
-            raise ValueError("size is negative")
-        elif offset + size > n:
-            raise ValueError("buffer length < offset + size")
-        self._send_bytes(m[offset:offset + size])
+        # PyPy: release the view now, the GC would only do it later
+        with memoryview(buf) as m:
+            if m.itemsize > 1:
+                m = m.cast('B')
+            n = m.nbytes
+            if offset < 0:
+                raise ValueError("offset is negative")
+            if n < offset:
+                raise ValueError("buffer length < offset")
+            if size is None:
+                size = n - offset
+            elif size < 0:
+                raise ValueError("size is negative")
+            elif offset + size > n:
+                raise ValueError("buffer length < offset + size")
+            self._send_bytes(m[offset:offset + size])
 
     def send(self, obj):
         """Send a (picklable) object"""

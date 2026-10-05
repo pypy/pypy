@@ -803,7 +803,8 @@ class TestLowLevelType(object):
         #
         glob_sizes = g()
         #
-        def check((ssize, msize, smsize, mssize)):
+        def check(args):
+            ssize, msize, smsize, mssize = args
             if is_arm:
                 # ARM has stronger rules about aligned memory access
                 # so according to the rules for round_up_for_allocation

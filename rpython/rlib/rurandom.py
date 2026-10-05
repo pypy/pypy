@@ -122,7 +122,7 @@ else:  # Posix implementation
         # CPython has a 99% solution and hopes for the remaining 1%
         # not to occur.  For now, we just don't cache the file
         # descriptor (any more... 6810f401d08e).
-        fd = os.open("/dev/urandom", os.O_RDONLY, 0777)
+        fd = os.open("/dev/urandom", os.O_RDONLY, 0o777)
         try:
             while n > 0:
                 try:

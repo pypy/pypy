@@ -274,7 +274,13 @@ def file_digest(fileobj, digest, /, *, _bufsize=2**18):
 
     if hasattr(fileobj, "getbuffer"):
         # io.BytesIO object, use zero-copy buffer
-        digestobj.update(fileobj.getbuffer())
+        buf = fileobj.getbuffer()
+        try:
+            digestobj.update(buf)
+        finally:
+            # PyPy: release the view now, the GC would only do it later
+            if isinstance(buf, memoryview):
+                buf.release()
         return digestobj
 
     # Only binary files implement readinto().

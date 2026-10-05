@@ -69,7 +69,7 @@ class TestFile(BaseRtypingTest):
                 assert False
 
             try:
-                fd = os.open('.', os.O_RDONLY, 0777)
+                fd = os.open('.', os.O_RDONLY, 0o777)
             except OSError as e:
                 assert os.name == 'nt' and e.errno == errno.EACCES
             else:

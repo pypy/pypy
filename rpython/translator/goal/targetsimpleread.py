@@ -1,7 +1,7 @@
 import os
 
 def main(iterations=1):
-    source = os.open('/dev/zero', os.O_RDWR, 0777)
+    source = os.open('/dev/zero', os.O_RDWR, 0o777)
     
     for x in xrange(1024 * 1024 * iterations):
         payload = os.read(source, 1024)

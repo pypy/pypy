@@ -17,9 +17,11 @@ def gather_all_code_objs(fname):
     """
     fname = str(fname)
     if fname.endswith('.pyc'):
-        code = compile(open(fname[:-1]).read(), fname, 'exec')
+        with open(fname[:-1]) as f:
+            code = compile(f.read(), fname, 'exec')
     elif fname.endswith('.py'):
-        code = compile(open(fname).read(), fname, 'exec')
+        with open(fname) as f:
+            code = compile(f.read(), fname, 'exec')
     else:
         raise Exception("Unknown file extension: %s" % fname)
     return _all_codes_from(code)

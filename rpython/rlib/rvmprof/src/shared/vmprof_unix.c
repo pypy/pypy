@@ -95,13 +95,16 @@ void segfault_handler(int arg)
 int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, ucontext_t * uc)
 {
     int depth;
+    int64_t sample_time;
     struct prof_stacktrace_s *st = (struct prof_stacktrace_s *)p->data;
     st->marker = MARKER_STACKTRACE;
     st->count = 1;
 #ifdef RPYTHON_VMPROF
-    depth = get_stack_trace(get_vmprof_stack(), st->stack, MAX_STACK_DEPTH-1, (intptr_t)GetPC(uc));
+    depth = get_stack_trace(get_vmprof_stack(), st->stack,
+                            MAX_STACK_DEPTH - STACK_TRAILER_SLOTS, (intptr_t)GetPC(uc));
 #else
-    depth = get_stack_trace(tstate, st->stack, MAX_STACK_DEPTH-1, (intptr_t)NULL);
+    depth = get_stack_trace(tstate, st->stack,
+                            MAX_STACK_DEPTH - STACK_TRAILER_SLOTS, (intptr_t)NULL);
 #endif
     // useful for tests (see test_stop_sampling)
 #ifndef RPYTHON_LL2CTYPES
@@ -114,8 +117,13 @@ int _vmprof_sample_stack(struct profbuf_s *p, PY_THREAD_STATE_T * tstate, uconte
     long rss = get_current_proc_rss();
     if (rss >= 0)
         st->stack[depth++] = (void*)rss;
+    /* ITIMER_PROF counts process cpu time, ITIMER_REAL wall time: stamp the
+       sample with the clock that drives the timer.  memcpy: the slot is only
+       pointer-aligned, which is less than int64_t needs on 32 bit. */
+    sample_time = vmp_sample_time_ns(vmprof_get_itimer_type() == ITIMER_PROF);
+    memcpy(&st->stack[depth], &sample_time, sizeof(sample_time));
     p->data_offset = offsetof(struct prof_stacktrace_s, marker);
-    p->data_size = (depth * sizeof(void *) +
+    p->data_size = (depth * sizeof(void *) + sizeof(sample_time) +
                     sizeof(struct prof_stacktrace_s) -
                     offsetof(struct prof_stacktrace_s, marker));
     return 1;
@@ -367,7 +375,7 @@ int vmprof_enable(int memory, int native, int real_time)
     if (memory && setup_rss() == -1)
         goto error;
 #if VMPROF_UNIX
-    if (real_time && insert_thread(pthread_self(), -1) == -1)
+    if (real_time && insert_thread(pthread_self(), vmp_native_thread_id(), -1) == -1)
         goto error;
 #endif
     if (install_pthread_atfork_hooks() == -1)

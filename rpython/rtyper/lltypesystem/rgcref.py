@@ -59,13 +59,15 @@ class GCRefRepr(Repr):
         return DummyValueBuilderGCRef(rtyper)
 
 class __extend__(pairtype(GCRefRepr, Repr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if isinstance(r_to.lowleveltype, lltype.Ptr) and r_to.lowleveltype.TO._gckind == 'gc':
             return llops.genop('cast_opaque_ptr', [v], r_to.lowleveltype)
         return NotImplemented
 
 class __extend__(pairtype(Repr, GCRefRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from != r_to.r_base:
             v = pair(r_from, r_to.r_base).convert_from_to(v, llops)
         return llops.genop('cast_opaque_ptr', [v], r_to.lowleveltype)

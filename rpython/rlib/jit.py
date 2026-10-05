@@ -950,16 +950,18 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
     def specialize_call(self, hop, **kwds_i):
-        # XXX to be complete, this could also check that the concretetype
-        # of the variables are the same for each of the calls.
         from rpython.rtyper.lltypesystem import lltype
         driver = self.instance.im_self
+        # Use the union collected across all markers, since isinstance()
+        # can narrow an argument at can_enter_jit to a subclass of the
+        # corresponding jit_merge_point argument.
+        cache = hop.rtyper.annotator.bookkeeper._jit_annotation_cache[driver]
         greens_v = []
         reds_v = []
         for name in driver.greens:
             if '.' not in name:
                 i = kwds_i['i_' + name]
-                r_green = hop.args_r[i]
+                r_green = hop.rtyper.getrepr(cache['s_' + name])
                 v_green = hop.inputarg(r_green, arg=i)
             else:
                 objname, fieldname = name.split('.')   # see test_green_field
@@ -994,7 +996,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             greens_v.append(v_green)
         for name in driver.reds:
             i = kwds_i['i_' + name]
-            r_red = hop.args_r[i]
+            r_red = hop.rtyper.getrepr(cache['s_' + name])
             v_red = hop.inputarg(r_red, arg=i)
             reds_v.append(v_red)
         hop.exception_cannot_occur()

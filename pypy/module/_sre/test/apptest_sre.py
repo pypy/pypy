@@ -46,6 +46,26 @@ def test_scanner_dropped_releases_bytearray_export():
     b.extend(b'x')   # must NOT raise: GC must have released the export
 
 
+def test_sub_callable_holds_bytearray_export():
+    # The replacement function runs between searches, so re.sub() must
+    # hold the export until it returns: the function cannot resize the
+    # bytearray being searched (issue 5614).
+    import re
+    b = bytearray(b'aaa')
+    def repl_clear(m):
+        b.clear()
+        return b''
+    with pytest.raises(BufferError):
+        re.sub(b'a', repl_clear, b)
+    assert b == b'aaa'
+    def repl_extend(m):
+        with pytest.raises(BufferError):
+            b.extend(b'x')
+        return b'b'
+    assert re.subn(b'a', repl_extend, b) == (b'bbb', 3)
+    b.clear()   # the export is released when re.sub() returns or raises
+
+
 # ---------------------------------------------------------------------------
 # AppTestSrePy
 # ---------------------------------------------------------------------------

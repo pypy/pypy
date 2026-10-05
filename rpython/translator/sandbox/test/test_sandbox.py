@@ -50,7 +50,7 @@ def run_in_subprocess(exe):
 
 def test_open_dup():
     def entry_point(argv):
-        fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
+        fd = os.open("/tmp/foobar", os.O_RDONLY, 0o777)
         assert fd == 77
         fd2 = os.dup(fd)
         assert fd2 == 78
@@ -58,7 +58,7 @@ def test_open_dup():
 
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0o777), 77)
     expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
     g.close()
     tail = f.read()
@@ -68,7 +68,7 @@ def test_open_dup():
 def test_open_dup_rposix():
     from rpython.rlib import rposix
     def entry_point(argv):
-        fd = rposix.open("/tmp/foobar", os.O_RDONLY, 0777)
+        fd = rposix.open("/tmp/foobar", os.O_RDONLY, 0o777)
         assert fd == 77
         fd2 = rposix.dup(fd)
         assert fd2 == 78
@@ -76,7 +76,7 @@ def test_open_dup_rposix():
 
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_open", ("/tmp/foobar", os.O_RDONLY, 0o777), 77)
     expect(f, g, "ll_os.ll_os_dup",  (77, True), 78)
     g.close()
     tail = f.read()
@@ -85,7 +85,7 @@ def test_open_dup_rposix():
 
 def test_read_write():
     def entry_point(argv):
-        fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
+        fd = os.open("/tmp/foobar", os.O_RDONLY, 0o777)
         assert fd == 77
         res = os.read(fd, 123)
         assert res == "he\x00llo"
@@ -96,7 +96,7 @@ def test_read_write():
 
     exe = compile(entry_point)
     g, f = run_in_subprocess(exe)
-    expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0777), 77)
+    expect(f, g, "ll_os.ll_os_open",  ("/tmp/foobar", os.O_RDONLY, 0o777), 77)
     expect(f, g, "ll_os.ll_os_read",  (77, 123), "he\x00llo")
     expect(f, g, "ll_os.ll_os_write", (77, "world\x00!\x00"), 42)
     expect(f, g, "ll_os.ll_os_close", (77,), None)

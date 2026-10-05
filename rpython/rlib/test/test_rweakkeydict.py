@@ -1,6 +1,7 @@
 import py
 from rpython.annotator.model import UnionError
 from rpython.rlib import rgc
+from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rweakref import RWeakKeyDictionary
 from rpython.rtyper.test.test_llinterp import interpret
 
@@ -36,6 +37,9 @@ def make_test(loop=100, prebuilt=None):
             elif d.get(k3) is not v3: err = 5
             elif d.get(KX()) is not None: err = 6
             elif d.length() != 3: err = 7
+        # k2 is not used below, so without this the llinterp drops it at the
+        # next block boundary and length() can already see 2 entries
+        keepalive_until_here(k2)
         return err, k1, k3, v1, v2, v3    # k2 dies
     def f():
         d = prebuilt
@@ -84,11 +88,13 @@ def test_RWeakKeyDictionary():
     assert make_test()() == 0
 
 def test_rpython_RWeakKeyDictionary():
-    assert interpret(make_test(loop=12), []) == 0
+    err = interpret(make_test(loop=12), [])
+    assert err == 0
 
 def test_rpython_prebuilt():
     f = make_test(loop=12, prebuilt=RWeakKeyDictionary(KX, VX))
-    assert interpret(f, []) == 0
+    err = interpret(f, [])
+    assert err == 0
 
 def test_rpython_merge_RWeakKeyDictionary():
     empty = RWeakKeyDictionary(KX, VX)

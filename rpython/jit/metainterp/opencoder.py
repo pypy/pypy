@@ -574,7 +574,8 @@ class Trace(BaseTrace):
         assert index >= 0
         self._index = index
 
-    def cut_trace_from(self, (start, count, index, x, y), inputargs):
+    def cut_trace_from(self, args, inputargs):
+        start, count, index, x, y = args
         return CutTrace(self, start, count, index, inputargs)
 
     def _cached_const_int(self, box):

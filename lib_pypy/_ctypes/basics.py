@@ -145,12 +145,17 @@ class _CDataMeta(type):
         result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
-            raw_addr = buf._pypy_raw_address() + offset
-        except ValueError:
-            _rawffi.rawstring2charp(dest, buf, offset, size)
-        else:
-            from ctypes import memmove
-            memmove(dest, raw_addr, size)
+            try:
+                raw_addr = buf._pypy_raw_address() + offset
+            except ValueError:
+                _rawffi.rawstring2charp(dest, buf, offset, size)
+            else:
+                from ctypes import memmove
+                memmove(dest, raw_addr, size)
+        finally:
+            # from_buffer_copy makes a copy, so the source buffer must not
+            # stay exported (else it blocks e.g. array.append until gc)
+            buf.release()
         return result
 
     def _newowninstance_(self):

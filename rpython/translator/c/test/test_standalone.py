@@ -306,7 +306,7 @@ class TestStandalone(StandaloneTestsVerified):
         r4800000000 = r_longlong(4800000000L)
         def entry_point(argv):
             assert str(r4800000000 + r_longlong(len(argv))) == '4800000003'
-            fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0644)
+            fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0o644)
             os.lseek(fd, r4800000000, 0)
             newpos = os.lseek(fd, 0, 1)
             if newpos == r4800000000:

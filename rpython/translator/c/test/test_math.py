@@ -5,7 +5,8 @@ from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rlib import rfloat
 
 
-def get_test_case((fnname, args, expected)):
+def get_test_case(args):
+    fnname, args, expected = args
     try:
         fn = getattr(math, fnname)
     except AttributeError:

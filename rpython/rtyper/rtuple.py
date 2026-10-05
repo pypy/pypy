@@ -263,7 +263,8 @@ def dum_empty_tuple(): pass
 
 class __extend__(pairtype(TupleRepr, IntegerRepr)):
 
-    def rtype_getitem((r_tup, r_int), hop):
+    def rtype_getitem(args, hop):
+        r_tup, r_int = args
         v_tuple, v_index = hop.inputargs(r_tup, Signed)
         if not isinstance(v_index, Constant):
             raise TyperError("non-constant tuple index")
@@ -290,7 +291,8 @@ class __extend__(TupleRepr):
         return hop.r_result.newtuple(hop.llops, hop.r_result, items_v)
 
 class __extend__(pairtype(TupleRepr, Repr)):
-    def rtype_contains((r_tup, r_item), hop):
+    def rtype_contains(args, hop):
+        r_tup, r_item = args
         s_tup = hop.args_s[0]
         if not s_tup.is_constant():
             raise TyperError("contains() on non-const tuple")
@@ -316,7 +318,8 @@ class __extend__(pairtype(TupleRepr, Repr)):
 
 class __extend__(pairtype(TupleRepr, TupleRepr)):
 
-    def rtype_add((r_tup1, r_tup2), hop):
+    def rtype_add(args, hop):
+        r_tup1, r_tup2 = args
         v_tuple1, v_tuple2 = hop.inputargs(r_tup1, r_tup2)
         vlist = []
         for i in range(len(r_tup1.items_r)):
@@ -326,7 +329,8 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
         return r_tup1.newtuple_cached(hop, vlist)
     rtype_inplace_add = rtype_add
 
-    def rtype_eq((r_tup1, r_tup2), hop):
+    def rtype_eq(args, hop):
+        r_tup1, r_tup2 = args
         s_tup = annmodel.unionof(*hop.args_s)
         r_tup = hop.rtyper.getrepr(s_tup)
         v_tuple1, v_tuple2 = hop.inputargs(r_tup, r_tup)
@@ -337,7 +341,8 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
         v_res = tup1tup2.rtype_eq(hop)
         return hop.genop('bool_not', [v_res], resulttype=Bool)
 
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if len(r_from.items_r) == len(r_to.items_r):
             if r_from.lowleveltype == r_to.lowleveltype:
                 return v
@@ -352,11 +357,13 @@ class __extend__(pairtype(TupleRepr, TupleRepr)):
             return r_from.newtuple(llops, r_to, items_v)
         return NotImplemented
 
-    def rtype_is_((robj1, robj2), hop):
+    def rtype_is_(args, hop):
+        robj1, robj2 = args
         raise TyperError("cannot compare tuples with 'is'")
 
 class __extend__(pairtype(AbstractStringRepr, TupleRepr)):
-    def rtype_mod((r_str, r_tuple), hop):
+    def rtype_mod(args, hop):
+        r_str, r_tuple = args
         r_tuple = hop.args_r[1]
         v_tuple = hop.args_v[1]
 

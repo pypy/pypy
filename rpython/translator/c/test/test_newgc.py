@@ -704,11 +704,11 @@ class UsingFrameworkTest(object):
     def define_open_read_write_seek_close(cls):
         filename = cls.filename
         def does_stuff():
-            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
+            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0o777)
             count = os.write(fd, "hello world\n")
             assert count == len("hello world\n")
             os.close(fd)
-            fd = os.open(filename, os.O_RDONLY, 0777)
+            fd = os.open(filename, os.O_RDONLY, 0o777)
             result = os.lseek(fd, 1, 0)
             assert result == 1
             data = os.read(fd, 500)
@@ -1168,8 +1168,8 @@ class UsingFrameworkTest(object):
             a = lltype.malloc(A, 1000)
             s2 = lltype.malloc(S)
             #
-            fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0666)
-            fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0666)
+            fd1 = os.open(filename1, os.O_WRONLY | os.O_CREAT, 0o666)
+            fd2 = os.open(filename2, os.O_WRONLY | os.O_CREAT, 0o666)
             # try to ensure we get twice the exact same output below
             gc.collect(); gc.collect(); gc.collect()
             rgc.dump_rpy_heap(fd1)
@@ -1216,7 +1216,7 @@ class UsingFrameworkTest(object):
             #
             p = rgc.get_typeids_z()
             s = ''.join([p[i] for i in range(len(p))])
-            fd = os.open(filename, open_flags, 0666)
+            fd = os.open(filename, open_flags, 0o666)
             os.write(fd, s)
             os.close(fd)
             #

@@ -1,0 +1,54 @@
+name: Python 3 distance
+
+# Reports how far rpython/ is from being importable on Python 3, and on pull
+# requests fails if any category grew.  This is a ratchet, not a test suite:
+# it costs seconds, needs no PyPy, and exists so that the clean-ups that get
+# the tree there are not silently undone afterwards.
+#
+# Everything it counts has a spelling that means the same thing on Python 2
+# and Python 3, so a failure here is always fixable without forking the
+# source and without a Python 3 host to check against.
+
+on:
+  pull_request:
+    branches: [ "main", "py3.[0-9]+" ]
+    paths:
+      - "rpython/**/*"
+      - ".github/workflows/py3-distance.yml"
+  push:
+    branches: [ "main", "py3.[0-9]+" ]
+    paths:
+      - "rpython/**/*"
+  workflow_dispatch:
+
+concurrency:
+  group: py3-distance-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  distance:
+    name: distance to Python 3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # --check builds a worktree at the base commit, so the history has
+          # to be there
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Report
+        run: python rpython/tool/py3distance.py
+
+      - name: Ratchet against the base commit
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          python rpython/tool/py3distance.py \
+            --check ${{ github.event.pull_request.base.sha }}
