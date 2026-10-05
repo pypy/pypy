@@ -40,7 +40,9 @@ def _bytes_from_decode_data(s):
     if isinstance(s, bytes_types):
         return s
     try:
-        return memoryview(s).tobytes()
+        # PyPy: release the view now, the GC would only do it later
+        with memoryview(s) as view:
+            return view.tobytes()
     except TypeError:
         raise TypeError("argument should be a bytes-like object or ASCII "
                         "string, not %r" % s.__class__.__name__) from None
@@ -173,7 +175,9 @@ def _b32encode(alphabet, s):
         b32tab = None
 
     if not isinstance(s, bytes_types):
-        s = memoryview(s).tobytes()
+        # PyPy: release the view now, the GC would only do it later
+        with memoryview(s) as view:
+            s = view.tobytes()
     leftover = len(s) % 5
     # Pad the last quantum with zero bits if necessary
     if leftover:
@@ -304,7 +308,9 @@ _A85END = b"~>"
 def _85encode(b, chars, chars2, pad=False, foldnuls=False, foldspaces=False):
     # Helper function for a85encode and b85encode
     if not isinstance(b, bytes_types):
-        b = memoryview(b).tobytes()
+        # PyPy: release the view now, the GC would only do it later
+        with memoryview(b) as view:
+            b = view.tobytes()
 
     padding = (-len(b)) % 4
     if padding:
