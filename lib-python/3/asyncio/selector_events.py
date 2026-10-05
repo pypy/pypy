@@ -558,11 +558,16 @@ class BaseSelectorEventLoop(base_events.BaseEventLoop):
         fd = sock.fileno()
         self._ensure_fd_no_transport(fd)
         # use a trick with a list in closure to store a mutable state
+        view = memoryview(data)
         handle = self._add_writer(fd, self._sock_sendall, fut, sock,
-                                  memoryview(data), [n])
+                                  view, [n])
         fut.add_done_callback(
             functools.partial(self._sock_write_done, fd, handle=handle))
-        return await fut
+        try:
+            return await fut
+        finally:
+            # PyPy: release the view now, the GC would only do it later
+            view.release()
 
     def _sock_sendall(self, fut, sock, view, pos):
         if fut.done():

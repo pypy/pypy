@@ -680,7 +680,9 @@ class _UnixWritePipeTransport(transports._FlowControlMixin,
     def write(self, data):
         assert isinstance(data, (bytes, bytearray, memoryview)), repr(data)
         if isinstance(data, bytearray):
-            data = memoryview(data)
+            # PyPy: release the view now, the GC would only do it later
+            with memoryview(data) as data:
+                return _UnixWritePipeTransport.write(self, data)
         if not data:
             return
 
