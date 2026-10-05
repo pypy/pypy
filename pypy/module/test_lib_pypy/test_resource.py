@@ -3,12 +3,12 @@ import sys
 
 import os
 if os.name != 'posix':
-    skip('resource.h only available on unix')
+    skip('resource.h only available on unix', allow_module_level=True)
 
 try:
     from lib_pypy import resource
 except ImportError as e:
-    skip(str(e))
+    skip(str(e), allow_module_level=True)
 
 
 def test_getrusage():

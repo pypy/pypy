@@ -2,7 +2,7 @@ import pytest
 try:
     from hypothesis import given, strategies as st, settings, example
 except ImportError:
-    pytest.skip("hypothesis required")
+    pytest.skip("hypothesis required", allow_module_level=True)
 import os
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import W_TextIOWrapper, DecodeBuffer

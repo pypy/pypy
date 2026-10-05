@@ -42,7 +42,8 @@ try:
     import z3
     from hypothesis import given, strategies
 except ImportError:
-    pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
+    pytest.skip("please install z3 (z3-solver on pypi) and hypothesis",
+                allow_module_level=True)
 
 TRUEBV = z3.BitVecVal(1, LONG_BIT)
 FALSEBV = z3.BitVecVal(0, LONG_BIT)

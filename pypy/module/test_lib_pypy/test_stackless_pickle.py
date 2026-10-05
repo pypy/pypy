@@ -1,5 +1,5 @@
 import py
-py.test.skip("in-progress, maybe")
+py.test.skip("in-progress, maybe", allow_module_level=True)
 
 class AppTest_Stackless:
     spaceconfig = dict(usemodules=('_continuation', '_socket'))
