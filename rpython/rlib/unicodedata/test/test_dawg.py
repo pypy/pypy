@@ -181,7 +181,7 @@ def test_random_dawg(l):
     o.close()
     s = out.read()
     dmod = {}
-    exec s in dmod
+    exec(s, dmod)
     dawg_lookup = dmod['dawg_lookup']
     lookup_charcode = dmod['lookup_charcode']
     def near_misses(s):

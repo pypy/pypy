@@ -968,7 +968,7 @@ def DISABLED_test_random_loop_parses(r): # guard_class doesn't parse right now u
 
 def check_via_reproducer_string(r):
     d = {}
-    exec r in d
+    exec(r, d)
     loop = d['loop']
     cpu = LLGraphCPU(None)
     cpu.supports_floats = False
