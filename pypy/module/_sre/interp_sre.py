@@ -514,45 +514,56 @@ For each match, the iterator returns a match object."""
             sublist_w = []
         n = 0
         last_pos = ctx.ZERO
-        while not count or n < count:
-            # on entering this loop for the first time, we have already
-            # performed one match above
-            space = self.space
-            if last_pos < ctx.match_start:
-                _sub_append_slice(
-                    ctx, space, use_builder, sublist_w,
-                    strbuilder, last_pos, ctx.match_start)
-            if 1:  # keeps the following block indented
-                last_pos = ctx.match_end
-                if filter_is_callable:
-                    w_match = self.getmatch(ctx, True, w_string)
-                    # make a copy of 'ctx'; see test_sub_matches_stay_valid
-                    ctx = self.fresh_copy(ctx)
-                    w_piece = space.call_function(w_filter, w_match)
-                    if not space.is_w(w_piece, space.w_None):
-                        assert strbuilder is None
-                        assert use_builder == '\x00'
-                        sublist_w.append(w_piece)
-                else:
-                    if use_builder != '\x00':
-                        assert filter_as_string is not None
-                        assert strbuilder is not None
-                        strbuilder.append(filter_as_string)
+        # The filter runs app-level code between two searches, but
+        # make_ctx() has released the export of a buffer object already.
+        # Hold one until the last search, as CPython does, so that this
+        # code cannot resize the buffer being searched (issue 5614).
+        buf_view = None
+        if filter_is_callable and isinstance(ctx, rsre_core.BufMatchContext):
+            buf_view = space.buffer_w(w_string, space.BUF_SIMPLE)
+        try:
+            while not count or n < count:
+                # on entering this loop for the first time, we have already
+                # performed one match above
+                space = self.space
+                if last_pos < ctx.match_start:
+                    _sub_append_slice(
+                        ctx, space, use_builder, sublist_w,
+                        strbuilder, last_pos, ctx.match_start)
+                if 1:  # keeps the following block indented
+                    last_pos = ctx.match_end
+                    if filter_is_callable:
+                        w_match = self.getmatch(ctx, True, w_string)
+                        # make a copy of 'ctx'; see test_sub_matches_stay_valid
+                        ctx = self.fresh_copy(ctx)
+                        w_piece = space.call_function(w_filter, w_match)
+                        if not space.is_w(w_piece, space.w_None):
+                            assert strbuilder is None
+                            assert use_builder == '\x00'
+                            sublist_w.append(w_piece)
                     else:
-                        sublist_w.append(w_filter)
-                n += 1
+                        if use_builder != '\x00':
+                            assert filter_as_string is not None
+                            assert strbuilder is not None
+                            strbuilder.append(filter_as_string)
+                        else:
+                            sublist_w.append(w_filter)
+                    n += 1
 
-            start = ctx.match_end
-            ctx.reset(start, ctx.match_start == start)
+                start = ctx.match_end
+                ctx.reset(start, ctx.match_start == start)
 
-            sub_jitdriver.jit_merge_point(
-                use_builder=use_builder,
-                filter_is_callable=filter_is_callable,
-                filter_type=type(w_filter),
-                pattern=pattern,
-                )
-            if not searchcontext(space, ctx, pattern):
-                break
+                sub_jitdriver.jit_merge_point(
+                    use_builder=use_builder,
+                    filter_is_callable=filter_is_callable,
+                    filter_type=type(w_filter),
+                    pattern=pattern,
+                    )
+                if not searchcontext(space, ctx, pattern):
+                    break
+        finally:
+            if buf_view is not None:
+                buf_view.releasebuffer()
 
         if last_pos < ctx.end:
             _sub_append_slice(ctx, space, use_builder, sublist_w,

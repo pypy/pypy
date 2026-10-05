@@ -268,14 +268,13 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
             pw_info.operationerror = TypeError("password callback must return a string")
             return 0
 
-    password = _str_to_ffi_buffer(password)
+    with _str_to_ffi_buffer(password) as password:
+        if (len(password) > size):
+            pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
+            return 0
 
-    if (len(password) > size):
-        pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
-        return 0
-
-    ffi.memmove(buf, password, len(password))
-    return len(password)
+        ffi.memmove(buf, password, len(password))
+        return len(password)
 
 if 0:
     ffi.def_extern(_Cryptography_pem_password_cb)
@@ -1566,8 +1565,8 @@ class _SSLContext(object):
                 raise TypeError("cafile and capath cannot be both omitted")
             # load from cadata
             if cadata is not None:
-                buf = _str_to_ffi_buffer(cadata)
-                self._add_ca_certs(buf, len(buf), ca_file_type)
+                with _str_to_ffi_buffer(cadata) as buf:
+                    self._add_ca_certs(buf, len(buf), ca_file_type)
 
             # load cafile or capath
             if cafile is not None or capath is not None:
