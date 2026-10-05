@@ -367,7 +367,7 @@ def test_symbolify_all_parses_each_library_once(monkeypatch):
     res = _pypy_remote_debug._symbolify_all(addrs)
 
     assert res[addrs[0]][0] == b'pypy_g_DiskFile_read'
-    assert res[addrs[1]][0] == b'pypy_g_DiskFile_write'
+    assert res[addrs[1]][0] == b'pypy_g_DiskFile_seek'
     assert res[addrs[2]][0] == b'XML_Parse'
     assert res[addrs[4]][0] == b'pypy_g_DiskFile_read'
     assert symtab_reads == sorted(set(symtab_reads), key=symtab_reads.index)
