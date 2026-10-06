@@ -6,6 +6,13 @@ import os
 irc_header = "And now for something completely different"
 
 
+def _stdout_is_tty():
+    try:
+        return sys.stdout.isatty()
+    except Exception:
+        return False
+
+
 def interactive_console(mainmodule=None, quiet=False, future_flags=0):
     # set sys.{ps1,ps2} just before invoking the interactive interpreter. This
     # mimics what CPython does in pythonrun.c
@@ -14,7 +21,7 @@ def interactive_console(mainmodule=None, quiet=False, future_flags=0):
     if not hasattr(sys, 'ps2'):
         sys.ps2 = '.... '
     #
-    if not quiet:
+    if not quiet and _stdout_is_tty():
         try:
             from _pypy_irc_topic import some_topic
             text = "%s: ``%s''" % ( irc_header, some_topic())
