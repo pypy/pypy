@@ -13,7 +13,8 @@ from pypy.interpreter.pyparser.parsestring import decode_unicode_str, parsestr
 
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.astbuilder import parse_number
-from pypy.interpreter.astcompiler.fstring import build, concatenate_strings
+from pypy.interpreter.astcompiler.fstring import (build, concatenate_strings,
+    add_constant_string)
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter.astcompiler import consts, misc
 
@@ -930,16 +931,26 @@ class Parser:
 
     def fstring_format_spec_full(self, colon, specs):
         # Corresponds to CPython's _PyPegen_setup_full_format_spec
-        # CPython compatibility: return an empty JoinedStr node if the format spec is empty
-        if len(specs) == 1:
-            fst = specs[0]
-            if isinstance(fst, ast.Constant) and not self.space.is_true(fst.value):
-                specs = []
+        # CPython compatibility: like _PyPegen_concatenate_strings, inline
+        # the debug expressions, join the adjacent strings and drop the empty
+        # ones, so an empty format spec is an empty JoinedStr node
+        values = []
+        for spec in specs:
+            if isinstance(spec, ast.JoinedStr):
+                # formatted value with debug expr
+                pieces = spec.values
+            else:
+                pieces = [spec]
+            for piece in pieces:
+                if isinstance(piece, ast.Constant):
+                    add_constant_string(self, values, piece, True)
+                else:
+                    values.append(piece)
 
         # CPython compatibility: always return a JoinedStr node (even if len(specs) == 1)
         end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
         return ast.JoinedStr(
-            specs,
+            values,
             lineno=colon.lineno,
             col_offset=colon.column,
             end_lineno=end_lineno,
