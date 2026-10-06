@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem import rffi
 
-from rpython.rlib import rzlib
+from rpython.rlib import rstack, rzlib
 
 
 if intmask(2**31) == -2**31:
@@ -123,10 +123,17 @@ class ZLibObject(W_Root):
 
     def unlock(self):
         """To call after using self.stream."""
-        self._lock.release()
-        keepalive_until_here(self)
-        # subtle: we have to make sure that 'self' is not garbage-collected
-        # while we are still using 'self.stream' - hence the keepalive.
+        # Make sure this does not increase the stack, since it can be called
+        # when unwinding a stack overflow
+        rstack._stack_criticalcode_start()
+        try:
+            self._lock.release()
+            keepalive_until_here(self)
+            # subtle: we have to make sure that 'self' is not garbage-collected
+            # while we are still using 'self.stream' - hence the keepalive.
+        finally:
+            rstack._stack_criticalcode_stop()
+    unlock._dont_insert_stackcheck_ = True
 
 
 class Compress(ZLibObject):
