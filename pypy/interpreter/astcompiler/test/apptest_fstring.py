@@ -536,6 +536,18 @@ def test_concat_drops_empty_strings():
     assert ast.parse("'' ''").body[0].value.value == ''
     raises(SyntaxError, ast.parse, "b'' f'{1}'")
 
+def test_ast_escaped_brace_positions():
+    # the position of a literal part ending with an escaped '{{' or '}}'
+    # covers both braces, like in CPython
+    for src, parts in [("f'{{{x}}}'", ["{{", "}}"]),
+                       ("f'a{{{x}}}b'", ["a{{", "}}b"]),
+                       ("f'{x}}}'", ["}}"])]:
+        m = ast.parse(src)
+        segments = [ast.get_source_segment(src, v)
+                    for v in m.body[0].value.values
+                    if isinstance(v, ast.Constant)]
+        assert segments == parts
+
 def test_ast_format_spec_values():
     # like in CPython, the values of a format spec are flattened: debug
     # expressions are inlined, adjacent strings are joined and empty strings

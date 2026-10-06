@@ -900,15 +900,26 @@ class Parser:
         rawmode = "r" in start.value or "R" in start.value
         for item in middles:
             if isinstance(item, Token):
+                token = item
                 item = build(
                     ast.Constant,
-                    self._decode_unicode(rawmode or "\\" not in item.value, item),
+                    self._decode_unicode(rawmode or "\\" not in token.value, token),
                     None,
-                    item,
+                    token,
                 )
                 if not space.is_true(item.value):
                     # empty string, can happen for FSTRING_MIDDLE token w. '\\\n'
                     continue
+                # The token of a part ending with an escaped '{{' or '}}' does
+                # not include the second brace, but like in CPython the
+                # position of the constant does
+                value = token.value
+                line = token.line
+                end_column = token.end_column
+                if (value and value[-1] in "{}" and
+                        0 <= end_column < len(line) and
+                        line[end_column] == value[-1]):
+                    item.end_col_offset = end_column + 1
             else:
                 if isinstance(item, ast.JoinedStr):
                     # formatted value with debug expr
