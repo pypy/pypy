@@ -373,7 +373,6 @@ def make_formatter_subclass(do_unicode):
         @specialize.arg(2)
         def std_wp(self, r, is_string=False):
             # r is utf8-encoded unicode
-            length = rutf8.codepoints_in_utf8(r)
             if do_unicode and is_string:
                 # convert string to unicode using the default encoding
                 r = self.space.utf8_w(self.space.newbytes(r))
@@ -382,6 +381,7 @@ def make_formatter_subclass(do_unicode):
                 # fast path
                 self.result.append(r)
                 return
+            length = rutf8.codepoints_in_utf8(r)
             if prec >= 0 and prec < length:
                 length = prec   # ignore the end of the string if too long
             padding = self.width - length
