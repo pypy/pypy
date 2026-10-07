@@ -192,9 +192,12 @@ FILE_ATTRIBUTE_SYSTEM = 4
 FILE_ATTRIBUTE_TEMPORARY = 256
 FILE_ATTRIBUTE_VIRTUAL = 65536
 
-
 # If available, use C implementation
 try:
     from _stat import *
 except ImportError:
-    pass
+    if sys.platform == "win32":
+        # PyPy change: missing in CPython pure-python stat.py
+        IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+        IO_REPARSE_TAG_SYMLINK = 0xA000000C
+        IO_REPARSE_TAG_APPEXECLINK = 0x8000001b
