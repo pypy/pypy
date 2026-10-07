@@ -1090,7 +1090,13 @@ class _SelectorSocketTransport(_SelectorTransport):
                 # only release it later
                 if n == len(data):
                     return
-                data = memoryview(data)[n:]
+                if type(data) is memoryview:
+                    # PyPy: the caller may release its memoryview once
+                    # write() returns, as on CPython, but that releases
+                    # the views of it too, so keep a copy of the rest
+                    data = memoryview(bytes(data[n:]))
+                else:
+                    data = memoryview(data)[n:]
                 if not data:
                     return
             # Not all was written; register write handler.
@@ -1197,7 +1203,11 @@ class _SelectorSocketTransport(_SelectorTransport):
             raise RuntimeError('unable to writelines; sendfile is in progress')
         if not list_of_data:
             return
-        self._buffer.extend([memoryview(data) for data in list_of_data])
+        # PyPy: the caller may release its memoryviews once writelines()
+        # returns, as on CPython, but that releases the views of them too,
+        # so keep copies of them
+        self._buffer.extend([memoryview(bytes(data)) if type(data) is memoryview
+                             else memoryview(data) for data in list_of_data])
         self._write_ready()
         # If the entire buffer couldn't be written, register a write handler
         if self._buffer:
