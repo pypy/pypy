@@ -457,3 +457,33 @@ def test_cast_released_during_shape_conversion():
     # CPython raises TypeError, as it accepts only ints in the shape
     with raises((TypeError, ValueError)):
         m.cast('B', [Two(), 4])
+
+
+def test_python_buffer_protocol_slice_keeps_export():
+    # a slice of memoryview(obj), for an obj with a Python-level __buffer__,
+    # keeps that memoryview alive, so that a GC can't release the buffer
+    # while the slice uses it (issue 5613).  __release_buffer__ is called
+    # once they are collected, as on CPython when they are freed
+    import gc
+    released = []
+    class E:
+        def __init__(self):
+            self.ba = bytearray(b'x' * 100)
+        def __buffer__(self, flags):
+            return memoryview(self.ba)
+        def __release_buffer__(self, view):
+            released.append(view.nbytes)
+            view.release()
+    e = E()
+    s = memoryview(e)[10:]
+    gc.collect()
+    gc.collect()
+    with raises(BufferError):
+        e.ba.clear()
+    assert bytes(s) == b'x' * 90
+    assert released == []
+    del s
+    gc.collect()
+    gc.collect()
+    assert released == [100]
+    e.ba.clear()
