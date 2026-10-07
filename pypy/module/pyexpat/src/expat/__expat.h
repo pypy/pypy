@@ -20,6 +20,7 @@
    Copyright (c) 2023      Sony Corporation / Snild Dolkow <snild@sony.com>
    Copyright (c) 2024      Taichi Haradaguchi <20001722@ymail.ne.jp>
    Copyright (c) 2025      Matthew Fernandez <matthew.fernandez@gmail.com>
+   Copyright (c) 2026      Braian Plaku <braianplaku@gmail.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -921,7 +922,9 @@ XML_SetParamEntityParsing(XML_Parser parser,
    Returns 1 if successful, 0 when called after parsing has started.
    Note: If parser == NULL, the function will do nothing and return 0.
    DEPRECATED since Expat 2.8.0.
+   Please use XML_SetHashSalt16Bytes instead.
 */
+XML_ATTR_DEPRECATED("please use XML_SetHashSalt16Bytes instead")
 XMLPARSEAPI(int)
 XML_SetHashSalt(XML_Parser parser, unsigned long hash_salt);
 
@@ -1040,8 +1043,11 @@ enum XML_FeatureEnum {
   XML_FEATURE_MIN_SIZE,
   XML_FEATURE_SIZEOF_XML_CHAR,
   XML_FEATURE_SIZEOF_XML_LCHAR,
+  /* Added in Expat 2.0.0. */
   XML_FEATURE_NS,
+  /* Added in Expat 2.0.1. */
   XML_FEATURE_LARGE_SIZE,
+  /* Added in Expat 2.1.0. */
   XML_FEATURE_ATTR_INFO,
   /* Added in Expat 2.4.0. */
   XML_FEATURE_BILLION_LAUGHS_ATTACK_PROTECTION_MAXIMUM_AMPLIFICATION_DEFAULT,
@@ -1075,7 +1081,6 @@ XML_SetBillionLaughsAttackProtectionMaximumAmplification(
 XMLPARSEAPI(XML_Bool)
 XML_SetBillionLaughsAttackProtectionActivationThreshold(
     XML_Parser parser, unsigned long long activationThresholdBytes);
-#  endif
 
 /* Added in Expat 2.7.2. */
 XMLPARSEAPI(XML_Bool)
@@ -1086,6 +1091,7 @@ XML_SetAllocTrackerMaximumAmplification(XML_Parser parser,
 XMLPARSEAPI(XML_Bool)
 XML_SetAllocTrackerActivationThreshold(
     XML_Parser parser, unsigned long long activationThresholdBytes);
+#  endif
 
 /* Added in Expat 2.6.0. */
 XMLPARSEAPI(XML_Bool)
@@ -1096,7 +1102,7 @@ XML_SetReparseDeferralEnabled(XML_Parser parser, XML_Bool enabled);
 */
 #  define XML_MAJOR_VERSION 2
 #  define XML_MINOR_VERSION 8
-#  define XML_MICRO_VERSION 4
+#  define XML_MICRO_VERSION 5
 
 #  ifdef __cplusplus
 }
