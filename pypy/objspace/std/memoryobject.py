@@ -107,6 +107,11 @@ class W_MemoryView(W_BufferExporter):
             return
         if not self.owns_export:
             return
+        if not view.needs_release():
+            # nothing to release, or a view that another object exported
+            # and releases, e.g. memoryview(pb) for a PickleBuffer of a
+            # memoryview: w_obj.__release_buffer__ would release its export
+            return
         w_obj = view.w_obj
         if space is not None and w_obj is not None:
             release_fn = space.lookup(w_obj, '__release_buffer__')
