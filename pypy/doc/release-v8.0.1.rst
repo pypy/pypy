@@ -1,18 +1,18 @@
-===================================================================================
-PyPy v8.0.1: bug-fix release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
-===================================================================================
+===========================================================================
+PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
+===========================================================================
 
 .. note::
    This is a pre-release announcement. When the release actually happens, it
    will be announced on the PyPy blog_
 
 ..
-  updated to 71e2dba58c4
+  updated to 173ac10d366
 
 The PyPy team is proud to release version 8.0.1 of PyPy after the previous
-release on Sept 25, 2026. This is a bugfix release. Some problems with buffer
-memory leaks were fixed, and problems around the new strategy to tie RPython
-objects to non-managed C ``PyObject`` objects were also fixed.
+release on Sept 25, 2026. Some problems with buffer memory leaks were fixed,
+and problems around the new strategy to tie RPython objects to non-managed C
+``PyObject`` objects were also fixed.
 
 The release includes three different interpreters:
 
@@ -95,9 +95,34 @@ Changelog
 For all versions
 ----------------
 
-- Fix translation when using CPython2.7 (:issue:`5586`)
+- Update embedded OpenSSL to version 3.5.9, including PyPy 2.7
+- Make flaky tests more reliable
+- Add reentrant detectors to try to catch recent rpython crashes that seem to
+  have to do with arena contention when testing on a host PyPy, but may be connected to an
+  allocation during GC collection
+- Use vmprof 0.6.0 version profiles, which include a timestamp (:issue:`5598`).
+- Merge work to make RPython support both python2 and python3 (:issue:`5601`)
+- Replace the old vendored pytest with v3.10
+
+Bugfixes
+~~~~~~~~
+
+- Use shared argument types when specializing JIT markers (:issue:`5606`)
+  A ``can_enter_jit`` argument can be a *subclass* of the corresponding
+  ``jit_merge_point`` argument. This can then produce wrong pointer types on
+  the C level. More recent gccs reject those as errors (they were warnings
+  before). Instead, use the shared argument repr to insert the correct cast
+- Fix a bug in the revdb symbolic parser, which is also used by vmprof (:issue:`5593`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
-- Update embedded OpenSSL to version 3.5.9
+- Fix translation when using CPython2.7 (:issue:`5586`)
+- Ensure lock release can still fire while unwinding a StackOverflowError
+
+Speedups and enhancements
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Speed up ``rsre_jit::RSreJitDriver::repr`` for tests
+- Add more simplification rules for int operations (:issue:`5587`)
+  This also adds a check to prevent redundant rules
 
 Python 3.11
 -----------
@@ -114,6 +139,10 @@ Python 3.11 and 3.12
 - Make ``Lock`` and ``RLock`` 's 'lock' field mutable instead of quasi-immutable (:issue:`5602`)
 - Avoid consulting ``__len__`` when creating a str, use ``len(value)`` instead (:issue:`5609`)
 - Propagate lookup error in ``match_class_attr`` (:issue:`5611`)
+- Update vendored libexpat to 2.8.5
+- Further improve buffer release, document exactly when bytearray views are released (:issue:`5612`, :issue:`5614`, :issue:`5618`)
+- Catch lookup errors in ``match_class_attr`` (:issue:`5611`)
+- On macos, locale defaults to ``utf-8`` if empty
 
 Python 3.12
 -----------
@@ -125,4 +154,7 @@ Python 3.12
 - cpyext: When handling a memoryviewobject, copy strides/shape instead of aliasing them
 - cpyext: Implement PY_VECTORCALL_ARGUMENTS_OFFSET protocol in PyObject_VectorcallDict
 - Make ``ElementTree::ParseError`` messages strings (:issue:`5605`)
+- Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
+- Add missing consts to stats for windows (:issue:`5626`)
+- Fix fstring AST to match CPython (:issue:`5627`)
 
