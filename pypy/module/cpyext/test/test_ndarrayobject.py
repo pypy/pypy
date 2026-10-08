@@ -12,7 +12,7 @@ import pypy.module.micronumpy.constants as NPY
 from pypy.module.cpyext.ndarrayobject import (
     _PyArray_FromAny, _PyArray_FromObject)
 
-pytest.skip("Micronumpy not yet supported on py3k.")
+pytest.skip("Micronumpy not yet supported on py3k.", allow_module_level=True)
 
 def scalar(space):
     dtype = get_dtype_cache(space).w_float64dtype
