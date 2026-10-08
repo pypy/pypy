@@ -13,7 +13,7 @@ NEW_NODE_WHEN_LENGTH = 32
 CONVERT_WHEN_SMALLER = 8
 MAX_DEPTH = 32 # maybe should be smaller
 CONCATENATE_WHEN_MULTIPLYING = 128
-HIGHEST_BIT_SET = intmask(1L << (NBITS - 1))
+HIGHEST_BIT_SET = intmask(1 << (NBITS - 1))
 
 def find_fib_index(l):
     if l == 0:

@@ -98,7 +98,7 @@ def test_unmarshaller():
     assert get_unmarshaller(r_longlong)(buf) == 0x12380000007
 
     buf = 'I\x00\x00\x01\x83\x80\x00\x00\x97'
-    assert get_unmarshaller(r_longlong)(buf) == -7566046822028738560L
+    assert get_unmarshaller(r_longlong)(buf) == -7566046822028738560
 
     if LONG_BIT > 32:
         buf = 'I\x07\x00\x00\x80\x23\x01\x00\x00'

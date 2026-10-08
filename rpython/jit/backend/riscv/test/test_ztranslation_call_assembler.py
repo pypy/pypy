@@ -9,7 +9,7 @@ import sys
 # or maybe a Boehm-on-Windows-specific issue, and skip.
 if sys.platform == 'win32':
     import py
-    py.test.skip("crashes on Windows (Boehm issue?)")
+    py.test.skip("crashes on Windows (Boehm issue?)", allow_module_level=True)
 
 
 class TestTranslationCallAssemblerRISCV(TranslationTestCallAssembler):
