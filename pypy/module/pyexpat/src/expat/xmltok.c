@@ -62,7 +62,7 @@
 #  include "winconfig.h"
 #endif
 
-#include "internal.h"
+#include "expat_internal.h"
 #include "fallthrough.h"
 #include "xmltok.h"
 #include "nametab.h"

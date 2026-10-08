@@ -2,9 +2,9 @@ import os
 import pytest
 
 if os.name != 'nt':
-    pytest.skip('Windows only tests')
+    pytest.skip('Windows only tests', allow_module_level=True)
 if not os.environ.get("PYPY_ENABLE_WINCONSOLEIO", False):
-    pytest.skip('_WindowsConsoleIO disabled')
+    pytest.skip('_WindowsConsoleIO disabled', allow_module_level=True)
 
 
 from rpython.tool.udir import udir

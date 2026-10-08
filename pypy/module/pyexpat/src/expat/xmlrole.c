@@ -49,7 +49,7 @@
 #  include "winconfig.h"
 #endif
 
-#include "internal.h"
+#include "expat_internal.h"
 #include "xmlrole.h"
 #include "ascii.h"
 

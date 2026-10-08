@@ -17,7 +17,8 @@ from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 if not CPU.vector_ext:
-    py.test.skip("this cpu %s has no implemented vector backend" % CPU)
+    py.test.skip("this cpu %s has no implemented vector backend" % CPU,
+                  allow_module_level=True)
 
 def get_profiler():
     from rpython.jit.metainterp import pyjitpl

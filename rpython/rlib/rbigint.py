@@ -1579,7 +1579,7 @@ class rbigint(object):
 
     @not_rpython
     def tolong(self):
-        l = 0L
+        l = 0
         digits = list(self._digits)
         digits.reverse()
         for d in digits:
@@ -3404,8 +3404,8 @@ def _int_bitwise(a, op, b): # '&', '|', '^'
 
     return z.invert()
 
-ULONGLONG_BOUND = r_ulonglong(1L << (r_longlong.BITS-1))
-LONGLONG_MIN = r_longlong(-(1L << (r_longlong.BITS-1)))
+ULONGLONG_BOUND = r_ulonglong(1 << (r_longlong.BITS-1))
+LONGLONG_MIN = r_longlong(-(1 << (r_longlong.BITS-1)))
 
 def _AsLongLong(v):
     """

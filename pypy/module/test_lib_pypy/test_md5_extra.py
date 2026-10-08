@@ -133,7 +133,7 @@ class AppTestMD5Compare:
         print("%-48s (Pure Python MD5)" % self._format_hex(d2))
         print()
 
-    def test1(self):
+    def test_one(self):
         """Test cases with known digest result."""
         cases = (
             (b"",
@@ -159,7 +159,7 @@ class AppTestMD5Compare:
                 self.print_diff(message, d1, d2, expectedResult)
             assert res is None
 
-    def test2(self):
+    def test_two(self):
         """Test cases without known digest result."""
         cases = (
             b"123",
@@ -191,7 +191,7 @@ class AppTestMD5Compare:
                 self.print_diff(message, d1, d2)
             assert res is None
 
-    def test3(self):
+    def test_three(self):
         """Test cases with long messages (can take a while)."""
         cases = (
             2**10*b'a',
@@ -206,7 +206,7 @@ class AppTestMD5Compare:
                 self.print_diff(message, d1, d2)
             assert res is None
 
-    def test4(self):
+    def test_four(self):
         """Test cases with increasingly growing message lengths."""
         i = 0
         while i < 2**5:

@@ -33,7 +33,7 @@ class AssertionError(util.BuiltinAssertionError):
                 source = f.code.fullsource
                 if source is not None:
                     try:
-                        source = source.getstatement(f.lineno, assertion=True)
+                        source = source.getstatement(f.lineno)
                     except IndexError:
                         source = None
                     else:
