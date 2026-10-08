@@ -38,6 +38,41 @@ def test_memoryobject_picklebuffer_gives_obj_back():
     assert m.obj is b
 
 
+def test_slice_source():
+    # raw() and memoryview(pb) must give the slice the PickleBuffer was
+    # built from, not the whole bytearray, and must not release the export
+    # of the memoryview the slice comes from; the PickleBuffer must keep
+    # the slice alive
+    import gc, weakref
+    b = bytearray(b'0123456789' * 10)
+    mv = memoryview(b)
+    s = mv[10:20]
+    pb = PickleBuffer(s)
+    wr = weakref.ref(s)
+    del s
+    gc.collect()
+    gc.collect()
+    assert wr() is not None
+    with pb.raw() as raw:
+        assert raw.tobytes() == b'0123456789'
+        assert raw.nbytes == 10
+    with memoryview(pb) as m:
+        assert m.tobytes() == b'0123456789'
+    with pytest.raises(BufferError):
+        b.clear()
+    mv.release()
+    b.clear()
+
+
+def test_slice_source_out_of_band():
+    import pickle
+    b = bytearray(b'0123456789' * 10)
+    pb = PickleBuffer(memoryview(b)[10:20])
+    buffers = []
+    data = pickle.dumps(pb, protocol=5, buffer_callback=buffers.append)
+    assert bytes(pickle.loads(data, buffers=buffers)) == b'0123456789'
+
+
 def test_picklebuffer_holds_bytearray_export():
     # A live PickleBuffer must lock the bytearray (prevent resize).
     import gc
@@ -71,3 +106,38 @@ def test_picklebuffer_gc_releases_bytearray_export():
     gc.collect()
     gc.collect()   # FinalizerQueue may need a second cycle
     b += b'!'   # must NOT raise: GC must have released the export
+
+
+def test_raw_release_does_not_over_release_source():
+    # raw() over a memoryview source borrows the source's single export
+    # (buffer_w on a memoryview returns a non-owning view).  Releasing the
+    # memoryview returned by raw() must NOT decrement the bytearray _exports
+    # that the *source* memoryview still owns, else the shared counter
+    # underflows once the source's own finalizer also releases it.  This is
+    # exactly what lib pickle's ``with obj.raw() as m:`` does.
+    b = bytearray(b'hello')
+    mv = memoryview(b)          # owns the single export
+    pb = PickleBuffer(mv)
+    raw = pb.raw()
+    raw.release()              # must be a no-op wrt b._exports
+    try:
+        b += b'!'              # mv still alive -> resize must still raise
+    except BufferError:
+        pass
+    else:
+        raise AssertionError(
+            "bytearray unlocked while its memoryview is still alive")
+    mv.release()
+    pb.release()
+    b += b'!'                  # now truly unlocked
+
+
+def test_raw_preserves_source_strides():
+    # issue 5231: raw() must re-acquire from the object the PickleBuffer was
+    # built from, so a strided/non-contiguous source keeps its geometry
+    # instead of collapsing to the root exporter's contiguous buffer.
+    pb = PickleBuffer(memoryview(b'foobar')[::2])
+    raw = pb.raw()
+    assert raw.strides == (2,)
+    assert not raw.contiguous
+    assert raw.tobytes() == b'foa'

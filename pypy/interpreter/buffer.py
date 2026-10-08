@@ -401,9 +401,10 @@ class BufferSlice(BufferView):
         return SubBuffer(self.parent.as_writebuf(), byte_offset, self.getlength())
 
     def new_slice(self, start, step, slicelength):
-        real_start = start + self.start
+        real_start = self.start + start * self.step
         real_step = self.step * step
-        return BufferSlice(self.parent, real_start, real_step, slicelength)
+        return BufferSlice(self.parent, real_start, real_step, slicelength,
+                           w_obj=self.w_obj)
 
     def setitem_w(self, space, idx, w_obj):
         return self.parent.setitem_w(space, self.parent_index(idx), w_obj)
