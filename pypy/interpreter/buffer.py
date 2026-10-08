@@ -565,6 +565,11 @@ class DunderReleaseView(NonOwningReleaseView):
         self.w_base_type = w_base_type
         self.buffer_is_default = buffer_is_default
 
+    def needs_release(self):
+        # unlike NonOwningReleaseView, releasing calls __release_buffer__
+        # and releases the memoryview that __buffer__ returned
+        return True
+
     def releasebuffer(self):
         space = self.space
         w_exporter = self.w_exporter

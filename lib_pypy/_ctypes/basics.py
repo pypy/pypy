@@ -128,11 +128,16 @@ class _CDataMeta(type):
                 % (buf.nbytes, offset + size))
         raw_addr = buf._pypy_raw_address() + offset
         result = self.from_address(raw_addr)
+        # Keep the export alive as long as the result, as CPython does by
+        # storing the memoryview.  A memoryview of a memoryview does not
+        # hold the export itself, so keep the argument in that case.
+        if isinstance(obj, memoryview):
+            buf = obj
         objects = result._ensure_objects()
         if objects is not None:
-            objects['ffffffff'] = obj
+            objects['ffffffff'] = buf
         else:   # case e.g. of a primitive type like c_int
-            result._objects = obj
+            result._objects = buf
         return result
 
     def from_buffer_copy(self, obj, offset=0):

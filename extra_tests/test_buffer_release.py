@@ -313,6 +313,79 @@ def test_transport_buffered_bytearray_then_resize():
         gc.enable()
 
 
+def test_transport_partial_send_keeps_export():
+    # write() keeps a slice of a temporary view of the data that the socket
+    # could not take: a GC must not release the export while the slice
+    # waits to be sent (issue 5613)
+    data = bytearray(b"x" * (4 * 1024 * 1024))
+
+    async def main():
+        loop = asyncio.get_running_loop()
+        a, b = socket.socketpair()
+        b.setblocking(False)
+        with b:
+            transport, _ = await loop.create_connection(asyncio.Protocol,
+                                                        sock=a)
+            transport.write(data)
+            assert transport.get_write_buffer_size() > 0
+            gc.collect()
+            with pytest.raises(BufferError):
+                data.clear()
+            received = []
+            size = 0
+            while size < len(data):
+                try:
+                    chunk = b.recv(1 << 20)
+                except BlockingIOError:
+                    await asyncio.sleep(0.001)
+                    continue
+                received.append(chunk)
+                size += len(chunk)
+            transport.close()
+            return b"".join(received)
+
+    assert asyncio.run(main()) == b"x" * (4 * 1024 * 1024)
+    gc.collect()
+    gc.collect()
+    data.clear()
+
+
+@pytest.mark.parametrize("writelines", [False, True])
+def test_transport_write_memoryview_then_release(writelines):
+    # like CPython, the transport keeps its own views of the data that
+    # write() could not send and of the data given to writelines(), so the
+    # caller may release its memoryview once they return (issue 5613)
+    data = bytearray(b"x" * (4 * 1024 * 1024))
+
+    async def main():
+        loop = asyncio.get_running_loop()
+        a, b = socket.socketpair()
+        b.setblocking(False)
+        with b:
+            transport, _ = await loop.create_connection(asyncio.Protocol,
+                                                        sock=a)
+            with memoryview(data) as view:
+                if writelines:
+                    transport.writelines([view])
+                else:
+                    transport.write(view)
+            assert transport.get_write_buffer_size() > 0
+            received = 0
+            while received < len(data):
+                try:
+                    chunk = b.recv(1 << 20)
+                except BlockingIOError:
+                    await asyncio.sleep(0.001)
+                    continue
+                if not chunk:
+                    break
+                received += len(chunk)
+            transport.close()
+            return received
+
+    assert asyncio.run(main()) == len(data)
+
+
 def test_blob_slice_assignment_bytearray_then_resize():
     con = sqlite3.connect(":memory:")
     con.execute("create table t(b blob)")
