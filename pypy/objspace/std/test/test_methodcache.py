@@ -201,3 +201,26 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                 setattr(a, "a%s" % i, i)
             cache_counter = __pypy__.method_cache_counter("x")
             assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
+
+
+@pytest.mark.skipif('config.option.runappdirect')
+class AppTestMethodCacheCollisions(object):
+    # with a method cache of one entry, all the entries collide
+    spaceconfig = {"objspace.std.withmethodcachecounter": True,
+                   "objspace.std.methodcachesizeexp": 0}
+
+    def test_collisions_count_as_hits(self):
+        import __pypy__
+        class A(object):
+            def f(self):
+                return 42
+            def g(self):
+                return 43
+        a = A()
+        __pypy__.reset_method_cache_counter()
+        for i in range(10):
+            # use getattr to circumvent the mapdict cache
+            assert getattr(a, "f")() == 42
+            assert getattr(a, "g")() == 43
+        assert __pypy__.method_cache_counter("f") == (9, 1)
+        assert __pypy__.method_cache_counter("g") == (9, 1)

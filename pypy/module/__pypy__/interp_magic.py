@@ -26,7 +26,8 @@ def attach_gdb(space):
 @unwrap_spec(name='text')
 def method_cache_counter(space, name):
     """Return a tuple (method_cache_hits, method_cache_misses) for calls to
-    methods with the name."""
+    methods with the name.  A lookup that misses only because another entry
+    took the place of its entry in the cache counts as a hit."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MethodCache)
     return space.newtuple2(space.newint(cache.hits.get(name, 0)),
