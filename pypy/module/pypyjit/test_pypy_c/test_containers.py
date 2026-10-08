@@ -51,7 +51,7 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
-    @pytest.skip("no strdicts on pypy3")
+    @pytest.mark.skip("no strdicts on pypy3")
     def test_non_virtual_dict(self):
         def main(n):
             i = 0
