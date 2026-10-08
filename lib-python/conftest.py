@@ -520,28 +520,27 @@ def pytest_configure(config):
         cache[x.basename] = x
 
 def pytest_ignore_collect(path, config):
-    if path.basename == '__init__.py':
-        return False
     if path.isfile():
+        if path.basename == '__init__.py':
+            # a listed subpackage of testdir runs as a single RegrTest
+            pkg_path = path.dirpath()
+            return not (pkg_path.dirpath() == testdir and
+                        pkg_path.basename in config._basename2spec)
         regrtest = config._basename2spec.get(path.basename, None)
         if regrtest is None or path.dirpath() != testdir:
             return True
 
-def pytest_collect_file(path, parent):
-    if path.basename == '__init__.py':
-        # handle the RegrTest for the whole subpackage here
-        pkg_path = path.dirpath()
-        regrtest = parent.config._basename2spec.get(pkg_path.basename, None)
-        if pkg_path.dirpath() == testdir and regrtest:
-            return RunFileExternal(
-                pkg_path.basename, parent=parent, regrtest=regrtest)
-
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_pycollect_makemodule(path, parent):
+    # pytest >= 3.7 routes __init__.py through here to build Package nodes
     config = parent.config
-    regrtest = config._basename2spec[path.basename]
-    return RunFileExternal(path.basename, parent=parent, regrtest=regrtest)
+    if path.basename == '__init__.py':
+        name = path.dirpath().basename
+    else:
+        name = path.basename
+    regrtest = config._basename2spec[name]
+    return RunFileExternal(name, parent=parent, regrtest=regrtest)
 
 class RunFileExternal(pytest.collect.File):
     def __init__(self, name, parent, regrtest):
