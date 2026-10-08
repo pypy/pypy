@@ -42,7 +42,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             for i, a in enumerate(l):
                 assert a.f() == 42 + i % 3
             cache_counter = __pypy__.method_cache_counter("f")
-            assert cache_counter[0] >= 15
+            assert cache_counter[0] + cache_counter[2] >= 15
             assert cache_counter[1] >= 3 # should be (27, 3)
             assert sum(cache_counter) == 30
 
@@ -69,7 +69,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             for i, a in enumerate(l):
                 assert a.f() == 42 + i % 3
             cache_counter = __pypy__.method_cache_counter("f")
-            assert cache_counter[0] >= 9
+            assert cache_counter[0] + cache_counter[2] >= 9
             assert cache_counter[1] >= 2 # should be (18, 2)
             assert sum(cache_counter) == 20
 
@@ -90,7 +90,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             for i, a in enumerate(l):
                 assert a.f() == 42 + (i % 3 == 1)
             cache_counter = __pypy__.method_cache_counter("f")
-            assert cache_counter[0] >= 15
+            assert cache_counter[0] + cache_counter[2] >= 15
             assert cache_counter[1] >= 3 # should be (27, 3)
             assert sum(cache_counter) == 30
 
@@ -122,9 +122,11 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                 names_counters = [__pypy__.method_cache_counter(name)
                                   for name in names]
                 try:
-                    assert append_counter[0] >= 10 * len(names) - 1
+                    assert (append_counter[0] + append_counter[2] >=
+                            10 * len(names) - 1)
                     for name, count in zip(names, names_counters):
-                        assert count == (9, 1), str((name, count))
+                        assert (count[0] + count[2], count[1]) == (9, 1), (
+                            str((name, count)))
                     break
                 except AssertionError:
                     pass
@@ -168,7 +170,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                     assert getattr(a, "f")() == 42
                 cache_counter = __pypy__.method_cache_counter("f")
                 assert sum(cache_counter) == 10
-                if cache_counter == (9, 1):
+                if (cache_counter[0] + cache_counter[2],
+                        cache_counter[1]) == (9, 1):
                     break
                 #else the moon is misaligned, try again
             else:
@@ -190,7 +193,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             cache_counter = __pypy__.method_cache_counter("x")
             # XXX this is the bad case for the mapdict cache: looking up
             # non-method attributes from the class
-            assert cache_counter[0] >= 450
+            assert cache_counter[0] + cache_counter[2] >= 450
             assert cache_counter[1] >= 1
             assert sum(cache_counter) == 500
 
@@ -200,7 +203,8 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
                 assert a.y == 2
                 setattr(a, "a%s" % i, i)
             cache_counter = __pypy__.method_cache_counter("x")
-            assert cache_counter[0] == 0 # 0 hits, because all the attributes are new
+            # 0 hits, because all the attributes are new
+            assert cache_counter[0] + cache_counter[2] == 0
 
 
 @pytest.mark.skipif('config.option.runappdirect')
@@ -209,7 +213,7 @@ class AppTestMethodCacheCollisions(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True,
                    "objspace.std.methodcachesizeexp": 0}
 
-    def test_collisions_count_as_hits(self):
+    def test_collisions_count_as_evicted(self):
         import __pypy__
         class A(object):
             def f(self):
@@ -222,5 +226,5 @@ class AppTestMethodCacheCollisions(object):
             # use getattr to circumvent the mapdict cache
             assert getattr(a, "f")() == 42
             assert getattr(a, "g")() == 43
-        assert __pypy__.method_cache_counter("f") == (9, 1)
-        assert __pypy__.method_cache_counter("g") == (9, 1)
+        assert __pypy__.method_cache_counter("f") == (0, 1, 9)
+        assert __pypy__.method_cache_counter("g") == (0, 1, 9)

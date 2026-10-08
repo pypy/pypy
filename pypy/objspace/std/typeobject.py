@@ -83,6 +83,7 @@ class MethodCache(object):
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
             self.misses = {}
+            self.evicted = {}
             # for each name, the version tags with which it was stored
             # since the last clear(), see count_miss()
             self.stored = {}
@@ -100,16 +101,15 @@ class MethodCache(object):
 
     def count_miss(self, version_tag, name):
         # Only with withmethodcachecounter.  A lookup that misses because
-        # another entry took the place of its entry counts as a hit: which
-        # entries take each other's place depends on where the version tags
-        # are in memory, and the counters are for testing which lookups the
-        # cache can answer.
+        # another entry took the place of its entry is counted as evicted,
+        # not as a miss: which entries take each other's place depends on
+        # where the version tags are in memory.
         stored = self.stored.get(name, None)
         if stored is None:
             stored = {}
             self.stored[name] = stored
         if version_tag in stored:
-            self.hits[name] = self.hits.get(name, 0) + 1
+            self.evicted[name] = self.evicted.get(name, 0) + 1
         else:
             stored[version_tag] = True
             self.misses[name] = self.misses.get(name, 0) + 1
