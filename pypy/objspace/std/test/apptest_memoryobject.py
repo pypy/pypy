@@ -144,3 +144,79 @@ def test_struct_unpack_from_cast_memoryview_slice():
     assert result == (1,)
 
 
+def test_derived_views_keep_the_export():
+    # issue 5613: a slice, cast or copy keeps the memoryview that owns the
+    # export alive, so that a GC can't release the export while it is in use
+    import gc
+    b = bytearray(b'abcdefgh')
+    views = [memoryview(b)[2:], memoryview(b).cast('B', [2, 4]),
+             memoryview(memoryview(b)), memoryview(b).toreadonly(),
+             memoryview(b)[1:][1:]]
+    gc.collect()
+    gc.collect()
+    with raises(BufferError):
+        b.clear()
+    assert bytes(views[0]) == b'cdefgh'
+    assert views[1][1, 3] == ord('h')
+    assert bytes(views[4]) == b'cdefgh'
+    del views
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_derived_views_of_released_view():
+    # issue 5613: releasing the memoryview that owns the export releases it
+    # at once, and the views derived from it count as released too, instead
+    # of using the buffer after it is resized
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    derived = [m[2:], m.cast('B', [2, 4]), memoryview(m), m.toreadonly(),
+               m[1:][1:]]
+    m.release()
+    b.clear()
+    for v in derived:
+        with raises(ValueError, match="operation forbidden"):
+            v.tobytes()
+        with raises(ValueError, match="operation forbidden"):
+            memoryview(v)
+        with raises(ValueError, match="operation forbidden"):
+            v._pypy_raw_address()
+        assert 'released memory' in repr(v)
+        assert v != memoryview(b'')
+        assert memoryview(b'') != v
+    with raises(ValueError, match="operation forbidden"):
+        derived[1][1, 3] = 0
+    for v in derived:
+        v.release()
+
+
+def test_derived_views_of_released_bytes_view():
+    # releasing a memoryview of bytes releases nothing, so the views
+    # derived from it stay usable, as on CPython
+    m = memoryview(b'abcdefgh')
+    s = m[2:]
+    c = m.cast('B', [2, 4])
+    m.release()
+    assert bytes(s) == b'cdefgh'
+    assert c[1, 3] == ord('h')
+
+
+def test_compare_with_released_view():
+    m = memoryview(b'ab')
+    r = memoryview(b'ab')
+    r.release()
+    assert not m == r
+    assert m != r
+    assert not r == m
+
+
+def test_cast_released_during_shape_conversion():
+    class Two:
+        def __index__(self):
+            m.release()
+            return 2
+    m = memoryview(bytearray(8))
+    # CPython raises TypeError, as it accepts only ints in the shape
+    with raises((TypeError, ValueError)):
+        m.cast('B', [Two(), 4])

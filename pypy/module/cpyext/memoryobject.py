@@ -39,6 +39,7 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     Fills a newly allocated PyMemoryViewObject with the given W_MemoryView object.
     """
     assert isinstance(w_obj, W_MemoryView)
+    w_obj._check_released(space)
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
     ndim = w_obj.getndim()

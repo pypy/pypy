@@ -395,6 +395,7 @@ class StdObjSpace(ObjSpace):
             # a real side effect (e.g. bytearray decrements its _exports
             # counter).  For bytes/str the call is a no-op, so skipping it
             # keeps short-lived memoryview objects virtualizable by the JIT.
+            mv.export_needs_release = True
             mv.register_finalizer(self)
         return mv
 

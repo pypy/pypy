@@ -88,10 +88,15 @@ class W_MemoryView(W_BufferExporter):
     an interp-level buffer.
     """
 
-    def __init__(self, view, owns_export=True):
+    def __init__(self, view, owns_export=True, w_owner=None):
         assert isinstance(view, BufferView)
         self.view = view
         self.owns_export = owns_export
+        # set by space.newmemoryview() if releasing the export has an effect
+        self.export_needs_release = False
+        # for a memoryview made by _derived(): the memoryview that owns the
+        # export, if releasing the export has an effect
+        self.w_owner = w_owner
         self._hash = -1
         self.flags = 0
         self._init_flags()
@@ -103,6 +108,8 @@ class W_MemoryView(W_BufferExporter):
     def _release_underlying(self, space):
         view = self.view
         self.view = None
+        self.export_needs_release = False
+        self.w_owner = None
         if view is None:
             return
         if not self.owns_export:
@@ -211,9 +218,11 @@ class W_MemoryView(W_BufferExporter):
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
-            if self.view is None:
+            if self._is_released():
                 return space.newbool(getattr(operator, name)(self, w_other))
             if isinstance(w_other, W_MemoryView):
+                if w_other._is_released():
+                    return space.newbool(getattr(operator, name)(self, w_other))
                 # xxx not the most efficient implementation
                 str1 = self.view.as_str()
                 str2 = w_other.view.as_str()
@@ -257,10 +266,10 @@ class W_MemoryView(W_BufferExporter):
         'Return a readonly version of the memoryview.'
         self._check_released(space)
         if self.view.readonly:
-            return W_MemoryView(self.view, owns_export=False)
+            return self._derived(self.view)
         view = ReadonlyWrapper(self.view)
         assert view.readonly
-        return W_MemoryView(view, owns_export=False)
+        return self._derived(view)
 
     def _start_from_tuple(self, space, w_tuple):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -345,8 +354,8 @@ class W_MemoryView(W_BufferExporter):
                     raise oefmt(space.w_NotImplementedError,
                                 "multi-dimensional sub-views are not implemented")
             elif is_slice:
-                return self.view.new_slice(start, step, slicelength).wrap(
-                    space, owns_export=False)
+                return self._derived(
+                    self.view.new_slice(start, step, slicelength))
         elif is_multiindex(space, w_index):
             return self._getitem_tuple_indexed(space, w_index)
         elif is_multislice(space, w_index):
@@ -369,10 +378,9 @@ class W_MemoryView(W_BufferExporter):
     @staticmethod
     def copy(w_view):
         # TODO suboffsets
-        view = w_view.view
         # The copy shares the original export; only the original memoryview
         # owns the release.
-        return W_MemoryView(view, owns_export=False)
+        return w_view._derived(w_view.view)
 
     def descr_setitem(self, space, w_index, w_obj):
         self._check_released(space)
@@ -473,7 +481,7 @@ class W_MemoryView(W_BufferExporter):
             return self.view.w_obj
 
     def descr_repr(self, space):
-        if self.view is None:
+        if self._is_released():
             return self.getrepr(space, 'released memory')
         else:
             return self.getrepr(space, 'memory')
@@ -499,8 +507,24 @@ class W_MemoryView(W_BufferExporter):
         # _exports counter, so there is nothing to undo here.
         pass
 
+    def _derived(self, view):
+        """Return a new memoryview of 'view', a slice, cast or copy of
+        self.view that uses the same export.  The new memoryview keeps the
+        memoryview that owns the export alive, so that a GC can't release
+        the export while the new one uses it (issue 5613).  If the owner is
+        released explicitly, the new memoryview counts as released too."""
+        w_owner = self.w_owner
+        if w_owner is None and self.export_needs_release:
+            w_owner = self
+        return W_MemoryView(view, owns_export=False, w_owner=w_owner)
+
+    def _is_released(self):
+        w_owner = self.w_owner
+        return self.view is None or (w_owner is not None and
+                                     w_owner.view is None)
+
     def _check_released(self, space):
-        if self.view is None:
+        if self._is_released():
             raise oefmt(space.w_ValueError,
                         "operation forbidden on released memoryview object")
 
@@ -519,6 +543,7 @@ class W_MemoryView(W_BufferExporter):
 
     def descr_pypy_raw_address(self, space):
         from rpython.rtyper.lltypesystem import lltype, rffi
+        self._check_released(space)
         try:
             ptr = self.view.get_raw_address()
         except ValueError:
@@ -606,8 +631,10 @@ class W_MemoryView(W_BufferExporter):
             fview = space.fixedview(w_shape)
             shape = [space.int_w(w_obj) for w_obj in fview]
             newview = self._cast_to_ND(space, newview, shape, ndim)
+            # the shape may have run app-level code that released self
+            self._check_released(space)
         # cast() returns a new memoryview that shares the original's export.
-        return newview.wrap(space, owns_export=False)
+        return self._derived(newview)
 
     def _init_flags(self):
         ndim = self.getndim()
@@ -659,7 +686,7 @@ class W_MemoryView(W_BufferExporter):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        return BufferView1D(view, newfmt, itemsize, w_obj=self.view.w_obj)
+        return BufferView1D(view, newfmt, itemsize, w_obj=view.w_obj)
 
     def get_native_fmtstr(self, fmt):
         lenfmt = len(fmt)
@@ -697,7 +724,7 @@ class W_MemoryView(W_BufferExporter):
                         "memoryview: product(shape) * itemsize != buffer size")
 
         strides = self._strides_from_shape(shape, itemsize)
-        return BufferViewND(view, ndim, shape, strides, w_obj=self.view.w_obj)
+        return BufferViewND(view, ndim, shape, strides, w_obj=view.w_obj)
 
     @staticmethod
     def _strides_from_shape(shape, itemsize):
