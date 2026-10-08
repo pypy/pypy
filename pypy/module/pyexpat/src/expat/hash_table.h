@@ -35,7 +35,7 @@
 #  define HASH_TABLE_H 1
 
 #  include "expat.h"    // for XML_Bool, XML_Parser
-#  include "internal.h" // for XML_NONTESTING_STATIC
+#  include "expat_internal.h" // for XML_NONTESTING_STATIC
 
 #  include <stddef.h> // for size_t
 
