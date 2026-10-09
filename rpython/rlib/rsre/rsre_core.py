@@ -1390,6 +1390,19 @@ def match_context(ctx, pattern):
     ctx.jitdriver_Match.jit_merge_point(ctx=ctx, pattern=pattern)
     return sre_match(ctx, pattern, 0, ctx.match_start, None) is not None
 
+@jit.unroll_safe
+def is_start_anchored(pattern, ppos):
+    # Leading capture marks do not consume input.  Skip them only for
+    # anchor detection; matching must still execute them.
+    while pattern.pat(ppos) == consts.OPCODE_MARK:
+        ppos += 2
+    if pattern.pat(ppos) == consts.OPCODE_AT:
+        atcode = pattern.pat(ppos + 1)
+        # Multiline ^ uses AT_BEGINNING_LINE and must search normally.
+        return (atcode == consts.AT_BEGINNING or
+                atcode == consts.AT_BEGINNING_STRING)
+    return False
+
 @specializectx
 def search_context(ctx, pattern):
     ctx.original_pos = ctx.match_start
@@ -1409,13 +1422,10 @@ def search_context(ctx, pattern):
         else:
             charset = (flags & consts.SRE_INFO_CHARSET)
         base += 1 + pattern.pat(1)
-    if pattern.pat(base) == consts.OPCODE_AT:
-        atcode = pattern.pat(base + 1)
-        if (atcode == consts.AT_BEGINNING or
-            atcode == consts.AT_BEGINNING_STRING):
-            # No later position can satisfy this assertion.  Multiline ^
-            # uses AT_BEGINNING_LINE and must still search normally.
-            return match_context(ctx, pattern)
+    if is_start_anchored(pattern, base):
+        # No later position can satisfy the assertion.  Match from the
+        # original entry point so that leading captures are preserved.
+        return match_context(ctx, pattern)
     if pattern.pat(base) == consts.OPCODE_LITERAL:
         return literal_search(ctx, pattern, base)
     if charset:

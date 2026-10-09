@@ -40,7 +40,9 @@ class BaseTestSearch:
                     assert actual.span() == tuple(
                         self.P(p) for p in expected.span())
 
-    @py.test.mark.parametrize('anchor', [r'\A', '^', r'(?m)\A'])
+    @py.test.mark.parametrize('anchor', [
+        r'\A', '^', r'(?m)\A', r'(\A)', r'((\A))', r'()(\A)',
+        r'(^)', r'(?m)(\A)'])
     def test_anchored_search_does_not_scan(self, anchor, monkeypatch):
         code = get_code(anchor + r'\s*\Z')
         sre_match = rsre_core.sre_match
@@ -76,14 +78,32 @@ class BaseTestSearch:
         assert res.span() == (self.P(0), self.P(1))
         assert self.search(code, ' x', 1, 0) is None
 
-    def test_multiline_start_search(self):
-        code = get_code(r'(?m)^foo')
+    @py.test.mark.parametrize('pattern', [
+        r'(\A(\s*))\Z', r'((^\s*))\Z', r'()(\A)(\s*)\Z'])
+    def test_anchored_search_preserves_leading_marks(self, pattern):
+        code, reference = get_code_and_re(pattern)
+        for text in ('', ' ', ' \n\t', 'x', ' x'):
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, text, start, end)
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                self.P(p) for p in expected.span(group))
+
+    @py.test.mark.parametrize('pattern', [r'(?m)^foo', r'(?m)((^foo))'])
+    def test_multiline_start_search(self, pattern):
+        code = get_code(pattern)
         for start in (0, 1, 2):
             res = self.search(code, 'x\nfoo', start)
             assert res.span() == (self.P(2), self.P(5))
 
-    def test_partially_anchored_alternative(self):
-        code = get_code(r'\Afoo|bar')
+    @py.test.mark.parametrize('pattern', [r'\Afoo|bar', r'((\Afoo|bar))'])
+    def test_partially_anchored_alternative(self, pattern):
+        code = get_code(pattern)
         for start in (0, 1):
             res = self.search(code, 'xbar', start)
             assert res.span() == (self.P(1), self.P(4))
