@@ -48,16 +48,14 @@ class AppTestRecompilerPython:
         cls.w_extmod = space.wrap(outputfilename)
         if WIN32:
             unicode_name = u'load\u03betest.dll'
-        else:
-            unicode_name = u'load_caf\xe9' + os.path.splitext(outputfilename)[1]
-            try:
-                unicode_name.encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                unicode_name = None    # skip test_dlopen_unicode
-        if unicode_name is not None:
             outputfileUname = os.path.join(unicode(udir), unicode_name)
             shutil.copyfile(outputfilename, outputfileUname)
-            cls.w_extmodU = space.wrap(outputfileUname)
+        else:
+            unicode_name = u'load_caf\xe9' + os.path.splitext(outputfilename)[1]
+            outputfileUname = os.path.join(unicode(udir), unicode_name)
+            # the filesystem encoding is always utf-8, whatever the host uses
+            shutil.copyfile(outputfilename, outputfileUname.encode('utf-8'))
+        cls.w_extmodU = space.wrap(outputfileUname)
         #mod.tmpdir = tmpdir
         #
         ffi = FFI()
