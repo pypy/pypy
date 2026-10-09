@@ -663,6 +663,43 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_rule_is_zero_sub(self):
+        ops = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_is_zero(i2)
+        jump(i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i0, i1)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rule_is_zero_sub_slice_empty(self):
+        # N-Queens: test whether a list slice's stop - start is zero.
+        ops = """
+        [i0, i1]
+        i4 = int_gt(i1, i0)
+        guard_false(i4) [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_is_zero(i2)
+        guard_true(i3) [i0, i1]
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        i4 = int_gt(i1, i0)
+        guard_false(i4) [i0, i1]
+        i2 = int_sub(i0, i1)
+        i3 = int_eq(i0, i1)
+        guard_true(i3) [i0, i1]
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_rule_bitxor_eq_zero(self):
         ops = """
         [i0, i1]
@@ -947,6 +984,67 @@ class TestOptimizeIntBounds(BaseTestBasic):
         jump(i5)
         """ % result
         self.optimize_loop(ops, expected)
+
+    @pytest.mark.parametrize("args", ["i3, 1", "1, i3"])
+    def test_rule_ne_rshift_lshift_one(self, args):
+        ops = """
+        [i0]
+        i1 = uint_lt(i0, %s)
+        guard_true(i1) []
+        i2 = int_lshift(1, i0)
+        i3 = int_rshift(i2, i0)
+        i4 = int_ne(%s)
+        jump(i2, i4)
+        """ % (LONG_BIT, args)
+        expected = """
+        [i0]
+        i1 = uint_lt(i0, %s)
+        guard_true(i1) []
+        i2 = int_lshift(1, i0)
+        i3 = int_rshift(i2, i0) # dead, removed by backend
+        i4 = int_eq(i0, %s)
+        jump(i2, i4)
+        """ % (LONG_BIT, LONG_BIT - 1)
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_rshift_lshift_one_mask(self):
+        # (1 << n) - 1, as traced from pyflate-fast's _mask()
+        ops = """
+        [i0]
+        i1 = uint_lt(i0, %s)
+        guard_true(i1) []
+        i2 = int_lshift(1, i0)
+        i3 = int_rshift(i2, i0)
+        i4 = int_ne(i3, 1)
+        guard_false(i4) []
+        i5 = int_sub_ovf(i2, 1)
+        guard_no_overflow() []
+        jump(i5)
+        """ % LONG_BIT
+        expected = """
+        [i0]
+        i1 = uint_lt(i0, %s)
+        guard_true(i1) []
+        i2 = int_lshift(1, i0)
+        i3 = int_rshift(i2, i0) # dead, removed by backend
+        i4 = int_eq(i0, %s)
+        guard_false(i4) []
+        i5 = int_sub_ovf(i2, 1)
+        guard_no_overflow() []
+        jump(i5)
+        """ % (LONG_BIT, LONG_BIT - 1)
+        self.optimize_loop(ops, expected)
+
+    def test_rule_ne_rshift_lshift_one_needs_valid_shift(self):
+        # no known bound on the shift count i0: the rule must not fire
+        ops = """
+        [i0]
+        i2 = int_lshift(1, i0)
+        i3 = int_rshift(i2, i0)
+        i4 = int_ne(i3, 1)
+        jump(i2, i4)
+        """
+        self.optimize_loop(ops, ops)
 
     def test_bound_lt(self):
         ops = """
