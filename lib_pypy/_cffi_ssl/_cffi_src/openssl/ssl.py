@@ -594,6 +594,7 @@ void SSL_set_msg_callback(SSL *ssl,
                           void (*cb) (int write_p, int version,
                                       int content_type, const void *buf,
                                       size_t len, SSL *ssl, void *arg));
+void context_dealloc(SSL_CTX *);
 """
 
 CUSTOMIZATIONS = """
@@ -926,4 +927,10 @@ static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
 #else
 static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 0;
 #endif
+
+void context_dealloc(SSL_CTX *self) {
+    SSL_CTX_set_tlsext_servername_callback(self, NULL);
+    SSL_CTX_free(self);
+};
+
 """
