@@ -1432,16 +1432,25 @@ def search_context(ctx, pattern):
         return charset_search(ctx, pattern, base)
     return regular_search(ctx, pattern, base)
 
+def search_end(ctx, pattern, minimum=0):
+    # Exclusive byte-offset bound for candidate starts.  In UTF-8 a byte
+    # bound is conservative and need not lie on a character boundary.
+    # Keep ctx.end unchanged: matching and end assertions still need it.
+    if pattern.pat(0) == consts.OPCODE_INFO:
+        minimum = max(minimum, pattern.pat(3))
+    return ctx.bytes_difference(ctx.end, ctx.ZERO) - minimum + 1
+
 install_jitdriver('RegularSearch',
                   greens=['base', 'pattern'],
-                  reds=['start', 'ctx'],
+                  reds=['limit', 'start', 'ctx'],
                   debugprint=(1, 0))
 
 def regular_search(ctx, pattern, base):
     start = ctx.match_start
-    while True:
+    limit = search_end(ctx, pattern)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_RegularSearch.jit_merge_point(ctx=ctx, pattern=pattern,
-                                                    start=start, base=base)
+                                          start=start, base=base, limit=limit)
         if sre_match(ctx, pattern, base, start, None) is not None:
             ctx.match_start = start
             return True
@@ -1452,7 +1461,7 @@ def regular_search(ctx, pattern, base):
 
 install_jitdriver_spec("LiteralSearch",
                        greens=['base', 'character', 'pattern'],
-                       reds=['start', 'ctx'],
+                       reds=['limit', 'start', 'ctx'],
                        debugprint=(2, 0, 1))
 @specializectx
 def literal_search(ctx, pattern, base):
@@ -1461,9 +1470,10 @@ def literal_search(ctx, pattern, base):
     character = pattern.pat(base + 1)
     base += 2
     start = ctx.match_start
-    while start < ctx.end:
+    limit = search_end(ctx, pattern, 1)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_LiteralSearch.jit_merge_point(ctx=ctx, start=start,
-                                          base=base, character=character, pattern=pattern)
+                    base=base, character=character, pattern=pattern, limit=limit)
         start1 = ctx.next(start)
         if ctx.str(start) == character:
             if sre_match(ctx, pattern, base, start1, None) is not None:
@@ -1474,15 +1484,16 @@ def literal_search(ctx, pattern, base):
 
 install_jitdriver_spec("CharsetSearch",
                        greens=['base', 'pattern'],
-                       reds=['start', 'ctx'],
+                       reds=['limit', 'start', 'ctx'],
                        debugprint=(1, 0))
 @specializectx
 def charset_search(ctx, pattern, base):
     # pattern starts with a character from a known set
     start = ctx.match_start
-    while start < ctx.end:
+    limit = search_end(ctx, pattern, 1)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_CharsetSearch.jit_merge_point(ctx=ctx, start=start,
-                                                    base=base, pattern=pattern)
+                                      base=base, pattern=pattern, limit=limit)
         if rsre_char.check_charset(ctx, pattern, 5, ctx.str(start)):
             if sre_match(ctx, pattern, base, start, None) is not None:
                 ctx.match_start = start
@@ -1492,7 +1503,7 @@ def charset_search(ctx, pattern, base):
 
 install_jitdriver_spec('FastSearch',
                        greens=['i', 'prefix_len', 'pattern'],
-                       reds=['string_position', 'ctx'],
+                       reds=['limit', 'string_position', 'ctx'],
                        debugprint=(2, 0))
 @specializectx
 def fast_search(ctx, pattern):
@@ -1505,11 +1516,14 @@ def fast_search(ctx, pattern):
         return False
     prefix_len = pattern.pat(5)
     assert prefix_len >= 0
+    # This cursor reads the prefix, rather than pointing at its start.
+    # Leave enough bytes for the minimum-width tail after the prefix.
+    limit = search_end(ctx, pattern, prefix_len) + prefix_len - 1
     i = 0
-    while True:
+    while ctx.bytes_difference(string_position, ctx.ZERO) < limit:
         ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
                 string_position=string_position, i=i, prefix_len=prefix_len,
-                pattern=pattern)
+                pattern=pattern, limit=limit)
         char_ord = ctx.str(string_position)
         if char_ord != pattern.pat(7 + i):
             if i > 0:
@@ -1543,5 +1557,4 @@ def fast_search(ctx, pattern):
                 overlap_offset = prefix_len + (7 - 1)
                 i = pattern.pat(overlap_offset + i)
         string_position = ctx.next(string_position)
-        if string_position >= ctx.end:
-            return False
+    return False

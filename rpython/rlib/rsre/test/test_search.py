@@ -11,6 +11,25 @@ def setup_module(mod):
 
 class BaseTestSearch:
 
+    @py.test.mark.parametrize('pattern,extra', [
+        (r'(?=a).{8}b', 0), (r'a.{8}', 0),
+        (r'[ab].{8}', 0), (r'ab.{7}', 1)])
+    def test_search_stops_before_short_suffix(self, pattern, extra, monkeypatch):
+        code = get_code(pattern)
+        reads = []
+
+        def read_x(ctx, position):
+            reads.append(position)
+            return ord('x')
+
+        for cls in (rsre_core.StrMatchContext, support.MatchContextForTests,
+                    rsre_utf8.Utf8MatchContext):
+            monkeypatch.setattr(cls, 'str', read_x)
+        for start, end in ((0, 16), (2, 14)):
+            del reads[:]
+            assert self.search(code, 'x' * 16, start, end) is None
+            assert reads == [self.P(p) for p in range(start, end - 8 + extra)]
+
     @py.test.mark.parametrize('pattern', [
         r'a+b{4096}', r'ab.{4096}', r'a.{4096}', r'[ab].{4096}'])
     def test_search_too_short_does_not_read(self, pattern, monkeypatch):
@@ -26,19 +45,22 @@ class BaseTestSearch:
             assert self.search(code, 'a' * size) is None
 
     @py.test.mark.parametrize('pattern', [
-        r'a+b{2}', r'ab.', r'a..', r'[ab]..', r'a*'])
+        r'a+b{2}', r'ab.', r'a..', r'[ab]..', r'a*',
+        r'(?=a)..', r'ab$', r'a$', r'[ab]$', r'$',
+        r'aba(b).', r'(ab)a.', r'(a)b.', r'aba.*b'])
     def test_search_min_width_bounds(self, pattern):
         code, reference = get_code_and_re(pattern)
-        text = 'aabb'
-        for start in range(5):
-            for end in range(start, 5):
-                expected = reference.search(text, start, end)
-                actual = self.search(code, text, start, end)
-                if expected is None:
-                    assert actual is None
-                else:
-                    assert actual.span() == tuple(
-                        self.P(p) for p in expected.span())
+        for text in ('aabb', 'xxabababx', 'xxab'):
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, text, start, end)
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                self.P(p) for p in expected.span(group))
 
     @py.test.mark.parametrize('anchor', [
         r'\A', '^', r'(?m)\A', r'(\A)', r'((\A))', r'()(\A)',
@@ -342,6 +364,28 @@ class TestSearchUtf8(BaseTestSearch):
     search = staticmethod(rsre_utf8.utf8search)
     match = staticmethod(rsre_utf8.utf8match)
     P = staticmethod(lambda n: n)   # NB. only for plain ascii
+
+    @py.test.mark.parametrize('pattern', [
+        ur'(?=é).{2}', ur'é..', ur'[éx]..', ur'éé.',
+        ur'(é)é.', ur'ééé.x', ur'éé$', ur'.*', ur'$'])
+    def test_search_min_width_utf8_bounds(self, pattern):
+        code = get_code(pattern, re.UNICODE)
+        reference = re.compile(pattern, re.UNICODE)
+        for text in (u'xééééx', u'éé', u'xéx'):
+            encoded = text.encode('utf-8')
+            positions = [len(text[:i].encode('utf-8'))
+                         for i in range(len(text) + 1)]
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, encoded,
+                                         positions[start], positions[end])
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                positions[p] for p in expected.span(group))
 
     def test_search_min_width_unicode(self):
         code = get_code(ur'.{2}', re.UNICODE)
