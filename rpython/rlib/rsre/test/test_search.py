@@ -258,6 +258,10 @@ class TestSearchUtf8(BaseTestSearch):
         assert     self.match(r, u"üüüüüüüüü".encode("utf-8"))
 
     def test_literal_uni_ignore(self):
+        from rpython.rlib.rsre import rsre_constants
+        if rsre_constants.V37:
+            py.test.skip("the py2 sre_compile in rpy/ does not emit the "
+                         "*_UNI_IGNORE opcodes needed for >=3.7")
         r = get_code(u"(?i)\u0135")
         assert self.match(r, u'\u0134'.encode('utf-8'))
         assert self.match(r, u'\u0134'.lower().encode('utf-8'))
