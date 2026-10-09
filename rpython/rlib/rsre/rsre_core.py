@@ -1404,6 +1404,13 @@ def search_context(ctx, pattern):
         else:
             charset = (flags & consts.SRE_INFO_CHARSET)
         base += 1 + pattern.pat(1)
+    if pattern.pat(base) == consts.OPCODE_AT:
+        atcode = pattern.pat(base + 1)
+        if (atcode == consts.AT_BEGINNING or
+            atcode == consts.AT_BEGINNING_STRING):
+            # No later position can satisfy this assertion.  Multiline ^
+            # uses AT_BEGINNING_LINE and must still search normally.
+            return match_context(ctx, pattern)
     if pattern.pat(base) == consts.OPCODE_LITERAL:
         return literal_search(ctx, pattern, base)
     if charset:
