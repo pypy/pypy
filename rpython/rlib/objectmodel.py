@@ -899,12 +899,55 @@ class r_dict(object):
         "Representation for debugging purposes."
         return 'r_dict(%r)' % (self._dict,)
 
+    def __eq__(self, other):
+        # NB: only meaningful in untranslated mode (e.g. tests, debugging).
+        # The rtyper does not lower dict-vs-dict equality, so this method
+        # is never reached from translated code.  Mirrors the semantics of
+        # plain dict.__eq__: same length, and every key/value pair on the
+        # left is present-and-equal on the right (using the right's
+        # key_eq/key_hash for the lookup).
+        if self is other:
+            return True
+        if not isinstance(other, r_dict):
+            return NotImplemented
+        if len(self) != len(other):
+            return False
+        for k, v in self.iteritems():
+            if k not in other or other[k] != v:
+                return False
+        return True
+
+    def __ne__(self, other):
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
+
     def __hash__(self):
         raise TypeError("cannot hash r_dict instances")
 
 class r_ordereddict(r_dict):
     def _newdict(self):
         return OrderedDict()
+
+    def __eq__(self, other):
+        # Mirror CPython's OrderedDict.__eq__: order-sensitive against
+        # another r_ordereddict, order-insensitive (i.e. r_dict semantics)
+        # against anything else.
+        if self is other:
+            return True
+        if isinstance(other, r_ordereddict):
+            if len(self) != len(other):
+                return False
+            other_items = other.items()
+            i = 0
+            for k, v in self.iteritems():
+                ok, ov = other_items[i]
+                if not self.key_eq(k, ok) or v != ov:
+                    return False
+                i += 1
+            return True
+        return r_dict.__eq__(self, other)
 
 class _r_dictkey(object):
     __slots__ = ['dic', 'key', 'hash']
