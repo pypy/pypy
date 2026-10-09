@@ -1,5 +1,5 @@
 import sys
-import py
+import pytest
 from rpython.jit.metainterp.test import support
 from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre import rsre_core
@@ -173,7 +173,7 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 15
         self.check_enter_count(1)
 
-    @py.test.mark.xfail
+    @pytest.mark.xfail
     def test_group_space_but_not_space(self):
         res = self.meta_interp_match(r"<[\S ]+>", "<..a   .. aa>")
         assert res == 13
@@ -185,7 +185,7 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 30
         self.check_resops(call=0)
 
-    @py.test.mark.skipif('sys.maxint <= 2**31 - 1')
+    @pytest.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_match_jit_bug(self):
         pattern = ".a" * 2500
         text = "a" * 6000
