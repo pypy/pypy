@@ -11,7 +11,7 @@ import time
 try:
     from rpython.rlib import rzlib
 except CompilationError as e:
-    py.test.skip("zlib not installed: %s " % (e, ))
+    py.test.skip("zlib not installed: %s " % (e, ), allow_module_level=True)
 
 class BaseTestRZipFile(BaseRtypingTest):
 

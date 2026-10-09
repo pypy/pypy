@@ -38,6 +38,41 @@ def test_memoryobject_picklebuffer_gives_obj_back():
     assert m.obj is b
 
 
+def test_slice_source():
+    # raw() and memoryview(pb) must give the slice the PickleBuffer was
+    # built from, not the whole bytearray, and must not release the export
+    # of the memoryview the slice comes from; the PickleBuffer must keep
+    # the slice alive
+    import gc, weakref
+    b = bytearray(b'0123456789' * 10)
+    mv = memoryview(b)
+    s = mv[10:20]
+    pb = PickleBuffer(s)
+    wr = weakref.ref(s)
+    del s
+    gc.collect()
+    gc.collect()
+    assert wr() is not None
+    with pb.raw() as raw:
+        assert raw.tobytes() == b'0123456789'
+        assert raw.nbytes == 10
+    with memoryview(pb) as m:
+        assert m.tobytes() == b'0123456789'
+    with pytest.raises(BufferError):
+        b.clear()
+    mv.release()
+    b.clear()
+
+
+def test_slice_source_out_of_band():
+    import pickle
+    b = bytearray(b'0123456789' * 10)
+    pb = PickleBuffer(memoryview(b)[10:20])
+    buffers = []
+    data = pickle.dumps(pb, protocol=5, buffer_callback=buffers.append)
+    assert bytes(pickle.loads(data, buffers=buffers)) == b'0123456789'
+
+
 def test_picklebuffer_holds_bytearray_export():
     # A live PickleBuffer must lock the bytearray (prevent resize).
     import gc

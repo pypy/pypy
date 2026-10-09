@@ -3,7 +3,7 @@ from pypy.module._posixsubprocess import interp_subprocess
 import py, sys
 
 if sys.platform == 'win32':
-    py.test.skip("not used on win32") 
+    py.test.skip("not used on win32", allow_module_level=True)
 
 def test_posixsubprocess_translates():
     # make sure the spaces don't mix

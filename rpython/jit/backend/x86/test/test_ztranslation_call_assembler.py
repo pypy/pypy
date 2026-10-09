@@ -11,7 +11,7 @@ import sys
 # skip.
 if sys.platform == 'win32':
     import py
-    py.test.skip("crashes on Windows (Boehm issue?)")
+    py.test.skip("crashes on Windows (Boehm issue?)", allow_module_level=True)
 
 
 class TestTranslationCallAssemblerX86(TranslationTestCallAssembler):

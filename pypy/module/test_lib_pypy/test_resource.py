@@ -4,12 +4,12 @@ import pytest
 
 import os
 if os.name != 'posix':
-    pytest.skip('resource.h only available on unix')
+    pytest.skip('resource.h only available on unix', allow_module_level=True)
 
 try:
     from lib_pypy import resource
 except (ImportError, SyntaxError) as e:
-    pytest.skip(str(e))
+    pytest.skip(str(e), allow_module_level=True)
 
 
 def test_getrusage():

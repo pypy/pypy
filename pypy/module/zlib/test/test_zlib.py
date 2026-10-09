@@ -8,20 +8,20 @@ import py
 try:
     import zlib
 except ImportError:
-    py.test.skip("no zlib module on this host Python")
+    py.test.skip("no zlib module on this host Python", allow_module_level=True)
 
 from pypy.interpreter.gateway import interp2app
 try:
     from pypy.module.zlib import interp_zlib
     from rpython.rlib import rzlib
 except ImportError:
-    py.test.skip("no zlib C library on this machine")
+    py.test.skip("no zlib C library on this machine", allow_module_level=True)
 
 def _zlib_older_than_1_2_12():
-    # zlib gained defalte/inflateStateCheck() in 1.2.12; older versions do
+    # zlib gained deflate/inflateStateCheck() in 1.2.12; older versions do
     # not validate a corrupted z_stream in deflateCopy()/inflateCopy() and
     # segfault instead of returning Z_STREAM_ERROR.
-    version = rzlib.ZLIB_VERSION
+    version = rzlib.zlibVersion()
     if not version:
         return False
     try:
