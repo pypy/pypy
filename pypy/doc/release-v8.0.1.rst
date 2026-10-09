@@ -12,7 +12,9 @@ PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
 The PyPy team is proud to release version 8.0.1 of PyPy after the previous
 release on Sept 25, 2026. Some problems with buffer memory leaks were fixed,
 and problems around the new strategy to tie RPython objects to non-managed C
-``PyObject`` objects were also fixed.
+``PyObject`` objects were also fixed. The stdlib for 3.11 and 3.12 was updated,
+as was the vendored libexpat (to 2.8.5). Internally, we now use pytest3.10
+rather than 2.9.2.
 
 The release includes three different interpreters:
 
@@ -21,11 +23,11 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.11, supporting the syntax and the features of
-  Python 3.11, including the stdlib for CPython 3.11.16. Barring security
+  Python 3.11, including the stdlib for CPython 3.11.17. Barring security
   issues, this will be the last release to support 3.11.
 
 - PyPy3.12, supporting the syntax and features of Python 3.12, including the
-  stdlib for CPython 3.12.14.
+  stdlib for CPython 3.12.15.
 
 The interpreters are based on much the same codebase, thus the triple
 release.
@@ -152,9 +154,8 @@ Python 3.12
 - cpyext: Refactor handling of out-of-band malloced objects with no room for a
   ``ob_pypy_link`` prefix
 - cpyext: When handling a memoryviewobject, copy strides/shape instead of aliasing them
-- cpyext: Implement PY_VECTORCALL_ARGUMENTS_OFFSET protocol in PyObject_VectorcallDict
 - Make ``ElementTree::ParseError`` messages strings (:issue:`5605`)
-- Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
+- cpyext: Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
 - Add missing consts to stats for windows (:issue:`5626`)
 - Fix fstring AST to match CPython (:issue:`5627`)
 

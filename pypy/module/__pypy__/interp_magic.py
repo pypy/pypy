@@ -33,12 +33,15 @@ def attach_gdb(space):
 
 @unwrap_spec(name='text')
 def method_cache_counter(space, name):
-    """Return a tuple (method_cache_hits, method_cache_misses) for calls to
-    methods with the name."""
+    """Return a tuple (method_cache_hits, method_cache_misses,
+    method_cache_evicted) for calls to methods with the name.  A lookup
+    that misses only because another entry took the place of its entry in
+    the cache counts as evicted, not as a miss."""
     assert space.config.objspace.std.withmethodcachecounter
     cache = space.fromcache(MethodCache)
-    return space.newtuple2(space.newint(cache.hits.get(name, 0)),
-                           space.newint(cache.misses.get(name, 0)))
+    return space.newtuple([space.newint(cache.hits.get(name, 0)),
+                           space.newint(cache.misses.get(name, 0)),
+                           space.newint(cache.evicted.get(name, 0))])
 
 def reset_method_cache_counter(space):
     """Reset the method cache counter to zero for all method names."""
@@ -47,6 +50,7 @@ def reset_method_cache_counter(space):
     cache.clear()
     cache.misses = {}
     cache.hits = {}
+    cache.evicted = {}
     cache = space.fromcache(MapAttrCache)
     cache.clear()
     cache.misses = {}
