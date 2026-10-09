@@ -36,6 +36,7 @@
 #  define RANDOM_RAND_S_H 1
 
 #  include <stdbool.h>
+#  include "pyexpatns.h" // PyPy: namespace writeRandomBytes_*
 #  include <stddef.h> // for size_t
 
 bool writeRandomBytes_rand_s(void *target, size_t count);
