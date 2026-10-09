@@ -34,6 +34,7 @@
 #if ! defined(RANDOM_ACR4RANDOM_BUF_H)
 #  define RANDOM_ACR4RANDOM_BUF_H 1
 
+#  include "pyexpatns.h" // PyPy: namespace writeRandomBytes_*
 #  include <stddef.h> // for size_t
 
 void writeRandomBytes_arc4random_buf(void *target, size_t count);
