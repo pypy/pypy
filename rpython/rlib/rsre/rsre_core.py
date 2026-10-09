@@ -964,14 +964,18 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # use the MAX_REPEAT operator.
             # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
             start = ptr
-
-            try:
-                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
-            except EndOfString:
-                return    # cannot match
+            min = pattern.pat(ppos+1)
+            if ctx.maximum_distance(start, ctx.end) < min:
+                return    # not even enough bytes for the minimum
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
+            if ptr == start and min > 0:
+                return    # first character failed; avoid the boundary walk
+            try:
+                minptr = ctx.next_n(start, min, ptr)
+            except EndOfString:
+                return    # did not match minimum number of times
             # when we arrive here, ptr points to the tail of the target
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
@@ -989,13 +993,15 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             start = ptr
             min = pattern.pat(ppos+1)
             if min > 0:
-                try:
-                    minptr = ctx.next_n(ptr, min, ctx.end)
-                except EndOfString:
-                    return    # cannot match
+                if ctx.maximum_distance(start, ctx.end) < min:
+                    return    # not even enough bytes for the minimum
                 # count using pattern min as the maximum
-                ptr = find_repetition_end(ctx, pattern, ppos+3, ptr, min, marks)
-                if ptr < minptr:
+                ptr = find_repetition_end(ctx, pattern, ppos+3, start, min, marks)
+                if ptr == start:
+                    return    # first character failed; avoid the boundary walk
+                try:
+                    ctx.next_n(start, min, ptr)
+                except EndOfString:
                     return   # did not match minimum number of times
 
             max_count = sys.maxint
@@ -1019,15 +1025,17 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # <POSSESSIVE_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS>
             # tail
             start = ptr
-
-            try:
-                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
-            except EndOfString:
-                return    # cannot match
+            min = pattern.pat(ppos+1)
+            if ctx.maximum_distance(start, ctx.end) < min:
+                return    # not even enough bytes for the minimum
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
-            if ptr < minptr:
+            if ptr == start and min > 0:
+                return    # first character failed; avoid the boundary walk
+            try:
+                ctx.next_n(start, min, ptr)
+            except EndOfString:
                 return    # did not match minimum number of times
             # when we arrive here, ptr points to the tail of the target
             # string. match the rest of the pattern.
