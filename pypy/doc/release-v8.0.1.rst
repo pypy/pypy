@@ -105,6 +105,9 @@ For all versions
 - Use vmprof 0.6.0 version profiles, which include a timestamp (:issue:`5598`).
 - Merge work to make RPython support both python2 and python3 (:issue:`5601`)
 - Replace the old vendored pytest with v3.10
+- Drop py3.10 nightly builds from the versions.json served by
+  github actions/setup-python and others. 3.10 is no longer supported, and there is no
+  reason to be using it in CI
 
 Bugfixes
 ~~~~~~~~
