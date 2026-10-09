@@ -113,6 +113,11 @@ class TestJitRSre(support.LLJitMixin):
         assert res == -1
         self.check_trace_count(0)
 
+    def test_search_too_short(self):
+        res = self.meta_interp_search(r'a+b{4096}', 'a' * 256)
+        assert res == -1
+        self.check_trace_count(0)
+
     def test_regular_search_upcase(self):
         res = self.meta_interp_search(r"<\w+>", "EIOFWEOXDIWHDOH<FOOBAR>UA")
         assert res == 15

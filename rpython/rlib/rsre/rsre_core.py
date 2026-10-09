@@ -1390,6 +1390,7 @@ def match_context(ctx, pattern):
     ctx.jitdriver_Match.jit_merge_point(ctx=ctx, pattern=pattern)
     return sre_match(ctx, pattern, 0, ctx.match_start, None) is not None
 
+@specializectx
 def search_context(ctx, pattern):
     ctx.original_pos = ctx.match_start
     if ctx.end < ctx.match_start:
@@ -1397,6 +1398,10 @@ def search_context(ctx, pattern):
     base = 0
     charset = False
     if pattern.pat(base) == consts.OPCODE_INFO:
+        # Reject inputs shorter than the minimum width before choosing a
+        # search strategy.  For UTF-8, maximum_distance is an upper bound.
+        if ctx.maximum_distance(ctx.match_start, ctx.end) < pattern.pat(3):
+            return False
         flags = pattern.pat(2)
         if flags & consts.SRE_INFO_PREFIX:
             if pattern.pat(5) > 1:

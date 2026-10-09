@@ -11,6 +11,35 @@ def setup_module(mod):
 
 class BaseTestSearch:
 
+    @py.test.mark.parametrize('pattern', [
+        r'a+b{4096}', r'ab.{4096}', r'a.{4096}', r'[ab].{4096}'])
+    def test_search_too_short_does_not_read(self, pattern, monkeypatch):
+        code = get_code(pattern)
+
+        def unexpected_read(ctx, position):
+            raise AssertionError('search read an impossibly short input')
+
+        for cls in (rsre_core.StrMatchContext, support.MatchContextForTests,
+                    rsre_utf8.Utf8MatchContext):
+            monkeypatch.setattr(cls, 'str', unexpected_read)
+        for size in (16, 64, 256):
+            assert self.search(code, 'a' * size) is None
+
+    @py.test.mark.parametrize('pattern', [
+        r'a+b{2}', r'ab.', r'a..', r'[ab]..', r'a*'])
+    def test_search_min_width_bounds(self, pattern):
+        code, reference = get_code_and_re(pattern)
+        text = 'aabb'
+        for start in range(5):
+            for end in range(start, 5):
+                expected = reference.search(text, start, end)
+                actual = self.search(code, text, start, end)
+                if expected is None:
+                    assert actual is None
+                else:
+                    assert actual.span() == tuple(
+                        self.P(p) for p in expected.span())
+
     @py.test.mark.parametrize('anchor', [r'\A', '^', r'(?m)\A'])
     def test_anchored_search_does_not_scan(self, anchor, monkeypatch):
         code = get_code(anchor + r'\s*\Z')
@@ -293,6 +322,13 @@ class TestSearchUtf8(BaseTestSearch):
     search = staticmethod(rsre_utf8.utf8search)
     match = staticmethod(rsre_utf8.utf8match)
     P = staticmethod(lambda n: n)   # NB. only for plain ascii
+
+    def test_search_min_width_unicode(self):
+        code = get_code(ur'.{2}', re.UNICODE)
+        assert self.search(code, u'\xe9'.encode('utf-8')) is None
+        text = u'\xe9\xe9'.encode('utf-8')
+        assert self.search(code, text).span() == (0, 4)
+        assert self.search(code, text, 2) is None
 
     def test_groupref_unicode_bug(self):
         r = get_code(ur"(üü+)\1+$", re.UNICODE)     # match non-prime numbers of ü
