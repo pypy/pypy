@@ -611,6 +611,10 @@ class TestRe:
 
     def test_inline_flags(self):
         # Bug #1700
+        from rpython.rlib.rsre import rsre_constants
+        if rsre_constants.V37:
+            py.test.skip("the py2 sre_compile in rpy/ does not emit the "
+                         "*_UNI_IGNORE opcodes needed for >=3.7")
         upper_char = unichr(0x1ea0) # Latin Capital Letter A with Dot Bellow
         lower_char = unichr(0x1ea1) # Latin Small Letter A with Dot Bellow
 

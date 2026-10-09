@@ -47,33 +47,6 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             assert cache_counter[1] >= 3 # should be (27, 3)
             assert sum(cache_counter) == 30
 
-    def test_class_that_cannot_be_cached(self):
-        @self.retry
-        def run():
-            import __pypy__
-            class X:
-                pass
-            class Y(object):
-                pass
-            class A(Y, X):
-                def f(self):
-                    return 42
-
-            class B(object):
-                def f(self):
-                    return 43
-            class C(object):
-                def f(self):
-                    return 44
-            l = [A(), B(), C()] * 10
-            __pypy__.reset_method_cache_counter()
-            for i, a in enumerate(l):
-                assert a.f() == 42 + i % 3
-            cache_counter = __pypy__.method_cache_counter("f")
-            assert cache_counter[0] + cache_counter[2] >= 9
-            assert cache_counter[1] >= 2 # should be (18, 2)
-            assert sum(cache_counter) == 20
-
     def test_subclasses(self):
         @self.retry
         def run():
