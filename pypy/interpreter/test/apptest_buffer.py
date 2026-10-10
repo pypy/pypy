@@ -83,17 +83,18 @@ def test_re_finditer_keeps_buffer():
 
 
 def test_original_release_then_slice_gc():
-    # Releasing the original memoryview (decrementing _exports) and then
-    # GC-ing the surviving slices must be a no-op for the slices.
-    import weakref
-
+    # Releasing the original memoryview keeps the export while a slice of it
+    # is alive (issue 5613), as on CPython.  GC-ing the slice releases it.
     b = bytearray(b'hello')
     m = memoryview(b)
     s = m[:3]
-    m.release()         # releases the export: _exports -> 0
-    b.append(ord('!'))  # must work: export is gone
+    m.release()
+    with raises(BufferError):
+        b.append(ord('!'))
     del s
     gc.collect()        # GC of s must not crash
+    gc.collect()
+    b.append(ord('!'))
     b.append(ord('?'))
     assert b == bytearray(b'hello!?')
 

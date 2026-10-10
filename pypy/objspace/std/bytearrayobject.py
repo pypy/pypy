@@ -79,13 +79,13 @@ class W_BytearrayObject(W_BufferExporter):
         # The Python-visible __buffer__: always acquires directly against
         # this bytearray's own storage (unlike buffer_w, this is also what
         # a subclass override calls via super().__buffer__()).  The
-        # returned memoryview owns the export, same as a normal
+        # returned memoryview holds the export, same as a normal
         # memoryview(bytearray_instance): DunderReleaseView.releasebuffer()
         # force-releases it once the outer buffer is released, regardless
         # of whether a __release_buffer__ override calls super().
         self._exports += 1
         view = SimpleView(BytearrayBuffer(self), w_obj=self)
-        return view.wrap(space, owns_export=True)
+        return view.wrap(space)
 
     def bf_getbuffer(self, space, view, flags):
         from pypy.interpreter.py_buffer import fill_py_buffer_1d
@@ -703,8 +703,8 @@ class W_BytearrayObject(W_BufferExporter):
         # out via __buffer__; otherwise CPython raises ValueError, e.g. a
         # subclass __buffer__ returning an unrelated memoryview and then
         # forwarding it to super().__release_buffer__().  Releasing it here
-        # decrements _exports via the owning SimpleView/BytearrayBuffer
-        # chain (descr_buffer created it with owns_export=True).
+        # decrements _exports via the SimpleView/BytearrayBuffer chain
+        # of the export descr_buffer acquired.
         if (not space.isinstance_w(w_view, space.w_memoryview) or
                 w_view.w_get_obj(space) is not self):
             raise oefmt(space.w_ValueError,

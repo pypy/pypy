@@ -29,7 +29,7 @@ from pypy.objspace.std.iterobject import W_AbstractSeqIterObject, W_SeqIterObjec
 from pypy.objspace.std.iterobject import W_FastUnicodeIterObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.longobject import W_LongObject, newlong
-from pypy.objspace.std.memoryobject import W_MemoryView
+from pypy.objspace.std.memoryobject import W_MemoryView, acquire_export
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
@@ -388,16 +388,12 @@ class StdObjSpace(ObjSpace):
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
-    def newmemoryview(self, view, owns_export=True):
-        mv = W_MemoryView(view, owns_export=owns_export)
-        if owns_export and view.needs_release():
-            # Only register a finalizer when the view's releasebuffer() has
-            # a real side effect (e.g. bytearray decrements its _exports
-            # counter).  For bytes/str the call is a no-op, so skipping it
-            # keeps short-lived memoryview objects virtualizable by the JIT.
-            mv.export_needs_release = True
-            mv.register_finalizer(self)
-        return mv
+    def newmemoryview(self, view):
+        # An export object (and with it a finalizer) is created only when the
+        # view's releasebuffer() has a real side effect, e.g. bytearray
+        # decrementing its _exports counter.  For bytes/str it is a no-op, so
+        # skipping it keeps short-lived memoryviews virtualizable by the JIT.
+        return W_MemoryView(view, acquire_export(self, view))
 
     def newbytes(self, s):
         assert isinstance(s, bytes)
