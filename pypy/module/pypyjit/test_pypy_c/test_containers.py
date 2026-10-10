@@ -376,6 +376,7 @@ class TestOtherContainers(BaseTestPyPyC):
         --TICK--
         ''')
 
+    @pytest.mark.skip("dict.values() is a view on pypy3, not a list copy")
     def test_dict_values_single_copy(self):
         def main():
             res = 0

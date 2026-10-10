@@ -97,23 +97,56 @@ class W_MemoryView(W_BufferExporter):
         # for a memoryview made by _derived(): the memoryview that owns the
         # export, if releasing the export has an effect
         self.w_owner = w_owner
+        # on a memoryview that owns the export: the number of memoryviews
+        # derived from it that are still using the export, and the view to
+        # release once the last of them is done with it
+        self.n_derived = 0
+        self.pending_view = None
         self._hash = -1
         self.flags = 0
         self._init_flags()
 
     def _finalize_(self):
-        if self.view is not None:
+        # Views derived from this one keep it alive, so by now they are all
+        # unreachable and the export can go, whatever n_derived still counts
+        # for the ones that were dropped without an explicit release().
+        if self.view is not None or self.pending_view is not None:
+            self.n_derived = 0
             self._release_underlying(None)
 
     def _release_underlying(self, space):
         view = self.view
         self.view = None
         self.export_needs_release = False
+        w_owner = self.w_owner
         self.w_owner = None
-        if view is None:
-            return
         if not self.owns_export:
+            if view is not None and w_owner is not None:
+                w_owner._derived_released(space)
             return
+        if view is None:
+            # a release deferred by an earlier descr_release(), now that the
+            # last derived memoryview is done with the export
+            view = self.pending_view
+            self.pending_view = None
+            if view is None:
+                return
+        elif self.n_derived > 0:
+            # memoryviews derived from this one still use the export, so keep
+            # it: CPython keeps it the same way, through the refcount of the
+            # managed buffer that base and derived views share.  The last
+            # derived view releases it, or our finalizer does once they are
+            # all gone.
+            self.pending_view = view
+            return
+        self._do_release(space, view)
+
+    def _derived_released(self, space):
+        self.n_derived -= 1
+        if self.n_derived == 0 and self.pending_view is not None:
+            self._release_underlying(space)
+
+    def _do_release(self, space, view):
         if not view.needs_release():
             # nothing to release, or a view that another object exported
             # and releases, e.g. memoryview(pb) for a PickleBuffer of a
@@ -511,17 +544,17 @@ class W_MemoryView(W_BufferExporter):
         """Return a new memoryview of 'view', a slice, cast or copy of
         self.view that uses the same export.  The new memoryview keeps the
         memoryview that owns the export alive, so that a GC can't release
-        the export while the new one uses it (issue 5613).  If the owner is
-        released explicitly, the new memoryview counts as released too."""
+        the export while the new one uses it (issue 5613), and releasing the
+        owner does not release the export while the new one is alive."""
         w_owner = self.w_owner
         if w_owner is None and self.export_needs_release:
             w_owner = self
+        if w_owner is not None:
+            w_owner.n_derived += 1
         return W_MemoryView(view, owns_export=False, w_owner=w_owner)
 
     def _is_released(self):
-        w_owner = self.w_owner
-        return self.view is None or (w_owner is not None and
-                                     w_owner.view is None)
+        return self.view is None
 
     def _check_released(self, space):
         if self._is_released():
