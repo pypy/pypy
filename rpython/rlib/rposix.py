@@ -212,6 +212,8 @@ else:
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
+    if sys.platform == 'darwin':
+        includes.append('copyfile.h')
     libraries = ['util']
 
 eci = ExternalCompilationInfo(
