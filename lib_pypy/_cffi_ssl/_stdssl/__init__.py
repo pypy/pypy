@@ -1155,7 +1155,7 @@ HAS_KEYLOG = hasattr(lib, "SSL_CTX_set_keylog_callback")
 slots = ['ctx', '_check_hostname',
          'alpn_protocols', '_alpn_protocols_handle', '_protocol'
          'npn_protocols', 'set_hostname', '_post_handshake_auth',
-         '_sni_cb', '_sni_cb_handle', '_npn_protocols_handle',
+         '_sni_cb', '_npn_protocols_handle',
         ]
 if HAS_KEYLOG:
     slots += ['_keylog_filename', 'keylog_bio']
@@ -1669,13 +1669,11 @@ class _SSLContext(object):
         if arg is None:
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             self._sni_cb = None
-            self._sni_cb_handle = None
             return
         if not callable(arg):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
         self._sni_cb = GenericCallback(arg, self)
-        self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
 
     @property
@@ -1912,8 +1910,6 @@ class _SSLContext(object):
 if HAS_SNI:
     @ffi.callback("int(SSL*,int*,void*)")
     def _servername_callback(s, al, arg):
-        scb = ffi.from_handle(arg)
-        ssl_ctx = scb.ctx
         servername = lib.SSL_get_servername(s, lib.TLSEXT_NAMETYPE_host_name)
 
         # Do not use the SSL_CTX's servername arg to find the context: it is a
@@ -1926,11 +1922,11 @@ if HAS_SNI:
         # they are used here.
         ssl = ffi.from_handle(lib.SSL_get_app_data(s))
         assert isinstance(ssl, _SSLSocket)
-        sslctx = ssl.ctx
-        sni_cb = sslctx.set_sni_cb
-        if not sni_cb:
+        scb = ssl.ctx._sni_cb
+        if scb is None:
             return lib.SSL_TLSEXT_ERR_OK
-
+        sni_cb = scb.callback
+        ssl_ctx = scb.ctx
 
         # The servername callback expects an argument that represents the current
         # SSL connection and that has a .context attribute that can be changed to
