@@ -519,6 +519,23 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
         finally:
             os.close(dirfd)
 
+    @rposix_requires('openat')
+    def test_openat_mode(self):
+        import stat
+        dirname = str(udir.ensure('test_openat_mode', dir=True))
+        dirfd = os.open(dirname, os.O_RDONLY)
+        old_umask = os.umask(0)
+        try:
+            for mode in [0o600, 0o640, 0o755]:
+                name = 'f%o' % mode
+                fd = rposix.openat(name, os.O_CREAT | os.O_WRONLY, mode, dirfd)
+                os.close(fd)
+                st_mode = os.stat(os.path.join(dirname, name)).st_mode
+                assert stat.S_IMODE(st_mode) == mode
+        finally:
+            os.umask(old_umask)
+            os.close(dirfd)
+
     @rposix_requires('unlinkat')
     def test_unlinkat(self):
         def f(dirfd):
