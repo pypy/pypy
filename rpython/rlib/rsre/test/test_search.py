@@ -11,6 +11,54 @@ def setup_module(mod):
 
 class BaseTestSearch:
 
+    @py.test.mark.parametrize('anchor', [r'\A', '^', r'(?m)\A'])
+    def test_anchored_search_does_not_scan(self, anchor, monkeypatch):
+        code = get_code(anchor + r'\s*\Z')
+        sre_match = rsre_core.sre_match
+        attempts = []
+        depth = [0]
+
+        def recording_match(ctx, pattern, ppos, ptr, marks):
+            if depth[0] == 0:
+                attempts.append(ptr)
+            depth[0] += 1
+            try:
+                return sre_match(ctx, pattern, ppos, ptr, marks)
+            finally:
+                depth[0] -= 1
+
+        monkeypatch.setattr(rsre_core, 'sre_match', recording_match)
+        for size in (16, 256, 4096):
+            for start in (0, 1, size):
+                del attempts[:]
+                assert self.search(code, 'x' * size, start) is None
+                assert attempts == [self.P(start)]
+
+    @py.test.mark.parametrize('anchor', [r'\A', '^', r'(?m)\A'])
+    def test_anchored_search(self, anchor):
+        code = get_code(anchor + r'(\s*)\Z')
+        for text in ('', ' ', ' \n\t'):
+            res = self.search(code, text)
+            assert res.span() == (self.P(0), self.P(len(text)))
+            assert res.span(1) == res.span()
+        assert self.search(code, ' ', 1) is None
+        assert self.search(code, '\nx') is None
+        res = self.search(code, ' x', 0, 1)
+        assert res.span() == (self.P(0), self.P(1))
+        assert self.search(code, ' x', 1, 0) is None
+
+    def test_multiline_start_search(self):
+        code = get_code(r'(?m)^foo')
+        for start in (0, 1, 2):
+            res = self.search(code, 'x\nfoo', start)
+            assert res.span() == (self.P(2), self.P(5))
+
+    def test_partially_anchored_alternative(self):
+        code = get_code(r'\Afoo|bar')
+        for start in (0, 1):
+            res = self.search(code, 'xbar', start)
+            assert res.span() == (self.P(1), self.P(4))
+
     def test_code1(self):
         r_code1 = get_code(r'[abc][def][ghi]')
         res = self.search(r_code1, "fooahedixxx")
