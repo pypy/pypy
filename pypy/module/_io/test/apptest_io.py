@@ -598,3 +598,14 @@ def test_seek_with_encoder_state():
     # print([hex(ord(s)) for s in out])
     # print([hex(ord(s)) for s in expected])
     assert out == expected
+
+
+def test_rawiobase_read_with_transient_export():
+    # issue 5634: readinto() may leave a buffer export of read()'s own
+    # scratch bytearray behind; read() must not resize it
+    class R(_io._RawIOBase):
+        def readinto(self, b):
+            memoryview(b)[0:5] = b'hello'
+            return 5
+    assert R().read(10) == b'hello'
+    assert R().read(5) == b'hello'
