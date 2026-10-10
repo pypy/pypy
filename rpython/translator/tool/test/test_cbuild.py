@@ -1,6 +1,7 @@
 import py
 
 from rpython.tool.udir import udir
+from rpython.translator.tool import cbuild
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from subprocess import Popen, PIPE, STDOUT
 
@@ -93,6 +94,25 @@ class TestEci:
         assert not hasattr(ctypes.CDLL(neweci.libraries[0]), 'shouldnt_export')
         assert not neweci.separate_module_sources
         assert not neweci.separate_module_files
+
+    def test_make_shared_lib_without_link_inputs_on_darwin(self, monkeypatch):
+        archive = self.tmpdir.join('libempty.a')
+        archive.write('')
+        eci = ExternalCompilationInfo(link_files=[str(archive)])
+        compiled = []
+
+        def compile(cfiles, compilation_eci, outputfilename, standalone):
+            compiled.append(compilation_eci)
+            return self.tmpdir.join('empty.dylib')
+
+        monkeypatch.setattr(cbuild.sys, 'platform', 'darwin')
+        monkeypatch.setattr(cbuild.host, 'compile', compile)
+        neweci = eci.compile_shared_lib(ignore_a_files=True)
+
+        assert len(compiled) == 1
+        assert len(compiled[0].separate_module_files) == 1
+        assert compiled[0].link_files == ()
+        assert neweci.link_files == ()
 
     def test_from_compiler_flags(self):
         flags = ('-I/some/include/path -I/other/include/path '
