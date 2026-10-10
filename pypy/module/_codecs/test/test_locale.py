@@ -77,7 +77,7 @@ class TestLocaleCodec(object):
     @pytest.mark.parametrize('locale_decoder',
                  (str_decode_locale_surrogateescape, str_decode_locale_strict))
     def test_decode_locale_latin1(self, locale_decoder):
-        self.setlocale("fr_FR")
+        self.setlocale("fr_FR.ISO8859-1")
         uni = u"août"
         string = uni.encode('latin1')
         assert locale_decoder(string) == (uni.encode('utf8'), len(uni))
