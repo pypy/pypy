@@ -1191,6 +1191,7 @@ class ResOpAssembler(BaseAssembler):
         if target_token in self.target_tokens_currently_compiling:
             self.mc.B_ofs(target - self.mc.currpos())
         else:
+            self._reload_loop_pins(target_token)
             self.mc.B(target)
 
     def emit_op_finish(self, op, arglocs):
