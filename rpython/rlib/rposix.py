@@ -2764,9 +2764,13 @@ if HAVE_SYMLINKAT:
         handle_posix_error('symlinkat', error)
 
 if HAVE_OPENAT:
+    if sys.platform == 'darwin':
+        extra_openat_args = {'natural_arity': 3}
+    else:
+        extra_openat_args = {}
     c_openat = external('openat',
-        [rffi.INT, rffi.CCHARP, rffi.INT, rffi.MODE_T], rffi.INT,
-        save_err=rffi.RFFI_SAVE_ERRNO)
+        [rffi.INT, rffi.CCHARP, rffi.INT, mode_type], rffi.INT,
+        save_err=rffi.RFFI_SAVE_ERRNO, **extra_openat_args)
 
     @enforceargs(s_Str0, int, int, int, typecheck=False)
     def openat(path, flags, mode, dir_fd=AT_FDCWD):
