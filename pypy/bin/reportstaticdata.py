@@ -26,6 +26,7 @@ Options:
 
   --help   Show this help message
 """
+from __future__ import print_function
 
 import sys
 
@@ -64,7 +65,7 @@ def main():
     try:
         kwds = parse_options(sys.argv[1:])
     except AssertionError:
-        print >> sys.stderr, __doc__
+        print( >> sys.stderr, __doc__)
         sys.exit(1)
     print_report(**kwds)
 
