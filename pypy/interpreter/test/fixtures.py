@@ -3,5 +3,5 @@ def tempfile(space, config):
     return space.newtext(str(tmpdir / 'tempfile1'))
 
 def tmpdir(space, config):
-    tmpdir = TempdirFactory(config).getbasetemp()
+    tmpdir = config._tmpdirhandler.getbasetemp()
     return space.newtext(str(tmpdir))
