@@ -409,7 +409,7 @@ class W_wrap_getbuffer(object):
                 # XXX: we're assuming w_self and w_obj have the same type!
                 view.releasebufferproc = self.rbp
                 self.handles.BUFFER_FQ.register_finalizer(view)
-            return view.wrap(space, owns_export=False)
+            return view.wrap(space)
 
 
 # remaining wrappers to write

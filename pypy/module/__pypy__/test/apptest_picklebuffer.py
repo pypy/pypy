@@ -61,6 +61,14 @@ def test_slice_source():
     with pytest.raises(BufferError):
         b.clear()
     mv.release()
+    with pytest.raises(BufferError):
+        # the PickleBuffer still uses the slice's export
+        b.clear()
+    pb.release()
+    # unlike CPython, where releasing the PickleBuffer drops the last
+    # reference to the slice, here the slice needs to be collected first
+    gc.collect()
+    gc.collect()
     b.clear()
 
 

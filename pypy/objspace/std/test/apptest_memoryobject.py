@@ -189,9 +189,44 @@ def test_derived_views_of_released_view():
     for v in derived:
         v.release()
     # m[1:][1:] dropped the intermediate view without releasing it, so the
-    # export outlives the explicit release()s until a GC gets to m
+    # export outlives the explicit release()s until a GC collects it
     del derived, m
     import gc
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_dropped_derived_view_releases_the_export():
+    # the slice is dropped without release() while the memoryview it was
+    # derived from is already released: the export goes away with the slice
+    import gc
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    s = m[2:]
+    m.release()
+    with raises(BufferError):
+        b.clear()
+    del s
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_dropped_derived_view_of_live_view():
+    # same, but the memoryview the slice came from is still in use: the
+    # dropped slice counts as using the export until the GC gets to it, so
+    # unlike CPython the release here is not what unlocks the bytearray
+    import gc
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    s = m[2:]
+    del s
+    gc.collect()
+    assert bytes(m) == b'abcdefgh'
+    with raises(BufferError):
+        b.clear()
+    m.release()
     gc.collect()
     gc.collect()
     b.clear()

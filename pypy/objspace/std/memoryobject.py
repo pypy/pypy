@@ -83,82 +83,63 @@ REQ_STRIDES = lambda flags: (flags & PyBUF_STRIDES) == PyBUF_STRIDES
 REQ_SHAPE = lambda flags: (flags & PyBUF_ND) == PyBUF_ND
 
 
+class BufferExport(W_Root):
+    """One buffer export acquired from an exporter, shared by every object
+    built from it: a memoryview, its slices and casts, a PickleBuffer.  The
+    last user to release it undoes the acquisition; if they are all dropped
+    without releasing, the GC does it instead.
+    """
+    typedef = None     # internal, never reaches app-level
+
+    def __init__(self, space, view):
+        self.view = view
+        self.users = 1
+        self.register_finalizer(space)
+
+    def attach(self):
+        self.users += 1
+
+    def detach(self):
+        self.users -= 1
+        if self.users == 0:
+            self.release()
+
+    def _finalize_(self):
+        self.release()
+
+    def release(self):
+        view = self.view
+        if view is not None:
+            self.view = None
+            view.releasebuffer()
+
+
+def acquire_export(space, view):
+    """The export for a view obtained from space.buffer_w(): the one the view
+    borrows from a memoryview, a new one if the acquisition has to be undone,
+    or None if releasing it is a no-op."""
+    export = view.get_export()
+    if export is not None:
+        export.attach()
+    elif view.needs_release():
+        export = BufferExport(space, view)
+    return export
+
+
 class W_MemoryView(W_BufferExporter):
     """Implement the built-in 'memoryview' type as a wrapper around
     an interp-level buffer.
     """
 
-    def __init__(self, view, owns_export=True, w_owner=None):
+    def __init__(self, view, export=None):
         assert isinstance(view, BufferView)
         self.view = view
-        self.owns_export = owns_export
-        # set by space.newmemoryview() if releasing the export has an effect
-        self.export_needs_release = False
-        # for a memoryview made by _derived(): the memoryview that owns the
-        # export, if releasing the export has an effect
-        self.w_owner = w_owner
-        # on a memoryview that owns the export: the number of memoryviews
-        # derived from it that are still using the export, and the view to
-        # release once the last of them is done with it
-        self.n_derived = 0
-        self.pending_view = None
+        # the export self.view uses, shared with every other memoryview
+        # built from the same acquisition
+        self.export = export
         self._hash = -1
         self.flags = 0
         self._init_flags()
-
-    def _finalize_(self):
-        # Views derived from this one keep it alive, so by now they are all
-        # unreachable and the export can go, whatever n_derived still counts
-        # for the ones that were dropped without an explicit release().
-        if self.view is not None or self.pending_view is not None:
-            self.n_derived = 0
-            self._release_underlying(None)
-
-    def _release_underlying(self, space):
-        view = self.view
-        self.view = None
-        self.export_needs_release = False
-        w_owner = self.w_owner
-        self.w_owner = None
-        if not self.owns_export:
-            if view is not None and w_owner is not None:
-                w_owner._derived_released(space)
-            return
-        if view is None:
-            # a release deferred by an earlier descr_release(), now that the
-            # last derived memoryview is done with the export
-            view = self.pending_view
-            self.pending_view = None
-            if view is None:
-                return
-        elif self.n_derived > 0:
-            # memoryviews derived from this one still use the export, so keep
-            # it: CPython keeps it the same way, through the refcount of the
-            # managed buffer that base and derived views share.  The last
-            # derived view releases it, or our finalizer does once they are
-            # all gone.
-            self.pending_view = view
-            return
-        self._do_release(space, view)
-
-    def _derived_released(self, space):
-        self.n_derived -= 1
-        if self.n_derived == 0 and self.pending_view is not None:
-            self._release_underlying(space)
-
-    def _do_release(self, space, view):
-        if not view.needs_release():
-            # nothing to release, or a view that another object exported
-            # and releases, e.g. memoryview(pb) for a PickleBuffer of a
-            # memoryview: w_obj.__release_buffer__ would release its export
-            return
-        w_obj = view.w_obj
-        if space is not None and w_obj is not None:
-            release_fn = space.lookup(w_obj, '__release_buffer__')
-            if release_fn is not None:
-                space.call_function(release_fn, w_obj, self)
-                return
-        view.releasebuffer()
 
     def getndim(self):
         return self.view.getndim()
@@ -211,11 +192,9 @@ class W_MemoryView(W_BufferExporter):
 
     def buffer_w(self, space, flags):
         self._check_buffer_flags(space, flags)
-        # Always wrap in a non-releasing view: the export lifetime is managed
-        # by the owning memoryview's finalizer (owns_export=True) or by a
-        # separate C-level finalizer (cpyext CPyBuffer).  Callers must not
-        # decrement the underlying _exports counter via releasebuffer().
-        return NonOwningReleaseView(self.view)
+        # A borrowed view: releasing it is a no-op, the export belongs to
+        # self.  A memoryview made from it shares the export (get_export).
+        return NonOwningReleaseView(self.view, self.export)
 
     def bf_getbuffer(self, space, view, flags):
         # CPython-style protocol: fill a passive Py_buffer description.
@@ -530,8 +509,11 @@ class W_MemoryView(W_BufferExporter):
 
     def descr_release(self, space):
         'Release the underlying buffer exposed by the memoryview object.'
-        if self.view is not None:
-            self._release_underlying(space)
+        self.view = None
+        export = self.export
+        if export is not None:
+            self.export = None
+            export.detach()
 
     def descr_release_buffer(self, space, w_view):
         # Called via bf_releasebuffer when C code releases a buffer it obtained
@@ -542,16 +524,12 @@ class W_MemoryView(W_BufferExporter):
 
     def _derived(self, view):
         """Return a new memoryview of 'view', a slice, cast or copy of
-        self.view that uses the same export.  The new memoryview keeps the
-        memoryview that owns the export alive, so that a GC can't release
-        the export while the new one uses it (issue 5613), and releasing the
-        owner does not release the export while the new one is alive."""
-        w_owner = self.w_owner
-        if w_owner is None and self.export_needs_release:
-            w_owner = self
-        if w_owner is not None:
-            w_owner.n_derived += 1
-        return W_MemoryView(view, owns_export=False, w_owner=w_owner)
+        self.view, sharing our export: releasing self does not release it
+        while the new memoryview is alive (issue 5613)."""
+        export = self.export
+        if export is not None:
+            export.attach()
+        return W_MemoryView(view, export)
 
     def _is_released(self):
         return self.view is None
@@ -570,8 +548,7 @@ class W_MemoryView(W_BufferExporter):
         return self
 
     def descr_exit(self, space, __args__):
-        if self.view is not None:
-            self._release_underlying(space)
+        self.descr_release(space)
         return space.w_None
 
     def descr_pypy_raw_address(self, space):
