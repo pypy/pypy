@@ -42,7 +42,7 @@ def _get_aia_uri(certificate, nid):
            ad.location.type != lib.GEN_URI:
             continue
         uri = ad.location.d.uniformResourceIdentifier
-        ostr = _str_with_len(uri.data, uri.length)
+        ostr = _string_from_asn1(ffi.cast("ASN1_STRING *", uri))
         lst.append(ostr)
     lib.AUTHORITY_INFO_ACCESS_free(info)
 
@@ -77,10 +77,10 @@ def _get_peer_alt_names(certificate):
             if method is ffi.NULL:
                 raise ssl_error("No method for internalizing subjectAltName!")
 
-            ext_data = lib.X509_EXTENSION_get_data(ext)
-            ext_data_len = ext_data.length
+            ext_data = ffi.cast("ASN1_STRING *", lib.X509_EXTENSION_get_data(ext))
+            ext_data_len = lib.ASN1_STRING_length(ext_data)
             ext_data_value = ffi.new("unsigned char**", ffi.NULL)
-            ext_data_value[0] = ext_data.data
+            ext_data_value[0] = lib.ASN1_STRING_get0_data(ext_data)
 
             if method.it != ffi.NULL:
                 names = lib.ASN1_item_d2i(ffi.NULL, ext_data_value, ext_data_len, lib.ASN1_ITEM_ptr(method.it))
@@ -101,13 +101,13 @@ def _get_peer_alt_names(certificate):
                 # GENERAL_NAME_print() doesn't handle NULL bytes in ASN1_string
                 # correctly, CVE-2013-4238
                 elif _type == lib.GEN_EMAIL:
-                    v = _string_from_asn1(name.d.rfc822Name)
+                    v = _string_from_asn1(ffi.cast("ASN1_STRING *", name.d.rfc822Name))
                     peer_alt_names.append(("email", v))
                 elif _type == lib.GEN_DNS:
-                    v = _string_from_asn1(name.d.dNSName)
+                    v = _string_from_asn1(ffi.cast("ASN1_STRING *", name.d.dNSName))
                     peer_alt_names.append(("DNS", v))
                 elif _type == lib.GEN_URI:
-                    v = _string_from_asn1(name.d.uniformResourceIdentifier)
+                    v = _string_from_asn1(ffi.cast("ASN1_STRING *", name.d.uniformResourceIdentifier))
                     peer_alt_names.append(("URI", v))
                 elif _type == lib.GEN_RID:
                     v = "Registered ID"
@@ -126,11 +126,12 @@ def _get_peer_alt_names(certificate):
                     # OpenSSL < 3.0.0 adds a trailing \n to IPv6. 3.0.0 removed
                     # the trailing newline. Keep it
                     v = "IP Address"
-                    ip = _string_from_asn1(name.d.ip)
-                    if name.d.ip.length == 4:
+                    ip = _string_from_asn1(ffi.cast("ASN1_STRING *", name.d.ip))
+                    ip_length = lib.ASN1_STRING_length(ffi.cast("ASN1_STRING *", name.d.ip))
+                    if ip_length == 4:
                         ip_str = '%d.%d.%d.%d' %(ord(ip[0]), ord(ip[1]),
                                                  ord(ip[2]), ord(ip[3]))
-                    elif name.d.ip.length == 16:
+                    elif ip_length == 16:
                         ip_str = "%X:%X:%X:%X:%X:%X:%X:%X\n" %(
                             ord(ip[0]) << 8 | ord(ip[1]),
                             ord(ip[2]) << 8 | ord(ip[3]),
@@ -298,7 +299,7 @@ def _get_crl_dp(certificate):
                 continue
 
             uri = gn.d.uniformResourceIdentifier;
-            ouri = _str_with_len(uri.data, uri.length)
+            ouri = _string_from_asn1(ffi.cast("ASN1_STRING *", uri))
             lst.append(ouri)
 
     lib.CRL_DIST_POINTS_free(dps);
