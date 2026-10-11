@@ -83,7 +83,6 @@ class AppTestSemaphore:
         assert str(e.value) == (
             "SemLock() argument 'name' must be str, not int")
 
-    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_recursive(self):
         from _multiprocessing import SemLock
         kind = self.RECURSIVE
@@ -181,7 +180,6 @@ class AppTestSemaphore:
         sem = SemLock(self.SEMAPHORE, 1, 1, '/mp-123', unlink=True)
         assert sem._count() == 0
 
-    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_in_threads(self):
         from _multiprocessing import SemLock
         from threading import Thread
