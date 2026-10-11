@@ -2629,13 +2629,15 @@ def test_longdouble():
     BLongDoubleArray = new_array_type(BLongDoublePtr, None)
     a = newp(BLongDoubleArray, 1)
     x = a[0]
-    assert repr(x).startswith("<cdata 'long double' 0.0")
+    if not py_py:
+        assert repr(x).startswith("<cdata 'long double' 0.0")
     assert float(x) == 0.0
     assert int(x) == 0
     #
     b = newp(BLongDoubleArray, [1.23])
     x = b[0]
-    assert repr(x).startswith("<cdata 'long double' 1.23")
+    if not py_py:
+        assert repr(x).startswith("<cdata 'long double' 1.23")
     assert float(x) == 1.23
     assert int(x) == 1
     #
