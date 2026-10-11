@@ -838,14 +838,15 @@ def make_formatting_class(for_unicode):
                                 "Alternate form (#) not allowed "
                                 "with 'c' presentation type")
                 value = space.int_w(w_num)
-                max_char = 0x10FFFF if self.is_unicode else 0xFF
-                if not (0 <= value <= max_char):
-                    raise oefmt(space.w_OverflowError,
-                                "%%c arg not in range(%s)",
-                                hex(max_char))
                 if self.is_unicode:
+                    if not (0 <= value <= 0x10FFFF):
+                        raise oefmt(space.w_OverflowError,
+                                    "%%c arg not in range(0x110000)")
                     result = rutf8.unichr_as_utf8(value, allow_surrogates=True)
                 else:
+                    if not (0 <= value <= 0xFF):
+                        raise oefmt(space.w_OverflowError,
+                                    "%%c arg not in range(256)")
                     result = chr(value)
                 n_digits = 1
                 n_remainder = 1
