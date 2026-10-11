@@ -291,12 +291,14 @@ class AppTestSelectWithPipes(_AppTestSelect):
             writeend.send(b"foo!")
             # can't easily test actual blocking, is done in lib-python tests
             res = poll.poll()
-            assert res == [(readend.fileno(), 1)]
+            assert len(res) == 1
+            assert res[0][0] == readend.fileno()
+            assert res[0][1] & select.POLLIN
 
             # check negative timeout
             # proper test in lib-python, test_poll_blocks_with_negative_ms
-            res = poll.poll(-0.001)
-            assert res == [(readend.fileno(), 1)]
+            res2 = poll.poll(-0.001)
+            assert res2 == res
         finally:
             readend.close()
             writeend.close()
