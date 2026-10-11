@@ -509,20 +509,23 @@ def test_strftime_bounds_checking():
 def test_strftime_nonascii():
     import time
     import _locale
-    prev_loc = _locale.setlocale(_locale.LC_TIME)
+    prev_time = _locale.setlocale(_locale.LC_TIME)
+    prev_ctype = _locale.setlocale(_locale.LC_CTYPE)
     try:
-        _locale.setlocale(_locale.LC_TIME, "fr_CH")
-    except _locale.Error:
-        skip("unsupported locale LC_TIME=fr_CH")
-    try:
+        for loc in ["fr_CH.UTF-8", "fr_CH.ISO8859-1"]:
+            try:
+                _locale.setlocale(_locale.LC_TIME, loc)
+                _locale.setlocale(_locale.LC_CTYPE, loc)
+                break
+            except _locale.Error:
+                pass
+        else:
+            skip("unsupported locale fr_CH")
         s = time.strftime('%B.', time.localtime(192039127))
-        # I am unsure, but I think that this fails because decoding of
-        # the result isn't done in the fr_CH locale.  There is no code
-        # to grab the LC_TIME locale specifically, which is the one
-        # used by strftime().
         assert s == "f\xe9vrier."
     finally:
-        _locale.setlocale(_locale.LC_TIME, prev_loc)
+        _locale.setlocale(_locale.LC_TIME, prev_time)
+        _locale.setlocale(_locale.LC_CTYPE, prev_ctype)
 
 def test_strftime_surrogate():
     import time
