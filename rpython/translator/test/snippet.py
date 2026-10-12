@@ -827,16 +827,6 @@ def exception_deduction_with_raise2(x):
         return e
     return Exc()
 
-def exception_deduction_with_raise3(x):
-    try:
-        exception_deduction0(2)
-        if x:
-            raise Exc, Exc()
-    except Exc as e:
-        witness(e)
-        return e
-    return Exc()
-
 def slice_union(x):
     if x:
         return slice(1)
