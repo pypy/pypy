@@ -33,7 +33,7 @@ class AsmMemoryManager(object):
     # the structures disagree until all of them are done.  A GC there runs
     # finalizers, and CompiledLoopToken.__del__ -> free_loop_and_bridges ->
     # free() reenters us inside that window.  Flag it.
-    DETECT_REENTRANCY = True
+    DETECT_REENTRANCY = False
     _updating = False
     _update_start = 0
     _update_stop = 0
