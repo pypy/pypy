@@ -24,6 +24,9 @@ def dump(space, w_data, w_f, w_version):
         m.dump_w_obj(w_data)
     finally:
         writer.finished()
+# the stream lock is held across the 'finally': no stack check here, it would
+# raise out of the function and skip it
+dump._dont_insert_stackcheck_ = True
 
 @unwrap_spec(w_version=WrappedDefault(Py_MARSHAL_VERSION))
 def dumps(space, w_data, w_version):
@@ -45,6 +48,7 @@ def load(space, w_f):
         return u.load_w_obj()
     finally:
         reader.finished()
+load._dont_insert_stackcheck_ = True
 
 def loads(space, w_str):
     """Convert a string back to a value.  Extra characters in the string are
