@@ -18,6 +18,7 @@ else:
 
 import os, platform as host_platform
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.tool.twothree import reraise
 from rpython.rtyper.extfunc import ExtRegistryEntry
 from rpython.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from rpython.tool.uid import fixid
@@ -1393,7 +1394,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc, natural_arity=-1):
             # e.g. test_llhelper_error_value)
             evalue._ll2ctypes_c_result = cres
             _callback_exc_info = None
-            raise etype, evalue, etb
+            reraise(etype, evalue, etb)
         return ctypes2lltype(RESULT, cres)
     return invoke_via_ctypes
 

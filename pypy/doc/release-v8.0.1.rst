@@ -7,7 +7,7 @@ PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
    will be announced on the PyPy blog_
 
 ..
-  updated to cb8d5b14a6ff5f7f95
+  updated to 73572bf034c
 
 The PyPy team is proud to release version 8.0.1 of PyPy after the previous
 release on Sept 25, 2026. Some problems with buffer memory leaks were fixed,
@@ -120,7 +120,11 @@ Bugfixes
 - Fix a bug in the revdb symbolic parser, which is also used by vmprof (:issue:`5593`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
 - Fix translation when using CPython2.7 (:issue:`5586`)
-- Ensure lock release can still fire while unwinding a StackOverflowError
+- Build cycle graphs startblock-to-startblock. This prevents ``finally``
+  stanzas leaking out of the graph, and prevents a set of problems with locks
+  released in a ``finally`` stanza being ignored when unwinding a
+  StackOverflow, which in turn caused hangs or other improper behaviour
+  (:issue:`5647`)
 - Fix variadic system calls on macos (:issue:`5635`)
 
 Speedups and enhancements
@@ -130,6 +134,7 @@ Speedups and enhancements
 - Add more simplification rules for int operations (:issue:`5587`)
   This also adds a check to prevent redundant rules
 - Don't scan the entire string if the regex has an ``AT_BEGINNING`` anchor
+- Optimize more of ``rsre`` (:issue:`5646`)
 
 Python 3.11
 -----------
@@ -155,7 +160,8 @@ Python 3.11 and 3.12
 - Refactor buffer exports to use a ``BufferExport`` class to track exports, in
   light of all the buffer release problems.
 - Catch lookup errors in ``match_class_attr`` (:issue:`5611`)
-- On macos, locale defaults to ``utf-8`` if empty
+- On macos, locale defaults to ``utf-8`` if empty (:issue:`5638`)
+- Fix select tests on MacOS (:issue:`5645`)
 
 Python 3.12
 -----------

@@ -964,14 +964,18 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # use the MAX_REPEAT operator.
             # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
             start = ptr
-
-            try:
-                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
-            except EndOfString:
-                return    # cannot match
+            min = pattern.pat(ppos+1)
+            if ctx.maximum_distance(start, ctx.end) < min:
+                return    # not even enough bytes for the minimum
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
+            if ptr == start and min > 0:
+                return    # first character failed; avoid the boundary walk
+            try:
+                minptr = ctx.next_n(start, min, ptr)
+            except EndOfString:
+                return    # did not match minimum number of times
             # when we arrive here, ptr points to the tail of the target
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
@@ -989,13 +993,15 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             start = ptr
             min = pattern.pat(ppos+1)
             if min > 0:
-                try:
-                    minptr = ctx.next_n(ptr, min, ctx.end)
-                except EndOfString:
-                    return    # cannot match
+                if ctx.maximum_distance(start, ctx.end) < min:
+                    return    # not even enough bytes for the minimum
                 # count using pattern min as the maximum
-                ptr = find_repetition_end(ctx, pattern, ppos+3, ptr, min, marks)
-                if ptr < minptr:
+                ptr = find_repetition_end(ctx, pattern, ppos+3, start, min, marks)
+                if ptr == start:
+                    return    # first character failed; avoid the boundary walk
+                try:
+                    ctx.next_n(start, min, ptr)
+                except EndOfString:
                     return   # did not match minimum number of times
 
             max_count = sys.maxint
@@ -1019,15 +1025,17 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # <POSSESSIVE_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS>
             # tail
             start = ptr
-
-            try:
-                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
-            except EndOfString:
-                return    # cannot match
+            min = pattern.pat(ppos+1)
+            if ctx.maximum_distance(start, ctx.end) < min:
+                return    # not even enough bytes for the minimum
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
-            if ptr < minptr:
+            if ptr == start and min > 0:
+                return    # first character failed; avoid the boundary walk
+            try:
+                ctx.next_n(start, min, ptr)
+            except EndOfString:
                 return    # did not match minimum number of times
             # when we arrive here, ptr points to the tail of the target
             # string. match the rest of the pattern.
@@ -1390,6 +1398,20 @@ def match_context(ctx, pattern):
     ctx.jitdriver_Match.jit_merge_point(ctx=ctx, pattern=pattern)
     return sre_match(ctx, pattern, 0, ctx.match_start, None) is not None
 
+@jit.unroll_safe
+def is_start_anchored(pattern, ppos):
+    # Leading capture marks do not consume input.  Skip them only for
+    # anchor detection; matching must still execute them.
+    while pattern.pat(ppos) == consts.OPCODE_MARK:
+        ppos += 2
+    if pattern.pat(ppos) == consts.OPCODE_AT:
+        atcode = pattern.pat(ppos + 1)
+        # Multiline ^ uses AT_BEGINNING_LINE and must search normally.
+        return (atcode == consts.AT_BEGINNING or
+                atcode == consts.AT_BEGINNING_STRING)
+    return False
+
+@specializectx
 def search_context(ctx, pattern):
     ctx.original_pos = ctx.match_start
     if ctx.end < ctx.match_start:
@@ -1397,6 +1419,10 @@ def search_context(ctx, pattern):
     base = 0
     charset = False
     if pattern.pat(base) == consts.OPCODE_INFO:
+        # Reject inputs shorter than the minimum width before choosing a
+        # search strategy.  For UTF-8, maximum_distance is an upper bound.
+        if ctx.maximum_distance(ctx.match_start, ctx.end) < pattern.pat(3):
+            return False
         flags = pattern.pat(2)
         if flags & consts.SRE_INFO_PREFIX:
             if pattern.pat(5) > 1:
@@ -1404,29 +1430,35 @@ def search_context(ctx, pattern):
         else:
             charset = (flags & consts.SRE_INFO_CHARSET)
         base += 1 + pattern.pat(1)
-    if pattern.pat(base) == consts.OPCODE_AT:
-        atcode = pattern.pat(base + 1)
-        if (atcode == consts.AT_BEGINNING or
-            atcode == consts.AT_BEGINNING_STRING):
-            # No later position can satisfy this assertion.  Multiline ^
-            # uses AT_BEGINNING_LINE and must still search normally.
-            return match_context(ctx, pattern)
+    if is_start_anchored(pattern, base):
+        # No later position can satisfy the assertion.  Match from the
+        # original entry point so that leading captures are preserved.
+        return match_context(ctx, pattern)
     if pattern.pat(base) == consts.OPCODE_LITERAL:
         return literal_search(ctx, pattern, base)
     if charset:
         return charset_search(ctx, pattern, base)
     return regular_search(ctx, pattern, base)
 
+def search_end(ctx, pattern, minimum=0):
+    # Exclusive byte-offset bound for candidate starts.  In UTF-8 a byte
+    # bound is conservative and need not lie on a character boundary.
+    # Keep ctx.end unchanged: matching and end assertions still need it.
+    if pattern.pat(0) == consts.OPCODE_INFO:
+        minimum = max(minimum, pattern.pat(3))
+    return ctx.bytes_difference(ctx.end, ctx.ZERO) - minimum + 1
+
 install_jitdriver('RegularSearch',
                   greens=['base', 'pattern'],
-                  reds=['start', 'ctx'],
+                  reds=['limit', 'start', 'ctx'],
                   debugprint=(1, 0))
 
 def regular_search(ctx, pattern, base):
     start = ctx.match_start
-    while True:
+    limit = search_end(ctx, pattern)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_RegularSearch.jit_merge_point(ctx=ctx, pattern=pattern,
-                                                    start=start, base=base)
+                                          start=start, base=base, limit=limit)
         if sre_match(ctx, pattern, base, start, None) is not None:
             ctx.match_start = start
             return True
@@ -1437,7 +1469,7 @@ def regular_search(ctx, pattern, base):
 
 install_jitdriver_spec("LiteralSearch",
                        greens=['base', 'character', 'pattern'],
-                       reds=['start', 'ctx'],
+                       reds=['limit', 'start', 'ctx'],
                        debugprint=(2, 0, 1))
 @specializectx
 def literal_search(ctx, pattern, base):
@@ -1446,9 +1478,10 @@ def literal_search(ctx, pattern, base):
     character = pattern.pat(base + 1)
     base += 2
     start = ctx.match_start
-    while start < ctx.end:
+    limit = search_end(ctx, pattern, 1)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_LiteralSearch.jit_merge_point(ctx=ctx, start=start,
-                                          base=base, character=character, pattern=pattern)
+                    base=base, character=character, pattern=pattern, limit=limit)
         start1 = ctx.next(start)
         if ctx.str(start) == character:
             if sre_match(ctx, pattern, base, start1, None) is not None:
@@ -1459,15 +1492,16 @@ def literal_search(ctx, pattern, base):
 
 install_jitdriver_spec("CharsetSearch",
                        greens=['base', 'pattern'],
-                       reds=['start', 'ctx'],
+                       reds=['limit', 'start', 'ctx'],
                        debugprint=(1, 0))
 @specializectx
 def charset_search(ctx, pattern, base):
     # pattern starts with a character from a known set
     start = ctx.match_start
-    while start < ctx.end:
+    limit = search_end(ctx, pattern, 1)
+    while ctx.bytes_difference(start, ctx.ZERO) < limit:
         ctx.jitdriver_CharsetSearch.jit_merge_point(ctx=ctx, start=start,
-                                                    base=base, pattern=pattern)
+                                      base=base, pattern=pattern, limit=limit)
         if rsre_char.check_charset(ctx, pattern, 5, ctx.str(start)):
             if sre_match(ctx, pattern, base, start, None) is not None:
                 ctx.match_start = start
@@ -1477,7 +1511,7 @@ def charset_search(ctx, pattern, base):
 
 install_jitdriver_spec('FastSearch',
                        greens=['i', 'prefix_len', 'pattern'],
-                       reds=['string_position', 'ctx'],
+                       reds=['limit', 'string_position', 'ctx'],
                        debugprint=(2, 0))
 @specializectx
 def fast_search(ctx, pattern):
@@ -1490,11 +1524,14 @@ def fast_search(ctx, pattern):
         return False
     prefix_len = pattern.pat(5)
     assert prefix_len >= 0
+    # This cursor reads the prefix, rather than pointing at its start.
+    # Leave enough bytes for the minimum-width tail after the prefix.
+    limit = search_end(ctx, pattern, prefix_len) + prefix_len - 1
     i = 0
-    while True:
+    while ctx.bytes_difference(string_position, ctx.ZERO) < limit:
         ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
                 string_position=string_position, i=i, prefix_len=prefix_len,
-                pattern=pattern)
+                pattern=pattern, limit=limit)
         char_ord = ctx.str(string_position)
         if char_ord != pattern.pat(7 + i):
             if i > 0:
@@ -1528,5 +1565,4 @@ def fast_search(ctx, pattern):
                 overlap_offset = prefix_len + (7 - 1)
                 i = pattern.pat(overlap_offset + i)
         string_position = ctx.next(string_position)
-        if string_position >= ctx.end:
-            return False
+    return False

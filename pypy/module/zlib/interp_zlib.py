@@ -7,7 +7,7 @@ from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.tool import rffi_platform
 
-from rpython.rlib import rstack, rzlib
+from rpython.rlib import rzlib
 
 # Add constants for CPython3.11+ compatibility
 constantnames = '''
@@ -125,16 +125,12 @@ class ZLibObject(W_Root):
 
     def unlock(self):
         """To call after using self.stream."""
-        # Make sure this does not increase the stack, since it can be called
-        # when unwinding a stack overflow
-        rstack._stack_criticalcode_start()
-        try:
-            self._lock.release()
-            keepalive_until_here(self)
-            # subtle: we have to make sure that 'self' is not garbage-collected
-            # while we are still using 'self.stream' - hence the keepalive.
-        finally:
-            rstack._stack_criticalcode_stop()
+        self._lock.release()
+        keepalive_until_here(self)
+        # subtle: we have to make sure that 'self' is not garbage-collected
+        # while we are still using 'self.stream' - hence the keepalive.
+    # no stack check here: this runs from the 'finally' of the methods below,
+    # including while unwinding a stack overflow
     unlock._dont_insert_stackcheck_ = True
 
 

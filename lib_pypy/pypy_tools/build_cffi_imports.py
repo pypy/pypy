@@ -111,7 +111,9 @@ def _build_dependency(name, patches=[], env=None):
     except KeyError:
         return 0, None, None
 
-    archive_dir = os.path.join(tempfile.gettempdir(), 'pypy-archives')
+    archive_dir = os.environ.get('PYPY_ARCHIVES_DIR', '')
+    if not archive_dir:
+        archive_dir = os.path.join(tempfile.gettempdir(), 'pypy-archives')
 
     if not os.path.isdir(archive_dir):
         os.makedirs(archive_dir)
@@ -124,10 +126,14 @@ def _build_dependency(name, patches=[], env=None):
         # On one of the buildbots, wget is broken
         if os.environ.get("USE_CURL", False):
             print('fetching archive via curl', url, file=sys.stderr)
-            status, stdout, stderr = run_subprocess('curl', ['-sSLo', archive, url])
+            status, stdout, stderr = run_subprocess('curl', [
+                '-sSLo', archive, '--connect-timeout', '15', '--retry', '3',
+                url])
         else:
             print('fetching archive via wget', url, file=sys.stderr)
-            status, stdout, stderr = run_subprocess('wget', ['-O', archive, url])
+            status, stdout, stderr = run_subprocess('wget', [
+                '--tries=3', '--connect-timeout=15', '--read-timeout=60',
+                '--waitretry=5', '-O', archive, url])
         if status != 0:
             return status, stdout, stderr
 
