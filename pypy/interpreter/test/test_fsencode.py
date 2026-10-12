@@ -37,6 +37,8 @@ def get_special_char():
     if we cannot generate such filename.
     """
     fsenc = sys.getfilesystemencoding()
+    if fsenc:
+        fsenc = fsenc.lower()
     # covers utf-8 and Windows ANSI code pages one non-space symbol from
     # every page (http://en.wikipedia.org/wiki/Code_page)
     known_locales = {
@@ -65,12 +67,12 @@ def get_special_char():
 class TestFSEncode(BaseFSEncodeTest):
     def test_fsencode_fsdecode(self):
         space = self.space
-        strs = [u"/home/bar/baz", u"c:\\"]
+        strs = [b"/home/bar/baz", b"c:\\"]
         if self.special_char:
-            strs.append(self.special_char)
+            strs.append(self.special_char.encode('utf8'))
         for st in strs:
             # check roundtrip
-            w_st = space.newtext(st.encode('utf8'), len(st))
+            w_st = space.newtext(st)
             w_enc = space.fsencode(w_st)
             w_st2 = space.fsdecode(w_enc)
             assert space.eq_w(w_st, w_st2)
@@ -91,11 +93,11 @@ class TestFSEncode(BaseFSEncodeTest):
 
     def test_interface_from___pypy__(self):
         space = self.space
-        strs = [u"/home/bar/baz", u"c:\\"]
+        strs = [b"/home/bar/baz", b"c:\\"]
         if self.special_char:
-            strs.append(self.special_char)
+            strs.append(self.special_char.encode('utf8'))
         for st in strs:
-            w_st = space.newtext(st.encode('utf8'), len(st))
+            w_st = space.newtext(st)
             w_enc = space.fsencode(w_st)
             space.appexec([w_st, w_enc], """(u, s):
                 import __pypy__
