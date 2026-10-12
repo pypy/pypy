@@ -1,7 +1,33 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
 from rpython.rlib import rgc
-from pypy.module.gc.hook import W_GcCollectStepStats
+from pypy.module.gc.hook import W_GcCollectStepStats, NoRecursiveAction
+
+
+def _forbid_debug_detectors_in_release():
+    """The reentrancy detectors abort the process when they fire and print to
+    stderr when they do not, so they must never ship.  PYPY_VERSION is
+    'alpha' only on development branches.
+    """
+    from pypy.module.sys.version import PYPY_VERSION
+    from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+    if PYPY_VERSION[3] == 'alpha':
+        return
+    enabled = []
+    if AsmMemoryManager.DETECT_REENTRANCY:
+        enabled.append('AsmMemoryManager.DETECT_REENTRANCY')
+    if NoRecursiveAction.REPORT_DROPS:
+        enabled.append('NoRecursiveAction.REPORT_DROPS')
+    if NoRecursiveAction.ABORT_ON_DROP:
+        enabled.append('NoRecursiveAction.ABORT_ON_DROP')
+    if enabled:
+        raise Exception(
+            "PyPy %d.%d.%d-%s still has debug detectors enabled: %s. "
+            "Turn them off; they are only meant for alpha builds."
+            % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2],
+               PYPY_VERSION[3], ', '.join(enabled)))
+
+_forbid_debug_detectors_in_release()
 
 
 @unwrap_spec(generation=int)

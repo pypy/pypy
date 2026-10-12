@@ -65,6 +65,9 @@ class W_AbstractStream(W_Root):
         if self.slockowner is not me:
             raise oefmt(self.space.w_RuntimeError, "stream lock is not held")
         self._release_lock()
+    # no stack check here: this runs from the 'finally' of every file
+    # method, including while unwinding a stack overflow
+    unlock._dont_insert_stackcheck_ = True
 
     def _cleanup_(self):
         # remove the lock object, which will be created again as needed at

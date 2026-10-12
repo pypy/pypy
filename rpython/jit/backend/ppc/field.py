@@ -43,9 +43,9 @@ class Field(object):
         value &= self.mask
         value = long(value)
         value <<= (32 - self.right - 1)
-        if value & 0x80000000L:
+        if value & 0x80000000:
             # yuck:
-            return ~int((~value)&0xFFFFFFFFL)
+            return ~int((~value)&0xFFFFFFFF)
         else:
             return int(value)
     def decode(self, inst):

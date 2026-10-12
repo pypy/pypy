@@ -214,7 +214,7 @@ def llexternal(name, args, result, _callable=None,
                        '__name__':    __name__, # for module name propagation
                        'we_are_translated': we_are_translated,
                        }
-        exec source.compile() in miniglobals
+        exec(source.compile(), miniglobals)
         call_external_function = miniglobals['call_external_function']
         call_external_function._dont_inline_ = True
         call_external_function._annspecialcase_ = 'specialize:ll'
@@ -261,7 +261,7 @@ def llexternal(name, args, result, _callable=None,
             miniglobals = {'funcptr':     funcptr,
                            '__name__':    __name__,
                            }
-            exec source.compile() in miniglobals
+            exec(source.compile(), miniglobals)
             call_external_function = miniglobals['call_external_function']
             call_external_function = func_with_new_name(call_external_function,
                                                         'ccall_' + name)
@@ -397,7 +397,7 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
     miniglobals['Exception'] = Exception
     miniglobals['os'] = os
     miniglobals['we_are_translated'] = we_are_translated
-    exec source.compile() in miniglobals
+    exec(source.compile(), miniglobals)
     return miniglobals['wrapper']
 _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 

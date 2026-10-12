@@ -115,6 +115,9 @@ def _test_jitted():
         return 0
 
     t = Translation(f, None, gc="boehm")
+    # the test only needs the JIT to emit jitted frames, and skipping the
+    # backend optimizations cuts a fifth off the translation
+    t.config.translation.backendopt.none = True
     t.rtype()
     t.driver.pyjitpl_lltype()
     t.compile_c()

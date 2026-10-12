@@ -134,7 +134,7 @@ if not _WIN32:
         actual = ""
         last_five = "     "
         state = 0
-        ldscript = os.open(fullpath, os.O_RDONLY, 0777)
+        ldscript = os.open(fullpath, os.O_RDONLY, 0o777)
         c = os.read(ldscript, 1)
         while c != "":
             if state == 0:

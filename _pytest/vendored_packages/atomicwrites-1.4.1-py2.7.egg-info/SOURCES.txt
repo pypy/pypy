@@ -1,0 +1,15 @@
+LICENSE
+MANIFEST.in
+README.rst
+setup.cfg
+setup.py
+atomicwrites/__init__.py
+atomicwrites.egg-info/PKG-INFO
+atomicwrites.egg-info/SOURCES.txt
+atomicwrites.egg-info/dependency_links.txt
+atomicwrites.egg-info/top_level.txt
+docs/Makefile
+docs/conf.py
+docs/index.rst
+docs/make.bat
+tests/test_atomicwrites.py

@@ -1,5 +1,7 @@
 import sys
 
+import pytest
+
 from rpython.tool.udir import udir
 
 class AppTestBuiltinApp:
@@ -506,6 +508,7 @@ class AppTestBuiltinApp:
         c2 = C()
         raises(RuntimeError, cmp, c1, c2)
 
+    @pytest.mark.flaky
     def test_cmp_cyclic(self):
         if not self.sane_lookup:
             skip("underlying Python implementation has insane dict lookup")

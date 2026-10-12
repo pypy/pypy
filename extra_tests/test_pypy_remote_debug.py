@@ -325,3 +325,47 @@ def test_symbolify_vmprof_many():
     for index, name in enumerate(names + names2):
         addr = all[index]
         assert res[addr][0] == name
+
+
+@pytest.mark.skipif(not sys.platform.startswith('linux'), reason="only works on linux")
+def test_symbolify_all_parses_each_library_once(monkeypatch):
+    # _symbolify_all is a merge join, so it must read and sort a shared
+    # object's symbol table at most once no matter how many addresses fall
+    # into it. Parsing per address makes it unusable on libpypy, which has
+    # hundreds of thousands of symbols.
+    symtab_reads = []
+    maps_reads = []
+    orig_syms = _pypy_remote_debug._iter_symbol_and_dynsym
+    orig_maps = _pypy_remote_debug._read_and_parse_maps
+
+    def counting_syms(file_obj):
+        symtab_reads.append(getattr(file_obj, 'name', '?'))
+        return orig_syms(file_obj)
+
+    def counting_maps(*args, **kwargs):
+        maps_reads.append(1)
+        return orig_maps(*args, **kwargs)
+
+    so = load_so_or_skip('libexpat.so')
+    addrs = []
+    for name in (b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write'):
+        addrs.append(_pypy_remote_debug.compute_remote_addr('self', name))
+    for name in ('XML_Parse', 'XML_GetBase'):
+        addrs.append((ctypes.cast(getattr(so, name), ctypes.c_void_p)).value)
+    # a second address inside a function already looked up must not need
+    # another pass over the symbols
+    addrs.append(addrs[0] + 4)
+
+    # count only what _symbolify_all itself does, not the setup above
+    monkeypatch.setattr(_pypy_remote_debug, '_iter_symbol_and_dynsym', counting_syms)
+    monkeypatch.setattr(_pypy_remote_debug, '_read_and_parse_maps', counting_maps)
+
+    res = _pypy_remote_debug._symbolify_all(addrs)
+
+    assert res[addrs[0]][0] == b'pypy_g_DiskFile_read'
+    assert res[addrs[1]][0] == b'pypy_g_DiskFile_write'
+    assert res[addrs[2]][0] == b'XML_Parse'
+    assert res[addrs[4]][0] == b'pypy_g_DiskFile_read'
+    assert symtab_reads == sorted(set(symtab_reads), key=symtab_reads.index)
+    assert len(symtab_reads) <= 2
+    assert len(maps_reads) <= 1

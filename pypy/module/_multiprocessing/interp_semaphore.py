@@ -83,8 +83,10 @@ else:
     SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
         HAVE_BROKEN_SEM_GETVALUE = True
+        sem_open_natural_arity = 2
     else:
         HAVE_BROKEN_SEM_GETVALUE = False
+        sem_open_natural_arity = -1
 
     def external(name, args, result, **kwargs):
         return rffi.llexternal(name, args, result,
@@ -92,7 +94,8 @@ else:
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
-                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO)
+                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO,
+                         natural_arity=sem_open_natural_arity)
     # sem_close is releasegil=False to be able to use it in the __del__
     _sem_close_no_errno = external('sem_close', [SEM_T], rffi.INT,
                                    releasegil=False)

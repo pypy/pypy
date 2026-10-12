@@ -1,5 +1,3 @@
-from _pytest.tmpdir import TempdirFactory
-
 def tempfile(space, config):
-        tmpdir = TempdirFactory(config).getbasetemp()
+        tmpdir = config._tmpdirhandler.getbasetemp()
         return space.newtext(str(tmpdir / 'tempfile1'))

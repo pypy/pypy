@@ -127,6 +127,9 @@ class ZLibObject(W_Root):
         keepalive_until_here(self)
         # subtle: we have to make sure that 'self' is not garbage-collected
         # while we are still using 'self.stream' - hence the keepalive.
+    # no stack check here: this runs from the 'finally' of the methods below,
+    # including while unwinding a stack overflow
+    unlock._dont_insert_stackcheck_ = True
 
 
 class Compress(ZLibObject):

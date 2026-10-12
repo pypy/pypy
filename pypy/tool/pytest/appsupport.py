@@ -1,13 +1,11 @@
 from inspect import CO_VARARGS, CO_VARKEYWORDS
+import linecache
 
 import py
+import pytest
 from pypy.interpreter import gateway, pycode, typedef, baseobjspace
 from pypy.interpreter.error import OperationError, oefmt
-
-try:
-    from _pytest.assertion.reinterpret import reinterpret as interpret
-except ImportError:
-    from _pytest.assertion.newinterpret import interpret
+from _pytest.assertion.reinterpret import reinterpret as interpret
 
 # ____________________________________________________________
 
@@ -28,7 +26,7 @@ class AppCode(object):
 
     def fullsource(self):
         filename = self.space.str_w(self.w_file)
-        source = py.code.Source(py.std.linecache.getlines(filename))
+        source = py.code.Source(linecache.getlines(filename))
         if source.lines:
             return source
         try:
@@ -185,7 +183,7 @@ def build_pytest_assertion(space):
             except py.error.ENOENT:
                 source = None
             from pypy import conftest
-            if source and py.test.config._assertstate.mode != "off":
+            if source:
                 msg = interpret(source, runner, should_fail=True)
                 space.setattr(w_self, space.wrap('args'),
                             space.newtuple([space.wrap(msg)]))
@@ -278,7 +276,7 @@ def pypyraises(space, w_ExpectedException, w_expr=None, __args__=None):
         filename = "<%s:%s>" %(pycode.co_filename,
                                space.int_w(frame.fget_f_lineno(space)))
         lines = [x + "\n" for x in expr.split("\n")]
-        py.std.linecache.cache[filename] = (1, None, lines, filename)
+        linecache.cache[filename] = (1, None, lines, filename)
         w_locals = space.call_method(w_locals, 'copy')
         for key, w_value in kwds_w.items():
             space.setitem(w_locals, space.wrap(key), w_value)
@@ -306,7 +304,7 @@ app_raises = gateway.interp2app(pypyraises)
 def pypyskip(space, w_message):
     """skip a test at app-level. """
     msg = space.unwrap(w_message)
-    py.test.skip(msg)
+    pytest.skip(msg)
 
 app_skip = gateway.interp2app(pypyskip)
 

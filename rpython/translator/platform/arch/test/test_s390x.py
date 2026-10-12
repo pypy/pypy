@@ -4,7 +4,7 @@ from rpython.translator.platform.arch.s390x import (s390x_cpu_revision,
         extract_s390x_cpu_ids)
 
 if platform.machine() != 's390x':
-    py.test.skip("s390x tests only")
+    py.test.skip("s390x tests only", allow_module_level=True)
 
 def test_cpuid_s390x():
     revision = s390x_cpu_revision()

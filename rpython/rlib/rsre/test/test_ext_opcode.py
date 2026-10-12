@@ -3,7 +3,9 @@ Test for cases that cannot be produced using the Python 2.7 sre_compile
 module, but can be produced by other means (e.g. Python 3.5)
 """
 
-from rpython.rlib.rsre import rsre_core, rsre_constants
+import pytest
+
+from rpython.rlib.rsre import rsre_core, rsre_constants, rsre_utf8
 from rpython.rlib.rsre.rsre_char import MAXREPEAT
 from rpython.rlib.rsre.test.support import match, Position
 
@@ -13,6 +15,44 @@ for name, value in rsre_constants.__dict__.items():
         globals()[name[7:]] = value
 
 ab_plus_plus_bb = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
+
+@pytest.mark.parametrize('opcode', [REPEAT_ONE, MIN_REPEAT_ONE,
+                                    POSSESSIVE_REPEAT_ONE])
+@pytest.mark.parametrize('too_short', [False, True])
+def test_repeat_one_utf8_rejects_before_boundary_walk(opcode, too_short,
+                                                    monkeypatch):
+    # No INFO block: exercise the repeat's own checks, including at an offset.
+    code = rsre_core.CompiledPattern(
+        [opcode, 6, 256, 512, LITERAL, ord('x'), SUCCESS, SUCCESS], 0)
+
+    def unexpected_walk(*args):
+        raise AssertionError('walked the minimum repetition boundary')
+
+    monkeypatch.setattr(rsre_utf8.Utf8MatchContext, 'next_n', unexpected_walk)
+    if too_short:
+        def unexpected_read(*args):
+            raise AssertionError('read input too short for the repeat')
+        monkeypatch.setattr(rsre_utf8.Utf8MatchContext, 'str', unexpected_read)
+        text = 'x' * 16
+    else:
+        text = 'a' * 512
+    for start in (0, 1):
+        assert rsre_utf8.utf8match(code, text, start) is None
+
+@pytest.mark.parametrize('opcode', [REPEAT_ONE, MIN_REPEAT_ONE,
+                                    POSSESSIVE_REPEAT_ONE])
+def test_repeat_one_utf8_minimum_and_backtracking(opcode):
+    code = rsre_core.CompiledPattern(
+        [opcode, 6, 2, 3, LITERAL, 0xe9, SUCCESS,
+         LITERAL, 0xe9, SUCCESS], 0)
+    char = u'\xe9'.encode('utf-8')
+    for count in range(5):
+        result = rsre_utf8.utf8match(code, char * count)
+        if count < 3 or (opcode == POSSESSIVE_REPEAT_ONE and count == 3):
+            assert result is None
+        else:
+            expected = 3 if opcode == MIN_REPEAT_ONE else min(count, 4)
+            assert result.span() == (0, 2 * expected)
 
 def test_repeat_one_with_backref():
     # Python 3.5 compiles "(.)\1*" using REPEAT_ONE instead of REPEAT:

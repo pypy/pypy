@@ -536,9 +536,12 @@ def pytest_pycollect_makemodule(path, parent):
 
 class RunFileExternal(py.test.collect.File):
     def __init__(self, name, parent, regrtest):
-        super(RunFileExternal, self).__init__(name, parent)
+        # the real path has to go into File.__init__: it computes the nodeid
+        # from it, so assigning self.fspath afterwards comes too late and the
+        # test would be reported under its bare basename
+        super(RunFileExternal, self).__init__(regrtest.getfspath(), parent)
+        self.name = name
         self.regrtest = regrtest
-        self.fspath = regrtest.getfspath()
 
     def collect(self):
         if self.regrtest.ismodified():

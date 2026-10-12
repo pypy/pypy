@@ -27,7 +27,7 @@ from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
     s = f.getvalue()
     print l
     print s
-    exec s in d
+    exec(s, d)
     func = d['l']
     for i, value in enumerate(l):
         assert func(i) == value

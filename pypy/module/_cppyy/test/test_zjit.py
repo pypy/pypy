@@ -11,7 +11,8 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.module._cppyy import interp_cppyy, capi, executor
 
 if os.getenv("CPPYY_DISABLE_FASTPATH"):
-    py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar")
+    py.test.skip("fast path is disabled by CPPYY_DISABLE_FASTPATH envar",
+                 allow_module_level=True)
 
 # load cpyext early, or its global vars are counted as leaks in the test
 # (note that the module is not otherwise used in the test itself)

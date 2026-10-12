@@ -38,7 +38,7 @@ class MockSandboxedProc(SandboxedProc):
 
 def test_lib():
     def entry_point(argv):
-        fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
+        fd = os.open("/tmp/foobar", os.O_RDONLY, 0o777)
         assert fd == 77
         res = os.read(fd, 123)
         assert res == "he\x00llo"
@@ -52,7 +52,7 @@ def test_lib():
     exe = compile(entry_point)
 
     proc = MockSandboxedProc([exe, 'x1', 'y2'], expected = [
-        ("open", ("/tmp/foobar", os.O_RDONLY, 0777), 77),
+        ("open", ("/tmp/foobar", os.O_RDONLY, 0o777), 77),
         ("read", (77, 123), "he\x00llo"),
         ("write", (77, "world\x00!\x00"), 42),
         ("write", (77, exe), 61),
@@ -106,7 +106,7 @@ def test_socketio():
             pass
 
     def entry_point(argv):
-        fd = os.open("tcp://python.org:80", os.O_RDONLY, 0777)
+        fd = os.open("tcp://python.org:80", os.O_RDONLY, 0o777)
         os.write(fd, 'GET /\n')
         print os.read(fd, 50)
         return 0
@@ -119,14 +119,14 @@ def test_socketio():
 def test_oserror():
     def entry_point(argv):
         try:
-            os.open("/tmp/foobar", os.O_RDONLY, 0777)
+            os.open("/tmp/foobar", os.O_RDONLY, 0o777)
         except OSError as e:
             os.close(e.errno)    # nonsense, just to see outside
         return 0
     exe = compile(entry_point)
 
     proc = MockSandboxedProc([exe], expected = [
-        ("open", ("/tmp/foobar", os.O_RDONLY, 0777), OSError(-42, "baz")),
+        ("open", ("/tmp/foobar", os.O_RDONLY, 0o777), OSError(-42, "baz")),
         ("close", (-42,), None),
         ])
     proc.handle_forever()
@@ -150,7 +150,7 @@ def test_too_many_opens():
         try:
             open_files = []
             for i in range(500):
-                fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+                fd = os.open('/hi.txt', os.O_RDONLY, 0o777)
                 open_files.append(fd)
                 txt = os.read(fd, 100)
                 if txt != "Hello, world!\n":
@@ -168,7 +168,7 @@ def test_too_many_opens():
         try:
             open_files = []
             for i in range(500):
-                fd = os.open('/this.pyc', os.O_RDONLY, 0777)
+                fd = os.open('/this.pyc', os.O_RDONLY, 0o777)
                 open_files.append(fd)
         except OSError as e:
             # We expect to get EMFILE, for opening too many files.
@@ -194,7 +194,7 @@ def test_fstat():
     def entry_point(argv):
         try:
             # Open a file, and compare stat and fstat
-            fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+            fd = os.open('/hi.txt', os.O_RDONLY, 0o777)
             st = os.stat('/hi.txt')
             fs = os.fstat(fd)
             # RPython requires the index for stat to be a constant.. :(
@@ -225,7 +225,7 @@ def test_lseek():
             print "Wrong char: '%s' should be '%s'" % (c, should)
 
     def entry_point(argv):
-        fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+        fd = os.open('/hi.txt', os.O_RDONLY, 0o777)
         char_should_be(os.read(fd, 1), "H")
         new = os.lseek(fd, 3, os.SEEK_CUR)
         if new != 4:

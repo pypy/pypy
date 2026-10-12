@@ -5,7 +5,7 @@ from rpython.rtyper.tool.rffi_platform import CompilationError
 try:
     from rpython.rlib import rstacklet
 except CompilationError as e:
-    py.test.skip("cannot import rstacklet: %s" % e)
+    py.test.skip("cannot import rstacklet: %s" % e, allow_module_level=True)
 
 from rpython.config.translationoption import DEFL_ROOTFINDER_WITHJIT
 from rpython.rlib import rrandom, rgc

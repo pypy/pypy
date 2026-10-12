@@ -612,3 +612,16 @@ def test_flush_at_exit():
     """)
     space.finish()
     assert tmpfile.read() == '42'
+
+
+class TestStreamLock:
+    spaceconfig = dict(usemodules=("_file", "thread"))
+
+    def test_lock_reentrant(self):
+        from pypy.module._file.interp_stream import W_AbstractStream
+        stream = W_AbstractStream(self.space, None)
+        assert stream._try_acquire_lock()
+        assert not stream._try_acquire_lock()
+        stream._release_lock()
+        assert stream._try_acquire_lock()
+        stream._release_lock()

@@ -177,7 +177,7 @@ def make_win32_traits(traits):
         
         # Windows doesn't define S_IFLNK but rposix_stat maps
         # IO_REPARSE_TAG_SYMLINK to S_IFLNK
-        _S_IFLNK = 0120000
+        _S_IFLNK = 0o120000
 
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
         GET_FILEEX_INFO_LEVELS = rffi.ULONG # an enumeration

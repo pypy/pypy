@@ -17,7 +17,7 @@ SYSTEM = platform.system()
 
 def detect_vsx_linux():
     try:
-        fd = os.open("/proc/self/auxv", os.O_RDONLY, 0644)
+        fd = os.open("/proc/self/auxv", os.O_RDONLY, 0o644)
         try:
             while True:
                 buf = os.read(fd, 8)
