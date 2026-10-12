@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys, py
 
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.twothree import reraise
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
     hlstr, cast_instance_to_gcref, cast_gcref_to_instance)
@@ -570,7 +571,7 @@ class WarmRunnerDesc(object):
                     print('~~~ %s: %s' % (e.__class__, e))
                     if sys.stdout == sys.__stdout__:
                         import pdb; pdb.post_mortem(tb)
-                    raise e.__class__, e, tb
+                    reraise(e.__class__, e, tb)
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 

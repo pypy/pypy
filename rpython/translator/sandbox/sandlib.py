@@ -8,6 +8,7 @@ from __future__ import print_function
 import sys, os, posixpath, errno, stat, time
 import subprocess
 from rpython.tool.killsubprocess import killsubprocess
+from rpython.tool.twothree import reraise
 from rpython.translator.sandbox.vfs import UID, GID
 import py
 
@@ -91,7 +92,7 @@ def write_exception(g, exception, tb=None):
             break
     else:
         # just re-raise the exception
-        raise exception.__class__, exception, tb
+        reraise(exception.__class__, exception, tb)
 
 def shortrepr(x):
     r = repr(x)

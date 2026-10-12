@@ -1762,12 +1762,23 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
-        if (not os.environ.get('SSL_CERT_FILE') and
-            not os.environ.get('SSL_CERT_DIR') and
-            not sys.platform == 'win32'):
-                locations = get_default_verify_paths()
-                self.load_verify_locations(locations[1], locations[3])
-                return
+        cafile = os.environ.get('SSL_CERT_FILE')
+        capath = os.environ.get('SSL_CERT_DIR')
+        if sys.platform == 'win32':
+            # OpenSSL looks the two variables up with its own getenv(), which
+            # need not share a CRT environment with os.environ on windows.
+            if cafile or capath:
+                try:
+                    self.load_verify_locations(cafile or None, capath or None)
+                    return
+                except (OSError, SSLError):
+                    # SSL_CTX_set_default_verify_paths() ignores unusable
+                    # locations, so stay quiet about them here too
+                    pass
+        elif not cafile and not capath:
+            locations = get_default_verify_paths()
+            self.load_verify_locations(locations[1], locations[3])
+            return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error(None)
 
