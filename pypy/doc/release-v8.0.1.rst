@@ -7,7 +7,7 @@ PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
    will be announced on the PyPy blog_
 
 ..
-  updated to 173ac10d366
+  updated to cb8d5b14a6ff5f7f95
 
 The PyPy team is proud to release version 8.0.1 of PyPy after the previous
 release on Sept 25, 2026. Some problems with buffer memory leaks were fixed,
@@ -121,6 +121,7 @@ Bugfixes
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
 - Fix translation when using CPython2.7 (:issue:`5586`)
 - Ensure lock release can still fire while unwinding a StackOverflowError
+- Fix variadic system calls on macos (:issue:`5635`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -128,11 +129,14 @@ Speedups and enhancements
 - Speed up ``rsre_jit::RSreJitDriver::repr`` for tests
 - Add more simplification rules for int operations (:issue:`5587`)
   This also adds a check to prevent redundant rules
+- Don't scan the entire string if the regex has an ``AT_BEGINNING`` anchor
 
 Python 3.11
 -----------
 
-- Change the order of arguments to CodeType() to match CPython and PyPy3.12 (:issue:`uqfoundation/dill#781`)
+- Change the order of arguments to CodeType() to match CPython and PyPy3.12
+  (:issue:`uqfoundation/dill#781`)
+- Backport from py3.12: ``PickleBuffer`` uses its source object (:issue:`5231`)
 
 Python 3.11 and 3.12
 --------------------
@@ -145,7 +149,11 @@ Python 3.11 and 3.12
 - Avoid consulting ``__len__`` when creating a str, use ``len(value)`` instead (:issue:`5609`)
 - Propagate lookup error in ``match_class_attr`` (:issue:`5611`)
 - Update vendored libexpat to 2.8.5
-- Further improve buffer release, document exactly when bytearray views are released (:issue:`5612`, :issue:`5614`, :issue:`5618`)
+- Further improve buffer release, document exactly when bytearray views are
+  released (:issue:`5612`, :issue:`5613`, :issue:`5614`, :issue:`5616`,
+  :issue:`5618`)
+- Refactor buffer exports to use a ``BufferExport`` class to track exports, in
+  light of all the buffer release problems.
 - Catch lookup errors in ``match_class_attr`` (:issue:`5611`)
 - On macos, locale defaults to ``utf-8`` if empty
 
@@ -161,4 +169,4 @@ Python 3.12
 - cpyext: Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
 - Add missing consts to stats for windows (:issue:`5626`)
 - Fix fstring AST to match CPython (:issue:`5627`)
-
+- Refactor and make formatting error message compatible with CPython (:issue:`5642`)
