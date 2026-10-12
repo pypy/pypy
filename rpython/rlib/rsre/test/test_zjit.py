@@ -108,8 +108,19 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_search(r"<\w+>", "eiofweoxdiwhdoh<foobar>ua")
         assert res == 15
 
-    def test_anchored_search(self):
-        res = self.meta_interp_search(r"\A\s*\Z", "x" * 4096)
+    @pytest.mark.parametrize('pattern', [r'\A\s*\Z', r'((\A\s*\Z))'])
+    def test_anchored_search(self, pattern):
+        res = self.meta_interp_search(pattern, "x" * 4096)
+        assert res == -1
+        self.check_trace_count(0)
+
+    def test_search_too_short(self):
+        res = self.meta_interp_search(r'a+b{4096}', 'a' * 256)
+        assert res == -1
+        self.check_trace_count(0)
+
+    def test_search_short_suffix(self):
+        res = self.meta_interp_search(r'(?=a).{4096}', 'x' * 4096)
         assert res == -1
         self.check_trace_count(0)
 
