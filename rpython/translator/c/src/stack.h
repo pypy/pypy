@@ -39,8 +39,17 @@ void LL_stack_set_length_fraction(double);
 #define LL_stack_get_end_adr()    ((Signed)&rpy_stacktoobig.stack_end)   /* JIT */
 #define LL_stack_get_length_adr() ((Signed)&rpy_stacktoobig.stack_length)/* JIT */
 
-#define LL_stack_criticalcode_start()  (rpy_stacktoobig.report_error = 0)
-#define LL_stack_criticalcode_stop()   (rpy_stacktoobig.report_error = 1)
+/* these two have to be real functions: the JIT codewriter records the
+   address of anything called from jitcode, and a macro has none */
+static INLINE void LL_stack_criticalcode_start(void)
+{
+	rpy_stacktoobig.report_error = 0;
+}
+
+static INLINE void LL_stack_criticalcode_stop(void)
+{
+	rpy_stacktoobig.report_error = 1;
+}
 
 
 #ifdef __GNUC__

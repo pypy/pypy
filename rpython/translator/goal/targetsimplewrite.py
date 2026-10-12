@@ -1,7 +1,7 @@
 import os
 
 def main(iterations=1):
-    dest = os.open('/dev/null', os.O_RDWR, 0777)
+    dest = os.open('/dev/null', os.O_RDWR, 0o777)
     payload = 'x' * 1024
 
     for x in xrange(1024 * 1024 * iterations):

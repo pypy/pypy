@@ -67,24 +67,26 @@ def _unpack_int24(buf):
     return val
 
 def _pack_int24(into, off, val):
-    buf = _buffer(into)
-    if BIG_ENDIAN:
-        buf[off+2] = val & 0xff
-        buf[off+1] = (val >> 8) & 0xff
-        buf[off+0] = (val >> 16) & 0xff
-    else:
-        buf[off+0] = val & 0xff
-        buf[off+1] = (val >> 8) & 0xff
-        buf[off+2] = (val >> 16) & 0xff
+    with _buffer(into) as buf:   # PyPy: release it, the GC is not prompt
+        if BIG_ENDIAN:
+            buf[off+2] = val & 0xff
+            buf[off+1] = (val >> 8) & 0xff
+            buf[off+0] = (val >> 16) & 0xff
+        else:
+            buf[off+0] = val & 0xff
+            buf[off+1] = (val >> 8) & 0xff
+            buf[off+2] = (val >> 16) & 0xff
 
 def _get_sample(cp, size, i, signed=True):
     start = i * size
     end = start + size
-    chars = _buffer(cp)[start:end]
-    if size == 3:
-        return _unpack_int24(chars)
-    fmt = _struct_format(size, signed)
-    return struct.unpack_from(fmt, chars)[0]
+    # PyPy: release the slice too, the GC would only do it later, and it
+    # holds the export buf acquired, which keeps cp locked (issues 5612, 5613)
+    with _buffer(cp) as buf, buf[start:end] as chars:
+        if size == 3:
+            return _unpack_int24(chars)
+        fmt = _struct_format(size, signed)
+        return struct.unpack_from(fmt, chars)[0]
 
 
 def _put_sample(cp, size, i, val, signed=True):
@@ -149,7 +151,7 @@ def _overflow(val, size, signed=True):
 def _check_bytes(cp):
     # we have no argument clinic
     try:
-        memoryview(cp)
+        memoryview(cp).release()
     except TypeError:
         raise TypeError("a bytes-like object is required, not '%s'" % \
                 str(type(cp)))
@@ -234,7 +236,8 @@ def findfit(cp1, cp2):
         aj_lm1 = _get_sample(cp1, size, i + len2 - 1)
 
         sum_aij_2 += aj_lm1**2 - aj_m1**2
-        sum_aij_ri = _sum2(_buffer(cp1)[i*size:], cp2, len2)
+        with _buffer(cp1) as buf1, buf1[i*size:] as chunk:
+            sum_aij_ri = _sum2(chunk, cp2, len2)
 
         result = (sum_ri_2 * sum_aij_2 - sum_aij_ri * sum_aij_ri) / sum_aij_2
 
@@ -242,7 +245,8 @@ def findfit(cp1, cp2):
             best_result = result
             best_i = i
 
-    factor = _sum2(_buffer(cp1)[best_i*size:], cp2, len2) / sum_ri_2
+    with _buffer(cp1) as buf1, buf1[best_i*size:] as chunk:
+        factor = _sum2(chunk, cp2, len2) / sum_ri_2
 
     return best_i, factor
 

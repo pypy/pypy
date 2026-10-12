@@ -632,8 +632,10 @@ class RawIOBase(IOBase):
         n = self.readinto(b)
         if n is None:
             return None
-        del b[n:]
-        return bytes(b)
+        # PyPy change
+        # del b[n:]
+        # return bytes(b)
+        return bytes(b[:n])
 
     def readall(self):
         """Read until EOF, using multiple read() call."""

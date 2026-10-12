@@ -41,6 +41,51 @@ def pytest_configure(config):
     if platform not in PLATFORMS:
         raise ValueError("%s not in %s" % (platform, PLATFORMS))
     set_platform(platform, None)
+    _register_sigterm_dump()
+
+
+# With PYPY_SIGTERM_DUMP_DIR set, dump all thread stacks to a file when
+# testrunner/runner.py SIGTERMs a test file that hit its timeout, so the
+# hang leaves a trace even from inside a C call. Not available on Windows.
+_sigterm_dump = None
+
+def _register_sigterm_dump():
+    global _sigterm_dump
+    import os, sys, signal
+    dumpdir = os.environ.get('PYPY_SIGTERM_DUMP_DIR')
+    if not dumpdir or sys.platform == 'win32':
+        return
+    try:
+        import faulthandler
+    except ImportError:
+        return
+    try:
+        os.makedirs(dumpdir)
+    except OSError:
+        pass
+    path = os.path.join(dumpdir, 'sigterm-%d.log' % os.getpid())
+    _sigterm_dump = open(path, 'w')
+    faulthandler.register(signal.SIGTERM, file=_sigterm_dump,
+                          all_threads=True, chain=True)
+
+def pytest_runtest_setup(item):
+    if _sigterm_dump is not None:
+        _sigterm_dump.seek(0)
+        _sigterm_dump.truncate()
+        _sigterm_dump.write('running %s\n' % item.nodeid)
+        _sigterm_dump.flush()
+
+def pytest_unconfigure(config):
+    global _sigterm_dump
+    if _sigterm_dump is not None:
+        import os
+        path = _sigterm_dump.name
+        _sigterm_dump.close()
+        _sigterm_dump = None
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 def pytest_addoption(parser):

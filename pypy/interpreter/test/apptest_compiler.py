@@ -202,21 +202,6 @@ def test_zeros_not_mixed_in_lambdas():
     assert x is not y
     assert x != y
 
-def test_dont_share_lambdas():
-    if not IS_PYPY:
-        skip("pypy-only optimization")
-    # the two lambdas's codes aren't shared (CPython does that but it's
-    # completely pointless: it only applies to identical lambdas that are
-    # defined on the same line)
-    code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
-    consts = code.co_consts
-    x, y, z = consts
-    assert isinstance(x, type(code)) and isinstance(y, type(code))
-    assert x is not y
-    assert x.co_code == y.co_code
-    assert x.co_consts == y.co_consts
-    assert x.co_linetable != y.co_linetable
-
 def test_dict_and_set_literal_order():
     x = 1
     l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})

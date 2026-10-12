@@ -36,7 +36,7 @@ def get_special_char():
     encoded by the filesystem encoding (in strict mode). It can be None
     if we cannot generate such filename.
     """
-    fsenc = sys.getfilesystemencoding()
+    fsenc = sys.getfilesystemencoding().lower()
     # covers utf-8 and Windows ANSI code pages one non-space symbol from
     # every page (http://en.wikipedia.org/wiki/Code_page)
     known_locales = {
@@ -74,7 +74,7 @@ class TestFSEncode(BaseFSEncodeTest):
             w_enc = space.fsencode(w_st)
             w_st2 = space.fsdecode(w_enc)
             assert space.eq_w(w_st, w_st2)
-            assert space.fsdecode_w(w_enc) == st
+            assert space.fsdecode_w(w_enc) == st.encode('utf8')
 
             assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
             assert space.eq_w(space.newfilename(space.bytes_w(w_enc)), w_st2)

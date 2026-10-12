@@ -7,6 +7,7 @@ from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rvmprof.test.profile_reader import read_profile
 
 @pytest.mark.usefixtures('init')
 class RVMProfTest(object):
@@ -88,16 +89,16 @@ class TestRegisterCode(RVMProfTest):
 
 class RVMProfSamplingTest(RVMProfTest):
 
-    # the kernel will deliver SIGPROF at max 250 Hz. See also
-    # https://github.com/vmprof/vmprof-python/issues/163
-    SAMPLING_INTERVAL = 1/250.0
-
     # real_time=0 samples with ITIMER_PROF/SIGPROF, which on macOS saturates
     # somewhere around 100-130 Hz no matter what interval is asked for (at
     # 250 Hz it delivers less than half the signals), so the sample count can
-    # never match the cpu time. ITIMER_REAL is accurate there, and these tests
-    # are cpu-bound, so wall time is a good stand-in for cpu time.
+    # never match the cpu time. ITIMER_REAL is better there, so use it and
+    # compare the sample count against wall time instead of cpu time.
     REAL_TIME = int(sys.platform == 'darwin')
+
+    # the kernel will deliver SIGPROF at max 250 Hz. See also
+    # https://github.com/vmprof/vmprof-python/issues/163
+    SAMPLING_INTERVAL = 1/250.0
 
     @pytest.fixture
     def init(self, tmpdir):
@@ -110,7 +111,7 @@ class RVMProfSamplingTest(RVMProfTest):
     def entry_point(self, value, delta_t, memory=0):
         code = self.MyCode('py:code:52:test_enable')
         rvmprof.register_code(code, self.MyCode.get_name)
-        fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0666)
+        fd = os.open(self.tmpfilename, os.O_WRONLY | os.O_CREAT, 0o666)
         rvmprof.enable(fd, self.SAMPLING_INTERVAL, memory=memory,
                        real_time=self.REAL_TIME)
         start = time.time()
@@ -119,18 +120,24 @@ class RVMProfSamplingTest(RVMProfTest):
         while time.time() < start+delta_t:
             res = self.main(code, value)
         cpu_end = os.times()
+        end = time.time()
         rvmprof.disable()
         os.close(fd)
-        cpu_usec = int((cpu_end[0] + cpu_end[1] -
-                         cpu_start[0] - cpu_start[1]) * 1000000.0)
-        cpu_fd = os.open(self.tmpfilename + '.cpu',
-                          os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0666)
-        os.write(cpu_fd, str(cpu_usec))
-        os.close(cpu_fd)
+        if self.REAL_TIME:
+            elapsed = end - start
+        else:
+            elapsed = (cpu_end[0] + cpu_end[1] - cpu_start[0] - cpu_start[1])
+        elapsed_usec = int(elapsed * 1000000.0)
+        time_fd = os.open(self.tmpfilename + '.time',
+                          os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o666)
+        os.write(time_fd, str(elapsed_usec))
+        os.close(time_fd)
         return res
 
-    def get_cpu_time(self):
-        with open(self.tmpfilename + '.cpu') as f:
+    def get_sampled_time(self):
+        """The time the timer was measuring while entry_point ran: cpu time
+        with ITIMER_PROF, wall time with ITIMER_REAL."""
+        with open(self.tmpfilename + '.time') as f:
             return int(f.read()) / 1000000.0
 
     def approx_equal(self, a, b, tolerance=0.15):
@@ -150,21 +157,23 @@ class TestEnable(RVMProfSamplingTest):
         return s
 
     def test(self):
-        from vmprof import read_profile
         assert self.entry_point(10**4, 0.1, 0) == 17697048
         assert self.tmpfile.check()
         self.tmpfile.remove()
         #
         assert self.rpy_entry_point(10**4, 0.5, 0) == 17697048
-        cpu_time = self.get_cpu_time()
+        sampled_time = self.get_sampled_time()
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
+        assert prof.n_samples <= prof.expected_samples
         tree = prof.get_tree()
         assert tree.name == 'py:code:52:test_enable'
-        assert self.approx_equal(tree.count, cpu_time/self.SAMPLING_INTERVAL)
+        # tree.count is weighted by the sample timestamps, so dropped timer
+        # signals do not make it fall short of the elapsed time
+        assert self.approx_equal(tree.count,
+                                 sampled_time/self.SAMPLING_INTERVAL)
 
     def test_mem(self):
-        from vmprof import read_profile
         assert self.rpy_entry_point(10**4, 0.5, 1) == 17697048
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
@@ -207,15 +216,11 @@ class TestNative(RVMProfSamplingTest):
             return self.native_func(100)
 
     def test(self):
-        from vmprof import read_profile
-        # from vmprof.show import PrettyPrinter
         assert self.rpy_entry_point(3, 0.5, 0) == 42000
         assert self.tmpfile.check()
 
         prof = read_profile(self.tmpfilename)
         tree = prof.get_tree()
-        # p = PrettyPrinter()
-        # p._print_tree(tree)
         def walk(tree, symbols):
             symbols.append(tree.name)
             if len(tree.children) == 0:

@@ -560,17 +560,24 @@ class Wave_write:
         return self._nframeswritten
 
     def writeframesraw(self, data):
+        view = None
         if not isinstance(data, (bytes, bytearray)):
-            data = memoryview(data).cast('B')
-        self._ensure_header_written(len(data))
-        nframes = len(data) // (self._sampwidth * self._nchannels)
-        if self._convert:
-            data = self._convert(data)
-        if self._sampwidth != 1 and sys.byteorder == 'big':
-            data = _byteswap(data, self._sampwidth)
-        self._file.write(data)
-        self._datawritten += len(data)
-        self._nframeswritten = self._nframeswritten + nframes
+            view = memoryview(data)
+            data = view.cast('B')
+        try:
+            self._ensure_header_written(len(data))
+            nframes = len(data) // (self._sampwidth * self._nchannels)
+            if self._convert:
+                data = self._convert(data)
+            if self._sampwidth != 1 and sys.byteorder == 'big':
+                data = _byteswap(data, self._sampwidth)
+            self._file.write(data)
+            self._datawritten += len(data)
+            self._nframeswritten = self._nframeswritten + nframes
+        finally:
+            # PyPy: release the view now, the GC would only do it later
+            if view is not None:
+                view.release()
 
     def writeframes(self, data):
         self.writeframesraw(data)

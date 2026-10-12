@@ -4,7 +4,7 @@ import sys
 import pytest
 
 if not sys.platform.startswith('win'):
-    pytest.skip("requires Windows")
+    pytest.skip("requires Windows", allow_module_level=True)
 
 from pypy.module.posix import interp_nt as nt
 

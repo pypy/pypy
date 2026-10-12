@@ -97,15 +97,23 @@ def test_socket_close_exception():
     import _socket, errno
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     _socket.socket(fileno=s.fileno()).close()
-    e = pytest.raises(OSError, s.close)
-    assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
+    try:
+        e = pytest.raises(OSError, s.close)
+        assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
+    finally:
+        # s still owns the fd that was just closed behind its back; without
+        # this its finalizer closes whatever fd gets that number next
+        s.detach()
 
 @pytest.mark.skipif(sys.platform == 'win32', reason="no fileno on windows")
 def test_setblocking_invalidfd():
     import _socket
     s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
     _socket.socket(fileno=s.fileno()).close()
-    pytest.raises(OSError, s.setblocking, False)
+    try:
+        pytest.raises(OSError, s.setblocking, False)
+    finally:
+        s.detach()
 
 def test_socket_connect():
     import _socket
@@ -369,13 +377,12 @@ def test_listen_default():
         _socket.socket().listen()
     assert isinstance(_socket.SOMAXCONN, int)
 
-def test_unix_socket_connect():
-    import _socket, os, tempfile
+def test_unix_socket_connect(tmpdir):
+    import _socket, os
     if not hasattr(_socket, 'AF_UNIX'):
         pytest.skip('AF_UNIX not supported.')
-    udir = tempfile.mkdtemp()
     oldcwd = os.getcwd()
-    os.chdir(udir)
+    os.chdir(tmpdir)
     try:
       for sockpath in ['app_test_unix_socket_connect',
                        b'b_app_test_unix_socket_connect',
@@ -839,10 +846,10 @@ def test_tcp_recv_into_params():
     cli.close()
     serv.close()
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='abstract socket namespace is Linux-specific')
 def test_tcp_bytearray_name():
     import _socket as socket
-    if not hasattr(socket, 'AF_UNIX'):
-        pytest.skip('AF_UNIX not supported.')
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.bind(bytearray(b"\x00python\x00test\x00"))
     assert s.getsockname() == b"\x00python\x00test\x00"

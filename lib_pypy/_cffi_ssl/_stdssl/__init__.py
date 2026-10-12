@@ -268,14 +268,13 @@ def _Cryptography_pem_password_cb(buf, size, rwflag, userdata):
             pw_info.operationerror = TypeError("password callback must return a string")
             return 0
 
-    password = _str_to_ffi_buffer(password)
+    with _str_to_ffi_buffer(password) as password:
+        if (len(password) > size):
+            pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
+            return 0
 
-    if (len(password) > size):
-        pw_info.operationerror = ValueError("password cannot be longer than %d bytes" % size)
-        return 0
-
-    ffi.memmove(buf, password, len(password))
-    return len(password)
+        ffi.memmove(buf, password, len(password))
+        return len(password)
 
 if 0:
     ffi.def_extern(_Cryptography_pem_password_cb)
@@ -1156,7 +1155,7 @@ HAS_KEYLOG = hasattr(lib, "SSL_CTX_set_keylog_callback")
 slots = ['ctx', '_check_hostname',
          'alpn_protocols', '_alpn_protocols_handle', '_protocol'
          'npn_protocols', 'set_hostname', '_post_handshake_auth',
-         '_sni_cb', '_sni_cb_handle', '_npn_protocols_handle',
+         '_sni_cb', '_npn_protocols_handle',
         ]
 if HAS_KEYLOG:
     slots += ['_keylog_filename', 'keylog_bio']
@@ -1195,7 +1194,7 @@ class _SSLContext(object):
         else:
             raise ValueError("invalid protocol version")
 
-        self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
+        self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.context_dealloc)
         __pypy__.add_memory_pressure(1000)
         if self.ctx == ffi.NULL:
             raise ssl_error("failed to allocate SSL context")
@@ -1566,8 +1565,8 @@ class _SSLContext(object):
                 raise TypeError("cafile and capath cannot be both omitted")
             # load from cadata
             if cadata is not None:
-                buf = _str_to_ffi_buffer(cadata)
-                self._add_ca_certs(buf, len(buf), ca_file_type)
+                with _str_to_ffi_buffer(cadata) as buf:
+                    self._add_ca_certs(buf, len(buf), ca_file_type)
 
             # load cafile or capath
             if cafile is not None or capath is not None:
@@ -1660,26 +1659,22 @@ class _SSLContext(object):
         return self._sni_cb
 
     @sni_callback.setter
-    def sni_callback(self, cb):
+    def sni_callback(self, arg):
         if self._protocol == PROTOCOL_TLS_CLIENT:
             raise ValueError('sni_callback cannot be set on TLS_CLIENT context')
         if not HAS_SNI:
             raise NotImplementedError("The TLS extension servername callback, "
                     "SSL_CTX_set_tlsext_servername_callback, "
                     "is not in the current OpenSSL library.")
-        if cb is None:
+        if arg is None:
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             self._sni_cb = None
-            lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, ffi.NULL)
-            self._sni_cb_handle = None
             return
-        if not callable(cb):
+        if not callable(arg):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
-        self._sni_cb = GenericCallback(cb, self)
-        self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
+        self._sni_cb = GenericCallback(arg, self)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
-        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
 
     @property
     def _msg_callback(self):
@@ -1767,12 +1762,23 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
-        if (not os.environ.get('SSL_CERT_FILE') and
-            not os.environ.get('SSL_CERT_DIR') and
-            not sys.platform == 'win32'):
-                locations = get_default_verify_paths()
-                self.load_verify_locations(locations[1], locations[3])
-                return
+        cafile = os.environ.get('SSL_CERT_FILE')
+        capath = os.environ.get('SSL_CERT_DIR')
+        if sys.platform == 'win32':
+            # OpenSSL looks the two variables up with its own getenv(), which
+            # need not share a CRT environment with os.environ on windows.
+            if cafile or capath:
+                try:
+                    self.load_verify_locations(cafile or None, capath or None)
+                    return
+                except (OSError, SSLError):
+                    # SSL_CTX_set_default_verify_paths() ignores unusable
+                    # locations, so stay quiet about them here too
+                    pass
+        elif not cafile and not capath:
+            locations = get_default_verify_paths()
+            self.load_verify_locations(locations[1], locations[3])
+            return
         if not lib.SSL_CTX_set_default_verify_paths(self.ctx):
             raise ssl_error(None)
 
@@ -1915,24 +1921,23 @@ class _SSLContext(object):
 if HAS_SNI:
     @ffi.callback("int(SSL*,int*,void*)")
     def _servername_callback(s, al, arg):
-        scb = ffi.from_handle(arg)
-        ssl_ctx = scb.ctx
         servername = lib.SSL_get_servername(s, lib.TLSEXT_NAMETYPE_host_name)
-        set_hostname = scb.callback
-        #ifdef WITH_THREAD
-            # TODO PyGILState_STATE gstate = PyGILState_Ensure();
-        #endif
 
-        if set_hostname is None:
-            #/* remove race condition in this the call back while if removing the
-            # * callback is in progress */
-            #ifdef WITH_THREAD
-                    # TODO PyGILState_Release(gstate);
-            #endif
-            return lib.SSL_TLSEXT_ERR_OK
-
+        # Do not use the SSL_CTX's servername arg to find the context: it is a
+        # borrowed pointer to whichever _SSLContext installed the callback, and
+        # that object may already be gone while OpenSSL still reaches this
+        # callback through the connection's session_ctx (e.g. on the second
+        # ClientHello after a HelloRetryRequest, once sni_callback has switched
+        # the socket to another context).  The socket's current context is
+        # always alive; hold strong references to it and to the callback while
+        # they are used here.
         ssl = ffi.from_handle(lib.SSL_get_app_data(s))
         assert isinstance(ssl, _SSLSocket)
+        scb = ssl.ctx._sni_cb
+        if scb is None:
+            return lib.SSL_TLSEXT_ERR_OK
+        sni_cb = scb.callback
+        ssl_ctx = scb.ctx
 
         # The servername callback expects an argument that represents the current
         # SSL connection and that has a .context attribute that can be changed to
@@ -1952,9 +1957,9 @@ if HAS_SNI:
 
         if servername == ffi.NULL:
             try:
-                result = set_hostname(ssl_socket, None, ssl_ctx)
+                result = sni_cb(ssl_socket, None, ssl_ctx)
             except Exception as e:
-                pyerr_write_unraisable(e, set_hostname)
+                pyerr_write_unraisable(e, sni_cb)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
                 return lib.SSL_TLSEXT_ERR_ALERT_FATAL
         else:
@@ -1968,9 +1973,9 @@ if HAS_SNI:
                 pyerr_write_unraisable(e, servername)
 
             try:
-                result = set_hostname(ssl_socket, servername_str, ssl_ctx)
+                result = sni_cb(ssl_socket, servername_str, ssl_ctx)
             except Exception as e:
-                pyerr_write_unraisable(e, set_hostname)
+                pyerr_write_unraisable(e, sni_cb)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
                 return lib.SSL_TLSEXT_ERR_ALERT_FATAL
 

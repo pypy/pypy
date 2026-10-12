@@ -443,7 +443,7 @@ class wrap_getbuffer(W_PyCWrapperObject):
                                 needs_decref=True,
                                 releasebufferproc = rbp)
             fq.register_finalizer(buf)
-            return buf.wrap(space, owns_export=True)
+            return buf.wrap(space)
 
 
 class wrap_releasebuffer(W_PyCWrapperObject):

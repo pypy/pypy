@@ -281,7 +281,7 @@ HAVE_SSL_CTX_CLEAR_OPTIONS = OPENSSL_VERSION_NUMBER >= 0x009080df and \
                              OPENSSL_VERSION_NUMBER != 0x00909000
 if OPENSSL_VERSION_NUMBER < 0x0090800f and not OPENSSL_NO_ECDH:
     OPENSSL_NO_ECDH = True
-HAS_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200fL and not OPENSSL_NO_TLSEXT
+HAS_ALPN = OPENSSL_VERSION_NUMBER >= 0x1000200f and not OPENSSL_NO_TLSEXT
 
 HAVE_OPENSSL_RAND_EGD = rffi_platform.has('RAND_egd("/")',
                                           '#include <openssl/rand.h>',

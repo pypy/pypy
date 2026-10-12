@@ -183,21 +183,27 @@ class _ConnectionBase:
         """Send the bytes data from a bytes-like object"""
         self._check_closed()
         self._check_writable()
-        m = memoryview(buf)
-        if m.itemsize > 1:
-            m = m.cast('B')
-        n = m.nbytes
-        if offset < 0:
-            raise ValueError("offset is negative")
-        if n < offset:
-            raise ValueError("buffer length < offset")
-        if size is None:
-            size = n - offset
-        elif size < 0:
-            raise ValueError("size is negative")
-        elif offset + size > n:
-            raise ValueError("buffer length < offset + size")
-        self._send_bytes(m[offset:offset + size])
+        # PyPy: release every view now, the GC would only do it later, and a
+        # view still using the export keeps buf locked (issues 5612, 5613)
+        with memoryview(buf) as mv:
+            m = mv.cast('B') if mv.itemsize > 1 else mv
+            try:
+                n = m.nbytes
+                if offset < 0:
+                    raise ValueError("offset is negative")
+                if n < offset:
+                    raise ValueError("buffer length < offset")
+                if size is None:
+                    size = n - offset
+                elif size < 0:
+                    raise ValueError("size is negative")
+                elif offset + size > n:
+                    raise ValueError("buffer length < offset + size")
+                with m[offset:offset + size] as chunk:
+                    self._send_bytes(chunk)
+            finally:
+                if m is not mv:
+                    m.release()
 
     def send(self, obj):
         """Send a (picklable) object"""

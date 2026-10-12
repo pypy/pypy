@@ -107,7 +107,8 @@ def add_constant(c):
 
 if sys.version_info >= (2,7):
     def to_bytes(data):
-        return memoryview(data).tobytes()
+        with memoryview(data) as view:
+            return view.tobytes()
 else:
     def to_bytes(data):
         if not isinstance(data, basestring):

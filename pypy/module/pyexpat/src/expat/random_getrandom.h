@@ -35,6 +35,7 @@
 #  define RANDOM_GETRANDOM_H 1
 
 #  include <stdbool.h>
+#  include "pyexpatns.h" // PyPy: namespace writeRandomBytes_*
 #  include <stddef.h> // for size_t
 
 bool writeRandomBytes_getrandom_nonblock(void *target, size_t count);

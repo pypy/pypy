@@ -558,11 +558,16 @@ class BaseSelectorEventLoop(base_events.BaseEventLoop):
         fd = sock.fileno()
         self._ensure_fd_no_transport(fd)
         # use a trick with a list in closure to store a mutable state
+        view = memoryview(data)
         handle = self._add_writer(fd, self._sock_sendall, fut, sock,
-                                  memoryview(data), [n])
+                                  view, [n])
         fut.add_done_callback(
             functools.partial(self._sock_write_done, fd, handle=handle))
-        return await fut
+        try:
+            return await fut
+        finally:
+            # PyPy: release the view now, the GC would only do it later
+            view.release()
 
     def _sock_sendall(self, fut, sock, view, pos):
         if fut.done():
@@ -570,7 +575,10 @@ class BaseSelectorEventLoop(base_events.BaseEventLoop):
             return
         start = pos[0]
         try:
-            n = sock.send(view[start:])
+            # PyPy: release the slice now, the GC would only do it later, and
+            # it holds the export view shares (issues 5612, 5613)
+            with view[start:] as chunk:
+                n = sock.send(chunk)
         except (BlockingIOError, InterruptedError):
             return
         except (SystemExit, KeyboardInterrupt):
@@ -1081,13 +1089,27 @@ class _SelectorSocketTransport(_SelectorTransport):
                 self._fatal_error(exc, 'Fatal write error on socket transport')
                 return
             else:
-                data = memoryview(data)[n:]
+                # PyPy: no view of data if all of it was sent, the GC would
+                # only release it later
+                if n == len(data):
+                    return
+                if type(data) is memoryview:
+                    # PyPy: the caller may release its memoryview once
+                    # write() returns, as on CPython, but that releases
+                    # the views of it too, so keep a copy of the rest
+                    data = memoryview(bytes(data[n:]))
+                else:
+                    data = memoryview(data)[n:]
                 if not data:
                     return
             # Not all was written; register write handler.
             self._loop._add_writer(self._sock_fd, self._write_ready)
 
         # Add it to the buffer.
+        # PyPy: the views in the buffer are released once sent, so don't
+        # use the caller's memoryview, create a new one
+        if type(data) is memoryview:
+            data = memoryview(data)
         self._buffer.append(data)
         self._maybe_pause_protocol()
 
@@ -1129,6 +1151,9 @@ class _SelectorSocketTransport(_SelectorTransport):
             b_len = len(b)
             if b_len <= nbytes:
                 nbytes -= b_len
+                # PyPy: release the view now, the GC would only do it later
+                if type(b) is memoryview:
+                    b.release()
             else:
                 buffer.appendleft(b[nbytes:])
                 break
@@ -1143,6 +1168,9 @@ class _SelectorSocketTransport(_SelectorTransport):
             if n != len(buffer):
                 # Not all data was written
                 self._buffer.appendleft(buffer[n:])
+            elif type(buffer) is memoryview:
+                # PyPy: release the view now, the GC would only do it later
+                buffer.release()
         except (BlockingIOError, InterruptedError):
             pass
         except (SystemExit, KeyboardInterrupt):
@@ -1178,7 +1206,11 @@ class _SelectorSocketTransport(_SelectorTransport):
             raise RuntimeError('unable to writelines; sendfile is in progress')
         if not list_of_data:
             return
-        self._buffer.extend([memoryview(data) for data in list_of_data])
+        # PyPy: the caller may release its memoryviews once writelines()
+        # returns, as on CPython, but that releases the views of them too,
+        # so keep copies of them
+        self._buffer.extend([memoryview(bytes(data)) if type(data) is memoryview
+                             else memoryview(data) for data in list_of_data])
         self._write_ready()
         # If the entire buffer couldn't be written, register a write handler
         if self._buffer:

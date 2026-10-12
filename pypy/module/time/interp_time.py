@@ -24,10 +24,13 @@ from rpython.translator import cdir
 import errno
 import os
 import math
+import py
 import sys
 import time as pytime
 
-src_dir = os.path.join(pypydir, 'module', 'cpyext',  'src')
+# must be spelled exactly like cpyext/api.py's source_dir, else the two
+# references to pytime.c do not compare equal and both get copied
+src_dir = py.path.local(pypydir) / 'module' / 'cpyext' / 'src'
 my_dir = os.path.join(pypydir, 'module', 'time',  'src')
 
 if HAVE_FTIME:
@@ -244,7 +247,7 @@ class CConfig:
         includes=_includes,
         include_dirs = [my_dir, cdir],
         libraries=rtime.libraries,
-        separate_module_files=[os.path.join(src_dir, "pytime.c")],
+        separate_module_files=[src_dir / "pytime.c"],
         separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,
     )

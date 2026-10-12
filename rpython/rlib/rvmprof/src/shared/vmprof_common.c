@@ -32,6 +32,8 @@ static long profile_interval_usec = 0;
 static int signal_type = SIGPROF;
 static int itimer_type = ITIMER_PROF;
 static pthread_t *threads = NULL;
+/* kernel thread ids of 'threads', 0 when unknown; only used on linux */
+static long *thread_tids = NULL;
 static size_t threads_size = 0;
 static size_t thread_count = 0;
 static size_t threads_size_step = 8;
@@ -135,7 +137,7 @@ int opened_profile(const char *interp_name, int memory, int proflines, int nativ
     }
     header.interp_name[0] = MARKER_HEADER;
     header.interp_name[1] = '\x00';
-    header.interp_name[2] = VERSION_TIMESTAMP;
+    header.interp_name[2] = VERSION_SAMPLE_TIME;
     header.interp_name[3] = memory*PROFILE_MEMORY + proflines*PROFILE_LINES + \
                             native*PROFILE_NATIVE + real_time*PROFILE_REAL_TIME;
 #ifdef RPYTHON_VMPROF
@@ -225,20 +227,32 @@ ssize_t search_thread(pthread_t tid, ssize_t i)
     return -1;
 }
 
-ssize_t insert_thread(pthread_t tid, ssize_t i)
+long vmp_native_thread_id(void)
+{
+#ifdef VMPROF_LINUX
+    return (long)syscall(SYS_gettid);
+#else
+    return 0;
+#endif
+}
+
+ssize_t insert_thread(pthread_t tid, long native_id, ssize_t i)
 {
     assert(signal_type == SIGALRM);
     i = search_thread(tid, i);
-    if (i > 0)
+    if (i >= 0)
         return -1;
     if (thread_count == threads_size) {
         threads_size += threads_size_step;
         threads = realloc(threads, sizeof(pthread_t) * threads_size);
-        assert(threads != NULL);
+        thread_tids = realloc(thread_tids, sizeof(long) * threads_size);
+        assert(threads != NULL && thread_tids != NULL);
         memset(threads + thread_count, 0, sizeof(pthread_t) * threads_size_step);
+        memset(thread_tids + thread_count, 0, sizeof(long) * threads_size_step);
     }
-    threads[thread_count++] = tid;
-    return thread_count;
+    threads[thread_count] = tid;
+    thread_tids[thread_count] = native_id;
+    return ++thread_count;
 }
 
 ssize_t remove_thread(pthread_t tid, ssize_t i)
@@ -251,8 +265,11 @@ ssize_t remove_thread(pthread_t tid, ssize_t i)
     i = search_thread(tid, i);
     if (i < 0)
         return -1;
-    threads[i] = threads[--thread_count];
+    --thread_count;
+    threads[i] = threads[thread_count];
+    thread_tids[i] = thread_tids[thread_count];
     threads[thread_count] = 0;
+    thread_tids[thread_count] = 0;
     return thread_count;
 }
 
@@ -263,9 +280,38 @@ ssize_t remove_threads(void)
         free(threads);
         threads = NULL;
     }
+    if (thread_tids != NULL) {
+        free(thread_tids);
+        thread_tids = NULL;
+    }
     thread_count = 0;
     threads_size = 0;
     return 0;
+}
+
+/* Forwarding SIGALRM to the registered threads.
+
+   Nothing removes a thread from 'threads' when it exits, and pthread_kill()
+   on an exited thread is undefined behaviour: on glibc the descriptor lives
+   on the thread's stack, which is freed as soon as a detached thread exits,
+   so it segfaults.  On linux the signal is therefore sent with tgkill() to
+   the kernel thread id, which never touches user memory and just fails
+   with ESRCH for a thread that is gone.  macOS and the BSDs validate the
+   thread inside pthread_kill() and return ESRCH themselves.  Either way a
+   failed delivery drops the entry from the list.  A thread registered
+   without a known kernel id falls back to pthread_kill(). */
+static int signal_thread(size_t i)
+{
+#ifdef VMPROF_LINUX
+    if (thread_tids[i] != 0) {
+        int saved_errno = errno;
+        long res = syscall(SYS_tgkill, getpid(), (pid_t)thread_tids[i], SIGALRM);
+        int err = (res == 0) ? 0 : errno;
+        errno = saved_errno;
+        return err;
+    }
+#endif
+    return pthread_kill(threads[i], SIGALRM);
 }
 
 int broadcast_signal_for_threads(void)
@@ -273,13 +319,13 @@ int broadcast_signal_for_threads(void)
     int done = 1;
     size_t i = 0;
     pthread_t self = pthread_self();
-    pthread_t tid;
     while (i < thread_count) {
-        tid = threads[i];
-        if (pthread_equal(tid, self)) {
+        if (pthread_equal(threads[i], self)) {
             done = 0;
-        } else if (pthread_kill(tid, SIGALRM)) {
-            remove_thread(tid, i);
+        } else if (signal_thread(i)) {
+            /* the last entry is moved into slot i, look at it next */
+            remove_thread(threads[i], i);
+            continue;
         }
         i++;
     }

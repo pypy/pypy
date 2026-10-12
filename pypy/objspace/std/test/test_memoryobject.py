@@ -725,8 +725,8 @@ def test_cast_bytearray_exports_balanced(space):
     #
     # Untranslated, the GC finalizer queue relies on weakref callbacks
     # that require gc.collect() AND _run_finalizers() to actually fire
-    # _finalize_ on unreferenced memoryviews.  We directly exercise the
-    # interp-level finalizers of BOTH memoryviews (owning and cast) to
+    # _finalize_ on what became unreachable.  We directly exercise the
+    # interp-level finalizer of the export both memoryviews share, to
     # mimic what the translated GC does when both become unreachable.
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     from pypy.objspace.std.memoryobject import W_MemoryView
@@ -737,14 +737,14 @@ def test_cast_bytearray_exports_balanced(space):
     w_mv1 = space.call_function(space.w_memoryview, w_ba)
     assert isinstance(w_mv1, W_MemoryView)
     assert w_ba._exports == 1
-    # mv1.cast('I'): non-owning derived view, _exports unchanged
+    # mv1.cast('I'): derived view sharing the same export, _exports unchanged
     w_mv2 = space.call_method(w_mv1, 'cast', space.newtext('I'))
     assert isinstance(w_mv2, W_MemoryView)
     assert w_ba._exports == 1
-    # Simulate the GC finalizing BOTH memoryviews.  The cast view's
-    # finalizer must be a no-op (owns_export=False); only the owning
-    # view's finalizer may decrement _exports.
-    w_mv2._finalize_()
-    w_mv1._finalize_()
+    assert w_mv2.export is w_mv1.export
+    assert w_mv1.export.users == 2
+    # Simulate the GC finalizing both memoryviews: the export is released
+    # exactly once, whatever its users still counts
+    w_mv1.export._finalize_()
     assert w_ba._exports == 0, \
         "cast+owning finalizer sequence underflowed _exports to %d" % w_ba._exports

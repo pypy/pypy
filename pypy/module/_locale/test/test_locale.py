@@ -369,3 +369,13 @@ class AppTestLocaleFormatting:
         assert len(f2) >= 20
         expected2 = "00X000X001,11111e+12".replace("X", ts)
         assert f2 == expected2
+
+
+def test_getencoding_empty_codeset(monkeypatch):
+    from rpython.rlib import rlocale
+    from pypy.module._locale.interp_locale import _getencoding
+    if not rlocale.HAVE_LANGINFO:
+        pytest.skip("no nl_langinfo")
+    # macOS returns an empty codeset for an unsupported LC_CTYPE
+    monkeypatch.setattr(rlocale, 'nl_langinfo', lambda key: '')
+    assert _getencoding() == 'utf-8'

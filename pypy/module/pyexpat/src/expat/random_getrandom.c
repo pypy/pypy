@@ -36,8 +36,6 @@
 
 #include "expat_config.h" // for HAVE_GETRANDOM, HAVE_SYSCALL_GETRANDOM
 
-/* PyPy: pull in pyexpatns.h so writeRandomBytes_* are namespaced. */
-#include "expat_external.h"
 #include "random_getrandom.h"
 
 #if defined(HAVE_GETRANDOM)

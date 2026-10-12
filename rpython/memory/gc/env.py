@@ -71,7 +71,7 @@ def get_total_memory_linux(filename):
     debug_start("gc-hardware")
     result = -1.0
     try:
-        fd = os.open(filename, os.O_RDONLY, 0644)
+        fd = os.open(filename, os.O_RDONLY, 0o644)
         try:
             buf = os.read(fd, 4096)
         finally:
@@ -158,7 +158,7 @@ def get_L2cache_linux2_cpuinfo(filename="/proc/cpuinfo", label='cache size'):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
-        fd = os.open(filename, os.O_RDONLY, 0644)
+        fd = os.open(filename, os.O_RDONLY, 0o644)
         try:
             data = []
             while True:
@@ -218,7 +218,7 @@ def get_L2cache_linux2_cpuinfo_s390x(filename="/proc/cpuinfo", label='cache2'):
     debug_start("gc-hardware")
     L2cache = sys.maxint
     try:
-        fd = os.open(filename, os.O_RDONLY, 0644)
+        fd = os.open(filename, os.O_RDONLY, 0o644)
         try:
             data = []
             while True:
@@ -272,7 +272,7 @@ def get_L2cache_linux2_sparc():
     while True:
         try:
             fd = os.open('/sys/devices/system/cpu/cpu' + assert_str0(str(cpu))
-                         + '/l2_cache_size', os.O_RDONLY, 0644)
+                         + '/l2_cache_size', os.O_RDONLY, 0o644)
             try:
                 line = os.read(fd, 4096)
             finally:
@@ -308,7 +308,7 @@ def get_L2cache_linux2_system_cpu_index():
         while True:
             cachedir = cpudir + '/cache/index' + assert_str0(str(index))
             try:
-                fd = os.open(cachedir + '/level', os.O_RDONLY, 0644)
+                fd = os.open(cachedir + '/level', os.O_RDONLY, 0o644)
                 try:
                     level = int(os.read(fd, 4096)[:-1])
                 finally:
@@ -319,7 +319,7 @@ def get_L2cache_linux2_system_cpu_index():
                 index += 1
                 continue
             try:
-                fd = os.open(cachedir + '/size', os.O_RDONLY, 0644)
+                fd = os.open(cachedir + '/size', os.O_RDONLY, 0o644)
                 try:
                     data = os.read(fd, 4096)
                 finally:

@@ -39,22 +39,30 @@ def get_errstr():
 
 def new(name, string=b'', usedforsecurity=True):
     try:
-        buf = ffi.from_buffer(string)
+        cbuf = ffi.from_buffer(string)
     except TypeError:
-        buf = None
-    if buf is not None and len(buf):
-        # Fast one-shot path: one C call, no EVP_MD_CTX allocation, no ffi.gc.
-        name_lower = str(name).lower()
-        py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
-        dtype = py_digest_by_name(name_lower, py_ht)
-        digest_size = lib.EVP_MD_size(dtype)
-        md = ffi.new("unsigned char[]", digest_size)
-        with ffi.from_buffer(string) as buf:
-            ok = lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype, ffi.NULL)
-        if ok:
-            return _OneShotHash(name_lower, digest_size,
-                                _bytes_with_len(md, digest_size),
-                                string, usedforsecurity)
+        pass        # not a buffer (e.g. str): let HASH.update() say why
+    else:
+        with cbuf as buf:
+            if len(buf):
+                # Fast one-shot path: one C call, no EVP_MD_CTX allocation,
+                # no ffi.gc.
+                name_lower = str(name).lower()
+                py_ht = Py_ht_evp if usedforsecurity else Py_ht_evp_nosecurity
+                dtype = py_digest_by_name(name_lower, py_ht)
+                digest_size = lib.EVP_MD_size(dtype)
+                md = ffi.new("unsigned char[]", digest_size)
+                if lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype,
+                                  ffi.NULL):
+                    # keep immutable input by reference, snapshot the rest:
+                    # _OneShotHash re-hashes it if update()/copy() is called
+                    if isinstance(string, bytes):
+                        data = string
+                    else:
+                        data = _bytes_with_len(buf, len(buf))
+                    return _OneShotHash(name_lower, digest_size,
+                                        _bytes_with_len(md, digest_size),
+                                        data, usedforsecurity)
     h = HASH(name, usedforsecurity=usedforsecurity)
     h.update(string)
     return h
@@ -479,14 +487,15 @@ types and lengths of a and b--but not their values."""
         except Exception:
             raise TypeError("unsupported operand types(s) or combination of "
                             f"types: '{type(a)}' and '{type(b)}'")
-        if b_a.ndim > 1:
-            raise BufferError("Buffer must be a single dimension")
-        if b_b.ndim > 1:
-            raise BufferError("Buffer must be a single dimension")
-        c_a = ffi.from_buffer(b_a.tobytes())
-        c_b = ffi.from_buffer(b_b.tobytes())
-        length_a = len(b_a)
-        length_b = len(b_b)
+        with b_a, b_b:
+            if b_a.ndim > 1:
+                raise BufferError("Buffer must be a single dimension")
+            if b_b.ndim > 1:
+                raise BufferError("Buffer must be a single dimension")
+            c_a = ffi.from_buffer(b_a.tobytes())
+            c_b = ffi.from_buffer(b_b.tobytes())
+            length_a = len(b_a)
+            length_b = len(b_b)
     if length_a != length_b:
         res = False
     return (lib.CRYPTO_memcmp(c_a, c_b, length_b) == 0) and res

@@ -142,6 +142,8 @@ def make_hpy_apptest(collector, name, cls):
     return appname
 
 def pytest_sessionstart(session):
+    if disable:
+        return
     from pypy.module._hpy_universal.test import support as _support
     from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
     from pypy.module._hpy_universal.llapi import BASE_DIR

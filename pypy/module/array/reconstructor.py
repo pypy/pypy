@@ -5,7 +5,7 @@ import sys
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
-from rpython.rlib import rutf8, rbigint
+from rpython.rlib import rbigint
 from rpython.rlib.rstruct import ieee
 from rpython.rtyper.lltypesystem import rffi
 
@@ -155,7 +155,8 @@ def typecode_to_mformat_code(typecode):
     elif typecode == 'B':
         return UNSIGNED_INT8
     elif typecode == 'u':
-        if rutf8.MAXUNICODE == 0xffff:
+        # 'u' items are wchar_t: 2 bytes on Windows, 4 elsewhere
+        if interp_array.types['u'].bytes == 2:
             return UTF16_LE + IS_BIG_ENDIAN
         else:
             return UTF32_LE + IS_BIG_ENDIAN

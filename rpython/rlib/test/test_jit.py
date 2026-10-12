@@ -240,6 +240,35 @@ class TestJIT(BaseRtypingTest):
         with pytest.raises(UnionError):
             self.gengraph(fn, [int])
 
+    @pytest.mark.parametrize('green', [False, True])
+    def test_marker_subclass_argument(self, green):
+        class Base(object):
+            pass
+        class Child(Base):
+            pass
+        if green:
+            driver = JitDriver(greens=['obj'], reds=['n'])
+        else:
+            driver = JitDriver(greens=[], reds=['n', 'obj'])
+
+        def f(n):
+            obj = Child() if n > 0 else Base()
+            while n > 0:
+                if isinstance(obj, Child):
+                    driver.can_enter_jit(n=n, obj=obj)
+                driver.jit_merge_point(n=n, obj=obj)
+                n -= 1
+            return n
+
+        t, rtyper, graph = self.gengraph(f, [int])
+        markers = {}
+        for block in graph.iterblocks():
+            for op in block.operations:
+                if op.opname == 'jit_marker':
+                    markers[op.args[0].value] = [
+                        v.concretetype for v in op.args[2:]]
+        assert markers['can_enter_jit'] == markers['jit_merge_point']
+
     def test_green_field(self):
         def get_printable_location(xfoo):
             return str(ord(xfoo))   # xfoo must be annotated as a character

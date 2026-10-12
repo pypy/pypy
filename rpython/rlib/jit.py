@@ -194,7 +194,7 @@ def elidable_promote(promote_args='all'):
                 (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
-        exec py.code.Source("\n".join(code)).compile() in d
+        exec(py.code.Source("\n".join(code)).compile(), d)
         result = d["f"]
         result.__name__ = func.__name__ + "_promote"
         return result
@@ -227,7 +227,7 @@ def look_inside_iff(predicate):
             "func": func,
             "we_are_jitted": we_are_jitted,
         }
-        exec py.code.Source("""
+        exec(py.code.Source("""
             @dont_look_inside
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
@@ -243,7 +243,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-        """ % {"arguments": ", ".join(args)}).compile() in d
+        """ % {"arguments": ", ".join(args)}).compile(), d)
         return d["f"]
     return inner
 
@@ -452,7 +452,7 @@ def jit_callback(name):
             'jitdriver': jitdriver,
             'real_callback': func,
             }
-        exec compile2(source) in miniglobals
+        exec(compile2(source), miniglobals)
         return miniglobals['callback_with_jitdriver']
     return decorate
 
@@ -950,16 +950,18 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
         bk.emulate_pbc_call(uniquekey, s_func, args_s)
 
     def specialize_call(self, hop, **kwds_i):
-        # XXX to be complete, this could also check that the concretetype
-        # of the variables are the same for each of the calls.
         from rpython.rtyper.lltypesystem import lltype
         driver = self.instance.im_self
+        # Use the union collected across all markers, since isinstance()
+        # can narrow an argument at can_enter_jit to a subclass of the
+        # corresponding jit_merge_point argument.
+        cache = hop.rtyper.annotator.bookkeeper._jit_annotation_cache[driver]
         greens_v = []
         reds_v = []
         for name in driver.greens:
             if '.' not in name:
                 i = kwds_i['i_' + name]
-                r_green = hop.args_r[i]
+                r_green = hop.rtyper.getrepr(cache['s_' + name])
                 v_green = hop.inputarg(r_green, arg=i)
             else:
                 objname, fieldname = name.split('.')   # see test_green_field
@@ -994,7 +996,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             greens_v.append(v_green)
         for name in driver.reds:
             i = kwds_i['i_' + name]
-            r_red = hop.args_r[i]
+            r_red = hop.rtyper.getrepr(cache['s_' + name])
             v_red = hop.inputarg(r_red, arg=i)
             reds_v.append(v_red)
         hop.exception_cannot_occur()

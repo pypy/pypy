@@ -51,6 +51,26 @@ class TestLLWarmspot(LLJitMixin):
         res = self.meta_interp(main, [1])
         assert res == 21
 
+    def test_can_enter_jit_subclass(self):
+        class Base(object):
+            pass
+        class Child(Base):
+            pass
+        driver = JitDriver(greens=[], reds=['n', 'obj'])
+
+        def f(n):
+            obj = Child() if n > 0 else Base()
+            while n > 0:
+                if isinstance(obj, Child):
+                    driver.can_enter_jit(n=n, obj=obj)
+                driver.jit_merge_point(n=n, obj=obj)
+                n -= 1
+            return n
+
+        assert self.meta_interp(f, [100]) == 0
+        self.check_trace_count(1)
+        assert self.meta_interp(f, [-10]) == -10
+
     def test_reentry(self):
         mydriver = JitDriver(reds = ['n'], greens = [])
 

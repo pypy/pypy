@@ -51,7 +51,7 @@ class TestDicts(BaseTestPyPyC):
             ...
         """)
 
-    @pytest.skip("no strdicts on pypy3")
+    @pytest.mark.skip("no strdicts on pypy3")
     def test_non_virtual_dict(self):
         def main(n):
             i = 0
@@ -376,6 +376,7 @@ class TestOtherContainers(BaseTestPyPyC):
         --TICK--
         ''')
 
+    @pytest.mark.skip("dict.values() is a view on pypy3, not a list copy")
     def test_dict_values_single_copy(self):
         def main():
             res = 0

@@ -2104,10 +2104,13 @@ class Popen:
 
             self._save_input(input)
 
+            # PyPy: release the view on exit, the GC would only do it later
             if self._input:
                 input_view = memoryview(self._input)
+            else:
+                input_view = contextlib.nullcontext()
 
-            with _PopenSelector() as selector:
+            with _PopenSelector() as selector, input_view:
                 if self.stdin and input:
                     selector.register(self.stdin, selectors.EVENT_WRITE)
                 if self.stdout and not self.stdout.closed:
@@ -2144,6 +2147,11 @@ class Popen:
                                 if self._input_offset >= len(self._input):
                                     selector.unregister(key.fileobj)
                                     key.fileobj.close()
+                            finally:
+                                # PyPy: release the slice now, the GC would
+                                # only do it later, and it holds the export
+                                # input_view shares (issues 5612, 5613)
+                                chunk.release()
                         elif key.fileobj in (self.stdout, self.stderr):
                             data = os.read(key.fd, 32768)
                             if not data:

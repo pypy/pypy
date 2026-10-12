@@ -122,3 +122,4 @@ class TestPythonAstCompiler:
         sig = make_signature(co)
         assert sig == Signature(['offset'], 'args', None, 1)
 
+

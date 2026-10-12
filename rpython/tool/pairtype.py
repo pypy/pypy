@@ -14,7 +14,8 @@ methods whose 'self' is a pair of objects instead of just one:
 
     class __extend__(pairtype(X, Y)):
         attribute = 42
-        def method((x, y), other, arguments):
+        def method(args, other, arguments):
+            x, y = args
             ...
 
     pair(x, y).attribute
@@ -27,6 +28,16 @@ rules of method/attribute overriding in (pairs of) subclasses.
 For more information, see test_pairtype.
 """
 
+# Names the compiler puts into a class namespace by itself.  They describe
+# the 'class __extend__(...)' statement, not the class being extended, so
+# copying them over would rename the target and clobber its metadata.  Python
+# 2 only ever injects __module__; the rest appear on Python 3, __qualname__
+# since 3.3 and the others since 3.13.
+COMPILER_INJECTED = frozenset([
+    '__module__', '__qualname__', '__firstlineno__', '__static_attributes__',
+    '__classdictcell__',
+])
+
 class extendabletype(type):
     """A type with a syntax trick: 'class __extend__(t)' actually extends
     the definition of 't' instead of creating a new subclass."""
@@ -34,7 +45,7 @@ class extendabletype(type):
         if name == '__extend__':
             for cls in bases:
                 for key, value in dict.items():
-                    if key == '__module__':
+                    if key in COMPILER_INJECTED:
                         continue
                     # XXX do we need to provide something more for pickling?
                     setattr(cls, key, value)

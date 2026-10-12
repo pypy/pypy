@@ -463,7 +463,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_buffer(self, space, flags):
         space.check_buf_flags(flags, True)
         view = SimpleView(StringBuffer(self._value), w_obj=self)
-        return view.wrap(space, owns_export=True)
+        return view.wrap(space)
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer

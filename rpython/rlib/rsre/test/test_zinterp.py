@@ -22,9 +22,9 @@ def main(n):
 def test_gengraph():
     t, typer, graph = gengraph(main, [int])
 
-m = compile("(a|b)aaaaa")
 
 def test_match():
+    m = compile("(a|b)aaaaa")
     def f(i):
         if i:
             s = "aaaaaa"
@@ -36,7 +36,6 @@ def test_match():
         return int("aaaaaa" == g.group(0))
     assert interpret(f, [3]) == 1
     assert interpret(f, [0]) == 3
-
 def test_translates():
     from rpython.rlib.rsre import rsre_re
     def f(i):

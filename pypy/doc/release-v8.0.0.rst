@@ -1,6 +1,6 @@
-======================================================================
-PyPy v8.0.0: release of python 2.7, 3.11,3.12 beta released 2026-09-XX
-======================================================================
+===========================================================================
+PyPy v8.0.0: release of python 2.7, 3.11, and 3.12 beta released 2026-09-19
+===========================================================================
 
 
 ..
@@ -27,7 +27,7 @@ version would be prudent.
 cp12-abi3 support
 -----------------
 
-PyPy's Python3.12 support comes with a new model for the C layer ``PyObject``.
+PyPy's Python 3.12 support comes with a new model for the C layer ``PyObject``.
 In order to link the C object to the internal RPython one, we have an extra
 field in the object ``ob_pypy_link``, as described in-depth in
 :ref:`rawrefcount-and-the-gc`. In previous versions, this field was
@@ -96,7 +96,7 @@ The release includes three different interpreters:
   Python 3.11, including the stdlib for CPython 3.11.16. Barring security
   issues, this will be the last release to support 3.11.
 
-- PyPy3.12, supporting the syntax and features of Python3.12, including the
+- PyPy3.12, supporting the syntax and features of Python 3.12, including the
   stdlib for CPython 3.12.14.
 
 The interpreters are based on much the same codebase, thus the triple

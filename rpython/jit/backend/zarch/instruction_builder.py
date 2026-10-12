@@ -110,21 +110,24 @@ def encode_index_base_displace(mc, reg, idxbasedisp):
     mc.writechar(chr(byte))
     mc.writechar(chr(displace & 0xff))
 
-def build_e(mnemonic, (opcode1,opcode2)):
+def build_e(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('')
     def encode_e(self):
         self.writechar(opcode1)
         self.writechar(opcode2)
     return encode_e
 
-def build_i(mnemonic, (opcode,)):
+def build_i(mnemonic, args):
+    opcode, = args
     @builder.arguments('u8')
     def encode_i(self, imm):
         self.writechar(opcode)
         self.writechar(chr(imm))
     return encode_i
 
-def build_rr(mnemonic, (opcode,), argtypes='r,r'):
+def build_rr(mnemonic, args, argtypes='r,r'):
+    opcode, = args
     @builder.arguments(argtypes)
     def encode_rr(self, reg1, reg2):
         self.writechar(opcode)
@@ -132,7 +135,8 @@ def build_rr(mnemonic, (opcode,), argtypes='r,r'):
         self.writechar(chr(operands))
     return encode_rr
 
-def build_rre(mnemonic, (opcode1,opcode2), argtypes='r,r'):
+def build_rre(mnemonic, args, argtypes='r,r'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rre(self, reg1, reg2):
         self.writechar(opcode1)
@@ -142,14 +146,16 @@ def build_rre(mnemonic, (opcode1,opcode2), argtypes='r,r'):
         self.writechar(chr(operands))
     return encode_rre
 
-def build_rx(mnemonic, (opcode,)):
+def build_rx(mnemonic, args):
+    opcode, = args
     @builder.arguments('r/m,bid')
     def encode_rx(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode)
         encode_index_base_displace(self, reg_or_mask, idxbasedisp)
     return encode_rx
 
-def build_rxy(mnemonic, (opcode1,opcode2), arguments='r/m,bidl'):
+def build_rxy(mnemonic, args, arguments='r/m,bidl'):
+    opcode1,opcode2 = args
     @builder.arguments(arguments)
     def encode_rxy(self, reg_or_mask, idxbasedisp):
         self.writechar(opcode1)
@@ -160,7 +166,8 @@ def build_rxy(mnemonic, (opcode1,opcode2), arguments='r/m,bidl'):
         self.writechar(opcode2)
     return encode_rxy
 
-def build_ri(mnemonic, (opcode,halfopcode)):
+def build_ri(mnemonic, args):
+    opcode,halfopcode = args
     br = is_branch_relative(mnemonic)
     @builder.arguments('r/m,i16')
     def encode_ri(self, reg_or_mask, imm16):
@@ -173,13 +180,15 @@ def build_ri(mnemonic, (opcode,halfopcode)):
         self.writechar(chr(imm16 & 0xff))
     return encode_ri
 
-def build_ri_u(mnemonic, (opcode,halfopcode)):
+def build_ri_u(mnemonic, args):
     # unsigned version of ri
+    opcode,halfopcode = args
     func = build_ri(mnemonic, (opcode,halfopcode))
     func._arguments_[1] = 'u16'
     return func
 
-def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
+def build_ril(mnemonic, args_, args='r/m,i32'):
+    opcode,halfopcode = args_
     br = is_branch_relative(mnemonic)
     @builder.arguments(args)
     def encode_ri(self, reg_or_mask, imm32):
@@ -192,7 +201,8 @@ def build_ril(mnemonic, (opcode,halfopcode), args='r/m,i32'):
         self.write_i32(imm32 & BIT_MASK_32)
     return encode_ri
 
-def build_s(mnemonic, (opcode1,opcode2)):
+def build_s(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('bd')
     def encode_s(self, base_displace):
         self.writechar(opcode1)
@@ -200,7 +210,8 @@ def build_s(mnemonic, (opcode1,opcode2)):
         encode_base_displace(self, base_displace)
     return encode_s
 
-def build_si(mnemonic, (opcode,)):
+def build_si(mnemonic, args):
+    opcode, = args
     @builder.arguments('bd,u8')
     def encode_si(self, base_displace, uimm8):
         self.writechar(opcode)
@@ -208,7 +219,8 @@ def build_si(mnemonic, (opcode,)):
         encode_base_displace(self, base_displace)
     return encode_si
 
-def build_siy(mnemonic, (opcode1,opcode2)):
+def build_siy(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('bd,u8')
     def encode_siy(self, base_displace, uimm8):
         self.writechar(opcode1)
@@ -219,7 +231,8 @@ def build_siy(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_siy
 
-def build_ssa(mnemonic, (opcode1,)):
+def build_ssa(mnemonic, args):
+    opcode1, = args
     @builder.arguments('l8bd,bd')
     def encode_ssa(self, len_base_disp, base_displace):
         self.writechar(opcode1)
@@ -228,7 +241,8 @@ def build_ssa(mnemonic, (opcode1,)):
         encode_base_displace(self, base_displace)
     return encode_ssa
 
-def build_ssb(mnemonic, (opcode1,)):
+def build_ssb(mnemonic, args):
+    opcode1, = args
     @builder.arguments('l8bd,l8bd')
     def encode_ssb(self, len_base_disp1, len_base_disp2):
         self.writechar(opcode1)
@@ -238,7 +252,8 @@ def build_ssb(mnemonic, (opcode1,)):
         encode_base_displace(self, len_base_disp2)
     return encode_ssb
 
-def build_ssc(mnemonic, (opcode1,)):
+def build_ssc(mnemonic, args):
+    opcode1, = args
     @builder.arguments('l4bd,bd,u4')
     def encode_ssc(self, len_base_disp, base_disp, uimm4):
         self.writechar(opcode1)
@@ -248,7 +263,8 @@ def build_ssc(mnemonic, (opcode1,)):
         encode_base_displace(self, base_disp)
     return encode_ssc
 
-def build_ssd(mnemonic, (opcode,)):
+def build_ssd(mnemonic, args):
+    opcode, = args
     @builder.arguments('bid,bd,r')
     def encode_ssd(self, index_base_disp, base_disp, reg):
         self.writechar(opcode)
@@ -258,7 +274,8 @@ def build_ssd(mnemonic, (opcode,)):
         encode_base_displace(self, base_disp)
     return encode_ssd
 
-def build_sse(mnemonic, (opcode,)):
+def build_sse(mnemonic, args):
+    opcode, = args
     @builder.arguments('r,r,bd,bd')
     def encode_sse(self, reg1, reg3, base_disp2, base_disp4):
         self.writechar(opcode)
@@ -268,7 +285,8 @@ def build_sse(mnemonic, (opcode,)):
         encode_base_displace(self, base_disp4)
     return encode_sse
 
-def build_ssf(mnemonic, (opcode,)):
+def build_ssf(mnemonic, args):
+    opcode, = args
     @builder.arguments('bd,l8bd')
     def encode_ssf(self, base_disp, len_base_disp):
         self.writechar(opcode)
@@ -277,7 +295,8 @@ def build_ssf(mnemonic, (opcode,)):
         encode_base_displace(self, len_base_disp)
     return encode_ssf
 
-def build_rs(mnemonic, (opcode,), argtypes='r,r,bd'):
+def build_rs(mnemonic, args, argtypes='r,r,bd'):
+    opcode, = args
     @builder.arguments(argtypes)
     def encode_rs(self, reg1, reg3, base_displace):
         self.writechar(opcode)
@@ -292,19 +311,22 @@ def _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace):
     encode_base_displace_long(self, base_displace)
     self.writechar(opcode2)
 
-def build_rsy_a(mnemonic, (opcode1,opcode2)):
+def build_rsy_a(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('r,r,bdl')
     def encode_rsy(self, reg1, reg3, base_displace):
         _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace)
     return encode_rsy
 
-def build_rsy_b(mnemonic, (opcode1,opcode2)):
+def build_rsy_b(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('r,bdl,r')
     def encode_rsy(self, reg1, base_displace, reg3):
         _encode_rsy(self, opcode1, opcode2, reg1, reg3, base_displace)
     return encode_rsy
 
-def build_rsi(mnemonic, (opcode,)):
+def build_rsi(mnemonic, args):
+    opcode, = args
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,r,i16')
     def encode_ri(self, reg1, reg2, imm16):
@@ -316,7 +338,8 @@ def build_rsi(mnemonic, (opcode,)):
         self.write_i16(imm16 & BIT_MASK_16)
     return encode_ri
 
-def build_rie_d(mnemonic, (opcode1,opcode2)):
+def build_rie_d(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('r,r,i16')
     def encode_rie_d(self, reg1, reg2, imm16):
         self.writechar(opcode1)
@@ -327,7 +350,8 @@ def build_rie_d(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rie_d
 
-def build_rie_e(mnemonic, (opcode1,opcode2)):
+def build_rie_e(mnemonic, args):
+    opcode1,opcode2 = args
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,r,i16')
     def encode_rie_e(self, reg1, reg2, imm16):
@@ -341,7 +365,8 @@ def build_rie_e(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rie_e
 
-def build_rie_f(mnemonic, (opcode1,opcode2)):
+def build_rie_f(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('r,r,u8,u8,u8')
     def encode_rie_f(self, reg1, reg2, i1, i2, i3):
         self.writechar(opcode1)
@@ -353,7 +378,8 @@ def build_rie_f(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rie_f
 
-def build_rie_a(mnemonic, (opcode1,opcode2)):
+def build_rie_a(mnemonic, args):
+    opcode1,opcode2 = args
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,i16,r/m')
     def encode_rie_a(self, reg1, imm16, mask):
@@ -369,7 +395,8 @@ def build_rie_a(mnemonic, (opcode1,opcode2)):
 
 build_rie_g = build_rie_a
 
-def build_rie_b(mnemonic, (opcode1,opcode2)):
+def build_rie_b(mnemonic, args):
+    opcode1,opcode2 = args
     br = is_branch_relative(mnemonic)
     @builder.arguments('r,r,r/m,i16')
     def encode_rie_b(self, reg1, reg2, mask, imm16):
@@ -384,7 +411,8 @@ def build_rie_b(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rie_b
 
-def build_rie_c(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,i16'):
+def build_rie_c(mnemonic, args, argtypes='r,i8,r/m,i16'):
+    opcode1,opcode2 = args
     br = is_branch_relative(mnemonic)
     @builder.arguments(argtypes)
     def encode_rie_c(self, reg1, imm8, mask, imm16):
@@ -407,26 +435,30 @@ def _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4):
     byte = (r1 & BIT_MASK_4) << 4 | (r2 & BIT_MASK_4)
     self.writechar(chr(byte))
 
-def build_rrf_a(mnemonic, (opcode1,opcode2), argtypes='r,r,r'):
+def build_rrf_a(mnemonic, args, argtypes='r,r,r'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rrf_a(self, r1, r2, r3):
         _encode_rrf(self, opcode1, opcode2, r1, r2, r3, 0)
     return encode_rrf_a
 
-def build_rrf_c(mnemonic, (opcode1,opcode2), argtypes='r,r,r/m,-'):
+def build_rrf_c(mnemonic, args, argtypes='r,r,r/m,-'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rrf_b(self, r1, r2, rm3, rm4):
         _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4)
     return encode_rrf_b
 
-def build_rrf_e(mnemonic, (opcode1,opcode2), argtypes):
+def build_rrf_e(mnemonic, args, argtypes):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rrf_e(self, r1, rm3, r2, rm4):
         _encode_rrf(self, opcode1, opcode2, r1, r2, rm3, rm4)
     return encode_rrf_e
 build_rrf_b = build_rrf_e
 
-def build_rxe(mnemonic, (opcode1,opcode2), argtypes):
+def build_rxe(mnemonic, args, argtypes):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rxe(self, reg, idxbasedisp, mask):
         self.writechar(opcode1)
@@ -435,7 +467,8 @@ def build_rxe(mnemonic, (opcode1,opcode2), argtypes):
         self.writechar(opcode2)
     return encode_rxe
 
-def build_rxf(mnemonic, (opcode1,opcode2)):
+def build_rxf(mnemonic, args):
+    opcode1,opcode2 = args
     @builder.arguments('r,bidl,r/m')
     def encode_rxe(self, reg1, idxbasedisp, reg3):
         self.writechar(opcode1)
@@ -447,7 +480,8 @@ def build_rxf(mnemonic, (opcode1,opcode2)):
         self.writechar(opcode2)
     return encode_rxe
 
-def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
+def build_ris(mnemonic, args, argtypes='r,i8,r/m,bd'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_rie_c(self, reg1, imm8, mask, basedisp):
         self.writechar(opcode1)
@@ -459,7 +493,8 @@ def build_ris(mnemonic, (opcode1,opcode2), argtypes='r,i8,r/m,bd'):
         self.writechar(opcode2)
     return encode_rie_c
 
-def build_vrx(mnemonic, (opcode1,opcode2), argtypes='v,bid,m'):
+def build_vrx(mnemonic, args, argtypes='v,bid,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrx(self, v1, bid, mask=0):
         self.writechar(opcode1)
@@ -472,7 +507,8 @@ def build_vrx(mnemonic, (opcode1,opcode2), argtypes='v,bid,m'):
         self.writechar(opcode2)
     return encode_vrx
 
-def build_vrr_a(mnemonic, (opcode1,opcode2), argtypes='v,v,m,m,m'):
+def build_vrr_a(mnemonic, args, argtypes='v,v,m,m,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrr_a(self, v1, v2, mask3=0, mask4=0, mask5=0):
         self.writechar(opcode1)
@@ -486,7 +522,8 @@ def build_vrr_a(mnemonic, (opcode1,opcode2), argtypes='v,v,m,m,m'):
         self.writechar(opcode2)
     return encode_vrr_a
 
-def build_vrr_b(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m'):
+def build_vrr_b(mnemonic, args, argtypes='v,v,v,m,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrr_b(self, v1, v2, v3, mask4, mask5):
         self.writechar(opcode1)
@@ -501,7 +538,8 @@ def build_vrr_b(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m'):
         self.writechar(opcode2)
     return encode_vrr_b
 
-def build_vrr_c(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m,m'):
+def build_vrr_c(mnemonic, args, argtypes='v,v,v,m,m,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrr_c(self, v1, v2, v3, mask4=0, mask5=0, mask6=0):
         self.writechar(opcode1)
@@ -517,7 +555,8 @@ def build_vrr_c(mnemonic, (opcode1,opcode2), argtypes='v,v,v,m,m,m'):
         self.writechar(opcode2)
     return encode_vrr_c
 
-def build_vrr_e(mnemonic, (opcode1,opcode2), argtypes='v,v,v,v,m,m'):
+def build_vrr_e(mnemonic, args, argtypes='v,v,v,v,m,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrr_e(self, v1, v2, v3, v4, mask5=0, mask6=0):
         self.writechar(opcode1)
@@ -534,7 +573,8 @@ def build_vrr_e(mnemonic, (opcode1,opcode2), argtypes='v,v,v,v,m,m'):
         self.writechar(opcode2)
     return encode_vrr_e
 
-def build_vri_a(mnemonic, (opcode1,opcode2), argtypes='v,i16,m'):
+def build_vri_a(mnemonic, args, argtypes='v,i16,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vri_a(self, v1, i2, mask3):
         self.writechar(opcode1)
@@ -546,7 +586,8 @@ def build_vri_a(mnemonic, (opcode1,opcode2), argtypes='v,i16,m'):
         self.writechar(opcode2)
     return encode_vri_a
 
-def build_vri_c(mnemonic, (opcode1,opcode2), argtypes='v,v,i16,m'):
+def build_vri_c(mnemonic, args, argtypes='v,v,i16,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vri_c(self, v1, v3, i2, mask4):
         self.writechar(opcode1)
@@ -559,7 +600,8 @@ def build_vri_c(mnemonic, (opcode1,opcode2), argtypes='v,v,i16,m'):
         self.writechar(opcode2)
     return encode_vri_c
 
-def build_vrs_b(mnemonic, (opcode1,opcode2), argtypes='v,r,db,m'):
+def build_vrs_b(mnemonic, args, argtypes='v,r,db,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrs_b(self, v1, r2, db3, m4):
         self.writechar(opcode1)
@@ -571,7 +613,8 @@ def build_vrs_b(mnemonic, (opcode1,opcode2), argtypes='v,r,db,m'):
         self.writechar(opcode2)
     return encode_vrs_b
 
-def build_vrs_c(mnemonic, (opcode1,opcode2), argtypes='r,v,db,m'):
+def build_vrs_c(mnemonic, args, argtypes='r,v,db,m'):
+    opcode1,opcode2 = args
     @builder.arguments(argtypes)
     def encode_vrs_c(self, r1, v2, db3, m4):
         self.writechar(opcode1)

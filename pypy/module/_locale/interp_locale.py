@@ -159,9 +159,14 @@ def _getencoding():
     """RPython helper: return the locale encoding as a plain str."""
     if rlocale.HAVE_LANGINFO:
         try:
-            return rlocale.nl_langinfo(rlocale.CODESET)
+            codeset = rlocale.nl_langinfo(rlocale.CODESET)
+            if codeset:
+                return codeset
         except ValueError:
             pass
+        # nl_langinfo(CODESET) can be empty on macOS when LC_CTYPE is not
+        # supported, like CPython's _Py_GetLocaleEncoding fall back to utf-8
+        return 'utf-8'
     return 'ascii'
 
 def getencoding(space):

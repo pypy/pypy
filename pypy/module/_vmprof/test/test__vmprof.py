@@ -28,7 +28,7 @@ class AppTestVMProf(object):
             i += 5 * WORD # header
             assert s[i    ] == 5    # MARKER_HEADER
             assert s[i + 1] == 0    # 0
-            assert s[i + 2] == 6    # VERSION_TIMESTAMP
+            assert s[i + 2] == 7    # VERSION_SAMPLE_TIME
             assert s[i + 3] == 8    # PROFILE_RPYTHON
             assert s[i + 4] == 4    # len('pypy')
             assert s[i + 5: i + 9] == b'pypy'
@@ -41,6 +41,7 @@ class AppTestVMProf(object):
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])
                     i += 2 * WORD + size * struct.calcsize("P")
                     i += WORD    # thread id
+                    i += 8       # sample timestamp
                 elif s[i] == 2:
                     i += 1
                     _, size = struct.unpack("ll", s[i:i + 2 * WORD])

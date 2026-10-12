@@ -4,6 +4,7 @@ import sys
 vmprof = pytest.importorskip('vmprof')
 greenlet = pytest.importorskip('greenlet')
 
+HAS_SAMPLE_TIME = hasattr(vmprof.reader, 'VERSION_SAMPLE_TIME')
 IS_32_BIT = sys.maxint == 2**31-1
 
 def count_samples(filename):
@@ -17,6 +18,7 @@ def cpuburn(duration):
 
 # See https://github.com/vmprof/vmprof-python/issues/274
 @pytest.mark.xfail(IS_32_BIT, reason="vmprof fails to write profiles with negative addresses")
+@pytest.mark.skipif(not HAS_SAMPLE_TIME, reason="vmprof reader cannot read newer profiles")
 def test_sampling_inside_callback(tmpdir):
     # see also test_sampling_inside_callback inside
     # pypy/module/_continuation/test/test_stacklet.py

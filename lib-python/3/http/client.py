@@ -530,16 +530,27 @@ class HTTPResponse(io.BufferedIOBase):
         if self.chunked:
             return self._readinto_chunked(b)
 
+        view = None
         if self.length is not None:
             if len(b) > self.length:
                 # clip the read to the "end of response"
-                b = memoryview(b)[0:self.length]
+                view = memoryview(b)
+                b = view[0:self.length]
+        b_empty = not len(b)
 
         # we do not use _safe_read() here because this may be a .will_close
         # connection, and the user is reading more bytes than will be provided
         # (for example, reading in 1k chunks)
-        n = self.fp.readinto(b)
-        if not n and b:
+        try:
+            n = self.fp.readinto(b)
+        finally:
+            # PyPy: release both views now, the GC would only do it later.
+            # The clipped slice holds the export too, so releasing only the
+            # memoryview it came from keeps b locked (issues 5612, 5613).
+            if view is not None:
+                b.release()
+                view.release()
+        if not n and not b_empty:
             # Ideally, we would raise IncompleteRead if the content-length
             # wasn't satisfied, but it might break compatibility.
             self._close_conn()
@@ -647,14 +658,21 @@ class HTTPResponse(io.BufferedIOBase):
                     self.chunk_left = chunk_left - n
                     return total_bytes + n
 
-                temp_mvb = mvb[:chunk_left]
-                n = self._safe_readinto(temp_mvb)
+                # PyPy: release each view as we are done with it, the GC
+                # would only do it later, and a view still using the export
+                # keeps b locked (issues 5612, 5613)
+                with mvb[:chunk_left] as temp_mvb:
+                    n = self._safe_readinto(temp_mvb)
+                prev_mvb = mvb
                 mvb = mvb[n:]
+                prev_mvb.release()
                 total_bytes += n
                 self.chunk_left = 0
 
         except IncompleteRead:
             raise IncompleteRead(bytes(b[0:total_bytes]))
+        finally:
+            mvb.release()
 
     def _safe_read(self, amt):
         """Read the number of bytes requested.
@@ -893,8 +911,9 @@ class HTTPConnection:
 
         try:
             # does it implement the buffer protocol (bytes, bytearray, array)?
-            mv = memoryview(body)
-            return mv.nbytes
+            # PyPy: release the view now, the GC would only do it later
+            with memoryview(body) as mv:
+                return mv.nbytes
         except TypeError:
             pass
 
@@ -1154,7 +1173,8 @@ class HTTPConnection:
                     # implements the buffer API.  it /would/ be easier
                     # to capture if PyObject_CheckBuffer was exposed
                     # to Python.
-                    memoryview(message_body)
+                    # PyPy: release the view now, the GC would only do it later
+                    memoryview(message_body).release()
                 except TypeError:
                     try:
                         chunks = iter(message_body)

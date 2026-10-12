@@ -413,7 +413,10 @@ def rawiobase_read_w(self, space, w_size=None):
     w_length = space.call_method(self, "readinto", w_buffer)
     if space.is_w(w_length, space.w_None):
         return w_length
-    space.delslice(w_buffer, w_length, space.len(w_buffer))
+    length = space.getindex_w(w_length, space.w_ValueError)
+    if length != space.len_w(w_buffer):
+        w_buffer = space.getslice(w_buffer, space.newint(0),
+                                  space.newint(length))
     return space.call_function(space.w_bytes, w_buffer)
 
 @unwrap_spec(self=W_IOBase)

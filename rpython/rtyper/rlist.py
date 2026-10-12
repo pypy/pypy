@@ -237,14 +237,16 @@ class AbstractFixedSizeListRepr(AbstractBaseListRepr):
 
 class __extend__(pairtype(AbstractBaseListRepr, Repr)):
 
-    def rtype_contains((r_lst, _), hop):
+    def rtype_contains(args, hop):
+        r_lst, _ = args
         v_lst, v_any = hop.inputargs(r_lst, r_lst.item_repr)
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_listcontains, v_lst, v_any, r_lst.get_eqfunc())
 
 class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
 
-    def rtype_getitem((r_lst, r_int), hop, checkidx=False):
+    def rtype_getitem(args, hop, checkidx=False):
+        r_lst, r_int = args
         v_lst, v_index = hop.inputargs(r_lst, Signed)
         if checkidx:
             hop.exception_is_here()
@@ -266,10 +268,12 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         v_res = hop.gendirectcall(llfn, c_func_marker, c_basegetitem, v_lst, v_index)
         return r_lst.recast(hop.llops, v_res)
 
-    def rtype_getitem_idx((r_lst, r_int), hop):
+    def rtype_getitem_idx(args, hop):
+        r_lst, r_int = args
         return pair(r_lst, r_int).rtype_getitem(hop, checkidx=True)
 
-    def rtype_setitem((r_lst, r_int), hop):
+    def rtype_setitem(args, hop):
+        r_lst, r_int = args
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx
         else:
@@ -283,20 +287,23 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         hop.exception_is_here()
         return hop.gendirectcall(llfn, v_func, v_lst, v_index, v_item)
 
-    def rtype_mul((r_lst, r_int), hop):
+    def rtype_mul(args, hop):
+        r_lst, r_int = args
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
 class __extend__(pairtype(IntegerRepr, AbstractBaseListRepr)):
-    def rtype_mul((r_int, r_lst), hop):
+    def rtype_mul(args, hop):
+        r_int, r_lst = args
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         v_factor, v_lst = hop.inputargs(Signed, r_lst)
         return hop.gendirectcall(ll_mul, cRESLIST, v_lst, v_factor)
 
 class __extend__(pairtype(AbstractListRepr, IntegerRepr)):
 
-    def rtype_delitem((r_lst, r_int), hop):
+    def rtype_delitem(args, hop):
+        r_lst, r_int = args
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx
         else:
@@ -310,25 +317,29 @@ class __extend__(pairtype(AbstractListRepr, IntegerRepr)):
         hop.exception_is_here()
         return hop.gendirectcall(llfn, v_func, v_lst, v_index)
 
-    def rtype_inplace_mul((r_lst, r_int), hop):
+    def rtype_inplace_mul(args, hop):
+        r_lst, r_int = args
         v_lst, v_factor = hop.inputargs(r_lst, Signed)
         return hop.gendirectcall(ll_inplace_mul, v_lst, v_factor)
 
 
 class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
-    def convert_from_to((r_lst1, r_lst2), v, llops):
+    def convert_from_to(args, v, llops):
+        r_lst1, r_lst2 = args
         if r_lst1.listitem is None or r_lst2.listitem is None:
             return NotImplemented
         if r_lst1.listitem is not r_lst2.listitem:
             return NotImplemented
         return v
 
-    def rtype_eq((r_lst1, r_lst2), hop):
+    def rtype_eq(args, hop):
+        r_lst1, r_lst2 = args
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         return hop.gendirectcall(ll_listeq, v_lst1, v_lst2, r_lst1.get_eqfunc())
 
-    def rtype_ne((r_lst1, r_lst2), hop):
+    def rtype_ne(args, hop):
+        r_lst1, r_lst2 = args
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         flag = hop.gendirectcall(ll_listeq, v_lst1, v_lst2, r_lst1.get_eqfunc())
@@ -352,21 +363,24 @@ def rtype_alloc_and_set(hop):
 
 class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
 
-    def rtype_add((r_lst1, r_lst2), hop):
+    def rtype_add(args, hop):
+        r_lst1, r_lst2 = args
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         return hop.gendirectcall(ll_concat, cRESLIST, v_lst1, v_lst2)
 
 class __extend__(pairtype(AbstractListRepr, AbstractBaseListRepr)):
 
-    def rtype_inplace_add((r_lst1, r_lst2), hop):
+    def rtype_inplace_add(args, hop):
+        r_lst1, r_lst2 = args
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
         hop.gendirectcall(ll_extend, v_lst1, v_lst2)
         return v_lst1
 
 class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
 
-    def rtype_inplace_add((r_lst1, r_str2), hop):
+    def rtype_inplace_add(args, hop):
+        r_lst1, r_str2 = args
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
                              'of chars or unichars')
@@ -378,7 +392,8 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
                           c_strlen, c_stritem)
         return v_lst1
 
-    def rtype_extend_with_str_slice((r_lst1, r_str2), hop):
+    def rtype_extend_with_str_slice(args, hop):
+        r_lst1, r_str2 = args
         from rpython.rtyper.lltypesystem.rstr import string_repr
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '
@@ -394,7 +409,8 @@ class __extend__(pairtype(AbstractListRepr, AbstractStringRepr)):
 
 class __extend__(pairtype(AbstractListRepr, AbstractCharRepr)):
 
-    def rtype_extend_with_char_count((r_lst1, r_chr2), hop):
+    def rtype_extend_with_char_count(args, hop):
+        r_lst1, r_chr2 = args
         from rpython.rtyper.lltypesystem.rstr import char_repr
         if r_lst1.item_repr.lowleveltype not in (Char, UniChar):
             raise TyperError('"lst += string" only supported with a list '

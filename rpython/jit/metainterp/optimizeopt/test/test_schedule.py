@@ -18,7 +18,7 @@ from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, VectorizationInfo)
 
 if sys.maxint == 2 ** 31 - 1:
-    pytest.skip("32bit platforms are not supported")
+    pytest.skip("32bit platforms are not supported", allow_module_level=True)
 
 class FakeVecScheduleState(VecScheduleState):
     def __init__(self):

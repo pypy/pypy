@@ -30,9 +30,31 @@ def test_from_buffer_keepalive():
     b1 = bytearray(b"ab")
     array = (c_uint16 * 32)()
     array[6] = c_uint16.from_buffer(b1)
-    # this is also what we get on CPython.  I don't think it makes
-    # sense because the array contains just a copy of the number.
-    assert array._objects == {'6': b1}
+    # this is also what we get on CPython: a memoryview of b1.  I don't
+    # think it makes sense because the array contains just a copy of the
+    # number.
+    assert list(array._objects) == ['6']
+    assert isinstance(array._objects['6'], memoryview)
+    assert array._objects['6'].obj is b1
+
+@pytest.mark.parametrize("make", [
+    lambda b1: (c_char * 4).from_buffer(b1),
+    lambda b1: c_uint32.from_buffer(b1),
+    lambda b1: (c_char * 4).from_buffer(memoryview(b1)),
+], ids=["array", "primitive", "memoryview"])
+def test_from_buffer_keeps_export(make):
+    # issue 5618: the buffer stays exported as long as the ctypes object
+    # lives, so that it cannot be resized under it
+    import gc
+    b1 = bytearray(b"abcd")
+    x = make(b1)
+    gc.collect()
+    with pytest.raises(BufferError):
+        b1.clear()
+    del x
+    gc.collect()
+    gc.collect()
+    b1.clear()
 
 def normalize(fmt):
     if sys.byteorder == "big":
