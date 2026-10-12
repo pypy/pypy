@@ -71,7 +71,8 @@ cffi_dependencies = {
              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
+    '_gdbm': (
+              'http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
               '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
               [configure_args + ['--without-readline', '--with-pic'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
