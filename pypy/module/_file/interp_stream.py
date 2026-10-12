@@ -43,15 +43,10 @@ class W_AbstractStream(W_Root):
         try:
             if self.slock is None:
                 self.slock = self.space.allocate_lock()
-                self.slock.acquire(True)
-            elif not self.slock.acquire(False):
-                if self.slockowner is None:
-                    # held, but claimed by nobody: it was leaked while
-                    # unwinding, and blocking on it would hang for ever
-                    self.slock = self.space.allocate_lock()
-                self.slock.acquire(True)
         except CannotHaveLock:
             pass
+        else:
+            self.slock.acquire(True)
         assert self.slockowner is None
         self.slockowner = me
         return True

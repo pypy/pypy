@@ -625,15 +625,3 @@ class TestStreamLock:
         stream._release_lock()
         assert stream._try_acquire_lock()
         stream._release_lock()
-
-    def test_leaked_lock_is_recovered(self):
-        # a lock left behind by an interrupted _release_lock() is held but
-        # has no owner: acquiring it again must not block for ever
-        from pypy.module._file.interp_stream import W_AbstractStream
-        stream = W_AbstractStream(self.space, None)
-        assert stream._try_acquire_lock()
-        leaked = stream.slock
-        stream.slockowner = None
-        assert stream._try_acquire_lock()
-        assert stream.slock is not leaked
-        stream._release_lock()
