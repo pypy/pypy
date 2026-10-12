@@ -403,13 +403,3 @@ Decompress.typedef = TypeDef(
 
 Optional arg wbits is the window buffer size.
 """)
-
-# The methods above hold self._lock across a 'finally'; a stack check
-# inserted at the start of a block would raise out of the function instead
-# of through its exception links, skipping that 'finally'.
-for _cls in (Compress, Decompress):
-    for _name in ('compress', 'decompress', 'copy', 'flush'):
-        _meth = getattr(_cls, _name, None)
-        if _meth is not None:
-            _meth.im_func._dont_insert_stackcheck_ = True
-del _cls, _name, _meth
