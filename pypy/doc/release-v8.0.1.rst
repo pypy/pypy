@@ -52,8 +52,6 @@ making a CFFI_ version of your library that would be performant
 on PyPy. Failing that, PyPy will soon support the cp312-abi3 tag for limited
 ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
-.. rubric:: Footnotes
-
 .. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: https://doc.pypy.org/project-ideas.html
@@ -159,7 +157,6 @@ Python 3.11 and 3.12
   :issue:`5618`)
 - Refactor buffer exports to use a ``BufferExport`` class to track exports, in
   light of all the buffer release problems.
-- Catch lookup errors in ``match_class_attr`` (:issue:`5611`)
 - On macos, locale defaults to ``utf-8`` if empty (:issue:`5638`)
 - Fix select tests on MacOS (:issue:`5645`)
 
@@ -175,4 +172,4 @@ Python 3.12
 - cpyext: Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
 - Add missing consts to stats for windows (:issue:`5626`)
 - Fix fstring AST to match CPython (:issue:`5627`)
-- Refactor and make formatting error message compatible with CPython (:issue:`5642`)
+- Refactor and make ``format`` error message compatible with CPython (:issue:`5642`)
