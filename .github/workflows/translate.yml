@@ -15,6 +15,8 @@ jobs:
 
     name: build on ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    env:
+      PYPY_ARCHIVES_DIR: ${{ github.workspace }}/.deps-archives
     strategy:
       fail-fast: false
       matrix:
@@ -80,19 +82,18 @@ jobs:
         echo "PYPY_LOCALBASE=${{ matrix.localbase }}" >> "$GITHUB_ENV"
         echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> "$GITHUB_ENV"
         echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"
-        echo "PYPY_ARCHIVES_DIR=$GITHUB_WORKSPACE/.deps-archives" >> "$GITHUB_ENV"
 
-    # package.py --make-portable builds openssl and gdbm from source; keep the
-    # tarballs so a flaky mirror doesn't sink the job (the sha256 is checked
-    # before use, so a stale entry is just re-downloaded)
+    # package.py builds openssl and gdbm from source everywhere but Windows;
+    # keep the tarballs so a flaky mirror doesn't sink the job (the sha256 is
+    # checked before use, so a stale entry is just re-downloaded)
     - name: cache embedded dependency archives
-      if: ${{ runner.os == 'macOS' }}
+      if: ${{ runner.os != 'Windows' }}
       uses: actions/cache@v4
       with:
         path: ${{ github.workspace }}/.deps-archives
-        key: deps-archives-${{ matrix.platform }}-${{ hashFiles('lib_pypy/pypy_tools/build_cffi_imports.py') }}
+        key: deps-archives-${{ hashFiles('lib_pypy/pypy_tools/build_cffi_imports.py') }}
         restore-keys: |
-          deps-archives-${{ matrix.platform }}-
+          deps-archives-
 
     - name: install Windows dependencies
       if: ${{ matrix.platform == 'win64' }}
@@ -153,6 +154,7 @@ jobs:
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
+            -e PYPY_ARCHIVES_DIR=/workspace/.deps-archives \
             "$CONTAINER" \
             bash -c "./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=."
         else
