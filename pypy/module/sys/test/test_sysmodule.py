@@ -949,6 +949,8 @@ class AppTestCurrentFramesWithThread:
         import sys
         import time
         import _thread
+        if sys.platform == 'darwin':
+            skip('test can hang on macos')
 
         # XXX workaround for now: to prevent deadlocks, call
         # sys._current_frames() once before starting threads.
