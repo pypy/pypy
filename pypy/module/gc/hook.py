@@ -128,7 +128,7 @@ class NoRecursiveAction(AsyncAction):
     # allocates, so a GC triggered inside it can fire this action again and
     # land here.  Count the losses; ABORT_ON_DROP turns them into a crash with
     # an RPython traceback showing who reentered.
-    REPORT_DROPS = True
+    REPORT_DROPS = False
     ABORT_ON_DROP = False
     HOOK_NAME = 'gc hook'
     dropped = 0
