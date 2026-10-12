@@ -366,8 +366,8 @@ class TestSearchUtf8(BaseTestSearch):
     P = staticmethod(lambda n: n)   # NB. only for plain ascii
 
     @py.test.mark.parametrize('pattern', [
-        ur'(?=é).{2}', ur'é..', ur'[éx]..', ur'éé.',
-        ur'(é)é.', ur'ééé.x', ur'éé$', ur'.*', ur'$'])
+        u'(?=é).{2}', u'é..', u'[éx]..', u'éé.',
+        u'(é)é.', u'ééé.x', u'éé$', u'.*', u'$'])
     def test_search_min_width_utf8_bounds(self, pattern):
         code = get_code(pattern, re.UNICODE)
         reference = re.compile(pattern, re.UNICODE)
@@ -388,7 +388,7 @@ class TestSearchUtf8(BaseTestSearch):
                                 positions[p] for p in expected.span(group))
 
     def test_search_min_width_unicode(self):
-        code = get_code(ur'.{2}', re.UNICODE)
+        code = get_code(u'.{2}', re.UNICODE)
         assert self.search(code, u'\xe9'.encode('utf-8')) is None
         text = u'\xe9\xe9'.encode('utf-8')
         assert self.search(code, text).span() == (0, 4)
