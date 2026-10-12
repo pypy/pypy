@@ -3,7 +3,7 @@ import py
 try:
     import cffi
 except ImportError:
-    py.test.skip('cffi required')
+    py.test.skip('cffi required', allow_module_level=True)
 
 from rpython.rlib import rvmprof
 srcdir = py.path.local(rvmprof.__file__).join("..", "src")

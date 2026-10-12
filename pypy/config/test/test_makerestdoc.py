@@ -9,7 +9,7 @@ tempdir = py.test.ensuretemp('config')
 try:
     import docutils
 except ImportError:
-    py.test.skip("don't have docutils")
+    py.test.skip("don't have docutils", allow_module_level=True)
 
 def checkrest(rest, filename):
     tempfile = tempdir.join(filename)

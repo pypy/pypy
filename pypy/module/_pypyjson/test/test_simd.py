@@ -13,10 +13,10 @@ from pypy.module._pypyjson.simd import find_end_of_string_simd_unaligned_no_hash
 try:
     from hypothesis import example, given, strategies
 except ImportError:
-    pytest.skip("missing hypothesis!")
+    pytest.skip("missing hypothesis!", allow_module_level=True)
 
 if not USE_SIMD:
-    pytest.skip("only implemented for 64 bit for now")
+    pytest.skip("only implemented for 64 bit for now", allow_module_level=True)
 
 def fill_to_word_size(res, ch=" "):
     if len(res) % WORD_SIZE != 0:

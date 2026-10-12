@@ -83,16 +83,32 @@ def test_re_finditer_keeps_buffer():
 
 
 def test_original_release_then_slice_gc():
-    # Releasing the original memoryview (decrementing _exports) and then
-    # GC-ing the surviving slices must be a no-op for the slices.
-    import weakref
-
+    # Releasing the original memoryview keeps the export while a slice of it
+    # is alive (issue 5613), as on CPython.  GC-ing the slice releases it.
     b = bytearray(b'hello')
     m = memoryview(b)
     s = m[:3]
-    m.release()         # releases the export: _exports -> 0
-    b.append(ord('!'))  # must work: export is gone
+    m.release()
+    with raises(BufferError):
+        b.append(ord('!'))
     del s
     gc.collect()        # GC of s must not crash
+    gc.collect()
+    b.append(ord('!'))
     b.append(ord('?'))
     assert b == bytearray(b'hello!?')
+
+
+def test_strided_double_slice_tobytes():
+    # issue 5231: slicing an already-strided memoryview must offset by the
+    # parent's step, so tobytes() matches element-by-element indexing.
+    mv = memoryview(bytes(range(256)))
+    size = 8
+    bs = [mv[boffset::size] for boffset in range(size)]
+    for L in range(0, 32):
+        for R in range(L, 32):
+            for boffset in range(size):
+                mybs = bs[boffset]
+                way1 = bytes(mybs[i] for i in range(L, R))
+                way2 = mybs[L:R].tobytes()
+                assert way1 == way2, (boffset, L, R, way1, way2)

@@ -61,6 +61,9 @@ class BytesIOView(SimpleView):
     def releasebuffer(self):
         self.w_bytesio.export_count -= 1
 
+    def needs_release(self):
+        return True
+
 
 class W_BytesIO(W_BufferedIOBase):
     import_from_mixin(RStringIO)

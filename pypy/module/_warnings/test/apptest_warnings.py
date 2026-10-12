@@ -25,10 +25,15 @@ def test_defaults():
     assert _warnings.filters == expected
 
 def test_warn():
-    with warnings.catch_warnings(record=True) as log:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         _warnings.warn("some message", DeprecationWarning)
         _warnings.warn("some message", Warning)
         _warnings.warn(("some message",1), Warning)
+    assert len(w) == 3
+    assert issubclass(w[0].category, DeprecationWarning)
+    assert issubclass(w[1].category, Warning)
+    assert issubclass(w[2].category, Warning)
 
 def test_use_builtin__warnings():
     """Check that the stdlib warnings.py module manages to import our
@@ -46,11 +51,15 @@ def test_lineno():
     assert w[-1].lineno == lineno
 
 def test_warn_explicit():
-    with warnings.catch_warnings(record=True) as log:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         _warnings.warn_explicit("some message", DeprecationWarning,
                                 "<string>", 1, module_globals=globals())
         _warnings.warn_explicit("some message", Warning,
                                 "<string>", 1, module_globals=globals())
+    assert len(w) == 2
+    assert issubclass(w[0].category, DeprecationWarning)
+    assert issubclass(w[1].category, Warning)
 
 def test_with_source():
     source = []
@@ -78,9 +87,8 @@ def test_ignore():
     assert list(__warningregistry__) == ['version']
 
 def test_show_source_line():
-    # Something is wrong with pytest > 4.0.0 (which is the version run for -D
-    # pypy tests: it cannot redirect sys.stderr
-    if getattr(pytest, "__version__", "untranslated")[0] >= '4':
+    # pytest >= 3.1 records warnings per test, so nothing reaches sys.stderr
+    if getattr(pytest, "__version__", "untranslated")[0] >= '3':
         pytest.skip("fails on this version of pytest")
 
     def inner(message, stacklevel=1):
@@ -106,18 +114,20 @@ def test_show_source_line():
 
 
 def test_filename_none():
-    with warnings.catch_warnings(record=True) as log:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         globals()['__file__'] = 'test.pyc'
         _warnings.warn('test', UserWarning)
         globals()['__file__'] = None
         _warnings.warn('test', UserWarning)
-    assert len(log) == 2
+    assert len(w) == 2
+    assert issubclass(w[0].category, UserWarning)
+    assert issubclass(w[1].category, UserWarning)
 
 
 def test_warn_unicode():
-    # Something is wrong with pytest > 4.0.0 (which is the version run for -D
-    # pypy tests: it cannot redirect sys.stderr
-    if getattr(pytest, "__version__", "untranslated")[0] >= '4':
+    # pytest >= 3.1 records warnings per test, so nothing reaches sys.stderr
+    if getattr(pytest, "__version__", "untranslated")[0] >= '3':
         pytest.skip("fails on this version of pytest")
 
     old = sys.stderr, warnings.showwarning
@@ -183,13 +193,15 @@ def test_issue31285():
                         return splitlines_ret_val
                 return BadSource('spam')
         return BadLoader()
-    # does not raise:
-    with warnings.catch_warnings(record=True) as log:
+    # does not raise, and does emit the warning:
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         _warnings.warn_explicit(
             'eggs', UserWarning, 'bar', 1,
             module_globals={'__loader__': get_bad_loader(42),
                             '__name__': 'foobar'})
-    assert len(log) == 1
+    assert len(w) == 1
+    assert issubclass(w[0].category, UserWarning)
 
 def test_once_is_not_broken():
     def f():

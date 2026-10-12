@@ -4,7 +4,7 @@ import py
 try:
     import Image
 except ImportError as e:
-    py.test.skip(str(e))
+    py.test.skip(str(e), allow_module_level=True)
 
 from pypy.tool.bench.htmlreport import (
         PerfResult, PerfTable, PerfResultCollection,

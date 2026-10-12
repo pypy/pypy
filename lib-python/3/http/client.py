@@ -530,6 +530,7 @@ class HTTPResponse(io.BufferedIOBase):
                 # clip the read to the "end of response"
                 view = memoryview(b)
                 b = view[0:self.length]
+        b_empty = not len(b)
 
         # we do not use _safe_read() here because this may be a .will_close
         # connection, and the user is reading more bytes than will be provided
@@ -537,10 +538,13 @@ class HTTPResponse(io.BufferedIOBase):
         try:
             n = self.fp.readinto(b)
         finally:
-            # PyPy: release the view now, the GC would only do it later
+            # PyPy: release both views now, the GC would only do it later.
+            # The clipped slice holds the export too, so releasing only the
+            # memoryview it came from keeps b locked (issues 5612, 5613).
             if view is not None:
+                b.release()
                 view.release()
-        if not n and b:
+        if not n and not b_empty:
             # Ideally, we would raise IncompleteRead if the content-length
             # wasn't satisfied, but it might break compatibility.
             self._close_conn()
@@ -639,7 +643,6 @@ class HTTPResponse(io.BufferedIOBase):
         assert self.chunked != _UNKNOWN
         total_bytes = 0
         mvb = memoryview(b)
-        view = mvb
         try:
             while True:
                 chunk_left = self._get_chunk_left()
@@ -651,17 +654,21 @@ class HTTPResponse(io.BufferedIOBase):
                     self.chunk_left = chunk_left - n
                     return total_bytes + n
 
-                temp_mvb = mvb[:chunk_left]
-                n = self._safe_readinto(temp_mvb)
+                # PyPy: release each view as we are done with it, the GC
+                # would only do it later, and a view still using the export
+                # keeps b locked (issues 5612, 5613)
+                with mvb[:chunk_left] as temp_mvb:
+                    n = self._safe_readinto(temp_mvb)
+                prev_mvb = mvb
                 mvb = mvb[n:]
+                prev_mvb.release()
                 total_bytes += n
                 self.chunk_left = 0
 
         except IncompleteRead:
             raise IncompleteRead(bytes(b[0:total_bytes]))
         finally:
-            # PyPy: release the view now, the GC would only do it later
-            view.release()
+            mvb.release()
 
     def _safe_read(self, amt):
         """Read the number of bytes requested.

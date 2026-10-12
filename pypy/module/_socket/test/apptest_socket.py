@@ -830,10 +830,10 @@ def test_tcp_recv_into_params():
     cli.close()
     serv.close()
 
+@pytest.mark.skipif(not sys.platform.startswith('linux'),
+                    reason='abstract socket namespace is Linux-specific')
 def test_tcp_bytearray_name():
     import _socket as socket
-    if not hasattr(socket, 'AF_UNIX'):
-        pytest.skip('AF_UNIX not supported.')
     s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     s.bind(bytearray(b"\x00python\x00test\x00"))
     assert s.getsockname() == b"\x00python\x00test\x00"

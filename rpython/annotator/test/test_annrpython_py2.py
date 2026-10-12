@@ -5,7 +5,7 @@ from rpython.conftest import option
 
 from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator as _RPythonAnnotator
-from rpython.translator.test import snippet
+from rpython.translator.test import snippet, snippet_py2
 
 from .test_annrpython import (
     TestAnnotateTestCase as _TestAnnotateTestCase, graphof
@@ -76,3 +76,9 @@ class TestAnnotateTestCase:
         a = self.RPythonAnnotator()
         s = a.build_types(f, [annmodel.SomeInteger()])
         assert isinstance(s, annmodel.SomeBool)
+
+    def test_exception_deduction_with_raise3(self):
+        a = self.RPythonAnnotator()
+        s = a.build_types(snippet_py2.exception_deduction_with_raise3, [bool])
+        assert isinstance(s, annmodel.SomeInstance)
+        assert s.classdef is a.bookkeeper.getuniqueclassdef(snippet.Exc)

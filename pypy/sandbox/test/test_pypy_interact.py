@@ -10,7 +10,7 @@ SITE_PY_CONTENT = LIB_PYTHON.join('site.py').read()
 ERROR_TEXT = os.strerror(errno.ENOENT)
 
 if os.name == 'nt':
-    py.test.skip('sandbox not supported on windows')
+    py.test.skip('sandbox not supported on windows', allow_module_level=True)
 
 def assert_(cond, text):
     if not cond:

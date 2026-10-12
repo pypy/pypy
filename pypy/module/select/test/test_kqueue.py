@@ -39,12 +39,10 @@ class AppTestKqueue(object):
         assert ev != other
         assert ev < other
         assert other >= ev
-        assert cmp(ev, None) != 0
-        assert cmp(ev, 1) !=  0
-        assert cmp(ev, "ev") != 0
-        assert cmp(ev, None) == -cmp(None, ev)
-        assert cmp(ev, 1) == -cmp(1, ev)
-        assert cmp(ev, "ev") == -cmp("ev", ev)
+        for op in lt, le, gt, ge:
+            raises(TypeError, op, ev, None)
+            raises(TypeError, op, ev, 1)
+            raises(TypeError, op, ev, "ev")
 
         ev = select.kevent(fd, select.KQ_FILTER_WRITE)
         assert ev.ident == fd
@@ -108,7 +106,8 @@ class AppTestKqueue(object):
             pass # FreeBSD doesn't raise an exception here
             # (the above commented-out code is just like CPython's
             # test_kqueue)
-        server, addr = server_socket.accept()
+        fileno, addr = server_socket._accept()
+        server = socket.socket(fileno=fileno)
 
         if sys.platform.startswith("darwin"):
             flags = select.KQ_EV_ADD | select.KQ_EV_ENABLE

@@ -13,7 +13,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.detect_cpu import getcpuclass
 
 if sys.platform == 'win32':
-    py.test.skip("takes over 20 minutes on Windows")
+    py.test.skip("takes over 20 minutes on Windows", allow_module_level=True)
 
 class TestBasic(test_basic.Jit386Mixin, test_zvector.VectorizeTests):
     # for the individual tests see

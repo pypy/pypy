@@ -81,6 +81,11 @@ class BufferView(object):
     def needs_release(self):
         return False
 
+    def get_export(self):
+        # the BufferExport this view borrows, if any (see
+        # W_MemoryView.buffer_w)
+        return None
+
     def value_from_bytes(self, space, s):
         from pypy.module.struct.formatiterator import UnpackFormatIterator
         buf = StringBuffer(s)
@@ -190,8 +195,8 @@ class BufferView(object):
 
         return space.newlist(items)
 
-    def wrap(self, space, owns_export=True):
-        return space.newmemoryview(self, owns_export=owns_export)
+    def wrap(self, space):
+        return space.newmemoryview(self)
 
 
 class RawBufferView_Base(BufferView):
@@ -401,9 +406,10 @@ class BufferSlice(BufferView):
         return SubBuffer(self.parent.as_writebuf(), byte_offset, self.getlength())
 
     def new_slice(self, start, step, slicelength):
-        real_start = start + self.start
+        real_start = self.start + start * self.step
         real_step = self.step * step
-        return BufferSlice(self.parent, real_start, real_step, slicelength)
+        return BufferSlice(self.parent, real_start, real_step, slicelength,
+                           w_obj=self.w_obj)
 
     def setitem_w(self, space, idx, w_obj):
         return self.parent.setitem_w(space, self.parent_index(idx), w_obj)
@@ -465,19 +471,22 @@ class ReadonlyWrapper(BufferView):
 class NonOwningReleaseView(BufferView):
     """Wraps a BufferView but with a no-op releasebuffer.
 
-    Used when handing out a BufferView from an object that already owns
+    Used when handing out a BufferView from an object that already holds
     the underlying export (e.g. memoryview(bytearray) returning its
-    internal view).  The memoryview's own finalizer is responsible for
-    calling releasebuffer on the wrapped view exactly once; callers that
-    go through buffer_w must not also decrement the shared _exports
-    counter.
+    internal view).  Callers that go through buffer_w must not decrement
+    the shared _exports counter; a memoryview built from this view shares
+    the export instead (see acquire_export).
     """
     _immutable_ = True
 
-    def __init__(self, view):
+    def __init__(self, view, export=None):
         self.view = view
         self.readonly = view.readonly
         self.w_obj = view.w_obj
+        self.export = export
+
+    def get_export(self):
+        return self.export
 
     def getlength(self):
         return self.view.getlength()
@@ -516,9 +525,10 @@ class NonOwningReleaseView(BufferView):
         return self.view.getstrides()
 
     def releasebuffer(self):
-        # no-op: the owning memoryview is responsible for releasing.
+        # no-op: the export is released by its users, not by this view.
         pass
 
     def new_slice(self, start, step, slicelength):
-        return NonOwningReleaseView(self.view.new_slice(start, step, slicelength))
+        return NonOwningReleaseView(self.view.new_slice(start, step, slicelength),
+                                    self.export)
 

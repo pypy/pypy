@@ -844,7 +844,7 @@ def str_decode_utf_32_helper(s, size, errors, final=True,
             continue
 
         if MAXUNICODE < 65536 and ch >= 0x10000:
-            ch -= 0x10000L
+            ch -= 0x10000
             result.append(unichr(0xD800 + (ch >> 10)))
             result.append(unichr(0xDC00 + (ch & 0x03FF)))
         else:
@@ -1425,7 +1425,7 @@ def hexescape(builder, s, pos, digits,
                 pos += digits
 
             elif chr <= 0x10ffff:
-                chr -= 0x10000L
+                chr -= 0x10000
                 builder.append(unichr(0xD800 + (chr >> 10)))
                 builder.append(unichr(0xDC00 + (chr & 0x03FF)))
                 pos += digits
@@ -1537,7 +1537,7 @@ def str_decode_unicode_escape(s, size, errors, final=False,
                     if code <= MAXUNICODE:
                         builder.append(UNICHR(code))
                     else:
-                        code -= 0x10000L
+                        code -= 0x10000
                         builder.append(unichr(0xD800 + (code >> 10)))
                         builder.append(unichr(0xDC00 + (code & 0x03FF)))
                 else:

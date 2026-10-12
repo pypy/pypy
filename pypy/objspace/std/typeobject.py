@@ -84,9 +84,14 @@ class MethodCache(object):
         self.versions = [None] * SIZE
         self.names = [None] * SIZE
         self.lookup_where = [(None, None)] * SIZE
+        self.stored = None
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
             self.misses = {}
+            self.evicted = {}
+            # for each name, the version tags with which it was stored
+            # since the last clear(), see count_miss()
+            self.stored = {}
 
     def clear(self):
         None_None = (None, None)
@@ -96,6 +101,23 @@ class MethodCache(object):
             self.names[i] = None
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
+        if self.stored is not None:
+            self.stored.clear()
+
+    def count_miss(self, version_tag, name):
+        # Only with withmethodcachecounter.  A lookup that misses because
+        # another entry took the place of its entry is counted as evicted,
+        # not as a miss: which entries take each other's place depends on
+        # where the version tags are in memory.
+        stored = self.stored.get(name, None)
+        if stored is None:
+            stored = {}
+            self.stored[name] = stored
+        if version_tag in stored:
+            self.evicted[name] = self.evicted.get(name, 0) + 1
+        else:
+            stored[version_tag] = True
+            self.misses[name] = self.misses.get(name, 0) + 1
 
     def _cleanup_(self):
         self.clear()
@@ -551,7 +573,7 @@ class W_TypeObject(W_Root):
             cache.names[method_hash] = name
             cache.lookup_where[method_hash] = tup
             if space.config.objspace.std.withmethodcachecounter:
-                cache.misses[name] = cache.misses.get(name, 0) + 1
+                cache.count_miss(version_tag, name)
 #        print "miss", self, name
         return tup
 

@@ -21,7 +21,8 @@ def subproc_run(*args):
     for line in output.splitlines(False):
         if line.startswith('conftest1_innertest.py'):
             line = line[len('conftest1_innertest.py'):]
-            testname, result = line.lstrip(':').strip().split()
+            # pytest >= 3.3 appends a "[ 33%]" progress column
+            testname, result = line.lstrip(':').strip().split()[:2]
             if result == 'PASSED':
                 passed.append(testname)
             elif result == 'FAILED':

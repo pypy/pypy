@@ -9,7 +9,7 @@ import py
 
 ACTUAL_CPU = getcpuclass()
 if not hasattr(ACTUAL_CPU, 'NUM_REGS'):
-    py.test.skip('unsupported CPU')
+    py.test.skip('unsupported CPU', allow_module_level=True)
 
 class FakeCPU:
     rtyper = None

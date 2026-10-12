@@ -426,7 +426,7 @@ class wrap_getbuffer(W_PyCWrapperObject):
                                 needs_decref=True,
                                 releasebufferproc = rbp)
             fq.register_finalizer(buf)
-            return buf.wrap(space, owns_export=False)
+            return buf.wrap(space)
 
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):

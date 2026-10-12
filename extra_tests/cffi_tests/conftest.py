@@ -32,7 +32,7 @@ except AttributeError:
     # Python 3.12 and older
     gil_enabled_at_start = True
 
-def pytest_terminal_summary(terminalreporter, exitstatus, config):
+def pytest_terminal_summary(terminalreporter, exitstatus):
     if not gil_enabled_at_start and sys._is_gil_enabled():
         tr = terminalreporter
         tr.ensure_newline()

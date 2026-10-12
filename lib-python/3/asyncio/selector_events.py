@@ -562,7 +562,10 @@ class BaseSelectorEventLoop(base_events.BaseEventLoop):
             return
         start = pos[0]
         try:
-            n = sock.send(view[start:])
+            # PyPy: release the slice now, the GC would only do it later, and
+            # it holds the export view shares (issues 5612, 5613)
+            with view[start:] as chunk:
+                n = sock.send(chunk)
         except (BlockingIOError, InterruptedError):
             return
         except (SystemExit, KeyboardInterrupt):

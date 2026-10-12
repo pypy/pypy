@@ -2,7 +2,7 @@ import pytest
 import sys
 
 if sys.platform == 'win32':
-    pytest.skip("missing details to make faulthandler work on windows")
+    pytest.skip("missing details to make faulthandler work on windows", allow_module_level=True)
 
 class AppTestFaultHandler:
     spaceconfig = {

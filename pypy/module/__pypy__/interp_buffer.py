@@ -4,7 +4,7 @@ Allow use of the buffer interface from python
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
-from pypy.objspace.std.memoryobject import BufferViewND
+from pypy.objspace.std.memoryobject import BufferViewND, acquire_export
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
@@ -110,10 +110,8 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                       shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
     # Pass w_obj (the input, e.g. a memoryview) as the owning object, not
-    # view.w_obj (the underlying bytearray).  This keeps the input alive for
-    # as long as the returned memoryview lives, and ensures _release_underlying
-    # calls w_obj.__release_buffer__ (a no-op for memoryview) rather than
-    # bytearray.__release_buffer__ for an export that M2 never acquired.
+    # view.w_obj (the underlying bytearray): this keeps the input, and with
+    # it the export it holds, alive for as long as the result lives.
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
                                                   shape, strides, w_obj=w_obj))
 
@@ -135,22 +133,16 @@ class FormatBufferViewND(BufferViewND):
 class W_PickleBuffer(W_BufferExporter):
     """ Wrapper for potentially out-of-band buffers """
     def __init__(self, space, w_obj):
+        # Remember the object we were constructed from: re-acquiring from it
+        # (rather than from self.buf.w_obj, which points at the root exporter)
+        # preserves a sliced/strided source's shape and strides.
+        self.w_source = w_obj
         self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
-        if self.buf is not None and self.buf.needs_release():
-            self.register_finalizer(space)
+        self.export = acquire_export(space, self.buf)
 
     def check(self, space):
         if self.buf is None:
             raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
-
-    def _release_buf(self):
-        buf = self.buf
-        if buf is not None:
-            self.buf = None
-            buf.releasebuffer()
-
-    def _finalize_(self):
-        self._release_buf()
 
     def descr_raw(self, space):
         """
@@ -158,7 +150,7 @@ class W_PickleBuffer(W_BufferExporter):
         Will raise BufferError is the buffer isn't contiguous.
         """
         self.check(space)
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             view = space.buffer_w(w_obj, space.BUF_FULL_RO)
         else:
@@ -169,12 +161,19 @@ class W_PickleBuffer(W_BufferExporter):
         """
         Release the underlying buffer exposed by the PickleBuffer object.
         """
-        self._release_buf()
+        self.buf = None
+        # drop the source too, so that a memoryview source can be collected
+        # and stop using the export
+        self.w_source = None
+        export = self.export
+        if export is not None:
+            self.export = None
+            export.detach()
 
     def buffer_w(self, space, flags):
         self.check(space)
         space.check_buf_flags(flags, self.buf.readonly)
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             return space.buffer_w(w_obj, flags)
         return self.buf
@@ -182,7 +181,7 @@ class W_PickleBuffer(W_BufferExporter):
     def bf_getbuffer(self, space, view, flags):
         self.check(space)
         # Forward to the underlying exporter (see buffer_w comment).
-        w_obj = self.buf.w_obj
+        w_obj = self.w_source
         if w_obj is not None and w_obj is not self:
             w_obj.bf_getbuffer(space, view, flags)
             return

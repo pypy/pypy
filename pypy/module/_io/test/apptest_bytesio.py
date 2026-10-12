@@ -174,6 +174,16 @@ def test_getbuffer_export_count():
     # all released, write succeeds
     memio.write(b'x')
 
+def test_getbuffer_released_by_gc():
+    import gc
+    memio = _io.BytesIO(b"1234567890")
+    buf = memio.getbuffer()
+    raises(BufferError, memio.truncate)
+    del buf
+    gc.collect()
+    memio.truncate()
+    memio.close()
+
 def test_truncate_on_read_only():
     rawio = _io.BytesIO(b"abc")
     bufio = _io.BufferedReader(rawio)

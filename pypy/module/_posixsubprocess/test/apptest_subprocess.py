@@ -225,6 +225,8 @@ def test_issue_3630(tmpdir):
     finally:
         os.remove(tmpfile)
 
+@pytest.mark.skipif(not os.path.exists('/proc/self/status'),
+                    reason='need /proc/self/status')
 def test_restore_signals():
     import posix as os
     # Copied from lib-python/3/subprocess._execute_child

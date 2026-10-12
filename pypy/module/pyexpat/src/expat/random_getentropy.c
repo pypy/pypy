@@ -32,8 +32,6 @@
    SPDX-License-Identifier: MIT
 */
 
-/* PyPy: pull in pyexpatns.h so writeRandomBytes_* are namespaced. */
-#include "expat_external.h"
 #include "random_getentropy.h"
 
 // NOTE: Please keep this block in sync with its two siblings in files

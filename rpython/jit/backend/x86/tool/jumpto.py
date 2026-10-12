@@ -13,7 +13,7 @@ def find_target(coderange, target):
     data = coderange.data
     for i in range(len(data)-3):
         jtarg = addr + (struct.unpack("i", data[i:i+4])[0] + i + 4)
-        if not ((jtarg - target) & 0xFFFFFFFFL):
+        if not ((jtarg - target) & 0xFFFFFFFF):
             print(hex(addr + i + 4))
 
 

@@ -1,5 +1,3 @@
-from _pytest.tmpdir import TempdirFactory
-
 def tmpdir(space, config):
-    tmpdir = TempdirFactory(config).getbasetemp().ensure('fcntl', dir=1)
+    tmpdir = config._tmpdirhandler.getbasetemp().ensure('fcntl', dir=1)
     return space.newtext(str(tmpdir))

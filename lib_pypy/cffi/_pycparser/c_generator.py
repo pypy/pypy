@@ -6,7 +6,8 @@
 # Eli Bendersky [https://eli.thegreenplace.net/]
 # License: BSD
 # ------------------------------------------------------------------------------
-from typing import Callable, List, Optional
+from collections.abc import Callable
+from typing import ClassVar
 
 from . import c_ast
 
@@ -38,7 +39,7 @@ class CGenerator:
         method = "visit_" + node.__class__.__name__
         return getattr(self, method, self.generic_visit)(node)
 
-    def generic_visit(self, node: Optional[c_ast.Node]) -> str:
+    def generic_visit(self, node: c_ast.Node | None) -> str:
         if node is None:
             return ""
         else:
@@ -69,6 +70,17 @@ class CGenerator:
         args = self.visit(n.args) if n.args is not None else ""
         return fref + "(" + args + ")"
 
+    def visit_GenericSelection(self, n: c_ast.GenericSelection) -> str:
+        # The controlling and association expressions are assignment-expressions:
+        # preserve parentheses around comma expressions with _visit_expr.
+        expr = self._visit_expr(n.expr)
+        associations = ", ".join(self.visit(a) for a in n.associations)
+        return f"_Generic({expr}, {associations})"
+
+    def visit_GenericAssociation(self, n: c_ast.GenericAssociation) -> str:
+        typ = self.visit(n.type) if n.type is not None else "default"
+        return f"{typ}: {self._visit_expr(n.expr)}"
+
     def visit_UnaryOp(self, n: c_ast.UnaryOp) -> str:
         match n.op:
             case "sizeof":
@@ -86,7 +98,7 @@ class CGenerator:
                 return f"{n.op}{operand}"
 
     # Precedence map of binary operators:
-    precedence_map = {
+    precedence_map: ClassVar[dict[str, int]] = {
         # Should be in sync with c_parser.CParser.precedence
         # Higher numbers are stronger binding
         "||": 0,  # weakest binding
@@ -121,11 +133,13 @@ class CGenerator:
         # e.g., `(a+b) * c` is NOT equivalent to `a+b * c`.
         lval_str = self._parenthesize_if(
             n.left,
-            lambda d: not (
-                self._is_simple_node(d)
-                or self.reduce_parentheses
-                and isinstance(d, c_ast.BinaryOp)
-                and self.precedence_map[d.op] >= self.precedence_map[n.op]
+            lambda d: (
+                not (
+                    self._is_simple_node(d)
+                    or self.reduce_parentheses
+                    and isinstance(d, c_ast.BinaryOp)
+                    and self.precedence_map[d.op] >= self.precedence_map[n.op]
+                )
             ),
         )
         # If `n.right.op` has a stronger -but not equal- binding precedence,
@@ -137,11 +151,13 @@ class CGenerator:
         #       `a - (b+c)` is NOT equivalent to `a - b+c` (same precedence).
         rval_str = self._parenthesize_if(
             n.right,
-            lambda d: not (
-                self._is_simple_node(d)
-                or self.reduce_parentheses
-                and isinstance(d, c_ast.BinaryOp)
-                and self.precedence_map[d.op] > self.precedence_map[n.op]
+            lambda d: (
+                not (
+                    self._is_simple_node(d)
+                    or self.reduce_parentheses
+                    and isinstance(d, c_ast.BinaryOp)
+                    and self.precedence_map[d.op] > self.precedence_map[n.op]
+                )
             ),
         )
         return f"{lval_str} {n.op} {rval_str}"
@@ -165,10 +181,13 @@ class CGenerator:
                 return self.visit(n)
 
     def visit_Decl(self, n: c_ast.Decl, no_type: bool = False) -> str:
-        # no_type is used when a Decl is part of a DeclList, where the type is
-        # explicitly only for the first declaration in a list.
-        #
-        s = n.name if no_type else self._generate_decl(n)
+        # Later declarations in a DeclList omit the shared specifiers, but
+        # still need their own pointer, array, and function declarator parts.
+        s = (
+            self._generate_type(n.type, emit_base_type=False)
+            if no_type
+            else self._generate_decl(n)
+        )
         if n.bitsize:
             s += " : " + self.visit(n.bitsize)
         if n.init:
@@ -210,20 +229,13 @@ class CGenerator:
         return self._generate_struct_union_enum(n, name="enum")
 
     def visit_Alignas(self, n: c_ast.Alignas) -> str:
-        return "_Alignas({})".format(self.visit(n.alignment))
+        return f"_Alignas({self.visit(n.alignment)})"
 
     def visit_Enumerator(self, n: c_ast.Enumerator) -> str:
         if not n.value:
-            return "{indent}{name},\n".format(
-                indent=self._make_indent(),
-                name=n.name,
-            )
+            return f"{self._make_indent()}{n.name},\n"
         else:
-            return "{indent}{name} = {value},\n".format(
-                indent=self._make_indent(),
-                name=n.name,
-                value=self.visit(n.value),
-            )
+            return f"{self._make_indent()}{n.name} = {self.visit(n.value)},\n"
 
     def visit_FuncDef(self, n: c_ast.FuncDef) -> str:
         decl = self.visit(n.decl)
@@ -329,7 +341,7 @@ class CGenerator:
         s = "_Static_assert("
         s += self.visit(n.cond)
         if n.message:
-            s += ","
+            s += ", "
             s += self.visit(n.message)
         s += ")"
         return s
@@ -419,10 +431,10 @@ class CGenerator:
             s += self._make_indent() + "}"
         return s
 
-    def _generate_struct_union_body(self, members: List[c_ast.Node]) -> str:
+    def _generate_struct_union_body(self, members: list[c_ast.Node]) -> str:
         return "".join(self._generate_stmt(decl) for decl in members)
 
-    def _generate_enum_body(self, members: List[c_ast.Enumerator]) -> str:
+    def _generate_enum_body(self, members: list[c_ast.Enumerator]) -> str:
         # `[:-2] + '\n'` removes the final `,` from the enumerator list
         return "".join(self.visit(value) for value in members)[:-2] + "\n"
 
@@ -452,10 +464,12 @@ class CGenerator:
                 | c_ast.ID()
                 | c_ast.Typedef()
                 | c_ast.ExprList()
+                | c_ast.CompoundLiteral()
+                | c_ast.GenericSelection()
+                | c_ast.StaticAssert()
             ):
-                # These can also appear in an expression context so no semicolon
-                # is added to them automatically
-                #
+                # These visitors leave the semicolon to the enclosing context,
+                # so they can also be used in expressions or for clauses.
                 return indent + self.visit(n) + ";\n"
             case c_ast.Compound():
                 # No extra indentation required before the opening brace of a
@@ -476,28 +490,35 @@ class CGenerator:
         if n.storage:
             s += " ".join(n.storage) + " "
         if n.align:
-            s += self.visit(n.align[0]) + " "
+            s += " ".join(self.visit(align) for align in n.align) + " "
         s += self._generate_type(n.type)
         return s
 
     def _generate_type(
         self,
         n: c_ast.Node,
-        modifiers: List[c_ast.Node] = [],
+        modifiers: list[c_ast.Node] | None = None,
         emit_declname: bool = True,
+        emit_base_type: bool = True,
     ) -> str:
         """Recursive generation from a type node. n is the type node.
         modifiers collects the PtrDecl, ArrayDecl and FuncDecl modifiers
         encountered on the way down to a TypeDecl, to allow proper
         generation from it.
+        emit_base_type controls whether the shared type specifier and its
+        qualifiers are emitted, independently of the declarator parts.
         """
+        if modifiers is None:
+            modifiers = []
+
         # ~ print(n, modifiers)
         match n:
             case c_ast.TypeDecl():
                 s = ""
-                if n.quals:
-                    s += " ".join(n.quals) + " "
-                s += self.visit(n.type)
+                if emit_base_type:
+                    if n.quals:
+                        s += " ".join(n.quals) + " "
+                    s += self.visit(n.type)
 
                 nstr = n.declname if n.declname and emit_declname else ""
                 # Resolve modifiers.
@@ -531,18 +552,27 @@ class CGenerator:
                                 nstr = f"* {quals}{suffix}"
                             else:
                                 nstr = "*" + nstr
+                if not emit_base_type:
+                    return nstr
                 if nstr:
                     s += " " + nstr
                 return s
             case c_ast.Decl():
                 return self._generate_decl(n.type)
             case c_ast.Typename():
-                return self._generate_type(n.type, emit_declname=emit_declname)
+                return self._generate_type(
+                    n.type,
+                    emit_declname=emit_declname,
+                    emit_base_type=emit_base_type,
+                )
             case c_ast.IdentifierType():
                 return " ".join(n.names) + " "
             case c_ast.ArrayDecl() | c_ast.PtrDecl() | c_ast.FuncDecl():
                 return self._generate_type(
-                    n.type, modifiers + [n], emit_declname=emit_declname
+                    n.type,
+                    modifiers + [n],
+                    emit_declname=emit_declname,
+                    emit_base_type=emit_base_type,
                 )
             case _:
                 return self.visit(n)
@@ -569,5 +599,12 @@ class CGenerator:
         """
         return isinstance(
             n,
-            (c_ast.Constant, c_ast.ID, c_ast.ArrayRef, c_ast.StructRef, c_ast.FuncCall),
+            (
+                c_ast.Constant,
+                c_ast.ID,
+                c_ast.ArrayRef,
+                c_ast.StructRef,
+                c_ast.FuncCall,
+                c_ast.GenericSelection,
+            ),
         )

@@ -144,3 +144,169 @@ def test_struct_unpack_from_cast_memoryview_slice():
     assert result == (1,)
 
 
+def test_derived_views_keep_the_export():
+    # issue 5613: a slice, cast or copy keeps the memoryview that owns the
+    # export alive, so that a GC can't release the export while it is in use
+    import gc
+    b = bytearray(b'abcdefgh')
+    views = [memoryview(b)[2:], memoryview(b).cast('B', [2, 4]),
+             memoryview(memoryview(b)), memoryview(b).toreadonly(),
+             memoryview(b)[1:][1:]]
+    gc.collect()
+    gc.collect()
+    with raises(BufferError):
+        b.clear()
+    assert bytes(views[0]) == b'cdefgh'
+    assert views[1][1, 3] == ord('h')
+    assert bytes(views[4]) == b'cdefgh'
+    del views
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_derived_views_of_released_view():
+    # issue 5613: releasing the memoryview that owns the export does not
+    # release it while views derived from it are still alive, and those keep
+    # working, as on CPython.  The export goes away with the last of them.
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    derived = [m[2:], m.cast('B', [2, 4]), memoryview(m), m.toreadonly(),
+               m[1:][1:]]
+    m.release()
+    with raises(ValueError, match="operation forbidden"):
+        m.tobytes()
+    assert 'released memory' in repr(m)
+    with raises(BufferError):
+        b.clear()
+    assert bytes(derived[0]) == b'cdefgh'
+    assert derived[1][1, 3] == ord('h')
+    assert bytes(derived[2]) == b'abcdefgh'
+    assert bytes(derived[3]) == b'abcdefgh'
+    assert bytes(derived[4]) == b'cdefgh'
+    derived[1][1, 3] = 0x41
+    assert bytes(b) == b'abcdefgA'
+    for v in derived:
+        v.release()
+    # m[1:][1:] dropped the intermediate view without releasing it, so the
+    # export outlives the explicit release()s until a GC collects it
+    del derived, m
+    import gc
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_dropped_derived_view_releases_the_export():
+    # the slice is dropped without release() while the memoryview it was
+    # derived from is already released: the export goes away with the slice
+    import gc
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    s = m[2:]
+    m.release()
+    with raises(BufferError):
+        b.clear()
+    del s
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_dropped_derived_view_of_live_view():
+    # same, but the memoryview the slice came from is still in use: the
+    # dropped slice counts as using the export until the GC gets to it, so
+    # unlike CPython the release here is not what unlocks the bytearray
+    import gc
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    s = m[2:]
+    del s
+    gc.collect()
+    assert bytes(m) == b'abcdefgh'
+    with raises(BufferError):
+        b.clear()
+    m.release()
+    gc.collect()
+    gc.collect()
+    b.clear()
+
+
+def test_last_derived_release_releases_the_export():
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    s = m[2:]
+    r = m.toreadonly()
+    m.release()
+    with raises(BufferError):
+        b.clear()
+    s.release()
+    with raises(BufferError):
+        b.clear()
+    r.release()
+    b.clear()
+
+
+def test_released_view_of_released_view():
+    b = bytearray(b'abcdefgh')
+    m = memoryview(b)
+    v = m[2:]
+    m.release()
+    v.release()
+    for released in [m, v]:
+        with raises(ValueError, match="operation forbidden"):
+            released.tobytes()
+        with raises(ValueError, match="operation forbidden"):
+            memoryview(released)
+        with raises(ValueError, match="operation forbidden"):
+            released._pypy_raw_address()
+        assert 'released memory' in repr(released)
+        assert released != memoryview(b'')
+        assert memoryview(b'') != released
+    b.clear()
+
+
+def test_derived_views_of_released_bytes_view():
+    # releasing a memoryview of bytes releases nothing, so the views
+    # derived from it stay usable, as on CPython
+    m = memoryview(b'abcdefgh')
+    s = m[2:]
+    c = m.cast('B', [2, 4])
+    m.release()
+    assert bytes(s) == b'cdefgh'
+    assert c[1, 3] == ord('h')
+
+
+def test_compare_with_released_view():
+    m = memoryview(b'ab')
+    r = memoryview(b'ab')
+    r.release()
+    assert not m == r
+    assert m != r
+    assert not r == m
+
+
+def test_cast_released_during_shape_conversion():
+    class Two:
+        def __index__(self):
+            m.release()
+            return 2
+    m = memoryview(bytearray(8))
+    # CPython raises TypeError, as it accepts only ints in the shape
+    with raises((TypeError, ValueError)):
+        m.cast('B', [Two(), 4])
+
+
+def test_derived_view_outlives_the_owners_release():
+    # pickle's load_readonly_buffer does this: it keeps toreadonly() of a
+    # memoryview used as a context manager (issue in test_pickle's
+    # test_oob_buffers_writable_to_readonly)
+    b = bytearray(b'foobar')
+    with memoryview(b) as m:
+        r = m.toreadonly()
+    assert r.readonly
+    assert bytes(r) == b'foobar'
+    with memoryview(r) as m2:
+        assert m2.obj is b
+    r.release()
+    b.clear()

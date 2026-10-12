@@ -1,5 +1,5 @@
 import py
-py.test.skip("XXX FIX ME OR KILL ME")
+py.test.skip("XXX FIX ME OR KILL ME", allow_module_level=True)
 
 from rpython.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,

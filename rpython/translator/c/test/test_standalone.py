@@ -303,7 +303,7 @@ class TestStandalone(StandaloneTestsVerified):
 
     def test_standalone_large_files(self):
         filename = str(udir.join('test_standalone_largefile'))
-        r4800000000 = r_longlong(4800000000L)
+        r4800000000 = r_longlong(4800000000)
         def entry_point(argv):
             assert str(r4800000000 + r_longlong(len(argv))) == '4800000003'
             fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0o644)

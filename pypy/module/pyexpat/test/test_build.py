@@ -9,12 +9,12 @@ import py
 try:
     import pyexpat
 except ImportError:
-    py.test.skip("No module expat")
+    py.test.skip("No module expat", allow_module_level=True)
 
 try:
     from pypy.module.pyexpat import interp_pyexpat
 except (ImportError, CompilationError):
-    py.test.skip("Expat not installed")
+    py.test.skip("Expat not installed", allow_module_level=True)
 
 def test_build():
     def entry_point(argv):
