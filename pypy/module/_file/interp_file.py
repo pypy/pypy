@@ -371,10 +371,6 @@ class W_File(W_AbstractStream):
                 return %(wrapresult)s
         """ % locals())
         exec str(src) in globals(), class_scope
-        # a stack check inserted at the start of a block raises out of the
-        # function instead of through its exception links, which would skip
-        # the 'finally' above and leak the stream lock
-        class_scope['file_' + name]._dont_insert_stackcheck_ = True
         if unwrap_spec is not None:
             class_scope['file_' + name].unwrap_spec = unwrap_spec
         if exposed:
