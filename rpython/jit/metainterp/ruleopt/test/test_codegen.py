@@ -230,3 +230,25 @@ def test_lower_expression(expr, expected):
     assert repr(builder.visit(expr)) == expected
     # Expression lowering returns a tree; it doesn't emit statements.
     assert repr(builder.block) == "Block([])"
+
+
+@pytest.mark.parametrize("attrname, expected", [
+    ("lower",
+     "Call(Symbol('intmask'), [Attribute(Ref(Value('bound_x')), 'lower')], [])"),
+    ("tmask",
+     "Call(Symbol('intmask'), [Attribute(Ref(Value('bound_x')), 'tmask')], [])"),
+    ("ones",
+     "Call(Symbol('intmask'), [Attribute(Ref(Value('bound_x')), 'tvalue')], [])"),
+    ("zeros",
+     "Call(Symbol('intmask'), [Unary('~', Binary('|', "
+     "Attribute(Ref(Value('bound_x')), 'tvalue'), "
+     "Attribute(Ref(Value('bound_x')), 'tmask')))], [])"),
+])
+def test_lower_bound_attribute(attrname, expected):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {"x": ir.Value("box_x")},
+                        {"x": ir.Value("bound_x")})
+    assert repr(builder.visit(Attribute("x", attrname))) == expected
+    assert repr(builder.block) == "Block([])"

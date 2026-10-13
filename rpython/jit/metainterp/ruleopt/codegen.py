@@ -216,6 +216,17 @@ class IRCodegen(parse.Visitor):
             return ir.Ref(self.intbound_bindings[expr.name])
         return ir.Ref(self.value_for(expr.name))
 
+    def visit_Attribute(self, expr):
+        bound = ir.Ref(self.intbound_bindings[expr.varname])
+        if expr.attrname == 'zeros':
+            value = ir.Unary('~', ir.Binary(
+                '|', ir.Attribute(bound, 'tvalue'),
+                ir.Attribute(bound, 'tmask')))
+        else:
+            attrname = 'tvalue' if expr.attrname == 'ones' else expr.attrname
+            value = ir.Attribute(bound, attrname)
+        return ir.Call(ir.Symbol('intmask'), [value])
+
     def visit_BinOp(self, expr):
         return ir.Binary(expr.pysymbol, self.visit(expr.left),
                          self.visit(expr.right))
