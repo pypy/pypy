@@ -5,7 +5,22 @@ Value objects identify bindings independently of their eventual printed names.
 """
 
 
-class Value(object):
+class Node(object):
+    def as_dot(self):
+        """Return a Graphviz graph of this subtree, preserving shared nodes."""
+        from rpython.jit.metainterp.ruleopt.irview import as_dot
+        return as_dot(self)
+
+    def view(self):
+        """Inspect this subtree in dotviewer (also handy from a debugger)."""
+        from dotviewer.graphpage import GraphPage
+        page = GraphPage()
+        page.source = self.as_dot()
+        page.links = {}
+        page.display()
+
+
+class Value(Node):
     def __init__(self, name_hint):
         self.name_hint = name_hint
 
@@ -13,7 +28,7 @@ class Value(object):
         return "Value(%r)" % (self.name_hint,)
 
 
-class Expr(object):
+class Expr(Node):
     def __repr__(self):
         return "%s()" % type(self).__name__
 
@@ -94,7 +109,7 @@ class Binary(Expr):
             self.operator, self.left, self.right)
 
 
-class Stmt(object):
+class Stmt(Node):
     def __repr__(self):
         return "%s()" % type(self).__name__
 
@@ -152,7 +167,7 @@ class If(Stmt):
             self.condition, self.then_block, self.else_block)
 
 
-class Block(object):
+class Block(Node):
     def __init__(self, statements):
         self.statements = statements
 
