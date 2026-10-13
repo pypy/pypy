@@ -67,3 +67,8 @@ def test_repr(node, expected):
 
 def test_symbol_repr():
     assert repr(ir.Symbol("ConstInt")) == "Symbol('ConstInt')"
+
+
+def test_call_requires_argument_list():
+    with pytest.raises(AssertionError):
+        ir.Call(ir.Symbol("r_uint"), ir.Literal(1))

@@ -184,3 +184,49 @@ def test_lower_operation_target(opname, args, expected_args):
         "ExprStmt(Call(Attribute(Attribute(Ref(Value('self')), 'optimizer'), "
         "'send_extra_operation'), [Ref(Value('newop'))], []))])"
         % (opname.upper(), expected_args))
+
+
+@pytest.mark.parametrize("expr, expected", [
+    (Number(7), "Literal(7)"),
+    (Name("C", int), "Ref(Value('constant'))"),
+    (Name("x", IntBound), "Ref(Value('bound_x'))"),
+    (Name("LONG_BIT", int), "Symbol('LONG_BIT')"),
+    (Eq(Name("C", int), Number(0)),
+     "Binary('==', Ref(Value('constant')), Literal(0))"),
+    (OpAnd(Name("C", int), Number(3)),
+     "Binary('&', Ref(Value('constant')), Literal(3))"),
+    (Add(Name("C", int), Number(1)),
+     "Call(Symbol('intmask'), [Binary('+', "
+     "Call(Symbol('r_uint'), [Ref(Value('constant'))], []), "
+     "Call(Symbol('r_uint'), [Literal(1)], []))], [])"),
+    (URShift(Name("C", int), Number(1)),
+     "Call(Symbol('intmask'), [Binary('>>', "
+     "Call(Symbol('r_uint'), [Ref(Value('constant'))], []), "
+     "Call(Symbol('r_uint'), [Literal(1)], []))], [])"),
+    (ARShift(Name("C", int), Number(1)),
+     "Binary('>>', Ref(Value('constant')), Literal(1))"),
+    (MethodCall(Name("x", IntBound), "is_bool", []),
+     "Call(Attribute(Ref(Value('bound_x')), 'is_bool'), [], [])"),
+    (MethodCall(Name("x", IntBound), "known_ge_const", [Number(0)]),
+     "Call(Attribute(Ref(Value('bound_x')), 'known_ge_const'), "
+     "[Literal(0)], [])"),
+    (MethodCall(
+        MethodCall(Name("x", IntBound), "and_bound", [Name("x", IntBound)]),
+        "known_eq_const", [Number(0)]),
+     "Call(Attribute(Call(Attribute(Ref(Value('bound_x')), 'and_bound'), "
+     "[Ref(Value('bound_x'))], []), 'known_eq_const'), [Literal(0)], [])"),
+    (FuncCall("highest_bit", [Name("C", int)]),
+     "Call(Symbol('highest_bit'), [Ref(Value('constant'))], [])"),
+    (FuncCall("min", [Name("C", int), Number(3)]),
+     "Call(Symbol('min'), [Ref(Value('constant')), Literal(3)], [])"),
+])
+def test_lower_expression(expr, expected):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(
+        ir.Value("self"), ir.Value("op"),
+        {"C": ir.Value("constant"), "x": ir.Value("box_x")},
+        {"x": ir.Value("bound_x")})
+    assert repr(builder.visit(expr)) == expected
+    # Expression lowering returns a tree; it doesn't emit statements.
+    assert repr(builder.block) == "Block([])"

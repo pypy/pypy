@@ -191,15 +191,52 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
             continue
     return Terminal(rules, bindings)
 
-class IRCodegen(object):
+class IRCodegen(parse.Visitor):
     """Build method-body IR; developed alongside Codegen during migration."""
 
-    def __init__(self, self_value, op_value, bindings):
+    def __init__(self, self_value, op_value, bindings, intbound_bindings=None):
         self.self_ref = ir.Ref(self_value)
         self.op_ref = ir.Ref(op_value)
         # DSL variable names map to IR Values, rather than Python name strings.
         self.bindings = bindings
+        self.intbound_bindings = (
+            {} if intbound_bindings is None else intbound_bindings)
         self.block = ir.Block([])
+
+    def default_visit(self, expr):
+        raise NotImplementedError("lower expression: %r" % (expr,))
+
+    def visit_Number(self, expr):
+        return ir.Literal(expr.value)
+
+    def visit_Name(self, expr):
+        if expr.name == "LONG_BIT":
+            return ir.Symbol(expr.name)
+        if expr.typ is IntBound:
+            return ir.Ref(self.intbound_bindings[expr.name])
+        return ir.Ref(self.value_for(expr.name))
+
+    def visit_BinOp(self, expr):
+        return ir.Binary(expr.pysymbol, self.visit(expr.left),
+                         self.visit(expr.right))
+
+    def visit_IntBinOp(self, expr):
+        if not expr.need_ruint:
+            return self.visit_BinOp(expr)
+        r_uint = ir.Symbol('r_uint')
+        left = ir.Call(r_uint, [self.visit(expr.left)])
+        right = ir.Call(r_uint, [self.visit(expr.right)])
+        intmask = ir.Symbol('intmask')
+        return ir.Call(intmask, [ir.Binary(expr.pysymbol, left, right)])
+
+    def visit_MethodCall(self, expr):
+        receiver = self.visit(expr.value)
+        args = [self.visit(arg) for arg in expr.args]
+        return ir.Call(ir.Attribute(receiver, expr.methname), args)
+
+    def visit_FuncCall(self, expr):
+        args = [self.visit(arg) for arg in expr.args]
+        return ir.Call(ir.Symbol(expr.funcname), args)
 
     def value_for(self, varname):
         return self.bindings[varname]

@@ -55,6 +55,7 @@ class Attribute(Expr):
 
 class Call(Expr):
     def __init__(self, function, args, keywords=None):
+        assert isinstance(args, list), "Call args must be a list"
         self.function = function
         self.args = args
         # A list of (name, expression) pairs preserves evaluation order.
