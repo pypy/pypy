@@ -89,6 +89,26 @@ def _sha256(filename):
     return dgst.hexdigest()
 
 
+def _report(label, data):
+    """Print captured subprocess output, which is bytes and not always ascii.
+
+    Compiler messages contain non-ascii bytes (U+2018 quotes, say) and
+    sys.stderr may well be a pipe with no encoding, so decoding first turns the
+    error we are trying to report into a UnicodeEncodeError.  Write the bytes
+    through instead.
+    """
+    if not isinstance(data, bytes):
+        data = (data or '').encode('utf-8', 'replace')
+    sys.stderr.flush()          # keep our order with the print()s around us
+    out = getattr(sys.stderr, 'buffer', sys.stderr)     # py3 needs the raw fd
+    out.write(label.encode('utf-8') + b':\n')
+    if data:
+        out.write(data)
+        if not data.endswith(b'\n'):
+            out.write(b'\n')
+    out.flush()
+
+
 def _build_dependency(name, patches=[]):
     import shutil
     from rpython.tool.runsubprocess import run_subprocess
@@ -221,10 +241,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = _build_dependency(key)
             if status != 0:
                 failures.append((key, module))
-                print("stdout:")
-                print(stdout.decode('utf-8'))
-                print("stderr:")
-                print(stderr.decode('utf-8'))
+                _report("stdout", stdout)
+                _report("stderr", stderr)
                 continue
 
             env['CPPFLAGS'] = '-I{}/usr/include {}'.format(
@@ -236,16 +254,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
-                print("stdout:")
-                print(bld_stdout, file=sys.stderr)
-                print("stderr:")
-                print(bld_stderr, file=sys.stderr)
+                _report("stdout", bld_stdout)
+                _report("stderr", bld_stderr)
                 raise RuntimeError('building {} failed'.format(key))
             elif key in ("_ssl",):
-                print("stdout:")
-                print(bld_stdout, file=sys.stderr)
-                print("stderr:")
-                print(bld_stderr, file=sys.stderr)
+                _report("stdout", bld_stdout)
+                _report("stderr", bld_stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -256,14 +270,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                          env=env)
             if status != 0:
                 failures.append((key, module))
-                print("build stdout:")
-                print(bld_stdout, file=sys.stderr)
-                print("build stderr:")
-                print(bld_stderr, file=sys.stderr)
-                print("test stdout:")
-                print(stdout, file=sys.stderr)
-                print("test stderr:")
-                print(stderr, file=sys.stderr)
+                _report("build stdout", bld_stdout)
+                _report("build stderr", bld_stderr)
+                _report("test stdout", stdout)
+                _report("test stderr", stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
