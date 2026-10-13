@@ -342,3 +342,73 @@ def test_finished_rule_body():
         "[Ref(Value('op')), Ref(Value('box_x'))], [])), "
         "FinishRule(Ref(Value('self')), 'int_eq', 2, "
         "'eq_one: int_eq(x, 1) => x')]), Block([]))])")
+
+
+def test_ir_argument_reads():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    boxes, bounds = builder.emit_arg_reads(builder.op_ref, 2, prefix="arg_0")
+    assert repr(boxes) == "[Value('arg_0_0'), Value('arg_0_1')]"
+    assert repr(bounds) == "[Value('b_arg_0_0'), Value('b_arg_0_1')]"
+    assert repr(builder.block) == (
+        "Block([Bind(Value('arg_0_0'), Call(Symbol('get_box_replacement'), "
+        "[Call(Attribute(Ref(Value('op')), 'getarg'), [Literal(0)], [])], [])), "
+        "Bind(Value('b_arg_0_0'), Call(Attribute(Ref(Value('self')), 'getintbound'), "
+        "[Ref(Value('arg_0_0'))], [])), "
+        "Bind(Value('arg_0_1'), Call(Symbol('get_box_replacement'), "
+        "[Call(Attribute(Ref(Value('op')), 'getarg'), [Literal(1)], [])], [])), "
+        "Bind(Value('b_arg_0_1'), Call(Attribute(Ref(Value('self')), 'getintbound'), "
+        "[Ref(Value('arg_0_1'))], []))])")
+    assert builder.bindings == {}
+    assert builder.intbound_bindings == {}
+
+
+def test_ir_argument_reads_empty():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    assert builder.emit_arg_reads(builder.op_ref, 0) == ([], [])
+    assert repr(builder.block) == "Block([])"
+
+
+@pytest.mark.parametrize("with_fallbacks", [False, True])
+def test_ir_constant_matcher(with_fallbacks):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    # Stand-ins for child matchers isolate this visitor from terminal lowering.
+    class Marker(BaseMatcher):
+        def __init__(self, name):
+            self.name = name
+
+    class MarkerCodegen(IRCodegen):
+        def visit_Marker(self, marker):
+            args = []
+            if marker.name == "yes":
+                args.append(ir.Ref(self.matcher_values["C_arg_0"]))
+            else:
+                assert "C_arg_0" not in self.matcher_values
+            self.emit(ir.ExprStmt(ir.Call(ir.Symbol(marker.name), args)))
+
+    builder = MarkerCodegen(ir.Value("self"), ir.Value("op"), {})
+    values = {"arg_0": ir.Value("arg_0"), "b_arg_0": ir.Value("b_arg_0")}
+    builder.matcher_values = values
+    outer_block = builder.block
+    builder.visit(IsConstMatcher(
+        "arg_0", Marker("yes"),
+        Marker("no") if with_fallbacks else None,
+        Marker("next") if with_fallbacks else None, "C_arg_0"))
+    expected_else = (
+        "Block([ExprStmt(Call(Symbol('no'), [], []))])"
+        if with_fallbacks else "Block([])")
+    expected_next = (
+        ", ExprStmt(Call(Symbol('next'), [], []))" if with_fallbacks else "")
+    assert repr(builder.block) == (
+        "Block([If(Call(Attribute(Ref(Value('b_arg_0')), 'is_constant'), [], []), "
+        "Block([Bind(Value('C_arg_0'), "
+        "Call(Attribute(Ref(Value('b_arg_0')), 'get_constant_int'), [], [])), "
+        "ExprStmt(Call(Symbol('yes'), [Ref(Value('C_arg_0'))], []))]), "
+        "%s)%s])" % (expected_else, expected_next))
+    assert builder.block is outer_block
+    assert builder.matcher_values is values
+    assert "C_arg_0" not in values

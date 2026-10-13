@@ -201,6 +201,9 @@ class IRCodegen(parse.Visitor):
         self.bindings = bindings
         self.intbound_bindings = (
             {} if intbound_bindings is None else intbound_bindings)
+        # Matcher-generated names (arg_0, b_arg_0, C_arg_0, ...) map to Values.
+        # Terminal lowering will connect these to each rule's DSL names.
+        self.matcher_values = {}
         self.block = ir.Block([])
 
     def default_visit(self, expr):
@@ -208,6 +211,55 @@ class IRCodegen(parse.Visitor):
 
     def emit(self, stmt):
         self.block.statements.append(stmt)
+
+    @contextmanager
+    def matcher_branch(self, block):
+        outer_block = self.block
+        outer_values = self.matcher_values
+        self.block = block
+        self.matcher_values = self.matcher_values.copy()
+        try:
+            yield
+        finally:
+            self.block = outer_block
+            self.matcher_values = outer_values
+
+    def visit_IsConstMatcher(self, matcher):
+        bound = ir.Ref(self.matcher_values['b_' + matcher.name])
+        cond = ir.Call(ir.Attribute(bound, 'is_constant'), [])
+        then_block = ir.Block([])
+        else_block = ir.Block([])
+        cond = ir.If(cond, then_block, else_block)
+        self.emit(cond)
+        with self.matcher_branch(then_block):
+            constvalue = ir.Value(matcher.constname)
+            const = ir.Call(ir.Attribute(bound, 'get_constant_int'), [])
+            self.emit(ir.Bind(constvalue, const))
+            self.matcher_values[matcher.constname] = constvalue
+            self.visit(matcher.ifyes)
+        if matcher.ifno:
+            with self.matcher_branch(else_block):
+                self.visit(matcher.ifno)
+        if matcher.nextmatcher:
+            self.visit(matcher.nextmatcher)
+
+    def emit_arg_reads(self, operation, numargs, prefix="arg"):
+        """Bind replaced argument boxes and their bounds; return both lists.
+
+        operation is an IR expression. The returned lists contain Values.
+        These are internal matcher values, not yet DSL variable bindings.
+        """
+        boxes = []
+        bounds = []
+        for i in range(numargs):
+            box = ir.Value("%s_%s" % (prefix, i))
+            bound = ir.Value("b_%s_%s" % (prefix, i))
+            arg = ir.Call(ir.Attribute(operation, "getarg"), [ir.Literal(i)])
+            self.emit(ir.Bind(box, ir.Call(ir.Symbol("get_box_replacement"), [arg])))
+            self.emit(ir.Bind(bound, self.self_method("getintbound", ir.Ref(box))))
+            boxes.append(box)
+            bounds.append(bound)
+        return boxes, bounds
 
     def visit_Number(self, expr):
         return ir.Literal(expr.value)
