@@ -48,6 +48,10 @@ static struct {
     volatile pypy_faulthandler_cb_t dump_traceback;
 } fatal_error;
 
+/* Set while the dump_traceback_later() watchdog thread runs. That thread
+   executes no Python code, so it is left out of the all-threads dump. */
+static void *volatile watchdog_threadlocal;
+
 #ifdef HAVE_SIGALTSTACK
 static stack_t stack;
 #endif
@@ -146,6 +150,10 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
         p = _RPython_ThreadLocals_Head();
         p = _RPython_ThreadLocals_Enum(p);
         while (p != NULL) {
+            if ((void *)p == watchdog_threadlocal) {
+                p = _RPython_ThreadLocals_Enum(p);
+                continue;
+            }
             if (blankline)
                 pypy_faulthandler_write(fd, "\n");
             blankline = 1;
@@ -221,6 +229,14 @@ static void faulthandler_thread(void)
     long long t;
     int fd;
 
+#ifndef RPYTHON_LL2CTYPES
+    /* A stack check inside the dump would otherwise build this thread's
+       threadlocal while we hold the threadlocals lock, and the build spins
+       on that lock forever. */
+    RPY_THREADLOCALREF_ENSURE();
+    watchdog_threadlocal = (void *)_RPy_ThreadLocals_Get();
+#endif
+
     do {
         st = RPyThreadAcquireLockTimed(&thread_later.cancel_event,
                                        thread_later.microseconds, 0);
@@ -262,6 +278,10 @@ static void faulthandler_thread(void)
     } while (thread_later.repeat);
 
     /* The only way out */
+#ifndef RPYTHON_LL2CTYPES
+    watchdog_threadlocal = NULL;
+    RPython_ThreadLocals_ThreadDie();
+#endif
     RPyThreadReleaseLock(&thread_later.running);
 }
 

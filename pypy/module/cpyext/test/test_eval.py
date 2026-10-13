@@ -466,7 +466,7 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert ns['nested_flags']() == (0, 0)
 
     @pytest.mark.xfail("'linux' not in sys.platform", reason='Hangs the process', run=False)
-    @pytest.mark.xfail('config.option.runappdirect', reason='pypy/pypy#5520')
+    @pytest.mark.skipif('config.option.runappdirect', reason='pypy/pypy#5520')
     def test_recursive_function(self):
         module = self.import_extension('foo', [
             ("call_recursive", "METH_NOARGS",

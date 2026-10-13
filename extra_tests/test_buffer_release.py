@@ -436,3 +436,40 @@ def test_base64_array_then_resize():
         data = array.array("B", b"abcdef")
         assert decode(encode(data)) == b"abcdef"
         data.append(0)
+
+
+def test_stream_reader_read_bytearray_then_resize():
+    async def main():
+        for read in [lambda r: r.read(5), lambda r: r.readexactly(5)]:
+            reader = asyncio.StreamReader()
+            reader.feed_data(b"hello world")
+            assert await read(reader) == b"hello"
+            reader._buffer.append(0)
+
+    asyncio.run(main())
+
+
+@pytest.mark.parametrize("buftype", ["bytearray", "array"])
+def test_pyio_readinto_then_resize(tmp_path, buftype):
+    # the pure-Python io: FileIO.readinto and the buffered _readinto() both
+    # build a memoryview of the caller's buffer
+    _pyio = pytest.importorskip("_pyio")
+    path = os.path.join(tmp_path, "f")
+    with open(path, "wb") as f:
+        f.write(b"0123456789")
+
+    def make():
+        if buftype == "bytearray":
+            return bytearray(4)
+        return array.array("B", b"\0\0\0\0")
+
+    for opener in [lambda: _pyio.FileIO(path, "rb"),
+                   lambda: _pyio.open(path, "rb")]:
+        for readinto in ["readinto", "readinto1"]:
+            buf = make()
+            with opener() as f:
+                if not hasattr(f, readinto):
+                    continue
+                assert getattr(f, readinto)(buf) == 4
+            assert bytes(buf) == b"0123"
+            buf.append(0)

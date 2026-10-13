@@ -742,10 +742,11 @@ class Aifc_write:
         return self._nframeswritten
 
     def writeframesraw(self, data):
-        view = None
+        view = cast = None      # PyPy change
         if not isinstance(data, (bytes, bytearray)):
             view = memoryview(data)
-            data = view.cast('B')
+            cast = view.cast('B')       # PyPy change
+            data = cast
         try:
             self._ensure_header_written(len(data))
             nframes = len(data) // (self._sampwidth * self._nchannels)
@@ -755,7 +756,9 @@ class Aifc_write:
             self._nframeswritten = self._nframeswritten + nframes
             self._datawritten = self._datawritten + len(data)
         finally:
-            # PyPy: release the view now, the GC would only do it later
+            # PyPy change
+            if cast is not None:
+                cast.release()
             if view is not None:
                 view.release()
 

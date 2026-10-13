@@ -388,6 +388,7 @@ def Py_LeaveRecursiveCall(space):
     successful invocation of Py_EnterRecursiveCall()."""
     # A NOP in PyPy
     if not we_are_translated():
+        global limit
         limit = 0
 
 @cpython_api([], PyObject, result_borrowed=True)

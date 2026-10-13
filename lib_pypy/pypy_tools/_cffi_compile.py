@@ -107,10 +107,9 @@ def _run(args, verbose):
                             stderr=subprocess.STDOUT)
     out, _ = proc.communicate()
     if proc.returncode != 0:
-        from cffi.error import VerificationError
         if not isinstance(out, str):
             out = out.decode('utf-8', 'replace')
-        raise VerificationError(
+        raise RuntimeError(
             '%s\ncommand failed (status %d): %s' %
             (out, proc.returncode, ' '.join(args)))
 
