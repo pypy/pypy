@@ -243,6 +243,30 @@ class IRCodegen(parse.Visitor):
         if matcher.nextmatcher:
             self.visit(matcher.nextmatcher)
 
+    def visit_OpMatcher(self, matcher):
+        box = ir.Ref(self.matcher_values[matcher.name])
+        matched = ir.Value("%s_%s" % (matcher.name, matcher.opname))
+        lookup = ir.Call(
+            ir.Attribute(ir.Attribute(self.self_ref, "optimizer"), "as_operation"),
+            [box, ir.Attribute(ir.Symbol("rop"), matcher.opname.upper())])
+        self.emit(ir.Bind(matched, lookup))
+        then_block = ir.Block([])
+        else_block = ir.Block([])
+        condition = ir.Binary("is not", ir.Ref(matched), ir.Literal(None))
+        self.emit(ir.If(condition, then_block, else_block))
+        with self.matcher_branch(then_block):
+            boxes, bounds = self.emit_arg_reads(
+                ir.Ref(matched), len(matcher.argnames), prefix=matcher.name)
+            for name, box_value, bound_value in zip(matcher.argnames, boxes, bounds):
+                self.matcher_values[name] = box_value
+                self.matcher_values["b_" + name] = bound_value
+            self.visit(matcher.ifyes)
+        if matcher.ifno is not None:
+            with self.matcher_branch(else_block):
+                self.visit(matcher.ifno)
+        if matcher.nextmatcher is not None:
+            self.visit(matcher.nextmatcher)
+
     def emit_arg_reads(self, operation, numargs, prefix="arg"):
         """Bind replaced argument boxes and their bounds; return both lists.
 

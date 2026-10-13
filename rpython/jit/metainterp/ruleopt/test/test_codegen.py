@@ -412,3 +412,53 @@ def test_ir_constant_matcher(with_fallbacks):
     assert builder.block is outer_block
     assert builder.matcher_values is values
     assert "C_arg_0" not in values
+
+
+@pytest.mark.parametrize("with_fallbacks", [False, True])
+def test_ir_operation_matcher(with_fallbacks):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    class Marker(BaseMatcher):
+        def __init__(self, name):
+            self.name = name
+
+    class MarkerCodegen(IRCodegen):
+        def visit_Marker(self, marker):
+            args = []
+            if marker.name == "yes":
+                args = [ir.Ref(self.matcher_values[name])
+                        for name in ("arg_0_0", "b_arg_0_0")]
+            else:
+                assert "arg_0_0" not in self.matcher_values
+                assert "b_arg_0_0" not in self.matcher_values
+            self.emit(ir.ExprStmt(ir.Call(ir.Symbol(marker.name), args)))
+
+    builder = MarkerCodegen(ir.Value("self"), ir.Value("op"), {})
+    values = {"arg_0": ir.Value("arg_0"), "b_arg_0": ir.Value("b_arg_0")}
+    builder.matcher_values = values
+    outer_block = builder.block
+    builder.visit(OpMatcher(
+        "arg_0", "int_neg", Marker("yes"),
+        Marker("no") if with_fallbacks else None,
+        Marker("next") if with_fallbacks else None, ["arg_0_0"]))
+    expected_else = (
+        "Block([ExprStmt(Call(Symbol('no'), [], []))])"
+        if with_fallbacks else "Block([])")
+    expected_next = (
+        ", ExprStmt(Call(Symbol('next'), [], []))" if with_fallbacks else "")
+    assert repr(builder.block) == (
+        "Block([Bind(Value('arg_0_int_neg'), "
+        "Call(Attribute(Attribute(Ref(Value('self')), 'optimizer'), 'as_operation'), "
+        "[Ref(Value('arg_0')), Attribute(Symbol('rop'), 'INT_NEG')], [])), "
+        "If(Binary('is not', Ref(Value('arg_0_int_neg')), Literal(None)), "
+        "Block([Bind(Value('arg_0_0'), Call(Symbol('get_box_replacement'), "
+        "[Call(Attribute(Ref(Value('arg_0_int_neg')), 'getarg'), [Literal(0)], [])], [])), "
+        "Bind(Value('b_arg_0_0'), Call(Attribute(Ref(Value('self')), 'getintbound'), "
+        "[Ref(Value('arg_0_0'))], [])), "
+        "ExprStmt(Call(Symbol('yes'), "
+        "[Ref(Value('arg_0_0')), Ref(Value('b_arg_0_0'))], []))]), "
+        "%s)%s])" % (expected_else, expected_next))
+    assert builder.block is outer_block
+    assert builder.matcher_values is values
+    assert "arg_0_0" not in values
+    assert "b_arg_0_0" not in values
