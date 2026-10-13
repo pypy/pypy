@@ -247,13 +247,10 @@ def test_lower_operation_target(opname, args, expected_args):
     builder = IRCodegen(ir.Value("self"), ir.Value("op"), bindings)
     builder.generate_target(PatternOp(opname, args))
     assert repr(builder.block) == (
-        "Block([Bind(Value('newop'), "
-        "Call(Attribute(Ref(Value('self')), 'replace_op_with'), "
-        "[Ref(Value('op')), Attribute(Symbol('rop'), %r)], "
-        "[('args', ListExpr([%s]))], side_effects=True)), "
-        "ExprStmt(Call(Attribute(Attribute(Ref(Value('self')), 'optimizer'), "
-        "'send_extra_operation'), [Ref(Value('newop'))], []))])"
-        % (opname.upper(), expected_args))
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), '_replace_op_with_%d_and_send'), "
+        "[Ref(Value('op')), Attribute(Symbol('rop'), %r), %s], "
+        "[], side_effects=True))])"
+        % (len(args), opname.upper(), expected_args))
 
 
 @pytest.mark.parametrize("expr, expected", [

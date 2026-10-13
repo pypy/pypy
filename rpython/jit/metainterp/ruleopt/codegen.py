@@ -569,19 +569,14 @@ class IRCodegen(parse.Visitor):
             self.emit(ir.ExprStmt(call))
             return
         if isinstance(target, parse.PatternOp):
+            assert len(target.args) in (1, 2)
+            args = [self.op_ref,
+                    ir.Attribute(ir.Symbol('rop'), target.opname.upper())]
+            args.extend(self.target_box(element) for element in target.args)
             call = self.self_method(
-                "replace_op_with", self.op_ref,
-                ir.Attribute(ir.Symbol('rop'), target.opname.upper()),
-                args=ir.ListExpr([
-                    self.target_box(element) for element in target.args]))
-            newop = ir.Value('newop')
-            call.side_effects = True  # Updates op's forwarding pointer.
-            self.emit(ir.Bind(newop, call))
-            call2 = ir.Call(
-                ir.Attribute(ir.Attribute(self.self_ref, 'optimizer'),
-                             'send_extra_operation'),
-                [ir.Ref(newop)])
-            self.emit(ir.ExprStmt(call2))
+                "_replace_op_with_%s_and_send" % len(target.args), *args)
+            call.side_effects = True  # forwards op and optimizes its replacement
+            self.emit(ir.ExprStmt(call))
             return
         raise NotImplementedError("lower target: %r" % (target,))
 

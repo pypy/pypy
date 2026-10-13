@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import (
     deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
     rop, AbstractResOp, GuardResOp, OpHelpers,
-    get_opclass_memo)
+    get_opclass_memo, ResOpWithDescr)
 from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -160,6 +160,39 @@ class Optimization(object):
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
+
+    @specialize.arg(2)
+    def _replace_op_with_1_and_send(self, op, newopnum, arg0):
+        # only for ruleopt generated code
+        newop = get_opclass_memo(newopnum)()
+        newop.setarg(0, arg0)
+        assert not isinstance(newop, ResOpWithDescr)
+        assert newop.type != 'v'
+        if not we_are_translated():
+            repl_op = get_box_replacement(op)
+            assert repl_op is op
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            newop.set_forwarded(opinfo)
+        op.set_forwarded(newop)
+        self.optimizer.send_extra_operation(newop)
+
+    @specialize.arg(2)
+    def _replace_op_with_2_and_send(self, op, newopnum, arg0, arg1):
+        # only for ruleopt generated code
+        newop = get_opclass_memo(newopnum)()
+        newop.setarg(0, arg0)
+        newop.setarg(1, arg1)
+        assert not isinstance(newop, ResOpWithDescr)
+        assert newop.type != 'v'
+        if not we_are_translated():
+            repl_op = get_box_replacement(op)
+            assert repl_op is op
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            newop.set_forwarded(opinfo)
+        op.set_forwarded(newop)
+        self.optimizer.send_extra_operation(newop)
 
     def ensure_ptr_info_arg0(self, op):
         return self.optimizer.ensure_ptr_info_arg0(op)
