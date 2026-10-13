@@ -300,8 +300,15 @@ class W_Socket(W_Root):
                     if fd < 0:
                         raise oefmt(space.w_ValueError,
                             "negative file descriptor")
-                    if family == -1:
-                        family = rsocket.get_socket_family(fd)
+                    try:
+                        fd_family = rsocket.get_socket_family(fd)
+                    except SocketErrorWithErrno as e:
+                        if (family == -1 or e.errno == errno.EBADF or
+                                e.errno == errno.ENOTSOCK):
+                            raise
+                    else:
+                        if family == -1:
+                            family = fd_family
                     if type == -1:
                         type = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_TYPE)
                     if proto == -1:

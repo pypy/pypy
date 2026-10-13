@@ -467,6 +467,19 @@ def test_invalid_fd():
     pytest.raises(ValueError, _socket.socket, fileno=-1)
     pytest.raises(TypeError, _socket.socket, fileno=42.5)
 
+@pytest.mark.skipif(sys.platform == 'win32', reason="no fileno on windows")
+def test_fileno_not_a_socket():
+    import _socket, errno
+    r, w = os.pipe()
+    try:
+        pytest.raises(OSError, _socket.socket, fileno=r)
+        e = pytest.raises(OSError, _socket.socket, _socket.AF_INET,
+                          _socket.SOCK_STREAM, fileno=r)
+        assert e.value.errno == errno.ENOTSOCK
+    finally:
+        os.close(r)
+        os.close(w)
+
 def test_socket_non_inheritable():
     import _socket, os
     s1 = _socket.socket()
