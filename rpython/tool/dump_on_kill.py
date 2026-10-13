@@ -1,9 +1,10 @@
 """Traceback dumps for test processes killed by the parallel test runner.
 
 testrunner/runner.py SIGTERMs a test process that overruns --timeout, which
-leaves no clue about where it was stuck.  When it sets PYPY_TEST_WATCHDOG to a
-directory, dump every thread's traceback there on that SIGTERM (and on a fatal
-signal); the runner copies the file into the test's output.
+leaves no clue about where it was stuck.  When it sets PYPY_TEST_DUMP_DIR,
+dump every thread's traceback there on that SIGTERM (and on a fatal signal);
+the runner copies the file into the test's output.  Unrelated to
+pypy/tool/watchdog.py, which kills a child that overruns a time limit.
 
 Two things this deliberately does not do: write to stderr, which pytest has
 already redirected to its own capture file by the time conftest is imported,
@@ -18,7 +19,7 @@ _dumpfile = None    # keep the fd alive for the handlers
 
 def install():
     global _dumpfile
-    dirname = os.environ.get('PYPY_TEST_WATCHDOG')
+    dirname = os.environ.get('PYPY_TEST_DUMP_DIR')
     if not dirname or _dumpfile is not None:
         return
     try:
@@ -27,7 +28,7 @@ def install():
     except ImportError:
         return      # not all hosts have it
     try:
-        f = open(os.path.join(dirname, 'watchdog-%d.txt' % os.getpid()), 'w')
+        f = open(os.path.join(dirname, 'traceback-%d.txt' % os.getpid()), 'w')
         faulthandler.enable(file=f)     # fatal signals: segfault, abort, ...
         # chain=False: chaining lets the default SIGTERM action kill us
         # mid-dump, so we get one frame.  The runner SIGKILLs 10s later.

@@ -1,10 +1,10 @@
 import py, pytest
 from rpython.tool import leakfinder
-from rpython.tool.faulthandler_watchdog import install as _install_watchdog
+from rpython.tool.dump_on_kill import install as _install_dump_on_kill
 
 pytest_plugins = 'rpython.tool.pytest.expecttest'
 
-_install_watchdog()
+_install_dump_on_kill()
 
 option = None
 

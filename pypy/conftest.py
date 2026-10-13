@@ -1,8 +1,8 @@
 import py, pytest, sys, textwrap
 from inspect import isclass
-from rpython.tool.faulthandler_watchdog import install as _install_watchdog
+from rpython.tool.dump_on_kill import install as _install_dump_on_kill
 
-_install_watchdog()
+_install_dump_on_kill()
 
 APPLEVEL_FN = 'apptest_*.py'
 
