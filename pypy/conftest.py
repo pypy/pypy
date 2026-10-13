@@ -1,5 +1,8 @@
 import py, pytest, sys, textwrap
 from inspect import isclass
+from rpython.tool.faulthandler_watchdog import install as _install_watchdog
+
+_install_watchdog()
 
 APPLEVEL_FN = 'apptest_*.py'
 
