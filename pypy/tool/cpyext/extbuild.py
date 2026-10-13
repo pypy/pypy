@@ -110,18 +110,22 @@ class SystemCompilationInfo(object):
             assert not source_files
             files = convert_sources_to_files(source_strings, dirname)
             source_files = files
+        result = self.build_module(
+            modname, dirname, source_files, all_include_dirs)
+        if _PROFILE_LOG:
+            _profile_log('miss', modname, time.time() - start)
+        _compiled_module_cache[cache_key] = result
+        return result
+
+    def build_module(self, modname, dirname, source_files, include_dirs):
         soname = c_compile(source_files, outputfilename=str(dirname / modname),
             compile_extra=self.compile_extra,
             link_extra=self.link_extra,
-            include_dirs=all_include_dirs,
+            include_dirs=include_dirs,
             libraries=self.extra_libs)
-        if _PROFILE_LOG:
-            _profile_log('miss', modname, time.time() - start)
         pydname = soname.new(purebasename=modname, ext=self.ext)
         soname.rename(pydname)
-        result = str(pydname)
-        _compiled_module_cache[cache_key] = result
-        return result
+        return str(pydname)
 
     def import_module(self, name, init=None, body='', filename=None,
                       include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
@@ -168,6 +172,16 @@ class SystemCompilationInfo(object):
 
 class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
+    def build_module(self, modname, dirname, source_files, include_dirs):
+        # distutils is gone in 3.12, so drive the compiler directly instead
+        from pypy_tools._cffi_compile import compile_shared
+        return compile_shared(
+            [str(f) for f in source_files], modname, str(dirname),
+            include_dirs=[str(d) for d in include_dirs],
+            libraries=self.extra_libs,
+            extra_compile_args=self.compile_extra,
+            extra_link_args=self.link_extra)
+
     def load_module(space, mod, name, use_imp=False):
         from importlib import machinery
         from importlib._bootstrap import _load
@@ -333,7 +347,7 @@ def get_so_suffix():
             "suffix for C extensions!")
 
 def get_sys_info_app(base_dir):
-    from distutils.sysconfig import get_python_inc
+    import sysconfig
     if sys.platform == 'win32':
         compile_extra = ["/we4013", "/std:c11"]
         link_extra = ["/LIBPATH:" + os.path.join(sys.exec_prefix, 'libs')]
@@ -346,7 +360,7 @@ def get_sys_info_app(base_dir):
         pass
     return ExtensionCompiler(
         builddir_base=base_dir,
-        include_extra=[get_python_inc()],
+        include_extra=[sysconfig.get_paths()['include']],
         compile_extra=compile_extra,
         link_extra=link_extra,
         ext=get_so_suffix())
