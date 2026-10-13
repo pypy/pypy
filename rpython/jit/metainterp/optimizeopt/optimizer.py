@@ -1,7 +1,10 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, CONST_NULL, new_ref_dict)
+    Const, ConstInt, CONST_NULL, new_ref_dict,
+    CONST_FALSE as CONST_0,
+    CONST_TRUE as CONST_1,
+    )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
@@ -20,10 +23,6 @@ from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
 
 
-
-
-CONST_0      = ConstInt(0)
-CONST_1      = ConstInt(1)
 CONST_ZERO_FLOAT = Const._new(0.0)
 REMOVED = AbstractResOp()
 
