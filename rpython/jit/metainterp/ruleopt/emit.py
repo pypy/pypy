@@ -109,6 +109,14 @@ class PythonEmitter(object):
         raise NotImplementedError("unsupported expression: %r" % (expr,))
 
     def emit_stmt(self, stmt):
+        if isinstance(stmt, ir.FinishRule):
+            for line in stmt.comment.splitlines():
+                self.emit("# " + line)
+            receiver = self.emit_expr(stmt.self_ref, CALL_PRECEDENCE)
+            self.emit("%s._rule_fired_%s[%s] += 1" % (
+                receiver, stmt.opname, stmt.rule_index))
+            self.emit("return")
+            return
         if isinstance(stmt, ir.ExprStmt):
             self.emit(self.emit_expr(stmt.expr))
             return

@@ -206,6 +206,9 @@ class IRCodegen(parse.Visitor):
     def default_visit(self, expr):
         raise NotImplementedError("lower expression: %r" % (expr,))
 
+    def emit(self, stmt):
+        self.block.statements.append(stmt)
+
     def visit_Number(self, expr):
         return ir.Literal(expr.value)
 
@@ -245,9 +248,61 @@ class IRCodegen(parse.Visitor):
         args = [self.visit(arg) for arg in expr.args]
         return ir.Call(ir.Attribute(receiver, expr.methname), args)
 
+    def visit_UnaryOp(self, expr):
+        left = self.visit(expr.left)
+        if not expr.need_ruint:
+            return ir.Unary(expr.pysymbol, left)
+        r_uint = ir.Symbol('r_uint')
+        intmask = ir.Symbol('intmask')
+        left = ir.Call(r_uint, [left])
+        res = ir.Unary(expr.pysymbol, left)
+        return ir.Call(intmask, [res])
+
     def visit_FuncCall(self, expr):
         args = [self.visit(arg) for arg in expr.args]
         return ir.Call(ir.Symbol(expr.funcname), args)
+
+    def generate_rule_body(self, rule, opname, position):
+        comment = "%s: %s => %s" % (rule.name, rule.pattern, rule.target)
+        finish = ir.FinishRule(self.self_ref, opname, position, comment)
+        self.generate_body(rule.elements, rule.target, finish)
+
+    def generate_body(self, elements, target, finish=None):
+        """Append a rule's computations, checks and target action.
+
+        Optionally finish with the rule counter and return. Pattern matching
+        is handled separately.
+        self.block is the insertion point; checks move it into their true arm.
+        """
+        outer_block = self.block
+        outer_bindings = self.bindings
+        outer_intbound_bindings = self.intbound_bindings
+        self.bindings = self.bindings.copy()
+        self.intbound_bindings = self.intbound_bindings.copy()
+        try:
+            for element in elements:
+                self.visit(element)
+            self.generate_target(target)
+            if finish is not None:
+                self.emit(finish)
+        finally:
+            self.block = outer_block
+            self.bindings = outer_bindings
+            self.intbound_bindings = outer_intbound_bindings
+
+    def visit_Compute(self, element):
+        value = ir.Value(element.name)
+        self.emit(ir.Bind(value, self.visit(element.expr)))
+        if element.expr.typ is IntBound:
+            self.intbound_bindings[element.name] = value
+        else:
+            self.bindings[element.name] = value
+
+    def visit_Check(self, element):
+        then = ir.Block([])
+        cond = ir.If(self.visit(element.expr), then, ir.Block([]))
+        self.emit(cond)
+        self.block = then
 
     def value_for(self, varname):
         return self.bindings[varname]
@@ -277,12 +332,12 @@ class IRCodegen(parse.Visitor):
         if isinstance(target, parse.PatternVar):
             value = self.target_box(target)
             call = self.self_method("make_equal_to", self.op_ref, value)
-            self.block.statements.append(ir.ExprStmt(call))
+            self.emit(ir.ExprStmt(call))
             return
         if isinstance(target, parse.PatternConst):
             value = self.constant_expr(target)
             call = self.self_method("make_constant_int", self.op_ref, value)
-            self.block.statements.append(ir.ExprStmt(call))
+            self.emit(ir.ExprStmt(call))
             return
         if isinstance(target, parse.PatternOp):
             call = self.self_method(
@@ -291,12 +346,12 @@ class IRCodegen(parse.Visitor):
                 args=ir.ListExpr([
                     self.target_box(element) for element in target.args]))
             newop = ir.Value('newop')
-            self.block.statements.append(ir.Bind(newop, call))
+            self.emit(ir.Bind(newop, call))
             call2 = ir.Call(
                 ir.Attribute(ir.Attribute(self.self_ref, 'optimizer'),
                              'send_extra_operation'),
                 [ir.Ref(newop)])
-            self.block.statements.append(ir.ExprStmt(call2))
+            self.emit(ir.ExprStmt(call2))
             return
         raise NotImplementedError("lower target: %r" % (target,))
 

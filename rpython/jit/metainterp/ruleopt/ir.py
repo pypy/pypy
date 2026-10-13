@@ -127,6 +127,20 @@ class Return(Stmt):
         return "Return(%r)" % (self.expr,)
 
 
+class FinishRule(Stmt):
+    """Record a successful rewrite and return from the generated method."""
+
+    def __init__(self, self_ref, opname, rule_index, comment):
+        self.self_ref = self_ref
+        self.opname = opname
+        self.rule_index = rule_index
+        self.comment = comment
+
+    def __repr__(self):
+        return "FinishRule(%r, %r, %r, %r)" % (
+            self.self_ref, self.opname, self.rule_index, self.comment)
+
+
 class If(Stmt):
     def __init__(self, condition, then_block, else_block):
         self.condition = condition

@@ -4,8 +4,9 @@ from rpython.jit.metainterp.ruleopt import ir
 from rpython.jit.metainterp.ruleopt.emit import emit_python
 
 
-def run_body(source):
-    namespace = {}
+def run_body(source, namespace=None):
+    if namespace is None:
+        namespace = {}
     function = "def generated():\n" + "\n".join(
         "    " + line for line in source.splitlines())
     exec(function, namespace)
@@ -186,3 +187,27 @@ def test_local_binding_does_not_shadow_symbol():
     ]))
     assert source == "len_1 = 10\nreturn len_1 + len([])"
     assert run_body(source) == 10
+
+
+@pytest.mark.parametrize("condition", [True, False])
+def test_finish_rule_counts_and_returns_only_on_success(condition):
+    class Recorder(object):
+        def __init__(self):
+            self._rule_fired_int_add = [0, 0]
+
+    recorder = Recorder()
+    source = emit_python(ir.Block([
+        ir.If(ir.Literal(condition), ir.Block([
+            ir.FinishRule(ir.Symbol("optimizer"), "int_add", 1,
+                          "add_zero: int_add(x, 0) => x"),
+        ]), ir.Block([])),
+        ir.Return(ir.Literal(42)),
+    ]))
+    assert source == (
+        "if %r:\n"
+        "    # add_zero: int_add(x, 0) => x\n"
+        "    optimizer._rule_fired_int_add[1] += 1\n"
+        "    return\n"
+        "return 42" % condition)
+    assert run_body(source, {"optimizer": recorder}) == (None if condition else 42)
+    assert recorder._rule_fired_int_add == [0, int(condition)]

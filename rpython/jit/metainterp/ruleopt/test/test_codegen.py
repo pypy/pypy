@@ -191,6 +191,13 @@ def test_lower_operation_target(opname, args, expected_args):
     (Name("C", int), "Ref(Value('constant'))"),
     (Name("x", IntBound), "Ref(Value('bound_x'))"),
     (Name("LONG_BIT", int), "Symbol('LONG_BIT')"),
+    (Invert(Name("C", int)), "Unary('~', Ref(Value('constant')))"),
+    (Neg(Name("C", int)),
+     "Call(Symbol('intmask'), [Unary('-', "
+     "Call(Symbol('r_uint'), [Ref(Value('constant'))], []))], [])"),
+    (Invert(Neg(Number(1))),
+     "Unary('~', Call(Symbol('intmask'), [Unary('-', "
+     "Call(Symbol('r_uint'), [Literal(1)], []))], []))"),
     (Eq(Name("C", int), Number(0)),
      "Binary('==', Ref(Value('constant')), Literal(0))"),
     (OpAnd(Name("C", int), Number(3)),
@@ -252,3 +259,86 @@ def test_lower_bound_attribute(attrname, expected):
                         {"x": ir.Value("bound_x")})
     assert repr(builder.visit(Attribute("x", attrname))) == expected
     assert repr(builder.block) == "Block([])"
+
+
+def test_lower_computation_body():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    builder.generate_body([Compute("C", Number(7))], PatternVar("C", int))
+    assert repr(builder.block) == (
+        "Block([Bind(Value('C'), Literal(7)), "
+        "ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Call(Symbol('ConstInt'), [Ref(Value('C'))], [])], []))])")
+    assert builder.bindings == {}
+
+
+def test_ir_emit_uses_current_block():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    outer = builder.block
+    branch = ir.If(ir.Literal(True), ir.Block([]), ir.Block([]))
+    builder.emit(branch)
+    builder.block = branch.then_block
+    builder.emit(ir.Return())
+    assert repr(outer) == (
+        "Block([If(Literal(True), Block([Return(None)]), Block([]))])")
+
+
+def test_checks_nest_the_remaining_body():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {"C": ir.Value("constant")})
+    outer_block = builder.block
+    builder.generate_body([
+        Check(Gt(Name("C", int), Number(0))),
+        Compute("D", Number(7)),
+        Check(Lt(Name("D", int), Number(10))),
+    ], PatternVar("D", int))
+    assert builder.block is outer_block
+    assert repr(builder.block) == (
+        "Block([If(Binary('>', Ref(Value('constant')), Literal(0)), "
+        "Block([Bind(Value('D'), Literal(7)), "
+        "If(Binary('<', Ref(Value('D')), Literal(10)), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Call(Symbol('ConstInt'), [Ref(Value('D'))], [])], []))]), "
+        "Block([]))]), Block([]))])")
+    assert "D" not in builder.bindings
+
+
+def test_computed_bound_is_available_to_checks():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {"x": ir.Value("box_x")},
+                        {"x": ir.Value("bound_x")})
+    builder.generate_body([
+        Compute("bound", Name("x", IntBound)),
+        Check(MethodCall(Name("bound", IntBound), "is_constant", [])),
+    ], PatternConst("0"))
+    assert repr(builder.block) == (
+        "Block([Bind(Value('bound'), Ref(Value('bound_x'))), "
+        "If(Call(Attribute(Ref(Value('bound')), 'is_constant'), [], []), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_constant_int'), "
+        "[Ref(Value('op')), Literal(0)], []))]), Block([]))])")
+    assert "bound" not in builder.intbound_bindings
+
+
+def test_finished_rule_body():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = Rule("eq_one", PatternOp("int_eq", [PatternVar("x"), PatternConst("1")]),
+                False, [Check(MethodCall(Name("x", IntBound), "is_bool", []))],
+                PatternVar("x", IntBound))
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {"x": ir.Value("box_x")},
+                        {"x": ir.Value("bound_x")})
+    builder.generate_rule_body(rule, "int_eq", 2)
+    assert repr(builder.block) == (
+        "Block([If(Call(Attribute(Ref(Value('bound_x')), 'is_bool'), [], []), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('box_x'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_eq', 2, "
+        "'eq_one: int_eq(x, 1) => x')]), Block([]))])")

@@ -72,3 +72,8 @@ def test_symbol_repr():
 def test_call_requires_argument_list():
     with pytest.raises(AssertionError):
         ir.Call(ir.Symbol("r_uint"), ir.Literal(1))
+
+
+def test_finish_rule_repr():
+    stmt = ir.FinishRule(ir.Ref(ir.Value("self")), "int_add", 2, "add_zero")
+    assert repr(stmt) == "FinishRule(Ref(Value('self')), 'int_add', 2, 'add_zero')"
