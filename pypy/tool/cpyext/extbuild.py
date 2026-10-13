@@ -174,7 +174,11 @@ class ExtensionCompiler(SystemCompilationInfo):
     """Extension compiler for appdirect mode"""
     def build_module(self, modname, dirname, source_files, include_dirs):
         # distutils is gone in 3.12, so drive the compiler directly instead
-        from pypy_tools._cffi_compile import compile_shared
+        try:
+            from pypy_tools._cffi_compile import compile_shared
+        except ImportError:
+            # CPython appdirect test
+            from lib_pypy.pypy_tools._cffi_compile import compile_shared
         return compile_shared(
             [str(f) for f in source_files], modname, str(dirname),
             include_dirs=[str(d) for d in include_dirs],
