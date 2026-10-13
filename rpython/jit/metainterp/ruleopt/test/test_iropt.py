@@ -1,5 +1,8 @@
+import pytest
+
 from rpython.jit.metainterp.ruleopt import ir
-from rpython.jit.metainterp.ruleopt.iropt import remove_unused_bindings
+from rpython.jit.metainterp.ruleopt.iropt import (
+    move_bindings_down, remove_unused_bindings, used_values)
 
 
 def getintbound(receiver, box):
@@ -93,3 +96,72 @@ def test_repetition_preserves_effectful_chain():
     block = ir.Block([read, effect, ir.Bind(dead, ir.Ref(b))])
     remove_unused_bindings(block)
     assert block.statements == [read, effect]
+
+
+def test_used_values():
+    defined = ir.Value('x')
+    referenced = ir.Value('x')
+    block = ir.Block([
+        ir.Bind(defined, ir.Literal(1)),
+        ir.If(ir.Symbol('condition'), ir.Block([ir.Return(ir.Ref(referenced))]),
+              ir.Block([])),
+    ])
+    assert used_values(block) == {referenced}
+
+
+def test_move_bindings_down():
+    bound = ir.Value('bound')
+    binding = ir.Bind(bound, getintbound(ir.Value('self'), ir.Value('box')))
+    early_return = ir.If(ir.Symbol('matched'), ir.Block([ir.Return()]), ir.Block([]))
+    ret = ir.Return(ir.Ref(bound))
+    block = ir.Block([binding, early_return, ret])
+    move_bindings_down(block)
+    assert block.statements == [early_return, binding, ret]
+
+
+@pytest.mark.parametrize('use_in', ['condition', 'then', 'else'])
+def test_move_bindings_down_stops_at_use(use_in):
+    value = ir.Value('x')
+    binding = ir.Bind(value, ir.Literal(1))
+    branch = ir.If(ir.Symbol('condition'), ir.Block([]), ir.Block([]))
+    if use_in == 'condition':
+        branch.condition = ir.Ref(value)
+    else:
+        arm = branch.then_block if use_in == 'then' else branch.else_block
+        arm.statements.append(ir.Return(ir.Ref(value)))
+    block = ir.Block([binding, branch])
+    move_bindings_down(block)
+    assert block.statements == [binding, branch]
+
+
+def test_move_bindings_down_repeats_inside_nested_blocks():
+    a, b = ir.Value('a'), ir.Value('b')
+    first = ir.Bind(a, ir.Literal(1))
+    second = ir.Bind(b, ir.Ref(a))
+    check1 = ir.If(ir.Symbol('first_match'), ir.Block([ir.Return()]), ir.Block([]))
+    check2 = ir.If(ir.Symbol('second_match'), ir.Block([ir.Return()]), ir.Block([]))
+    ret = ir.Return(ir.Ref(b))
+    inner = ir.Block([first, second, check1, check2, ret])
+    outer_if = ir.If(ir.Symbol('outer'), ir.Block([]), inner)
+    block = ir.Block([outer_if])
+    move_bindings_down(block)
+    assert block.statements == [outer_if]
+    assert inner.statements == [check1, check2, first, second, ret]
+
+
+def test_move_bindings_down_keeps_effectful_binding():
+    binding = ir.Bind(ir.Value('result'),
+                      ir.Call(ir.Symbol('update'), [], side_effects=True))
+    branch = ir.If(ir.Symbol('condition'), ir.Block([ir.Return()]), ir.Block([]))
+    block = ir.Block([binding, branch])
+    move_bindings_down(block)
+    assert block.statements == [binding, branch]
+
+
+def test_move_bindings_down_does_not_cross_other_statements():
+    binding = ir.Bind(ir.Value('x'), ir.Literal(1))
+    action = ir.ExprStmt(ir.Call(ir.Symbol('action'), [], side_effects=True))
+    branch = ir.If(ir.Symbol('condition'), ir.Block([ir.Return()]), ir.Block([]))
+    block = ir.Block([binding, action, branch])
+    move_bindings_down(block)
+    assert block.statements == [binding, action, branch]

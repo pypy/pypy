@@ -2,9 +2,8 @@ import ast
 from contextlib import contextmanager
 from collections import defaultdict
 
-from rpython.jit.metainterp.ruleopt import ir, parse
+from rpython.jit.metainterp.ruleopt import ir, iropt, parse
 from rpython.jit.metainterp.ruleopt.emit import emit_python
-from rpython.jit.metainterp.ruleopt.iropt import remove_unused_bindings
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
 commutative_ops = {"int_add", "int_mul", "int_and", "int_mul", "int_or",
@@ -615,7 +614,7 @@ class Codegen(object):
     def generate_method(self, opname, rules):
         builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
         body = builder.generate_method(opname, rules)
-        remove_unused_bindings(body)
+        iropt.optimize(body)
         names = builder.rule_names
         self.emit("_rule_names_%s = %r" % (opname, names))
         self.emit("_rule_fired_%s = [0] * %s" % (opname, len(names)))

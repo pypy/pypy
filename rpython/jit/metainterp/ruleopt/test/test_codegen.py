@@ -154,6 +154,18 @@ def test_method_generation_uses_ir(monkeypatch):
     assert "    unused = 456" not in generator.code
 
 
+def test_method_generation_moves_bindings_down(monkeypatch):
+    value = ir.Value('result')
+    binding = ir.Bind(value, ir.Literal(123))
+    branch = ir.If(ir.Symbol('condition'), ir.Block([ir.Return()]), ir.Block([]))
+    ret = ir.Return(ir.Ref(value))
+    body = ir.Block([binding, branch, ret])
+    monkeypatch.setattr(IRCodegen, 'generate_method',
+                        lambda builder, opname, rules: body)
+    Codegen().generate_method('int_add', [])
+    assert body.statements == [branch, binding, ret]
+
+
 def test_generate_unary_minus_safe_for_minint():
     s = """\
 sub_const_canonicalize: int_sub(x, C1)
