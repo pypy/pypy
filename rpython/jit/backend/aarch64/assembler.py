@@ -1,7 +1,8 @@
 
 from rpython.jit.backend.aarch64.arch import WORD, JITFRAME_FIXED_SIZE
 from rpython.jit.backend.aarch64.codebuilder import InstrBuilder, OverwritingBuilder
-from rpython.jit.backend.aarch64.locations import imm, StackLocation, get_fp_offset
+from rpython.jit.backend.aarch64.locations import (
+    imm, imm_float_addr, StackLocation, get_fp_offset)
 #from rpython.jit.backend.arm.helper.regalloc import VMEM_imm_size
 from rpython.jit.backend.aarch64.opassembler import ResOpAssembler
 from rpython.jit.backend.aarch64.regalloc import (Regalloc, check_imm_arg,
@@ -28,12 +29,70 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import rgc, rmmap
 
 
+def _mov_count(value):
+    """How many instructions `gen_load_int` emits for `value`."""
+    if value < 0:
+        if value >= -65536:
+            return 1
+        n = 1
+        value = value >> 16
+        shift = 16
+        while shift < 64:
+            if (value & 0xFFFF) != 0xFFFF:
+                n += 1
+            shift += 16
+            value >>= 16
+        return n
+    n = 1
+    value = value >> 16
+    while value:
+        n += 1
+        value >>= 16
+    return n
+
+
+def _jit_stack_size():
+    return (len(r.callee_saved_registers) + 8) * WORD
+
+
 class AssemblerARM64(ResOpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         ResOpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
         self.wb_slowpath = [0, 0, 0, 0, 0]
         self.stack_check_slowpath = 0
+        # (pos, rt, payload, kind). kind 0: x-reg bits, kind 1: d-reg
+        # whose payload is the address of an 8-byte float constant.
+        self.pending_literals = []
+        self.emitting_bridge = False
+        self.have_pinned_float = False
+        self.pinned_float = 0
+        self.pinned_float_loc = None
+        self.pinned_float_box = None
+        self.pinned_float_addr = 0
+        self.have_pinned_int0 = False
+        self.pinned_int0 = 0
+        self.pinned_int0_loc = None
+        self.pinned_int0_box = None
+        self.have_pinned_int1 = False
+        self.pinned_int1 = 0
+        self.pinned_int1_loc = None
+        self.pinned_int1_box = None
+
+    def _clear_loop_pins(self):
+        self.have_pinned_float = False
+        self.pinned_float = 0
+        self.pinned_float_loc = None
+        self.pinned_float_box = None
+        self.pinned_float_addr = 0
+        self.have_pinned_int0 = False
+        self.pinned_int0 = 0
+        self.pinned_int0_loc = None
+        self.pinned_int0_box = None
+        self.have_pinned_int1 = False
+        self.pinned_int1 = 0
+        self.pinned_int1_loc = None
+        self.pinned_int1_box = None
 
     @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -55,6 +114,8 @@ class AssemblerARM64(ResOpAssembler):
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
 
+        self.emitting_bridge = False
+        self._clear_loop_pins()
         self.setup(looptoken)
         if self.cpu.HAS_CODEMAP:
             self.codemap_builder.enter_portal_frame(jd_id, unique_id,
@@ -160,6 +221,8 @@ class AssemblerARM64(ResOpAssembler):
 
         assert isinstance(faildescr, AbstractFailDescr)
 
+        self.emitting_bridge = True
+        self._clear_loop_pins()
         arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
 
         regalloc = Regalloc(assembler=self)
@@ -1006,6 +1069,7 @@ class AssemblerARM64(ResOpAssembler):
         for tok in self.pending_guards:
             #generate the exit stub and the encoded representation
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        self._flush_literal_pool()
 
     def reserve_gcref_table(self, allgcrefs):
         gcref_table_size = len(allgcrefs) * WORD
@@ -1114,14 +1178,13 @@ class AssemblerARM64(ResOpAssembler):
             pmc.B_ofs_cond(self.mc.currpos() - pos, c.LS)
 
     def _call_header(self):
-        stack_size = (len(r.callee_saved_registers) + 8) * WORD
+        stack_size = _jit_stack_size()
         self.mc.STP_rr_preindex(r.lr.value, r.fp.value, r.sp.value, -stack_size)
         for i in range(0, len(r.callee_saved_registers), 2):
             self.mc.STP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
                             (i + 8) * WORD)
-
         if self.cpu.translate_support_code:
             self._call_header_vmprof()
         
@@ -1160,8 +1223,10 @@ class AssemblerARM64(ResOpAssembler):
 
     def _assemble(self, regalloc, inputargs, operations):
         #self.guard_success_cc = c.cond_none
+        self.pending_literals = []
         regalloc.compute_hint_frame_locations(operations)
         self._walk_operations(inputargs, operations, regalloc)
+        self._flush_literal_pool()
         #assert self.guard_success_cc == c.cond_none
         frame_depth = regalloc.get_final_frame_depth()
         jump_target_descr = regalloc.jump_target_descr
@@ -1236,15 +1301,66 @@ class AssemblerARM64(ResOpAssembler):
         return asm_comp_operations[opnum](self, op, arglocs)
 
     # regalloc support
+    def _reload_loop_pins(self, token):
+        # A bridge clobbers the regs the loop loaded once, above its head.
+        if token._arm_pin_f:
+            self.load(r.vfpregisters[token._arm_pin_f_reg],
+                      imm_float_addr(token._arm_pin_f_addr))
+        if token._arm_pin_i0:
+            self.load(r.registers[token._arm_pin_i0_reg],
+                      imm(token._arm_pin_i0_val))
+        if token._arm_pin_i1:
+            self.load(r.registers[token._arm_pin_i1_reg],
+                      imm(token._arm_pin_i1_val))
+
     def load(self, loc, value):
         """load an immediate value into a register"""
         assert (loc.is_core_reg() and value.is_imm()
                     or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
-            self.mc.gen_load_int(loc.value, value.getint())
+            intval = value.getint()
+            # Three or four movz/movk sit on the hot path (the signal
+            # address, a wide class pointer). One PC-relative literal.
+            if _mov_count(intval) >= 3:
+                pos = self.mc.currpos()
+                self.mc.LDR_r_literal(loc.value, 0)
+                self.pending_literals.append((pos, loc.value, intval, 0))
+            else:
+                self.mc.gen_load_int(loc.value, intval)
         elif value.is_imm_float():
-            self.mc.gen_load_int(r.ip0.value, value.getint())
-            self.mc.LDR_di(loc.value, r.ip0.value, 0)
+            # The constant lives in the data block. Materialising that
+            # address with movz/movk and then LDR makes fmul wait on the
+            # address math. A literal load is one instruction.
+            pos = self.mc.currpos()
+            self.mc.LDR_d_literal(loc.value, 0)
+            self.pending_literals.append((pos, loc.value, value.getint(), 1))
+
+    def _flush_literal_pool(self):
+        pending = self.pending_literals
+        if not pending:
+            return
+        self.pending_literals = []
+        # The loop falls off its last instruction only on a trace that
+        # does not jump. Branch over the pool either way.
+        after_b = self.mc.currpos() + 4
+        pad = (8 - (after_b % 8)) % 8
+        self.mc.B_ofs(4 + pad + len(pending) * 8)
+        for _ in range(pad // 4):
+            self.mc.NOP()
+        for pos, rt, payload, kind in pending:
+            pool = self.mc.currpos()
+            if kind == 1:
+                src = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), payload)
+                for i in range(8):
+                    self.mc.writechar(chr(src[i]))
+            else:
+                bits = r_uint(payload)
+                for i in range(8):
+                    self.mc.writechar(chr((bits >> (8 * i)) & 0xFF))
+            offset = pool - pos
+            base = 0b01011100 if kind == 1 else 0b01011000
+            word = (base << 24) | ((0x7ffff & (offset >> 2)) << 5) | rt
+            self.mc.overwrite32(pos, word)
 
     def _mov_stack_to_loc(self, prev_loc, loc):
         offset = prev_loc.value
@@ -1397,8 +1513,7 @@ class AssemblerARM64(ResOpAssembler):
             self._call_footer_vmprof(mc)
         # pop all callee saved registers
 
-        stack_size = (len(r.callee_saved_registers) + 8) * WORD
-
+        stack_size = _jit_stack_size()
         for i in range(0, len(r.callee_saved_registers), 2):
             mc.LDP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,

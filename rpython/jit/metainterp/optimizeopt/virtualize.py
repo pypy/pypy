@@ -200,6 +200,8 @@ class OptVirtualize(optimizer.Optimization):
         if opinfo is not None and opinfo.is_virtual():
             opinfo.setfield(op.getdescr(), struct,
                             get_box_replacement(op.getarg(1)))
+            # The next guard snapshots the field written here.
+            self.optimizer._last_guard_op = None
         else:
             self.make_nonnull(struct)
             return self.emit(op)
@@ -303,6 +305,8 @@ class OptVirtualize(optimizer.Optimization):
                 opinfo.setitem(op.getdescr(), indexbox.getint(),
                                get_box_replacement(op.getarg(0)),
                                get_box_replacement(op.getarg(2)))
+                # The next guard snapshots the item written here.
+                self.optimizer._last_guard_op = None
                 return
         self.make_nonnull(op.getarg(0))
         return self.emit(op)
