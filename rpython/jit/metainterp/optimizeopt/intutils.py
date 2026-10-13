@@ -438,11 +438,12 @@ class IntBound(AbstractInfo):
         Returns `True` iff this abstract integer
         does contain only one concrete integer.
         """
-        # both the bounds and the tnum encode the concrete integer
         res = self.lower == self.upper
-        assert res == (self.tmask == r_uint(0))
-        if res:
-            assert self.lower == intmask(self.tvalue)
+        if not we_are_translated():
+            # both the bounds and the tnum encode the concrete integer
+            assert res == (self.tmask == r_uint(0))
+            if res:
+                assert self.lower == intmask(self.tvalue)
         return res
 
     def get_constant_int(self):
