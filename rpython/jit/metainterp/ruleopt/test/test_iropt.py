@@ -236,6 +236,47 @@ def test_move_bindings_in_does_not_cross_other_statements():
     assert repr(block) == before
 
 
+@pytest.mark.parametrize('arm_name', ['then_block', 'else_block'])
+def test_move_bindings_in_crosses_independent_bindings(arm_name):
+    x, y, c, d = [ir.Value(name) for name in 'xycd']
+    first = ir.Bind(x, ir.Call(ir.Symbol('read_x'), []))
+    second = ir.Bind(y, ir.Ref(x))
+    const = ir.Bind(c, ir.Call(ir.Symbol('read_constant'), []))
+    check = ir.Bind(d, ir.Binary('==', ir.Ref(c), ir.Literal(0)))
+    ret = ir.Return(ir.Ref(y))
+    branch = ir.If(ir.Ref(d), ir.Block([]), ir.Block([]))
+    arm = getattr(branch, arm_name)
+    arm.statements.append(ret)
+    block = ir.Block([first, second, const, check, branch])
+    assert move_bindings_in(block) is True
+    assert block.statements == [const, check, branch]
+    assert arm.statements == [first, second, ret]
+    assert move_bindings_in(block) is False
+
+
+@pytest.mark.parametrize('reason', ['dependency', 'effects', 'condition',
+                                  'later_use', 'no_if'])
+def test_move_bindings_in_checks_intervening_bindings(reason):
+    x, c = ir.Value('x'), ir.Value('c')
+    binding = ir.Bind(x, ir.Call(ir.Symbol('read'), []))
+    args = [ir.Ref(x)] if reason == 'dependency' else []
+    intervening = ir.Bind(c, ir.Call(ir.Symbol('check'), args,
+                                    side_effects=(reason == 'effects')))
+    condition = ir.Ref(c)
+    if reason == 'condition':
+        condition = ir.Binary('==', ir.Ref(c), ir.Ref(x))
+    branch = ir.If(condition, ir.Block([ir.Return(ir.Ref(x))]), ir.Block([]))
+    statements = [binding, intervening, branch]
+    if reason == 'later_use':
+        statements.append(ir.Return(ir.Ref(x)))
+    elif reason == 'no_if':
+        statements = [binding, intervening]
+    block = ir.Block(statements)
+    before = repr(block)
+    assert move_bindings_in(block) is False
+    assert repr(block) == before
+
+
 def test_optimize_alternates_down_and_in():
     value = ir.Value('x')
     binding = ir.Bind(value, ir.Call(ir.Symbol('read'), []))

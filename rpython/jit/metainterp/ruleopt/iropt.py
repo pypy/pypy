@@ -143,7 +143,9 @@ def move_bindings_in(block):
     and returns whether anything moved. Never duplicates a binding or moves
     it outward.
 
-    Consider adjacent Bind / If pairs. The RHS must be effect-free;
+    Look ahead from a Bind to an If, crossing only effect-free bindings that
+    do not use its Value. Only reorder bindings when moving into a branch.
+    The RHS must be effect-free;
     the Value must be unused in the condition and all following statements,
     and used in exactly one branch. Remove the Bind from its original block
     and prepend it to that branch.
@@ -158,13 +160,22 @@ def move_bindings_in(block):
             stmt = statements[i]
             if not isinstance(stmt, ir.Bind) or stmt.expr.has_side_effects():
                 continue
-            branch = statements[i + 1]
+            value = stmt.value
+            j = i + 1
+            while j < len(statements) and isinstance(statements[j], ir.Bind):
+                intervening = statements[j]
+                if (intervening.expr.has_side_effects()
+                        or value in used_values(intervening)):
+                    break
+                j += 1
+            if j == len(statements):
+                continue
+            branch = statements[j]
             if not isinstance(branch, ir.If):
                 continue
-            value = stmt.value
             if value in used_values(branch.condition):
                 continue
-            if value in used_values(ir.Block(statements[i + 2:])):
+            if value in used_values(ir.Block(statements[j + 1:])):
                 continue
             used_then = value in used_values(branch.then_block)
             used_else = value in used_values(branch.else_block)
