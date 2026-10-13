@@ -158,3 +158,29 @@ def test_lower_target_requires_existing_binding():
         builder.generate_target(PatternVar("missing", IntBound))
     assert builder.bindings == {}
     assert repr(builder.block) == "Block([])"
+
+
+@pytest.mark.parametrize("opname, args, expected_args", [
+    ("int_add", [PatternVar("x", IntBound), PatternVar("C", int)],
+     "Ref(Value('x')), Call(Symbol('ConstInt'), [Ref(Value('C'))], [])"),
+    ("int_sub", [PatternVar("x", IntBound), PatternVar("y", IntBound)],
+     "Ref(Value('x')), Ref(Value('y'))"),
+    ("int_and", [PatternVar("x", IntBound), PatternConst("MININT")],
+     "Ref(Value('x')), Call(Symbol('ConstInt'), [Symbol('MININT')], [])"),
+    ("int_neg", [PatternConst("0")],
+     "Call(Symbol('ConstInt'), [Literal(0)], [])"),
+])
+def test_lower_operation_target(opname, args, expected_args):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    bindings = dict((name, ir.Value(name)) for name in ("x", "y", "C"))
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), bindings)
+    builder.generate_target(PatternOp(opname, args))
+    assert repr(builder.block) == (
+        "Block([Bind(Value('newop'), "
+        "Call(Attribute(Ref(Value('self')), 'replace_op_with'), "
+        "[Ref(Value('op')), Attribute(Symbol('rop'), %r)], "
+        "[('args', ListExpr([%s]))])), "
+        "ExprStmt(Call(Attribute(Attribute(Ref(Value('self')), 'optimizer'), "
+        "'send_extra_operation'), [Ref(Value('newop'))], []))])"
+        % (opname.upper(), expected_args))

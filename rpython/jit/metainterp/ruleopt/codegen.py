@@ -204,25 +204,51 @@ class IRCodegen(object):
     def value_for(self, varname):
         return self.bindings[varname]
 
-    def self_method(self, name, *args):
-        return ir.Call(ir.Attribute(self.self_ref, name), list(args))
+    def self_method(self, name, *args, **kwargs):
+        kwargs = [(key, value) for key, value in kwargs.iteritems()]
+        return ir.Call(ir.Attribute(self.self_ref, name), list(args), kwargs)
+
+    def constant_expr(self, target):
+        if target.const in ("MININT", "MAXINT", "LONG_BIT"):
+            return ir.Symbol(target.const)
+        return ir.Literal(ast.literal_eval(target.const))
+
+    def target_box(self, target):
+        """An operation argument must be a box, including for integer values."""
+        if isinstance(target, parse.PatternVar):
+            value = ir.Ref(self.value_for(target.name))
+            if target.typ is int:
+                return ir.Call(ir.Symbol("ConstInt"), [value])
+            return value
+        if isinstance(target, parse.PatternConst):
+            return ir.Call(ir.Symbol("ConstInt"), [self.constant_expr(target)])
+        raise NotImplementedError("lower target argument: %r" % (target,))
 
     def generate_target(self, target):
         # generate_rule owns the rule counter and return, after this action.
         if isinstance(target, parse.PatternVar):
-            value = ir.Ref(self.value_for(target.name))
-            if target.typ is int:
-                value = ir.Call(ir.Symbol("ConstInt"), [value])
+            value = self.target_box(target)
             call = self.self_method("make_equal_to", self.op_ref, value)
             self.block.statements.append(ir.ExprStmt(call))
             return
         if isinstance(target, parse.PatternConst):
-            if target.const in ("MININT", "MAXINT", "LONG_BIT"):
-                value = ir.Symbol(target.const)
-            else:
-                value = ir.Literal(ast.literal_eval(target.const))
+            value = self.constant_expr(target)
             call = self.self_method("make_constant_int", self.op_ref, value)
             self.block.statements.append(ir.ExprStmt(call))
+            return
+        if isinstance(target, parse.PatternOp):
+            call = self.self_method(
+                "replace_op_with", self.op_ref,
+                ir.Attribute(ir.Symbol('rop'), target.opname.upper()),
+                args=ir.ListExpr([
+                    self.target_box(element) for element in target.args]))
+            newop = ir.Value('newop')
+            self.block.statements.append(ir.Bind(newop, call))
+            call2 = ir.Call(
+                ir.Attribute(ir.Attribute(self.self_ref, 'optimizer'),
+                             'send_extra_operation'),
+                [ir.Ref(newop)])
+            self.block.statements.append(ir.ExprStmt(call2))
             return
         raise NotImplementedError("lower target: %r" % (target,))
 
