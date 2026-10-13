@@ -4,6 +4,7 @@ from collections import defaultdict
 
 from rpython.jit.metainterp.ruleopt import ir, parse
 from rpython.jit.metainterp.ruleopt.emit import emit_python
+from rpython.jit.metainterp.ruleopt.iropt import remove_unused_bindings
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
 commutative_ops = {"int_add", "int_mul", "int_and", "int_mul", "int_or",
@@ -526,6 +527,7 @@ class IRCodegen(parse.Visitor):
                 args=ir.ListExpr([
                     self.target_box(element) for element in target.args]))
             newop = ir.Value('newop')
+            call.side_effects = True  # Updates op's forwarding pointer.
             self.emit(ir.Bind(newop, call))
             call2 = ir.Call(
                 ir.Attribute(ir.Attribute(self.self_ref, 'optimizer'),
@@ -564,6 +566,7 @@ class Codegen(object):
     def generate_method(self, opname, rules):
         builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
         body = builder.generate_method(opname, rules)
+        remove_unused_bindings(body)
         names = builder.rule_names
         self.emit("_rule_names_%s = %r" % (opname, names))
         self.emit("_rule_fired_%s = [0] * %s" % (opname, len(names)))

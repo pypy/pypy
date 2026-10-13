@@ -77,3 +77,28 @@ def test_call_requires_argument_list():
 def test_finish_rule_repr():
     stmt = ir.FinishRule(ir.Ref(ir.Value("self")), "int_add", 2, "add_zero")
     assert repr(stmt) == "FinishRule(Ref(Value('self')), 'int_add', 2, 'add_zero')"
+
+
+def test_effectful_call_repr():
+    call = ir.Call(ir.Symbol('update'), [], side_effects=True)
+    assert repr(call) == "Call(Symbol('update'), [], [], side_effects=True)"
+
+
+def test_expression_effects():
+    value = ir.Ref(ir.Value('x'))
+    assert not value.has_side_effects()
+    assert not ir.Literal(42).has_side_effects()
+    assert not ir.Call(ir.Symbol('read'), [value]).has_side_effects()
+    effect = ir.Call(ir.Symbol('update'), [], side_effects=True)
+    assert effect.has_side_effects()
+    # Effects propagate through ordinary expressions and every part of a call.
+    for expr in [
+        ir.Unary('-', effect),
+        ir.Binary('+', ir.Literal(1), effect),
+        ir.ListExpr([value, effect]),
+        ir.Attribute(effect, 'field'),
+        ir.Call(effect, []),
+        ir.Call(ir.Symbol('f'), [effect]),
+        ir.Call(ir.Symbol('f'), [], [('flag', effect)]),
+    ]:
+        assert expr.has_side_effects()

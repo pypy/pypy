@@ -106,7 +106,10 @@ def test_method_generation_uses_ir(monkeypatch):
     def generate_method(builder, opname, rules):
         calls.append((opname, rules))
         builder.rule_names = ["example"]
-        return ir.Block([ir.Return(ir.Literal(123))])
+        return ir.Block([
+            ir.Bind(ir.Value('unused'), ir.Literal(456)),
+            ir.Return(ir.Literal(123)),
+        ])
 
     monkeypatch.setattr(IRCodegen, "generate_method", generate_method)
     generator = Codegen()
@@ -116,6 +119,7 @@ def test_method_generation_uses_ir(monkeypatch):
     assert "_rule_fired_int_add = [0] * 1" in generator.code
     assert "def optimize_INT_ADD(self, op):" in generator.code
     assert "    return 123" in generator.code
+    assert "    unused = 456" not in generator.code
 
 
 def test_generate_unary_minus_safe_for_minint():
@@ -202,7 +206,7 @@ def test_lower_operation_target(opname, args, expected_args):
         "Block([Bind(Value('newop'), "
         "Call(Attribute(Ref(Value('self')), 'replace_op_with'), "
         "[Ref(Value('op')), Attribute(Symbol('rop'), %r)], "
-        "[('args', ListExpr([%s]))])), "
+        "[('args', ListExpr([%s]))], side_effects=True)), "
         "ExprStmt(Call(Attribute(Attribute(Ref(Value('self')), 'optimizer'), "
         "'send_extra_operation'), [Ref(Value('newop'))], []))])"
         % (opname.upper(), expected_args))
