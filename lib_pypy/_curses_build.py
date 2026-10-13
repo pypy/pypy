@@ -407,7 +407,8 @@ int panel_hidden(const PANEL *);
 void _m_getsyx(int *yx);
 """)
 
-if 'ncursesw' in libs:
+# macOS's libncurses has the wide-character functions
+if 'ncursesw' in libs or sys.platform == 'darwin':
     ffi.cdef("""
 typedef int... wint_t;
 int wget_wch(WINDOW *, wint_t *);
