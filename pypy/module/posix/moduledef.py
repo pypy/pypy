@@ -279,6 +279,9 @@ corresponding Unix manual entries for more information on calls."""
     if hasattr(rposix, 'sched_yield'):
         interpleveldefs['sched_yield'] = 'interp_posix.sched_yield'
 
+    if hasattr(rposix, 'fcopyfile'):
+        interpleveldefs['_fcopyfile'] = 'interp_posix._fcopyfile'
+
     for _name in ["O_CLOEXEC"]:
         if getattr(rposix, _name) is not None:
             interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
