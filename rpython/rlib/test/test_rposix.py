@@ -855,6 +855,24 @@ def test_posix_fallocate():
     finally:
         os.close(fd)
 
+@rposix_requires('fcopyfile')
+def test_fcopyfile(tmpdir):
+    src = str(tmpdir / 'src')
+    dst = str(tmpdir / 'dst')
+    with open(src, 'wb') as f:
+        f.write(b'hello fcopyfile')
+    in_fd = os.open(src, os.O_RDONLY)
+    out_fd = os.open(dst, os.O_WRONLY | os.O_CREAT, 0o666)
+    try:
+        rposix.fcopyfile(in_fd, out_fd, rposix.COPYFILE_DATA)
+    finally:
+        os.close(in_fd)
+        os.close(out_fd)
+    with open(dst, 'rb') as f:
+        assert f.read() == b'hello fcopyfile'
+    with pytest.raises(OSError):
+        rposix.fcopyfile(-1, -1, rposix.COPYFILE_DATA)
+
 @rposix_requires('sched_get_priority_max')
 def test_sched_get_priority_max():
     assert rposix.sched_get_priority_max(rposix.SCHED_FIFO) != -1
