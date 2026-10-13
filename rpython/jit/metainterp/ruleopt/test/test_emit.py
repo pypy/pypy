@@ -31,7 +31,7 @@ def test_distinct_bindings_with_same_hint():
         ir.Bind(second, ir.Literal(20)),
         ir.Return(ir.Ref(first)),
     ]))
-    assert source == "x = 10\nx_1 = 20\nreturn x"
+    assert source == "x = 10\nx_v1 = 20\nreturn x"
     assert run_body(source) == 10
 
 
@@ -88,7 +88,7 @@ def test_empty_body():
 def test_call_without_arguments():
     expr = ir.Call(ir.Attribute(ir.Literal("hello"), "upper"), [])
     source = emit_python(ir.Block([ir.Return(expr)]))
-    assert source == "return ('hello').upper()"
+    assert source == "return 'hello'.upper()"
     assert run_body(source) == "HELLO"
 
 
@@ -96,7 +96,7 @@ def test_nested_calls():
     stripped = ir.Call(ir.Attribute(ir.Literal(" a,b "), "strip"), [])
     split = ir.Call(ir.Attribute(stripped, "split"), [ir.Literal(",")])
     source = emit_python(ir.Block([ir.Return(split)]))
-    assert source == "return ((' a,b ').strip()).split(',')"
+    assert source == "return ' a,b '.strip().split(',')"
     assert run_body(source) == ["a", "b"]
 
 
@@ -113,7 +113,7 @@ def test_call_with_positional_and_keyword_arguments():
     ]))
     assert source == (
         "template = '{0} {suffix}'\n"
-        "return (template).format('hello', suffix='world')")
+        "return template.format('hello', suffix='world')")
     assert run_body(source) == "hello world"
 
 
@@ -164,8 +164,8 @@ def test_expr_stmt_preserves_effects_and_continues():
     ]))
     assert source == (
         "items = []\n"
-        "(items).append(1)\n"
-        "(items).append(2)\n"
+        "items.append(1)\n"
+        "items.append(2)\n"
         "return items")
     assert run_body(source) == [1, 2]
 
@@ -185,7 +185,7 @@ def test_local_binding_does_not_shadow_symbol():
         ir.Return(ir.Binary("+", ir.Ref(local),
                             ir.Call(ir.Symbol("len"), [ir.ListExpr([])]))),
     ]))
-    assert source == "len_1 = 10\nreturn len_1 + len([])"
+    assert source == "len_v1 = 10\nreturn len_v1 + len([])"
     assert run_body(source) == 10
 
 
@@ -211,3 +211,14 @@ def test_finish_rule_counts_and_returns_only_on_success(condition):
         "return 42" % condition)
     assert run_body(source, {"optimizer": recorder}) == (None if condition else 42)
     assert recorder._rule_fired_int_add == [0, int(condition)]
+
+
+def test_attribute_receiver_precedence():
+    from rpython.jit.metainterp.ruleopt.emit import PythonEmitter
+
+    printer = PythonEmitter()
+    assert printer.emit_expr(ir.Attribute(ir.Symbol("self"), "optimizer")) == "self.optimizer"
+    assert printer.emit_expr(ir.Attribute(
+        ir.Binary("+", ir.Literal(1), ir.Literal(2)), "real")) == "(1 + 2).real"
+    assert printer.emit_expr(ir.Attribute(ir.Literal(42), "real")) == "(42).real"
+    assert printer.emit_expr(ir.Attribute(ir.Literal(-42), "real")) == "(-42).real"

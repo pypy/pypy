@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from collections import defaultdict
 
 from rpython.jit.metainterp.ruleopt import ir, parse
+from rpython.jit.metainterp.ruleopt.emit import emit_python
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
 commutative_ops = {"int_add", "int_mul", "int_and", "int_mul", "int_or",
@@ -192,7 +193,7 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
     return Terminal(rules, bindings)
 
 class IRCodegen(parse.Visitor):
-    """Build method-body IR; developed alongside Codegen during migration."""
+    """Lower matcher trees and rules to optimizer method-body IR."""
 
     def __init__(self, self_value, op_value, bindings, intbound_bindings=None):
         self.self_ref = ir.Ref(self_value)
@@ -204,13 +205,119 @@ class IRCodegen(parse.Visitor):
         # Matcher-generated names (arg_0, b_arg_0, C_arg_0, ...) map to Values.
         # Terminal lowering will connect these to each rule's DSL names.
         self.matcher_values = {}
+        self.method_opname = None
+        self.name_positions = {}
+        self.rule_names = []
         self.block = ir.Block([])
+
+    def generate_method(self, opname, rules):
+        """Build one optimizer method body using a fresh IRCodegen instance."""
+        all_rules = []
+        for rule in rules:
+            all_rules.extend(generate_commutative_rules(rule))
+        self.method_opname = opname
+        for rule in all_rules:
+            if rule.name not in self.name_positions:
+                self.name_positions[rule.name] = len(self.rule_names)
+                self.rule_names.append(rule.name)
+
+        numargs = len(rules[0].pattern.args)
+        boxes, bounds = self.emit_arg_reads(self.op_ref, numargs)
+        for i, (box, bound) in enumerate(zip(boxes, bounds)):
+            self.matcher_values["arg_%s" % i] = box
+            self.matcher_values["b_arg_%s" % i] = bound
+        for subset_rules in split_by_result_type(all_rules):
+            subset_rules = sort_rules(subset_rules)
+            if not subset_rules:
+                continue
+            matcher = create_matcher(subset_rules)
+            self.visit(matcher)
+        self.emit(ir.Return(self.self_method('emit', self.op_ref)))
+        return self.block
 
     def default_visit(self, expr):
         raise NotImplementedError("lower expression: %r" % (expr,))
 
     def emit(self, stmt):
         self.block.statements.append(stmt)
+
+    def emit_condition(self, condition):
+        then_block = ir.Block([])
+        self.emit(ir.If(condition, then_block, ir.Block([])))
+        self.block = then_block
+
+    def match_variable(self, pattern, matcher_name):
+        """Bind a DSL variable or check a repeated occurrence.
+
+        matcher_name identifies a box, or an extracted integer for C variables.
+        The terminal visitor will resolve the pattern's path to this name.
+        """
+        value = self.matcher_values[matcher_name]
+        if pattern.name.startswith('C'):
+            if pattern.name not in self.bindings:
+                self.bindings[pattern.name] = value
+                return
+            binding = self.bindings[pattern.name]
+            if binding is value:
+                return
+            cond = ir.Binary('==', ir.Ref(value), ir.Ref(binding))
+            self.emit_condition(cond)
+            return
+        bound_value = self.matcher_values['b_' + matcher_name]
+        if pattern.name not in self.bindings:
+            self.bindings[pattern.name] = value
+            self.intbound_bindings[pattern.name] = bound_value
+            return
+        binding = self.bindings[pattern.name]
+        bound_binding = self.intbound_bindings[pattern.name]
+        if binding is value:
+            return
+        call = self.self_method('_eq', ir.Ref(value), ir.Ref(bound_value), ir.Ref(binding), ir.Ref(bound_binding))
+        self.emit_condition(call)
+
+    def match_pattern(self, pattern, path_bindings, path=()):
+        """Walk a rule pattern after structural matching has succeeded.
+
+        path_bindings is Terminal.bindings: paths map to matcher names.
+        Each operation argument extends the path by ((opname, index),).
+        Constant leaves use a further ('C',) suffix for the extracted integer.
+        """
+        if isinstance(pattern, parse.PatternOp):
+            for index, arg in enumerate(pattern.args):
+                child_path = path + ((pattern.opname, index),)
+                self.match_pattern(arg, path_bindings, child_path)
+            return
+        if isinstance(pattern, parse.PatternVar):
+            if pattern.name.startswith('C'):
+                path = path + ('C', )
+            name = path_bindings[path]
+            self.match_variable(pattern, name)
+            return
+        if isinstance(pattern, parse.PatternConst):
+            value = self.matcher_values[path_bindings[path + ('C', )]]
+            cond = ir.Binary('==', ir.Ref(value), self.constant_expr(pattern))
+            self.emit_condition(cond)
+            return
+        raise NotImplementedError("walk terminal pattern")
+
+    def visit_Terminal(self, terminal):
+        outer_block = self.block
+        outer_bindings = self.bindings
+        outer_intbound_bindings = self.intbound_bindings
+        try:
+            for rule in terminal.rules:
+                # Every candidate starts at the same insertion point, outside
+                # any conditions emitted for the previous candidate.
+                self.block = outer_block
+                self.bindings = {}
+                self.intbound_bindings = {}
+                self.match_pattern(rule.pattern, terminal.bindings)
+                self.generate_rule_body(
+                    rule, self.method_opname, self.name_positions[rule.name])
+        finally:
+            self.block = outer_block
+            self.bindings = outer_bindings
+            self.intbound_bindings = outer_intbound_bindings
 
     @contextmanager
     def matcher_branch(self, block):
@@ -375,10 +482,7 @@ class IRCodegen(parse.Visitor):
             self.bindings[element.name] = value
 
     def visit_Check(self, element):
-        then = ir.Block([])
-        cond = ir.If(self.visit(element.expr), then, ir.Block([]))
-        self.emit(cond)
-        self.block = then
+        self.emit_condition(self.visit(element.expr))
 
     def value_for(self, varname):
         return self.bindings[varname]
@@ -432,7 +536,9 @@ class IRCodegen(parse.Visitor):
         raise NotImplementedError("lower target: %r" % (target,))
 
 
-class Codegen(parse.Visitor):
+class Codegen(object):
+    """Emit class boilerplate around method bodies lowered through the IR."""
+
     def __init__(self):
         self.code = []
         self.level = 0
@@ -442,12 +548,10 @@ class Codegen(parse.Visitor):
         if line is not None:
             self.emit(line)
         self.level += 1
-        yield
-        self.level -= 1
-
-    def emit_stacking_condition(self, cond):
-        self.emit("if %s:" % cond)
-        self.level += 1
+        try:
+            yield
+        finally:
+            self.level -= 1
 
     def emit(self, line=""):
         if self.level == 0 and line.startswith(("def ", "class ")):
@@ -457,257 +561,17 @@ class Codegen(parse.Visitor):
         else:
             self.code.append("    " * self.level + line)
 
-    def default_visit(self, ast, *args, **kwargs):
-        import pdb;pdb.set_trace()
-        assert 0
-
-    def visit_PatternVar(self, p):
-        varname = self.bindings[p]
-        if p.name.startswith("C"):
-            assert varname.startswith("C_")
-            if p.name not in self.bindings:
-                self.bindings[p.name] = varname
-                return
-            if varname == self.bindings[p.name]:
-                return
-            return self.emit_stacking_condition(
-                "%s == %s" % (varname, self.bindings[p.name])
-            )
-        else:
-            intbound_name = "b_" + varname
-            if p.name not in self.bindings:
-                self.bindings[p.name] = varname
-                self.intbound_bindings[p.name] = intbound_name
-                return
-            if varname == self.bindings[p.name]:
-                return
-            varname2 = self.bindings[p.name]
-            return self.emit_stacking_condition(
-                "self._eq(%s, b_%s, %s, b_%s)" % (varname, varname, varname2, varname2)
-            )
-
-    def visit_PatternConst(self, p):
-        return self.emit_stacking_condition(
-            "%s == %s" % (self.bindings[p], p.const)
-        )
-
-    def visit_PatternOp(self, p):
-        for arg in p.args:
-            self.visit(arg)
-        return
-
-    def generate_target(self, target):
-        if isinstance(target, parse.PatternVar):
-            if target.typ is int:
-                value = "ConstInt(%s)" % self.bindings[target.name]
-            else:
-                value = self.bindings[target.name]
-            self.emit("self.make_equal_to(op, %s)" % value)
-            return
-        if isinstance(target, parse.PatternConst):
-            self.emit("self.make_constant_int(op, %s)" % target.const)
-            return
-        if isinstance(target, parse.PatternOp):
-            args = []
-            for arg in target.args:
-                if isinstance(arg, parse.PatternVar):
-                    if arg.name.startswith('C') or arg.typ is int:
-                        args.append("ConstInt(%s)" % self.bindings[arg.name])
-                    else:
-                        args.append(self.bindings[arg.name])
-                elif isinstance(arg, parse.PatternConst):
-                    args.append("ConstInt(%s)" % arg.const)
-                else:
-                    assert 0
-            self.emit(
-                "newop = self.replace_op_with(op, rop.%s, args=[%s])"
-                % (target.opname.upper(), ", ".join(args))
-            )
-            self.emit("self.optimizer.send_extra_operation(newop)")
-            return
-        assert 0
-
-    def _pattern_arg_check(self, boxnames, boundnames, args):
-        for i, p in enumerate(args):
-            self.visit(p)
-
-    def _emit_arg_reads(self, prefix, opname, numargs):
-        boxnames = []
-        boundnames = []
-        for i in range(numargs):
-            boxname = "%s_%s" % (prefix, i)
-            boundname = "b_" + boxname
-            boxnames.append(boxname)
-            boundnames.append(boundname)
-            self.emit("%s = get_box_replacement(%s.getarg(%s))" % (boxname, opname, i))
-            self.emit("%s = self.getintbound(%s)" % (boundname, boxname))
-        return boxnames, boundnames
-
-    def visit_Terminal(self, ast):
-        if len(ast.rules) == 0:
-            return
-        def _add_binding(pattern, path, name):
-            while path:
-                el = path[0]
-                path = path[1:]
-                if el == 'C':
-                    assert pattern.matches_constant()
-                else:
-                    opname, index = el
-                    assert isinstance(pattern, parse.PatternOp)
-                    assert pattern.opname == opname
-                    pattern = pattern.args[index]
-            bindings[pattern] = name
-        for rule in ast.rules:
-            bindings = {}
-            intbound_bindings = {}
-            for path, name in ast.bindings.iteritems():
-                _add_binding(rule.pattern, path, name)
-            self.bindings = bindings
-            self.intbound_bindings = intbound_bindings
-            self.generate_rule(rule, self.method_opname, self.name_positions[rule.name], self.method_boxnames, self.method_boundnames)
-
-    def visit_IsConstMatcher(self, ast):
-        currlevel = self.level
-        self.emit_stacking_condition("b_%s.is_constant()" % ast.name)
-        self.emit("%s = b_%s.get_constant_int()" % (ast.constname, ast.name))
-        self.visit(ast.ifyes)
-        self.level = currlevel
-        if ast.ifno:
-            with self.emit_indent("else:"):
-                self.visit(ast.ifno)
-        if ast.nextmatcher:
-            self.visit(ast.nextmatcher)
-
-    def visit_OpMatcher(self, ast):
-        currlevel = self.level
-        boxname = "%s_%s" % (ast.name, ast.opname)
-        self.emit(
-            "%s = self.optimizer.as_operation(%s, rop.%s)"
-            % (boxname, ast.name, ast.opname.upper())
-        )
-        self.emit_stacking_condition("%s is not None" % boxname)
-        boxnames, boundnames = self._emit_arg_reads(ast.name, boxname, len(ast.argnames))
-        assert boxnames == ast.argnames
-        self.visit(ast.ifyes)
-        self.level = currlevel
-        if ast.ifno:
-            with self.emit_indent("else:"):
-                self.visit(ast.ifno)
-        if ast.nextmatcher:
-            self.visit(ast.nextmatcher)
-
     def generate_method(self, opname, rules):
-        all_rules = []
-        for rule in rules:
-            all_rules.extend(generate_commutative_rules(rule))
-
-        name_positions = {}
-        names = []
-        for rule in all_rules:
-            if rule.name not in name_positions:
-                name_positions[rule.name] = len(name_positions)
-                names.append(rule.name)
-        self.name_positions = name_positions
-        self.method_opname = opname
+        builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+        body = builder.generate_method(opname, rules)
+        names = builder.rule_names
         self.emit("_rule_names_%s = %r" % (opname, names))
         self.emit("_rule_fired_%s = [0] * %s" % (opname, len(names)))
-        self.emit("_all_rules_fired.append((%r, _rule_names_%s, _rule_fired_%s))" % (opname, opname, opname))
+        self.emit("_all_rules_fired.append((%r, _rule_names_%s, _rule_fired_%s))"
+                  % (opname, opname, opname))
         with self.emit_indent("def optimize_%s(self, op):" % opname.upper()):
-            numargs = len(rules[0].pattern.args)
-            boxnames, boundnames = self._emit_arg_reads("arg", "op", numargs)
-            self.method_boxnames = boxnames
-            self.method_boundnames = boundnames
-            for subset_rules in split_by_result_type(all_rules):
-                subset_rules = sort_rules(subset_rules)
-                if not subset_rules:
-                    continue
-                matcher = create_matcher(subset_rules)
-                self.visit(matcher)
-                #for rule in subset_rules:
-                #    self.generate_rule(rule, opname, , boxnames, boundnames)
-            self.emit("return self.emit(op)")
-
-    def generate_rule(self, rule, opname, position, boxnames, boundnames):
-        self.emit("# %s: %s => %s" % (rule.name, rule.pattern, rule.target))
-        currlevel = self.level
-        checks = []
-        self._pattern_arg_check(boxnames, boundnames, rule.pattern.args)
-        for el in rule.elements:
-            self.visit(el)
-        self.generate_target(rule.target)
-        self.emit("self._rule_fired_%s[%s] += 1" % (opname, position))
-        self.emit("return")
-        self.level = currlevel
-
-    def visit_Compute(self, el):
-        if el.expr.typ is IntBound:
-            self.intbound_bindings[el.name] = el.name
-        else:
-            self.bindings[el.name] = el.name
-        res = self.visit(el.expr)
-        self.emit("%s = %s" % (el.name, res))
-
-    def visit_Check(self, el):
-        res = self.visit(el.expr)
-        self.emit_stacking_condition(res)
-
-    def visit_BinOp(self, expr, prec=0):
-        left_prec = expr.precedence
-        right_prec = expr.precedence + 1 # all left assoc for now
-        left = self.visit(expr.left, left_prec)
-        right = self.visit(expr.right, right_prec)
-        res = "%s %s %s" % (left, expr.pysymbol, right)
-        if prec > expr.precedence:
-            res = "(" + res + ")"
-        return res
-
-    def visit_IntBinOp(self, expr, prec=0):
-        if expr.need_ruint:
-            left = self.visit(expr.left)
-            right = self.visit(expr.right)
-            return "intmask(r_uint(%s) %s r_uint(%s))" % (left, expr.pysymbol, right)
-
-        return self.visit_BinOp(expr, prec)
-
-    def visit_Name(self, expr, prec=0):
-        if expr.name in ("LONG_BIT", ):
-            return expr.name
-        if expr.typ is IntBound:
-            return self.intbound_bindings[expr.name]
-        return self.bindings[expr.name]
-
-    def visit_Attribute(self, expr, prec=0):
-        attrname = expr.attrname
-        varname = self.intbound_bindings[expr.varname]
-        if expr.attrname == 'ones':
-            attrname = 'tvalue'
-        if expr.attrname == 'zeros':
-            return "intmask(~(%s.tvalue | %s.tmask))" % (varname, varname)
-        return "intmask(%s.%s)" % (varname, attrname)
-
-    def visit_Number(self, expr, prec=0):
-        return str(expr.value)
-
-    def visit_UnaryOp(self, expr, prec=0):
-        sub_prec = expr.precedence
-        sub = self.visit(expr.left, sub_prec + 1)
-        if expr.need_ruint:
-            return "intmask(%sr_uint(%s))" % (expr.pysymbol, sub)
-        res = "%s%s" % (expr.pysymbol, sub)
-        if prec > expr.precedence:
-            res = "(" + res + ")"
-        return res
-
-    def visit_MethodCall(self, expr, prec=0):
-        sub_prec = expr.precedence
-        receiver = self.visit(expr.value)
-        args = [self.visit(arg) for arg in expr.args]
-        return "%s.%s(%s)" % (receiver, expr.methname, ", ".join(args))
-
-    def visit_FuncCall(self, expr, prec=0):
-        args = [self.visit(arg) for arg in expr.args]
-        return "%s(%s)" % (expr.funcname, ", ".join(args))
+            for line in emit_python(body).splitlines():
+                self.emit(line)
 
     def generate_code(self, ast):
         per_op = defaultdict(list)

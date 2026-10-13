@@ -1,6 +1,7 @@
 """Print method-body IR as Python source, without optimizing it."""
 
 from contextlib import contextmanager
+from numbers import Number
 
 from rpython.jit.metainterp.ruleopt import ir
 
@@ -45,7 +46,7 @@ class PythonEmitter(object):
             name = value.name_hint
             suffix = 1
             while name in self.used_names:
-                name = "%s_%s" % (value.name_hint, suffix)
+                name = "%s_v%s" % (value.name_hint, suffix)
                 suffix += 1
             self.names[value] = name
             self.used_names.add(name)
@@ -77,7 +78,15 @@ class PythonEmitter(object):
         if isinstance(expr, ir.ListExpr):
             return "[%s]" % ", ".join(self.emit_expr(item) for item in expr.items)
         if isinstance(expr, ir.Attribute):
-            return "(%s).%s" % (self.emit_expr(expr.obj), expr.name)
+            receiver = self.emit_expr(expr.obj, CALL_PRECEDENCE)
+            # Numeric literals need lexical separation from the attribute dot:
+            # 42.real is invalid Python, even though literals bind tightly.
+            if (isinstance(expr.obj, ir.Literal) and
+                    isinstance(expr.obj.value, Number) and
+                    not isinstance(expr.obj.value, bool) and
+                    not receiver.startswith("(")):
+                receiver = "(" + receiver + ")"
+            return "%s.%s" % (receiver, expr.name)
         if isinstance(expr, ir.Call):
             args = [self.emit_expr(arg) for arg in expr.args]
             for name, expression in expr.keywords:

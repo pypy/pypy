@@ -96,6 +96,28 @@ def test_generate_code_many():
     print(res)
 
 
+def test_method_generation_uses_ir(monkeypatch):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = Rule("example", PatternOp("int_add", [PatternVar("x"), PatternConst("0")]),
+                False, [], PatternVar("x", IntBound))
+    calls = []
+
+    def generate_method(builder, opname, rules):
+        calls.append((opname, rules))
+        builder.rule_names = ["example"]
+        return ir.Block([ir.Return(ir.Literal(123))])
+
+    monkeypatch.setattr(IRCodegen, "generate_method", generate_method)
+    generator = Codegen()
+    generator.generate_method("int_add", [rule])
+    assert calls == [("int_add", [rule])]
+    assert "_rule_names_int_add = ['example']" in generator.code
+    assert "_rule_fired_int_add = [0] * 1" in generator.code
+    assert "def optimize_INT_ADD(self, op):" in generator.code
+    assert "    return 123" in generator.code
+
+
 def test_generate_unary_minus_safe_for_minint():
     s = """\
 sub_const_canonicalize: int_sub(x, C1)
@@ -462,3 +484,168 @@ def test_ir_operation_matcher(with_fallbacks):
     assert builder.matcher_values is values
     assert "arg_0_0" not in values
     assert "b_arg_0_0" not in values
+
+
+@pytest.mark.parametrize("name, matcher_name", [("x", "arg_0"), ("C", "C_arg_0")])
+def test_ir_pattern_variable_first_occurrence(name, matcher_name):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    builder.matcher_values[matcher_name] = ir.Value("matched")
+    if name == "x":
+        builder.matcher_values["b_" + matcher_name] = ir.Value("bound")
+    builder.match_variable(PatternVar(name), matcher_name)
+    assert repr(builder.bindings[name]) == "Value('matched')"
+    if name == "x":
+        assert repr(builder.intbound_bindings[name]) == "Value('bound')"
+    else:
+        assert builder.intbound_bindings == {}
+    assert repr(builder.block) == "Block([])"
+    # Matching the same Value again should not introduce a condition.
+    builder.match_variable(PatternVar(name), matcher_name)
+    assert repr(builder.block) == "Block([])"
+
+
+@pytest.mark.parametrize("name, matcher_name, expected_condition", [
+    ("x", "arg_1",
+     "Call(Attribute(Ref(Value('self')), '_eq'), "
+     "[Ref(Value('second')), Ref(Value('bound_second')), "
+     "Ref(Value('first')), Ref(Value('bound_first'))], [])"),
+    ("C", "C_arg_1", "Binary('==', Ref(Value('second')), Ref(Value('first')))"),
+])
+def test_ir_pattern_variable_repeated(name, matcher_name, expected_condition):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {name: ir.Value("first")},
+                        {"x": ir.Value("bound_first")} if name == "x" else {})
+    builder.matcher_values[matcher_name] = ir.Value("second")
+    if name == "x":
+        builder.matcher_values["b_" + matcher_name] = ir.Value("bound_second")
+    outer = builder.block
+    builder.match_variable(PatternVar(name), matcher_name)
+    builder.emit(ir.Return())
+    assert repr(outer) == "Block([If(%s, Block([Return(None)]), Block([]))])" % expected_condition
+    assert repr(builder.bindings[name]) == "Value('first')"
+    if name == "x":
+        assert repr(builder.intbound_bindings[name]) == "Value('bound_first')"
+
+
+def test_ir_terminal_nested_constant_variable():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = Rule("cancel", PatternOp("int_sub", [
+        PatternOp("int_add", [PatternVar("x"), PatternVar("C")]),
+        PatternVar("C"),
+    ]), False, [], PatternVar("x", IntBound))
+    paths = {
+        (("int_sub", 0), ("int_add", 0)): "arg_0_0",
+        (("int_sub", 0), ("int_add", 1), "C"): "C_arg_0_1",
+        (("int_sub", 1), "C"): "C_arg_1",
+    }
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    builder.method_opname = "int_sub"
+    builder.name_positions = {"cancel": 0}
+    builder.matcher_values = dict((name, ir.Value(name)) for name in (
+        "arg_0_0", "b_arg_0_0", "C_arg_0_1", "C_arg_1"))
+    builder.visit(Terminal([rule], paths))
+    assert repr(builder.block) == (
+        "Block([If(Binary('==', Ref(Value('C_arg_1')), Ref(Value('C_arg_0_1'))), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('arg_0_0'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_sub', 0, "
+        "'cancel: int_sub(int_add(x, C), C) => x')]), Block([]))])")
+
+
+def test_ir_terminal_keeps_candidate_conditions_separate():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rules = [
+        Rule("and_zero", PatternOp("int_and", [PatternVar("x"), PatternConst("0")]),
+             False, [], PatternConst("0")),
+        Rule("and_minus_one", PatternOp("int_and", [PatternVar("y"), PatternConst("-1")]),
+             False, [], PatternVar("y", IntBound)),
+    ]
+    paths = {(("int_and", 0),): "arg_0", (("int_and", 1), "C"): "C_arg_1"}
+    bindings = {"outer": ir.Value("outer")}
+    bounds = {"outer": ir.Value("bound_outer")}
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), bindings, bounds)
+    outer = builder.block
+    builder.method_opname = "int_and"
+    builder.name_positions = {"and_zero": 0, "and_minus_one": 1}
+    builder.matcher_values = dict((name, ir.Value(name)) for name in (
+        "arg_0", "b_arg_0", "C_arg_1"))
+    builder.visit(Terminal(rules, paths))
+    assert repr(builder.block) == (
+        "Block([If(Binary('==', Ref(Value('C_arg_1')), Literal(0)), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_constant_int'), "
+        "[Ref(Value('op')), Literal(0)], [])), "
+        "FinishRule(Ref(Value('self')), 'int_and', 0, "
+        "'and_zero: int_and(x, 0) => 0')]), Block([])), "
+        "If(Binary('==', Ref(Value('C_arg_1')), Literal(-1)), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('arg_0'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_and', 1, "
+        "'and_minus_one: int_and(y, -1) => y')]), Block([]))])")
+    assert builder.block is outer
+    assert builder.bindings is bindings
+    assert builder.intbound_bindings is bounds
+
+
+def test_ir_complete_method():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = Rule("sub_same", PatternOp("int_sub", [PatternVar("x"), PatternVar("x")]),
+                False, [], PatternConst("0"))
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    body = builder.generate_method("int_sub", [rule])
+    assert body is builder.block
+    assert builder.rule_names == ["sub_same"]
+    assert builder.name_positions == {"sub_same": 0}
+    assert repr(body) == (
+        "Block([Bind(Value('arg_0'), Call(Symbol('get_box_replacement'), "
+        "[Call(Attribute(Ref(Value('op')), 'getarg'), [Literal(0)], [])], [])), "
+        "Bind(Value('b_arg_0'), Call(Attribute(Ref(Value('self')), 'getintbound'), "
+        "[Ref(Value('arg_0'))], [])), "
+        "Bind(Value('arg_1'), Call(Symbol('get_box_replacement'), "
+        "[Call(Attribute(Ref(Value('op')), 'getarg'), [Literal(1)], [])], [])), "
+        "Bind(Value('b_arg_1'), Call(Attribute(Ref(Value('self')), 'getintbound'), "
+        "[Ref(Value('arg_1'))], [])), "
+        "If(Call(Attribute(Ref(Value('self')), '_eq'), "
+        "[Ref(Value('arg_1')), Ref(Value('b_arg_1')), "
+        "Ref(Value('arg_0')), Ref(Value('b_arg_0'))], []), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_constant_int'), "
+        "[Ref(Value('op')), Literal(0)], [])), "
+        "FinishRule(Ref(Value('self')), 'int_sub', 0, "
+        "'sub_same: int_sub(x, x) => 0')]), Block([])), "
+        "Return(Call(Attribute(Ref(Value('self')), 'emit'), [Ref(Value('op'))], []))])")
+
+
+def test_ir_method_expands_commutativity_with_shared_counter():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = Rule("add_zero", PatternOp("int_add", [PatternVar("x"), PatternConst("0")]),
+                False, [], PatternVar("x", IntBound))
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    body = builder.generate_method("int_add", [rule])
+    assert builder.rule_names == ["add_zero"]
+    assert builder.name_positions == {"add_zero": 0}
+    # Skip the four argument/bound bindings, checked by test_ir_complete_method.
+    assert repr(body.statements[4:]) == (
+        "[If(Call(Attribute(Ref(Value('b_arg_0')), 'is_constant'), [], []), "
+        "Block([Bind(Value('C_arg_0'), "
+        "Call(Attribute(Ref(Value('b_arg_0')), 'get_constant_int'), [], [])), "
+        "If(Binary('==', Ref(Value('C_arg_0')), Literal(0)), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('arg_1'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_add', 0, "
+        "'add_zero: int_add(0, x) => x')]), Block([]))]), Block([])), "
+        "If(Call(Attribute(Ref(Value('b_arg_1')), 'is_constant'), [], []), "
+        "Block([Bind(Value('C_arg_1'), "
+        "Call(Attribute(Ref(Value('b_arg_1')), 'get_constant_int'), [], [])), "
+        "If(Binary('==', Ref(Value('C_arg_1')), Literal(0)), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('arg_0'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_add', 0, "
+        "'add_zero: int_add(x, 0) => x')]), Block([]))]), Block([])), "
+        "Return(Call(Attribute(Ref(Value('self')), 'emit'), [Ref(Value('op'))], []))]")
