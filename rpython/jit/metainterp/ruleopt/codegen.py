@@ -193,6 +193,42 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
             continue
     return Terminal(rules, bindings)
 
+def find_reusable_operation(pattern, target, path=()):
+    """Return the path to a proper operation subtree equal to target, or None.
+
+    Paths use Terminal.bindings' ((opname, argument_index), ...) convention.
+    Search depth first, in argument order, excluding the root operation.
+    This compares pattern syntax only; the caller must ensure that target
+    variables still refer to their original pattern bindings.
+    """
+    def matches(a, b):
+        if type(a) is not type(b):
+            return False
+        if isinstance(a, parse.PatternOp):
+            if a.opname != b.opname:
+                return False
+            if all(matches(child1, child2) for child1, child2 in zip(a.args, b.args)):
+                return True
+            if a.opname in commutative_ops:
+                assert len(a.args) == len(b.args) == 2
+                if all(matches(child1, child2) for child1, child2 in zip(a.args, b.args[::-1])):
+                    return True
+            return False
+        if isinstance(a, parse.PatternVar):
+            return a.name == b.name
+        if isinstance(a, parse.PatternConst):
+            return a.const == b.const
+        return False
+    if matches(pattern, target) and path:
+        return path
+    if isinstance(pattern, parse.PatternOp) and isinstance(target, parse.PatternOp):
+        for i, sub in enumerate(pattern.args):
+            res = find_reusable_operation(sub, target, path + ((pattern.opname, i), ))
+            if res is not None:
+                return res
+    return None
+
+
 class IRCodegen(parse.Visitor):
     """Lower matcher trees and rules to optimizer method-body IR."""
 
@@ -313,8 +349,16 @@ class IRCodegen(parse.Visitor):
                 self.bindings = {}
                 self.intbound_bindings = {}
                 self.match_pattern(rule.pattern, terminal.bindings)
+                reused_value = None
+                # Exercise: find_reusable_operation gives a path, if any.
+                # Resolve it through terminal.bindings (path -> name) and
+                # self.matcher_values (name -> Value) to set reused_value.
+                path = find_reusable_operation(rule.pattern, rule.target)
+                if path:
+                    reused_value = self.matcher_values[terminal.bindings[path]]
                 self.generate_rule_body(
-                    rule, self.method_opname, self.name_positions[rule.name])
+                    rule, self.method_opname, self.name_positions[rule.name],
+                    reused_value)
         finally:
             self.block = outer_block
             self.bindings = outer_bindings
@@ -446,17 +490,18 @@ class IRCodegen(parse.Visitor):
         args = [self.visit(arg) for arg in expr.args]
         return ir.Call(ir.Symbol(expr.funcname), args)
 
-    def generate_rule_body(self, rule, opname, position):
+    def generate_rule_body(self, rule, opname, position, reused_value=None):
         comment = "%s: %s => %s" % (rule.name, rule.pattern, rule.target)
         finish = ir.FinishRule(self.self_ref, opname, position, comment)
-        self.generate_body(rule.elements, rule.target, finish)
+        self.generate_body(rule.elements, rule.target, finish, reused_value)
 
-    def generate_body(self, elements, target, finish=None):
+    def generate_body(self, elements, target, finish=None, reused_value=None):
         """Append a rule's computations, checks and target action.
 
         Optionally finish with the rule counter and return. Pattern matching
         is handled separately.
         self.block is the insertion point; checks move it into their true arm.
+        reused_value, if supplied, is a matched box equivalent to the target.
         """
         outer_block = self.block
         outer_bindings = self.bindings
@@ -466,7 +511,11 @@ class IRCodegen(parse.Visitor):
         try:
             for element in elements:
                 self.visit(element)
-            self.generate_target(target)
+            if reused_value is None:
+                self.generate_target(target)
+            else:
+                self.emit(ir.ExprStmt(self.self_method(
+                    'make_equal_to', self.op_ref, ir.Ref(reused_value))))
             if finish is not None:
                 self.emit(finish)
         finally:

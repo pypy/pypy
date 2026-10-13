@@ -106,7 +106,7 @@ and_known_result: int_and(a, b)
     => C
 
 and_absorb: int_and(a, int_and(a, b))
-    => int_and(a, b) # XXX reuse the inner op
+    => int_and(a, b)
 
 and_or_absorb: int_and(x, int_or(x, y))
     => x

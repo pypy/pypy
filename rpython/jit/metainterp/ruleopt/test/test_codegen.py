@@ -40,6 +40,38 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
         'int_add(C2, int_add(C1, x))'
     ]
 
+
+@pytest.mark.parametrize('source, expected_path', [
+    ("and_absorb: int_and(a, int_and(a, b)) => int_and(a, b)",
+     (('int_and', 1),)),
+    ("and_absorb_commuted: int_and(a, int_and(b, a)) => int_and(a, b)",
+     (('int_and', 1),)),
+    ("nested: int_add(int_neg(int_sub(a, b)), c) => int_sub(a, b)",
+     (('int_add', 0), ('int_neg', 0))),
+    ("constant: int_add(int_sub(a, 1), b) => int_sub(a, 1)",
+     (('int_add', 0),)),
+    ("different_constant: int_add(int_sub(a, 1), b) => int_sub(a, 2)", None),
+    ("different_variable: int_add(int_sub(a, b), c) => int_sub(a, c)", None),
+    ("different_op: int_add(int_sub(a, b), c) => int_add(a, b)", None),
+    ("reversed: int_add(int_sub(a, b), c) => int_sub(b, a)", None),
+    ("root_only: int_sub(a, b) => int_sub(a, b)", None),
+    ("variable_target: int_and(a, int_and(a, b)) => a", None),
+    ("first: int_add(int_sub(a, b), int_sub(a, b)) => int_sub(a, b)",
+     (('int_add', 0),)),
+])
+def test_find_reusable_operation(source, expected_path):
+    # These examples test syntax matching, not the validity of rewrite rules.
+    rule = parse(source.replace(' => ', '\n    => ') + '\n').rules[0]
+    assert find_reusable_operation(rule.pattern, rule.target) == expected_path
+
+
+def test_find_reusable_operation_ignores_variable_type_annotations():
+    pattern = PatternOp('int_and', [PatternVar('a'), PatternOp('int_and', [
+        PatternVar('a'), PatternVar('b')])])
+    target = PatternOp('int_and', [PatternVar('a', IntBound),
+                                  PatternVar('b', IntBound)])
+    assert find_reusable_operation(pattern, target) == (('int_and', 1),)
+
 def test_generate_commutative_rules_only_when_necessary():
     s = """\
 or_x_x: int_or(x, x)
@@ -533,6 +565,37 @@ def test_ir_pattern_variable_repeated(name, matcher_name, expected_condition):
     assert repr(builder.bindings[name]) == "Value('first')"
     if name == "x":
         assert repr(builder.intbound_bindings[name]) == "Value('bound_first')"
+
+
+def test_ir_terminal_reuses_inner_operation():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    rule = parse('''\
+and_absorb: int_and(a, int_and(a, b))
+    => int_and(a, b)
+''').rules[0]
+    paths = {
+        (('int_and', 0),): 'arg_0',
+        (('int_and', 1),): 'arg_1',
+        (('int_and', 1), ('int_and', 0)): 'arg_1_0',
+        (('int_and', 1), ('int_and', 1)): 'arg_1_1',
+    }
+    builder = IRCodegen(ir.Value('self'), ir.Value('op'), {})
+    builder.method_opname = 'int_and'
+    builder.name_positions = {'and_absorb': 0}
+    builder.matcher_values = dict((name, ir.Value(name)) for name in (
+        'arg_0', 'b_arg_0', 'arg_1', 'b_arg_1',
+        'arg_1_0', 'b_arg_1_0', 'arg_1_1', 'b_arg_1_1'))
+    builder.visit(Terminal([rule], paths))
+    assert repr(builder.block) == (
+        "Block([If(Call(Attribute(Ref(Value('self')), '_eq'), "
+        "[Ref(Value('arg_1_0')), Ref(Value('b_arg_1_0')), "
+        "Ref(Value('arg_0')), Ref(Value('b_arg_0'))], []), "
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Ref(Value('arg_1'))], [])), "
+        "FinishRule(Ref(Value('self')), 'int_and', 0, "
+        "'and_absorb: int_and(a, int_and(a, b)) => int_and(a, b)')]), "
+        "Block([]))])")
 
 
 def test_ir_terminal_nested_constant_variable():
