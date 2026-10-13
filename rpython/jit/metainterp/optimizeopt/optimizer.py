@@ -8,11 +8,12 @@ from rpython.jit.metainterp.optimizeopt.util import (
 from rpython.jit.metainterp.optimizeopt.bridgeopt import (
     deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
-    rop, AbstractResOp, GuardResOp, OpHelpers)
+    rop, AbstractResOp, GuardResOp, OpHelpers,
+    get_opclass_memo)
 from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, is_annotation_constant
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
@@ -366,13 +367,19 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
+    @specialize.arg_or_var(2)
     def as_operation(self, op, required_opnum=-1):
-        # You should never check "isinstance(op, AbstractResOp" directly.
+        from rpython.jit.metainterp import resoperation
+        # You should never check "isinstance(op, AbstractResOp)" directly.
         # Instead, use this helper.
         if isinstance(op, AbstractResOp):
             if required_opnum != -1 and op.opnum != required_opnum:
                 return None # fast return if the opnum is wrong
             if op in self._emittedoperations:
+                if is_annotation_constant(required_opnum) and required_opnum != -1:
+                    assert isinstance(op, get_opclass_memo(required_opnum))
+                    # make sure the caller knows the type so getarg is efficient
+                    return op
                 return op
         return None
 
