@@ -101,8 +101,8 @@ For all versions
   have to do with arena contention when testing on a host PyPy, but may be connected to an
   allocation during GC collection
 - Use vmprof 0.6.0 version profiles, which include a timestamp (:issue:`5598`).
-- Merge work to make RPython support both python2 and python3 (:issue:`5601`)
-- Replace the old vendored pytest with v3.10
+- Merge work to start making RPython support both python2 and python3 (:issue:`5601`)
+- Replace the old vendored pytest with an adapted version of v3.10
 - Drop py3.10 nightly builds from the versions.json served by
   github actions/setup-python and others. 3.10 is no longer supported, and there is no
   reason to be using it in CI
@@ -114,16 +114,19 @@ Bugfixes
   A ``can_enter_jit`` argument can be a *subclass* of the corresponding
   ``jit_merge_point`` argument. This can then produce wrong pointer types on
   the C level. More recent gccs reject those as errors (they were warnings
-  before). Instead, use the shared argument repr to insert the correct cast
-- Fix a bug in the revdb symbolic parser, which is also used by vmprof (:issue:`5593`)
+  before). Instead, use the shared argument repr to insert the correct cast.
+  This affects only other RPython interpreters such as Pyrolog_.
+- Fix a bug native symbolication parser, which is used by vmprof and the remote debugger protocol (:issue:`5593`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
 - Fix translation when using CPython2.7 (:issue:`5586`)
-- Build cycle graphs startblock-to-startblock. This prevents ``finally``
+- Build cycle graphs startblock-to-startblock. This prevents RPython ``finally``
   stanzas leaking out of the graph, and prevents a set of problems with locks
   released in a ``finally`` stanza being ignored when unwinding a
   StackOverflow, which in turn caused hangs or other improper behaviour
   (:issue:`5647`)
-- Fix variadic system calls on macos (:issue:`5635`)
+- Fix variadic system calls on MacOS (:issue:`5635`)
+
+.. _Pyrolog: https://github.com/cfbolz/pyrolog/
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
