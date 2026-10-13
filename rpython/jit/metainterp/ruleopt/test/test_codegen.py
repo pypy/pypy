@@ -109,3 +109,52 @@ sub_const_canonicalize: int_sub(x, C1)
     assert "intmask(-r_uint(" in res
     assert "-C_arg_1" not in res
 
+
+@pytest.mark.parametrize("target, expected", [
+    (PatternVar("x", IntBound),
+     "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+     "[Ref(Value('op')), Ref(Value('x'))], []))])"),
+    (PatternConst("0"),
+     "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_constant_int'), "
+     "[Ref(Value('op')), Literal(0)], []))])"),
+])
+def test_lower_simple_target(target, expected):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {"x": ir.Value("x")})
+    builder.generate_target(target)
+    assert repr(builder.block) == expected
+
+
+@pytest.mark.parametrize("name", ["C", "computed"])
+def test_lower_integer_target(name):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"),
+                        {name: ir.Value("constant")})
+    builder.generate_target(PatternVar(name, int))
+    assert repr(builder.block) == (
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_equal_to'), "
+        "[Ref(Value('op')), Call(Symbol('ConstInt'), "
+        "[Ref(Value('constant'))], [])], []))])")
+
+
+@pytest.mark.parametrize("name", ["MININT", "MAXINT", "LONG_BIT"])
+def test_lower_named_constant_target(name):
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    builder.generate_target(PatternConst(name))
+    assert repr(builder.block) == (
+        "Block([ExprStmt(Call(Attribute(Ref(Value('self')), 'make_constant_int'), "
+        "[Ref(Value('op')), Symbol(%r)], []))])" % name)
+
+
+def test_lower_target_requires_existing_binding():
+    from rpython.jit.metainterp.ruleopt import ir
+
+    builder = IRCodegen(ir.Value("self"), ir.Value("op"), {})
+    with pytest.raises(KeyError):
+        builder.generate_target(PatternVar("missing", IntBound))
+    assert builder.bindings == {}
+    assert repr(builder.block) == "Block([])"

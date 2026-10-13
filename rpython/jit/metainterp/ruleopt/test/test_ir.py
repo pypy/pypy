@@ -40,6 +40,9 @@ def test_name_hint_does_not_identify_a_binding():
     (ir.Ref(ir.Value("x")), "Ref(Value('x'))"),
     (ir.Literal(42), "Literal(42)"),
     (ir.Literal("x"), "Literal('x')"),
+    (ir.ListExpr([ir.Literal(1)]), "ListExpr([Literal(1)])"),
+    (ir.ExprStmt(ir.Call(ir.Ref(ir.Value("f")), [])),
+     "ExprStmt(Call(Ref(Value('f')), [], []))"),
     (ir.Unary("-", ir.Literal(1)), "Unary('-', Literal(1))"),
     (ir.Binary("+", ir.Literal(1), ir.Literal(2)),
      "Binary('+', Literal(1), Literal(2))"),
@@ -60,3 +63,7 @@ def test_name_hint_does_not_identify_a_binding():
 ])
 def test_repr(node, expected):
     assert repr(node) == expected
+
+
+def test_symbol_repr():
+    assert repr(ir.Symbol("ConstInt")) == "Symbol('ConstInt')"

@@ -137,3 +137,52 @@ def test_operators_preserve_grouping(expr, expected_source, expected_result):
     source = emit_python(ir.Block([ir.Return(expr)]))
     assert source == expected_source
     assert run_body(source) == expected_result
+
+
+def test_list_of_expressions():
+    x = ir.Value("x")
+    source = emit_python(ir.Block([
+        ir.Bind(x, ir.Literal(4)),
+        ir.Return(ir.ListExpr([
+            ir.Ref(x), ir.Binary("+", ir.Ref(x), ir.Literal(1)),
+        ])),
+    ]))
+    assert source == "x = 4\nreturn [x, x + 1]"
+    assert run_body(source) == [4, 5]
+
+
+def test_expr_stmt_preserves_effects_and_continues():
+    items = ir.Value("items")
+    source = emit_python(ir.Block([
+        ir.Bind(items, ir.ListExpr([])),
+        ir.ExprStmt(ir.Call(ir.Attribute(ir.Ref(items), "append"),
+                      [ir.Literal(1)])),
+        ir.ExprStmt(ir.Call(ir.Attribute(ir.Ref(items), "append"),
+                      [ir.Literal(2)])),
+        ir.Return(ir.Ref(items)),
+    ]))
+    assert source == (
+        "items = []\n"
+        "(items).append(1)\n"
+        "(items).append(2)\n"
+        "return items")
+    assert run_body(source) == [1, 2]
+
+
+def test_symbol_call():
+    source = emit_python(ir.Block([
+        ir.Return(ir.Call(ir.Symbol("len"), [ir.ListExpr([])])),
+    ]))
+    assert source == "return len([])"
+    assert run_body(source) == 0
+
+
+def test_local_binding_does_not_shadow_symbol():
+    local = ir.Value("len")
+    source = emit_python(ir.Block([
+        ir.Bind(local, ir.Literal(10)),
+        ir.Return(ir.Binary("+", ir.Ref(local),
+                            ir.Call(ir.Symbol("len"), [ir.ListExpr([])]))),
+    ]))
+    assert source == "len_1 = 10\nreturn len_1 + len([])"
+    assert run_body(source) == 10

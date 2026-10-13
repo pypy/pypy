@@ -34,6 +34,16 @@ class Literal(Expr):
         return "Literal(%r)" % (self.value,)
 
 
+class Symbol(Expr):
+    """An external Python name, which must not be renamed like a local Value."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def __repr__(self):
+        return "Symbol(%r)" % (self.name,)
+
+
 class Attribute(Expr):
     def __init__(self, obj, name):
         self.obj = obj
@@ -53,6 +63,14 @@ class Call(Expr):
     def __repr__(self):
         return "Call(%r, %r, %r)" % (
             self.function, self.args, self.keywords)
+
+
+class ListExpr(Expr):
+    def __init__(self, items):
+        self.items = items
+
+    def __repr__(self):
+        return "ListExpr(%r)" % (self.items,)
 
 
 class Unary(Expr):
@@ -88,6 +106,16 @@ class Bind(Stmt):
 
     def __repr__(self):
         return "Bind(%r, %r)" % (self.value, self.expr)
+
+
+class ExprStmt(Stmt):
+    """Evaluate an expression for its effects, discarding its result."""
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __repr__(self):
+        return "ExprStmt(%r)" % (self.expr,)
 
 
 class Return(Stmt):

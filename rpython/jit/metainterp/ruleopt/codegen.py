@@ -1,7 +1,8 @@
+import ast
 from contextlib import contextmanager
 from collections import defaultdict
 
-from rpython.jit.metainterp.ruleopt import parse
+from rpython.jit.metainterp.ruleopt import ir, parse
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
 commutative_ops = {"int_add", "int_mul", "int_and", "int_mul", "int_or",
@@ -189,6 +190,42 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
             del name_paths[0]
             continue
     return Terminal(rules, bindings)
+
+class IRCodegen(object):
+    """Build method-body IR; developed alongside Codegen during migration."""
+
+    def __init__(self, self_value, op_value, bindings):
+        self.self_ref = ir.Ref(self_value)
+        self.op_ref = ir.Ref(op_value)
+        # DSL variable names map to IR Values, rather than Python name strings.
+        self.bindings = bindings
+        self.block = ir.Block([])
+
+    def value_for(self, varname):
+        return self.bindings[varname]
+
+    def self_method(self, name, *args):
+        return ir.Call(ir.Attribute(self.self_ref, name), list(args))
+
+    def generate_target(self, target):
+        # generate_rule owns the rule counter and return, after this action.
+        if isinstance(target, parse.PatternVar):
+            value = ir.Ref(self.value_for(target.name))
+            if target.typ is int:
+                value = ir.Call(ir.Symbol("ConstInt"), [value])
+            call = self.self_method("make_equal_to", self.op_ref, value)
+            self.block.statements.append(ir.ExprStmt(call))
+            return
+        if isinstance(target, parse.PatternConst):
+            if target.const in ("MININT", "MAXINT", "LONG_BIT"):
+                value = ir.Symbol(target.const)
+            else:
+                value = ir.Literal(ast.literal_eval(target.const))
+            call = self.self_method("make_constant_int", self.op_ref, value)
+            self.block.statements.append(ir.ExprStmt(call))
+            return
+        raise NotImplementedError("lower target: %r" % (target,))
+
 
 class Codegen(parse.Visitor):
     def __init__(self):

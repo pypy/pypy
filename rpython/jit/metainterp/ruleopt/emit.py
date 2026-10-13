@@ -51,7 +51,21 @@ class PythonEmitter(object):
             self.used_names.add(name)
         return self.names[value]
 
+    def reserve_symbols(self, node):
+        # Reserve external names before assigning any local names, including
+        # symbols encountered later in the body or inside a nested branch.
+        if isinstance(node, ir.Symbol):
+            self.used_names.add(node.name)
+        elif isinstance(node, (ir.Expr, ir.Stmt, ir.Block)):
+            for child in vars(node).values():
+                self.reserve_symbols(child)
+        elif isinstance(node, (list, tuple)):
+            for child in node:
+                self.reserve_symbols(child)
+
     def emit_expr(self, expr, prec=0):
+        if isinstance(expr, ir.Symbol):
+            return expr.name
         if isinstance(expr, ir.Literal):
             result = repr(expr.value)
             # A negative literal is syntactically a unary expression.
@@ -60,6 +74,8 @@ class PythonEmitter(object):
             return result
         if isinstance(expr, ir.Ref):
             return self.name_for(expr.value)
+        if isinstance(expr, ir.ListExpr):
+            return "[%s]" % ", ".join(self.emit_expr(item) for item in expr.items)
         if isinstance(expr, ir.Attribute):
             return "(%s).%s" % (self.emit_expr(expr.obj), expr.name)
         if isinstance(expr, ir.Call):
@@ -93,6 +109,9 @@ class PythonEmitter(object):
         raise NotImplementedError("unsupported expression: %r" % (expr,))
 
     def emit_stmt(self, stmt):
+        if isinstance(stmt, ir.ExprStmt):
+            self.emit(self.emit_expr(stmt.expr))
+            return
         if isinstance(stmt, ir.Bind):
             self.emit("%s = %s" % (self.name_for(stmt.value), self.emit_expr(stmt.expr)))
             return
@@ -121,5 +140,6 @@ class PythonEmitter(object):
 
 def emit_python(block):
     emitter = PythonEmitter()
+    emitter.reserve_symbols(block)
     emitter.emit_block(block)
     return "\n".join(emitter.lines)
