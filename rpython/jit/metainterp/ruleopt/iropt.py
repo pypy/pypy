@@ -105,6 +105,20 @@ def remove_unused_bindings(block):
             return
 
 
+def skip_independent_bindings(statements, index, value):
+    """Skip effect-free bindings that don't use value, starting at index.
+
+    Return the index of the first barrier/non-binding, or len(statements).
+    Only inspect the list: callers move a binding once a suitable If is found.
+    """
+    while index < len(statements) and isinstance(statements[index], ir.Bind):
+        binding = statements[index]
+        if binding.expr.has_side_effects() or value in used_values(binding):
+            break
+        index += 1
+    return index
+
+
 def move_bindings_down(block):
     """Move bindings past If statements that do not use them, in place.
 
@@ -112,8 +126,9 @@ def move_bindings_down(block):
     a successful rewrite mutates state and returns. Values have unique
     definitions. This is not a pass for arbitrary Python programs.
 
-    Preserve the relative order of bindings. Do not move them across other
-    kinds of statements or into branches; inward movement is a separate pass.
+    Cross independent, effect-free bindings only when also crossing an If.
+    Do not cross other kinds of statements or move into branches; inward
+    movement is a separate pass.
     Mutates block and returns whether anything moved.
     """
     changed = False
@@ -125,13 +140,18 @@ def move_bindings_down(block):
             if not isinstance(stmt, ir.Bind) or stmt.expr.has_side_effects():
                 continue
             while i + 1 < len(statements):
-                branch = statements[i + 1]
+                j = skip_independent_bindings(statements, i + 1, stmt.value)
+                if j == len(statements):
+                    break
+                branch = statements[j]
                 if not isinstance(branch, ir.If):
                     break
                 if stmt.value in used_values(branch):
                     break
-                statements[i], statements[i + 1] = branch, stmt
-                i += 1
+                del statements[i]
+                # Removing stmt shifts the If to j - 1; insert just after it.
+                statements.insert(j, stmt)
+                i = j
                 changed = True
     return changed
 
@@ -161,13 +181,7 @@ def move_bindings_in(block):
             if not isinstance(stmt, ir.Bind) or stmt.expr.has_side_effects():
                 continue
             value = stmt.value
-            j = i + 1
-            while j < len(statements) and isinstance(statements[j], ir.Bind):
-                intervening = statements[j]
-                if (intervening.expr.has_side_effects()
-                        or value in used_values(intervening)):
-                    break
-                j += 1
+            j = skip_independent_bindings(statements, i + 1, value)
             if j == len(statements):
                 continue
             branch = statements[j]

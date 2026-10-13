@@ -169,6 +169,43 @@ def test_move_bindings_down_does_not_cross_other_statements():
     assert block.statements == [binding, action, branch]
 
 
+def test_move_bindings_down_crosses_independent_bindings():
+    a, b, c, d = [ir.Value(name) for name in 'abcd']
+    first = ir.Bind(a, ir.Call(ir.Symbol('read'), []))
+    second = ir.Bind(b, ir.Ref(a))
+    check1 = ir.Bind(c, ir.Call(ir.Symbol('check1'), []))
+    check2 = ir.Bind(d, ir.Call(ir.Symbol('check2'), []))
+    branch1 = ir.If(ir.Ref(c), ir.Block([ir.Return()]), ir.Block([]))
+    branch2 = ir.If(ir.Ref(d), ir.Block([ir.Return()]), ir.Block([]))
+    ret = ir.Return(ir.Ref(b))
+    block = ir.Block([first, second, check1, branch1, check2, branch2, ret])
+    assert move_bindings_down(block) is True
+    assert block.statements == [check1, branch1, check2, branch2, first, second, ret]
+    assert move_bindings_down(block) is False
+
+
+@pytest.mark.parametrize('reason', ['dependency', 'effects', 'condition',
+                                  'branch_use', 'no_if'])
+def test_move_bindings_down_checks_intervening_bindings(reason):
+    x, c = ir.Value('x'), ir.Value('c')
+    binding = ir.Bind(x, ir.Call(ir.Symbol('read'), []))
+    args = [ir.Ref(x)] if reason == 'dependency' else []
+    intervening = ir.Bind(c, ir.Call(ir.Symbol('check'), args,
+                                    side_effects=(reason == 'effects')))
+    condition = ir.Ref(c)
+    if reason == 'condition':
+        condition = ir.Binary('==', ir.Ref(c), ir.Ref(x))
+    result = ir.Ref(x) if reason == 'branch_use' else None
+    branch = ir.If(condition, ir.Block([ir.Return(result)]), ir.Block([]))
+    statements = [binding, intervening, branch, ir.Return(ir.Ref(x))]
+    if reason == 'no_if':
+        statements = [binding, intervening]
+    block = ir.Block(statements)
+    before = repr(block)
+    assert move_bindings_down(block) is False
+    assert repr(block) == before
+
+
 @pytest.mark.parametrize('arm_name', ['then_block', 'else_block'])
 def test_move_bindings_in(arm_name):
     value = ir.Value('x')
