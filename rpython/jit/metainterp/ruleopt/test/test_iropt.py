@@ -3,7 +3,7 @@ import pytest
 from rpython.jit.metainterp.ruleopt import ir
 from rpython.jit.metainterp.ruleopt.iropt import (
     move_bindings_down, move_bindings_in, optimize, remove_unused_bindings,
-    used_values)
+    remove_redundant_guards, same_expression, used_values)
 
 
 def getintbound(receiver, box):
@@ -253,3 +253,110 @@ def test_optimize_alternates_down_and_in():
     before = repr(block)
     optimize(block)
     assert repr(block) == before
+
+
+@pytest.mark.parametrize('make_expr', [
+    lambda v: ir.Ref(v),
+    lambda v: ir.Literal(42),
+    lambda v: ir.Symbol('external'),
+    lambda v: ir.Attribute(ir.Ref(v), 'field'),
+    lambda v: ir.Unary('not', ir.Ref(v)),
+    lambda v: ir.Binary('==', ir.Ref(v), ir.Literal(0)),
+    lambda v: ir.ListExpr([ir.Ref(v), ir.Literal(None)]),
+    lambda v: ir.Call(ir.Attribute(ir.Ref(v), 'check'), [ir.Literal(1)],
+                      [('flag', ir.Literal(True))]),
+])
+def test_same_expression(make_expr):
+    value = ir.Value('x')
+    assert same_expression(make_expr(value), make_expr(value))
+
+
+def test_same_expression_uses_value_identity():
+    first, second = ir.Value('x'), ir.Value('x')
+    assert not same_expression(ir.Ref(first), ir.Ref(second))
+    assert same_expression(ir.Ref(first), ir.Ref(first))
+
+
+@pytest.mark.parametrize('left, right', [
+    (ir.Literal(0), ir.Literal(False)),
+    (ir.Literal(0), ir.Literal(1)),
+    (ir.Symbol('x'), ir.Symbol('y')),
+    (ir.Symbol('x'), ir.Literal('x')),
+    (ir.Attribute(ir.Symbol('x'), 'a'), ir.Attribute(ir.Symbol('x'), 'b')),
+    (ir.Unary('-', ir.Literal(1)), ir.Unary('~', ir.Literal(1))),
+    (ir.Binary('==', ir.Literal(1), ir.Literal(2)),
+     ir.Binary('!=', ir.Literal(1), ir.Literal(2))),
+    (ir.ListExpr([ir.Literal(1)]), ir.ListExpr([ir.Literal(1), ir.Literal(2)])),
+    (ir.Call(ir.Symbol('f'), [ir.Literal(1), ir.Literal(2)]),
+     ir.Call(ir.Symbol('f'), [ir.Literal(2), ir.Literal(1)])),
+    (ir.Call(ir.Symbol('f'), [], [('a', ir.Literal(1))]),
+     ir.Call(ir.Symbol('f'), [], [('b', ir.Literal(1))])),
+    (ir.Call(ir.Symbol('f'), [], [('a', ir.Literal(1)), ('b', ir.Literal(2))]),
+     ir.Call(ir.Symbol('f'), [], [('b', ir.Literal(2)), ('a', ir.Literal(1))])),
+    (ir.Call(ir.Symbol('f'), []), ir.Call(ir.Symbol('g'), [])),
+    (ir.Call(ir.Symbol('f'), []), ir.Call(ir.Symbol('f'), [], side_effects=True)),
+])
+def test_different_expressions(left, right):
+    assert not same_expression(left, right)
+
+
+@pytest.mark.parametrize('finish_rule', [False, True])
+def test_remove_redundant_guards(finish_rule):
+    value = ir.Value('x')
+    def condition():
+        return ir.Call(ir.Symbol('check'), [ir.Ref(value)])
+    finish = (ir.FinishRule(ir.Symbol('self'), 'int_eq', 0, 'first')
+              if finish_rule else ir.Return())
+    first = ir.If(condition(), ir.Block([finish]), ir.Block([]))
+    # The targets need not match: the first successful branch already returns.
+    second = ir.If(condition(), ir.Block([ir.Return(ir.Literal(2))]), ir.Block([]))
+    third = ir.If(condition(), ir.Block([ir.Return(ir.Literal(3))]), ir.Block([]))
+    inner = ir.Block([first, second, third])
+    outer = ir.If(ir.Symbol('outer'), ir.Block([]), inner)
+    block = ir.Block([outer])
+    assert remove_redundant_guards(block) is True
+    assert block.statements == [outer]
+    assert inner.statements == [first]
+    assert remove_redundant_guards(block) is False
+
+
+@pytest.mark.parametrize('reason', [
+    'no_return', 'conditional_return', 'first_else', 'second_else',
+    'intervening_statement', 'different_value', 'effectful_condition',
+])
+def test_keep_guards(reason):
+    value = ir.Value('x')
+    first_condition = ir.Call(ir.Symbol('check'), [ir.Ref(value)],
+                              side_effects=(reason == 'effectful_condition'))
+    second_value = ir.Value('x') if reason == 'different_value' else value
+    second_condition = ir.Call(ir.Symbol('check'), [ir.Ref(second_value)],
+                               side_effects=(reason == 'effectful_condition'))
+    first = ir.If(first_condition, ir.Block([ir.Return()]), ir.Block([]))
+    second = ir.If(second_condition, ir.Block([ir.Return()]), ir.Block([]))
+    block = ir.Block([first, second])
+    if reason == 'no_return':
+        first.then_block.statements = []
+    elif reason == 'conditional_return':
+        first.then_block.statements = [
+            ir.If(ir.Symbol('extra_check'), ir.Block([ir.Return()]), ir.Block([]))]
+    elif reason == 'first_else':
+        first.else_block.statements = [ir.ExprStmt(ir.Call(
+            ir.Symbol('update'), [], side_effects=True))]
+    elif reason == 'second_else':
+        second.else_block.statements = [ir.Return(ir.Literal(1))]
+    elif reason == 'intervening_statement':
+        block.statements.insert(1, ir.ExprStmt(ir.Call(
+            ir.Symbol('update'), [], side_effects=True)))
+    before = repr(block)
+    assert remove_redundant_guards(block) is False
+    assert repr(block) == before
+
+
+def test_optimize_cleans_up_after_removing_guard():
+    unused = ir.Value('only_used_by_second_guard')
+    first = ir.If(ir.Symbol('condition'), ir.Block([ir.Return()]), ir.Block([]))
+    second = ir.If(ir.Symbol('condition'),
+                   ir.Block([ir.Return(ir.Ref(unused))]), ir.Block([]))
+    block = ir.Block([ir.Bind(unused, ir.Call(ir.Symbol('read'), [])), first, second])
+    optimize(block)
+    assert block.statements == [first]

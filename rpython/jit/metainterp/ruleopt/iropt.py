@@ -6,15 +6,80 @@ def optimize(block):
     """Optimize a generated matcher body in place."""
     remove_unused_bindings(block)
     while True:
+        guards_changed = remove_redundant_guards(block)
+        if guards_changed:
+            remove_unused_bindings(block)
         down_changed = move_bindings_down(block)
         in_changed = move_bindings_in(block)
-        if not (down_changed or in_changed):
+        if not (guards_changed or down_changed or in_changed):
             return
 
 
 def used_values(node):
     """Return the Value identities referenced anywhere in a subtree."""
     return {ref.value for ref in node.walk(ir.Ref)}
+
+
+def same_expression(left, right):
+    """Compare expression structure, using identity for referenced Values."""
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, ir.Ref):
+        return left.value is right.value
+    if isinstance(left, ir.Literal):
+        return type(left.value) is type(right.value) and left.value == right.value
+    if isinstance(left, ir.Symbol):
+        return left.name == right.name
+    if isinstance(left, ir.Attribute):
+        if left.name != right.name:
+            return False
+    elif isinstance(left, (ir.Unary, ir.Binary)):
+        if left.operator != right.operator:
+            return False
+    elif isinstance(left, ir.Call):
+        if left.side_effects != right.side_effects:
+            return False
+        if [name for name, expr in left.keywords] != [
+                name for name, expr in right.keywords]:
+            return False
+    elif not isinstance(left, ir.ListExpr):
+        return False
+    left_children = list(left.iter_children())
+    right_children = list(right.iter_children())
+    return (len(left_children) == len(right_children) and
+            all(same_expression(a, b)
+                for a, b in zip(left_children, right_children)))
+
+
+def remove_redundant_guards(block):
+    """Remove adjacent repeated guards after returning true arms, in place.
+
+    If the first guard succeeds, it returns; if it fails, its empty else arm
+    leaves matching state unchanged. An identical effect-free guard must then
+    fail too. Require an empty second else arm so the entire If can be removed.
+
+    Like the movement passes, this relies on matching reads being stable until
+    a rewrite. Return whether anything was removed.
+    """
+    changed = False
+    for sub in block.walk(ir.Block):
+        statements = sub.statements
+        i = 0
+        while i + 1 < len(statements):
+            first, second = statements[i:i + 2]
+            if (isinstance(first, ir.If) and isinstance(second, ir.If)
+                    and not first.else_block.statements
+                    and not second.else_block.statements
+                    and first.then_block.statements
+                    and isinstance(first.then_block.statements[-1],
+                                   (ir.Return, ir.FinishRule))
+                    and not first.condition.has_side_effects()
+                    and same_expression(first.condition, second.condition)):
+                del statements[i + 1]
+                changed = True
+            else:
+                i += 1
+    return changed
 
 
 def remove_unused_bindings(block):
