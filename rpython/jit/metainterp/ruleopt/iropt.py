@@ -5,7 +5,11 @@ from rpython.jit.metainterp.ruleopt import ir
 def optimize(block):
     """Optimize a generated matcher body in place."""
     remove_unused_bindings(block)
-    move_bindings_down(block)
+    while True:
+        down_changed = move_bindings_down(block)
+        in_changed = move_bindings_in(block)
+        if not (down_changed or in_changed):
+            return
 
 
 def used_values(node):
@@ -43,32 +47,66 @@ def move_bindings_down(block):
     a successful rewrite mutates state and returns. Values have unique
     definitions. This is not a pass for arbitrary Python programs.
 
-    Exercise: swap adjacent Bind / If pairs when the binding's RHS has no
-    side effects and its Value is absent from used_values(the_if). Repeat
-    until no more swaps apply, including inside nested blocks.
-
     Preserve the relative order of bindings. Do not move them across other
     kinds of statements or into branches; inward movement is a separate pass.
-    Mutates block and returns None.
+    Mutates block and returns whether anything moved.
     """
-    def move_down(block):
-        changed = True
-        while changed:
-            changed = False
-            for i, stmt in enumerate(block.statements):
-                if not isinstance(stmt, ir.Bind):
-                    continue
-                if stmt.expr.has_side_effects():
-                    continue
-                if i + 1 >= len(block.statements):
-                    continue
-                next = block.statements[i + 1]
-                if not isinstance(next, ir.If):
-                    continue
-                used = used_values(next)
-                if stmt.value in used:
-                    continue
-                block.statements[i], block.statements[i + 1] = block.statements[i + 1], block.statements[i]
-                changed = True
+    changed = False
     for sub in block.walk(ir.Block):
-        move_down(sub)
+        statements = sub.statements
+        # Move later bindings first, exposing checks to earlier bindings.
+        for i in range(len(statements) - 2, -1, -1):
+            stmt = statements[i]
+            if not isinstance(stmt, ir.Bind) or stmt.expr.has_side_effects():
+                continue
+            while i + 1 < len(statements):
+                branch = statements[i + 1]
+                if not isinstance(branch, ir.If):
+                    break
+                if stmt.value in used_values(branch):
+                    break
+                statements[i], statements[i + 1] = branch, stmt
+                i += 1
+                changed = True
+    return changed
+
+
+def move_bindings_in(block):
+    """Move a binding into the single If branch that needs it, in place.
+
+    Uses the same matcher invariants as move_bindings_down. Mutates block
+    and returns whether anything moved. Never duplicates a binding or moves
+    it outward.
+
+    Consider adjacent Bind / If pairs. The RHS must be effect-free;
+    the Value must be unused in the condition and all following statements,
+    and used in exactly one branch. Remove the Bind from its original block
+    and prepend it to that branch.
+
+    Scan backward so moving a binding exposes earlier eligible pairs. Walking
+    blocks in preorder then visits the branch containing the moved bindings.
+    """
+    changed = False
+    for sub in block.walk(ir.Block):
+        statements = sub.statements
+        for i in range(len(statements) - 2, -1, -1):
+            stmt = statements[i]
+            if not isinstance(stmt, ir.Bind) or stmt.expr.has_side_effects():
+                continue
+            branch = statements[i + 1]
+            if not isinstance(branch, ir.If):
+                continue
+            value = stmt.value
+            if value in used_values(branch.condition):
+                continue
+            if value in used_values(ir.Block(statements[i + 2:])):
+                continue
+            used_then = value in used_values(branch.then_block)
+            used_else = value in used_values(branch.else_block)
+            if used_then == used_else:
+                continue
+            destination = branch.then_block if used_then else branch.else_block
+            del statements[i]
+            destination.statements.insert(0, stmt)
+            changed = True
+    return changed

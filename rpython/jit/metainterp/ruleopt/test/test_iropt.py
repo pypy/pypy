@@ -2,7 +2,8 @@ import pytest
 
 from rpython.jit.metainterp.ruleopt import ir
 from rpython.jit.metainterp.ruleopt.iropt import (
-    move_bindings_down, remove_unused_bindings, used_values)
+    move_bindings_down, move_bindings_in, optimize, remove_unused_bindings,
+    used_values)
 
 
 def getintbound(receiver, box):
@@ -115,8 +116,9 @@ def test_move_bindings_down():
     early_return = ir.If(ir.Symbol('matched'), ir.Block([ir.Return()]), ir.Block([]))
     ret = ir.Return(ir.Ref(bound))
     block = ir.Block([binding, early_return, ret])
-    move_bindings_down(block)
+    assert move_bindings_down(block) is True
     assert block.statements == [early_return, binding, ret]
+    assert move_bindings_down(block) is False
 
 
 @pytest.mark.parametrize('use_in', ['condition', 'then', 'else'])
@@ -165,3 +167,89 @@ def test_move_bindings_down_does_not_cross_other_statements():
     block = ir.Block([binding, action, branch])
     move_bindings_down(block)
     assert block.statements == [binding, action, branch]
+
+
+@pytest.mark.parametrize('arm_name', ['then_block', 'else_block'])
+def test_move_bindings_in(arm_name):
+    value = ir.Value('x')
+    binding = ir.Bind(value, ir.Call(ir.Symbol('read'), []))
+    ret = ir.Return(ir.Ref(value))
+    branch = ir.If(ir.Symbol('condition'), ir.Block([]), ir.Block([]))
+    arm = getattr(branch, arm_name)
+    arm.statements.append(ret)
+    block = ir.Block([binding, branch, ir.Return()])
+    assert move_bindings_in(block) is True
+    assert block.statements[0] is branch
+    assert len(block.statements) == 2
+    assert arm.statements == [binding, ret]
+    assert move_bindings_in(block) is False
+
+
+@pytest.mark.parametrize('reason', ['condition', 'both_branches', 'later_use',
+                                  'unused', 'effectful'])
+def test_move_bindings_in_keeps_binding(reason):
+    value = ir.Value('x')
+    binding = ir.Bind(value, ir.Call(ir.Symbol('read'), [],
+                                    side_effects=(reason == 'effectful')))
+    branch = ir.If(ir.Symbol('condition'),
+                   ir.Block([ir.Return(ir.Ref(value))]), ir.Block([]))
+    after = ir.Return()
+    if reason == 'condition':
+        branch.condition = ir.Ref(value)
+    elif reason == 'both_branches':
+        branch.else_block.statements.append(ir.Return(ir.Ref(value)))
+    elif reason == 'later_use':
+        # A use nested inside a later statement must also prevent movement.
+        after = ir.If(ir.Symbol('later'), ir.Block([]),
+                      ir.Block([ir.Return(ir.Ref(value))]))
+    elif reason == 'unused':
+        branch.then_block.statements = []
+    block = ir.Block([binding, branch, after])
+    before = repr(block)
+    move_bindings_in(block)
+    assert repr(block) == before
+
+
+def test_move_bindings_in_repeats_and_preserves_dependencies():
+    a, b = ir.Value('a'), ir.Value('b')
+    first = ir.Bind(a, ir.Call(ir.Symbol('read'), []))
+    second = ir.Bind(b, ir.Ref(a))
+    ret = ir.Return(ir.Ref(b))
+    inner = ir.If(ir.Symbol('inner'), ir.Block([]), ir.Block([ret]))
+    outer = ir.If(ir.Symbol('outer'), ir.Block([inner]), ir.Block([]))
+    block = ir.Block([first, second, outer])
+    move_bindings_in(block)
+    assert block.statements == [outer]
+    assert outer.then_block.statements == [inner]
+    assert inner.else_block.statements == [first, second, ret]
+
+
+def test_move_bindings_in_does_not_cross_other_statements():
+    value = ir.Value('x')
+    binding = ir.Bind(value, ir.Literal(1))
+    action = ir.ExprStmt(ir.Call(ir.Symbol('action'), [], side_effects=True))
+    branch = ir.If(ir.Symbol('condition'),
+                   ir.Block([ir.Return(ir.Ref(value))]), ir.Block([]))
+    block = ir.Block([binding, action, branch])
+    before = repr(block)
+    move_bindings_in(block)
+    assert repr(block) == before
+
+
+def test_optimize_alternates_down_and_in():
+    value = ir.Value('x')
+    binding = ir.Bind(value, ir.Call(ir.Symbol('read'), []))
+    ret = ir.Return(ir.Ref(value))
+    inner = ir.If(ir.Symbol('inner'), ir.Block([]), ir.Block([ret]))
+    early_return = ir.If(ir.Symbol('early'), ir.Block([ir.Return()]), ir.Block([]))
+    outer = ir.If(ir.Symbol('outer'), ir.Block([early_return, inner]), ir.Block([]))
+    block = ir.Block([binding, outer])
+
+    # First move into outer, then down past early_return, then into inner.
+    optimize(block)
+    assert block.statements == [outer]
+    assert outer.then_block.statements == [early_return, inner]
+    assert inner.else_block.statements == [binding, ret]
+    before = repr(block)
+    optimize(block)
+    assert repr(block) == before
