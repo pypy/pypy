@@ -303,6 +303,9 @@ is_zero_add: int_is_zero(int_add(x, C))
     check x.lower > -C or x.upper < -C
     => 0
 
+is_zero_sub: int_is_zero(int_sub(x, y))
+    => int_eq(x, y)
+
 #is_zero_negate_eq: int_is_zero(int_eq(x, y))
 #    => int_ne(x, y)
 
@@ -425,3 +428,8 @@ eq_sub_consts: int_eq(int_sub(C1, x), C2)
 
 eq_sub_sub_cancel: int_eq(int_sub(x, z), int_sub(y, z))
     => int_eq(x, y)
+
+ne_rshift_lshift_one: int_ne(int_rshift(int_lshift(1, x), x), 1)
+    check x.known_ge_const(0) and x.known_lt_const(LONG_BIT)
+    C = LONG_BIT - 1
+    => int_eq(x, C)
