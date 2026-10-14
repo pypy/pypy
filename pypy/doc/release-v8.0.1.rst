@@ -1,10 +1,6 @@
 ===========================================================================
-PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
+PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-14
 ===========================================================================
-
-.. note::
-   This is a pre-release announcement. When the release actually happens, it
-   will be announced on the PyPy blog_
 
 ..
   updated to 73572bf034c
@@ -60,8 +56,6 @@ ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
-.. _`computed gotos`: https://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables
-.. _`the README`: https://github.com/pypy/pypy/tree/py3.12/pypy/tool/pyhdrdump#pyhdrdump
 
 What is PyPy?
 =============
