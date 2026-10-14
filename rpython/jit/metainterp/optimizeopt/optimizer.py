@@ -165,16 +165,7 @@ class Optimization(object):
         # only for ruleopt generated code
         newop = get_opclass_memo(newopnum)()
         newop.setarg(0, arg0)
-        assert not isinstance(newop, ResOpWithDescr)
-        assert newop.type != 'v'
-        if not we_are_translated():
-            repl_op = get_box_replacement(op)
-            assert repl_op is op
-        opinfo = op.get_forwarded()
-        if opinfo is not None:
-            newop.set_forwarded(opinfo)
-        op.set_forwarded(newop)
-        self.optimizer.send_extra_operation(newop)
+        self._forward_replacement_and_send(op, newop)
 
     @specialize.arg(2)
     def _replace_op_with_2_and_send(self, op, newopnum, arg0, arg1):
@@ -182,6 +173,9 @@ class Optimization(object):
         newop = get_opclass_memo(newopnum)()
         newop.setarg(0, arg0)
         newop.setarg(1, arg1)
+        self._forward_replacement_and_send(op, newop)
+
+    def _forward_replacement_and_send(self, op, newop):
         assert not isinstance(newop, ResOpWithDescr)
         assert newop.type != 'v'
         if not we_are_translated():
