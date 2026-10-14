@@ -399,11 +399,11 @@ class IRCodegen(parse.Visitor):
 
     def visit_IsConstMatcher(self, matcher):
         bound = ir.Ref(self.matcher_values['b_' + matcher.name])
-        cond = ir.Call(ir.Attribute(bound, 'is_constant'), [])
+        condition = ir.Call(ir.Attribute(bound, 'is_constant'), [])
         then_block = ir.Block([])
         else_block = ir.Block([])
-        cond = ir.If(cond, then_block, else_block)
-        self.emit(cond)
+        branch = ir.If(condition, then_block, else_block)
+        self.emit(branch)
         with self.matcher_branch(then_block):
             constvalue = ir.Value(matcher.constname)
             const = ir.Call(ir.Attribute(bound, 'get_constant_int'), [])
@@ -570,7 +570,7 @@ class IRCodegen(parse.Visitor):
         raise NotImplementedError("lower target argument: %r" % (target,))
 
     def generate_target(self, target):
-        # generate_rule owns the rule counter and return, after this action.
+        # generate_rule_body owns the rule counter and return, after this action.
         if isinstance(target, parse.PatternVar):
             value = self.target_box(target)
             call = self.self_method("make_equal_to", self.op_ref, value)
