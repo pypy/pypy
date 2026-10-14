@@ -51,7 +51,7 @@ def test_convert_pointers(dll):
 ################################################################
 
 def test_call_some_args(dll):
-    f = dll.my_strchr
+    f = dll.my_strchr_variadic
     f.argtypes = [c_char_p]
     f.restype = c_char_p
     result = f(b"abcd", ord("b"))
@@ -70,7 +70,7 @@ def test_variadic_sum(dll):
 def test_keepalive_buffers(monkeypatch, dll):
     import gc
     f = dll.my_strchr
-    f.argtypes = [c_char_p]
+    f.argtypes = [c_char_p, c_int]
     f.restype = c_char_p
     #
     orig__call_funcptr = f._call_funcptr
