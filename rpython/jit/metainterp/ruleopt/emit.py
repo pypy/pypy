@@ -55,14 +55,8 @@ class PythonEmitter(object):
     def reserve_symbols(self, node):
         # Reserve external names before assigning any local names, including
         # symbols encountered later in the body or inside a nested branch.
-        if isinstance(node, ir.Symbol):
-            self.used_names.add(node.name)
-        elif isinstance(node, (ir.Expr, ir.Stmt, ir.Block)):
-            for child in vars(node).values():
-                self.reserve_symbols(child)
-        elif isinstance(node, (list, tuple)):
-            for child in node:
-                self.reserve_symbols(child)
+        for symbol in node.walk(ir.Symbol):
+            self.used_names.add(symbol.name)
 
     def emit_expr(self, expr, prec=0):
         if isinstance(expr, ir.Symbol):
