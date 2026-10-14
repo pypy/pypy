@@ -1034,16 +1034,6 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_consistency(self):
-        "NOT_RPYTHON"
-        for loop in self.get_all_loops():
-            loop.check_consistency()
-
-    def maybe_view(self):
-        from rpython.conftest import option
-        if option.view:
-            self.view()
-
     def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
         from rpython.jit.metainterp.graphpage import display_procedures
         procedures = self.get_all_loops()[:]

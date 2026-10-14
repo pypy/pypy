@@ -217,11 +217,6 @@ def reset_jit():
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
 
-def debug_checks():
-    stats = get_stats()
-    stats.maybe_view()
-    stats.check_consistency()
-
 # ____________________________________________________________
 # always disabled hooks interface
 
