@@ -11,8 +11,6 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.rlib.jit import Counters
 
-from rpython.conftest import option
-
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
@@ -1042,6 +1040,7 @@ class Stats(object):
             loop.check_consistency()
 
     def maybe_view(self):
+        from rpython.conftest import option
         if option.view:
             self.view()
 
