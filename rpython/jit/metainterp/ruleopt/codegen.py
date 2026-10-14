@@ -365,9 +365,6 @@ class IRCodegen(parse.Visitor):
                 self.intbound_bindings = {}
                 self.match_pattern(rule.pattern, terminal.bindings)
                 reused_value = None
-                # Exercise: find_reusable_operation gives a path, if any.
-                # Resolve it through terminal.bindings (path -> name) and
-                # self.matcher_values (name -> Value) to set reused_value.
                 path = find_reusable_operation(rule.pattern, rule.target)
                 if path:
                     reused_value = self.matcher_values[terminal.bindings[path]]

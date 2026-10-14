@@ -17,9 +17,8 @@ class Node(object):
     def walk(self, cls=None):
         """Yield self, then recursively visit children in source order.
 
-        Exercise: use iter_children() and each child's walk(). Visit shared
-        expressions once per occurrence, without a visited set. Treat the
-        tree as read-only while iterating.
+        Visit shared expressions once per occurrence, without a visited set.
+        Treat the tree as read-only while iterating.
         """
         if cls is None or isinstance(self, cls):
             yield self
