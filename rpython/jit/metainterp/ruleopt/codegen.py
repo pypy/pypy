@@ -282,7 +282,9 @@ class IRCodegen(parse.Visitor):
                 continue
             matcher = create_matcher(subset_rules)
             self.visit(matcher)
-        self.emit(ir.Return(self.self_method('emit', self.op_ref)))
+        self.emit(ir.Return(self.self_method(
+            '_emit_generated', self.op_ref,
+            ir.Attribute(ir.Symbol('rop'), opname.upper()))))
         return self.block
 
     def default_visit(self, expr):

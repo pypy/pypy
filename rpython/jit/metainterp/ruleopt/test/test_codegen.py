@@ -739,7 +739,8 @@ def test_ir_complete_method():
         "[Ref(Value('op')), Symbol('CONST_FALSE')], [])), "
         "FinishRule(Ref(Value('self')), 'int_sub', 0, "
         "'sub_same: int_sub(x, x) => 0')]), Block([])), "
-        "Return(Call(Attribute(Ref(Value('self')), 'emit'), [Ref(Value('op'))], []))])")
+        "Return(Call(Attribute(Ref(Value('self')), '_emit_generated'), "
+        "[Ref(Value('op')), Attribute(Symbol('rop'), 'INT_SUB')], []))])")
 
 
 def test_ir_method_expands_commutativity_with_shared_counter():
@@ -769,4 +770,5 @@ def test_ir_method_expands_commutativity_with_shared_counter():
         "[Ref(Value('op')), Ref(Value('arg_0'))], [])), "
         "FinishRule(Ref(Value('self')), 'int_add', 0, "
         "'add_zero: int_add(x, 0) => x')]), Block([]))]), Block([])), "
-        "Return(Call(Attribute(Ref(Value('self')), 'emit'), [Ref(Value('op'))], []))]")
+        "Return(Call(Attribute(Ref(Value('self')), '_emit_generated'), "
+        "[Ref(Value('op')), Attribute(Symbol('rop'), 'INT_ADD')], []))]")

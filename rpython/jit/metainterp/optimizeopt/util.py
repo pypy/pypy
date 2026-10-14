@@ -56,6 +56,7 @@ def have_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
         def check(self, opnum):
             return True
     else:
+        @specialize.arg_or_var(1)
         def check(self, opnum):
             if we_are_translated():
                 for value, cls, func in ops:
