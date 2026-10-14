@@ -420,6 +420,9 @@ class DevolvedDictTerminator(Terminator):
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['name', 'attrkind', 'storageindex', '_num_attributes', 'back', 'ever_mutated?', 'order']
 
+    # cached W_UnicodeObject for the attribute name, used by dict iterators
+    _w_name = None
+
     def __init__(self, name, attrkind, back, order):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.name = name
@@ -1331,7 +1334,7 @@ class IteratorMixin(object):
             curr_map = curr_map.search(DICT)
             if curr_map is None:
                 break
-            attrs.append(curr_map.name)
+            attrs.append(curr_map)
             curr_map = curr_map.back
         self.attrs = attrs
 
@@ -1347,8 +1350,11 @@ class MapDictIteratorKeys(BaseKeyIterator):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         attrs = self.attrs
         if len(attrs) > 0:
-            attr = attrs.pop()
-            w_attr = self.space.newtext(attr)
+            map_attr = attrs.pop()
+            w_attr = map_attr._w_name
+            if w_attr is None:
+                w_attr = self.space.newtext(map_attr.name)
+                map_attr._w_name = w_attr
             return w_attr
         return None
 
@@ -1364,8 +1370,8 @@ class MapDictIteratorValues(BaseValueIterator):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         attrs = self.attrs
         if len(attrs) > 0:
-            attr = attrs.pop()
-            return self.w_obj.getdictvalue(self.space, attr)
+            map_attr = attrs.pop()
+            return self.w_obj.getdictvalue(self.space, map_attr.name)
         return None
 
 
@@ -1380,9 +1386,12 @@ class MapDictIteratorItems(BaseItemIterator):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         attrs = self.attrs
         if len(attrs) > 0:
-            attr = attrs.pop()
-            w_attr = self.space.newtext(attr)
-            return w_attr, self.w_obj.getdictvalue(self.space, attr)
+            map_attr = attrs.pop()
+            w_attr = map_attr._w_name
+            if w_attr is None:
+                w_attr = self.space.newtext(map_attr.name)
+                map_attr._w_name = w_attr
+            return w_attr, self.w_obj.getdictvalue(self.space, map_attr.name)
         return None, None
 
 class MapDictKeyIteratorReversed(BaseKeyIterator):
@@ -1396,7 +1405,7 @@ class MapDictKeyIteratorReversed(BaseKeyIterator):
             curr_map = curr_map.search(DICT)
             if curr_map is None:
                 break
-            attrs.append(curr_map.name)
+            attrs.append(curr_map)
             curr_map = curr_map.back
         attrs.reverse()
         self.attrs = attrs
@@ -1405,8 +1414,11 @@ class MapDictKeyIteratorReversed(BaseKeyIterator):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
         attrs = self.attrs
         if len(attrs) > 0:
-            attr = attrs.pop()
-            w_attr = self.space.newtext(attr)
+            map_attr = attrs.pop()
+            w_attr = map_attr._w_name
+            if w_attr is None:
+                w_attr = self.space.newtext(map_attr.name)
+                map_attr._w_name = w_attr
             return w_attr
         return None
 
