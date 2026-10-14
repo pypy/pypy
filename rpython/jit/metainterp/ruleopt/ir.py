@@ -23,9 +23,8 @@ class Node(object):
         if cls is None or isinstance(self, cls):
             yield self
         for child in self.iter_children():
-            for node in child.walk():
-                if cls is None or isinstance(node, cls):
-                    yield node
+            for node in child.walk(cls):
+                yield node
 
     def as_dot(self):
         """Return a Graphviz graph of this subtree, preserving shared nodes."""
