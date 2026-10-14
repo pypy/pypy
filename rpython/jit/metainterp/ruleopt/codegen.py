@@ -353,16 +353,10 @@ class IRCodegen(parse.Visitor):
         raise NotImplementedError("walk terminal pattern")
 
     def visit_Terminal(self, terminal):
-        outer_block = self.block
-        outer_bindings = self.bindings
-        outer_intbound_bindings = self.intbound_bindings
-        try:
-            for rule in terminal.rules:
-                # Every candidate starts at the same insertion point, outside
-                # any conditions emitted for the previous candidate.
-                self.block = outer_block
-                self.bindings = {}
-                self.intbound_bindings = {}
+        for rule in terminal.rules:
+            # Every candidate starts at the same insertion point, outside
+            # any conditions emitted for the previous candidate.
+            with self.binding_scope(fresh=True):
                 self.match_pattern(rule.pattern, terminal.bindings)
                 reused_value = None
                 path = find_reusable_operation(rule.pattern, rule.target)
@@ -371,6 +365,21 @@ class IRCodegen(parse.Visitor):
                 self.generate_rule_body(
                     rule, self.method_opname, self.name_positions[rule.name],
                     reused_value)
+
+    @contextmanager
+    def binding_scope(self, fresh=False):
+        """Isolate rule bindings and restore the insertion point on exit.
+
+        Candidates start with fresh bindings; bodies inherit a copy of the
+        pattern bindings. Conditions may move the insertion point inward.
+        """
+        outer_block = self.block
+        outer_bindings = self.bindings
+        outer_intbound_bindings = self.intbound_bindings
+        self.bindings = {} if fresh else self.bindings.copy()
+        self.intbound_bindings = {} if fresh else self.intbound_bindings.copy()
+        try:
+            yield
         finally:
             self.block = outer_block
             self.bindings = outer_bindings
@@ -515,12 +524,7 @@ class IRCodegen(parse.Visitor):
         self.block is the insertion point; checks move it into their true arm.
         reused_value, if supplied, is a matched box equivalent to the target.
         """
-        outer_block = self.block
-        outer_bindings = self.bindings
-        outer_intbound_bindings = self.intbound_bindings
-        self.bindings = self.bindings.copy()
-        self.intbound_bindings = self.intbound_bindings.copy()
-        try:
+        with self.binding_scope():
             for element in elements:
                 self.visit(element)
             if reused_value is None:
@@ -530,10 +534,6 @@ class IRCodegen(parse.Visitor):
                     'make_equal_to', self.op_ref, ir.Ref(reused_value))))
             if finish is not None:
                 self.emit(finish)
-        finally:
-            self.block = outer_block
-            self.bindings = outer_bindings
-            self.intbound_bindings = outer_intbound_bindings
 
     def visit_Compute(self, element):
         value = ir.Value(element.name)
