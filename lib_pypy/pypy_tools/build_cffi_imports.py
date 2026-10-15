@@ -187,8 +187,7 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
-    if env is None:
-        env = os.environ
+    env = os.environ
     if sys.platform == 'darwin':
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
         if target:
