@@ -67,6 +67,26 @@ def busywait(p, timeout):
             return None
         delay = min(delay * 1.15, 7.2)
 
+def _report_traceback_dump(f, pid):
+    """Append the traceback dump left behind by a killed test process."""
+    dirname = os.environ.get('PYPY_TEST_DUMP_DIR')
+    if not dirname:
+        return
+    path = os.path.join(dirname, 'traceback-%d.txt' % pid)
+    try:
+        g = open(path, 'r')
+        try:
+            data = g.read()
+        finally:
+            g.close()
+        os.unlink(path)
+    except (IOError, OSError):
+        return
+    if data:
+        f.write("\n--- traceback dump from pid %d ---\n" % pid)
+        f.write(data)
+
+
 def run(args, cwd, out, timeout=None):
     f = out.open('w')
     try:
@@ -79,10 +99,15 @@ def run(args, cwd, out, timeout=None):
             return RUNFAILED
 
         if timeout is None:
-            return p.wait()
+            returncode = p.wait()
+            if returncode < 0:
+                _report_traceback_dump(f, p.pid)
+            return returncode
         else:
             returncode = busywait(p, timeout)
             if returncode is not None:
+                if returncode < 0:
+                    _report_traceback_dump(f, p.pid)
                 return returncode
             # timeout!
             f.write("Timed out running %s with cwd='%s' timeout=%s:\n"
@@ -91,6 +116,7 @@ def run(args, cwd, out, timeout=None):
             _kill(p.pid, SIGTERM)
             if busywait(p, 10) is None:
                 _kill(p.pid, SIGKILL)
+            _report_traceback_dump(f, p.pid)
             return TIMEDOUT
     finally:
         f.close()
@@ -234,6 +260,8 @@ def execute_tests(run_param, testdirs, logfile, out):
     sessdir = py.path.local.make_numbered_dir(prefix='usession-testrunner-',
                                               keep=4)
     run_param.sessdir = sessdir
+    # where test processes leave a traceback dump when they are killed
+    os.environ.setdefault('PYPY_TEST_DUMP_DIR', str(sessdir))
 
     run_param.startup()
 

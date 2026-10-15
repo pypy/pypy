@@ -11,8 +11,6 @@ from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.rlib.jit import Counters
 
-from rpython.conftest import option
-
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
@@ -1035,15 +1033,6 @@ class Stats(object):
             assert found == expected_count, (
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
-
-    def check_consistency(self):
-        "NOT_RPYTHON"
-        for loop in self.get_all_loops():
-            loop.check_consistency()
-
-    def maybe_view(self):
-        if option.view:
-            self.view()
 
     def view(self, errmsg=None, extraprocedures=[], metainterp_sd=None):
         from rpython.jit.metainterp.graphpage import display_procedures

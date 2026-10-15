@@ -1,10 +1,6 @@
 ===========================================================================
-PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-XX
+PyPy v8.0.1: release of python 2.7, 3.11, and 3.12 beta released 2026-10-14
 ===========================================================================
-
-.. note::
-   This is a pre-release announcement. When the release actually happens, it
-   will be announced on the PyPy blog_
 
 ..
   updated to 73572bf034c
@@ -52,8 +48,6 @@ making a CFFI_ version of your library that would be performant
 on PyPy. Failing that, PyPy will soon support the cp312-abi3 tag for limited
 ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 
-.. rubric:: Footnotes
-
 .. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: https://doc.pypy.org/project-ideas.html
@@ -62,8 +56,6 @@ ABI wheels.  In any case, `cibuildwheel`_ supports building wheels for PyPy.
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
-.. _`computed gotos`: https://eli.thegreenplace.net/2012/07/12/computed-goto-for-efficient-dispatch-tables
-.. _`the README`: https://github.com/pypy/pypy/tree/py3.12/pypy/tool/pyhdrdump#pyhdrdump
 
 What is PyPy?
 =============
@@ -103,8 +95,8 @@ For all versions
   have to do with arena contention when testing on a host PyPy, but may be connected to an
   allocation during GC collection
 - Use vmprof 0.6.0 version profiles, which include a timestamp (:issue:`5598`).
-- Merge work to make RPython support both python2 and python3 (:issue:`5601`)
-- Replace the old vendored pytest with v3.10
+- Merge work to start making RPython support both python2 and python3 (:issue:`5601`)
+- Replace the old vendored pytest with an adapted version of v3.10
 - Drop py3.10 nightly builds from the versions.json served by
   github actions/setup-python and others. 3.10 is no longer supported, and there is no
   reason to be using it in CI
@@ -116,16 +108,19 @@ Bugfixes
   A ``can_enter_jit`` argument can be a *subclass* of the corresponding
   ``jit_merge_point`` argument. This can then produce wrong pointer types on
   the C level. More recent gccs reject those as errors (they were warnings
-  before). Instead, use the shared argument repr to insert the correct cast
-- Fix a bug in the revdb symbolic parser, which is also used by vmprof (:issue:`5593`)
+  before). Instead, use the shared argument repr to insert the correct cast.
+  This affects only other RPython interpreters such as Pyrolog_.
+- Fix a bug native symbolication parser, which is used by vmprof and the remote debugger protocol (:issue:`5593`)
 - Fix dict reverse iteration when a iterator clears and refills the dict contents (:issue:`5596`)
 - Fix translation when using CPython2.7 (:issue:`5586`)
-- Build cycle graphs startblock-to-startblock. This prevents ``finally``
+- Build cycle graphs startblock-to-startblock. This prevents RPython ``finally``
   stanzas leaking out of the graph, and prevents a set of problems with locks
   released in a ``finally`` stanza being ignored when unwinding a
   StackOverflow, which in turn caused hangs or other improper behaviour
   (:issue:`5647`)
-- Fix variadic system calls on macos (:issue:`5635`)
+- Fix variadic system calls on MacOS (:issue:`5635`)
+
+.. _Pyrolog: https://github.com/cfbolz/pyrolog/
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,7 +154,6 @@ Python 3.11 and 3.12
   :issue:`5618`)
 - Refactor buffer exports to use a ``BufferExport`` class to track exports, in
   light of all the buffer release problems.
-- Catch lookup errors in ``match_class_attr`` (:issue:`5611`)
 - On macos, locale defaults to ``utf-8`` if empty (:issue:`5638`)
 - Fix select tests on MacOS (:issue:`5645`)
 
@@ -175,4 +169,4 @@ Python 3.12
 - cpyext: Implement ``PY_VECTORCALL_ARGUMENTS_OFFSET`` protocol in ``PyObject_VectorcallDict``
 - Add missing consts to stats for windows (:issue:`5626`)
 - Fix fstring AST to match CPython (:issue:`5627`)
-- Refactor and make formatting error message compatible with CPython (:issue:`5642`)
+- Refactor and make ``format`` error message compatible with CPython (:issue:`5642`)

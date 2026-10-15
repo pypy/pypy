@@ -1,5 +1,8 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
+from rpython.tool.dump_on_kill import install as _install_dump_on_kill
+
+_install_dump_on_kill()
 
 LOOK_FOR_PYTHON3 = 'python3.12'
 if sys.platform == 'win32':

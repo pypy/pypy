@@ -11,7 +11,6 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
-from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.flowspace.model import checkgraph, Link, copygraph
 from rpython.rlib.objectmodel import we_are_translated
@@ -77,6 +76,7 @@ def apply_jit(translator, backend_name="auto", inline=False,
 
 def ll_meta_interp(function, args, backendopt=False,
                    listcomp=False, translationoptions={}, **kwds):
+    from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
@@ -216,11 +216,6 @@ def reset_jit():
 
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
-
-def debug_checks():
-    stats = get_stats()
-    stats.maybe_view()
-    stats.check_consistency()
 
 # ____________________________________________________________
 # always disabled hooks interface

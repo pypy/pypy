@@ -103,7 +103,27 @@ def _sha256(filename):
     return dgst.hexdigest()
 
 
-def _build_dependency(name, patches=[], env=None):
+def _report(label, data):
+    """Print captured subprocess output, which is bytes and not always ascii.
+
+    Compiler messages contain non-ascii bytes (U+2018 quotes, say) and
+    sys.stderr may well be a pipe with no encoding, so decoding first turns the
+    error we are trying to report into a UnicodeEncodeError.  Write the bytes
+    through instead.
+    """
+    if not isinstance(data, bytes):
+        data = (data or '').encode('utf-8', 'replace')
+    sys.stderr.flush()          # keep our order with the print()s around us
+    out = getattr(sys.stderr, 'buffer', sys.stderr)     # py3 needs the raw fd
+    out.write(label.encode('utf-8') + b':\n')
+    if data:
+        out.write(data)
+        if not data.endswith(b'\n'):
+            out.write(b'\n')
+    out.flush()
+
+
+def _build_dependency(name, patches=[]):
     import shutil
     from rpython.tool.runsubprocess import run_subprocess
 
@@ -309,14 +329,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
-            status, stdout, stderr = _build_dependency(key, env=env)
-            if status != 0: # or key in ("_ssl"):
-                print("stdout:")
-                print(stdout.decode('utf-8'))
-                print("stderr:")
-                print(stderr.decode('utf-8'))
+            status, stdout, stderr = _build_dependency(key)
             if status != 0:
                 failures.append((key, module))
+                _report("stdout", stdout)
+                _report("stderr", stderr)
                 continue
 
             env['CPPFLAGS'] = '-I{}/usr/include {}'.format(
@@ -345,27 +362,14 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         try:
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
-                                                    cwd=cwd, env=build_env)
-            try:
-                bld_stdout = bld_stdout.decode('utf-8')
-            except Exception:
-                pass
-            try:
-                _bld_stderr = bld_stderr
-                bld_stderr = bld_stderr.decode('utf-8')
-            except Exception:
-                pass
-            if status != 0 or key in ("_ssl"):
-                print("stdout:")
-                print(bld_stdout)
-                print("stderr:")
-                try:
-                    print(bld_stderr)
-                except Exception:
-                    # the linux64 buildbot chokes on printing non-ascii unicode?
-                    print(_bld_stderr)
-                if status != 0:
-                    raise RuntimeError('building {} failed'.format(key))
+                                                    cwd=cwd, env=env)
+            if status != 0:
+                _report("stdout", bld_stdout)
+                _report("stderr", bld_stderr)
+                raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                _report("stdout", bld_stdout)
+                _report("stderr", bld_stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
@@ -388,14 +392,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 except Exception:
                     pass
                 failures.append((key, module))
-                print("build stdout:")
-                print(bld_stdout)
-                print("build stderr:")
-                print(bld_stderr)
-                print("test stdout:")
-                print(stdout)
-                print("test stderr:")
-                print(stderr)
+                _report("build stdout", bld_stdout)
+                _report("build stderr", bld_stderr)
+                _report("test stdout", stdout)
+                _report("test stderr", stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
