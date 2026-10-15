@@ -225,6 +225,15 @@ def run_with_python(python_, target_, usemodules, **definitions):
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
     env['PYTHONPATH'] = helper_dir
+    if sys.platform == 'win32':
+        # extbuild builds extensions with lib_pypy/pypy_tools/_cffi_compile,
+        # which expects cl.exe/link.exe in the environment.  Hand down the
+        # vcvars environment like the cffi build in targetpypystandalone does.
+        from rpython.translator.platform import platform as cplatform
+        env.update(cplatform.c_environ or {})
+        env['PYPY_CC'] = cplatform.cc
+        env['PYPY_CC_LINK'] = getattr(cplatform, 'link', cplatform.cc)
+        env['PYPY_CC_KIND'] = 'msvc'
     res, stdout, stderr = run_subprocess(
         python_, [str(pyfile)], env=env)
     print pyfile.read()
