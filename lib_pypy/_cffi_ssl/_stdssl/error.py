@@ -137,7 +137,7 @@ def pyssl_error(obj, ret):
                 # the errno as the reason code
                 errno = lib.ERR_GET_REASON(e)
                 lib.ERR_clear_error()
-                return SSLError(errno, os.strerror(errno))
+                return OSError(errno, os.strerror(errno))
             else:
                 if lib.ERR_GET_LIB(e) == lib.ERR_LIB_SSL:
                     err_lib = lib.ERR_GET_LIB(e)

@@ -4597,9 +4597,13 @@ class TestPostHandshakeAuth(unittest.TestCase):
                 s.write(b'PHA')
                 # test sometimes fails with EOF error. Test passes as long as
                 # server aborts connection with an error.
-                with self.assertRaisesRegex(
-                    ssl.SSLError,
-                    '(certificate required|EOF occurred)'
+                with self.assertRaisesRegex(      # PyPy change
+                    OSError,
+                    ('certificate required'
+                     '|EOF occurred'
+                     '|closed by the remote host'
+                     '|Connection reset by peer'
+                     '|Broken pipe')
                 ):
                     # receive CertificateRequest
                     data = s.recv(1024)
