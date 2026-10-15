@@ -5,7 +5,7 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.time.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.interpreter.unicodehelper import decode_utf8sp, wcharpsize2utf8
 from pypy.module._codecs.locale import str_decode_locale_surrogateescape
 from pypy import pypydir
 from rpython.rtyper.lltypesystem import lltype
@@ -1149,20 +1149,25 @@ def strftime(space, format, w_tup=None):
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
 
-    # wcsftime(), like strftime(), treats the format string as
-    # NUL-terminated, so an embedded NUL would silently truncate it.
-    # Process each NUL-free chunk separately and glue the results back
-    # together with the NUL characters that were in between.
-    chunks = format.split('\x00')
-    if len(chunks) == 1:
-        return _strftime1(space, buf_value, format)
+    # Like CPython, only pass runs of non-NUL ASCII characters to
+    # wcsftime() and copy anything else up to the next '%' unchanged
     builder = Utf8StringBuilder()
-    for i, chunk in enumerate(chunks):
-        if i > 0:
-            builder.append('\x00')
-        w_chunk = _strftime1(space, buf_value, chunk)
-        chunk_utf8, chunk_len = space.utf8_len_w(w_chunk)
-        builder.append_utf8(chunk_utf8, chunk_len)
+    n = len(format)
+    i = 0
+    while i < n:
+        start = i
+        while i < n and 0 < ord(format[i]) < 0x80:
+            i += 1
+        if i > start:
+            utf8, length = _strftime1(space, buf_value, format[start:i])
+            builder.append_utf8(utf8, length)
+        start = i
+        i = format.find('%', i)
+        if i < 0:
+            i = n
+        if i > start:
+            literal = format[start:i]
+            builder.append_utf8(literal, codepoints_in_utf8(literal))
     return space.newutf8(builder.build(), builder.getlength())
 
 def _wcharp_utf16_to_utf8(w, maxlen):
@@ -1182,20 +1187,10 @@ def _wcharp_utf16_to_utf8(w, maxlen):
     return s.build(), s.getlength()
 
 def _strftime1(space, buf_value, format):
-    # Use wcsftime(), not strftime(): it operates on whole wide characters,
-    # so unlike the byte-oriented strftime() it never needs to round-trip
-    # non-ASCII format text (or its output, e.g. a localized month name)
-    # through a locale byte encoding -- avoiding both the ambiguity of
-    # which locale category those bytes are even encoded in, and the risk
-    # of misdecoding unrelated bytes (e.g. surrogate-escaped bytes that
-    # happen to form valid UTF-8) as a real character.  This also matches
-    # what CPython does on POSIX (it uses wcsftime() whenever the libc
-    # provides it, which in practice is unconditionally on Linux/macOS).
-    if _WIN:
-        # wchar_t is 16 bits: astral codepoints need surrogate pairs
-        format_for_call = rffi.utf82wcharp_ex(format, codepoints_in_utf8(format))
-    else:
-        format_for_call = rffi.utf82wcharp(format, codepoints_in_utf8(format))
+    # 'format' is ASCII. Use wcsftime(), like CPython, so that the output
+    # (e.g. a localized month name) doesn't need decoding from the locale
+    # encoding.
+    format_for_call = rffi.utf82wcharp(format, len(format))
     try:
         i = 1024
         while True:
@@ -1204,18 +1199,20 @@ def _strftime1(space, buf_value, format):
                 with rposix.SuppressIPH():
                     buflen = c_strftime(outbuf, i, format_for_call, buf_value)
                 if _WIN and buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
-                    raise oefmt(space.w_ValueError, "invalid format string")
+                    raise oefmt(space.w_ValueError, "Invalid format string")
                 if buflen > 0 or i >= 256 * len(format):
                     # if the buffer is 256 times as long as the format,
                     # it's probably not failing for lack of room!
                     # More likely, the format yields an empty result,
                     # e.g. an empty format, or %Z when the timezone
                     # is unknown.
+                    size = intmask(buflen)
                     if _WIN:
-                        decoded, size = _wcharp_utf16_to_utf8(outbuf, intmask(buflen))
+                        utf8, length = _wcharp_utf16_to_utf8(outbuf, size)
                     else:
-                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
-                    return space.newutf8(decoded, size)
+                        utf8 = wcharpsize2utf8(space, outbuf, size)
+                        length = size
+                    return utf8, length
             finally:
                 lltype.free(outbuf, flavor='raw')
             i += i
