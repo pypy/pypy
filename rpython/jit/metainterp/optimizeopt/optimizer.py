@@ -1,28 +1,28 @@
 from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, CONST_NULL, new_ref_dict)
+    Const, ConstInt, CONST_NULL, new_ref_dict,
+    CONST_FALSE as CONST_0,
+    CONST_TRUE as CONST_1,
+    )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.bridgeopt import (
     deserialize_optimizer_knowledge)
 from rpython.jit.metainterp.resoperation import (
-    rop, AbstractResOp, GuardResOp, OpHelpers)
+    rop, AbstractResOp, GuardResOp, OpHelpers,
+    get_opclass_memo, ResOpWithDescr)
 from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.objectmodel import specialize, we_are_translated, is_annotation_constant
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
 
 
-
-
-CONST_0      = ConstInt(0)
-CONST_1      = ConstInt(1)
 CONST_ZERO_FLOAT = Const._new(0.0)
 REMOVED = AbstractResOp()
 
@@ -159,6 +159,33 @@ class Optimization(object):
 
     def replace_op_with(self, op, newopnum, args=None, descr=None):
         return self.optimizer.replace_op_with(op, newopnum, args, descr)
+
+    @specialize.arg(2)
+    def _replace_op_with_1_and_send(self, op, newopnum, arg0):
+        # only for ruleopt generated code
+        newop = get_opclass_memo(newopnum)()
+        newop.setarg(0, arg0)
+        self._forward_replacement_and_send(op, newop)
+
+    @specialize.arg(2)
+    def _replace_op_with_2_and_send(self, op, newopnum, arg0, arg1):
+        # only for ruleopt generated code
+        newop = get_opclass_memo(newopnum)()
+        newop.setarg(0, arg0)
+        newop.setarg(1, arg1)
+        self._forward_replacement_and_send(op, newop)
+
+    def _forward_replacement_and_send(self, op, newop):
+        assert not isinstance(newop, ResOpWithDescr)
+        assert newop.type != 'v'
+        if not we_are_translated():
+            repl_op = get_box_replacement(op)
+            assert repl_op is op
+        opinfo = op.get_forwarded()
+        if opinfo is not None:
+            newop.set_forwarded(opinfo)
+        op.set_forwarded(newop)
+        self.optimizer.send_extra_operation(newop)
 
     def ensure_ptr_info_arg0(self, op):
         return self.optimizer.ensure_ptr_info_arg0(op)
@@ -366,13 +393,19 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
+    @specialize.arg_or_var(2)
     def as_operation(self, op, required_opnum=-1):
-        # You should never check "isinstance(op, AbstractResOp" directly.
+        from rpython.jit.metainterp import resoperation
+        # You should never check "isinstance(op, AbstractResOp)" directly.
         # Instead, use this helper.
         if isinstance(op, AbstractResOp):
             if required_opnum != -1 and op.opnum != required_opnum:
                 return None # fast return if the opnum is wrong
             if op in self._emittedoperations:
+                if is_annotation_constant(required_opnum) and required_opnum != -1:
+                    assert isinstance(op, get_opclass_memo(required_opnum))
+                    # make sure the caller knows the type so getarg is efficient
+                    return op
                 return op
         return None
 
