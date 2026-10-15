@@ -362,7 +362,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         try:
             status, bld_stdout, bld_stderr = run_subprocess(str(pypy_c), args,
-                                                    cwd=cwd, env=env)
+                                                    cwd=cwd, env=build_env)
             if status != 0:
                 _report("stdout", bld_stdout)
                 _report("stderr", bld_stderr)
