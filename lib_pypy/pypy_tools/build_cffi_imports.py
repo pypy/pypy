@@ -67,7 +67,7 @@ cffi_dependencies = {
               ]),
     'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.bz2',
             '3340ae48f88665abc78d71dc43446fb3f7e70b48fd59844ac0e14958cef6e00b',
-            [configure_args,
+            [configure_args + ['--with-pic'],
              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
@@ -123,7 +123,7 @@ def _report(label, data):
     out.flush()
 
 
-def _build_dependency(name, patches=[]):
+def _build_dependency(name, patches=[], env=None):
     import shutil
     from rpython.tool.runsubprocess import run_subprocess
 
@@ -187,7 +187,8 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
-    env = os.environ
+    if env is None:
+        env = os.environ
     if sys.platform == 'darwin':
         target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
         if target:
@@ -328,7 +329,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
-            status, stdout, stderr = _build_dependency(key)
+            status, stdout, stderr = _build_dependency(key, env=env)
             if status != 0:
                 failures.append((key, module))
                 _report("stdout", stdout)
