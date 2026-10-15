@@ -138,7 +138,6 @@ class AppTestRecompilerPython:
         if not getattr(self, 'extmodU', None):
             skip("no unicode file name")
         import _cffi_backend, sys
-        sys.pypy_initfsencoding()   # initialize space.sys.filesystemencoding
         self.fix_path()
         from re_python_pysrc import ffi
         lib = ffi.dlopen(self.extmodU)
