@@ -87,6 +87,53 @@ def _report_traceback_dump(f, pid):
         f.write(data)
 
 
+def _find_executable(name):
+    """Absolute path of 'name' on PATH, or None (no shutil.which on py2)."""
+    if sys.platform == 'win32':
+        exts = os.environ.get('PATHEXT', '.EXE').split(os.pathsep)
+    else:
+        exts = ['']
+    for d in os.environ.get('PATH', '').split(os.pathsep):
+        for ext in exts:
+            path = os.path.join(d, name + ext)
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+    return None
+
+
+def _dump_c_stack(f, pid):
+    """Append a C-level stack of the (still running) test process.
+
+    The Python traceback the process dumps for itself stops at the ctypes
+    call, so it cannot show a hang inside a C library.  Call this while the
+    process is still wedged, before killing it.  Needs a tracer on PATH and
+    the tracee to have allowed it (rpython/tool/dump_on_kill.py does).
+    """
+    # gdb first: it is what the buildslave images carry, and it reports every
+    # thread.  eu-stack is lighter but is not installed there.
+    tools = [['gdb', '-nx', '-batch', '-p', str(pid),
+              '-ex', 'thread apply all bt'],
+             ['eu-stack', '-p', str(pid)]]
+    for tool in tools:
+        if _find_executable(tool[0]) is None:
+            continue            # not installed here, try the next one
+        f.write("\n--- C stack of pid %d (%s) ---\n" % (pid, tool[0]))
+        f.flush()
+        try:
+            q = subprocess.Popen(tool, stdout=f, stderr=f)
+        except Exception, e:
+            f.write("could not run %s: %s\n" % (tool[0], e))
+            continue
+        if busywait(q, 60) is None:         # the tracer itself hung
+            _kill(q.pid, SIGKILL)
+            q.wait()
+            f.write("%s timed out\n" % (tool[0],))
+            continue
+        if q.returncode == 0:
+            return
+    f.write("no C stack available (install gdb or elfutils)\n")
+
+
 def run(args, cwd, out, timeout=None):
     f = out.open('w')
     try:
@@ -110,6 +157,10 @@ def run(args, cwd, out, timeout=None):
                     _report_traceback_dump(f, p.pid)
                 return returncode
             # timeout!
+            f.write("Timed out running %s with cwd='%s' timeout=%s:\n"
+                    " but no error, killing process\n"
+                    % (args, cwd, timeout))
+            _dump_c_stack(f, p.pid)     # while it is still wedged
             _kill(p.pid, SIGTERM)
             if busywait(p, 10) is None:
                 _kill(p.pid, SIGKILL)
