@@ -418,7 +418,8 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
                              more_init='text', PY_SSIZE_T_CLEAN=bool)
         def import_extension(space, modname, w_functions, prologue="",
                              w_include_dirs=None, more_init="", PY_SSIZE_T_CLEAN=False):
-            functions = space.unwrap(w_functions)
+            functions = [[x.encode('utf-8') for x in func]
+                         for func in space.unwrap(w_functions)]
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
             # If there's already a module under this name (file-based or a
             # previous inline extension), save it in _module_keepalive before
