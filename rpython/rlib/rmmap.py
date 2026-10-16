@@ -208,6 +208,7 @@ if _POSIX:
     if _DARWIN and _ARM64:
         _, c_pthread_jit_write_protect_np = external('pthread_jit_write_protect_np',
             [rffi.INT], lltype.Void, _nowrapper=True)
+        _, c_mprotect_safe = external('mprotect', [PTR, size_t, rffi.INT], rffi.INT)
 
 elif _MS_WINDOWS:
 
@@ -689,17 +690,30 @@ if _DARWIN and _ARM64:
             self.counter = 0
 
     nester = Nester()
+    _untranslated_jit_chunks = []
+
+    def _untranslated_protect_jit_chunks(prot):
+        for addr, map_size in _untranslated_jit_chunks:
+            res = c_mprotect_safe(addr, rffi.cast(size_t, map_size),
+                                  rffi.cast(rffi.INT, prot))
+            assert rffi.cast(lltype.Signed, res) == 0
 
     def enter_assembler_writing():
         if nester.counter == 0:
-            c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 0))
+            if we_are_translated():
+                c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 0))
+            else:
+                _untranslated_protect_jit_chunks(PROT_READ | PROT_WRITE)
         nester.counter += 1
     enter_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
     def leave_assembler_writing():
         nester.counter -= 1
         if nester.counter == 0:
-            c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 1))
+            if we_are_translated():
+                c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 1))
+            else:
+                _untranslated_protect_jit_chunks(PROT_READ | PROT_EXEC)
     leave_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
 else:
@@ -792,9 +806,16 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        if _DARWIN and _ARM64:
-            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        if _DARWIN and _ARM64:
+            # Host PyPy's JIT and GC switch the same per-thread MAP_JIT state.
+            if we_are_translated():
+                flags |= MAP_JIT
+            else:
+                if nester.counter > 0:
+                    prot = PROT_READ | PROT_WRITE
+                else:
+                    prot = PROT_READ | PROT_EXEC
         if we_are_translated():
             flags = NonConstant(flags)
             prot = NonConstant(prot)
@@ -848,11 +869,23 @@ if _POSIX:
                 raise MemoryError
         else:
             hint.pos += map_size
+        if _DARWIN and _ARM64:
+            if not we_are_translated():
+                _untranslated_jit_chunks.append((res, map_size))
         return res
     alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
         free = c_free_safe
+    elif _DARWIN and _ARM64:
+        def free(ptr, map_size):
+            if not we_are_translated():
+                addr = rffi.cast(lltype.Signed, ptr)
+                for i, (p, sz) in enumerate(_untranslated_jit_chunks):
+                    if rffi.cast(lltype.Signed, p) == addr:
+                        del _untranslated_jit_chunks[i]
+                        break
+            return c_munmap_safe(ptr, map_size)
     else:
         free = c_munmap_safe
 
