@@ -1832,3 +1832,7 @@ def get_deep_immutable_oplist(operations):
     return newops
 
 OpHelpers = rop
+
+@specialize.memo()
+def get_opclass_memo(opnum):
+    return opclasses[opnum]

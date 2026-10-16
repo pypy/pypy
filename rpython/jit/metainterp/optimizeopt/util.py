@@ -3,7 +3,7 @@ from __future__ import print_function
 import itertools
 
 import py
-from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize
+from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize, dont_inline
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated
@@ -56,6 +56,7 @@ def have_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
         def check(self, opnum):
             return True
     else:
+        @specialize.arg_or_var(1)
         def check(self, opnum):
             if we_are_translated():
                 for value, cls, func in ops:
@@ -94,6 +95,12 @@ def get_box_replacement(op):
     if op is None:
         return op
     return op.get_box_replacement()
+
+
+@dont_inline
+def get_box_replacement_for_ruleopt(op):
+    """Share forwarding-chain traversal across generated matching code."""
+    return get_box_replacement(op)
 
 # ____________________________________________________________
 

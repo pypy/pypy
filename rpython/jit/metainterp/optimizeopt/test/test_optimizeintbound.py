@@ -6,6 +6,25 @@ from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
 from rpython.rlib.rarithmetic import intmask, LONG_BIT
 
 
+@pytest.mark.parametrize('opname', ['INT_EQ', 'INT_NEG', 'INT_INVERT',
+                                  'INT_FORCE_GE_ZERO'])
+def test_emit_generated_postprocessing(opname):
+    from rpython.jit.metainterp.optimizeopt.intbounds import OptIntBounds
+    from rpython.jit.metainterp.optimizeopt.optimizer import PASS_OP_ON
+    from rpython.jit.metainterp.resoperation import rop
+
+    opt = OptIntBounds()
+    op = object()
+    opnum = getattr(rop, opname)
+    result = opt._emit_generated(op, opnum)
+    assert opt.last_emitted_operation is op
+    if opt.have_postprocess_op(opnum):
+        assert result.opt is opt
+        assert result.op is op
+    else:
+        assert result is PASS_OP_ON
+
+
 class TestOptimizeIntBounds(BaseTestBasic):
     def teardown_class(cls):
         if cls is not TestOptimizeIntBounds:
