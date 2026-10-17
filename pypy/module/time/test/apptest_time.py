@@ -540,7 +540,6 @@ def test_strftime_surrogate():
         print(len(res), len(expected))
         assert res == u'76\ud80002' 
 
-@pytest.mark.skipif(_WIN32, reason="fails to encode s")
 def test_strftime_unicode():
     import time
     s = u"ððððððððððððððððððððððð꿀"
