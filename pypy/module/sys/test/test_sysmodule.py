@@ -81,6 +81,35 @@ class AppTestAppSysTests:
             sys._settraceallthreads(None)
         assert trace_funcs == [tracer]
 
+    def test_setrecursionlimit_counts_frames(self):
+        import sys
+        orig = sys.getrecursionlimit()
+        def set_relative(n):
+            d = 1
+            while True:
+                try:
+                    sys.setrecursionlimit(d)
+                except RecursionError:
+                    d += 1
+                else:
+                    break
+            sys.setrecursionlimit(d + n)
+        depth = [0]
+        def rec():
+            depth[0] += 1
+            rec()
+        try:
+            set_relative(20)
+            try:
+                rec()
+            except RecursionError:
+                pass
+            # limit is ~20 above the current depth: recursion must stop soon,
+            # not run to the C-stack limit (~1800)
+            assert depth[0] <= 100, depth[0]
+        finally:
+            sys.setrecursionlimit(orig)
+
     def test_sys_in_modules(self):
         import sys
         modules = sys.modules
