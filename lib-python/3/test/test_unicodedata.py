@@ -12,7 +12,8 @@ import sys
 import unicodedata
 import unittest
 from test.support import (open_urlresource, requires_resource, script_helper,
-                          cpython_only, check_disallow_instantiation)
+                          cpython_only, check_disallow_instantiation,
+                          check_impl_detail)      # PyPy change
 
 
 class UnicodeMethodsTest(unittest.TestCase):
@@ -298,6 +299,18 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
 class Unicode_3_2_0_FunctionsTest(UnicodeFunctionsTest):
     db = unicodedata.ucd_3_2_0
     old = True
+
+    # PyPy change
+    @unittest.skipIf(check_impl_detail(cpython=False),
+                     "CPython's ucd_3_2_0 stores only the changes from the "
+                     "current database, so an east_asian_width that did not "
+                     "change reports the current value; PyPy builds a "
+                     "standalone 3.2 database, whose EastAsianWidth-3.2.0.txt "
+                     "does not list the unassigned CJK ranges.  Not reachable "
+                     "from RFC 3454: stringprep and idna only use category, "
+                     "combining, bidirectional and normalize.")
+    def test_east_asian_width_unassigned(self):
+        super().test_east_asian_width_unassigned()
 
 
 class UnicodeMiscTest(UnicodeDatabaseTest):
