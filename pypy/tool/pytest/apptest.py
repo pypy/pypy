@@ -224,7 +224,6 @@ def run_with_python(python_, target_, usemodules, **definitions):
         f.write('finally:\n    print("===aefwuiheawiu===")')
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
-    env['PYTHONPATH'] = helper_dir
     if sys.platform == 'win32':
         # extbuild builds extensions with lib_pypy/pypy_tools/_cffi_compile,
         # which expects cl.exe/link.exe in the environment.  Hand down the
@@ -234,6 +233,8 @@ def run_with_python(python_, target_, usemodules, **definitions):
         env['PYPY_CC'] = cplatform.cc
         env['PYPY_CC_LINK'] = getattr(cplatform, 'link', cplatform.cc)
         env['PYPY_CC_KIND'] = 'msvc'
+    # after the c_environ update, which carries its own PYTHONPATH
+    env['PYTHONPATH'] = helper_dir
     res, stdout, stderr = run_subprocess(
         python_, [str(pyfile)], env=env)
     print pyfile.read()
