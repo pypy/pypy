@@ -81,14 +81,20 @@ class TestFSEncode(BaseFSEncodeTest):
             assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
             assert space.eq_w(space.newfilename(space.bytes_w(w_enc)), w_st2)
 
+    def test_surrogateescape(self):
+        if sys.platform == 'win32':
+            import pytest
+            pytest.skip("posix only")
+        space = self.space
+        w_st = space.newtext(u'a\udcffb'.encode('utf8'), 3)
+        w_enc = space.fsencode(w_st)
+        assert space.bytes_w(w_enc) == b'a\xffb'
+        assert space.eq_w(space.fsdecode(w_enc), w_st)
+
     def test_null_byte(self):
         space = self.space
         uni = u'abc\x00def'
         w_u = space.newtext(uni.encode('utf8'), len(uni))
-        # this can behave in two different ways depending on how
-        # much initialized the space is: space.fsencode() can raise
-        # ValueError directly, or return a wrapped bytes with the 0
-        # embedded---and then space.fsencode_w() should raise ValueError.
         space.raises_w(space.w_ValueError, space.fsencode_w, w_u)
 
     def test_interface_from___pypy__(self):

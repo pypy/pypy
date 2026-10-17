@@ -17,7 +17,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.sys.state import get as get_state
-from pypy.module.sys.interp_encoding import _getfilesystemencoding
 
 PLATFORM = sys.platform
 _MACOSX = sys.platform == 'darwin'
@@ -273,10 +272,6 @@ def pypy_find_stdlib(space, executable):
                           space.newfilename(p))
             break
     return space.newlist([space.newfilename(p) for p in path])
-
-def pypy_initfsencoding(space):
-    space.sys.filesystemencoding = _getfilesystemencoding(space)
-
 
 # ____________________________________________________________
 

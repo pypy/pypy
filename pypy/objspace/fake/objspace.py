@@ -585,7 +585,6 @@ class FakeModule(W_Root):
     def setmodule(self, w_mod):
         is_root(w_mod)
 FakeObjSpace.sys = FakeModule()
-FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.sys.dlopenflags = 123
 FakeObjSpace.builtin = FakeModule()

@@ -52,9 +52,6 @@ def setup_module(mod):
     except UnicodeEncodeError:    # fsencoding can't encode that, skip tests
         mod.dir_unicode = None
 
-    # Initialize sys.filesystemencoding
-    # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
-
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
 
@@ -2082,7 +2079,8 @@ def check_fsencoding(space, pytestconfig):
     if pytestconfig.getvalue('runappdirect'):
         fsencoding = sys.getfilesystemencoding()
     else:
-        fsencoding = space.sys.filesystemencoding
+        from pypy.module.sys.interp_encoding import base_encoding
+        fsencoding = base_encoding
     try:
         u"ą".encode(fsencoding)
     except UnicodeEncodeError:
