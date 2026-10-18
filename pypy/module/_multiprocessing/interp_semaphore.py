@@ -168,14 +168,14 @@ else:
                 c_tv_sec = rffi.getintfield(deadline[0], 'c_tv_sec')
                 c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
                 if (c_tv_sec < now[0] or
-                    (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
+                    (c_tv_sec == now[0] and c_tv_nsec <= now[1] * 1000)):
                     rposix.set_saved_errno(errno.ETIMEDOUT)
                     return -1
 
 
                 # calculate how much time is left
                 difference = ((c_tv_sec - now[0]) * 1000000 +
-                                    (c_tv_nsec - now[1]))
+                                    (c_tv_nsec / 1000 - now[1]))
 
                 # check delay not too long -- maximum is 20 msecs
                 if delay > 20000:

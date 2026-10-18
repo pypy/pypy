@@ -141,6 +141,11 @@ class AppTestSemaphore:
         assert res == True
         res = sem.acquire(timeout=0.1)
         assert res == False
+        import time
+        start = time.time()
+        for i in range(3):
+            assert sem.acquire(timeout=0.1) == False
+        assert time.time() - start < 1.0
 
     def test_semaphore_rebuild(self):
         import sys

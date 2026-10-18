@@ -27,7 +27,13 @@ def collect_one_testdir(testdirs, reldir, tests):
         testdirs.append(reldir)
 
 def get_test_driver(testdir):
-    if "jit/backend/aarch64" in testdir and IS_PYPY_MACOS_ARM64:
+    # Any jit/backend test may drive the real backend (getcpuclass()), which
+    # writes to MAP_JIT memory.  On macos-arm64 pthread_jit_write_protect_np()
+    # is per-thread state shared with the host's own JIT, whose counter is
+    # separate from the untranslated rmmap one: if the host re-protects mid
+    # write the test gets a SIGBUS.  Must be off at startup -- a later
+    # set_param("off") still leaves bridges to compile.
+    if "jit/backend" in testdir and IS_PYPY_MACOS_ARM64:
         return ["--jit", "off",  pytestpath]
     return [pytestpath]
 

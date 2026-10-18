@@ -310,6 +310,10 @@ def execute_tests(run_param, testdirs, logfile, out):
     run_param.sessdir = sessdir
     # where test processes leave a traceback dump when they are killed
     os.environ.setdefault('PYPY_TEST_DUMP_DIR', str(sessdir))
+    # boehm's parallel marker deadlocks (master in GC_wait_marker, helpers in
+    # GC_help_marker) when tests call GC_malloc through ll2ctypes; libgc 7.6.4
+    # on the buildbots hits this.  A single marker avoids that code entirely.
+    os.environ.setdefault('GC_MARKERS', '1')
 
     run_param.startup()
 
