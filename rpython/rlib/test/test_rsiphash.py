@@ -53,7 +53,7 @@ def test_siphash24():
 
 def test_siphash24_with_key():
     from rpython.rlib.rarithmetic import r_uint64
-    assert siphash24_with_key(b"abcdef", r_uint64(1)) == r_uint64(7956077396882317016L)
+    assert siphash24_with_key(b"abcdef", r_uint64(1)) == r_uint64(7956077396882317016)
 
 def check_latin1(s, expected, test_prebuilt=False):
     with choosen_seed(0x8a9f065a358479f4, 0x11cb1e9ee7f40e1f,

@@ -78,6 +78,12 @@ class CPyBuffer(BufferView):
         self.needs_decref = needs_decref
         self.releasebufferproc = releasebufferproc
 
+    def needs_release(self):
+        # releasebuffer() below decrefs the exporter and calls its
+        # bf_releasebuffer, so a memoryview of this view needs an export to
+        # release (acquire_export() asks before making one)
+        return self.needs_decref
+
     def releasebuffer(self):
         if self.pyobj:
             if self.needs_decref:

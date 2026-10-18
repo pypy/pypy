@@ -37,7 +37,7 @@ class MonitoringModule(MixedModule):
 
 class Module(MixedModule):
     """Sys Builtin Module. """
-    _immutable_fields_ = ["defaultencoding", "debug?", "filesystemencoding?"]
+    _immutable_fields_ = ["defaultencoding", "debug?"]
 
     submodules = {
         "monitoring": MonitoringModule,
@@ -57,7 +57,6 @@ class Module(MixedModule):
         super(Module, self).__init__(space, w_name)
         self.recursionlimit = 1000
         self.defaultencoding = "utf-8"
-        self.filesystemencoding = None
         self.track_resources = False
         self.finalizing = False
         self.dlopenflags = rdynload._dlopen_default_mode()
@@ -86,7 +85,6 @@ class Module(MixedModule):
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
         'pypy_find_executable'  : 'initpath.pypy_find_executable',
         'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
-        'pypy_initfsencoding'   : 'initpath.pypy_initfsencoding',
         'set_int_max_str_digits': 'state.set_int_max_str_digits',
         'get_int_max_str_digits': 'state.get_int_max_str_digits',
 
@@ -185,9 +183,6 @@ class Module(MixedModule):
     }
 
     def startup(self, space):
-        if space.config.translating:
-            assert self.filesystemencoding is None
-
         if not space.config.translating or we_are_translated():
             from pypy.module.sys import version
             space.setitem(self.w_dict, space.newtext("version"),
@@ -207,17 +202,6 @@ class Module(MixedModule):
         space = self.space
 
         if not space.config.translating:
-            ## from pypy.module.sys.interp_encoding import _getfilesystemencoding
-            ## self.filesystemencoding = _getfilesystemencoding(space)
-            # XXX the two lines above take a few seconds to run whenever
-            # we initialize the space; for tests, use a simpler version.
-            # Check what exactly breaks, if anything, in py3.6.  This is
-            # not strictly necessary but is an extremely nice-to-have
-            # feature: running just one test for example take 3
-            # seconds instead of 11.
-            from pypy.module.sys.interp_encoding import base_encoding
-            self.filesystemencoding = base_encoding
-
             # Set up sys.prefix and friends, like app_main.py would do
             # We somewhat arbitrarily use the repo's root dir as sys.prefix
             from pypy import pypydir

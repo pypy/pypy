@@ -1,5 +1,8 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
+from rpython.tool.dump_on_kill import install as _install_dump_on_kill
+
+_install_dump_on_kill()
 
 LOOK_FOR_PYTHON3 = 'python3.12'
 if sys.platform == 'win32':
@@ -61,17 +64,6 @@ def get_marker(item, name):
 
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
-
-if pytest.__version__[0] > '6':
-    @pytest.hookimpl(tryfirst=True)
-    def pytest_load_initial_conftests(args):
-        if not (set(args) & {'-D', '--direct-apptest'}):
-            args.append('--assert=reinterp')
-else:
-    @pytest.hookimpl(tryfirst=True)
-    def pytest_cmdline_preparse(config, args):
-        if not (set(args) & {'-D', '--direct-apptest'}):
-            args.append('--assert=reinterp')
 
 def pytest_configure(config):
     if HOST_IS_PY3 and not config.getoption('direct_apptest'):
@@ -221,12 +213,11 @@ class PyPyModule(pytest.Module):
             return True
         return False
 
-    def makeitem(self, name, obj):
-        if isclass(obj) and self.classnamefilter(name):
-            if name.startswith('AppTest'):
-                from pypy.tool.pytest.apptest import AppClassCollector
-                return AppClassCollector(name, parent=self)
-        return super(PyPyModule, self).makeitem(name, obj)
+    def _makeitem(self, name, obj):
+        if isclass(obj) and name.startswith('AppTest'):
+            from pypy.tool.pytest.apptest import AppClassCollector
+            return AppClassCollector(name, parent=self)
+        return super(PyPyModule, self)._makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
     __tracebackhide__ = True

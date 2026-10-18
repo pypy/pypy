@@ -2147,6 +2147,11 @@ class Popen:
                                 if self._input_offset >= len(self._input):
                                     selector.unregister(key.fileobj)
                                     key.fileobj.close()
+                            finally:
+                                # PyPy: release the slice now, the GC would
+                                # only do it later, and it holds the export
+                                # input_view shares (issues 5612, 5613)
+                                chunk.release()
                         elif key.fileobj in (self.stdout, self.stderr):
                             data = os.read(key.fd, 32768)
                             if not data:

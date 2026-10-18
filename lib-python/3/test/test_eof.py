@@ -136,10 +136,15 @@ class EOFTestCase(unittest.TestCase):
             file_name = script_helper.make_script(temp_dir, 'foo', '\\')
             rc, out, err = script_helper.assert_python_failure('-X', 'utf8', file_name)
             err = err.decode().splitlines()
-            self.assertEqual(err[-2:], [
-                '    \\',
-                'SyntaxError: %s %s' % (eof_msg, eof_suffix)])
-            self.assertEqual(err[-3][-8:], ', line 1', err)
+            # PyPy change: PyPy compiles the main script as a string, so it
+            # reports the same offset as compile() does and gets a caret.
+            # CPython's separate file tokenizer does not produce one here.
+            expected = ['    \\',
+                        'SyntaxError: %s %s' % (eof_msg, eof_suffix)]
+            if support.check_impl_detail(pypy=True):
+                expected.insert(1, '     ^')
+            self.assertEqual(err[-len(expected):], expected)
+            self.assertEqual(err[-len(expected) - 1][-8:], ', line 1', err)
 
             file_name = script_helper.make_script(temp_dir, 'foo', 'ä = 6\\')
             rc, out, err = script_helper.assert_python_failure('-X', 'utf8', file_name)

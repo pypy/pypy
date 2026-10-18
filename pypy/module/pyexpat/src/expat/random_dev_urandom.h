@@ -35,6 +35,7 @@
 #  define RANDOM_DEV_URANDOM_H 1
 
 #  include <stdbool.h>
+#  include "pyexpatns.h" // PyPy: namespace writeRandomBytes_*
 #  include <stddef.h> // for size_t
 
 bool writeRandomBytes_dev_urandom(void *target, size_t count);

@@ -12,7 +12,8 @@ import sys
 import unicodedata
 import unittest
 from test.support import (open_urlresource, requires_resource, script_helper,
-                          cpython_only, check_disallow_instantiation)
+                          cpython_only, check_disallow_instantiation,
+                          check_impl_detail)      # PyPy change
 
 
 class UnicodeMethodsTest(unittest.TestCase):
@@ -68,6 +69,7 @@ class UnicodeDatabaseTest(unittest.TestCase):
     db = unicodedata
 
 class UnicodeFunctionsTest(UnicodeDatabaseTest):
+    old = False
 
     # Update this if the database changes. Make sure to do a full rebuild
     # (e.g. 'make distclean && make') to get the correct checksum.
@@ -95,7 +97,8 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
             ]
             h.update(''.join(data).encode("ascii"))
         result = h.hexdigest()
-        self.assertEqual(result, self.expectedchecksum)
+        if not self.old:
+            self.assertEqual(result, self.expectedchecksum)
 
     @requires_resource('cpu')
     def test_name_inverse_lookup(self):
@@ -121,9 +124,13 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
         self.assertEqual(self.db.numeric('9'), 9)
         self.assertEqual(self.db.numeric('\u215b'), 0.125)
         self.assertEqual(self.db.numeric('\u2468'), 9.0)
-        self.assertEqual(self.db.numeric('\ua627'), 7.0)
+        # New in 5.1.0
+        self.assertEqual(self.db.numeric('\ua627', None),
+                         None if self.old else 7.0)
         self.assertEqual(self.db.numeric('\U00020000', None), None)
-        self.assertEqual(self.db.numeric('\U0001012A'), 9000)
+        # New in 4.1.0
+        self.assertEqual(self.db.numeric('\U0001012A', None),
+                         None if self.old else 9000)
 
         self.assertRaises(TypeError, self.db.numeric)
         self.assertRaises(TypeError, self.db.numeric, 'xx')
@@ -146,7 +153,8 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
         self.assertEqual(self.db.category('a'), 'Ll')
         self.assertEqual(self.db.category('A'), 'Lu')
         self.assertEqual(self.db.category('\U00020000'), 'Lo')
-        self.assertEqual(self.db.category('\U0001012A'), 'No')
+        self.assertEqual(self.db.category('\U0001012A'),
+                         'Cn' if self.old else 'No')
 
         self.assertRaises(TypeError, self.db.category)
         self.assertRaises(TypeError, self.db.category, 'xx')
@@ -159,6 +167,15 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
 
         self.assertRaises(TypeError, self.db.bidirectional)
         self.assertRaises(TypeError, self.db.bidirectional, 'xx')
+
+    def test_bidirectional_unassigned(self):
+        self.assertEqual(self.db.bidirectional('\u0378'), '')
+        self.assertEqual(self.db.bidirectional('\u077F'), '' if self.old else 'AL')
+        self.assertEqual(self.db.bidirectional('\u20CF'), '')
+        self.assertEqual(self.db.bidirectional('\u0590'), '')
+        self.assertEqual(self.db.bidirectional('\uFFFF'), '')
+        self.assertEqual(self.db.bidirectional('\U0001FFFE'), '')
+        self.assertEqual(self.db.bidirectional('\U00010D01'), '' if self.old else 'AL')
 
     def test_decomposition(self):
         self.assertEqual(self.db.decomposition('\uFFFE'),'')
@@ -275,8 +292,26 @@ class UnicodeFunctionsTest(UnicodeDatabaseTest):
             self.assertIs(self.db.name(char, None), None)
 
     def test_east_asian_width_9_0_changes(self):
-        self.assertEqual(self.db.ucd_3_2_0.east_asian_width('\u231a'), 'N')
-        self.assertEqual(self.db.east_asian_width('\u231a'), 'W')
+        self.assertEqual(self.db.east_asian_width('\u231a'),
+                         'N' if self.old else 'W')
+
+
+class Unicode_3_2_0_FunctionsTest(UnicodeFunctionsTest):
+    db = unicodedata.ucd_3_2_0
+    old = True
+
+    # PyPy change
+    @unittest.skipIf(check_impl_detail(cpython=False),
+                     "CPython's ucd_3_2_0 stores only the changes from the "
+                     "current database, so an east_asian_width that did not "
+                     "change reports the current value; PyPy builds a "
+                     "standalone 3.2 database, whose EastAsianWidth-3.2.0.txt "
+                     "does not list the unassigned CJK ranges.  Not reachable "
+                     "from RFC 3454: stringprep and idna only use category, "
+                     "combining, bidirectional and normalize.")
+    def test_east_asian_width_unassigned(self):
+        super().test_east_asian_width_unassigned()
+
 
 class UnicodeMiscTest(UnicodeDatabaseTest):
 

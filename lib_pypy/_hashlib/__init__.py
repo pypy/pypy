@@ -41,8 +41,8 @@ def new(name, string=b'', usedforsecurity=True):
     try:
         cbuf = ffi.from_buffer(string)
     except TypeError:
-        cbuf = None
-    if cbuf is not None:
+        pass        # not a buffer (e.g. str): let HASH.update() say why
+    else:
         with cbuf as buf:
             if len(buf):
                 # Fast one-shot path: one C call, no EVP_MD_CTX allocation,
@@ -52,14 +52,17 @@ def new(name, string=b'', usedforsecurity=True):
                 dtype = py_digest_by_name(name_lower, py_ht)
                 digest_size = lib.EVP_MD_size(dtype)
                 md = ffi.new("unsigned char[]", digest_size)
-                ok = lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype,
-                                    ffi.NULL)
-            else:
-                ok = False
-        if ok:
-            return _OneShotHash(name_lower, digest_size,
-                                _bytes_with_len(md, digest_size),
-                                string, usedforsecurity)
+                if lib.EVP_Digest(buf, len(buf), md, ffi.NULL, dtype,
+                                  ffi.NULL):
+                    # keep immutable input by reference, snapshot the rest:
+                    # _OneShotHash re-hashes it if update()/copy() is called
+                    if isinstance(string, bytes):
+                        data = string
+                    else:
+                        data = _bytes_with_len(buf, len(buf))
+                    return _OneShotHash(name_lower, digest_size,
+                                        _bytes_with_len(md, digest_size),
+                                        data, usedforsecurity)
     h = HASH(name, usedforsecurity=usedforsecurity)
     h.update(string)
     return h

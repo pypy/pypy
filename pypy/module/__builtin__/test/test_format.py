@@ -39,3 +39,24 @@ class AppTestFormat(object):
 
         assert format(0, DerivedFromStr('10')) == '         0'
         assert type(format(E())) is DerivedFromStr
+
+    def test_format_spec_must_be_str(self):
+        """format() validates its second argument before calling __format__"""
+        class A:
+            def __format__(self, fmt_str):
+                return 'called'
+
+        for spec, name in [(None, 'None'), (5, 'int'), (b'x', 'bytes'),
+                           (1.5, 'float'), (True, 'bool')]:
+            exc = raises(TypeError, format, A(), spec)
+            assert str(exc.value) == (
+                "format() argument 2 must be str, not %s" % name)
+            # and a pure-Python __format__ must not have been reached
+            exc = raises(TypeError, format, 2.5, spec)
+            assert str(exc.value) == (
+                "format() argument 2 must be str, not %s" % name)
+
+        class DerivedFromStr(str):
+            pass
+
+        assert format(A(), DerivedFromStr('x')) == 'called'

@@ -1,4 +1,3 @@
-from _pytest.tmpdir import TempdirFactory
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import (unwrap_spec, interp2app)
 from pypy.interpreter.typedef import TypeDef
@@ -65,7 +64,7 @@ def compiler(space, config):
         cpyext_include_dirs = cpyext.api.include_dirs
     else:
         cpyext_include_dirs = None
-    tmpdir = TempdirFactory(config).getbasetemp()
+    tmpdir = config._tmpdirhandler.getbasetemp()
     compiler =  ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                              compiler_verbose=COMPILER_VERBOSE,
                             extra_include_dirs=cpyext_include_dirs)

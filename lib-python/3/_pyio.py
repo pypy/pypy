@@ -632,8 +632,10 @@ class RawIOBase(IOBase):
         n = self.readinto(b)
         if n is None:
             return None
-        del b[n:]
-        return bytes(b)
+        # PyPy change
+        # del b[n:]
+        # return bytes(b)
+        return bytes(b[:n])
 
     def readall(self):
         """Read until EOF, using multiple read() call."""
@@ -736,19 +738,26 @@ class BufferedIOBase(IOBase):
         return self._readinto(b, read1=True)
 
     def _readinto(self, b, read1):
+        views = []      # PyPy change
         if not isinstance(b, memoryview):
             b = memoryview(b)
+            views.append(b)     # PyPy change
         b = b.cast('B')
+        views.append(b)         # PyPy change
 
-        if read1:
-            data = self.read1(len(b))
-        else:
-            data = self.read(len(b))
-        n = len(data)
+        try:            # PyPy change
+            if read1:
+                data = self.read1(len(b))
+            else:
+                data = self.read(len(b))
+            n = len(data)
 
-        b[:n] = data
+            b[:n] = data
 
-        return n
+            return n
+        finally:        # PyPy change
+            for v in views:
+                v.release()
 
     def write(self, b):
         """Write the given bytes buffer to the IO stream.
@@ -1168,45 +1177,53 @@ class BufferedReader(_BufferedIOMixin):
         # Need to create a memoryview object of type 'b', otherwise
         # we may not be able to assign bytes to it, and slicing it
         # would create a new object.
+        views = []      # PyPy change
         if not isinstance(buf, memoryview):
             buf = memoryview(buf)
-        if buf.nbytes == 0:
-            return 0
-        buf = buf.cast('B')
+            views.append(buf)       # PyPy change
+        try:            # PyPy change
+            if buf.nbytes == 0:
+                return 0
+            buf = buf.cast('B')
+            views.append(buf)       # PyPy change
 
-        written = 0
-        with self._read_lock:
-            while written < len(buf):
+            written = 0
+            with self._read_lock:
+                while written < len(buf):
 
-                # First try to read from internal buffer
-                avail = min(len(self._read_buf) - self._read_pos, len(buf))
-                if avail:
-                    buf[written:written+avail] = \
-                        self._read_buf[self._read_pos:self._read_pos+avail]
-                    self._read_pos += avail
-                    written += avail
-                    if written == len(buf):
+                    # First try to read from internal buffer
+                    avail = min(len(self._read_buf) - self._read_pos, len(buf))
+                    if avail:
+                        buf[written:written+avail] = \
+                            self._read_buf[self._read_pos:self._read_pos+avail]
+                        self._read_pos += avail
+                        written += avail
+                        if written == len(buf):
+                            break
+
+                    # If remaining space in callers buffer is larger than
+                    # internal buffer, read directly into callers buffer
+                    if len(buf) - written > self.buffer_size:
+                        with buf[written:] as tail:     # PyPy change
+                            n = self.raw.readinto(tail)
+                        if not n:
+                            break # eof
+                        written += n
+
+                    # Otherwise refill internal buffer - unless we're
+                    # in read1 mode and already got some data
+                    elif not (read1 and written):
+                        if not self._peek_unlocked(1):
+                            break # eof
+
+                    # In readinto1 mode, return as soon as we have some data
+                    if read1 and written:
                         break
 
-                # If remaining space in callers buffer is larger than
-                # internal buffer, read directly into callers buffer
-                if len(buf) - written > self.buffer_size:
-                    n = self.raw.readinto(buf[written:])
-                    if not n:
-                        break # eof
-                    written += n
-
-                # Otherwise refill internal buffer - unless we're
-                # in read1 mode and already got some data
-                elif not (read1 and written):
-                    if not self._peek_unlocked(1):
-                        break # eof
-
-                # In readinto1 mode, return as soon as we have some data
-                if read1 and written:
-                    break
-
-        return written
+            return written
+        finally:        # PyPy change
+            for v in views:
+                v.release()
 
     def tell(self):
         # GH-95782: Keep return value non-negative
@@ -1690,10 +1707,10 @@ class FileIO(RawIOBase):
 
     def readinto(self, b):
         """Same as RawIOBase.readinto()."""
-        m = memoryview(b).cast('B')
-        data = self.read(len(m))
-        n = len(data)
-        m[:n] = data
+        with memoryview(b) as v, v.cast('B') as m:  # PyPy change
+            data = self.read(len(m))
+            n = len(data)
+            m[:n] = data
         return n
 
     def write(self, b):

@@ -3,7 +3,7 @@ try:
     import cffi
 except ImportError:
     import py
-    py.test.skip("cffi not installed")
+    py.test.skip("cffi not installed", allow_module_level=True)
 
 ffi = cffi.FFI()
 

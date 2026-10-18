@@ -11,7 +11,7 @@ except ImportError:
     try:
         from lib_pypy import stackless
     except ImportError as e:
-        skip('cannot import stackless: %s' % (e,))
+        skip('cannot import stackless: %s' % (e,), allow_module_level=True)
 
 SHOW_STRANGE = False
 
@@ -234,7 +234,6 @@ class Test_Stackless:
             try:
                 stackless.schedule()
             except TaskletExit:
-                global TaskletExit
                 taskletexit = True
                 raise
             

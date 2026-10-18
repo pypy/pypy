@@ -280,7 +280,7 @@ class FakeObjSpace(ObjSpace):
     def newseqiter(self, x):
         return w_some_obj()
 
-    def newmemoryview(self, x, owns_export=True):
+    def newmemoryview(self, x):
         return w_some_obj()
 
     @not_rpython
@@ -585,7 +585,6 @@ class FakeModule(W_Root):
     def setmodule(self, w_mod):
         is_root(w_mod)
 FakeObjSpace.sys = FakeModule()
-FakeObjSpace.sys.filesystemencoding = 'foobar'
 FakeObjSpace.sys.defaultencoding = 'ascii'
 FakeObjSpace.sys.dlopenflags = 123
 FakeObjSpace.builtin = FakeModule()

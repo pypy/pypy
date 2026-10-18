@@ -535,3 +535,35 @@ def test_concat_drops_empty_strings():
         assert ast.parse(src).body[0].value.values == []
     assert ast.parse("'' ''").body[0].value.value == ''
     raises(SyntaxError, ast.parse, "b'' f'{1}'")
+
+def test_ast_escaped_brace_positions():
+    # the position of a literal part ending with an escaped '{{' or '}}'
+    # covers both braces, like in CPython
+    for src, parts in [("f'{{{x}}}'", ["{{", "}}"]),
+                       ("f'a{{{x}}}b'", ["a{{", "}}b"]),
+                       ("f'{x}}}'", ["}}"])]:
+        m = ast.parse(src)
+        segments = [ast.get_source_segment(src, v)
+                    for v in m.body[0].value.values
+                    if isinstance(v, ast.Constant)]
+        assert segments == parts
+
+def test_ast_format_spec_values():
+    # like in CPython, the values of a format spec are flattened: debug
+    # expressions are inlined, adjacent strings are joined and empty strings
+    # are dropped
+    def spec_values(src):
+        spec = ast.parse(src).body[0].value.values[0].format_spec
+        return [(type(v).__name__, v.col_offset, v.end_col_offset)
+                for v in spec.values]
+    assert spec_values("f'{x:{w}}'") == [('FormattedValue', 5, 8)]
+    assert spec_values("f'{x:>{w}}'") == [('Constant', 5, 6),
+                                          ('FormattedValue', 6, 9)]
+    assert spec_values("f'{2:{y=}}'") == [('Constant', 6, 8),
+                                          ('FormattedValue', 5, 9)]
+    assert spec_values("f'{x:h1{y=}h2}'") == [('Constant', 5, 10),
+                                              ('FormattedValue', 7, 11),
+                                              ('Constant', 11, 13)]
+    spec = ast.parse("f'{x:h1{y=}h2}'").body[0].value.values[0].format_spec
+    assert spec.values[0].value == 'h1y='
+    assert spec_values("f'{x:}'") == []

@@ -1,7 +1,7 @@
 import py
 
 
-py.test.skip("XXX: crashes: issue 1773")
+py.test.skip("XXX: crashes: issue 1773", allow_module_level=True)
 
 
 class AppTestCopy:

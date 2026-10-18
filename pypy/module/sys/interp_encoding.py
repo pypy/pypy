@@ -12,17 +12,11 @@ if sys.platform == "win32":
 else:
     base_error = "surrogateescape"
 
-def _getfilesystemencoding(space):
-    """Return the filesystem encoding. Always utf-8 on PyPy."""
-    return base_encoding
-
 def getfilesystemencoding(space):
     """Return the encoding used to convert Unicode filenames in
     operating system filenames.
     """
-    if space.sys.filesystemencoding is None:
-        return space.newtext(base_encoding)
-    return space.newtext(space.sys.filesystemencoding)
+    return space.newtext(base_encoding)
 
 
 def getfilesystemencodeerrors(space):

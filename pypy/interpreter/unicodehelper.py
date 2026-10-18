@@ -57,66 +57,23 @@ def default_error_encode(
 
 # ____________________________________________________________
 _WIN32 = sys.platform == 'win32'
-_MACOSX = sys.platform == 'darwin'
+
+# the filesystem encoding is always utf-8
 
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
-    errorhandler=state.decode_error_handler
-    utf8 = space.bytes_w(w_string)
-    # fast path for ascii
-    if rutf8.first_non_ascii_char(utf8) < 0:
-        return space.newtext(utf8, len(utf8))
-    if _WIN32:
-        slen = len(utf8)
-        utf8, lgt, _ = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True, errorhandler)
-    elif 0 and  _MACOSX:
-        utf8, lgt, pos  = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True,
-                                    errorhandler, allow_surrogates=False)
-    elif space.sys.filesystemencoding is None or state.codec_need_encodings:
-        # bootstrap check: if the filesystemencoding isn't initialized
-        # or the filesystem codec is implemented in Python we cannot
-        # use it before the codecs are ready. use the locale codec
-        # instead
-        from pypy.module._codecs.locale import (
-            str_decode_locale_surrogateescape)
-        utf8, lgt = str_decode_locale_surrogateescape(utf8)
-    else:
-        from pypy.module.sys.interp_encoding import getfilesystemencoding
-        return space.call_method(w_string, 'decode',
-                                 getfilesystemencoding(space),
-                                 space.newtext('surrogateescape'))
+    s = space.bytes_w(w_string)
+    utf8, lgt, _ = str_decode_utf8(space, s, w_string, 'surrogateescape', True,
+                                   state.decode_error_handler)
     return space.newtext(utf8, lgt)
 
 def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
-    if _WIN32:
-        errorhandler=state.encode_error_handler
-        utf8 = space.utf8_w(w_uni)
-        bytes = utf8_encode_utf_8(space, utf8, w_uni, 'surrogateescape', errorhandler)
-    elif 0 and _MACOSX:
-        utf8 = space.utf8_w(w_uni)
-        errorhandler=state.encode_error_handler,
-        bytes = utf8_encode_utf_8(space, utf8, w_uni, 'surrogateescape', errorhandler,
-                                  allow_surrogates=False)
-    elif space.sys.filesystemencoding is None or state.codec_need_encodings:
-        # bootstrap check: if the filesystemencoding isn't initialized
-        # or the filesystem codec is implemented in Python we cannot
-        # use it before the codecs are ready. use the locale codec
-        # instead
-        from pypy.module._codecs.locale import (
-            utf8_encode_locale_surrogateescape)
-        utf8 = space.utf8_w(w_uni)
-        ulen = space.len_w(w_uni)
-        if '\x00' in utf8:
-            raise oefmt(space.w_ValueError, "embedded null character")
-        bytes = utf8_encode_locale_surrogateescape(utf8, ulen)
-    else:
-        from pypy.module.sys.interp_encoding import getfilesystemencoding
-        return space.call_method(w_uni, 'encode',
-                                 getfilesystemencoding(space),
-                                 space.newtext('surrogateescape'))
+    utf8 = space.utf8_w(w_uni)
+    bytes = utf8_encode_utf_8(space, utf8, w_uni, 'surrogateescape',
+                              state.encode_error_handler)
     return space.newbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):

@@ -15,6 +15,8 @@ jobs:
 
     name: build on ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    env:
+      PYPY_ARCHIVES_DIR: ${{ github.workspace }}/.deps-archives
     strategy:
       fail-fast: false
       matrix:
@@ -54,23 +56,16 @@ jobs:
             arch: win64
 
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v7.0.1
       with:
         fetch-depth: 1
 
     - name: Set up PyPy 2.7
       if: ${{ !matrix.container }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: "pypy-2.7-v8.0.0"
         cache: 'pip' # caching pip dependencies
-
-    - name: install Linux system dependencies
-      if: ${{ !matrix.container && runner.os == 'Linux' }}
-      uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
-        version: 1.0
 
     - name: install macOS dependencies
       if: ${{ runner.os == 'macOS' }}
@@ -80,6 +75,18 @@ jobs:
         echo "PYPY_LOCALBASE=${{ matrix.localbase }}" >> "$GITHUB_ENV"
         echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig:$(brew --prefix)/lib/pkgconfig" >> "$GITHUB_ENV"
         echo "DYLD_LIBRARY_PATH=$(brew --prefix gettext)/lib" >> "$GITHUB_ENV"
+
+    # package.py builds openssl and gdbm from source everywhere but Windows;
+    # keep the tarballs so a flaky mirror doesn't sink the job (the sha256 is
+    # checked before use, so a stale entry is just re-downloaded)
+    - name: cache embedded dependency archives
+      if: ${{ runner.os != 'Windows' }}
+      uses: actions/cache@v6.1.0
+      with:
+        path: ${{ github.workspace }}/.deps-archives
+        key: deps-archives-${{ hashFiles('lib_pypy/pypy_tools/build_cffi_imports.py') }}
+        restore-keys: |
+          deps-archives-
 
     - name: install Windows dependencies
       if: ${{ matrix.platform == 'win64' }}
@@ -140,6 +147,7 @@ jobs:
           docker run --rm \
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
+            -e PYPY_ARCHIVES_DIR=/workspace/.deps-archives \
             "$CONTAINER" \
             bash -c "./$PYPY_C -m ensurepip && ./$PYPY_C pypy/tool/release/package.py $PORTABLE --target=."
         else

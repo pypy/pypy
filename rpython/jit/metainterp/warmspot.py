@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys, py
 
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.tool.twothree import reraise
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import (llhelper, MixLevelHelperAnnotator,
     hlstr, cast_instance_to_gcref, cast_gcref_to_instance)
@@ -10,7 +11,6 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llinterp import LLException
-from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
 from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.flowspace.model import checkgraph, Link, copygraph
 from rpython.rlib.objectmodel import we_are_translated
@@ -76,6 +76,7 @@ def apply_jit(translator, backend_name="auto", inline=False,
 
 def ll_meta_interp(function, args, backendopt=False,
                    listcomp=False, translationoptions={}, **kwds):
+    from rpython.rtyper.test.test_llinterp import get_interpreter, clear_tcache
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
@@ -215,11 +216,6 @@ def reset_jit():
 
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
-
-def debug_checks():
-    stats = get_stats()
-    stats.maybe_view()
-    stats.check_consistency()
 
 # ____________________________________________________________
 # always disabled hooks interface
@@ -570,7 +566,7 @@ class WarmRunnerDesc(object):
                     print('~~~ %s: %s' % (e.__class__, e))
                     if sys.stdout == sys.__stdout__:
                         import pdb; pdb.post_mortem(tb)
-                    raise e.__class__, e, tb
+                    reraise(e.__class__, e, tb)
                 fatalerror('~~~ Crash in JIT! %s' % (e,))
         crash_in_jit._dont_inline_ = True
 
@@ -709,25 +705,25 @@ class WarmRunnerDesc(object):
                     d['type%d' % i] = spec
             convert = ";".join(arg_converters)
             if name == 'get_jitcell_at_key':
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(%s):
                     %s
                     return cast_instance_to_gcref(function(%s))
-                """ % (arg_spec, convert, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
             elif name == "trace_next_iteration_hash":
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(arg0):
                     function(arg0)
-                """).compile() in d
+                """).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType([lltype.Unsigned],
                                                   lltype.Void))
             else:
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(%s):
                     %s
                     function(%s)
-                """ % (arg_spec, convert, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, lltype.Void))
             func = d['accessor']
             ll_ptr = self.helper_func(FUNC, func)

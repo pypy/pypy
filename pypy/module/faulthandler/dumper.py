@@ -25,7 +25,13 @@ def _dump(fd, s):
     global_buf[l] = '\x00'
     pypy_faulthandler_write(fd, global_buf)
     if truncated:
-        _dump(fd, "...")   # like CPython's dump_ascii
+        # like CPython's dump_ascii, but not a recursive _dump() call: that
+        # adds a stack check which fails on the signal handler's altstack
+        global_buf[0] = '.'
+        global_buf[1] = '.'
+        global_buf[2] = '.'
+        global_buf[3] = '\x00'
+        pypy_faulthandler_write(fd, global_buf)
 
 def _dump_nonneg_int(fd, i):
     pypy_faulthandler_write_uint(fd, rffi.cast(lltype.Unsigned, i),

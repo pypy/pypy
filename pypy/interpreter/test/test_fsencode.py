@@ -36,7 +36,9 @@ def get_special_char():
     encoded by the filesystem encoding (in strict mode). It can be None
     if we cannot generate such filename.
     """
-    fsenc = sys.getfilesystemencoding().lower()
+    fsenc = sys.getfilesystemencoding()
+    if fsenc:
+        fsenc = fsenc.lower()
     # covers utf-8 and Windows ANSI code pages one non-space symbol from
     # every page (http://en.wikipedia.org/wiki/Code_page)
     known_locales = {
@@ -65,37 +67,43 @@ def get_special_char():
 class TestFSEncode(BaseFSEncodeTest):
     def test_fsencode_fsdecode(self):
         space = self.space
-        strs = [u"/home/bar/baz", u"c:\\"]
+        strs = [b"/home/bar/baz", b"c:\\"]
         if self.special_char:
-            strs.append(self.special_char)
+            strs.append(self.special_char.encode('utf8'))
         for st in strs:
             # check roundtrip
-            w_st = space.newtext(st.encode('utf8'), len(st))
+            w_st = space.newtext(st)
             w_enc = space.fsencode(w_st)
             w_st2 = space.fsdecode(w_enc)
             assert space.eq_w(w_st, w_st2)
-            assert space.fsdecode_w(w_enc) == st.encode('utf8')
+            assert space.fsdecode_w(w_enc) == st
 
             assert space.fsencode_w(w_enc) == space.bytes_w(w_enc)
             assert space.eq_w(space.newfilename(space.bytes_w(w_enc)), w_st2)
+
+    def test_surrogateescape(self):
+        if sys.platform == 'win32':
+            import pytest
+            pytest.skip("posix only")
+        space = self.space
+        w_st = space.newtext(u'a\udcffb'.encode('utf8'), 3)
+        w_enc = space.fsencode(w_st)
+        assert space.bytes_w(w_enc) == b'a\xffb'
+        assert space.eq_w(space.fsdecode(w_enc), w_st)
 
     def test_null_byte(self):
         space = self.space
         uni = u'abc\x00def'
         w_u = space.newtext(uni.encode('utf8'), len(uni))
-        # this can behave in two different ways depending on how
-        # much initialized the space is: space.fsencode() can raise
-        # ValueError directly, or return a wrapped bytes with the 0
-        # embedded---and then space.fsencode_w() should raise ValueError.
         space.raises_w(space.w_ValueError, space.fsencode_w, w_u)
 
     def test_interface_from___pypy__(self):
         space = self.space
-        strs = [u"/home/bar/baz", u"c:\\"]
+        strs = [b"/home/bar/baz", b"c:\\"]
         if self.special_char:
-            strs.append(self.special_char)
+            strs.append(self.special_char.encode('utf8'))
         for st in strs:
-            w_st = space.newtext(st.encode('utf8'), len(st))
+            w_st = space.newtext(st)
             w_enc = space.fsencode(w_st)
             space.appexec([w_st, w_enc], """(u, s):
                 import __pypy__

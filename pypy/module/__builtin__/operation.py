@@ -211,4 +211,13 @@ function).  Note that classes are callable."""
 @unwrap_spec(w_format_spec = WrappedDefault(u""))
 def format(space, w_obj, w_format_spec):
     """Format a obj according to format_spec"""
+    if not space.isinstance_w(w_format_spec, space.w_text):
+        # CPython checks this in the argument clinic, before __format__ is
+        # reached, and spells None out instead of using its type name
+        if space.is_w(w_format_spec, space.w_None):
+            name = "None"
+        else:
+            name = space.type(w_format_spec).getname(space)
+        raise oefmt(space.w_TypeError,
+                    "format() argument 2 must be str, not %s", name)
     return space.format(w_obj, w_format_spec)

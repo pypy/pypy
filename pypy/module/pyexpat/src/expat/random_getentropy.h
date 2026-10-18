@@ -35,6 +35,7 @@
 #  define RANDOM_GETENTROPY_H 1
 
 #  include <stdbool.h>
+#  include "pyexpatns.h" // PyPy: namespace writeRandomBytes_*
 #  include <stddef.h> // for size_t
 
 bool writeRandomBytes_getentropy(void *target, size_t count);

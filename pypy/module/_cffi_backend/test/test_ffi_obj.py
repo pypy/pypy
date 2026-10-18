@@ -434,9 +434,9 @@ class AppTestFFIObj:
         ffi = _cffi1_backend.FFI()
         alloc1 = ffi.new_allocator()
         alloc2 = ffi.new_allocator(should_clear_after_alloc=False)
-        for retry in range(100):
+        for retry in range(400):
             p1 = alloc1("int[10]")
-            p2 = alloc2("int[10]")
+            p2 = alloc2("int[]", 10 + retry * 13)
             combination = 0
             for i in range(10):
                 assert p1[i] == 0
@@ -445,8 +445,6 @@ class AppTestFFIObj:
                 p2[i] = -43
             if combination != 0:
                 break
-            del p1, p2
-            import gc; gc.collect()
         else:
             raise AssertionError("cannot seem to get an int[10] not "
                                  "completely cleared")

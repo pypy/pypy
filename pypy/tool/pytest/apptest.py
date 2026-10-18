@@ -224,6 +224,16 @@ def run_with_python(python_, target_, usemodules, **definitions):
         f.write('finally:\n    print("===aefwuiheawiu===")')
     helper_dir = os.path.join(pypydir, 'tool', 'cpyext')
     env = os.environ.copy()
+    if sys.platform == 'win32':
+        # extbuild builds extensions with lib_pypy/pypy_tools/_cffi_compile,
+        # which expects cl.exe/link.exe in the environment.  Hand down the
+        # vcvars environment like the cffi build in targetpypystandalone does.
+        from rpython.translator.platform import platform as cplatform
+        env.update(cplatform.c_environ or {})
+        env['PYPY_CC'] = cplatform.cc
+        env['PYPY_CC_LINK'] = getattr(cplatform, 'link', cplatform.cc)
+        env['PYPY_CC_KIND'] = 'msvc'
+    # after the c_environ update, which carries its own PYTHONPATH
     env['PYTHONPATH'] = helper_dir
     res, stdout, stderr = run_subprocess(
         python_, [str(pyfile)], env=env)
@@ -346,7 +356,10 @@ class AppTestMethod(py.test.collect.Function):
 
 
 class AppClassInstance(py.test.collect.Instance):
-    Function = AppTestMethod
+    def _makeitem(self, name, obj):
+        if callable(obj) and self.funcnamefilter(name):
+            return AppTestMethod(name, parent=self)
+        return super(AppClassInstance, self)._makeitem(name, obj)
 
     def setup(self):
         super(AppClassInstance, self).setup()
@@ -360,7 +373,8 @@ class AppClassInstance(py.test.collect.Instance):
 
 
 class AppClassCollector(py.test.Class):
-    Instance = AppClassInstance
+    def collect(self):
+        return [AppClassInstance(name="()", parent=self)]
 
     def setup(self):
         super(AppClassCollector, self).setup()

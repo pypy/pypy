@@ -176,6 +176,15 @@ def unpackcomplex(space, w_complex, allow_subclass=False, firstarg=True):
     # Check that it is not a string (on which space.float() would succeed).
     if (space.isinstance_w(w_complex, space.w_bytes) or
         space.isinstance_w(w_complex, space.w_unicode)):
+        if not firstarg:
+            # complex(x, y): CPython checks both in complex_new_impl, with a
+            # dedicated message for str and the generic one for bytes
+            if space.isinstance_w(w_complex, space.w_unicode):
+                raise oefmt(space.w_TypeError,
+                            "complex() second arg can't be a string")
+            raise oefmt(space.w_TypeError,
+                        "complex() second argument must be a number, not '%T'",
+                        w_complex)
         raise oefmt(space.w_TypeError,
                     "complex number expected, got '%T'", w_complex)
     #

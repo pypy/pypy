@@ -18,6 +18,16 @@ from pypy.module.sys.version import CPYTHON_VERSION
 
 thisdir = py.path.local(__file__).dirpath()
 
+_ARGV_LOCALE = sys.platform not in ('win32', 'darwin')
+
+def _decode_arg(space, arg):
+    # like CPython's Py_DecodeLocale(); app_main re-decodes in UTF-8 mode
+    if not _ARGV_LOCALE:
+        return space.newfilename(arg)
+    from pypy.module._codecs.locale import str_decode_locale_surrogateescape
+    utf8, lgt = str_decode_locale_surrogateescape(arg)
+    return space.newtext(utf8, lgt)
+
 try:
     this_dir = dirname(__file__)
 except NameError:
@@ -74,7 +84,7 @@ def create_entry_point(space, w_dict):
                     except rlocale.LocaleError:
                         pass
                 w_executable = space.newfilename(argv[0])
-                w_argv = space.newlist([space.newfilename(s)
+                w_argv = space.newlist([_decode_arg(space, s)
                                         for s in argv[1:]])
                 w_bargv = space.newlist([space.newbytes(s)
                                         for s in argv[1:]])

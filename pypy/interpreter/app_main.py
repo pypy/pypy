@@ -1238,7 +1238,6 @@ def entry_point(executable, bargv, argv):
     # stuffs (because we need to be able to import encodings). The full stdlib
     # can only be used in a virtualenv after 'import site' in run_command_line
     setup_bootstrap_path(executable)
-    sys.pypy_initfsencoding()
     sys.orig_argv[:] = [executable] + argv
     try:
         cmdline = parse_command_line(bargv, argv)
@@ -1351,7 +1350,6 @@ def main():
     sys.pypy_find_executable = pypy_find_executable
     sys.pypy_find_stdlib = pypy_find_stdlib
     sys.pypy_resolvedirof = pypy_resolvedirof
-    sys.pypy_initfsencoding = lambda: None
     sys.cpython_path = sys.path[:]
 
     try:

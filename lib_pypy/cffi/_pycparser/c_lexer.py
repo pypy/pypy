@@ -7,9 +7,9 @@
 # License: BSD
 # ------------------------------------------------------------------------------
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple
 
 
 @dataclass(slots=True)
@@ -68,14 +68,14 @@ class CLexer:
         self._filename = ""
         self._pos = 0
         self._line_start = 0
-        self._pending_tok: Optional[Token] = None
+        self._pending_tok: Token | None = None
         self._lineno = 1
 
     @property
     def filename(self) -> str:
         return self._filename
 
-    def token(self) -> Optional[Token]:
+    def token(self) -> Token | None:
         # Lexing strategy overview:
         #
         # - We maintain a current position (self._pos), line number, and the
@@ -141,7 +141,7 @@ class CLexer:
                     else:
                         continue
 
-    def _match_token(self) -> Optional[Token]:
+    def _match_token(self) -> Token | None:
         """Match one token at the current position.
 
         Returns a Token on success, or None if no token could be matched and
@@ -188,7 +188,7 @@ class CLexer:
                     break
 
         if best is None:
-            self._error(f"Illegal character {repr(text[pos])}", pos)
+            self._error(f"Illegal character {text[pos]!r}", pos)
             self._pos += 1
             return None
 
@@ -274,11 +274,15 @@ class CLexer:
         if line.startswith("line", pos):
             pos += 4
 
-        def success(pp_line: Optional[str], pp_filename: Optional[str]) -> None:
+        def success(pp_line: str | None, pp_filename: str | None) -> None:
             if pp_line is None:
                 self._error("line number missing in #line", self._pos + line_len)
             else:
-                self._lineno = int(pp_line)
+                try:
+                    self._lineno = int(pp_line)
+                except ValueError:
+                    self._error("invalid #line directive", self._pos + line_len)
+                    return
                 if pp_filename is not None:
                     self._filename = pp_filename
             self._pos = line_end + 1
@@ -334,7 +338,7 @@ class CLexer:
 
         success(pp_line, pp_filename)
 
-    def _handle_pppragma(self) -> List[Token]:
+    def _handle_pppragma(self) -> list[Token]:
         # Parse a full #pragma line; returns a list of tokens with 1 or 2
         # tokens - PPPRAGMA and an optional PPPRAGMASTR. If an empty list is
         # returned, it means an error occurred, or we're at the end of input.
@@ -382,7 +386,7 @@ class CLexer:
 ##
 ## Reserved keywords
 ##
-_keywords: Tuple[str, ...] = (
+_keywords: tuple[str, ...] = (
     "AUTO",
     "BREAK",
     "CASE",
@@ -421,6 +425,7 @@ _keywords: Tuple[str, ...] = (
     "__INT128",
     "_BOOL",
     "_COMPLEX",
+    "_GENERIC",
     "_NORETURN",
     "_THREAD_LOCAL",
     "_STATIC_ASSERT",
@@ -430,7 +435,7 @@ _keywords: Tuple[str, ...] = (
     "_PRAGMA",
 )
 
-_keyword_map: Dict[str, str] = {}
+_keyword_map: dict[str, str] = {}
 
 for keyword in _keywords:
     # Keywords from new C standard are mixed-case, like _Bool, _Alignas, etc.
@@ -468,51 +473,55 @@ _bad_octal_constant = "0[0-7]*[89]"
 _unsupported_c_style_comment = r"\/\*"
 _unsupported_cxx_style_comment = r"\/\/"
 
-# character constants (K&R2: A.2.5.2)
-# Note: a-zA-Z and '.-~^_!=&;,' are allowed as escape chars to support #line
-# directives with Windows paths as filenames (..\..\dir\file)
-# For the same reason, decimal_escape allows all digit sequences. We want to
-# parse all correct code, even if it means to sometimes parse incorrect
-# code.
+# Character constants and escape sequences.
 #
-# The original regexes were taken verbatim from the C syntax definition,
-# and were later modified to avoid worst-case exponential running time.
+# Tokens preserve their source spelling; the lexer does not decode escapes or
+# validate Unicode code points. Each complete escape must match as one character
+# in _cconst_char, which is used for both single and multicharacter constants.
+# Matching is deliberately permissive: simple escapes accept extra letters and
+# punctuation, and numeric escapes accept decimal digits, not just octal digits.
 #
-#   simple_escape = r"""([a-zA-Z._~!=&\^\-\\?'"])"""
-#   decimal_escape = r"""(\d+)"""
-#   hex_escape = r"""(x[0-9a-fA-F]+)"""
-#   bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-7])"""
-#
-# The following modifications were made to avoid the ambiguity that allowed
-# backtracking: (https://github.com/eliben/pycparser/issues/61)
-#
-# - \x was removed from simple_escape, unless it was not followed by a hex
-#   digit, to avoid ambiguity with hex_escape.
-# - hex_escape allows one or more hex characters, but requires that the next
-#   character(if any) is not hex
-# - decimal_escape allows one or more decimal characters, but requires that the
-#   next character(if any) is not a decimal
-# - bad_escape does not allow any decimals (8-9), to avoid conflicting with the
-#   permissive decimal_escape.
-#
-# Without this change, python's `re` module would recursively try parsing each
-# ambiguous escape sequence in multiple ways. e.g. `\123` could be parsed as
-# `\1`+`23`, `\12`+`3`, and `\123`.
+# _cconst_char is also repeated in the error patterns. If an escape can match in
+# several ways, long malformed constants can cause exponential backtracking
+# (https://github.com/eliben/pycparser/issues/61). The lookaheads prevent this:
+# - Decimal and hexadecimal escapes consume the whole run of digits. For
+#   example, \123 cannot be split into \1 followed by the characters 2 and 3.
+# - A simple \x escape is allowed only when no hexadecimal digit follows it.
+# - A complete Unicode escape cannot fall back to a simple \u or \U escape.
+# _bad_escape also excludes all decimal digits to agree with this permissiveness.
 
-_simple_escape = r"""([a-wyzA-Z._~!=&\^\-\\?'"]|x(?![0-9a-fA-F]))"""
+# Universal character names consume exactly four hex digits after u or eight
+# after U. A following hex digit is a separate character, unlike with \x.
+_unicode_escape = r"(u[0-9a-fA-F]{4}|U[0-9a-fA-F]{8})"
+# This lookahead runs immediately after the backslash. If a complete Unicode
+# escape follows, only _unicode_escape may match it: \u00e9 cannot be read as
+# \u followed by 0, 0, e, 9. Incomplete forms retain the permissive behavior
+# of simple escapes.
+_simple_escape = (
+    rf"(?!{_unicode_escape})"
+    r"""([a-wyzA-Z._~!=&\^\-\\?'"]|x(?![0-9a-fA-F]))"""
+)
 _decimal_escape = r"""(\d+)(?!\d)"""
 _hex_escape = r"""(x[0-9a-fA-F]+)(?![0-9a-fA-F])"""
 _bad_escape = r"""([\\][^a-zA-Z._~^!=&\^\-\\?'"x0-9])"""
 
 _escape_sequence = (
-    r"""(\\(""" + _simple_escape + "|" + _decimal_escape + "|" + _hex_escape + "))"
+    r"""(\\("""
+    + _simple_escape
+    + "|"
+    + _decimal_escape
+    + "|"
+    + _hex_escape
+    + "|"
+    + _unicode_escape
+    + "))"
 )
 
-# This complicated regex with lookahead might be slow for strings, so because
-# all of the valid escapes (including \x) allowed
-# 0 or more non-escaped characters after the first character,
-# simple_escape+decimal_escape+hex_escape got simplified to
-
+# Strings do not need to count the characters represented by escapes. Match
+# just the backslash and a permitted following character; _string_char consumes
+# any remaining numeric or Unicode digits as ordinary text. This avoids matching
+# complete escape sequences repeatedly. The permissive spellings also support
+# Windows paths in #line filenames, which are matched with _string_literal.
 _escape_sequence_start_in_string = r"""(\\[0-9a-zA-Z._~!=&\^\-\\?'"])"""
 
 _cconst_char = r"""([^'\\\n]|""" + _escape_sequence + ")"
@@ -527,7 +536,7 @@ _bad_char_const = (
     r"""('""" + _cconst_char + """[^'\n]+')|('')|('""" + _bad_escape + r"""[^'\n]*')"""
 )
 
-# string literals (K&R2: A.2.6)
+# String literals, including wide and Unicode prefixes.
 _string_char = r"""([^"\\\n]|""" + _escape_sequence_start_in_string + ")"
 _string_literal = '"' + _string_char + '*"'
 _wstring_literal = "L" + _string_literal
@@ -580,10 +589,10 @@ class _RegexRule:
     tok_type: str
     regex_pattern: str
     action: _RegexAction
-    error_message: Optional[str]
+    error_message: str | None
 
 
-_regex_rules: List[_RegexRule] = [
+_regex_rules: list[_RegexRule] = [
     _RegexRule(
         "UNSUPPORTED_C_STYLE_COMMENT",
         _unsupported_c_style_comment,
@@ -630,8 +639,8 @@ _regex_rules: List[_RegexRule] = [
     _RegexRule("ID", _identifier, _RegexAction.ID, None),
 ]
 
-_regex_actions: Dict[str, Tuple[_RegexAction, Optional[str]]] = {}
-_regex_pattern_parts: List[str] = []
+_regex_actions: dict[str, tuple[_RegexAction, str | None]] = {}
+_regex_pattern_parts: list[str] = []
 for _rule in _regex_rules:
     _regex_actions[_rule.tok_type] = (_rule.action, _rule.error_message)
     _regex_pattern_parts.append(f"(?P<{_rule.tok_type}>{_rule.regex_pattern})")
@@ -648,7 +657,7 @@ class _FixedToken:
     literal: str
 
 
-_fixed_tokens: List[_FixedToken] = [
+_fixed_tokens: list[_FixedToken] = [
     _FixedToken("ELLIPSIS", "..."),
     _FixedToken("LSHIFTEQUAL", "<<="),
     _FixedToken("RSHIFTEQUAL", ">>="),
@@ -702,7 +711,7 @@ _fixed_tokens: List[_FixedToken] = [
 # text[i], and we pre-sort that bucket by token length so the first match is
 # also the longest. This preserves longest-match semantics (e.g. '>>=' before
 # '>>' before '>') while reducing the number of comparisons.
-_fixed_tokens_by_first: Dict[str, List[_FixedToken]] = {}
+_fixed_tokens_by_first: dict[str, list[_FixedToken]] = {}
 for _entry in _fixed_tokens:
     _fixed_tokens_by_first.setdefault(_entry.literal[0], []).append(_entry)
 for _bucket in _fixed_tokens_by_first.values():
