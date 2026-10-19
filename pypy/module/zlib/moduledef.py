@@ -39,10 +39,9 @@ objects support decompress() and flush()."""
     appleveldefs = {
         }
 
-    def setup_after_space_initialization(self):
-        space = self.space
-        space.setattr(self, space.wrap('ZLIB_RUNTIME_VERSION'),
-                      space.wrap(rzlib.zlibVersion()))
+    def startup(self, space):
+        space.setattr(self, space.newtext('ZLIB_RUNTIME_VERSION'),
+                      space.newtext(rzlib.zlibVersion()))
 
 
 
