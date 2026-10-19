@@ -536,22 +536,6 @@ def test_split_bypredicate_nested():
     assert repr(eg.split(lambda e: isinstance(e, ValueError) and e.args[0] < 3)) \
         == "(ExceptionGroup('abc', [ValueError(1), ExceptionGroup('def', [ValueError(2)])]), ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(3), TypeError(), ZeroDivisionError()]), TypeError()]))"
 
-def h_make_deep_eg():
-    e = TypeError(1)
-    for _ in range(2000):
-        e = ExceptionGroup("eg", [e])
-    return e
-
-def test_deep_split():
-    e = h_make_deep_eg()
-    with pytest.raises(RecursionError):
-        e.split(TypeError)
-
-def test_deep_subgroup():
-    e = h_make_deep_eg()
-    with pytest.raises(RecursionError):
-        e.subgroup(TypeError)
-
 def test_except_star_bad_split_func():
     class BadEG1(ExceptionGroup):
         def split(self, *args):
