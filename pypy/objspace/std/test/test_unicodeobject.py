@@ -224,6 +224,14 @@ class AppTestUnicodeString:
         exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
         f.read(),)
 
+    def test_decode_empty_skips_codec_lookup(self):
+        assert str(b'', 'x') == ''
+        assert str(bytearray(), 'x', 'y') == ''
+        assert str(memoryview(b''), 'x') == ''
+        assert b''.decode('x') == ''
+        raises(LookupError, str, b'a', 'x')
+        raises(TypeError, str, 1, 'x')
+
     def test_codecs_errors(self):
         # Error handling (encoding)
         raises(UnicodeError, 'Andr\202 x'.encode, 'ascii')
