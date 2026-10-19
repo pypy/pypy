@@ -3067,6 +3067,14 @@ def sched_get_priority_min(space, policy):
         else:
            return space.newint(s)
 
+@unwrap_spec(in_fd=c_int, out_fd=c_int, flags=c_int)
+def _fcopyfile(space, in_fd, out_fd, flags):
+    """Efficiently copy content or metadata of 2 regular file descriptors (macOS)."""
+    try:
+        rposix.fcopyfile(in_fd, out_fd, flags)
+    except OSError as e:
+        raise wrap_oserror(space, e)
+
 @unwrap_spec(fd=c_int, cmd=c_int, length=r_longlong)
 def lockf(space, fd, cmd, length):
     """apply, test or remove a POSIX lock on an

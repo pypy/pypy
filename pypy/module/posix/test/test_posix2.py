@@ -1744,6 +1744,24 @@ class AppTestPosix:
         for name in darwin_constants:
             getattr(self.posix, name)
 
+    @py.test.mark.skipif("sys.platform != 'darwin'")
+    def test_fcopyfile(self):
+        posix = self.posix
+        src = self.path2 + 'fcopyfile_src'
+        dst = self.path2 + 'fcopyfile_dst'
+        with open(src, 'wb') as f:
+            f.write(b'hello fcopyfile')
+        in_fd = posix.open(src, posix.O_RDONLY)
+        out_fd = posix.open(dst, posix.O_WRONLY | posix.O_CREAT, 0o666)
+        try:
+            posix._fcopyfile(in_fd, out_fd, posix._COPYFILE_DATA)
+        finally:
+            posix.close(in_fd)
+            posix.close(out_fd)
+        with open(dst, 'rb') as f:
+            assert f.read() == b'hello fcopyfile'
+        raises(OSError, posix._fcopyfile, -1, -1, posix._COPYFILE_DATA)
+
 
     def test_error_message(self):
         import sys
