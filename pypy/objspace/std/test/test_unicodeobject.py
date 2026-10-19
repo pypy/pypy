@@ -206,6 +206,40 @@ class TestUnicodeObject:
         assert self.space.len_w(w_l) == 3
 
 
+class TestDecodeEmptyDevMode:
+    def setup_method(self, method):
+        space = self.space
+        self._w_flags = space.sys.get('flags')
+        # imitate -X dev
+        space.appexec([], """():
+            import sys
+            flags = list(sys.flags)
+            flags[13] = True
+            sys.flags = type(sys.flags)(flags)
+            """)
+
+    def teardown_method(self, method):
+        space = self.space
+        space.setitem(space.sys.w_dict, space.newtext('flags'), self._w_flags)
+
+    def test_decode_empty_checks_encoding(self):
+        space = self.space
+        w_res = space.appexec([], """():
+            import sys
+            assert sys.flags.dev_mode
+            res = []
+            for f in (lambda: str(b'', 'x'), lambda: b''.decode('x')):
+                try:
+                    f()
+                except LookupError:
+                    res.append(True)
+                else:
+                    res.append(False)
+            return res
+        """)
+        assert space.unwrap(w_res) == [True, True]
+
+
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
         assert type('a') != type(b'a')
@@ -223,6 +257,14 @@ class AppTestUnicodeString:
     with open(os.path.join(os.path.dirname(__file__), 'startswith.py')) as f:
         exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
         f.read(),)
+
+    def test_decode_empty_skips_codec_lookup(self):
+        assert str(b'', 'x') == ''
+        assert str(bytearray(), 'x', 'y') == ''
+        assert str(memoryview(b''), 'x') == ''
+        assert b''.decode('x') == ''
+        raises(LookupError, str, b'a', 'x')
+        raises(TypeError, str, 1, 'x')
 
     def test_codecs_errors(self):
         # Error handling (encoding)
