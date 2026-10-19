@@ -1338,6 +1338,14 @@ constants =[ # These are added to posix/nt
              'O_CLOEXEC',
             ]
 darwin_constants = ['COPYFILE_DATA']
+if sys.platform == 'darwin':
+    c_fcopyfile = external('fcopyfile',
+            [rffi.INT, rffi.INT, rffi.VOIDP, rffi.UINT], rffi.INT,
+            save_err=rffi.RFFI_SAVE_ERRNO)
+    @enforceargs(int, int, int)
+    def fcopyfile(in_fd, out_fd, flags):
+        handle_posix_error('fcopyfile', c_fcopyfile(
+            in_fd, out_fd, lltype.nullptr(rffi.VOIDP.TO), flags))
 if _WIN32:
     CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
                                          rwin32.LPHANDLE,
