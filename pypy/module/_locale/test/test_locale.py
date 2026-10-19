@@ -8,8 +8,8 @@ class AppTestLocaleTrivia:
     def setup_class(cls):
         if sys.platform != 'win32':
             cls.w_language_en = cls.space.wrap("C")
-            cls.w_language_utf8 = cls.space.wrap("en_US.utf8")
-            cls.w_language_pl = cls.space.wrap("pl_PL.utf8")
+            cls.w_language_utf8 = cls.space.wrap("en_US.UTF-8")
+            cls.w_language_pl = cls.space.wrap("pl_PL.UTF-8")
             cls.w_encoding_pl = cls.space.wrap("utf-8")
         else:
             cls.w_language_en = cls.space.wrap("English_US")
@@ -91,8 +91,9 @@ class AppTestLocaleTrivia:
         if sys.platform != 'win32':
             _LANGINFO_NAMES = ('RADIXCHAR THOUSEP CRNCYSTR D_T_FMT D_FMT '
                         'T_FMT AM_STR PM_STR CODESET T_FMT_AMPM ERA ERA_D_FMT '
-                        'ERA_D_T_FMT ERA_T_FMT ALT_DIGITS YESEXPR NOEXPR '
-                        '_DATE_FMT').split()
+                        'ERA_D_T_FMT ERA_T_FMT ALT_DIGITS YESEXPR NOEXPR').split()
+            if sys.platform.startswith('linux'):
+                _LANGINFO_NAMES.append('_DATE_FMT')
             for i in range(1, 8):
                 _LANGINFO_NAMES.append("DAY_%d" % i)
                 _LANGINFO_NAMES.append("ABDAY_%d" % i)
@@ -189,11 +190,9 @@ class AppTestLocaleTrivia:
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert locale.str(1.1) == '1,1'
 
+    @pytest.mark.skipif(not sys.platform.startswith('linux'),
+                        reason="needs gettext() from glibc")
     def test_text(self):
-        import sys
-        if sys.platform == 'win32':
-            skip("No gettext on Windows")
-
         # TODO more tests would be nice
         import _locale
 
@@ -280,22 +279,18 @@ class AppTestLocaleTrivia:
         assert isinstance(enc, str)
         assert enc  # non-empty
 
+    @pytest.mark.skipif(not sys.platform.startswith('linux'),
+                        reason="needs the textdomain functions of glibc")
     def test_bindtextdomain(self):
-        import sys
-        if sys.platform == 'win32':
-            skip("No textdomain on Windows")
-
         # TODO more tests would be nice
         import _locale
 
         raises(OSError, _locale.bindtextdomain, '', '')
         raises(OSError, _locale.bindtextdomain, '', '1')
 
+    @pytest.mark.skipif(not sys.platform.startswith('linux'),
+                        reason="needs the textdomain functions of glibc")
     def test_bind_textdomain_codeset(self):
-        import sys
-        if sys.platform == 'win32':
-            skip("No textdomain on Windows")
-
         import _locale
 
         assert _locale.bind_textdomain_codeset('/', None) is None
