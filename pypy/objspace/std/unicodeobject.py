@@ -54,6 +54,24 @@ CHECK_ALL_STRINGS = False
 # CHECK_ALL_STRINGS: after translation.  Set to False to avoid overhead!
 
 
+def _debug_probe_cast(utf8str):
+    """Called only once a bad length was found, so it costs nothing until then.
+
+    codepoints_in_utf8() classifies bytes with rffi.cast(SIGNEDCHAR, ...);
+    report what that returns now, and whether a recount agrees.
+    """
+    from rpython.rlib.debug import debug_print
+    from rpython.rtyper.lltypesystem import rffi, lltype
+    for byte in [0x61, 0xac, 0x80, 0xbf, 0xc2]:
+        sc = rffi.cast(rffi.SIGNEDCHAR, byte)
+        debug_print("cast", byte, "->", rffi.cast(lltype.Signed, sc))
+    debug_print("recount", rutf8.codepoints_in_utf8(utf8str))
+    try:
+        debug_print("check_utf8", rutf8.check_utf8(utf8str, True))
+    except rutf8.CheckError:
+        debug_print("check_utf8 raised CheckError")
+
+
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_utf8', '_length']
@@ -83,6 +101,7 @@ class W_UnicodeObject(W_Root):
                 debug_print("!!! BAD UTF8 !!!")
                 debug_print(str([ord(c) for c in utf8str]))
                 debug_print("length", length, "real_length", real_length)
+                _debug_probe_cast(utf8str)
                 raise BadUtf8
 
     @staticmethod
