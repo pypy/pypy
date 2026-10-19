@@ -1440,12 +1440,44 @@ def force_cast(RESTYPE, value):
         elif RESTYPE == lltype.Bool:
             cvalue = bool(cvalue)
         else:
+            before = cvalue
             try:
                 cvalue = cresulttype(cvalue).value   # mask high bits off if needed
             except TypeError:
                 cvalue = int(cvalue)   # float -> int
                 cvalue = cresulttype(cvalue).value   # try again
+            _debug_check_mask(RESTYPE, cresulttype, before, cvalue)
         return ctypes2lltype(RESTYPE, cvalue)
+
+
+def _debug_check_mask(RESTYPE, cresulttype, before, after):
+    """Report a cast that did not mask/sign-extend as the C type requires."""
+    if not isinstance(after, (int, long)):
+        return
+    try:
+        nbytes = ctypes.sizeof(cresulttype)
+        signed = cresulttype(-1).value == -1
+    except (TypeError, ValueError):
+        return
+    if nbytes > 8:
+        return
+    if signed:
+        lo = -(1 << (8 * nbytes - 1))
+        hi = (1 << (8 * nbytes - 1)) - 1
+    else:
+        lo = 0
+        hi = (1 << (8 * nbytes)) - 1
+    if lo <= after <= hi:
+        return
+    print('!!! BAD FORCE_CAST !!!')
+    print('    RESTYPE  ', RESTYPE)
+    print('    ctypes   ', cresulttype, 'size', nbytes, 'signed', signed)
+    print('    input    ', repr(before))
+    print('    result   ', repr(after), 'expected in', lo, '..', hi)
+    try:
+        print('    recompute', repr(cresulttype(before).value))
+    except Exception as e:
+        print('    recompute failed:', e)
 
 class ForceCastEntry(ExtRegistryEntry):
     _about_ = force_cast
