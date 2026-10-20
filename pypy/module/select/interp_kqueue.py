@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
 from pypy.module.time import timeutils
 from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
-from rpython.rlib import rposix
+from rpython.rlib import rposix, rweaklist
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -115,11 +115,26 @@ syscall_kevent = rffi.llexternal(
 )
 
 
+class OpenKqueues(rweaklist.RWeakListMixin):
+    def __init__(self, space):
+        self.initialize()
+
+def invalidate_kqueues_after_fork(space):
+    # a forked child doesn't inherit the kqueues
+    open_kqueues = space.fromcache(OpenKqueues)
+    for wr in open_kqueues.get_all_handles():
+        w_kqueue = wr()
+        if w_kqueue is not None:
+            w_kqueue.kqfd = -1
+    open_kqueues.initialize()
+
+
 class W_Kqueue(W_Root):
     def __init__(self, space, kqfd):
         self.space = space
         self.kqfd = kqfd
         self.register_finalizer(space)
+        space.fromcache(OpenKqueues).add_handle(self)
 
     def descr__new__(space, w_subtype):
         kqfd = syscall_kqueue()
