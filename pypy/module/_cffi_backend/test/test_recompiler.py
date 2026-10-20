@@ -88,7 +88,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
             **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
-    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib', 'pypy-73.so']:
+    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib', 'pypy-73.so', 'pypy-80.so']:
         so_file = str(rdir.join('%s.%s' % (path, extension)))
         if os.path.exists(so_file):
             break
