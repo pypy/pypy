@@ -4,9 +4,8 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.typedef import GetSetProperty
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
+from pypy.interpreter.gateway import interp2app, unwrap_spec, applevel
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as compiler
 from rpython.rlib.rarithmetic import intmask, r_longlong
@@ -155,11 +154,35 @@ BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT,
                                releasegil=False)
 BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
-# PyPy-specific addition
 BZ2_bzlibVersion = external('BZ2_bzlibVersion', [], rffi.CCHARP, releasegil=False)
+
+app = applevel('''
+"NOT_RPYTHON"
+from _structseq import structseqtype, structseqfield
+class bzlib_version_info(metaclass=structseqtype):
+    __module__ = 'bz2'
+    name = 'bz2.bzlib_version_info'
+
+    major        = structseqfield(0, "Major release number")
+    minor        = structseqfield(1, "Minor release number")
+    patch        = structseqfield(2, "Patch release number")
+''')
 
 def bzlib_version():
     return rffi.charp2str(BZ2_bzlibVersion())
+
+def get_version(space):
+    return space.newtext(bzlib_version())
+
+def get_version_info(space):
+    w_version_info = app.wget(space, "bzlib_version_info")
+    # run at startup time
+    version = bzlib_version()
+    version_list = version.split(',')[0].split('.')[:3]
+    w_tup = space.newtuple([space.newint(int(v)) for v in version_list])
+    return space.call_function(w_version_info, w_tup)
+
+
 
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
