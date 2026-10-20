@@ -399,6 +399,9 @@ class AppTestBZ2File: #(CheckAllocation):
             assert data == b"abc"
         assert f.closed
 
+    def test_version(self):
+        import bz2
+        assert bz2.bzlibVersion
 
 
 # has_cmdline_bunzip2 = sys.platform not in ("win32", "os2emx", "riscos")
