@@ -129,6 +129,7 @@ def test_putenv_invalid_name():
 
 if not _WIN32:
     def test_all_pathconf_defined():
+        import errno
         import sys
         import posix
         try:
@@ -137,7 +138,10 @@ if not _WIN32:
             # translated test run with a fake sys.stdin with no fileno
             fd = 1
         for name in posix.pathconf_names:
-            posix.fpathconf(fd, name) # does not crash
+            try:
+                posix.fpathconf(fd, name)
+            except OSError as e:
+                assert e.errno == errno.EINVAL
 
 if _WIN32:
     def test__supports_virtual_terminal():
