@@ -49,6 +49,22 @@ class Darwin(posix.BasePosix):
     def get_multiarch(self):
         return 'darwin'
 
+    # The externals repo (fetched by get_externals.py, which the buildbot runs
+    # before building) ships prebuilt dependencies in <externals>/include and
+    # <externals>/lib.  Put them first so they shadow the SDK and any
+    # homebrew-installed copies, like patch_os_env() does on windows.
+    def _preprocess_include_dirs(self, include_dirs):
+        externals_include = os.path.join(self.externals, 'include')
+        if os.path.isdir(externals_include):
+            return [externals_include] + list(include_dirs)
+        return include_dirs
+
+    def _preprocess_library_dirs(self, library_dirs):
+        externals_lib = os.path.join(self.externals, 'lib')
+        if os.path.isdir(externals_lib):
+            return [externals_lib] + list(library_dirs)
+        return library_dirs
+
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
         if len(rel_libdirs) > 0:
@@ -138,10 +154,12 @@ class Darwin_i386(Darwin):
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
+    externals_branch = 'macos-x86-64'
     link_flags = Darwin.link_flags + ('-arch', 'x86_64')
     cflags = Darwin.cflags + ('-arch', 'x86_64')
 
 class Darwin_arm64(Darwin):
     name = 'darwin_arm64'
+    externals_branch = 'macos-arm64'
     link_flags = Darwin.link_flags + ('-arch', 'arm64')
     cflags = Darwin.cflags + ('-arch', 'arm64')

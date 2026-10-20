@@ -88,8 +88,11 @@ jobs:
         restore-keys: |
           deps-archives-
 
-    - name: install Windows dependencies
-      if: ${{ matrix.platform == 'win64' }}
+    # checks out the externals branch for this platform (win64_14x,
+    # macos-arm64, ...); a no-op on platforms that have no such branch.  The
+    # container builds get their dependencies from the image instead.
+    - name: fetch external dependencies
+      if: ${{ !matrix.container }}
       env:
         PYTHONPATH: .
       run: pypy get_externals.py

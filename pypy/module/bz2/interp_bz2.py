@@ -159,7 +159,12 @@ BZ2_bzlibVersion = external('BZ2_bzlibVersion', [], rffi.CCHARP, releasegil=Fals
 app = applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
+<<<<<<< HEAD
 class bzlib_version_info(metaclass=structseqtype):
+=======
+class bzlib_version_info:
+    __metaclass__ = structseqtype
+>>>>>>> main
     __module__ = 'bz2'
     name = 'bz2.bzlib_version_info'
 
@@ -171,9 +176,12 @@ class bzlib_version_info(metaclass=structseqtype):
 def bzlib_version():
     return rffi.charp2str(BZ2_bzlibVersion())
 
+<<<<<<< HEAD
 def get_version(space):
     return space.newtext(bzlib_version())
 
+=======
+>>>>>>> main
 def get_version_info(space):
     w_version_info = app.wget(space, "bzlib_version_info")
     # run at startup time
