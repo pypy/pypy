@@ -1745,9 +1745,6 @@ def decode_object(space, w_obj, encoding, errors=None):
             raise
         raise oefmt(space.w_TypeError, "decoding to str: %S",
             e.get_w_value(space))
-    if not s and not space.sys.get_flag('dev_mode'):
-        # like CPython, skip the codec lookup for empty input outside dev mode
-        return W_UnicodeObject.EMPTY
     #
     if errors == 'strict' or errors is None:
         # fast paths
@@ -1757,6 +1754,9 @@ def decode_object(space, w_obj, encoding, errors=None):
         if encoding == 'utf-8' or encoding == 'utf8':
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
+    if not s and not space.sys.get_flag('dev_mode'):
+        # like CPython, skip the codec lookup for empty input outside dev mode
+        return W_UnicodeObject.EMPTY
     if encoding is None:
         encoding = space.sys.defaultencoding
     if errors is not None and space.sys.get_flag('dev_mode'):
