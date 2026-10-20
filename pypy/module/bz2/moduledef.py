@@ -20,5 +20,7 @@ sequential (de)compression."""
 
     def startup(self, space):
         from pypy.module.bz2 import interp_bz2
-        space.setitem(self.w_dict, space.newtext('bzlibVersion'),
+        space.setitem(self.w_dict, space.newtext('bzlib_version'),
                       space.newtext(interp_bz2.bzlib_version()))
+        space.setitem(self.w_dict, space.newtext('bzlib_version_info'),
+                      interp_bz2.get_version_info(space))
