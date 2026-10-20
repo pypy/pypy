@@ -152,6 +152,12 @@ BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT,
                                releasegil=False)
 BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
+# PyPy-specific addition
+BZ2_bzlibVersion = external('BZ2_bzlibVersion', [], rffi.CCHARP, releasegil=False)
+
+def bzlib_version():
+    return rffi.charp2str(BZ2_bzlibVersion())
+
 def _catch_bz2_error(space, bzerror):
     if BZ_CONFIG_ERROR and bzerror == BZ_CONFIG_ERROR:
         raise oefmt(space.w_SystemError,

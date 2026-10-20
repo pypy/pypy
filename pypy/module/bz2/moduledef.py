@@ -17,3 +17,8 @@ sequential (de)compression."""
 
     appleveldefs = {
     }
+
+    def startup(self, space):
+        from pypy.module.bz2 import interp_bz2
+        space.setitem(self.w_dict, space.newtext('bzlibVersion'),
+                      space.newtext(interp_bz2.bzlib_version()))
