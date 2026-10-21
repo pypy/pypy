@@ -8,7 +8,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 import py, sys, platform
 if sys.platform != 'win32':
-    pytest.skip("Windows only", allow_module_level=True)
+    pytest.skip("Windows only")
 
 
 def get_manifest(executable, allow_missing=False):
@@ -74,6 +74,7 @@ class TestMakefile(object):
 
         class Translation():
             icon = None
+            win_mapping_dll = None
             manifest = os.path.join(os.path.dirname(__file__),
                                     'data', 'python.manifest')
 
