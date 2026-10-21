@@ -95,8 +95,11 @@ def test_ext_suffixes():
     for suffix in suffixes:
         assert suffix.endswith(('.pyd', '.so'))
     import sys
-    if sys.platform != 'win32' and 'cpyext' in sys.builtin_module_names:
-        assert '.abi3.so' in suffixes
+    if 'cpyext' in sys.builtin_module_names:
+        if sys.platform == 'win32':
+            assert '.pyd' in suffixes
+        else:
+            assert '.abi3.so' in suffixes
     assert '.so' not in suffixes
 
 

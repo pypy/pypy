@@ -487,11 +487,16 @@ class MsvcPlatform(Platform):
         if manifest:
             shutil.copyfile(manifest, str(path.join('pypy.manifest')))
         if mapping_dll:
-            rel_mapping_src = m.pathrel(mapping_src)
+            # build it from a copy in the target directory, like the other
+            # generated sources, so the rule needs no absolute path
+            mapping_copy = path.join(mapping_src.basename)
+            if str(mapping_copy) != str(mapping_src):
+                shutil.copyfile(mapping_dll, str(mapping_copy))
+            mapping_csource = mapping_src.basename
             mapping_obj = mapping_src.new(ext='obj').basename
-            rules.append((mapping_target, rel_mapping_src,
+            rules.append((mapping_target, mapping_csource,
                           ['$(CC) /nologo $(CFLAGS) /Fo%s /c %s' % (
-                              mapping_obj, rel_mapping_src),
+                              mapping_obj, mapping_csource),
                            '$(CC_LINK) /nologo /DLL %s /IMPLIB:%s /out:$@' % (
                                mapping_obj,
                                mapping_src.new(ext='lib').basename)]))

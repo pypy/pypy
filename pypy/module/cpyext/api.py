@@ -725,6 +725,82 @@ _flags = [
     ('Py_IsolatedFlag', 'isolated'),
 ]
 
+# The limited-API shims hand-written in src/abi3_*.c and declared in the
+# static headers.  They are in no SYMBOLS_C* list on purpose: without a
+# mangling #define they already compile under their bare CPython name, and
+# adding them to SYMBOLS_C_ABI3 would emit a #define in an untranslated
+# build that collides with the macro some of them also have in the headers
+# (Py_NewRef, PyObject_GC_Track, ...).  They are listed here only so the
+# python3.dll mapping dll forwards them.  Deliberately absent: _Py_Dealloc
+# (see SYMBOLS_C above), and the names the headers declare but nothing
+# defines (PyOS_strtol, PyOS_strtoul, PyObject_Length, PyType_ClearCache,
+# _PyObject_GC_Resize, PyRangeIter_Type, PyLongRangeIter_Type, PySuper_Type).
+SYMBOLS_ABI3_EXTRA = [
+    'PyAIter_Check', 'PyArg_ValidateKeywordArguments',
+    'PyBuffer_FillContiguousStrides', 'PyBytes_Repr',
+    'PyCodec_BackslashReplaceErrors', 'PyCodec_IgnoreErrors',
+    'PyCodec_KnownEncoding', 'PyCodec_LookupError',
+    'PyCodec_NameReplaceErrors', 'PyCodec_Register',
+    'PyCodec_RegisterError', 'PyCodec_ReplaceErrors',
+    'PyCodec_StreamReader', 'PyCodec_StreamWriter', 'PyCodec_StrictErrors',
+    'PyCodec_Unregister', 'PyCodec_XMLCharRefReplaceErrors',
+    'PyDescr_NewMember', 'PyDict_MergeFromSeq2', 'PyErr_ProgramText',
+    'PyErr_ResourceWarning', 'PyErr_SetImportError',
+    'PyErr_SetImportErrorSubclass', 'PyErr_SyntaxLocation',
+    'PyErr_SyntaxLocationEx', 'PyEval_AcquireLock', 'PyEval_EvalFrame',
+    'PyEval_EvalFrameEx', 'PyEval_ReleaseLock', 'PyExceptionClass_Name',
+    'PyFloat_GetInfo', 'PyFloat_GetMax', 'PyFloat_GetMin',
+    'PyFrame_GetCode', 'PyImport_AppendInittab',
+    'PyImport_ExecCodeModuleObject',
+    'PyImport_ExecCodeModuleWithPathnames', 'PyImport_GetImporter',
+    'PyImport_ImportFrozenModule', 'PyImport_ImportFrozenModuleObject',
+    'PyInterpreterState_Clear', 'PyInterpreterState_Delete',
+    'PyInterpreterState_Get', 'PyInterpreterState_GetDict',
+    'PyInterpreterState_New', 'PyLong_GetInfo', 'PyModule_AddType',
+    'PyModule_GetFilename', 'PyModule_SetDocString', 'PyOS_mystricmp',
+    'PyOS_mystrnicmp', 'PyObject_CopyData', 'PyObject_GC_Track',
+    'PyObject_GC_UnTrack', 'PyObject_GetAIter', 'PyObject_GetTypeData',
+    'PySequence_In', 'PySys_AddWarnOption', 'PySys_AddWarnOptionUnicode',
+    'PySys_AddXOption', 'PySys_FormatStderr', 'PySys_FormatStdout',
+    'PySys_GetXOptions', 'PySys_HasWarnOptions', 'PySys_ResetWarnOptions',
+    'PySys_SetArgv', 'PySys_SetArgvEx', 'PySys_SetPath',
+    'PyThreadState_GetInterpreter', 'PyThread_GetInfo',
+    'PyThread_get_stacksize', 'PyThread_set_stacksize',
+    'PyThread_tss_alloc', 'PyThread_tss_create', 'PyThread_tss_delete',
+    'PyThread_tss_free', 'PyThread_tss_get', 'PyThread_tss_is_created',
+    'PyThread_tss_set', 'PyType_GetFlags', 'PyType_GetTypeDataSize',
+    'PyUnicodeDecodeError_Create', 'PyUnicodeDecodeError_GetEncoding',
+    'PyUnicodeDecodeError_GetEnd', 'PyUnicodeDecodeError_GetObject',
+    'PyUnicodeDecodeError_GetReason', 'PyUnicodeDecodeError_GetStart',
+    'PyUnicodeDecodeError_SetEnd', 'PyUnicodeDecodeError_SetReason',
+    'PyUnicodeDecodeError_SetStart', 'PyUnicodeEncodeError_GetEncoding',
+    'PyUnicodeEncodeError_GetEnd', 'PyUnicodeEncodeError_GetObject',
+    'PyUnicodeEncodeError_GetReason', 'PyUnicodeEncodeError_GetStart',
+    'PyUnicodeEncodeError_SetEnd', 'PyUnicodeEncodeError_SetReason',
+    'PyUnicodeEncodeError_SetStart', 'PyUnicodeTranslateError_GetEnd',
+    'PyUnicodeTranslateError_GetObject',
+    'PyUnicodeTranslateError_GetReason',
+    'PyUnicodeTranslateError_GetStart', 'PyUnicodeTranslateError_SetEnd',
+    'PyUnicodeTranslateError_SetReason',
+    'PyUnicodeTranslateError_SetStart', 'PyUnicode_AsCharmapString',
+    'PyUnicode_AsDecodedObject', 'PyUnicode_AsDecodedUnicode',
+    'PyUnicode_AsEncodedUnicode', 'PyUnicode_BuildEncodingMap',
+    'PyUnicode_DecodeCharmap', 'PyUnicode_DecodeUTF16Stateful',
+    'PyUnicode_DecodeUTF32Stateful', 'PyUnicode_DecodeUTF7',
+    'PyUnicode_DecodeUTF7Stateful', 'PyUnicode_DecodeUTF8Stateful',
+    'PyUnicode_IsIdentifier', 'PyUnicode_Partition',
+    'PyUnicode_RPartition', 'PyUnicode_RSplit', 'PyUnicode_RichCompare',
+    'PyUnicode_Translate', 'PyVectorcall_NARGS', 'PyWrapper_New',
+    'Py_BytesMain', 'Py_CompileString', 'Py_DecodeLocale',
+    'Py_EncodeLocale', 'Py_EndInterpreter', 'Py_Exit', 'Py_Finalize',
+    'Py_FinalizeEx', 'Py_GetBuildInfo', 'Py_GetCompiler',
+    'Py_GetCopyright', 'Py_GetExecPrefix', 'Py_GetPath', 'Py_GetPlatform',
+    'Py_GetPrefix', 'Py_GetProgramFullPath', 'Py_GetPythonHome',
+    'Py_Initialize', 'Py_InitializeEx', 'Py_Main', 'Py_NewInterpreter',
+    'Py_NewRef', 'Py_SetPath', 'Py_SetProgramName', 'Py_SetPythonHome',
+    'Py_XNewRef', '_Py_DecRef', '_Py_IncRef',
+]
+
 SYMBOLS_C += [c_name for c_name, _ in _flags]
 
 # static inlined functions in headers need these to be in pypy_macros.h, not in
@@ -1646,6 +1722,8 @@ def get_abi3_exports():
             exports[name.split('#')[0]] = True
     for name in SYMBOLS_C_ABI3:
         exports.setdefault(name, name in SYMBOLS_C_ABI3_DATA)
+    for name in SYMBOLS_ABI3_EXTRA:
+        exports.setdefault(name, False)
     return sorted(exports.items())
 
 
@@ -2044,6 +2122,8 @@ def create_extension_module(space, w_spec):
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
+    if WIN32:
+        reject_cpython_only_extension(space, path, w_name, w_path)
     try:
         if WIN32:
             from rpython.rlib import rwin32
@@ -2097,6 +2177,22 @@ def create_extension_module(space, w_spec):
         look_for, space.utf8_w(space.newfilename(path)))
     w_path = space.newfilename(path)
     raise_import_error(space, space.newtext(msg), w_name, w_path)
+
+def reject_cpython_only_extension(space, path, w_name, w_path):
+    """On Windows an abi3 extension and a full-API CPython one are both
+    called <name>.pyd, and only the import table tells them apart.  Refuse
+    the ones PyPy cannot run before the dll is mapped into the process: the
+    loader would either fail with an error message that names no symbol, or
+    (with a python3XY.dll somewhere on the search path) succeed and pull
+    CPython's runtime in."""
+    from pypy.module.imp.importing import get_so_extension
+    if path.endswith(get_so_extension(space)):
+        return      # built for this PyPy, not a candidate abi3 wheel
+    from pypy.module.cpyext import win_pe
+    reason = win_pe.cpython_only_reason(win_pe.imports_of(path))
+    if reason is not None:
+        raise raise_import_error(space, space.newtext(reason),
+                                 w_name, w_path)
 
 def get_init_name(space, w_name):
     name = space.utf8_w(w_name)
