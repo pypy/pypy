@@ -677,14 +677,13 @@ def parse_env(name, key, options):
     getenv = get_getenv()
     v = getenv(name)
     if v:
-        options[key] = max(1, options[key])
         try:
             newval = int(v)
         except ValueError:
-            pass
-        else:
-            newval = max(1, newval)
-            options[key] = max(options[key], newval)
+            newval = 1
+        if newval < 0:
+            newval = 1
+        options[key] = max(options[key], newval)
 
 def parse_command_line(bargv, argv):
     # bargv is the bytes version, argv is decoded via the default locale
@@ -745,14 +744,13 @@ def _parse_command_line(argv):
         readenv = True
         parse_env('PYTHONDEBUG', "debug", options)
         parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
-        if options['dont_write_bytecode'] > 1:
-            options['dont_write_bytecode'] = 1
-        if getenv('PYTHONNOUSERSITE'):
-            options["no_user_site"] = 1
+        parse_env('PYTHONNOUSERSITE', "no_user_site", options)
         if getenv('PYTHONSAFEPATH'):
             options["safe_path"] = True
-        if getenv('PYTHONUNBUFFERED'):
-            options["unbuffered"] = 1
+        parse_env('PYTHONUNBUFFERED', "unbuffered", options)
+        for key in ['dont_write_bytecode', 'no_user_site', 'unbuffered']:
+            if options[key] > 1:
+                options[key] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
         if getenv('PYPY_DISABLE_JIT'):
