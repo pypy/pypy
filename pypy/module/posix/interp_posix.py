@@ -1638,8 +1638,8 @@ def _warn_about_fork_with_threads(space, name):
         try:
             space.warn(
                 space.newtext(
-                    "This process is multi-threaded, use of %s() may "
-                    "lead to deadlocks in the child." % name),
+                    "This process (pid=%d) is multi-threaded, use of %s() "
+                    "may lead to deadlocks in the child." % (os.getpid(), name)),
                 space.w_DeprecationWarning)
         except OperationError as e:
             # like CPython's PyErr_Clear() here: this is a best-effort
