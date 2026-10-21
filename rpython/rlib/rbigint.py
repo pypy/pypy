@@ -3759,6 +3759,10 @@ def lehmer_xgcd(a, b):
 def _lehmer_widen_coefficient(c):
     # Widen the magnitude before applying the sign.  In untranslated mode,
     # rffi.cast to a signed 128-bit type zero-extends negative machine ints.
+    # TODO: Fix ll2ctypes.force_cast's emulated c_int128 construction: it
+    # initializes only the low uint64 word, leaving the high word zero
+    # instead of sign-extending negative inputs.  Then use _widen_digit
+    # directly and remove this workaround.
     if c < 0:
         return -_widen_digit(-c)
     return _widen_digit(c)
