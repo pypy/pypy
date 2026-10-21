@@ -836,7 +836,7 @@ def test_opcode_at_loc_boundary():
         assert _opcode_search(opcodes1, "bla\xFC")
         _opcode_no_match(opcodes2, "bla\xFC")
         oldlocale = locale.setlocale(locale.LC_ALL)
-        locale.setlocale(locale.LC_ALL, "de_DE")
+        locale.setlocale(locale.LC_ALL, "de_DE.ISO8859-1")
         _opcode_no_match(opcodes1, "bla\xFC")
         assert _opcode_search(opcodes2, "bla\xFC")
         locale.setlocale(locale.LC_ALL, oldlocale)
@@ -868,7 +868,7 @@ def test_opcode_category_loc_word():
                O["failure"], O["success"]]
         assert not _opcode_search(opcodes1, "b\xFC")
         assert _opcode_search(opcodes2, "b\xFC")
-        locale.setlocale(locale.LC_ALL, "de_DE")
+        locale.setlocale(locale.LC_ALL, "de_DE.ISO8859-1")
         assert _opcode_search(opcodes1, "b\xFC")
         assert not _opcode_search(opcodes2, "b\xFC")
         _void_locale()
