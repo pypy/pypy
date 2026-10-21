@@ -3755,6 +3755,83 @@ def lehmer_xgcd(a, b):
 
     return s_old, t_old, s_new, t_new
 
+
+def _lehmer_widen_coefficient(c):
+    # Widen the magnitude before applying the sign.  In untranslated mode,
+    # rffi.cast to a signed 128-bit type zero-extends negative machine ints.
+    if c < 0:
+        return -_widen_digit(-c)
+    return _widen_digit(c)
+
+
+def _lehmer_update(a, b, s_new, t_new, s_old, t_old):
+    """Return abs(s_new*a + t_new*b), abs(s_old*a + t_old*b).
+
+    Inputs are nonnegative, with a at least as many digits as b.  Each
+    coefficient has absolute value <= MASK.  No input storage is modified.
+    """
+    size_a = a.numdigits()
+    size_b = b.numdigits()
+    assert a.get_sign() >= 0 and b.get_sign() >= 0
+    assert size_a >= size_b
+    assert -MASK <= s_new <= MASK and -MASK <= t_new <= MASK
+    assert -MASK <= s_old <= MASK and -MASK <= t_old <= MASK
+
+    # Write B = 2**SHIFT, M = B-1.  With |carry| <= 2*M, each
+    # accumulator has magnitude <= 2*M*M + 2*M = 2*B*(B-1).
+    # This fits signed double-width arithmetic, whose range includes
+    # [-2*B*B, 2*B*B-1].  Arithmetic right shift restores the carry bound.
+    sn = _lehmer_widen_coefficient(s_new)
+    tn = _lehmer_widen_coefficient(t_new)
+    so = _lehmer_widen_coefficient(s_old)
+    to = _lehmer_widen_coefficient(t_old)
+    carry_new = _widen_digit(0)
+    carry_old = _widen_digit(0)
+    new_a = rbigint([NULLDIGIT] * (size_a + 2), 1)
+    new_b = rbigint([NULLDIGIT] * (size_a + 2), 1)
+    i = 0
+    while i < size_b:
+        adigit = a.widedigit(i)
+        bdigit = b.widedigit(i)
+        carry_new += sn * adigit + tn * bdigit
+        carry_old += so * adigit + to * bdigit
+        new_a.setdigit(i, carry_new)
+        new_b.setdigit(i, carry_old)
+        carry_new >>= SHIFT
+        carry_old >>= SHIFT
+        i += 1
+    while i < size_a:
+        adigit = a.widedigit(i)
+        carry_new += sn * adigit
+        carry_old += so * adigit
+        new_a.setdigit(i, carry_new)
+        new_b.setdigit(i, carry_old)
+        carry_new >>= SHIFT
+        carry_old >>= SHIFT
+        i += 1
+
+    _lehmer_finish(new_a, size_a, carry_new)
+    _lehmer_finish(new_b, size_a, carry_old)
+    return new_a, new_b
+
+
+def _lehmer_finish(result, size, carry):
+    # After the digit loop, S = low_digits + carry * B**size.  A negative
+    # carry means S < 0.  Complement-plus-one gives abs(S)'s low digits;
+    # its high part is -carry-1, plus the carry out of that addition.
+    if carry < 0:
+        carry_bit = UDIGIT_TYPE(1)
+        for i in range(size):
+            digit = (UDIGIT_TYPE(MASK) ^ result.udigit(i)) + carry_bit
+            result.setdigit(i, digit)
+            carry_bit = digit >> SHIFT
+        carry = -carry - 1 + intmask(carry_bit)
+    # |carry| <= 2*MASK, so at most two additional digits are needed.
+    result.setdigit(size, carry)
+    result.setdigit(size + 1, carry >> SHIFT)
+    result._normalize()
+
+
 @jit.elidable
 def gcd_lehmer(a, b):
     if a.lt(b):
@@ -3787,9 +3864,7 @@ def gcd_lehmer(a, b):
 
         s_old, t_old, s_new, t_new = lehmer_xgcd(a_ms, b_ms)
 
-        n_a = a.int_mul(s_new).add(b.int_mul(t_new)).abs()
-        b = a.int_mul(s_old).add(b.int_mul(t_old)).abs()
-        a = n_a
+        a, b = _lehmer_update(a, b, s_new, t_new, s_old, t_old)
 
         if a.lt(b):
             a, b = b, a

@@ -19,7 +19,7 @@ from rpython.rlib.rbigint import (frombytes_int, rbigint, SHIFT, MASK, KARATSUBA
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
     _format_lowest_level_divmod_int_results, _format_int10_18digits,
-    bit_length_int, _bitcount64, tobytes_int)
+    bit_length_int, _bitcount64, tobytes_int, _lehmer_update)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1491,6 +1491,15 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_lehmer_update(self):
+        def fn(x, y, s, t):
+            a = rbigint.fromint(x).lshift(SHIFT).int_add(x)
+            b = rbigint.fromint(y)
+            c, d = _lehmer_update(a, b, s, t, -s, -t)
+            return c.eq(d) and c.eq(a.int_mul(s).add(b.int_mul(t)).abs())
+        assert interpret(fn, [MASK, MASK, MASK, -MASK])
+        assert interpret(fn, [MASK, MASK, -MASK, -MASK])
+
     def test_pow(self):
         def fn(base, exponent, modulus):
             a = rbigint.fromint(base)
@@ -1611,6 +1620,26 @@ class TestTranslated(StandaloneTests):
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
+    @given(strategies.data())
+    def test_lehmer_update(self, data):
+        nbits = data.draw(strategies.integers(1, 5 * SHIFT))
+        values = strategies.one_of(
+            strategies.integers(0, (1 << nbits) - 1),
+            strategies.sampled_from([0, 1, (1 << nbits) - 1,
+                                      1 << (nbits - 1)]))
+        x, y = data.draw(values), data.draw(values)
+        if x < y:
+            x, y = y, x
+        coefficients = strategies.one_of(
+            strategies.integers(-MASK, MASK),
+            strategies.sampled_from([-MASK, -1, 0, 1, MASK]))
+        s, t, u, v = [data.draw(coefficients) for i in range(4)]
+        a, b = rbigint.fromlong(x), rbigint.fromlong(y)
+        c, d = _lehmer_update(a, b, s, t, u, v)
+        assert c.tolong() == abs(s * x + t * y)
+        assert d.tolong() == abs(u * x + v * y)
+        assert a.tolong() == x and b.tolong() == y
+
     @given(strategies.data())
     def test_pow_windows(self, data):
         # Construct sparse/dense exponents and windows near digit and
@@ -2149,13 +2178,13 @@ def byte_limb_rbigint():
 
 
 @pytest.fixture(params=[False, True], ids=['native', 'byte'])
-def pow_rbigint(request, byte_limb_rbigint):
+def arithmetic_rbigint(request, byte_limb_rbigint):
     return byte_limb_rbigint if request.param else lobj
 
 
 class TestPowAlgorithms(object):
-    def test_small_exponents(self, pow_rbigint, monkeypatch):
-        m = pow_rbigint
+    def test_small_exponents(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
         original = m._help_mult
         calls = []
 
@@ -2187,8 +2216,8 @@ class TestPowAlgorithms(object):
             with pytest.raises(ValueError):
                 a.int_pow(exponent, zero)
 
-    def test_binary_operation_count(self, pow_rbigint, monkeypatch):
-        m = pow_rbigint
+    def test_binary_operation_count(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
         original = m._help_mult
         calls = []
 
@@ -2213,8 +2242,8 @@ class TestPowAlgorithms(object):
                 assert result.toint() == pow(5, exponent, 1009)
                 assert len(calls) == expected_calls
 
-    def test_window_boundaries(self, pow_rbigint, monkeypatch):
-        m = pow_rbigint
+    def test_window_boundaries(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
         original = m._help_mult
         calls = []
 
@@ -2253,6 +2282,56 @@ class TestPowAlgorithms(object):
                     del calls[:]
                     assert a.int_pow(int(exponent), c).tolong() == expected
                     assert len(calls) <= binary_calls
+
+
+class TestLehmerUpdate(object):
+    def test_boundaries(self, arithmetic_rbigint):
+        m = arithmetic_rbigint
+        base = 1 << m.SHIFT
+        values = [0, 1, base - 1, base, base + 1,
+                  base ** 2 - 1, base ** 3 - 1, base ** 5,
+                  base ** 5 - 1, base ** 5 + 1]
+        matrices = [(1, 0, 0, 1), (0, 1, 1, 0), (0, 0, 0, 0),
+                    (1, -1, -1, 1), (-1, 0, 0, -1),
+                    (m.MASK, m.MASK, -m.MASK, -m.MASK),
+                    (m.MASK, -m.MASK, -m.MASK, m.MASK),
+                    (m.MASK, 1, -1, -m.MASK)]
+        for x in values:
+            for y in values:
+                a, b = m.rbigint.fromlong(x), m.rbigint.fromlong(y)
+                if a.numdigits() < b.numdigits():
+                    continue
+                digits_a, digits_b = a._digits[:], b._digits[:]
+                for s, t, u, v in matrices:
+                    c, d = m._lehmer_update(a, b, s, t, u, v)
+                    assert c.tolong() == abs(s * x + t * y)
+                    assert d.tolong() == abs(u * x + v * y)
+                    assert c.get_sign() >= 0 and d.get_sign() >= 0
+                    assert c.numdigits() == 1 or c.digit(c.numdigits() - 1)
+                    assert d.numdigits() == 1 or d.digit(d.numdigits() - 1)
+                    assert a._digits == digits_a and b._digits == digits_b
+                    assert a.tolong() == x and b.tolong() == y
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        values = [m.rbigint.fromint(i) for i in range(m.MASK + 1)]
+        for x, a in enumerate(values):
+            for y, b in enumerate(values):
+                c, d = m._lehmer_update(a, b, m.MASK, m.MASK,
+                                       -m.MASK, -m.MASK)
+                assert c.tolong() == d.tolong() == m.MASK * (x + y)
+                c, d = m._lehmer_update(a, b, m.MASK, -m.MASK,
+                                       -m.MASK, m.MASK)
+                assert c.tolong() == d.tolong() == m.MASK * abs(x - y)
+
+    def test_narrow_coefficients(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for a in range(1, m.MASK + 1):
+            for b in range(1, a + 1):
+                s, t, u, v = m.lehmer_xgcd(a, b)
+                assert all(abs(c) <= m.MASK for c in [s, t, u, v])
+                assert abs(s * v - t * u) == 1
+                assert 0 <= u * a + v * b <= s * a + t * b
 
 
 class TestByteLimbArithmetic(object):
