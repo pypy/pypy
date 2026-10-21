@@ -103,6 +103,7 @@ def _mask_digit(x):
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _unsigned_widen_digit(x):
     return rffi.cast(ULONG_TYPE, x)
 
@@ -2178,11 +2179,17 @@ def _int_rem_core(a, digit):
     size = UDIGIT_TYPE(a.numdigits() - 1)
 
     if size > 0:
-        wrem = a.widedigit(size)
+        udivisor = UDIGIT_TYPE(digit)
+        # Reduce the top digit first so the carried remainder fits in one
+        # digit.  All arithmetic here is on nonnegative magnitudes.
+        urem = a.udigit(size) % udivisor
+        wdivisor = _unsigned_widen_digit(udivisor)
         while size > 0:
             size -= 1
-            wrem = ((wrem << SHIFT) | a.digit(size)) % digit
-        rem = _store_digit(wrem)
+            wrem = ((_unsigned_widen_digit(urem) << SHIFT) |
+                    _unsigned_widen_digit(a.udigit(size)))
+            urem = UDIGIT_TYPE(wrem % wdivisor)
+        rem = _store_digit(urem)
     else:
         rem = _store_digit(a.digit(0) % digit)
 

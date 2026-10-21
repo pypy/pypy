@@ -1220,6 +1220,16 @@ def test_frombytes_tobytes_int_hypothesis(s, big, signed):
         assert value2 == bigint.toint()
 
 class TestInternalFunctions(object):
+    def test__int_rem_core(self):
+        # Include unreduced top digits and maximal two-digit dividends.
+        values = [0, 1, MASK, MASK + 1,
+                  (1 << (2 * SHIFT)) - 1, (1 << (4 * SHIFT)) - 1]
+        for digit in [1, 2, 3, MASK // 2, MASK - 1, MASK]:
+            for value in values + [digit - 1, digit, digit + 1]:
+                for sign in [1, -1]:
+                    a = rbigint.fromlong(sign * value)
+                    assert lobj._int_rem_core(a, digit) == value % digit
+
     def test__inplace_divrem1(self):
         # signs are not handled in the helpers!
         for x, y in [(1238585838347, 3), (1234123412311231, 1231231), (99, 100)]:
@@ -1481,6 +1491,13 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_int_mod_int_result(self):
+        def fn(x, divisor):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
+            return a.int_mod_int_result(divisor)
+        expected = ((long(MASK) << (2 * SHIFT)) + MASK) % 3
+        assert interpret(fn, [MASK, 3]) == expected
+
     def test_square(self):
         def test():
             xlo = rbigint.fromint(1410065408)
