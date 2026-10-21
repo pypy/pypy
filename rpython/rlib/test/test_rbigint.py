@@ -2070,42 +2070,110 @@ class TestHypothesis(object):
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
-    # run the TestHypothesis in a subprocess with a smaller SHIFT value
-    # the idea is that this finds hopefully finds edge cases more easily
+    # Run each property with 7-bit limbs and byte/short arithmetic.
     import subprocess, os
     # The cwd on the buildbot is actually in rpython
     # Add the pypy basedir so we get the local pytest
     env = os.environ.copy()
     parent = os.path.dirname
     env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
-    p = subprocess.Popen(" ".join([sys.executable, os.path.abspath(__file__), methname]),
+    command = [sys.executable, os.path.abspath(__file__), methname]
+    p = subprocess.Popen(command,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         shell=True, env=env)
+                         env=env)
     stdout, stderr = p.communicate()
     if p.returncode:
         print stdout
         print stderr
     assert not p.returncode
 
-def _get_hacked_rbigint(shift):
-    testpath = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(os.path.dirname(testpath), "rbigint.py")) as f:
-        s = f.read()
-    s = s.replace("SHIFT = 63", "SHIFT = %s" % (shift, ))
-    s = s.replace("SHIFT = 31", "SHIFT = %s" % (shift, ))
-    with open(os.path.join(testpath, "_hacked_rbigint.py"), "w") as f:
-        f.write(s)
+def _get_byte_limb_rbigint():
+    import types
 
-    from rpython.rlib.test import _hacked_rbigint
-    assert _hacked_rbigint.SHIFT == shift
-    return _hacked_rbigint
+    testpath = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(os.path.dirname(testpath), "rbigint.py")
+    with open(path) as f:
+        s = f.read()
+    name = 'rpython.rlib.test._byte_limb_rbigint'
+    mod = types.ModuleType(name)
+    mod.__file__ = path
+    mod.TEST_SMALL_DIGITS = True
+    sys.modules[name] = mod
+    # This test module uses future division; rbigint.py deliberately doesn't.
+    exec compile(s, path, 'exec', 0, True) in mod.__dict__
+    assert mod.SHIFT == 7
+    return mod
+
+
+@pytest.fixture(scope='module')
+def byte_limb_rbigint():
+    return _get_byte_limb_rbigint()
+
+
+class TestByteLimbArithmetic(object):
+    def test_widths(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        assert m.SHIFT == 7
+        assert m.UDIGIT_TYPE.BITS == 8
+        assert m.rffi.sizeof(m.STORE_TYPE) == 1
+        assert m._store_digit(128) == -128
+        assert m._widen_digit(0).BITS == 16
+        assert m._unsigned_widen_digit(0).BITS == 16
+        assert m.UDIGIT_TYPE(255) + 1 == 0
+        assert m._load_unsigned_digit(0) - 1 == 255
+        assert m._unsigned_widen_digit(65535) + 1 == 0
+        with pytest.raises(OverflowError):
+            m._widen_digit(32767) + 1
+        # Widening after the shift would lose bits in this configuration.
+        assert m.UDIGIT_TYPE(2) << m.SHIFT == 0
+        assert m._unsigned_widen_digit(m.UDIGIT_TYPE(2)) << m.SHIFT == 256
+
+    def test_large_digit_count(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        value = (1 << (300 * m.SHIFT)) - 1
+        a = m.rbigint.fromlong(value)
+        assert a.numdigits() == 300
+        assert m._int_rem_core(a, 3) == value % 3
+        assert a.int_add(1).tolong() == value + 1
+        assert a.sub(m.ONERBIGINT).tolong() == value - 1
+        assert a.mul(a).tolong() == value * value
+
+    def test_byte_input_and_native_counters(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for nbytes in [8, 9]:
+            s = '\x00' * (nbytes - 1) + '\x80'
+            a = m.rbigint.frombytes(s, 'little', False)
+            assert a.tolong() == 128 << (8 * (nbytes - 1))
+        a = m.rbigint.fromint(128)
+        assert a.gcd(a).tolong() == 128
+        value = 3 ** 100
+        a = m.rbigint.fromlong(value * value)
+        assert a.isqrt().tolong() == value
+
+    def test_int_rem_core_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        base = 1 << m.SHIFT
+        values = [m.rbigint.fromlong(value) for value in range(base * base)]
+        for divisor in range(1, base):
+            # Exhaust the initial top digit, including top >= divisor.
+            for top in range(base):
+                value = top * base
+                assert m._int_rem_core(values[value], divisor) == value % divisor
+            # Exhaust every valid carried remainder / next-digit pair.
+            for rem in range(divisor):
+                for digit in range(base):
+                    # Keep a nonzero top digit even for remainder zero,
+                    # so every case executes the multi-digit loop.
+                    top = rem or divisor
+                    value = top * base + digit
+                    assert m._int_rem_core(values[value], divisor) == value % divisor
+
 
 def run():
-    shift = 9
-    print "USING SHIFT", shift, sys.argv[1]
-    _hacked_rbigint = _get_hacked_rbigint(shift)
-    globals().update(_hacked_rbigint.__dict__) # emulate import *
-    assert SHIFT == shift
+    print "USING SHIFT 7, byte/short arithmetic", sys.argv[1]
+    byte_limb_rbigint = _get_byte_limb_rbigint()
+    globals().update(byte_limb_rbigint.__dict__) # emulate import *
+    assert SHIFT == 7
     t = TestHypothesis()
     try:
         getattr(t, sys.argv[1])()

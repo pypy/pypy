@@ -14,13 +14,26 @@ import math, sys
 
 SUPPORT_INT128 = check_support_int128()
 BYTEORDER = sys.byteorder
+# The test loader can select byte/short arithmetic before executing this
+# module.  Normal imports always use the native digit configuration.
+TEST_SMALL_DIGITS = globals().get('TEST_SMALL_DIGITS', False)
+
+# Array indices and sizes must not shrink with the digit arithmetic.
+UINDEX_TYPE = r_uint
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
 # a sign bit plus two digits plus 1 overflow bit.
 
-#SHIFT = (LONG_BIT // 2) - 1
-if SUPPORT_INT128:
+if TEST_SMALL_DIGITS:
+    SHIFT = 7
+    UDIGIT_TYPE = rffi.r_uchar
+    UDIGIT_MASK = intmask
+    STORE_TYPE = rffi.SIGNEDCHAR
+    UNSIGNED_TYPE = rffi.UCHAR
+    LONG_TYPE = rffi.SHORT
+    ULONG_TYPE = rffi.USHORT
+elif SUPPORT_INT128:
     SHIFT = 63
     UDIGIT_TYPE = r_ulonglong
     if LONG_BIT >= 64:
@@ -49,6 +62,8 @@ else:
 
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
+GCD_CHUNK_BITS = min(8, SHIFT)
+GCD_CHUNK_MASK = ((1 << GCD_CHUNK_BITS) - 1) << (SHIFT - GCD_CHUNK_BITS)
 
 # For BIGINT and INT mix.
 #
@@ -109,7 +124,8 @@ def _unsigned_widen_digit(x):
 
 @specialize.argtype(0)
 def _store_digit(x):
-    return rffi.cast(STORE_TYPE, x)
+    # Preserve the plain-int digit interface even with byte-sized storage.
+    return UDIGIT_MASK(rffi.cast(STORE_TYPE, x))
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -378,10 +394,14 @@ class rbigint(object):
 
             accum |= c << accumbits
             accumbits += 8
-            if accumbits >= SHIFT:
+            while accumbits >= SHIFT:
                 digits.append(_store_digit(intmask(accum & MASK)))
                 accum >>= SHIFT
                 accumbits -= SHIFT
+                # Native limbs are wider than a byte, so at most one limb
+                # can finish per input byte.  This folds away the backedge.
+                if SHIFT >= 8:
+                    break
 
         if accumbits:
             digits.append(_store_digit(intmask(accum)))
@@ -1097,7 +1117,7 @@ class rbigint(object):
                     "cannot be negative when 3rd argument specified")
             raise ValueError("bigint pow() too negative")
 
-        size_b = UDIGIT_TYPE(other.numdigits())
+        size_b = UINDEX_TYPE(other.numdigits())
 
         if modulus is not None:
             modulussign = modulus.get_sign()
@@ -1638,7 +1658,7 @@ class rbigint(object):
         c = (self.bit_length() - 1) // 2
         a = ONERBIGINT
         d = 0
-        for s in range(bits_in_digit(_store_digit(c)) - 1, -1, -1):
+        for s in range(bits_in_digit(c) - 1, -1, -1):
             # Loop invariant: (a-1)**2 < (self >> 2*(c - d)) < (a+1)**2
             e = d
             d = c >> s
@@ -1746,7 +1766,7 @@ def _x_add(a, b):
         a, b = b, a
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = UDIGIT_TYPE(0)
+    i = UINDEX_TYPE(0)
     carry = UDIGIT_TYPE(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
@@ -1767,7 +1787,7 @@ def _x_int_add(a, b):
     size_a = a.numdigits()
 
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = UDIGIT_TYPE(1)
+    i = UINDEX_TYPE(1)
     carry = a.udigit(0) + abs(b)
     z.setdigit(0, carry)
     carry >>= SHIFT
@@ -1807,7 +1827,7 @@ def _x_sub(a, b):
 
     z = rbigint([NULLDIGIT] * size_a, sign, size_a)
     borrow = UDIGIT_TYPE(0)
-    i = _load_unsigned_digit(0)
+    i = UINDEX_TYPE(0)
     while i < size_b:
         # The following assumes unsigned arithmetic
         # works modulo 2**N for some N>SHIFT.
@@ -1844,7 +1864,7 @@ def _x_int_sub(a, b):
         return rbigint.fromint(adigit - bdigit)
 
     z = rbigint([NULLDIGIT] * size_a, 1, size_a)
-    i = _load_unsigned_digit(1)
+    i = UINDEX_TYPE(1)
     # The following assumes unsigned arithmetic
     # works modulo 2**N for some N>SHIFT.
     borrow = a.udigit(0) - bdigit
@@ -1886,7 +1906,7 @@ def _x_mul(a, b, digit=0):
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
         z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        i = UDIGIT_TYPE(0)
+        i = UINDEX_TYPE(0)
         while i < size_a:
             f = a.uwidedigit(i)
             pz = i << 1
@@ -1930,9 +1950,9 @@ def _x_mul(a, b, digit=0):
     # use the following identity to reduce the number of operations
     # a * b = a_0*b_0 + sum_{i=1}^n(a_0*b_i + a_1*b_{i-1}) + a_1*b_n
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    i = UDIGIT_TYPE(0)
-    size_a1 = UDIGIT_TYPE(size_a - 1)
-    size_b1 = UDIGIT_TYPE(size_b - 1)
+    i = UINDEX_TYPE(0)
+    size_a1 = UINDEX_TYPE(size_a - 1)
+    size_b1 = UINDEX_TYPE(size_b - 1)
     while i < size_a1:
         f0 = a.uwidedigit(i)
         f1 = a.uwidedigit(i + 1)
@@ -1941,7 +1961,7 @@ def _x_mul(a, b, digit=0):
         z.setdigit(pz, carry)
         pz += 1
         carry >>= SHIFT
-        j = UDIGIT_TYPE(0)
+        j = UINDEX_TYPE(0)
         while j < size_b1:
             # this operation does not overflow using
             # SHIFT = (LONG_BIT // 2) - 1 = B - 1; in fact before it
@@ -2176,7 +2196,7 @@ def _divrem1(a, n):
 
 def _int_rem_core(a, digit):
     # digit must be positive
-    size = UDIGIT_TYPE(a.numdigits() - 1)
+    size = UINDEX_TYPE(a.numdigits() - 1)
 
     if size > 0:
         udivisor = UDIGIT_TYPE(digit)
@@ -2205,7 +2225,7 @@ def _v_iadd(x, xofs, m, y, n):
     carry = UDIGIT_TYPE(0)
 
     assert m >= n
-    i = _load_unsigned_digit(xofs)
+    i = UINDEX_TYPE(xofs)
     iend = xofs + n
     while i < iend:
         carry += x.udigit(i) + y.udigit(i-xofs)
@@ -2230,7 +2250,7 @@ def _v_isub(x, xofs, m, y, n):
     borrow = UDIGIT_TYPE(0)
 
     assert m >= n
-    i = _load_unsigned_digit(xofs)
+    i = UINDEX_TYPE(xofs)
     iend = xofs + n
     while i < iend:
         borrow = x.udigit(i) - y.udigit(i-xofs) - borrow
@@ -3720,9 +3740,9 @@ def gcd_lehmer(a, b):
         a_ms = a.digit(abs(a.numdigits()-1))
 
         x = 0
-        while a_ms & (0xFF << SHIFT-8) == 0:
-            a_ms <<= 8
-            x += 8
+        while a_ms & GCD_CHUNK_MASK == 0:
+            a_ms <<= GCD_CHUNK_BITS
+            x += GCD_CHUNK_BITS
 
         while a_ms & (1 << SHIFT-1) == 0:
             a_ms <<= 1
