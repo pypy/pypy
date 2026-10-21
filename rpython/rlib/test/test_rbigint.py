@@ -316,7 +316,7 @@ class TestRLong(object):
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
-            for op2 in [0, 1, 2, 8, 9, 10, 11]:
+            for op2 in [0, 1, 2, 3, 4, 8, 9, 10, 11]:
                 rl_op2 = rbigint.fromint(op2)
                 r1 = rl_op1.pow(rl_op2)
                 r2 = op1 ** op2
@@ -332,7 +332,7 @@ class TestRLong(object):
     def test_int_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
-            for op2 in [0, 1, 2, 8, 9, 10, 11, 127, 128, 129]:
+            for op2 in [0, 1, 2, 3, 4, 8, 9, 10, 11, 127, 128, 129]:
                 r1 = rl_op1.int_pow(op2)
                 r2 = op1 ** op2
                 assert r1.tolong() == r2
@@ -1491,6 +1491,18 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_pow(self):
+        def fn(base, exponent, modulus):
+            a = rbigint.fromint(base)
+            e = rbigint.fromint(exponent).lshift(SHIFT + 3).int_add(31)
+            m = rbigint.fromint(modulus)
+            return a.int_pow(exponent, m).toint(), a.pow(e, m).toint()
+        for args in [(-17, 3, -1009), (17, sys.maxint, 1009)]:
+            a, e, m = args
+            expected = pow(a, e, m), pow(a, (long(e) << (SHIFT + 3)) + 31, m)
+            result = interpret(fn, list(args))
+            assert (result.item0, result.item1) == expected
+
     def test_int_mod_int_result(self):
         def fn(x, divisor):
             a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
@@ -1599,6 +1611,32 @@ class TestTranslated(StandaloneTests):
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
+    @given(strategies.data())
+    def test_pow_windows(self, data):
+        # Construct sparse/dense exponents and windows near digit and
+        # algorithm boundaries, rather than relying on arbitrary integers.
+        nbits = data.draw(strategies.sampled_from([
+            SHIFT - 1, SHIFT, SHIFT + 1, 2 * SHIFT - 1, 2 * SHIFT + 1,
+            lobj.EXP_WINDOW_CUTOFF - 1, lobj.EXP_WINDOW_CUTOFF,
+            lobj.EXP_WINDOW_CUTOFF + 1, 9 * SHIFT + 3]))
+        top = 1 << (nbits - 1)
+        exponent = data.draw(strategies.one_of(
+            strategies.integers(top, 2 * top - 1),
+            strategies.sampled_from([top, top + 1, 2 * top - 1,
+                                      top | (top >> 1) | 1])))
+        base = data.draw(strategies.integers(-(1 << (2 * SHIFT)),
+                                             1 << (2 * SHIFT)))
+        modulus = data.draw(strategies.integers(-(1 << (2 * SHIFT)),
+                                                1 << (2 * SHIFT)))
+        assume(modulus != 0)
+        a = rbigint.fromlong(base)
+        e = rbigint.fromlong(exponent)
+        m = rbigint.fromlong(modulus)
+        expected = pow(base, exponent, modulus)
+        assert a.pow(e, m).tolong() == expected
+        if exponent <= sys.maxint:
+            assert a.int_pow(int(exponent), m).tolong() == expected
+
     @given(longs, longs, longs)
     def test_pow(self, x, y, z):
         f1 = rbigint.fromlong(x)
@@ -2108,6 +2146,113 @@ def _get_byte_limb_rbigint():
 @pytest.fixture(scope='module')
 def byte_limb_rbigint():
     return _get_byte_limb_rbigint()
+
+
+@pytest.fixture(params=[False, True], ids=['native', 'byte'])
+def pow_rbigint(request, byte_limb_rbigint):
+    return byte_limb_rbigint if request.param else lobj
+
+
+class TestPowAlgorithms(object):
+    def test_small_exponents(self, pow_rbigint, monkeypatch):
+        m = pow_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        for base in [-((1 << (2 * m.SHIFT)) + 3), -1, 0, 1,
+                     (1 << (2 * m.SHIFT)) + 3]:
+            a = m.rbigint.fromlong(base)
+            for exponent in range(4):
+                e = m.rbigint.fromint(exponent)
+                for modulus in [None, -1009, -1, 1, 1009]:
+                    c = None if modulus is None else m.rbigint.fromint(modulus)
+                    expected = base ** exponent if modulus is None else pow(base, exponent, modulus)
+                    for int_exponent in [False, True]:
+                        del calls[:]
+                        if int_exponent:
+                            result = a.int_pow(exponent, c)
+                        else:
+                            result = a.pow(e, c)
+                        assert result.tolong() == expected
+                        # Guard against reintroducing leading unit squarings.
+                        assert len(calls) <= max(0, exponent - 1)
+        zero = m.rbigint.fromint(0)
+        for exponent in range(4):
+            with pytest.raises(ValueError):
+                a.pow(m.rbigint.fromint(exponent), zero)
+            with pytest.raises(ValueError):
+                a.int_pow(exponent, zero)
+
+    def test_binary_operation_count(self, pow_rbigint, monkeypatch):
+        m = pow_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        a = m.rbigint.fromint(5)
+        modulus = m.rbigint.fromint(1009)
+        for exponent in [4, 5, 8, 17, (1 << min(m.SHIFT, 30)) + 1,
+                         (1 << (m.EXP_WINDOW_CUTOFF + 17)) + 1,
+                         sum(1 << (i * 8) for i in range(17))]:
+            expected_calls = exponent.bit_length() - 1 + bin(exponent).count('1') - 1
+            for int_exponent in [False, True]:
+                if int_exponent and exponent > sys.maxint:
+                    continue
+                del calls[:]
+                if int_exponent:
+                    result = a.int_pow(exponent, modulus)
+                else:
+                    result = a.pow(m.rbigint.fromlong(exponent), modulus)
+                assert result.toint() == pow(5, exponent, 1009)
+                assert len(calls) == expected_calls
+
+    def test_window_boundaries(self, pow_rbigint, monkeypatch):
+        m = pow_rbigint
+        original = m._help_mult
+        calls = []
+
+        def counted(x, y, modulus):
+            calls.append(None)
+            return original(x, y, modulus)
+        monkeypatch.setattr(m, '_help_mult', counted)
+        exponents = set()
+        for nbits in [m.SHIFT, m.SHIFT + 1, 2 * m.SHIFT - 1,
+                      2 * m.SHIFT, 2 * m.SHIFT + 1,
+                      m.EXP_WINDOW_CUTOFF - 1, m.EXP_WINDOW_CUTOFF,
+                      m.EXP_WINDOW_CUTOFF + 1, 9 * m.SHIFT + 3]:
+            top = 1 << (nbits - 1)
+            exponents.update([top, top | 1, 2 * top - 1,
+                              top | (top >> 1), top | (top >> 4) | 1])
+        # Exhaust short suffixes, including partial windows with trailing
+        # zeroes and full windows followed by zeroes or another window.
+        top = ((1 << m.EXP_WINDOW_CUTOFF) - 1) << (m.EXP_WINDOW_CUTOFF + 3)
+        exponents.update(top | suffix for suffix in range(256))
+        for exponent in sorted(exponents):
+            e = m.rbigint.fromlong(exponent)
+            binary_calls = exponent.bit_length() + bin(exponent).count('1') - 2
+            for base in [-1, 0, 1]:
+                del calls[:]
+                assert m.rbigint.fromint(base).pow(e).toint() == pow(base, exponent)
+                assert len(calls) <= binary_calls
+            for base, modulus in [(-12345, -1009), (0, 1009),
+                                  (12345, 1009), (12345, -1)]:
+                a = m.rbigint.fromint(base)
+                c = m.rbigint.fromint(modulus)
+                expected = pow(base, exponent, modulus)
+                del calls[:]
+                assert a.pow(e, c).tolong() == expected
+                assert len(calls) <= binary_calls
+                if exponent <= sys.maxint:
+                    del calls[:]
+                    assert a.int_pow(int(exponent), c).tolong() == expected
+                    assert len(calls) <= binary_calls
 
 
 class TestByteLimbArithmetic(object):

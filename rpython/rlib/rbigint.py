@@ -104,12 +104,12 @@ else:
 
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
-# For exponentiation, use the binary left-to-right algorithm
-# unless the exponent contains more than FIVEARY_CUTOFF digits.
-# In that case, do 5 bits at a time.  The potential drawback is that
-# a table of 2**5 intermediate results is computed.
-
-FIVEARY_CUTOFF = 8
+# For larger exponents, use a sliding window and precompute the 16 odd
+# powers base**1, base**3, ..., base**31.  The cutoff is in bits, independent
+# of the digit representation.
+EXP_WINDOW_SIZE = 5
+EXP_TABLE_SIZE = 1 << (EXP_WINDOW_SIZE - 1)
+EXP_WINDOW_CUTOFF = 120
 
 @specialize.argtype(0)
 def _mask_digit(x):
@@ -1106,10 +1106,6 @@ class rbigint(object):
         othersign = other.get_sign()
         negativeOutput = False  # if x<0 return negative output
 
-        # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == self**i % modulus for i in range(32).
-        # python translation: the table is computed when needed.
-
         if othersign < 0:  # if exponent is negative
             if modulus is not None:
                 raise TypeError(
@@ -1133,12 +1129,17 @@ class rbigint(object):
             if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
+            if othersign == 0:
+                if negativeOutput:
+                    return ONERBIGINT.sub(modulus)
+                return ONERBIGINT
+
             # Reduce base by modulus in some cases:
             # 1. If base < 0.  Forcing the base non-neg makes things easier.
             # 2. If base is obviously larger than the modulus.  The "small
             #    exponent" case later can multiply directly by base repeatedly,
-            #    while the "large exponent" case multiplies directly by base 31
-            #    times.  It can be unboundedly faster to multiply by
+            #    while the sliding-window case precomputes powers of base.
+            #    It can be unboundedly faster to multiply by
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
@@ -1167,71 +1168,58 @@ class rbigint(object):
         # At this point self, other, and modulus are guaranteed non-negative UNLESS
         # modulus is NULL, in which case self may be negative. */
 
-        z = ONERBIGINT
-
-        # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
-        # into helper function result = _help_mult(x, y, c)
-        if size_b <= FIVEARY_CUTOFF:
-            # Left-to-right binary exponentiation (HAC Algorithm 14.79)
-            # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-
-            while size_b > 0:
-                size_b -= 1
-                bi = other.digit(size_b)
-                j = 1 << (SHIFT-1)
-                while j != 0:
+        if size_b == 1 and other.digit(0) <= 3:
+            z = _help_pow_small(self, intmask(other.digit(0)), modulus)
+        elif not _help_pow_use_window(other):
+            # The highest set bit supplies the initial base.  Process only
+            # the bits below it, rather than repeatedly squaring one.
+            size_b -= 1
+            bi = other.digit(size_b)
+            j = (UDIGIT_TYPE(1) << (bits_in_digit(bi) - 1)) >> 1
+            z = self
+            while True:
+                while j:
                     z = _help_mult(z, z, modulus)
                     if bi & j:
                         z = _help_mult(z, self, modulus)
                     j >>= 1
-
-
+                if size_b == 0:
+                    break
+                size_b -= 1
+                bi = other.digit(size_b)
+                j = UDIGIT_TYPE(1) << (SHIFT - 1)
         else:
-            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where modulus != None.
-            # z still holds 1L
-            table = [z] * 32
-            table[0] = z
-            for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], self, modulus)
-
-            # Note that here SHIFT is not a multiple of 5.  The difficulty
-            # is to extract 5 bits at a time from 'other', starting from the
-            # most significant digits, so that at the end of the algorithm
-            # it falls exactly to zero.
-            # m  = max number of bits = i * SHIFT
-            # m+ = m rounded up to the next multiple of 5
-            # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
-            # (computed without doing "i * SHIFT", which might overflow)
-            j = size_b % 5
-            j = _jmapping[j]
-            if not we_are_translated():
-                assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
-            #
-            accum = r_uint(0)
+            # Left-to-right sliding windows.  pending starts at a set bit
+            # and holds at most EXP_WINDOW_SIZE bits, even across limbs.
+            square = _help_mult(self, self, modulus)
+            table = [self] * EXP_TABLE_SIZE
+            for i in range(1, len(table)):
+                table[i] = _help_mult(table[i - 1], square, modulus)
+            z = ONERBIGINT
+            pending = 0
+            blen = 0
+            size_b -= 1
+            bi = other.digit(size_b)
+            j = UDIGIT_TYPE(1) << (bits_in_digit(bi) - 1)
             while True:
-                j -= 5
-                if j >= 0:
-                    index = (accum >> j) & 0x1f
-                else:
-                    # 'accum' does not have enough digit.
-                    # must get the next digit from 'other' in order to complete
-                    if size_b == 0:
-                        break # Done
-
-                    size_b -= 1
-                    assert size_b >= 0
-                    bi = other.udigit(size_b)
-                    index = ((accum << (-j)) | (bi >> (j+SHIFT))) & 0x1f
-                    accum = bi
-                    j += SHIFT
-                #
-                for k in range(5):
-                    z = _help_mult(z, z, modulus)
-                if index:
-                    z = _help_mult(z, table[index], modulus)
-            #
-            assert j == -5
+                while j:
+                    pending = (pending << 1) | int((bi & j) != 0)
+                    if pending:
+                        blen += 1
+                        if blen == EXP_WINDOW_SIZE:
+                            z = _help_pow_window(z, pending, blen, table, modulus)
+                            pending = 0
+                            blen = 0
+                    else:
+                        z = _help_mult(z, z, modulus)
+                    j >>= 1
+                if size_b == 0:
+                    break
+                size_b -= 1
+                bi = other.digit(size_b)
+                j = UDIGIT_TYPE(1) << (SHIFT - 1)
+            if pending:
+                z = _help_pow_window(z, pending, blen, table, modulus)
 
         if negativeOutput and z.get_sign() != 0:
             z = z.sub(modulus)
@@ -1240,10 +1228,6 @@ class rbigint(object):
     @jit.elidable
     def int_pow(self, iother, modulus=None):
         negativeOutput = False  # if x<0 return negative output
-
-        # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == self**i % modulus for i in range(32).
-        # python translation: the table is computed when needed.
 
         if iother < 0:  # if exponent is negative
             if modulus is not None:
@@ -1254,6 +1238,8 @@ class rbigint(object):
 
         selfsign = self.get_sign()
         assert iother >= 0
+        if EXP_WINDOW_CUTOFF < LONG_BIT - 1 and iother >> EXP_WINDOW_CUTOFF:
+            return self.pow(rbigint.fromint(iother), modulus)
         if modulus is not None:
             modulussign = modulus.get_sign()
             if modulussign == 0:
@@ -1268,12 +1254,17 @@ class rbigint(object):
             if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
+            if iother == 0:
+                if negativeOutput:
+                    return ONERBIGINT.sub(modulus)
+                return ONERBIGINT
+
             # Reduce base by modulus in some cases:
             # 1. If base < 0.  Forcing the base non-neg makes things easier.
             # 2. If base is obviously larger than the modulus.  The "small
             #    exponent" case later can multiply directly by base repeatedly,
-            #    while the "large exponent" case multiplies directly by base 31
-            #    times.  It can be unboundedly faster to multiply by
+            #    while the sliding-window case precomputes powers of base.
+            #    It can be unboundedly faster to multiply by
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
@@ -1300,17 +1291,16 @@ class rbigint(object):
         # At this point self, iother, and modulus are guaranteed non-negative UNLESS
         # modulus is NULL, in which case self may be negative. */
 
-        z = ONERBIGINT
-
-        # Left-to-right binary exponentiation (HAC Algorithm 14.79)
-        # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-        j = 1 << (LONG_BIT-2)
-
-        while j != 0:
-            z = _help_mult(z, z, modulus)
-            if iother & j:
-                z = _help_mult(z, self, modulus)
-            j >>= 1
+        if iother <= 3:
+            z = _help_pow_small(self, iother, modulus)
+        else:
+            z = self
+            j = (1 << (bit_length_int(iother) - 1)) >> 1
+            while j:
+                z = _help_mult(z, z, modulus)
+                if iother & j:
+                    z = _help_mult(z, self, modulus)
+                j >>= 1
 
         if negativeOutput and z.get_sign() != 0:
             z = z.sub(modulus)
@@ -1676,14 +1666,6 @@ NULLRBIGINT = rbigint()
 
 TWO_NULLRBIGINTS = (NULLRBIGINT, NULLRBIGINT)
 
-_jmapping = [(5 * SHIFT) % 5,
-             (4 * SHIFT) % 5,
-             (3 * SHIFT) % 5,
-             (2 * SHIFT) % 5,
-             (1 * SHIFT) % 5]
-
-
-
 #_________________________________________________________________
 
 # Helper Functions
@@ -1701,6 +1683,48 @@ def _help_mult(x, y, c):
         res = res.mod(c)
 
     return res
+
+
+def _help_pow_small(base, exponent, modulus):
+    assert 1 <= exponent <= 3
+    if exponent == 1:
+        if modulus is not None:
+            return base.mod(modulus)
+        return base
+    result = _help_mult(base, base, modulus)
+    if exponent == 3:
+        result = _help_mult(result, base, modulus)
+    return result
+
+
+def _help_pow_use_window(exponent):
+    nbits = exponent.bit_length()
+    if nbits <= EXP_WINDOW_CUTOFF:
+        return False
+    # Binary exponentiation takes nbits + popcount - 2 multiplications.
+    # Windows take EXP_TABLE_SIZE + nbits + nwin, where each window
+    # consumes EXP_WINDOW_SIZE bits (except possibly the final window).
+    # Use that upper bound to ensure the table's setup cost is worthwhile,
+    # including for exponents with widely separated set bits.
+    max_windows = (nbits - 1) // EXP_WINDOW_SIZE + 1
+    return exponent.bit_count() > EXP_TABLE_SIZE + max_windows + 2
+
+
+def _help_pow_window(z, pending, blen, table, modulus):
+    # A window updates z to z**(2**blen) * base**pending.  Write
+    # pending = odd * 2**ntz.  Strip its trailing zeroes to index table,
+    # then perform those zero-bit squarings after the multiplication.
+    assert pending > 0 and blen > 0
+    ntz = 0
+    while pending & 1 == 0:
+        pending >>= 1
+        ntz += 1
+    for i in range(blen - ntz):
+        z = _help_mult(z, z, modulus)
+    z = _help_mult(z, table[pending >> 1], modulus)
+    for i in range(ntz):
+        z = _help_mult(z, z, modulus)
+    return z
 
 @specialize.argtype(0)
 def digits_from_nonneg_long(l):
