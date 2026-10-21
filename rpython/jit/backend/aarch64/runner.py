@@ -34,6 +34,11 @@ class CPU_ARM64(AbstractLLCPU):
         if self.HAS_CODEMAP:
             self.codemap.setup()
 
+    def finish_once(self):
+        if self.HAS_CODEMAP:
+            self.codemap.finish_once()
+        self.assembler.finish_once()
+
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
         clt = original_loop_token.compiled_loop_token
