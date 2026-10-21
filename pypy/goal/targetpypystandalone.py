@@ -316,6 +316,13 @@ class PyPyTarget(object):
             libdir.ensure(dir=1)
             pythonlib = "python{0[0]}{0[1]}.lib".format(CPYTHON_VERSION)
             config.translation.libname = str(libdir.join(pythonlib))
+            if config.objspace.usemodules.cpyext:
+                # cpyext writes this source during setup_library, the
+                # makefile turns it into python3.dll
+                from rpython.tool.udir import udir
+                from pypy.module.cpyext.api import MAPPING_DLL_SOURCE
+                config.translation.win_mapping_dll = str(
+                    udir.join(MAPPING_DLL_SOURCE))
 
         if config.translation.thread:
             config.objspace.usemodules.thread = True

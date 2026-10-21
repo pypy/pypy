@@ -7,7 +7,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
-    Py_ssize_t, Py_ssize_tP, PyObject, cts, ApiFunction)
+    Py_ssize_t, Py_ssize_tP, PyObject, cts, ApiFunction,
+    get_abi3_exports, generate_mapping_dll_source)
 from pypy.module.cpyext.test.test_cpyext import (
     freeze_refcnts, LeakCheckingTest)
 from pypy.interpreter.error import OperationError
@@ -109,6 +110,27 @@ def test_copy_header_files(tmpdir):
     check('Python.h')
     check('modsupport.h')
     check('pypy_decl.h')
+
+def test_abi3_exports():
+    exports = dict(get_abi3_exports())
+    assert exports['PyList_New'] is False
+    assert exports['PyArg_ParseTuple'] is False
+    assert exports['PyExc_ValueError'] is True
+    assert exports['PyType_Type'] is True
+    assert exports['PyOS_InputHook'] is True
+    # not in the limited API surface: keeps a full-API extension failing
+    # cleanly at dlopen instead of resolving and then crashing
+    assert '_Py_Dealloc' not in exports
+    assert 'PyList_GET_ITEM' not in exports
+
+def test_mapping_dll_source():
+    src = generate_mapping_dll_source('libpypy3.12-c.dll').read()
+    assert '#define PYPY_DLL_NAME "libpypy3.12-c.dll"' in src
+    # the forwarder target must carry the .dll extension
+    assert '"/EXPORT:" #name "=" PYPY_DLL_NAME "." #name' in src
+    assert 'EXPORT_FUNC(PyList_New)' in src
+    assert 'EXPORT_DATA(PyExc_ValueError)' in src
+    assert 'EXPORT_FUNC(_Py_Dealloc)' not in src
 
 def test_write_func():
     db = LowLevelDatabase()

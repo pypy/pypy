@@ -95,6 +95,12 @@ def test_compile_c(host, suffix):
             pdb_name = udir.join('src/pypy-c.pdb')
             pdb_name.ensure()
             pdb_name.write('pdb')
+            p3_name = udir.join('src/python3.dll')
+            p3_name.ensure()
+            p3_name.write('python3dll')
+            p3_lib = udir.join('src/python3.lib')
+            p3_lib.ensure()
+            p3_lib.write('python3lib')
             self.executable_name = mk.exe_name
 
     td = TranslationDriver(exe_name=str(exe_name))
@@ -102,6 +108,9 @@ def test_compile_c(host, suffix):
     td.cbuilder = CBuilder()
     # Normally done when creating the driver via from_targetspec
     td.standalone = True
+    # Normally set by targetpypystandalone on win32; cpyext generates the
+    # source, the makefile builds python3.dll out of it
+    td.config.translation.win_mapping_dll = str(udir.join('python3.c'))
 
     cwd = os.getcwd()
 
@@ -117,6 +126,8 @@ def test_compile_c(host, suffix):
 
     assert dst_name.read() == 'exe'
     assert dst_name.new(ext='dll').read() == 'dll'
+    assert dst_name.new(basename='python3.dll').read() == 'python3dll'
+    assert dst_name.new(basename='python3.lib').read() == 'python3lib'
     if host is windows.MsvcPlatform:
         assert dst_name.new(ext='lib').read() == 'lib'
         assert dst_name.new(purebasename=dst_name.purebasename + 'w').read() == 'wexe'
