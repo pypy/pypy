@@ -6,8 +6,8 @@ class Module(MixedModule):
     applevel_name = '_bz2'
 
     interpleveldefs = {
-        'BZ2Compressor'      : 'interp_bz2.W_BZ2Compressor',
-        'BZ2Decompressor'    : 'interp_bz2.W_BZ2Decompressor',
+        'BZ2Compressor': 'interp_bz2.W_BZ2Compressor',
+        'BZ2Decompressor': 'interp_bz2.W_BZ2Decompressor',
     }
 
     appleveldefs = {
