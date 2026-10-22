@@ -1491,6 +1491,13 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_negative_rshift(self):
+        def fn(x, shift):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_sub(1)
+            return a.rshift(shift).eq(a.invert().rshift(shift).invert())
+        for args in [(-MASK, 1), (-1, SHIFT), (0, sys.maxint)]:
+            assert interpret(fn, list(args))
+
     def test_lehmer_update(self):
         def fn(x, y, s, t):
             a = rbigint.fromint(x).lshift(SHIFT).int_add(x)
@@ -1620,6 +1627,23 @@ class TestTranslated(StandaloneTests):
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
+    @given(strategies.data())
+    def test_negative_rshift(self, data):
+        shift = data.draw(strategies.integers(0, 4 * SHIFT))
+        q = data.draw(strategies.one_of(
+            strategies.integers(0, (1 << (3 * SHIFT)) - 1),
+            strategies.sampled_from([0, 1, MASK, MASK + 1,
+                                      (1 << (3 * SHIFT)) - 1])))
+        limit = (1 << shift) - 1
+        tail = data.draw(strategies.one_of(
+            strategies.integers(0, limit),
+            strategies.sampled_from([0, min(1, limit), limit])))
+        x = -((q << shift) + tail)
+        a = rbigint.fromlong(x)
+        assert a.rshift(shift).tolong() == -(q + bool(tail))
+        assert a.rshift(shift, dont_invert=True).tolong() == -q
+        assert a.tolong() == x
+
     @given(strategies.data())
     def test_lehmer_update(self, data):
         nbits = data.draw(strategies.integers(1, 5 * SHIFT))
@@ -2282,6 +2306,40 @@ class TestPowAlgorithms(object):
                     del calls[:]
                     assert a.int_pow(int(exponent), c).tolong() == expected
                     assert len(calls) <= binary_calls
+
+
+class TestNegativeRshift(object):
+    def test_boundaries(self, arithmetic_rbigint, monkeypatch):
+        m = arithmetic_rbigint
+        def no_invert(self):
+            raise AssertionError('negative shifting must not invert its input')
+        monkeypatch.setattr(m.rbigint, 'invert', no_invert)
+        magnitudes = {1, 2, 3}
+        for k in range(1, 6):
+            power = 1 << (k * m.SHIFT)
+            magnitudes.update([power - 2, power - 1, power, power + 1, power + 2])
+        for magnitude in sorted(magnitudes):
+            a = m.rbigint.fromlong(-magnitude)
+            digits = a._digits[:]
+            shifts = [0, 1, m.SHIFT - 1, m.SHIFT, m.SHIFT + 1,
+                      2 * m.SHIFT - 1, 2 * m.SHIFT, 2 * m.SHIFT + 1,
+                      magnitude.bit_length() - 1, magnitude.bit_length(),
+                      magnitude.bit_length() + 1, sys.maxint]
+            for shift in shifts:
+                assert a.rshift(shift).tolong() == -magnitude >> shift
+                assert a.rshift(shift, dont_invert=True).tolong() == -(magnitude >> shift)
+                assert a._digits == digits and a.tolong() == -magnitude
+            assert a.rshift(0) is a
+            with pytest.raises(ValueError):
+                a.rshift(-1)
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for magnitude in range(1 << (2 * m.SHIFT)):
+            a = m.rbigint.fromint(-magnitude)
+            for shift in range(2 * m.SHIFT + 3):
+                assert a.rshift(shift).tolong() == -magnitude >> shift
+            assert a.tolong() == -magnitude
 
 
 class TestLehmerUpdate(object):

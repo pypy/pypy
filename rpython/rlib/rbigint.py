@@ -1437,8 +1437,7 @@ class rbigint(object):
             return self
         selfsign = self.get_sign()
         if selfsign == -1 and not dont_invert:
-            a = self.invert().rshift(int_other)
-            return a.invert()
+            return _rshift_negative(self, int_other)
 
         wordshift = int_other / SHIFT
         newsize = self.numdigits() - wordshift
@@ -2326,6 +2325,52 @@ def _v_lshift(z, a, m, d):
         i += 1
 
     return carry
+
+def _rshift_negative(a, shift):
+    """Shift a negative integer, rounding its magnitude up if bits are lost."""
+    assert a.get_sign() == -1 and shift > 0
+    wordshift = shift // SHIFT
+    size = a.numdigits() - wordshift
+    if size <= 0:
+        return ONENEGATIVERBIGINT
+    loshift = shift % SHIFT
+    if size == 1 and a.digit(wordshift) >> loshift == 0:
+        return ONENEGATIVERBIGINT
+
+    # For magnitude A = q*2**shift + r, floor(-A/2**shift) is
+    # -(q + (r != 0)).  Examine discarded bits without constructing r.
+    discarded = bool(a.udigit(wordshift) & ((UDIGIT_TYPE(1) << loshift) - 1))
+    if not discarded:
+        for i in range(wordshift):
+            if a.digit(i):
+                discarded = True
+                break
+
+    # Rounding can add a limb when shifting by a whole number of limbs:
+    # the retained magnitude might consist entirely of MASK digits.
+    # A partial-limb shift leaves enough headroom in the highest digit.
+    extra = int(loshift == 0 and discarded)
+    z = rbigint([NULLDIGIT] * (size + extra), -1)
+    carry = UDIGIT_TYPE(int(discarded))
+    accum = a.udigit(wordshift) >> loshift
+    hishift = SHIFT - loshift
+    for i in range(size - 1):
+        nextdigit = a.udigit(wordshift + i + 1)
+        # Unsigned shifts may wrap; only the low SHIFT bits are needed.
+        digit = ((nextdigit << hishift) | accum) & MASK
+        digit += carry
+        z.setdigit(i, digit)
+        carry = digit >> SHIFT
+        accum = nextdigit >> loshift
+    digit = accum + carry
+    z.setdigit(UINDEX_TYPE(size - 1), digit)
+    if extra:
+        z.setdigit(size, digit >> SHIFT)
+    else:
+        assert digit >> SHIFT == 0
+    z._normalize()
+    return z
+
 
 def _v_rshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits right, with 0 <= d < PyLong_SHIFT. Put
