@@ -59,6 +59,22 @@ def test_read_into_bytearray_then_resize():
     assert client.read(64) == b"again"
 
 
+def test_tls_unique_channel_binding():
+    # gh-5676: tls-unique is the *first* Finished message of the handshake
+    # (RFC 5929 section 3.1), the client's in a full handshake; PyPy used to
+    # return the server's, while tls_unique_cb() had the condition right
+    client, server, pump = _bio_pair()
+    cb = client.get_channel_binding("tls-unique")
+    assert cb is not None
+    assert cb == server.get_channel_binding("tls-unique")
+    tls_unique_cb = getattr(client._sslobj, 'tls_unique_cb', None)
+    if tls_unique_cb is not None:       # PyPy only, not in CPython's _ssl
+        assert cb == tls_unique_cb()
+        assert cb == server._sslobj.tls_unique_cb()
+    with pytest.raises(ValueError):
+        client.get_channel_binding("tls-server-end-point")
+
+
 def test_memorybio_write_bytearray_then_resize():
     bio = ssl.MemoryBIO()
     data = bytearray(b"abcdef")

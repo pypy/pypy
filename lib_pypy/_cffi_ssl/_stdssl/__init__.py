@@ -950,17 +950,11 @@ class _SSLSocket(object):
             return None
 
     def get_channel_binding(self, cb_type):
-        buf = ffi.new("char[]", SSL_CB_MAXLEN)
-        if cb_type == 'tls-unique':
-            if lib.SSL_session_reused(self.ssl) ^ self.socket_type:
-                length = lib.SSL_get_finished(self.ssl, buf, SSL_CB_MAXLEN)
-            else:
-                length = lib.SSL_get_peer_finished(self.ssl, buf, SSL_CB_MAXLEN)
-        else:
+        if cb_type != 'tls-unique':
             raise ValueError(f"'{cb_type}' channel binding type not implemented")
-        if length == 0:
-            return None
-        return _bytes_with_len(buf, length) 
+        # tls-unique is the first Finished message of the handshake
+        # (RFC 5929), which tls_unique_cb() below already gets right
+        return self.tls_unique_cb()
 
     def verify_client_post_handshake(self):
 
