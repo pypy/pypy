@@ -573,18 +573,20 @@ class _ReadlineWrapper:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
 
-    def append_history_file(self, filename: str = gethistoryfile()) -> None:
-        reader = self.get_reader()
+    def append_unsaved_history(self, filename: str = gethistoryfile()) -> None:
         saved_length = self.persisted_history_length
         length = self.get_current_history_length() - saved_length
-        history = reader.get_trimmed_history(length)
+        self._append_history(length, filename)
+        self.persisted_history_length = saved_length + length
+
+    def _append_history(self, nelements: int, filename: str) -> None:
+        history = self.get_reader().get_trimmed_history(nelements)
         with open(
             os.path.expanduser(filename), "a", encoding="utf-8", newline="\n"
         ) as f:
             for entry in history:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
-        self.persisted_history_length = saved_length + length
 
     def clear_history(self) -> None:
         del self.get_reader().history[:]
@@ -662,7 +664,7 @@ set_history_length = _wrapper.set_history_length
 get_current_history_length = _wrapper.get_current_history_length
 read_history_file = _wrapper.read_history_file
 write_history_file = _wrapper.write_history_file
-append_history_file = _wrapper.append_history_file
+append_history_file = _wrapper.append_unsaved_history
 clear_history = _wrapper.clear_history
 get_history_item = _wrapper.get_history_item
 remove_history_item = _wrapper.remove_history_item
@@ -681,6 +683,7 @@ multiline_input = _wrapper.multiline_input
 
 # Internal hook
 _get_reader = _wrapper.get_reader
+_append_unsaved_history = _wrapper.append_unsaved_history
 
 # ____________________________________________________________
 # Stubs
