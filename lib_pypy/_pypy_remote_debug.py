@@ -410,7 +410,6 @@ if sys.platform == 'win32':
     IMAGE_NT_SIGNATURE = 0x00004550    # PE\0\0
     IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x10B
     IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x20B
-    PYPY_MODULE_NAME = 'libpypy-c.dll'
     PYPYSIG_SECTION_NAME = 'pypysig'
 
     def _open_windows_process(pid):
@@ -432,10 +431,11 @@ if sys.platform == 'win32':
             if not kernel32.Module32First(snapshot, entry):
                 raise _windows_error('Module32First failed')
 
-            wanted = PYPY_MODULE_NAME.lower()
             while True:
                 name = ffi.string(entry.szModule).decode('mbcs', 'replace')
-                if name.lower() == wanted:
+                name_lower = name.lower()
+                if (name_lower.startswith('libpypy') and
+                        name_lower.endswith('-c.dll')):
                     filename = ffi.string(entry.szExePath).decode(
                         'mbcs', 'replace')
                     base_addr = int(ffi.cast('ULONG_PTR',
@@ -446,8 +446,8 @@ if sys.platform == 'win32':
         finally:
             kernel32.CloseHandle(snapshot)
 
-        raise ValueError('module %r not found in PID %d' %
-                         (PYPY_MODULE_NAME, pid))
+        raise ValueError('module matching libpypy*-c.dll not found in PID %d' %
+                         pid)
 
     def _check_pe_range(file_size, offset, size, what):
         if offset < 0 or size < 0 or offset + size > file_size:
@@ -497,8 +497,7 @@ if sys.platform == 'win32':
             virtual_address, = struct.unpack_from('<I', section, 12)
             return virtual_address, virtual_size, signed_size
 
-        raise ValueError('section %r not found in %s' %
-                         (section_name, PYPY_MODULE_NAME))
+        raise ValueError('section %r not found in PE file' % section_name)
 
     def _analyze_windows_pe(filename, section_name):
         with open(filename, 'rb') as fileobj:
