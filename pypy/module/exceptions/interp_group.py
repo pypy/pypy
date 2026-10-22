@@ -1,3 +1,4 @@
+from pypy.interpreter.error import oefmt
 from pypy.module.exceptions.interp_exceptions import W_BaseException, W_Exception, _new_exception
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, applevel
 from pypy.interpreter.typedef import (
@@ -12,7 +13,13 @@ class W_BaseExceptionGroup(W_BaseException):
         W_BaseException.__init__(self, space)
 
     @staticmethod
-    def descr_new(space, w_subtype, w_message, w_exceptions):
+    def descr_new(space, w_subtype, __args__):
+        args_w = __args__.arguments_w
+        if len(args_w) != 2:
+            raise oefmt(space.w_TypeError,
+                        "BaseExceptionGroup.__new__() takes exactly 2 "
+                        "arguments (%d given)", len(args_w))
+        w_message, w_exceptions = args_w
         w_subtype, w_exceptions = space.unpackiterable(check_new_args(space, w_subtype, w_message, w_exceptions), 2)
         exc = space.allocate_instance(W_BaseExceptionGroup, w_subtype)
         W_BaseExceptionGroup.__init__(exc, space)

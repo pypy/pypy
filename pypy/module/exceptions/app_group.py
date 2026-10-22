@@ -100,6 +100,8 @@ def __repr__(self):
 
 def _derive_and_copy_attrs(self, excs):
     eg = self.derive(excs)
+    if not isinstance(eg, BaseExceptionGroup):
+        raise TypeError("derive must return an instance of BaseExceptionGroup")
     if hasattr(self, "__notes__"):
         # Create a new list so that add_note() only affects one exceptiongroup
         try:
