@@ -12,6 +12,14 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint
 
 
+def _warn_throw_signature(space, w_val):
+    if w_val is not None:
+        space.warn(space.newtext(
+            "the (type, exc, tb) signature of throw() is deprecated, "
+            "use the single-arg signature instead."),
+            space.w_DeprecationWarning)
+
+
 class GeneratorOrCoroutine(W_Root):
     _immutable_fields_ = ['pycode']
 
@@ -180,6 +188,7 @@ return next yielded value or raise StopIteration."""
     def descr_throw(self, w_type, w_val=None, w_tb=None):
         """throw(typ[,val[,tb]]) -> raise exception in generator/coroutine,
 return next yielded value or raise StopIteration."""
+        _warn_throw_signature(self.space, w_val)
         return self.throw(w_type, w_val, w_tb)
 
     def throw(self, w_type, w_val, w_tb):
@@ -492,6 +501,7 @@ class CoroutineWrapper(W_Root):
     descr_send.__doc__ = Coroutine.descr_send.__doc__
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
+        _warn_throw_signature(self.coroutine.space, w_val)
         return self.coroutine.throw(w_type, w_val, w_tb)
     descr_throw.__doc__ = Coroutine.descr_throw.__doc__
 
@@ -771,6 +781,7 @@ class AsyncGenABase(W_Root):
         return self.do_send(w_arg)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None):
+        _warn_throw_signature(self.space, w_val)
         return self.do_throw(w_type, w_val, w_tb)
 
     def descr_close(self):
