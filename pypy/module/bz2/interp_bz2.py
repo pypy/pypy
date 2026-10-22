@@ -171,9 +171,6 @@ class bzlib_version_info(metaclass=structseqtype):
 def bzlib_version():
     return rffi.charp2str(BZ2_bzlibVersion())
 
-def get_version(space):
-    return space.newtext(bzlib_version())
-
 def get_version_info(space):
     w_version_info = app.wget(space, "bzlib_version_info")
     # run at startup time
