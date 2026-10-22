@@ -2206,6 +2206,20 @@ def arithmetic_rbigint(request, byte_limb_rbigint):
     return byte_limb_rbigint if request.param else lobj
 
 
+def test_tofloat_overflow_boundary(arithmetic_rbigint):
+    m = arithmetic_rbigint
+    # Halfway between the largest finite double and 2**1024: rounding
+    # reaches 2**1024 here, although the integer still has only 1024 bits.
+    boundary = (1 << 1024) - (1 << 970)
+    for sign in [-1, 1]:
+        for value in [boundary - 1, boundary - (1 << 970)]:
+            assert m.rbigint.fromlong(sign * value).tofloat() == float(sign * value)
+        for value in [boundary, boundary + 1, (1 << 1024) - 1,
+                      1 << 1024, 1 << 100000]:
+            with pytest.raises(OverflowError):
+                m.rbigint.fromlong(sign * value).tofloat()
+
+
 class TestPowAlgorithms(object):
     def test_small_exponents(self, arithmetic_rbigint, monkeypatch):
         m = arithmetic_rbigint

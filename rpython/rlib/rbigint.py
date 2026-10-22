@@ -2809,6 +2809,8 @@ def _AsDouble(n):
 
     # Find exponent: 2**(exp - 1) <= n < 2**exp
     exp = n.bit_length()
+    if exp > DBL_MAX_EXP:
+        raise OverflowError("integer too large to convert to float")
 
     # Get top DBL_MANT_DIG + 2 significant bits of n, with a 'sticky'
     # last bit: that is, the least significant bit of the result is 1
@@ -2831,8 +2833,7 @@ def _AsDouble(n):
     # ties rounded to even).
     q = (q >> 2) + r_uint((bool(q & 2) and bool(q & 5)))
 
-    if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
-                             q == r_ulonglong(1) << DBL_MANT_DIG):
+    if exp == DBL_MAX_EXP and q == r_ulonglong(1) << DBL_MANT_DIG:
         raise OverflowError("integer too large to convert to float")
 
     ad = math.ldexp(float(q), exp - DBL_MANT_DIG)
