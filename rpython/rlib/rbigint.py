@@ -2835,11 +2835,10 @@ def _AsDouble(n):
     else:
         shift = -shift
         assert shift > 0
-        n2 = n.rshift(shift)
-        q = _AsULonglong_mask(n2)
+        q = _AsULonglong_shifted(n, shift)
         if not we_are_translated():
-            assert q == n2.tolong()           # no masking actually done
-        # Equivalent to: not n.eq(n2.lshift(shift))
+            assert q == n.tolong() >> shift  # no masking actually done
+        # Equivalent to: not n.eq(n.rshift(shift).lshift(shift))
         if _has_discarded_bits(n, shift):
             q |= 1
 
@@ -3547,6 +3546,26 @@ def _AsULonglong_ignore_sign(v):
                     "long int too large to convert to unsigned long long int")
         i -= 1
     return x
+
+@always_inline
+def _AsULonglong_shifted(n, shift):
+    """Convert nonnegative n >> shift to r_ulonglong; the result must fit."""
+    # Equivalent to: _AsULonglong_mask(n.rshift(shift))
+    assert n.get_sign() >= 0 and shift >= 0
+    if not we_are_translated():
+        assert n.bit_length() - shift <= r_ulonglong.BITS
+    wordshift = shift // SHIFT
+    if wordshift >= n.numdigits():
+        return r_ulonglong(0)
+    bitshift = shift % SHIFT
+    q = r_ulonglong(n.udigit(wordshift) >> bitshift)
+    offset = SHIFT - bitshift
+    for i in range(wordshift + 1, n.numdigits()):
+        # Since the result fits, each remaining limb starts below bit 64.
+        q |= r_ulonglong(n.udigit(i)) << offset
+        offset += SHIFT
+    return q
+
 
 def make_unsigned_mask_conversion(T):
     def _As_unsigned_mask(v):

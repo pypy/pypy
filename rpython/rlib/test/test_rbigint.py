@@ -19,7 +19,8 @@ from rpython.rlib.rbigint import (frombytes_int, rbigint, SHIFT, MASK, KARATSUBA
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
     _format_lowest_level_divmod_int_results, _format_int10_18digits,
-    bit_length_int, _bitcount64, tobytes_int, _lehmer_update)
+    bit_length_int, _bitcount64, tobytes_int, _lehmer_update,
+    _AsULonglong_shifted, _AsULonglong_mask)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1637,6 +1638,30 @@ class TestTranslated(StandaloneTests):
 
 class TestHypothesis(object):
     @given(strategies.data())
+    def test_as_ulonglong_shifted(self, data):
+        shift = data.draw(strategies.one_of(
+            strategies.integers(0, 2000),
+            strategies.sampled_from([0, 1, SHIFT - 1, SHIFT, SHIFT + 1,
+                                    2 * SHIFT - 1, 2 * SHIFT, 2 * SHIFT + 1])))
+        # Construct the retained word and discarded region independently.
+        # Include full-width words, limb boundaries, and sparse/dense tails.
+        boundaries = {0, 1, (1 << 64) - 1, 1 << 63}
+        for bit in range(SHIFT, 64, SHIFT):
+            boundaries.update([(1 << bit) - 1, 1 << bit, (1 << bit) + 1])
+        word = data.draw(strategies.one_of(
+            strategies.integers(0, (1 << 64) - 1),
+            strategies.sampled_from(sorted(boundaries))))
+        tail_max = (1 << shift) - 1
+        tail = data.draw(strategies.one_of(
+            strategies.integers(0, tail_max),
+            strategies.sampled_from([0, tail_max, (1 << (shift // 2)) - 1])))
+        n = rbigint.fromlong((word << shift) | tail)
+        actual = _AsULonglong_shifted(n, shift)
+        assert type(actual) is r_ulonglong
+        assert actual == _AsULonglong_mask(n.rshift(shift))
+        assert actual == word
+
+    @given(strategies.data())
     def test_negative_rshift(self, data):
         shift = data.draw(strategies.integers(0, 4 * SHIFT))
         q = data.draw(strategies.one_of(
@@ -2218,8 +2243,7 @@ def arithmetic_rbigint(request, byte_limb_rbigint):
 def test_tofloat_sticky_bits(arithmetic_rbigint):
     m = arithmetic_rbigint
     # Exercise discarded regions ending within a limb and at limb boundaries.
-    shifts = [1, m.SHIFT - 1, m.SHIFT, m.SHIFT + 1,
-              2 * m.SHIFT, 2 * m.SHIFT + 1, 969]
+    shifts = list(range(1, 2 * m.SHIFT + 2)) + [969]
     for shift in shifts:
         positions = set([0, shift - 1])
         positions.update(range(m.SHIFT - 1, shift, m.SHIFT))
