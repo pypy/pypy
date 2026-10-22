@@ -573,6 +573,30 @@ class _ReadlineWrapper:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
 
+    # PyPy change: CPython's _pyrepl has append_history_file(filename),
+    # which appends the entries that weren't saved yet, like
+    # append_unsaved_history() below.  This is the readline module's.
+    def append_history_file(
+        self, nelements: int, filename: str | None = None, /
+    ) -> None:
+        if nelements < 0:
+            raise ValueError("nelements must be positive")
+        if filename is None:
+            filename = "~/.history"
+        self._append_history(nelements, filename)
+        if self.saved_history_length >= 0:
+            # truncate the file to the history length
+            reader = self.get_reader()
+            saved_history = reader.history
+            saved_length = self.persisted_history_length
+            reader.history = []
+            try:
+                self.read_history_file(filename)
+                self.write_history_file(filename)
+            finally:
+                reader.history = saved_history
+                self.persisted_history_length = saved_length
+
     def append_unsaved_history(self, filename: str = gethistoryfile()) -> None:
         saved_length = self.persisted_history_length
         length = self.get_current_history_length() - saved_length
@@ -664,7 +688,7 @@ set_history_length = _wrapper.set_history_length
 get_current_history_length = _wrapper.get_current_history_length
 read_history_file = _wrapper.read_history_file
 write_history_file = _wrapper.write_history_file
-append_history_file = _wrapper.append_unsaved_history
+append_history_file = _wrapper.append_history_file
 clear_history = _wrapper.clear_history
 get_history_item = _wrapper.get_history_item
 remove_history_item = _wrapper.remove_history_item
