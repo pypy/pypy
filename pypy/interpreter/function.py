@@ -878,4 +878,9 @@ def is_python_function(w_func):
         w_func = w_func.w_function
     if not isinstance(w_func, Function):
         return False
-    return not isinstance(w_func.getcode(), BuiltinCode)
+    code = w_func.getcode()
+    if isinstance(code, BuiltinCode):
+        return False
+    # Hidden applevel code fires no PY_START/PY_RETURN, so such a call must
+    # be reported as a C call, or CALL is left without a matching return.
+    return not code.hidden_applevel

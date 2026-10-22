@@ -145,7 +145,7 @@ class AppTestCProfile(object):
             entries[entry.code] = entry
         efoo = entries[foo.__code__]
         ebar = entries[bar.__code__]
-        assert 0.9 < efoo.totaltime < 2.9
+        assert 0.9 < efoo.totaltime < 2.9, efoo.totaltime
         # --- cannot test .inlinetime, because it does not include
         # --- the time spent doing the call to time.time()
         #assert 0.9 < efoo.inlinetime < 2.9
