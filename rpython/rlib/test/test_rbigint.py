@@ -1491,6 +1491,15 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_tofloat_sticky_bits(self):
+        def fn(tail, shift):
+            a = rbigint.fromint(1).lshift(54).int_add(2)
+            return a.lshift(shift).int_add(tail).tofloat()
+        for shift in [SHIFT, SHIFT + 1]:
+            for tail in [0, 1]:
+                expected = float((((1 << 54) + 2) << shift) + tail)
+                assert interpret(fn, [tail, shift]) == expected
+
     def test_negative_rshift(self):
         def fn(x, shift):
             a = rbigint.fromint(x).lshift(2 * SHIFT).int_sub(1)
@@ -2206,6 +2215,32 @@ def arithmetic_rbigint(request, byte_limb_rbigint):
     return byte_limb_rbigint if request.param else lobj
 
 
+def test_tofloat_sticky_bits(arithmetic_rbigint):
+    m = arithmetic_rbigint
+    # Exercise discarded regions ending within a limb and at limb boundaries.
+    shifts = [1, m.SHIFT - 1, m.SHIFT, m.SHIFT + 1,
+              2 * m.SHIFT, 2 * m.SHIFT + 1, 969]
+    for shift in shifts:
+        positions = set([0, shift - 1])
+        positions.update(range(m.SHIFT - 1, shift, m.SHIFT))
+        # Both even and odd retained significands, just below/at/above a tie.
+        for significand in [(1 << 52), (1 << 52) + 1, (1 << 53) - 1]:
+            for low in [0, 1, 2, 3]:
+                top = (significand << 2) | low
+                tails = [0, (1 << shift) - 1]
+                tails.extend(1 << bit for bit in positions)
+                for tail in tails:
+                    value = (top << shift) | tail
+                    for sign in [-1, 1]:
+                        try:
+                            expected = float(sign * value)
+                        except OverflowError:
+                            with pytest.raises(OverflowError):
+                                m.rbigint.fromlong(sign * value).tofloat()
+                        else:
+                            assert m.rbigint.fromlong(sign * value).tofloat() == expected
+
+
 def test_tofloat_overflow_boundary(arithmetic_rbigint):
     m = arithmetic_rbigint
     # Halfway between the largest finite double and 2**1024: rounding
@@ -2320,6 +2355,31 @@ class TestPowAlgorithms(object):
                     del calls[:]
                     assert a.int_pow(int(exponent), c).tolong() == expected
                     assert len(calls) <= binary_calls
+
+
+class TestDiscardedBits(object):
+    def test_boundaries(self, arithmetic_rbigint):
+        m = arithmetic_rbigint
+        magnitudes = {0, 1}
+        for bit in range(4 * m.SHIFT + 1):
+            magnitudes.update([1 << bit, (1 << bit) - 1, (1 << bit) + 1])
+        shifts = list(range(4 * m.SHIFT + 2)) + [sys.maxint]
+        for magnitude in sorted(magnitudes):
+            for sign in [-1, 1]:
+                a = m.rbigint.fromlong(sign * magnitude)
+                for shift in shifts:
+                    expected = magnitude != ((magnitude >> shift) << shift)
+                    assert m._has_discarded_bits(a, shift) == expected
+        with pytest.raises(AssertionError):
+            m._has_discarded_bits(m.NULLRBIGINT, -1)
+
+    def test_narrow_exhaustive(self, byte_limb_rbigint):
+        m = byte_limb_rbigint
+        for magnitude in range(1 << (2 * m.SHIFT)):
+            a = m.rbigint.fromint(magnitude)
+            for shift in range(2 * m.SHIFT + 2):
+                expected = bool(magnitude & ((1 << shift) - 1))
+                assert m._has_discarded_bits(a, shift) == expected
 
 
 class TestNegativeRshift(object):

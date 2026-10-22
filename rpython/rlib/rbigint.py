@@ -2326,6 +2326,23 @@ def _v_lshift(z, a, m, d):
 
     return carry
 
+@always_inline
+def _has_discarded_bits(a, shift):
+    """Whether shifting the magnitude of a right by shift loses set bits."""
+    # Equivalent to: not a.abs().eq(a.abs().rshift(shift).lshift(shift))
+    assert shift >= 0
+    wordshift = shift // SHIFT
+    if wordshift >= a.numdigits():
+        return a.get_sign() != 0
+    bitshift = shift % SHIFT
+    if a.udigit(wordshift) & ((UDIGIT_TYPE(1) << bitshift) - 1):
+        return True
+    for i in range(wordshift):
+        if a.digit(i):
+            return True
+    return False
+
+
 def _rshift_negative(a, shift):
     """Shift a negative integer, rounding its magnitude up if bits are lost."""
     assert a.get_sign() == -1 and shift > 0
@@ -2339,12 +2356,7 @@ def _rshift_negative(a, shift):
 
     # For magnitude A = q*2**shift + r, floor(-A/2**shift) is
     # -(q + (r != 0)).  Examine discarded bits without constructing r.
-    discarded = bool(a.udigit(wordshift) & ((UDIGIT_TYPE(1) << loshift) - 1))
-    if not discarded:
-        for i in range(wordshift):
-            if a.digit(i):
-                discarded = True
-                break
+    discarded = _has_discarded_bits(a, shift)
 
     # Rounding can add a limb when shifting by a whole number of limbs:
     # the retained magnitude might consist entirely of MASK digits.
@@ -2822,11 +2834,13 @@ def _AsDouble(n):
             assert q == n.tolong() << shift   # no masking actually done
     else:
         shift = -shift
+        assert shift > 0
         n2 = n.rshift(shift)
         q = _AsULonglong_mask(n2)
         if not we_are_translated():
             assert q == n2.tolong()           # no masking actually done
-        if not n.eq(n2.lshift(shift)):
+        # Equivalent to: not n.eq(n2.lshift(shift))
+        if _has_discarded_bits(n, shift):
             q |= 1
 
     # Now remove the excess 2 bits, rounding to nearest integer (with
