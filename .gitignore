@@ -46,6 +46,7 @@ lib_pypy/_syslog_cffi*
 lib_pypy/_tkinter/tklib_cffi*
 lib_pypy/tklib_cffi.o
 lib_pypy/_*test*pp80*.so
+lib_pypy/home
 rpython/rlib/rvmprof/src/shared/libbacktrace/config.h
 rpython/rlib/test/_hacked_rbigint.py
 include/pypy*
