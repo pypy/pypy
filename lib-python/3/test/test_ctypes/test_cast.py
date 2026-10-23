@@ -1,5 +1,5 @@
 from ctypes import *
-from test.test_ctypes import need_symbol, xfail
+from test.test_ctypes import need_symbol
 import unittest
 import sys
 
@@ -82,7 +82,6 @@ class Test(unittest.TestCase):
         self.assertEqual(cast(cast(s, c_void_p), c_wchar_p).value,
                              "hiho")
 
-    @xfail
     def test_bad_type_arg(self):
         # The type argument must be a ctypes pointer type.
         array_type = c_byte * sizeof(c_int)
