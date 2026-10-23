@@ -30,6 +30,32 @@ from pypy.interpreter.baseobjspace import W_Root
 
 _WIN32 = sys.platform == 'win32'
 _LINUX = sys.platform.startswith("linux")
+_DARWIN = sys.platform == 'darwin'
+
+if _DARWIN:
+    from rpython.translator import cdir
+    from rpython.translator.tool.cbuild import ExternalCompilationInfo
+    _count_threads_eci = ExternalCompilationInfo(
+        includes=['mach/mach.h'],
+        include_dirs=[cdir],
+        post_include_bits=['RPY_EXTERN long pypy_count_os_threads(void);'],
+        separate_module_sources=['''
+long pypy_count_os_threads(void)
+{
+    thread_array_t threads;
+    mach_msg_type_number_t i, n;
+    if (task_threads(mach_task_self(), &threads, &n) != KERN_SUCCESS)
+        return 0;
+    for (i = 0; i < n; i++)
+        mach_port_deallocate(mach_task_self(), threads[i]);
+    vm_deallocate(mach_task_self(), (vm_address_t)threads,
+                  n * sizeof(thread_t));
+    return n;
+}
+'''])
+    c_count_os_threads = rffi.llexternal(
+        'pypy_count_os_threads', [], rffi.LONG,
+        compilation_info=_count_threads_eci, releasegil=False)
 if _WIN32:
     from rpython.rlib import rwin32
 
@@ -1555,9 +1581,11 @@ def run_fork_hooks(where, space):
         hook(space)
 
 def _count_os_threads():
-    # best-effort, like CPython's warn_about_fork_with_threads: Linux
-    # /proc/self/stat's 20th field is the process' current thread count.
-    # Returns 0 (unknown) on any failure or on non-Linux platforms.
+    # best-effort, like CPython's warn_about_fork_with_threads: task_threads()
+    # on macOS, the 20th field of /proc/self/stat on Linux.
+    # Returns 0 (unknown) on any failure or on other platforms.
+    if _DARWIN:
+        return intmask(c_count_os_threads())
     if not _LINUX:
         return 0
     try:
@@ -1610,8 +1638,8 @@ def _warn_about_fork_with_threads(space, name):
         try:
             space.warn(
                 space.newtext(
-                    "This process is multi-threaded, use of %s() may "
-                    "lead to deadlocks in the child." % name),
+                    "This process (pid=%d) is multi-threaded, use of %s() "
+                    "may lead to deadlocks in the child." % (os.getpid(), name)),
                 space.w_DeprecationWarning)
         except OperationError as e:
             # like CPython's PyErr_Clear() here: this is a best-effort
