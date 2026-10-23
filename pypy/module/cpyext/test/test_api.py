@@ -7,12 +7,17 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
-    Py_ssize_t, Py_ssize_tP, PyObject, cts, ApiFunction)
+    Py_ssize_t, Py_ssize_tP, PyObject, cts, ApiFunction,
+    get_abi3_exports, generate_mapping_dll_source, SYMBOLS_C,
+    FUNCTIONS_BY_HEADER, GLOBALS)
 from pypy.module.cpyext.test.test_cpyext import (
     freeze_refcnts, LeakCheckingTest)
 from pypy.interpreter.error import OperationError
 from rpython.rlib import rawrefcount
 import os
+import re
+
+cpyext_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 @contextlib.contextmanager
 def raises_w(space, expected_exc):
@@ -109,6 +114,84 @@ def test_copy_header_files(tmpdir):
     check('Python.h')
     check('modsupport.h')
     check('pypy_decl.h')
+
+def test_abi3_exports():
+    exports = dict(get_abi3_exports())
+    assert exports['PyList_New'] is False
+    assert exports['PyArg_ParseTuple'] is False
+    assert exports['PyExc_ValueError'] is True
+    assert exports['PyType_Type'] is True
+    assert exports['PyOS_InputHook'] is True
+    # Py_INCREF/Py_DECREF compile to these under the limited API, so every
+    # abi3 extension imports them
+    assert exports['_Py_IncRef'] is False
+    assert exports['_Py_DecRef'] is False
+    # a shim from src/abi3_*.c
+    assert exports['PyUnicode_Partition'] is False
+    # not in the limited API surface: keeps a full-API extension failing
+    # cleanly at dlopen instead of resolving and then crashing
+    assert '_Py_Dealloc' not in exports
+    assert 'PyList_GET_ITEM' not in exports
+    # declared in the headers but not provided by PyPy
+    assert 'PySuper_Type' not in exports
+    assert 'PyObject_Length' not in exports
+
+# Declared by the static headers and in CPython's stable ABI, but no symbol
+# of that name exists in a translated build, so there is nothing to forward.
+ABI3_NOT_PROVIDED = set([
+    'PyLongRangeIter_Type', 'PyOS_strtol', 'PyOS_strtoul', 'PyObject_Length',
+    'PyRangeIter_Type', 'PySuper_Type', 'PyType_ClearCache',
+    '_PyObject_GC_Resize',
+    ])
+
+def _mangled_names():
+    """The names a translated build renames to PyPy*, so an extension can
+    never reference them."""
+    names = set(SYMBOLS_C)
+    for header_functions in FUNCTIONS_BY_HEADER.values():
+        for name, func in header_functions.items():
+            if not func.abi3:
+                names.add(name)
+    for name, (typ, expr, abi3) in GLOBALS.items():
+        if not abi3:
+            names.add(name.split('#')[0])
+    return names
+
+def _stable_abi_names():
+    """CPython's stable ABI, as listed in its own generated test."""
+    path = os.path.join(os.path.dirname(cpyext_dir), '..', '..',
+                        'lib-python', '3', 'test',
+                        'test_stable_abi_ctypes.py')
+    with open(path) as fid:
+        src = fid.read()
+    body = re.search(r'SYMBOL_NAMES = \((.*?)\n\)', src, re.S).group(1)
+    return set(re.findall(r'"([^"]+)"', body))
+
+def test_abi3_exports_cover_the_headers():
+    """Every stable-ABI name the static headers declare un-mangled must be
+    forwarded, or python3.dll silently misses it (e.g. a new shim added to
+    src/abi3_*.c without being listed in SYMBOLS_ABI3_EXTRA)."""
+    declared = set()
+    include = os.path.join(cpyext_dir, 'include')
+    decl = re.compile(r'PyAPI_(?:FUNC|DATA)\s*\([^)]*\)\s*\**\s*'
+                      r'(_?Py[A-Za-z0-9_]*)')
+    for name in os.listdir(include):
+        if name.endswith(('.h', '.inl')):
+            with open(os.path.join(include, name)) as fid:
+                declared.update(decl.findall(fid.read()))
+    exports = set(dict(get_abi3_exports()))
+    missing = ((declared & _stable_abi_names()) - exports
+               - _mangled_names() - ABI3_NOT_PROVIDED)
+    assert not missing
+
+def test_mapping_dll_source():
+    src = generate_mapping_dll_source('libpypy3.12-c.dll').read()
+    assert '#define PYPY_DLL_NAME "libpypy3.12-c.dll"' in src
+    # the forwarder target must carry the .dll extension
+    assert '"/EXPORT:" #name "=" PYPY_DLL_NAME "." #name' in src
+    assert 'EXPORT_FUNC(PyList_New)' in src
+    assert 'EXPORT_DATA(PyExc_ValueError)' in src
+    assert 'EXPORT_FUNC(_Py_Dealloc)' not in src
 
 def test_write_func():
     db = LowLevelDatabase()

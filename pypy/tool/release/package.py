@@ -310,7 +310,8 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL. Entries are (name, target_dir, optional):
         # an optional dll is packaged only if found, without warning
-        win_extras = [('lib' + POSIX_EXE + '-c.dll', None, False)]
+        win_extras = [('lib' + POSIX_EXE + '-c.dll', None, False),
+                      ('python3.dll', None, False)]
         if options.copy_dlls:
             win_extras +=[
                           ('sqlite3.dll', target, False),
