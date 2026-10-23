@@ -573,18 +573,44 @@ class _ReadlineWrapper:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
 
-    def append_history_file(self, filename: str = gethistoryfile()) -> None:
-        reader = self.get_reader()
+    # PyPy change: CPython's _pyrepl has append_history_file(filename),
+    # which appends the entries that weren't saved yet, like
+    # append_unsaved_history() below.  This is the readline module's.
+    def append_history_file(
+        self, nelements: int, filename: str | None = None, /
+    ) -> None:
+        if nelements < 0:
+            raise ValueError("nelements must be positive")
+        if filename is None:
+            filename = "~/.history"
+        self._append_history(nelements, filename)
+        if self.saved_history_length >= 0:
+            # truncate the file to the history length
+            reader = self.get_reader()
+            saved_history = reader.history
+            saved_length = self.persisted_history_length
+            reader.history = []
+            try:
+                self.read_history_file(filename)
+                self.write_history_file(filename)
+            finally:
+                reader.history = saved_history
+                self.persisted_history_length = saved_length
+
+    def append_unsaved_history(self, filename: str = gethistoryfile()) -> None:
         saved_length = self.persisted_history_length
         length = self.get_current_history_length() - saved_length
-        history = reader.get_trimmed_history(length)
+        self._append_history(length, filename)
+        self.persisted_history_length = saved_length + length
+
+    def _append_history(self, nelements: int, filename: str) -> None:
+        history = self.get_reader().get_trimmed_history(nelements)
         with open(
             os.path.expanduser(filename), "a", encoding="utf-8", newline="\n"
         ) as f:
             for entry in history:
                 entry = entry.replace("\n", "\r\n")  # multiline history support
                 f.write(entry + "\n")
-        self.persisted_history_length = saved_length + length
 
     def clear_history(self) -> None:
         del self.get_reader().history[:]
@@ -681,6 +707,7 @@ multiline_input = _wrapper.multiline_input
 
 # Internal hook
 _get_reader = _wrapper.get_reader
+_append_unsaved_history = _wrapper.append_unsaved_history
 
 # ____________________________________________________________
 # Stubs

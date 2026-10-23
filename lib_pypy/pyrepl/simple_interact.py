@@ -34,7 +34,7 @@ import code
 import ast
 import warnings
 
-from .readline import _get_reader, append_history_file, multiline_input
+from .readline import _get_reader, _append_unsaved_history, multiline_input
 
 TYPE_CHECKING = False
 
@@ -167,7 +167,7 @@ def run_multiline_interactive_console(
             more = console.push(_strip_final_indent(statement), filename=input_name, _symbol="single")  # type: ignore[call-arg]
             assert not more
             try:
-                append_history_file()
+                _append_unsaved_history()
             except (FileNotFoundError, PermissionError, OSError) as e:
                 warnings.warn(f"failed to open the history file for writing: {e}")
             input_n += 1

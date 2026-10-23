@@ -66,7 +66,7 @@ def test_insert_text_leading_tab():
     assert readline.get_line_buffer() == "\t"
 
 
-def test_append_history_file_only_writes_new_entries(tmpdir):
+def test_append_unsaved_history_only_writes_new_entries(tmpdir):
     history_file = str(tmpdir / "history")
     old_history = [
         readline.get_history_item(i)
@@ -79,9 +79,9 @@ def test_append_history_file_only_writes_new_entries(tmpdir):
         readline.set_history_length(0)
 
         readline.add_history("first")
-        readline.append_history_file(history_file)
+        readline._append_unsaved_history(history_file)
         readline.add_history("second\nline")
-        readline.append_history_file(history_file)
+        readline._append_unsaved_history(history_file)
 
         assert (tmpdir / "history").read("rb") == b"first\nsecond\r\nline\n"
     finally:
