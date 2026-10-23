@@ -130,8 +130,11 @@ def _is_cpython_dll(lowered):
     which is the stable ABI one PyPy provides."""
     if not (lowered.startswith('python') and lowered.endswith('.dll')):
         return False
-    middle = lowered[len('python'):-len('.dll')]
+    end = len(lowered) - len('.dll')
+    assert end >= 0
+    middle = lowered[len('python'):end]
     if middle.endswith('t'):            # free-threaded build
+        assert len(middle) >=1
         middle = middle[:-1]
     if len(middle) < 2:
         return False
