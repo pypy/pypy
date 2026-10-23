@@ -73,6 +73,7 @@ class FutureTests:
 @unittest.skipUnless(hasattr(tasks, '_CTask'),
                        'requires the C _asyncio module')
 class CFutureTests(FutureTests, unittest.IsolatedAsyncioTestCase):
+    # PyPy: there is no _CTask, but the class body must not fail
     try:
         cls = tasks._CTask
     except AttributeError:

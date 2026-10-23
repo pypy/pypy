@@ -289,7 +289,7 @@ class EventLoopTestsMixin:
         ):
             self.assertRaises(
                 RuntimeError, self.loop.run_until_complete, coro2())
-            support.gc_collect()
+            support.gc_collect()  # PyPy: the warning is emitted by the GC
 
     # Note: because of the default Windows timing granularity of
     # 15.6 msec, we use fairly long sleep times here (~100 msec).

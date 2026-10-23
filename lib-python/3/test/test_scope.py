@@ -551,6 +551,7 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn("x", varnames)
         self.assertIn("y", varnames)
 
+    # PyPy: not cpython_only, passes on PyPy too
     def testLocalsClass_WithTrace(self):
         # Issue23728: after the trace function returns, the locals()
         # dictionary is used to update all variables, this used to
@@ -580,6 +581,7 @@ class ScopeTests(unittest.TestCase):
         inst = f(3)()
         self.assertEqual(inst.a, inst.m())
 
+    # PyPy: not cpython_only, passes on PyPy too
     def testInteractionWithTraceFunc(self):
 
         import sys
@@ -779,6 +781,7 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(hasattr(X, "x"))
         self.assertEqual(x, 42)
 
+    # PyPy: not cpython_only, passes on PyPy too
     def testCellLeak(self):
         # Issue 17927.
         #

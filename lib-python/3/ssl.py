@@ -1233,6 +1233,7 @@ class SSLSocket(socket):
                     "non-zero flags not allowed in calls to sendall() on %s" %
                     self.__class__)
             count = 0
+            # PyPy modification: fast path for bytes
             if type(data) is bytes:
                 amount = len(data)
                 while count < amount:
