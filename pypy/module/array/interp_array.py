@@ -12,6 +12,7 @@ from pypy.interpreter.buffer import BufferView
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.py_buffer import W_BufferExporter
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.objspace.std.util import generic_alias_class_getitem
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
@@ -859,6 +860,8 @@ W_ArrayBase.typedef = TypeDef(
     __copy__ = interp2app(W_ArrayBase.descr_copy),
     __reduce_ex__ = interp2app(W_ArrayBase.descr_reduce_ex),
     byteswap = interp2app(W_ArrayBase.descr_byteswap),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 
 
