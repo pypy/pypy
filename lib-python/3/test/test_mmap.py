@@ -36,6 +36,9 @@ class MmapTests(unittest.TestCase):
             os.unlink(TESTFN)
 
     def tearDown(self):
+        # PyPy: close the mmaps the test left open, Windows can't remove
+        # a file that is still mapped
+        gc_collect()
         try:
             os.unlink(TESTFN)
         except OSError:
