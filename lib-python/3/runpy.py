@@ -139,6 +139,9 @@ def _get_module_details(mod_name, error=ImportError):
                     f"'{mod_name}' as the module name.")
         raise error(msg.format(mod_name, type(ex).__name__, ex)) from ex
     if spec is None:
+        if mod_name == "pip":    # pypy extension
+            mod_name += (' (to install pip, you need to run once'
+                         ' "%s -m ensurepip")' % (sys.executable,))
         raise error("No module named %s" % mod_name)
     if spec.submodule_search_locations is not None:
         if mod_name == "__main__" or mod_name.endswith(".__main__"):
