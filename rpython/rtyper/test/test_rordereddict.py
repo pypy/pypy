@@ -330,6 +330,22 @@ class TestRDictDirect(object):
         rordereddict.ll_prepare_dict_update(ll_d, 7)
         # used to get UninitializedMemoryAccess
 
+    def test_remove_deleted_items_in_place_clears_moved_keys(self):
+        DICT = self._get_str_dict()
+        ll_d = rordereddict.ll_newdict(DICT)
+        keys = [llstr(chr(i)) for i in range(10)]
+        for key in keys:
+            rordereddict.ll_dict_setitem(ll_d, key, 5)
+        for key in keys[:3]:
+            rordereddict.ll_dict_delitem(ll_d, key)
+        entries = ll_d.entries
+        rordereddict.ll_dict_remove_deleted_items(ll_d)
+        assert ll_d.entries == entries      # compacted in place
+        assert ll_d.num_ever_used_items == 7
+        for i in range(7, 10):
+            for key in keys[3:]:
+                assert ll_d.entries[i].key != key
+
     def test_bug_resize_counter(self):
         DICT = self._get_int_dict()
         ll_d = rordereddict.ll_newdict(DICT)
@@ -403,6 +419,31 @@ class TestRDictDirectDummyKey(TestRDictDirect):
 class TestRDictDirectDummyValue(TestRDictDirect):
     class dummyvalueobj:
         ll_dummy_value = -42
+
+def test_remove_deleted_items_in_place_clears_moved_dummy_values():
+    def eq(a, b):
+        return a == b
+    class dummyvalueobj:
+        ll_dummy_value = llstr("dummy")
+    DICT = rordereddict.get_ll_dict(lltype.Signed, lltype.Ptr(rstr.STR),
+                                    ll_fasthash_function=intmask,
+                                    ll_hash_function=intmask,
+                                    ll_eq_function=eq,
+                                    dummyvalueobj=dummyvalueobj)
+    ll_d = rordereddict.ll_newdict(DICT)
+    values = [llstr(str(i)) for i in range(10)]
+    for i, value in enumerate(values):
+        rordereddict.ll_dict_setitem(ll_d, i, value)
+    for i in range(3):
+        rordereddict.ll_dict_delitem(ll_d, i)
+    entries = ll_d.entries
+    rordereddict.ll_dict_remove_deleted_items(ll_d)
+    assert ll_d.entries == entries      # compacted in place
+    assert ll_d.num_ever_used_items == 7
+    for i in range(7, 10):
+        for value in values[3:]:
+            assert ll_d.entries[i].value != value
+
 
 class TestOrderedRDict(BaseTestRDict):
     @staticmethod
