@@ -8,7 +8,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 import py, sys, platform
 if sys.platform != 'win32':
-    pytest.skip("Windows only")
+    pytest.skip("Windows only", allow_module_level=True)
 
 
 def get_manifest(executable, allow_missing=False):
