@@ -27,7 +27,8 @@ from test import support
 from test.support import os_helper
 from test.support import (
     TestFailed, run_with_locales, no_tracing,
-    _2G, _4G, bigmemtest
+    _2G, _4G, bigmemtest,
+    impl_detail
     )
 from test.support.import_helper import forget
 from test.support.os_helper import TESTFN
@@ -3156,6 +3157,7 @@ class AbstractPickleTests:
                 loaded = self.loads(dumped)
                 self.assert_is_copy(obj, loaded)
 
+    @impl_detail("pypy does not store attribute names", pypy=False)
     def test_attribute_name_interning(self):
         # Test that attribute names of pickled objects are interned when
         # unpickling.

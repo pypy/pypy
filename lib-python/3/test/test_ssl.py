@@ -4840,6 +4840,7 @@ class TestSSLDebug(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             ctx.keylog_filename = 1
+        ctx.keylog_filename = None  # PyPy: close the file now, not in the GC
 
     @requires_keylog
     def test_keylog_filename(self):
@@ -4901,9 +4902,11 @@ class TestSSLDebug(unittest.TestCase):
                     self.skipTest("not supported on Win32 debug build")
                 raise
             self.assertEqual(ctx.keylog_filename, os_helper.TESTFN)
+            ctx.keylog_filename = None  # PyPy: close the file now, not in the GC
 
             ctx = ssl._create_stdlib_context()
             self.assertEqual(ctx.keylog_filename, os_helper.TESTFN)
+            ctx.keylog_filename = None  # PyPy: close the file now, not in the GC
 
     def test_msg_callback(self):
         client_context, server_context, hostname = testing_context()

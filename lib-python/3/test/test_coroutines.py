@@ -2211,6 +2211,7 @@ class CoroutineTest(unittest.TestCase):
             pass
         with self.assertWarns(RuntimeWarning):
             frame = f().cr_frame
+            support.gc_collect()  # PyPy: GC triggers _finalize_ which emits the warning
         frame.clear()
 
     def test_bpo_45813_2(self):
@@ -2393,6 +2394,7 @@ class OriginTrackingTest(unittest.TestCase):
         finally:
             sys.set_coroutine_origin_tracking_depth(orig_depth)
 
+    @support.cpython_only # pypy has this function in _warnings
     def test_unawaited_warning_when_module_broken(self):
         # Make sure we don't blow up too bad if
         # warnings._warn_unawaited_coroutine is broken somehow (e.g. because

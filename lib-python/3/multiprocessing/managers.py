@@ -730,6 +730,7 @@ class BaseManager(object):
                     )
                 conn = self._Client(token.address, authkey=self._authkey)
                 dispatch(conn, None, 'decref', (token.id,))
+                conn.close()  # PyPy: don't leave it to the GC
                 return proxy
             temp.__name__ = typeid
             setattr(cls, typeid, temp)

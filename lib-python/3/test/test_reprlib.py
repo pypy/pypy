@@ -186,8 +186,12 @@ class ReprTests(unittest.TestCase):
         # Functions
         eq(repr(hash), '<built-in function hash>')
         # Methods
-        self.assertTrue(repr(''.split).startswith(
-            '<built-in method split of str object at 0x'))
+        self.assertTrue(any((
+            # cpython
+            repr(''.split).startswith('<built-in method split of str object at 0x'),
+            # pypy
+            repr(''.split) == "<bound method str.split of ''>",
+        )))
 
     def test_range(self):
         eq = self.assertEqual
@@ -226,7 +230,12 @@ class ReprTests(unittest.TestCase):
     def test_descriptors(self):
         eq = self.assertEqual
         # method descriptors
-        eq(repr(dict.items), "<method 'items' of 'dict' objects>")
+        self.assertTrue(any((
+            # cpython
+            repr(dict.items) == "<method 'items' of 'dict' objects>",
+            # pypy
+            repr(dict.items).startswith("<function dict.items at 0x"),
+        )))
         # XXX member descriptors
         # XXX attribute descriptors
         # XXX slot descriptors

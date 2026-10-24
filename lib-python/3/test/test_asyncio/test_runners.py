@@ -8,6 +8,7 @@ import unittest
 from test.test_asyncio import utils as test_utils
 from unittest import mock
 from unittest.mock import patch
+from test import support
 
 
 def tearDownModule():
@@ -399,6 +400,8 @@ class RunnerTests(BaseTest):
                     ),
                 ):
                     runner.run(f())
+                # PYPY: add gc.collect
+                support.gc_collect()
 
     def test_interrupt_call_soon(self):
         # The only case when task is not suspended by waiting a future

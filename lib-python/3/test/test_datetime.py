@@ -9,8 +9,12 @@ TESTS = 'test.datetimetester'
 
 def load_tests(loader, tests, pattern):
     try:
+        # PyPy: keep the _pydatetime module that cpyext's datetime C API uses
+        pure_fresh = ['datetime', '_strptime']
+        if sys.implementation.name != 'pypy':
+            pure_fresh.insert(1, '_pydatetime')
         pure_tests = import_fresh_module(TESTS,
-                                         fresh=['datetime', '_pydatetime', '_strptime'],
+                                         fresh=pure_fresh,
                                          blocked=['_datetime'])
         fast_tests = import_fresh_module(TESTS,
                                          fresh=['datetime', '_strptime'],
