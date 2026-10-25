@@ -100,6 +100,8 @@ def __repr__(self):
 
 def _derive_and_copy_attrs(self, excs):
     eg = self.derive(excs)
+    if not isinstance(eg, BaseExceptionGroup):
+        raise TypeError("derive must return an instance of BaseExceptionGroup")
     if hasattr(self, "__notes__"):
         # Create a new list so that add_note() only affects one exceptiongroup
         try:
@@ -116,9 +118,8 @@ def _derive_and_copy_attrs(self, excs):
 _SENTINEL = object()
 
 def _is_same_exception_metadata(exc1, exc2):
-    # TODO: Exception or BaseException?
-    assert isinstance(exc1, Exception)
-    assert isinstance(exc2, Exception)
+    assert isinstance(exc1, BaseException)
+    assert isinstance(exc2, BaseException)
 
     return (getattr(exc1, '__notes__', _SENTINEL) is getattr(exc2, '__notes__', _SENTINEL) and
             exc1.__traceback__ is exc2.__traceback__ and
@@ -216,5 +217,5 @@ def _prep_reraise_star(orig, exc_list):
         raised_list.append(reraised_eg)
     if len(raised_list) == 1:
         return raised_list[0]
-    return ExceptionGroup("", raised_list)
+    return BaseExceptionGroup("", raised_list)
 

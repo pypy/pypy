@@ -2317,14 +2317,13 @@ def check_except_star_type_valid(space, w_typ):
 def exception_group_match(space, w_eg, w_typ, frame):
     if space.is_w(w_eg, space.w_None):
         return space.w_None, space.w_None
-    assert space.isinstance_w(w_eg, space.w_Exception)
+    assert space.isinstance_w(w_eg, space.w_BaseException)
     w_BaseExceptionGroup = space.getattr(space.builtin, space.newtext('BaseExceptionGroup'))
-    w_ExceptionGroup = space.getattr(space.builtin, space.newtext('ExceptionGroup'))
     if space.exception_match(space.type(w_eg), w_typ):
         if space.isinstance_w(w_eg, w_BaseExceptionGroup):
             return w_eg, space.w_None
-        w_list = space.newlist([w_eg])
-        w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
+        w_excs = space.newtuple([w_eg])
+        w_wrapped = space.call_function(w_BaseExceptionGroup, space.newtext(''), w_excs)
         if not frame.pycode.hidden_applevel:
             from pypy.interpreter.pytraceback import PyTraceback
             tb = PyTraceback(space, frame, frame.last_instr, None)
