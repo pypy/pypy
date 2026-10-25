@@ -888,3 +888,87 @@ def test_except_star_wrapped_naked_traceback():
     assert tb.tb_lineno == f.__code__.co_firstlineno + 3
     assert tb.tb_next is None
     assert eg.exceptions[0].__traceback__.tb_lineno == f.__code__.co_firstlineno + 2
+
+def test_except_star_naked_base_exception():
+    try:
+        raise KeyboardInterrupt
+    except* KeyboardInterrupt as e:
+        eg = e
+    assert type(eg) is BaseExceptionGroup
+    assert eg.args[1] == (eg.exceptions[0],)
+    assert type(eg.exceptions[0]) is KeyboardInterrupt
+
+# a group made by except* has no traceback until it leaves its frame; old pytest.raises() needs one
+def test_except_star_handler_raises():
+    for exc_type in [KeyboardInterrupt, SystemExit, RuntimeError]:
+        def f():
+            try:
+                raise ExceptionGroup("orig", [ValueError()])
+            except* ValueError:
+                raise exc_type("from handler")
+        with pytest.raises(exc_type):
+            f()
+
+        def f():
+            try:
+                raise ExceptionGroup("orig", [ValueError(), TypeError()])
+            except* ValueError:
+                raise exc_type("from handler")
+        with pytest.raises(BaseExceptionGroup) as info:
+            f()
+        eg = info.value
+        if exc_type is RuntimeError:
+            assert type(eg) is ExceptionGroup
+        else:
+            assert type(eg) is BaseExceptionGroup
+        raised, rest = eg.exceptions
+        assert type(raised) is exc_type
+        assert type(rest) is ExceptionGroup
+        assert [type(e) for e in rest.exceptions] == [TypeError]
+
+def test_except_star_handlers_raise_base_exception_and_exception():
+    def f():
+        try:
+            raise ExceptionGroup("orig", [TypeError(), ValueError()])
+        except* TypeError:
+            raise KeyboardInterrupt("from handler")
+        except* ValueError:
+            raise RuntimeError("from handler")
+    with pytest.raises(BaseExceptionGroup) as info:
+        f()
+    assert type(info.value) is BaseExceptionGroup
+    assert [type(e) for e in info.value.exceptions] == [KeyboardInterrupt, RuntimeError]
+
+def test_except_star_base_exception_group():
+    orig = BaseExceptionGroup("orig", [KeyboardInterrupt(), ValueError()])
+    def f():
+        try:
+            raise orig
+        except* KeyboardInterrupt:
+            raise
+    with pytest.raises(BaseExceptionGroup) as info:
+        f()
+    assert type(info.value) is BaseExceptionGroup
+    assert info.value.exceptions == orig.exceptions
+
+    def f():
+        try:
+            raise BaseExceptionGroup("orig", [KeyboardInterrupt(), ValueError()])
+        except* ValueError:
+            pass
+    with pytest.raises(BaseExceptionGroup) as info:
+        f()
+    assert type(info.value) is BaseExceptionGroup
+    assert [type(e) for e in info.value.exceptions] == [KeyboardInterrupt]
+
+    def f():
+        try:
+            raise BaseExceptionGroup("orig", [KeyboardInterrupt(), ValueError()])
+        except* KeyboardInterrupt:
+            raise RuntimeError("from handler")
+    with pytest.raises(ExceptionGroup) as info:
+        f()
+    raised, rest = info.value.exceptions
+    assert type(raised) is RuntimeError
+    assert type(rest) is ExceptionGroup
+    assert [type(e) for e in rest.exceptions] == [ValueError]
