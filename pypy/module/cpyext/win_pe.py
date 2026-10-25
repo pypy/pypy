@@ -8,8 +8,6 @@ have, and must be rejected before anything is mapped into the process.
 """
 import os
 
-from rpython.rlib.rstring import assert_str0
-
 O_BINARY = getattr(os, 'O_BINARY', 0)
 
 _ABI3_TOO_OLD = ('this C extension was built for the limited API of Python'
@@ -165,7 +163,7 @@ def cpython_only_reason(imports):
 def imports_of(filename):
     """pe_imports() of a file, [] if it cannot be read."""
     try:
-        fd = os.open(assert_str0(filename), os.O_RDONLY | O_BINARY, 0400)
+        fd = os.open(filename, os.O_RDONLY | O_BINARY, 0400)
         try:
             chunks = []
             while True:

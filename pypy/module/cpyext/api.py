@@ -2189,6 +2189,8 @@ def reject_cpython_only_extension(space, path, w_name, w_path):
     if path.endswith(get_so_extension(space)):
         return      # built for this PyPy, not a candidate abi3 wheel
     from pypy.module.cpyext import win_pe
+    if '\x00' in path:
+        raise oefmt(space.w_ValueError, "embedded null character")
     reason = win_pe.cpython_only_reason(win_pe.imports_of(path))
     if reason is not None:
         raise raise_import_error(space, space.newtext(reason),
