@@ -340,6 +340,7 @@ testmap = [
     RegrTest('test_re.py'),
     RegrTest('test_readline.py'),
     RegrTest('test_regrtest.py'),
+    RegrTest('test_remote_pdb.py'),
     RegrTest('test_repl.py'),
     RegrTest('test_reprlib.py'),
     RegrTest('test_resource.py'),

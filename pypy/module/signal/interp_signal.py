@@ -224,7 +224,10 @@ def run_debugger(space, path):
         space.call_method(space.getattr(space.sys, space.newtext('stdout')), 'write', w_msg)
         try:
             stream = streamio.open_file_as_stream(path, 'r')
-            source = stream.readall()
+            try:
+                source = stream.readall()
+            finally:
+                stream.close()
         except streamio.StreamErrors as e:
             raise wrap_streamerror(space, e)
         ec = space.getexecutioncontext()
