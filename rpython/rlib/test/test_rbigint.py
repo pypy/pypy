@@ -1492,6 +1492,16 @@ class TestInternalFunctions(object):
 BASE = 2 ** SHIFT
 
 class TestTranslatable(object):
+    def test_tofloat_one_limb(self):
+        def fn(x):
+            a = rbigint.fromint(x)
+            # Construct the scale without shifting a signed machine int
+            # into its sign bit in translated code.
+            scale = float(1 << (SHIFT - 1)) * 2.0
+            return a.tofloat() == a.lshift(SHIFT).tofloat() / scale
+        for value in [0, 1, -1, MASK - 1, MASK, -MASK]:
+            assert interpret(fn, [value])
+
     def test_tofloat_sticky_bits(self):
         def fn(tail, shift):
             a = rbigint.fromint(1).lshift(54).int_add(2)
@@ -1637,6 +1647,27 @@ class TestTranslated(StandaloneTests):
             assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
+    @given(strategies.data())
+    def test_tofloat_one_limb(self, data):
+        boundaries = [0, 1, 2, MASK - 1, MASK]
+        for bit in [53, 54, SHIFT - 1]:
+            if bit <= SHIFT:
+                boundaries.extend([max(0, (1 << bit) - 1),
+                                   min(MASK, 1 << bit),
+                                   min(MASK, (1 << bit) + 1)])
+        magnitude = data.draw(strategies.one_of(
+            strategies.integers(0, MASK),
+            strategies.sampled_from(boundaries)))
+        sign = data.draw(strategies.sampled_from([-1, 1]))
+        value = sign * magnitude
+        a = rbigint.fromlong(value)
+        direct = a.tofloat()
+        assert direct == float(value)
+        # Multiplying by a limb base forces the general conversion path.
+        # Scaling its result back by the same power of two is exact.
+        general = a.lshift(SHIFT).tofloat() / float(1 << SHIFT)
+        assert direct == general
+
     @given(strategies.data())
     def test_as_ulonglong_shifted(self, data):
         shift = data.draw(strategies.one_of(

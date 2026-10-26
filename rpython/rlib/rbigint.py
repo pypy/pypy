@@ -2816,6 +2816,11 @@ def _AsDouble(n):
     sign = n.get_sign()
     if sign == 0:
         return 0.0
+    if n.numdigits() == 1:
+        # A digit fits in a signed machine integer.  The hardware conversion
+        # rounds it directly to the nearest double.
+        ad = float(n.digit(0))
+        return -ad if sign < 0 else ad
     elif sign < 0:
         n = n.neg()
 
