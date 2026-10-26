@@ -14,7 +14,7 @@ import threading
 import unittest
 import unittest.mock
 from contextlib import closing, contextmanager, redirect_stdout, redirect_stderr, ExitStack
-from test.support import is_wasi, is_pypy, requires_subprocess, SHORT_TIMEOUT, subTests
+from test.support import cpython_only, is_wasi, requires_subprocess, SHORT_TIMEOUT, subTests
 from test.support import _force_color as force_color
 from test.support.os_helper import TESTFN, unlink
 from typing import List
@@ -380,7 +380,7 @@ class PdbClientTestCase(unittest.TestCase):
         )
 
     # PyPy codeop treats this invalid input as incomplete instead of SyntaxError.
-    @unittest.expectedFailure if is_pypy else (lambda f: f)
+    @cpython_only
     def test_retry_pdb_prompt_on_syntax_error(self):
         """Test re-prompting after a SyntaxError in a Python expression."""
         incoming = [
@@ -399,7 +399,7 @@ class PdbClientTestCase(unittest.TestCase):
         )
 
     # PyPy codeop treats this invalid input as incomplete instead of SyntaxError.
-    @unittest.expectedFailure if is_pypy else (lambda f: f)
+    @cpython_only
     def test_retry_interact_prompt_on_syntax_error(self):
         """Test re-prompting after a SyntaxError in a Python expression."""
         incoming = [
@@ -1344,7 +1344,7 @@ class PdbConnectTestCase(unittest.TestCase):
             self.assertEqual(process.returncode, 0)
             self.assertEqual(stderr, "")
 
-    @unittest.skipIf(is_pypy, "PyPy pdb does not support colorized source")
+    @cpython_only
     def test_colorized_list_has_no_caret_encoded_newlines(self):
         """A colorized ``list`` must not append "^J" to each source line.
 
@@ -1734,7 +1734,7 @@ class PdbAttachTestCase(unittest.TestCase):
         self.assertIn("while x == 1", output["client"]["stdout"])
         self.assertNotIn("\x1b", output["client"]["stdout"])
 
-    @unittest.skipIf(is_pypy, "PyPy pdb does not support colorized source")
+    @cpython_only
     def test_attach_to_process_with_colors(self):
         with force_color(True):
             output = self.do_integration_test("ll\nx=42\n")
