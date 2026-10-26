@@ -34,12 +34,42 @@ def find_python3_lib():
     return None
 
 
+def _compile_distutils(outdir, libraries, extra_link_args):
+    """Compile through distutils, like extra_tests/cffi_tests do.
+
+    On Windows this is what finds the compiler: MSVCCompiler.initialize()
+    runs the vswhere lookup and sets INCLUDE/LIB/PATH itself, so no vcvars
+    shell is needed.  distutils comes from setuptools on Python >= 3.12,
+    hence the import below (see lib_pypy/cffi/_shimmed_dist_utils.py)."""
+    try:
+        import setuptools         # noqa: F401 - provides distutils on 3.12+
+    except ImportError:
+        pass
+    from distutils.ccompiler import new_compiler
+    from distutils import sysconfig
+
+    compiler = new_compiler()
+    compiler.output_dir = outdir
+    sysconfig.customize_compiler(compiler)
+    objects = compiler.compile(
+        [CSOURCE], include_dirs=[sysconfig.get_config_var('INCLUDEPY')])
+    out = MODNAME + importlib.machinery.EXTENSION_SUFFIXES[0]
+    compiler.link_shared_object(objects, out, libraries=libraries,
+                                export_symbols=['PyInit_' + MODNAME],
+                                extra_preargs=extra_link_args)
+    return os.path.join(outdir, out)
+
+
+def _compile_ccdriver(outdir, libraries, extra_link_args):
+    """Fallback for a PyPy without setuptools: PyPy's own driver, which
+    needs cl.exe already on PATH (PYPY_CC, or a vcvars shell)."""
+    from pypy_tools._cffi_compile import compile_shared
+    return compile_shared(CSOURCE, MODNAME, outdir, libraries=libraries,
+                          extra_link_args=extra_link_args)
+
+
 @pytest.fixture(scope='session')
 def abi3_module(tmpdir_factory):
-    try:
-        from pypy_tools._cffi_compile import compile_shared
-    except ImportError:
-        pytest.skip('needs lib_pypy/pypy_tools')
     libraries = extra_link_args = None
     if sys.platform == 'win32':
         python3 = find_python3_lib()
@@ -51,8 +81,13 @@ def abi3_module(tmpdir_factory):
         extra_link_args = [
             '/NODEFAULTLIB:python{0[0]}{0[1]}.lib'.format(sys.version_info)]
     outdir = str(tmpdir_factory.mktemp('abi3'))
-    built = compile_shared(CSOURCE, MODNAME, outdir, libraries=libraries,
-                           extra_link_args=extra_link_args)
+    try:
+        built = _compile_distutils(outdir, libraries, extra_link_args)
+    except ImportError:
+        try:
+            built = _compile_ccdriver(outdir, libraries, extra_link_args)
+        except ImportError:
+            pytest.skip('needs setuptools or lib_pypy/pypy_tools')
     suffix = abi3_suffix()
     if suffix not in importlib.machinery.EXTENSION_SUFFIXES:
         # an older build without abi3 import support: still exercise
