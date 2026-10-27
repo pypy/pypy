@@ -34,6 +34,61 @@ def find_python3_lib():
     return None
 
 
+def win32_diagnosis():
+    """Why the loader could not resolve an import of the .pyd.
+
+    "The specified module could not be found" names nothing, so walk the
+    chain cpyext relies on (api.py:load_mapping_dll): is python3.dll in the
+    process, where is it on disk, does it load at all, and is loading it by
+    hand enough to make the import work."""
+    import ctypes
+    import glob
+    k32 = ctypes.WinDLL('kernel32', use_last_error=True)
+    k32.GetModuleHandleW.restype = ctypes.c_void_p
+    k32.GetModuleHandleW.argtypes = [ctypes.c_wchar_p]
+    k32.GetModuleFileNameW.restype = ctypes.c_uint
+    k32.GetModuleFileNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p,
+                                       ctypes.c_uint]
+
+    def loaded(name):
+        handle = k32.GetModuleHandleW(name)
+        if not handle:
+            return 'no'
+        buf = ctypes.create_unicode_buffer(1024)
+        if not k32.GetModuleFileNameW(handle, buf, len(buf)):
+            return 'yes, path unknown'
+        return buf.value
+
+    lines = ['sys.executable = %s' % (sys.executable,),
+             'sys.prefix = %s' % (sys.prefix,),
+             'sys.base_prefix = %s' % (sys.base_prefix,)]
+    for name in ('libpypy%d.%d-c.dll' % sys.version_info[:2], 'python3.dll'):
+        lines.append('loaded %s: %s' % (name, loaded(name)))
+    candidates = []
+    for dirname in (os.path.dirname(sys.executable), sys.prefix,
+                    sys.base_prefix, os.path.join(ROOT, 'pypy', 'goal'),
+                    ROOT):
+        for pattern in ('python3.dll', 'libpypy*-c.dll'):
+            candidates.extend(glob.glob(os.path.join(dirname, pattern)))
+    lines.append('on disk: %s' % (sorted(set(candidates)),))
+    for dll in sorted(set(c for c in candidates
+                          if os.path.basename(c).lower() == 'python3.dll')):
+        try:
+            ctypes.WinDLL(dll)
+        except OSError as e:
+            lines.append('WinDLL(%s): %s' % (dll, e))
+            continue
+        lines.append('WinDLL(%s): loaded' % (dll,))
+        try:
+            importlib.import_module(MODNAME)
+        except ImportError as e:
+            lines.append('  import after that: %s' % (e,))
+        else:
+            lines.append('  import after that: ok, so load_mapping_dll'
+                         ' looked in the wrong directory')
+    return '\n'.join(lines)
+
+
 def _compile_distutils(outdir, libraries, extra_link_args):
     """Compile through distutils, like extra_tests/cffi_tests do.
 
@@ -96,7 +151,12 @@ def abi3_module(tmpdir_factory):
     shutil.move(built, os.path.join(outdir, MODNAME + suffix))
     sys.path.insert(0, outdir)
     try:
-        return importlib.import_module(MODNAME)
+        try:
+            return importlib.import_module(MODNAME)
+        except ImportError as e:
+            if sys.platform != 'win32':
+                raise
+            raise ImportError('%s\n%s' % (e, win32_diagnosis())) from e
     finally:
         sys.path.remove(outdir)
         sys.modules.pop(MODNAME, None)
