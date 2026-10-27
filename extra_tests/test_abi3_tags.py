@@ -115,8 +115,10 @@ def test_from_import_sees_patched_function(fake_packaging):
     assert ns['compatible_tags'] is tags.compatible_tags
 
 
-@pytest.mark.skipif(sys.platform == 'win32', reason='no abi3 suffix on win32')
 def test_extension_suffix():
     import importlib.machinery
-    assert '.abi3.so' in importlib.machinery.EXTENSION_SUFFIXES
+    if sys.platform == 'win32':
+        assert '.pyd' in importlib.machinery.EXTENSION_SUFFIXES
+    else:
+        assert '.abi3.so' in importlib.machinery.EXTENSION_SUFFIXES
     assert '.so' not in importlib.machinery.EXTENSION_SUFFIXES

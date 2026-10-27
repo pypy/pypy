@@ -109,10 +109,6 @@ class _Abi3TagsFinder:
 
 
 def install():
-    if sys.platform == 'win32':
-        # abi3 wheels ship a bare '.pyd' there, which _imp.extension_suffixes()
-        # does not (yet) include
-        return
     if not any(isinstance(finder, _Abi3TagsFinder) for finder in sys.meta_path):
         sys.meta_path.insert(0, _Abi3TagsFinder())
     for name, module in list(sys.modules.items()):
