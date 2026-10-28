@@ -1124,6 +1124,20 @@ if _POSIX:
         # reset timezone, altzone, daylight and tzname
         _init_timezone(space)
 
+def _format_has_y(fmt):
+    # step two characters past each '%', so that '%%y' is not mistaken
+    # for '%y'; '%#y' is undocumented but accepted, as in CPython
+    i = fmt.find('%')
+    while i >= 0:
+        if i + 1 < len(fmt) and fmt[i + 1] == '#':
+            i += 1
+        if i + 1 >= len(fmt):
+            break
+        if fmt[i + 1] == 'y':
+            return True
+        i = fmt.find('%', i + 2)
+    return False
+
 @unwrap_spec(format='text')
 def strftime(space, format, w_tup=None):
     """strftime(format[, tuple]) -> string
@@ -1148,6 +1162,11 @@ def strftime(space, format, w_tup=None):
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
+        # the CRT's %y cannot render a year before 1900; CPython rejects it
+        # in time_strftime1(), Modules/timemodule.c
+        if tm_year < 0 and _format_has_y(format):
+            raise oefmt(space.w_ValueError,
+                        "format %y requires year >= 1900 on Windows")
 
     # Like CPython, only pass runs of non-NUL ASCII characters to
     # wcsftime() and copy anything else up to the next '%' unchanged
@@ -1187,9 +1206,10 @@ def _wcharp_utf16_to_utf8(w, maxlen):
     return s.build(), s.getlength()
 
 def _strftime1(space, buf_value, format):
-    # 'format' is ASCII. Use wcsftime(), like CPython, so that the output
-    # (e.g. a localized month name) doesn't need decoding from the locale
-    # encoding.
+    # 'format' is ASCII. Use wcsftime() so that the output (e.g. a localized
+    # month name) doesn't need decoding from the locale encoding.  CPython
+    # does this only on POSIX: it undefines HAVE_WCSFTIME on Windows over
+    # issue #10653, wcsftime() formatting time zones incorrectly.
     format_for_call = rffi.utf82wcharp(format, len(format))
     try:
         i = 1024
