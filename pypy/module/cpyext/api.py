@@ -2127,7 +2127,7 @@ def create_extension_module(space, w_spec):
         path = os.curdir + os.sep + path      # force a '/' in the path
     if WIN32:
         reject_cpython_only_extension(space, path, w_name, w_path)
-        load_mapping_dll()
+        load_mapping_dll(space)
     try:
         if WIN32:
             from rpython.rlib import rwin32
@@ -2184,33 +2184,52 @@ def create_extension_module(space, w_spec):
 
 _mapping_dll_loaded = [False]
 
-def load_mapping_dll():
-    """Load python3.dll from next to the interpreter dll, once.
+def _mapping_dll_dirs(space):
+    """Directories that may hold python3.dll, best first.
+
+    Next to the interpreter dll, the way CPython looks next to
+    python3XY.dll.  That is Scripts in a venv, which copies libpypy*-c.dll
+    but not python3.dll, so fall back to the base install: its own directory
+    for a packaged pypy, pypy/goal for a source build. We need this because
+    PyPy does not have a PEP 397 launcher, rather it copies when creating a
+    new venv"""
+    from rpython.rlib import rwin32
+    dirs = []
+    handle = rwin32.GetModuleHandle(PYPY_DLL_NAME)
+    if handle:      # else untranslated, or a build that is not shared
+        path = rwin32.GetModuleFileNameW(handle)
+        sep = path.rfind('\\')
+        if sep >= 0:
+            dirs.append(path[:sep])
+    w_base = space.sys.getdictvalue(space, 'base_prefix')
+    if w_base is not None:
+        # A new build, usually on the buildbot
+        base = space.text_w(w_base)
+        dirs.append(base)
+        dirs.append(base + '\\pypy\\goal')
+    return dirs
+
+def load_mapping_dll(space):
+    """Load python3.dll into the process, once.
 
     CPython does the same in _Py_CheckPython3 (Python/dynload_win.c), and
     for the same reason: an abi3 extension names python3.dll in its import
     table, but is loaded with LOAD_LIBRARY_SEARCH_DEFAULT_DIRS, which
-    searches neither PATH nor the interpreter dll's own directory (in a venv
-    the running exe is the one in Scripts).  A dll already in the process
-    binds by base name, so loading it here by full path is what lets the
-    forwarders resolve."""
+    searches neither PATH nor the directory of the interpreter dll.  A dll
+    already in the process binds by base name, so loading it here by full
+    path is what lets the forwarders resolve.  Not finding it is not an
+    error: the extension load reports it."""
     from rpython.rlib import rdynload, rwin32
     if _mapping_dll_loaded[0]:
         return
     _mapping_dll_loaded[0] = True
-    handle = rwin32.GetModuleHandle(PYPY_DLL_NAME)
-    if not handle:
-        return      # untranslated, or a build that is not shared
-    path = rwin32.GetModuleFileNameW(handle)
-    sep = path.rfind('\\')
-    if sep < 0:
+    for dirname in _mapping_dll_dirs(space):
+        try:
+            rdynload.dlopenex(dirname + '\\' + MAPPING_DLL_NAME,
+                              rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)
+        except rdynload.DLOpenError:
+            continue
         return
-    try:
-        rdynload.dlopenex(path[:sep + 1] + MAPPING_DLL_NAME,
-                          rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS)
-    except rdynload.DLOpenError:
-        pass        # a build predating the mapping dll: the extension load
-                    # below reports it
 
 def reject_cpython_only_extension(space, path, w_name, w_path):
     """On Windows an abi3 extension and a full-API CPython one are both
