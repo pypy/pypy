@@ -504,6 +504,22 @@ class ODictSpace(MappingSpace):
     def newdict(self, repr):
         return rodct.ll_newdict(repr.DICT)
 
+    def setitem(self, key, value):
+        MappingSpace.setitem(self, key, value)
+        self.check_no_stale_gc_pointers()
+
+    def delitem(self, key):
+        MappingSpace.delitem(self, key)
+        self.check_no_stale_gc_pointers()
+
+    def copydict(self):
+        MappingSpace.copydict(self)
+        self.check_no_stale_gc_pointers()
+
+    def cleardict(self):
+        MappingSpace.cleardict(self)
+        self.check_no_stale_gc_pointers()
+
     def get_keys(self):
         DICT = lltype.typeOf(self.l_dict).TO
         ITER = rordereddict.get_ll_dictiter(lltype.Ptr(DICT))
@@ -532,6 +548,7 @@ class ODictSpace(MappingSpace):
             assert self.ll_key(key) == ll_key
             assert self.ll_value(value) == ll_value
             self.removed_keys.append(key)
+        self.check_no_stale_gc_pointers()
 
     def removeindex(self):
         # remove the index, as done during translation for prebuilt dicts
@@ -552,6 +569,24 @@ class ODictSpace(MappingSpace):
             self.reference.update(items)
         # prevent ll_no_initial_index()
         self.moved_around = True
+        self.check_no_stale_gc_pointers()
+
+    def check_no_stale_gc_pointers(self):
+        # Check after every mutation, including individual mutations in batch
+        # actions: a later clear, copy, or insertion could hide stale pointers.
+        d = self.l_dict
+        ENTRIES = lltype.typeOf(d.entries).TO
+        dummy_obj = getattr(ENTRIES, 'dummy_obj', None)
+        dummy = dummy_obj.ll_dummy_value if dummy_obj is not None else None
+        for i in range(len(d.entries)):
+            if i < d.num_ever_used_items and d.entries.valid(i):
+                continue
+            for name in ('key', 'value'):
+                FIELD = getattr(ENTRIES.OF, name)
+                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
+                    ptr = getattr(d.entries[i], name)
+                    assert not ptr or ptr == dummy, (
+                        "stale %s in entry %d" % (name, i))
 
     def fullcheck(self):
         # overridden to also check key order
@@ -577,19 +612,6 @@ class ODictSpace(MappingSpace):
             if d.entries.valid(i):
                 num_lives += 1
         assert num_lives == d.num_live_items
-        # unused and deleted entries must not keep anything alive
-        ENTRIES = lltype.typeOf(d.entries).TO
-        dummy_obj = getattr(ENTRIES, 'dummy_obj', None)
-        dummy = dummy_obj.ll_dummy_value if dummy_obj is not None else None
-        for i in range(len(d.entries)):
-            if i < d.num_ever_used_items and d.entries.valid(i):
-                continue
-            for name in ('key', 'value'):
-                FIELD = getattr(ENTRIES.OF, name)
-                if isinstance(FIELD, lltype.Ptr) and FIELD._needsgc():
-                    ptr = getattr(d.entries[i], name)
-                    assert not ptr or ptr == dummy, (
-                        "stale %s in entry %d" % (name, i))
         fun = d.lookup_function_no & rordereddict.FUNC_MASK
         if fun == rordereddict.FUNC_MUST_REINDEX:
             assert not d.indexes
