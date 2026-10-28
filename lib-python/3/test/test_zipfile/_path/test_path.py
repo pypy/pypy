@@ -273,7 +273,8 @@ class TestPath(unittest.TestCase):
         """
         zipfile_ondisk = self.zipfile_ondisk(alpharep)
         pathlike = FakePath(str(zipfile_ondisk))
-        zipfile.Path(pathlike)
+        # PyPy: no refcounting, close the ZipFile the Path opened
+        zipfile.Path(pathlike).root.close()
 
     @pass_alpharep
     def test_traverse_pathlike(self, alpharep):
@@ -566,10 +567,14 @@ class TestPath(unittest.TestCase):
     def test_pickle(self, alpharep, path_type, subpath):
         zipfile_ondisk = path_type(str(self.zipfile_ondisk(alpharep)))
 
-        saved_1 = pickle.dumps(zipfile.Path(zipfile_ondisk, at=subpath))
+        # PyPy: no refcounting, close each ZipFile a Path opened
+        path = zipfile.Path(zipfile_ondisk, at=subpath)
+        saved_1 = pickle.dumps(path)
+        path.root.close()
         restored_1 = pickle.loads(saved_1)
         first, *rest = restored_1.iterdir()
         assert first.read_text(encoding='utf-8').startswith('content of ')
+        restored_1.root.close()
 
     @pass_alpharep
     def test_extract_orig_with_implied_dirs(self, alpharep):
@@ -577,10 +582,11 @@ class TestPath(unittest.TestCase):
         A zip file wrapped in a Path should extract even with implied dirs.
         """
         source_path = self.zipfile_ondisk(alpharep)
-        zf = zipfile.ZipFile(source_path)
-        # wrap the zipfile for its side effect
-        zipfile.Path(zf)
-        zf.extractall(source_path.parent)
+        # PyPy: no refcounting, the tmpdir cleanup cannot unlink an open file
+        with zipfile.ZipFile(source_path) as zf:
+            # wrap the zipfile for its side effect
+            zipfile.Path(zf)
+            zf.extractall(source_path.parent)
 
     @pass_alpharep
     def test_getinfo_missing(self, alpharep):

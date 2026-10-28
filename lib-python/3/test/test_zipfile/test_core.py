@@ -2250,6 +2250,7 @@ class OtherTests(unittest.TestCase):
         zipf.close()
         try:
             zipf = zipfile.ZipFile(TESTFN, mode="r")
+            zipf.close()    # PyPy: no refcounting, tearDown cannot unlink
         except zipfile.BadZipFile:
             self.fail("Unable to create empty ZIP file in 'w' mode")
 
@@ -2257,6 +2258,7 @@ class OtherTests(unittest.TestCase):
         zipf.close()
         try:
             zipf = zipfile.ZipFile(TESTFN, mode="r")
+            zipf.close()    # PyPy: no refcounting, tearDown cannot unlink
         except:
             self.fail("Unable to create empty ZIP file in 'a' mode")
 
