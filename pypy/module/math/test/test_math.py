@@ -167,6 +167,18 @@ class AppTestMath:
         import math
         assert math.log2(2**1234) == 1234.0
 
+    def test_log_base(self):
+        import math
+        assert math.log(8, 2) == 3.0
+        for x, base in [(1, 1), (2, 1), (2.0, 1.0), (10**400, 1)]:
+            with raises(ZeroDivisionError) as e:
+                math.log(x, base)
+            assert str(e.value) == "float division by zero"
+        # x is checked before base
+        raises(ValueError, math.log, -1, object())
+        raises(TypeError, math.log, "x", -1)
+        raises(ValueError, math.log, 0, 1)
+
     def test_acosh(self):
         import math
         self.ftest(math.acosh(1), 0)

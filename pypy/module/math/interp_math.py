@@ -462,14 +462,11 @@ def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """
+    w_num = _log_any(space, w_x, 0.0)
     if w_base is None:
-        base = 0.0
-    else:
-        base = _get_double(space, w_base)
-        if base <= 0.0:
-            # just for raising the proper errors
-            return math1(space, math.log, w_base)
-    return _log_any(space, w_x, base)
+        return w_num
+    w_den = _log_any(space, w_base, 0.0)
+    return space.truediv(w_num, w_den)
 
 def log2(space, w_x):
     """log2(x) -> the base 2 logarithm of x.
