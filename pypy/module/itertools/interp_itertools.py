@@ -354,7 +354,6 @@ islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
 
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
-        self.iterable = space.iter(w_iterable)
         self.space = space
 
         num_args = len(args_w)
@@ -391,6 +390,7 @@ class W_ISlice(W_Root):
         else:
             step = 1
 
+        self.iterable = space.iter(w_iterable)
         self.count = rffi.cast(rffi.UNSIGNED, 0)
         self.next = rffi.cast(rffi.UNSIGNED, start)
         self.stop = stop
