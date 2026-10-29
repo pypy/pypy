@@ -703,6 +703,32 @@ class AppTestAppFloatTest:
                 return reallybig
         assert float(A()) == float(reallybig)
 
+    def test_float_conversion_calls_index(self):
+        # use __index__ when there is no __float__
+        import math
+        class A:
+            def __index__(self):
+                return 2
+        assert math.sqrt(A()) == 2 ** 0.5
+        assert math.atan2(A(), A()) == math.atan2(2, 2)
+        assert math.ldexp(A(), 1) == 4.0
+        assert math.fsum([A()]) == 2.0
+        assert '%f' % A() == '2.000000'
+        raises(ValueError, math.acos, A())
+
+        class B:
+            def __index__(self):
+                return 2
+            def __float__(self):
+                return 3.5
+        assert math.sqrt(B()) == 3.5 ** 0.5     # __float__ wins
+        assert '%f' % B() == '3.500000'
+
+        class C:
+            pass
+        raises(TypeError, math.sqrt, C())
+        raises(TypeError, lambda: '%f' % C())
+
     def test_subclass_kwarg(self):
         class bare_subclass(float):
             pass

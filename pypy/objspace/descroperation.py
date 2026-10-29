@@ -890,6 +890,8 @@ for targetname, specialname, checkerspec in [
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
+                if space.lookup(w_obj, '__index__') is not None:
+                    return space.float(space.index(w_obj))
                 raise oefmt(space.w_TypeError,
                             %(msg)r,
                             w_obj)
