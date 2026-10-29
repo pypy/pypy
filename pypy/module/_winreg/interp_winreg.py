@@ -314,26 +314,49 @@ KEY_SET_VALUE access."""
     hkey = hkey_w(w_hkey, space)
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
-    utf8 = space.utf8_w(w_subkey)
     space.audit("winreg.SetValue",  [
             space.newint(rffi.cast(rffi.SIZE_T, hkey)),
             w_subkey, space.newint(typ), w_value])
-    s = utf8 + '\x00'
-    w_s = space.newtext(s)
-    subkeyW = utf8_encode_utf_16(space, s, w_s, 'strict', errh, allow_surrogates=True)
-    utf8 = space.utf8_w(w_value)
-    valueW = utf8_encode_utf_16(space, s, w_s, 'strict', errh, allow_surrogates=True)
-    valueL = space.len_w(w_value)
+    if space.is_none(w_subkey):
+        utf8 = ''
+    else:
+        utf8 = space.utf8_w(w_subkey)
+    v = space.utf8_w(w_value) + '\x00'
+    w_v = space.newtext(v)
+    valueW = utf8_encode_utf_16(space, v, w_v, 'strict', errh, allow_surrogates=True)
+    # the native utf16 wstr starts with a BOM, which is skipped below. What is
+    # left is the value and its terminating null
+    valueL = len(valueW) - 2
 
-    # Add an offset to remove the BOM from the native utf16 wstr
-    with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
-        subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
-        with rffi.scoped_nonmovingbuffer(valueW) as valueP0:
-            valueP = rffi.cast(rffi.CWCHARP, rffi.ptradd(valueP0, 2))
-            ret = rwinreg.RegSetValueW(hkey, subkeyP, rwinreg.REG_SZ,
-                                       valueP, valueL)
+    # RegSetValueW is 16-bit legacy and ignores the length it is passed, so
+    # create the subkey and write through the Ex variant like CPython does
+    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as childkey_p:
+        if len(utf8) > 0:
+            s = utf8 + '\x00'
+            w_s = space.newtext(s)
+            subkeyW = utf8_encode_utf_16(space, s, w_s, 'strict', errh,
+                                         allow_surrogates=True)
+            with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
+                subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
+                ret = rwinreg.RegCreateKeyExW(
+                        hkey, subkeyP, 0, None, 0, rwinreg.KEY_SET_VALUE,
+                        None, childkey_p, lltype.nullptr(rwin32.LPDWORD.TO))
             if ret != 0:
-                raiseWindowsError(space, ret, 'RegSetValue')
+                raiseWindowsError(space, ret, 'RegCreateKeyEx')
+            childkey = childkey_p[0]
+        else:
+            childkey = hkey
+        try:
+            with rffi.scoped_nonmovingbuffer(valueW) as valueP0:
+                valueP = rffi.cast(rffi.CWCHARP, rffi.ptradd(valueP0, 2))
+                ret = rwinreg.RegSetValueExW(
+                        childkey, lltype.nullptr(rffi.CWCHARP.TO), 0,
+                        rwinreg.REG_SZ, valueP, valueL)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegSetValueEx')
+        finally:
+            if childkey != hkey:
+                rwinreg.RegCloseKey(childkey)
 
 
 def QueryValue(space, w_hkey, w_subkey):

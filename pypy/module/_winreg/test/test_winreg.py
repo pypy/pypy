@@ -77,7 +77,8 @@ class AppTestFfi:
         from winreg import SetValue, QueryValue, REG_SZ
         value = u"Some Default value"
         SetValue(self.root_key, self.test_key_name, REG_SZ, value)
-        assert QueryValue(self.root_key, self.test_key_name) == value
+        got = QueryValue(self.root_key, self.test_key_name)
+        assert got == value, repr(got)
 
     def test_CreateKey(self):
         from winreg import CreateKey, QueryInfoKey
