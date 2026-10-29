@@ -184,3 +184,12 @@ def test_islice_checks_args_before_iter():
         islice(NoneIter(), -1)
     with pytest.raises(ValueError):
         islice(NoneIter(), 0, 1, 0)
+
+def test_count_index():
+    class Idx:
+        def __index__(self):
+            return 0
+    c = count(Idx())
+    assert type(c) is count
+    c = count(0, Idx())
+    assert type(c) is count
