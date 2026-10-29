@@ -289,10 +289,9 @@ if _MACOSX:
         ("denom", rffi.UINT),
     ])
 
-# XXX: optionally support the 2 additional tz fields
-_STRUCT_TM_ITEMS = 9
-if HAS_TM_ZONE:
-    _STRUCT_TM_ITEMS = 11
+# struct_time always carries tm_zone and tm_gmtoff: where struct tm has no
+# such fields, gmtime() and localtime() synthesize them, as CPython does
+_STRUCT_TM_ITEMS = 11
 
 class cConfig:
     pass
@@ -1011,12 +1010,16 @@ def localtime(space, w_seconds=None):
     if HAS_TM_ZONE:
         return _tm_to_tuple(space, p)
     else:
-        offset = space.int_w(_get_module_object(space, "timezone"))
-        daylight_w = _get_module_object(space, 'daylight')
-        tzname_w =  _get_module_object(space, 'tzname')
-        zone_w = space.getitem(tzname_w, daylight_w)
-        if not space.eq_w(daylight_w, space.newint(0)):
-            offset -= 3600
+        # struct tm has no tm_zone/tm_gmtoff here, so build them from the
+        # module globals.  Pick by this timestamp's tm_isdst: 'daylight'
+        # only says the zone has DST at all, not that it is in effect
+        tzname_w = _get_module_object(space, 'tzname')
+        if rffi.getintfield(p, 'c_tm_isdst') > 0:
+            offset = space.int_w(_get_module_object(space, "altzone"))
+            zone_w = space.getitem(tzname_w, space.newint(1))
+        else:
+            offset = space.int_w(_get_module_object(space, "timezone"))
+            zone_w = space.getitem(tzname_w, space.newint(0))
         return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
 
 
