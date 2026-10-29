@@ -173,3 +173,14 @@ def test_zip_longest_exhausted_twice():
     z = zip_longest([1], range(3), range(4))
     list(z)
     assert set(z) == set()
+
+def test_islice_checks_args_before_iter():
+    class NoneIter:
+        def __iter__(self):
+            return None
+    with pytest.raises(ValueError):
+        islice(NoneIter(), "x")
+    with pytest.raises(ValueError):
+        islice(NoneIter(), -1)
+    with pytest.raises(ValueError):
+        islice(NoneIter(), 0, 1, 0)
