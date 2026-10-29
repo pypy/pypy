@@ -3,7 +3,6 @@ from rpython.rlib import objectmodel
 from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w, interp_attrproperty
 from pypy.module._csv.interp_csv import _build_dialect
@@ -267,9 +266,11 @@ class FieldLimit:
     limit = 128 * 1024   # max parsed field size
 field_limit = FieldLimit()
 
-@unwrap_spec(new_limit=int)
-def csv_field_size_limit(space, new_limit=-1):
+def csv_field_size_limit(space, w_new_limit=None):
     old_limit = field_limit.limit
-    if new_limit >= 0:
-        field_limit.limit = new_limit
+    if w_new_limit is not None:
+        if not space.is_w(space.type(w_new_limit), space.w_int):
+            raise OperationError(space.w_TypeError,
+                                 space.newtext("limit must be an integer"))
+        field_limit.limit = space.int_w(w_new_limit)
     return space.newint(old_limit)

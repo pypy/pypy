@@ -118,6 +118,24 @@ class AppTestReader(object):
         finally:
             csv.field_size_limit(limit)
 
+    def test_field_size_limit_exact_int(self):
+        import _csv as csv
+        class MyInt(int):
+            pass
+        class Index:
+            def __index__(self):
+                return 5
+        limit = csv.field_size_limit()
+        try:
+            raises(TypeError, csv.field_size_limit, True)
+            raises(TypeError, csv.field_size_limit, MyInt(5))
+            raises(TypeError, csv.field_size_limit, Index())
+            assert csv.field_size_limit() == limit
+            csv.field_size_limit(-1)
+            assert csv.field_size_limit() == -1
+        finally:
+            csv.field_size_limit(limit)
+
     def test_read_linenum(self):
         import _csv as csv
         r = csv.reader(['line,1', 'line,2', 'line,3'])
