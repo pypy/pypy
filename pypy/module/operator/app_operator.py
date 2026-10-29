@@ -22,6 +22,8 @@ def _resolve_attr_chain(chain, obj, idx=0):
         return _resolve_attr_chain(chain, obj, idx + 1)
 
 class attrgetter(object):
+    __module__ = 'operator'
+
     def __init__(self, attr, *attrs):
         if (
             not isinstance(attr, str) or
@@ -79,6 +81,8 @@ class attrgetter(object):
 
 
 class itemgetter(object):
+    __module__ = 'operator'
+
     def __init__(self, item, *items):
         self._single = not bool(items)
         if self._single:
@@ -101,6 +105,8 @@ class itemgetter(object):
 
 
 class methodcaller(object):
+    __module__ = 'operator'
+
     def __init__(*args, **kwargs):
         if len(args) < 2:
             raise TypeError("methodcaller() called with not enough arguments")

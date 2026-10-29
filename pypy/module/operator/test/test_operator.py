@@ -363,6 +363,13 @@ class AppTestOperator:
         assert repr(operator.methodcaller("foo", "bar", baz=42)) == (
             "operator.methodcaller('foo', 'bar', baz=42)")
 
+    def test_getters_module(self):
+        import operator
+        assert operator.attrgetter.__module__ == 'operator'
+        assert operator.itemgetter.__module__ == 'operator'
+        assert operator.methodcaller.__module__ == 'operator'
+        assert str(type(operator.itemgetter(0))) == "<class 'operator.itemgetter'>"
+
     def test_countOf(self):
         from _operator import countOf
         assert countOf([1, 2, 1, 1, 4], 1) == 3
