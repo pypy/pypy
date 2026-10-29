@@ -759,6 +759,22 @@ def _get_inttime(space, w_seconds):
                     "timestamp out of range for platform time_t")
     return t
 
+def _timegm(t):
+    """struct tm read as UTC, like CPython's fallback timegm()."""
+    # CPython notes this is wrong for tm_year < 1970; it cannot be reached
+    # here, localtime() has already failed for a negative time_t.  r_longlong
+    # because (tm_year - 70) * 31536000 leaves 32 bits after 2038
+    year = r_longlong(rffi.getintfield(t, 'c_tm_year'))
+    return (rffi.getintfield(t, 'c_tm_sec') +
+            rffi.getintfield(t, 'c_tm_min') * 60 +
+            rffi.getintfield(t, 'c_tm_hour') * 3600 +
+            rffi.getintfield(t, 'c_tm_yday') * 86400 +
+            (year - 70) * 31536000 +
+            ((year - 69) / 4) * 86400 -
+            ((year - 1) / 100) * 86400 +
+            ((year + 299) / 400) * 86400)
+
+
 def _tm_to_tuple(space, t, zone="UTC", offset=0):
     time_tuple = [
         space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
@@ -1010,17 +1026,19 @@ def localtime(space, w_seconds=None):
     if HAS_TM_ZONE:
         return _tm_to_tuple(space, p)
     else:
-        # struct tm has no tm_zone/tm_gmtoff here, so build them from the
-        # module globals.  Pick by this timestamp's tm_isdst: 'daylight'
-        # only says the zone has DST at all, not that it is in effect
+        # struct tm has no tm_zone/tm_gmtoff here, so build them.  The offset
+        # is the local time read as UTC minus the timestamp, as CPython does,
+        # which is right whatever the zone's DST shift is.  The name comes
+        # from tzname, picked by this timestamp's tm_isdst: 'daylight' only
+        # says the zone has DST at all, not that it is in effect
+        offset = intmask(_timegm(p) -
+                         rffi.cast(lltype.SignedLongLong, seconds))
         tzname_w = _get_module_object(space, 'tzname')
         if rffi.getintfield(p, 'c_tm_isdst') > 0:
-            offset = space.int_w(_get_module_object(space, "altzone"))
             zone_w = space.getitem(tzname_w, space.newint(1))
         else:
-            offset = space.int_w(_get_module_object(space, "timezone"))
             zone_w = space.getitem(tzname_w, space.newint(0))
-        return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
+        return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=offset)
 
 
 def mktime(space, w_tup):
