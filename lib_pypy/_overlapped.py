@@ -349,6 +349,46 @@ class Overlapped(object):
             self.type = OverlappedType.TYPE_NOT_STARTED
             RaiseFromWindowsErr(self.error)
 
+    def WSARecvFromInto(self,handle, bufobj, size, flags=0, /):
+        if self.type != OverlappedType.TYPE_NONE:
+            raise ValueError("operation already attempted")
+        try:
+            self.read_buffer = _ffi.from_buffer(bufobj)
+        except Exception as e:
+            raise TypeError("bytearray expected") from e
+        if len(bufobj) < size:
+            raise ValueError(
+                "nbytes is greater than the length of the buffer")
+        self.type = OverlappedType.TYPE_READ_FROM
+        self.handle = _int2handle(handle)
+        address = _ffi.new("struct sockaddr_in6*")
+        length = _ffi.sizeof("struct sockaddr_in6")
+        wsabuff = _ffi.new("WSABUF[1]")
+        wsabuff[0].len = size
+        wsabuff[0].buf = self.read_buffer
+        nread = _ffi.new("LPDWORD")
+        pflags = _ffi.new("LPDWORD")
+        pflags[0] = flags
+        lpFromLen = _ffi.new("LPINT")
+        lpFromLen[0] = 0
+        result = _winsock2.WSARecvFrom(self.handle, wsabuff, _int2dword(1),
+                                    nread, pflags, _ffi.NULL, lpFromLen,
+                                    self.overlapped, _ffi.NULL)
+        if result == SOCKET_ERROR:
+            self.error = _winsock2.WSAGetLastError()
+        else:
+            self.error = _winapi.ERROR_SUCCESS
+
+        if self.error == _winapi.ERROR_BROKEN_PIPE:
+            mark_as_completed(self.overlapped)
+            RaiseFromWindowsErr(self.error)
+        elif self.error in [_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA,
+                            _winapi.ERROR_IO_PENDING]:
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            RaiseFromWindowsErr(self.error)
+
     def do_WSARecv(self, handle, allocatedbuffer, size, flags):
         nread = _ffi.new("LPDWORD")
         wsabuff = _ffi.new("WSABUF[1]")
@@ -416,8 +456,8 @@ class Overlapped(object):
         Length = _ffi.sizeof("struct sockaddr_in6")
         AddressBuf = _ffi.new("CHAR[]", Length)
         Address = _ffi.cast("SOCKADDR *", AddressBuf)
-        Address, Length = parse_address(AddressObj, Address, Length)
-        if Length < 0:
+        Address, AddressLength = parse_address(AddressObj, Address, Length)
+        if AddressLength < 0:
             return
         self.write_buffer = bytes(bufobj)
         self.type = OverlappedType.TYPE_WRITE_TO
@@ -834,4 +874,4 @@ def parse_address(addressobj, address, length):
         add6[0].sin6_scope_id = scopeid
         return address, lengthptr[0]
     else:
-        return -1
+        return address, -1
