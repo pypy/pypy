@@ -8,8 +8,7 @@ def factorial(n, /):
     """factorial(n, /) -> int
 
     Find n!. Raise a ValueError if n is negative or non-integral."""
-    if '__index__' not in dir(n):
-        raise TypeError("'%s' object cannot be interpreted as an integer" % type(n).__name__)
+    n = index(n)
     if n > sys.maxsize:
         raise OverflowError("Too large for a factorial")
 
