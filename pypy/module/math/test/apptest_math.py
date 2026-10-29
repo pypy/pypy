@@ -236,6 +236,18 @@ def test_factorial_raises():
         math.factorial(1.2)
     assert e.value.args[0] == "'float' object cannot be interpreted as an integer"
 
+def test_factorial_index():
+    class Idx:
+        def __init__(self, value):
+            self.value = value
+        def __index__(self):
+            return self.value
+    assert math.factorial(Idx(5)) == 120
+    with pytest.raises(ValueError):
+        math.factorial(Idx(-1))
+    with pytest.raises(OverflowError):
+        math.factorial(Idx(sys.maxsize + 1))
+
 @pytest.mark.skipif(sys.maxsize <= 2**31 - 1, reason="bigint on 32-bytes is slow")
 def test_factorial_values():
     def ref(n):
