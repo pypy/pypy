@@ -1,5 +1,42 @@
+import os
 import sys
 import pytest
+
+
+def _cache_msvc_env():
+    """Put the MSVC environment in os.environ once.
+
+    distutils' _get_vc_env() runs 'cmd /c vcvarsall.bat && set' and caches
+    nothing, and cffi builds a fresh compiler for every ffi.verify(), so this
+    suite would spawn vcvarsall hundreds of times.  Querying it once and
+    setting DISTUTILS_USE_SDK makes _get_vc_env() return os.environ instead.
+    """
+    if sys.platform != 'win32' or os.environ.get('DISTUTILS_USE_SDK'):
+        return
+    try:
+        # the fast registry-based lookup; setuptools used to patch distutils
+        # with it, but no longer does
+        from setuptools.msvc import msvc14_get_vc_env
+        env = msvc14_get_vc_env('x64' if sys.maxsize > 2 ** 32 else 'x86')
+    except Exception:
+        try:
+            from setuptools._distutils._msvccompiler import (
+                _get_vc_env, PLAT_TO_VCVARS)
+            from setuptools._distutils.util import get_platform
+            env = _get_vc_env(PLAT_TO_VCVARS[get_platform()])
+        except Exception:
+            return      # leave distutils to find the compiler by itself
+    if not env.get('path') or not env.get('include') or not env.get('lib'):
+        return
+    for key, value in env.items():
+        key = key.upper()
+        if key in ('PATH', 'INCLUDE', 'LIB', 'LIBPATH'):
+            existing = os.environ.get(key, '')
+            if existing:
+                value = value.rstrip(os.pathsep) + os.pathsep + existing
+            os.environ[key] = value
+    os.environ['DISTUTILS_USE_SDK'] = '1'
+
 
 def get_marker(item, name):
     try:
@@ -17,6 +54,7 @@ def pytest_runtest_setup(item):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "pypy_only: PyPy-specific test")
+    _cache_msvc_env()
 
 # This needs to be in the top-level conftest.py, it is copied from the one
 # in hpy_tests/_vendored See the note at
