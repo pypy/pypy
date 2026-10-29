@@ -22,6 +22,9 @@ def _get_double(space, w_x):
     if space.is_w(space.type(w_x), space.w_float):
         return space.float_w(w_x)
     else:
+        if (space.lookup(w_x, '__float__') is None and
+                space.lookup(w_x, '__index__') is not None):
+            w_x = space.index(w_x)
         return space.float_w(space.float(w_x))
 
 @specialize.arg(1)

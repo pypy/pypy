@@ -212,6 +212,25 @@ class AppTestMath:
             func = getattr(math, name)
             assert func(Z()) == i
 
+    def test_index_only_argument(self):
+        import math
+        class Idx:
+            def __index__(self):
+                return 2
+        assert math.sqrt(Idx()) == math.sqrt(2)
+        assert math.atan2(Idx(), Idx()) == math.atan2(2, 2)
+        assert math.ldexp(Idx(), 3) == 16.0
+        assert math.fsum([Idx(), 0.5]) == 2.5
+        assert math.log(Idx()) == math.log(2)
+        assert math.floor(Idx()) == 2
+        assert math.isclose(Idx(), 2.0)
+        with raises(ValueError) as e:
+            math.acos(Idx())
+        assert str(e.value) == "math domain error"
+        with raises(TypeError) as e:
+            math.sqrt(object())
+        assert str(e.value) == "must be real number, not object"
+
     def test_int_results(self):
         import math
         for func in math.ceil, math.floor:
