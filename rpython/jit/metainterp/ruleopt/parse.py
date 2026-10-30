@@ -687,8 +687,14 @@ INTBOUND_METHODTYPES = {
     "lshift_bound": (IntBound, [IntBound], IntBound),
     "rshift_bound": (IntBound, [IntBound], IntBound),
     "urshift_bound": (IntBound, [IntBound], IntBound),
+    "known_lt": (IntBound, [IntBound], bool),
     "known_le": (IntBound, [IntBound], bool),
     "known_gt": (IntBound, [IntBound], bool),
+    "known_ge": (IntBound, [IntBound], bool),
+    "known_unsigned_lt": (IntBound, [IntBound], bool),
+    "known_unsigned_le": (IntBound, [IntBound], bool),
+    "known_unsigned_gt": (IntBound, [IntBound], bool),
+    "known_unsigned_ge": (IntBound, [IntBound], bool),
 }
 
 FUNCTYPES = {
