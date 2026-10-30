@@ -370,6 +370,22 @@ class AppTestOperator:
         assert operator.methodcaller.__module__ == 'operator'
         assert str(type(operator.itemgetter(0))) == "<class 'operator.itemgetter'>"
 
+    def test_getters_reduce(self):
+        # __reduce__ must re-call the constructor, so that a pickle made
+        # here can be loaded against lib-python's pure-python operator.py,
+        # whose attributes are named differently
+        import pickle, operator
+        for getter in [operator.attrgetter('a'), operator.attrgetter('a', 'b'),
+                       operator.attrgetter('a.b'),
+                       operator.itemgetter(0), operator.itemgetter(0, 2),
+                       operator.methodcaller('foo'),
+                       operator.methodcaller('foo', 1, bar=2)]:
+            func, args = getter.__reduce__()[:2]
+            assert repr(func(*args)) == repr(getter)
+            for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                loaded = pickle.loads(pickle.dumps(getter, proto))
+                assert repr(loaded) == repr(getter)
+
     def test_countOf(self):
         from _operator import countOf
         assert countOf([1, 2, 1, 1, 4], 1) == 3

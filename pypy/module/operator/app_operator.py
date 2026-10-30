@@ -103,6 +103,11 @@ class itemgetter(object):
             a = ', '.join([repr(i) for i in self._idx])
         return 'operator.itemgetter(%s)' % (a,)
 
+    def __reduce__(self):
+        if self._single:
+            return (type(self), (self._idx,))
+        return (type(self), tuple(self._idx))
+
 
 class methodcaller(object):
     __module__ = 'operator'
@@ -127,3 +132,10 @@ class methodcaller(object):
         for key, value in self._kwargs.items():
             args.append('%s=%r' % (key, value))
         return 'operator.methodcaller(%s)' % (', '.join(args),)
+
+    def __reduce__(self):
+        if not self._kwargs:
+            return (type(self), (self._method_name,) + self._args)
+        from functools import partial
+        return (partial(type(self), self._method_name, **self._kwargs),
+                self._args)
