@@ -24,7 +24,7 @@ class AppTestCProfile(object):
             "<method 'disable' of '_lsprof.Profiler' objects>",
         )
         for entry in stats:
-            assert entry.code in expected
+            assert entry.code in expected, "entry.code='%s'" % entry.code
 
     def test_builtins_callers(self):
         import _lsprof
