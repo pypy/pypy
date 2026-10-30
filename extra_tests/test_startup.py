@@ -1,3 +1,4 @@
+import pytest
 import signal
 import time
 import os
@@ -32,6 +33,10 @@ def test_executable_win32():
         assert out.strip() == repr('')
 
 
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason='on win32 os.kill() TerminateProcess()es for any '
+                           'signal but CTRL_C_EVENT/CTRL_BREAK_EVENT, so no '
+                           'atexit handler runs')
 def test_ctrl_c_causes_atexit():
     process = subprocess.Popen(
             [sys.executable,

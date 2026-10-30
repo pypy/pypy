@@ -289,6 +289,10 @@ def test_resource_warning(tmpdir):
 def test_context_manager(tmpdir):
     import warnings, gc
     dir1 = _make_dir1(tmpdir)
+    # tests above leave scandir iterators to the GC; collect them now so
+    # their ResourceWarnings are not recorded below
+    for _ in range(3):
+        gc.collect()
     with warnings.catch_warnings(record=True) as l:
         warnings.simplefilter("always")
         with os.scandir(dir1) as iterator:
