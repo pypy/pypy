@@ -204,6 +204,9 @@ translation_optiondescription = OptionDescription(
               "Path to the (Windows) manifest to embed in the executable"),
     StrOption("libname",
               "Windows: name and possibly location of the lib file to create"),
+    StrOption("win_mapping_dll",
+              "Windows: path to a C source of export forwarders, built into a "
+              "separate <name>.dll beside the main shared library"),
 
     OptionDescription("backendopt", "Backend Optimization Options", [
         # control inlining
