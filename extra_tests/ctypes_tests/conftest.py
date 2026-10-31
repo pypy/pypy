@@ -1,7 +1,7 @@
-import py
 import pytest
 import sys
 import os
+from pathlib import Path
 
 # XXX: copied from pypy/tool/cpyext/extbuild.py
 if os.name != 'nt':
@@ -28,17 +28,20 @@ def _build(cfilenames, outputfilename, compile_extra, link_extra,
     sysconfig.customize_compiler(compiler)  # XXX
     objects = []
     for cfile in cfilenames:
-        cfile = py.path.local(cfile)
-        old = cfile.dirpath().chdir()
+        cfile = Path(cfile)
+        old = os.getcwd()
+        os.chdir(str(cfile.parent))
         try:
-            res = compiler.compile([cfile.basename],
+            res = compiler.compile([cfile.name],
                 include_dirs=include_dirs, extra_preargs=compile_extra)
             assert len(res) == 1
-            cobjfile = py.path.local(res[0])
-            assert cobjfile.check()
+            # compiler.compile() returns a path relative to the cfile's
+            # directory, make it absolute before leaving it
+            cobjfile = Path(res[0]).resolve()
+            assert cobjfile.exists()
             objects.append(str(cobjfile))
         finally:
-            old.chdir()
+            os.chdir(old)
 
     compiler.link_shared_object(
         objects, str(outputfilename),
@@ -63,7 +66,7 @@ def c_compile(cfilenames, outputfilename,
             if s + 'lib' not in library_dirs and os.path.exists(s + 'lib'):
                 library_dirs.append(s + 'lib')
 
-    outputfilename = py.path.local(outputfilename).new(ext=so_ext)
+    outputfilename = Path(outputfilename).with_suffix('.' + so_ext)
     saved_environ = os.environ.copy()
     try:
         _build(
@@ -80,7 +83,7 @@ def c_compile(cfilenames, outputfilename,
 # end copy
 
 def compile_so_file(udir):
-    cfile = py.path.local(__file__).dirpath().join("_ctypes_test.c")
+    cfile = Path(__file__).parent / "_ctypes_test.c"
 
     if sys.platform == 'win32':
         libraries = ['oleaut32']
@@ -90,8 +93,8 @@ def compile_so_file(udir):
     return c_compile([cfile], str(udir / '_ctypes_test'), libraries=libraries)
 
 @pytest.fixture(scope='session')
-def sofile(tmpdir_factory):
-    udir = tmpdir_factory.mktemp('_ctypes_test')
+def sofile(tmp_path_factory):
+    udir = tmp_path_factory.mktemp('_ctypes_test')
     return str(compile_so_file(udir))
 
 @pytest.fixture

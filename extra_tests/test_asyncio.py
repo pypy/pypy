@@ -8,9 +8,8 @@ def test_async_gil_issue():
         reader, writer = await asyncio.open_connection('example.com', 80)
         writer.close()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(f())
-    
+    asyncio.run(f())
+
 def test_async_for():
     # tests if async for receives all stores values in the right order
     # and if the correct methods __aiter__ and __anext__ get called
@@ -42,9 +41,13 @@ def test_async_for():
                 self.res += "-"
 
     cor = Corotest()
-    loop = asyncio.get_event_loop()
-    futures = [asyncio.ensure_future(cor.do_loop()), asyncio.ensure_future(cor.do_loop())]
-    taskres = loop.run_until_complete(asyncio.wait(futures))
+
+    async def run_both():
+        futures = [asyncio.ensure_future(cor.do_loop()),
+                   asyncio.ensure_future(cor.do_loop())]
+        return await asyncio.wait(futures)
+
+    taskres = asyncio.run(run_both())
     assert cor.res.count('0') == 2
     assert cor.res.count('1') == 2
     assert cor.res.count('2') == 2
@@ -78,13 +81,12 @@ def test_asynchronous_context_managers():
                 self.res += ' coro {}: releasing the lock -'.format(name)
 
     cor = Corotest()
-    loop = asyncio.get_event_loop()
-    lock = asyncio.Lock()
-    coros = asyncio.gather(cor.coro(1, lock), cor.coro(2, lock))
-    try:
-        loop.run_until_complete(coros)
-    finally:
-        loop.close()
+
+    async def run_both():
+        lock = asyncio.Lock()
+        await asyncio.gather(cor.coro(1, lock), cor.coro(2, lock))
+
+    asyncio.run(run_both())
 
     assert "coro 1: waiting for lock" in cor.res
     assert "coro 1: holding the lock" in cor.res

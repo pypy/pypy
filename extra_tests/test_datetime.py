@@ -6,6 +6,12 @@ import datetime
 import sys
 
 
+def utcfromtimestamp(t):
+    """datetime.utcfromtimestamp(t) without the deprecation warning"""
+    return datetime.datetime.fromtimestamp(
+        t, datetime.timezone.utc).replace(tzinfo=None)
+
+
 class date_safe(datetime.date):
     pass
 
@@ -40,7 +46,7 @@ def test_repr(obj, expected):
 @pytest.mark.parametrize("obj", [
     datetime.date.today(),
     datetime.time(),
-    datetime.datetime.utcnow(),
+    datetime.datetime.now(datetime.timezone.utc),
     datetime.timedelta(),
     datetime.tzinfo(),
 ])
@@ -89,14 +95,14 @@ def test_datetime_rounding():
     b = 0.0000001
     a = 0.9999994
 
-    assert datetime.datetime.utcfromtimestamp(a).microsecond == 999999
-    assert datetime.datetime.utcfromtimestamp(a).second == 0
+    assert utcfromtimestamp(a).microsecond == 999999
+    assert utcfromtimestamp(a).second == 0
     a += b
-    assert datetime.datetime.utcfromtimestamp(a).microsecond == 999999
-    assert datetime.datetime.utcfromtimestamp(a).second == 0
+    assert utcfromtimestamp(a).microsecond == 999999
+    assert utcfromtimestamp(a).second == 0
     a += b
-    assert datetime.datetime.utcfromtimestamp(a).microsecond == 0
-    assert datetime.datetime.utcfromtimestamp(a).second == 1
+    assert utcfromtimestamp(a).microsecond == 0
+    assert utcfromtimestamp(a).second == 1
 
 def test_more_datetime_rounding():
     expected_results = {
@@ -119,7 +125,7 @@ def test_more_datetime_rounding():
         1293843661.191: 'datetime.datetime(2011, 1, 1, 1, 1, 1, 191000)',
         }
     for t in sorted(expected_results):
-        dt = datetime.datetime.utcfromtimestamp(t)
+        dt = utcfromtimestamp(t)
         assert repr(dt) == expected_results[t]
 
 def test_utcfromtimestamp():
@@ -137,7 +143,7 @@ def test_utcfromtimestamp():
         time.tzset()
         for unused in range(100):
             now = time.time()
-            delta = (datetime.datetime.utcfromtimestamp(now) -
+            delta = (utcfromtimestamp(now) -
                         datetime.datetime.fromtimestamp(now))
             assert delta.days * 86400 + delta.seconds == 0
     finally:
@@ -148,7 +154,7 @@ def test_utcfromtimestamp():
         time.tzset()
 
 def test_utcfromtimestamp_microsecond():
-    dt = datetime.datetime.utcfromtimestamp(0)
+    dt = utcfromtimestamp(0)
     assert isinstance(dt.microsecond, int)
 
 def test_default_args():
@@ -223,7 +229,7 @@ def test_check_arg_types():
 def test_utcnow_microsecond():
     import copy
 
-    dt = datetime.datetime.utcnow()
+    dt = datetime.datetime.now(datetime.timezone.utc)
     assert type(dt.microsecond) is int
 
     copy.copy(dt)
@@ -270,8 +276,8 @@ def test_future_types_newint():
     dt_from_newint = datetime.datetime.fromtimestamp(newint(1431216000))
     assert dt_from_int == dt_from_newint
 
-    dtu_from_int = datetime.datetime.utcfromtimestamp(1431216000)
-    dtu_from_newint = datetime.datetime.utcfromtimestamp(newint(1431216000))
+    dtu_from_int = utcfromtimestamp(1431216000)
+    dtu_from_newint = utcfromtimestamp(newint(1431216000))
     assert dtu_from_int == dtu_from_newint
 
     td_from_int = datetime.timedelta(16565)
