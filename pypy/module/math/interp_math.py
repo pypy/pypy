@@ -429,7 +429,7 @@ def degrees(space, w_x):
     """
     return space.newfloat(_get_double(space, w_x) / degToRad)
 
-def _log_float(space, w_x, base):
+def _log_any(space, w_x, base):
     # base is supposed to be positive or 0.0, which means we use e
     try:
         try:
@@ -458,17 +458,14 @@ def _log_float(space, w_x, base):
         raise oefmt(space.w_ValueError, "math domain error")
     return result
 
-def _log_any(space, w_x, base):
-    return space.newfloat(_log_float(space, w_x, base))
-
 def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """
-    num = _log_float(space, w_x, 0.0)
+    num = _log_any(space, w_x, 0.0)
     if w_base is None:
         return space.newfloat(num)
-    den = _log_float(space, w_base, 0.0)
+    den = _log_any(space, w_base, 0.0)
     if den == 0.0:
         raise oefmt(space.w_ZeroDivisionError, "float division by zero")
     return space.newfloat(num / den)
@@ -476,12 +473,12 @@ def log(space, w_x, w_base=None):
 def log2(space, w_x):
     """log2(x) -> the base 2 logarithm of x.
     """
-    return _log_any(space, w_x, 2.0)
+    return space.newfloat(_log_any(space, w_x, 2.0))
 
 def log10(space, w_x):
     """log10(x) -> the base 10 logarithm of x.
     """
-    return _log_any(space, w_x, 10.0)
+    return space.newfloat(_log_any(space, w_x, 10.0))
 
 def fmod(space, w_x, w_y):
     """fmod(x,y)
