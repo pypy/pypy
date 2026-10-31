@@ -52,7 +52,10 @@ class ZipReader(abc.TraversableResources):
         return target.is_file() and target.exists()
 
     def files(self):
-        return zipfile.Path(self.archive, self.prefix)
+        # PyPy: ReopeningLookup rather than letting Path open the archive
+        # itself, so that no handle is held once the read is over; CPython
+        # relies on the Path being freed by refcount to close it
+        return zipfile.Path(zipfile.ReopeningLookup(self.archive), self.prefix)
 
 
 class MultiplexedPath(abc.Traversable):
