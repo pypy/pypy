@@ -2020,6 +2020,27 @@ class AppTestNt(object):
         assert ret == (u'c:\\', u'abc\\def.txt') 
         ret = nt._path_splitroot(u'//server/abc/xyz/def.txt')
         assert ret == (u'//server/abc/', u'xyz/def.txt') 
+        # a rooted path without a drive has a root, which is what
+        # importlib's _path_join() needs to reset the path it is building
+        assert nt._path_splitroot(u'\\A') == (u'\\', u'A')
+        assert nt._path_splitroot(u'/A') == (u'/', u'A')
+        assert nt._path_splitroot(u'\\') == (u'\\', u'')
+        # drives, with and without a root
+        assert nt._path_splitroot(u'D:') == (u'D:', u'')
+        assert nt._path_splitroot(u'D:A') == (u'D:', u'A')
+        assert nt._path_splitroot(u'C:\\A') == (u'C:\\', u'A')
+        # UNC and device paths keep everything up to the share
+        assert nt._path_splitroot(u'\\\\Server\\Share') == (
+            u'\\\\Server\\Share', u'')
+        assert nt._path_splitroot(u'\\\\Server\\Share\\A') == (
+            u'\\\\Server\\Share\\', u'A')
+        assert nt._path_splitroot(u'\\\\.\\device') == (
+            u'\\\\.\\device', u'')
+        assert nt._path_splitroot(u'\\\\?\\UNC\\server\\share\\d') == (
+            u'\\\\?\\UNC\\server\\share\\', u'd')
+        # relative paths have no root
+        assert nt._path_splitroot(u'A\\B') == (u'', u'A\\B')
+        assert nt._path_splitroot(u'') == (u'', u'')
 
     def test_dll_directory(self):
         nt = self.posix
@@ -2027,6 +2048,33 @@ class AppTestNt(object):
         assert nt._remove_dll_directory(ret)
         ret = nt._add_dll_directory(u'c:\\')
         assert nt._remove_dll_directory(ret)
+
+    def test_listdrives(self):
+        nt = self.posix
+        drives = nt.listdrives()
+        assert isinstance(drives, list)
+        assert all(isinstance(d, str) for d in drives)
+        # every entry is a root, and there is no empty trailing one
+        assert drives
+        assert all(d.endswith(':\\') for d in drives), drives
+
+    def test_listvolumes(self):
+        nt = self.posix
+        volumes = nt.listvolumes()
+        assert isinstance(volumes, list)
+        assert all(isinstance(v, str) for v in volumes)
+        # volumes are GUID paths, e.g. \\?\Volume{...}\
+        assert all(v.startswith('\\\\?\\') for v in volumes), volumes
+
+    def test__getvolumepathname(self):
+        nt = self.posix
+        for path in (self.path, self.path.encode()):
+            volume = nt._getvolumepathname(path)
+            assert type(volume) is type(path)
+        # the mount point is on the same drive as the path
+        volume = nt._getvolumepathname(self.path)
+        assert volume.upper()[:2] == self.path.upper()[:2]
+        raises(ValueError, nt._getvolumepathname, self.path + '\x00')
 
 
 class AppTestEnvironment(object):

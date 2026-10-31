@@ -56,6 +56,34 @@ def _int2handle(val):
 def _handle2int(handle):
     return int(_ffi.cast("intptr_t", handle))
 
+def _with_security_attributes(args, index):
+    # CPython's _winapi accepts an int, normally 0 for NULL, where a
+    # LPSECURITY_ATTRIBUTES is expected
+    if index < len(args) and isinstance(args[index], int):
+        args = list(args)
+        args[index] = _ffi.cast("LPSECURITY_ATTRIBUTES", args[index])
+    return args
+
+def LCMapStringEx(locale, flags, src):
+    if flags & (LCMAP_SORTHANDLE | LCMAP_HASH | LCMAP_BYTEREV | LCMAP_SORTKEY):
+        raise ValueError("unsupported flags")
+    src_size = len(src)
+    if src_size > 0x7fffffff:
+        raise OverflowError("input string is too long")
+    wlocale = _ffi.new("wchar_t[]", locale)
+    wsrc = _ffi.new("wchar_t[]", src)
+    dest_size = _kernel32.LCMapStringEx(wlocale, flags, wsrc, src_size,
+                                        NULL, 0, NULL, NULL, 0)
+    if dest_size <= 0:
+        RaiseFromWindowsErr(0)
+    dest = _ffi.new("wchar_t[]", dest_size)
+    nmapped = _kernel32.LCMapStringEx(wlocale, flags, wsrc, src_size,
+                                      dest, dest_size, NULL, NULL, 0)
+    if nmapped <= 0:
+        RaiseFromWindowsErr(0)
+    # unpack() rather than string(), the result may contain NULs
+    return _ffi.unpack(dest, nmapped)
+
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
     
@@ -67,13 +95,15 @@ def CreatePipe(attributes, size):
     return _handle2int(handles[0]), _handle2int(handles[1])
 
 def CreateNamedPipe(*args):
-    handle = _kernel32.CreateNamedPipeW(*args)
+    handle = _kernel32.CreateNamedPipeW(
+        *_with_security_attributes(args, 7))
     if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
 
 def CreateFile(*args):
-    handle = _kernel32.CreateFileW(*args)
+    handle = _kernel32.CreateFileW(
+        *_with_security_attributes(args, 3))
     if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
@@ -516,7 +546,8 @@ def free(voidptr):
     _kernel32.HeapFree(_kernel32.GetProcessHeap(),0, voidptr)
 
 def CreateFileMapping(*args):
-    handle = _kernel32.CreateFileMappingW(*args)
+    handle = _kernel32.CreateFileMappingW(
+        *_with_security_attributes(args, 1))
     if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
@@ -590,6 +621,17 @@ CREATE_UNICODE_ENVIRONMENT = 0x400
 STILL_ACTIVE = 259
 _MAX_PATH = 260
 INFINITE = 0xFFFFFFFF
+
+# ntpath.normcase() uses these to lowercase the way Windows does, which is
+# not the same as str.lower(): the OHM SIGN is left alone, for instance
+LOCALE_NAME_INVARIANT = ''
+LOCALE_NAME_MAX_LENGTH = 85
+LCMAP_LOWERCASE = 0x00000100
+LCMAP_UPPERCASE = 0x00000200
+LCMAP_SORTKEY = 0x00000400
+LCMAP_BYTEREV = 0x00000800
+LCMAP_HASH = 0x00040000
+LCMAP_SORTHANDLE = 0x20000000
 
 ERROR_SUCCESS           = 0
 ERROR_INVALID_HANDLE    = 6

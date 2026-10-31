@@ -157,6 +157,13 @@ def pytest_sessionstart(session):
     """ before session.main() is called. """
     # stick pytest raise in module globals -- carefully
     ensure_pytest_builtin_helpers()
+    if sys.platform == 'win32':
+        # ntpath.normcase() goes through _winapi.LCMapStringEx(), so the
+        # first call builds a cffi function ctype and its CIF, and imports
+        # _pypy_winbase_cffi.  That memory lives as long as the module, so
+        # do it now rather than inside some test's leakfinder window
+        import os.path
+        os.path.normcase('X')
 
 def pytest_pycollect_makemodule(path, parent):
     if path.fnmatch(APPLEVEL_FN):

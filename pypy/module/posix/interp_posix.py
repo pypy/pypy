@@ -2760,6 +2760,46 @@ if _WIN32:
             return space.fsencode(w_result)
         return w_result
 
+    def listdrives(space):
+        """listdrives() -> list of strings
+
+        Return a list containing the drives in the system."""
+        space.audit("os.listdrives", [])
+        try:
+            drives = nt.win32_listdrives()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(d, codepoints_in_utf8(d))
+                              for d in drives])
+
+    def listvolumes(space):
+        """listvolumes() -> list of strings
+
+        Return a list containing the volumes in the system.  Volumes are
+        typically represented as a GUID path."""
+        space.audit("os.listvolumes", [])
+        try:
+            volumes = nt.win32_listvolumes()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(v, codepoints_in_utf8(v))
+                              for v in volumes])
+
+    def _getvolumepathname(space, w_path):
+        """helper for ntpath.ismount"""
+        is_bytes = space.isinstance_w(w_path, space.w_bytes)
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
+        try:
+            s, lgt = nt.win32_getvolumepathname(path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        w_result = space.newtext(s, lgt)
+        if is_bytes:
+            return space.fsencode(w_result)
+        return w_result
+
     def _getdiskusage(space, w_path):
         path = space.fsdecode_w(w_path)
         if '\x00' in path:
@@ -3307,14 +3347,44 @@ def splitdrive(p):
             return p[:2], p[2:]
     return p[:0], p
 
+def splitroot(p):
+    """The root of 'p' and the rest, like ntpath.splitroot() with its
+    drive and root joined.  Unlike splitdrive(), a path that is rooted
+    without naming a drive has a root: '\\A' -> ('\\', 'A')."""
+    sep = '\\'
+    altsep = '/'
+    colon = ':'
+    unc_prefix = '\\\\?\\UNC\\'
+    normp = p.replace(altsep, sep)
+    if normp[0:1] == sep:
+        if normp[1:2] == sep:
+            # UNC drives, e.g. \\server\share, and device drives,
+            # e.g. \\.\device or \\?\UNC\server\share
+            if normp[0:8].upper() == unc_prefix:
+                start = 8
+            else:
+                start = 2
+            index = normp.find(sep, start)
+            if index < 0:
+                return p, p[:0]
+            index2 = normp.find(sep, index + 1)
+            if index2 < 0:
+                return p, p[:0]
+            return p[:index2 + 1], p[index2 + 1:]
+        # rooted but driveless, e.g. \Windows
+        return p[:1], p[1:]
+    if normp[1:2] == colon:
+        if normp[2:3] == sep:
+            # absolute drive-letter path, e.g. X:\Windows
+            return p[:3], p[3:]
+        # drive-relative path, e.g. X:Windows
+        return p[:2], p[2:]
+    return p[:0], p
+
 def _path_splitroot(space, w_path):
     """Removes everything after the root on Win32."""
-
-    # ... which begs the question "what is a "root"?
-    # answer: from trial and error, it is almost-but-not-quite
-    # os.path.splitdrive
     p = space.text_w(fspath(space, w_path))
-    ret0, ret1 = splitdrive(p)
+    ret0, ret1 = splitroot(p)
     #XXX what do we do when w_p is bytes?
     return space.newtuple([space.newtext(ret0), space.newtext(ret1)])
 
