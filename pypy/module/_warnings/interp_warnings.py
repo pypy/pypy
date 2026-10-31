@@ -443,6 +443,11 @@ def warn_explicit(space, w_message, w_category, w_filename, lineno,
                   w_source=None):
     "Low-level inferface to warnings functionality."
 
+    if (not space.is_none(w_module_globals) and
+            not space.isinstance_w(w_module_globals, space.w_dict)):
+        raise oefmt(space.w_TypeError,
+                    "module_globals must be a dict, not '%T'",
+                    w_module_globals)
     w_source_line = get_source_line(space, w_module_globals, lineno)
 
     do_warn_explicit(space, w_category, w_message,
