@@ -3,6 +3,7 @@ import importlib.machinery
 import unittest
 import weakref
 from test.support import gc_collect
+from test.support import impl_detail
 from test.support import import_helper
 from test.support.script_helper import assert_python_ok
 
@@ -294,6 +295,7 @@ a = A(destroyed)"""
         self.assertRegex(repr(m), expected_repr_pattern)
         self.assertNotIn('from', repr(m))
 
+    @impl_detail("pypy does not clear module globals at shutdown", pypy=False)
     def test_module_finalization_at_shutdown(self):
         # Module globals and builtins should still be available during shutdown
         rc, out, err = assert_python_ok("-c", "from test.test_module import final_a")
