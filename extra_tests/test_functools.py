@@ -35,3 +35,17 @@ def test_lru_cache_stack():
     # Make sure _lru_cache.wrapper is not in the first few stack functions
     assert all([f != "wrapper" for f in stack[:3]])
 
+
+def test_reduce_iterator_without_iter():
+    class Iterator:
+        def __init__(self):
+            self.items = [2, 3, 4]
+        def __next__(self):
+            if not self.items:
+                raise StopIteration
+            return self.items.pop(0)
+    class Iterable:
+        def __iter__(self):
+            return Iterator()
+    assert functools.reduce(lambda x, y: x * y, Iterable()) == 24
+    assert functools.reduce(lambda x, y: x * y, Iterable(), 5) == 120
