@@ -133,6 +133,10 @@ BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 HANDLE WINAPI GetCurrentProcess(void);
 HANDLE OpenProcess(DWORD, BOOL, DWORD);
 UINT WINAPI GetACP(VOID);
+/* the last three arguments are an LPNLSVERSIONINFO, a reserved LPVOID and
+   an LPARAM sort handle; only NULL/0 is passed for all of them */
+int WINAPI LCMapStringEx(LPCWSTR, DWORD, LPCWSTR, int, LPWSTR, int,
+                         void *, void *, intptr_t);
 void ExitProcess(UINT);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);

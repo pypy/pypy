@@ -210,6 +210,98 @@ def win32_getdiskusage(utf8):
     return total, free_
 
 
+ERROR_MORE_DATA = 234
+ERROR_NO_MORE_FILES = 18
+
+_GetLogicalDriveStringsW = rffi.llexternal(
+    'GetLogicalDriveStringsW',
+    [rwin32.DWORD, rffi.CWCHARP],
+    rwin32.DWORD,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindFirstVolumeW = rffi.llexternal(
+    'FindFirstVolumeW',
+    [rffi.CWCHARP, rwin32.DWORD],
+    rwin32.HANDLE,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindNextVolumeW = rffi.llexternal(
+    'FindNextVolumeW',
+    [rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+_FindVolumeClose = rffi.llexternal(
+    'FindVolumeClose',
+    [rwin32.HANDLE],
+    rwin32.BOOL,
+    compilation_info=eci)
+
+_GetVolumePathNameW = rffi.llexternal(
+    'GetVolumePathNameW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+def win32_listdrives():
+    """The drives in the system, as a list of utf8 strings."""
+    # the number of drives is bounded, so 256 wchars is always enough
+    size = 256
+    with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+        buflen = rffi.cast(lltype.Signed, _GetLogicalDriveStringsW(
+            rffi.cast(rwin32.DWORD, size), buf))
+        if buflen == 0:
+            raise rwin32.lastSavedWindowsError("GetLogicalDriveStringsW")
+        if buflen >= size:
+            raise WindowsError(ERROR_MORE_DATA, "GetLogicalDriveStringsW")
+        # NUL-separated strings, plus a final NUL that buflen counts
+        return rffi.wcharpsize2utf8(buf, buflen - 1).split('\x00')
+
+
+def win32_listvolumes():
+    """The volumes in the system, as a list of utf8 GUID paths."""
+    result = []
+    size = rwin32.MAX_PATH + 1
+    with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+        hFind = _FindFirstVolumeW(buf, rffi.cast(rwin32.DWORD, size))
+        if hFind == rwin32.INVALID_HANDLE_VALUE:
+            if rwin32.GetLastError_saved() != ERROR_NO_MORE_FILES:
+                raise rwin32.lastSavedWindowsError("FindFirstVolumeW")
+            return result
+        try:
+            while True:
+                utf8, lgt = rffi.wcharp2utf8(buf)
+                result.append(utf8)
+                if not _FindNextVolumeW(hFind, buf,
+                                        rffi.cast(rwin32.DWORD, size)):
+                    if rwin32.GetLastError_saved() != ERROR_NO_MORE_FILES:
+                        raise rwin32.lastSavedWindowsError("FindNextVolumeW")
+                    break
+        finally:
+            _FindVolumeClose(hFind)
+    return result
+
+
+def win32_getvolumepathname(utf8):
+    """The mount point of the volume holding 'utf8', as utf8."""
+    ncp = codepoints_in_utf8(utf8)
+    # the volume path is no longer than the whole path
+    size = len(utf8) + 1
+    if size < rwin32.MAX_PATH:
+        size = rwin32.MAX_PATH
+    with rffi.scoped_utf82wcharp(utf8, ncp) as path:
+        with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+            if not _GetVolumePathNameW(path, buf,
+                                       rffi.cast(rwin32.DWORD, size)):
+                raise rwin32.lastSavedWindowsError("_getvolumepathname")
+            return rffi.wcharp2utf8(buf)
+
+
 def win32_getppid():
     ret = pypy_Getppid()
     if ret == rffi.cast(rwin32.DWORD, -1):
