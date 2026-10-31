@@ -3707,7 +3707,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         offset, size, value, d = module.pep697_info(t)
         # type data sits right past the (aligned) PyObject header
         assert 2 * ptrsize <= offset <= 2 * ptrsize + 16
-        assert size >= 16
+        # sizeof(pep697_data), which is {int, double}: 12 where double is
+        # 4-aligned (32-bit x86), 16 elsewhere
+        assert size >= struct.calcsize('id')
         assert (value, d) == (42, 1.5)
         # the member descriptors and PyObject_GetTypeData agree on the layout
         module.pep697_set(t, 7)
