@@ -1335,19 +1335,20 @@ class rbigint(object):
         oldsize = self.numdigits()
         newsize = oldsize + wordshift + 1
         z = rbigint([NULLDIGIT] * newsize, selfsign, newsize)
-        j = 0
-        prevdigit = NULLDIGIT
+        z.setdigit(wordshift, self.udigit(0) << remshift)
+        j = 1
         while j < oldsize:
-            digit = self.udigit(j)
-            newdigit = (digit << remshift) | (prevdigit >> hishift)
-            z.setdigit(wordshift, newdigit)
-            prevdigit = digit
-            wordshift += 1
+            i = j - 1
+            assert i >= 0
+            k = wordshift + j
+            assert k >= 0
+            z.setdigit(k, (self.udigit(j) << remshift) | (self.udigit(i) >> hishift))
             j += 1
-
-        newsize -= 1
-        assert newsize >= 0
-        z.setdigit(newsize, prevdigit >> hishift)
+        last = oldsize - 1
+        assert last >= 0
+        k = wordshift + oldsize
+        assert k >= 0
+        z.setdigit(k, self.udigit(last) >> hishift)
 
         z._normalize()
         return z
@@ -1438,13 +1439,14 @@ class rbigint(object):
         hishift = SHIFT - loshift
         z = rbigint([NULLDIGIT] * newsize, selfsign, newsize)
         i = 0
-        while i < newsize:
-            newdigit = (self.digit(wordshift) >> loshift)
-            if i+1 < newsize:
-                newdigit |= (self.digit(wordshift+1) << hishift)
-            z.setdigit(i, newdigit)
+        while i < newsize - 1:
+            lo = wordshift + i
+            assert lo >= 0
+            z.setdigit(i, (self.udigit(lo) >> loshift) | ((self.udigit(lo + 1) << hishift) & MASK))
             i += 1
-            wordshift += 1
+        lo = wordshift + i
+        assert lo >= 0
+        z.setdigit(i, self.udigit(lo) >> loshift)
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
@@ -2264,36 +2266,32 @@ def _v_lshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits left, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the top.
     """
-
-    carry = 0
-    #assert 0 <= d and d < SHIFT
-    i = 0
+    e = SHIFT - d
+    z.setdigit(0, a.udigit(0) << d)
+    i = 1
     while i < m:
-        acc = a.uwidedigit(i) << d | carry
-        z.setdigit(i, acc)
-        carry = acc >> SHIFT
+        j = i - 1
+        assert j >= 0
+        z.setdigit(i, (a.udigit(i) << d) | (a.udigit(j) >> e))
         i += 1
-
-    return carry
+    last = m - 1
+    assert last >= 0
+    return a.udigit(last) >> e
 
 def _v_rshift(z, a, m, d):
-    """ Shift digit vector a[0:m] d bits right, with 0 <= d < PyLong_SHIFT. Put
+    """ Shift digit vector a[0:m] d bits right, with 0 <= d < SHIFT. Put
         * result in z[0:m], and return the d bits shifted out of the bottom.
     """
-
-    carry = _unsigned_widen_digit(0)
-    acc = _unsigned_widen_digit(0)
-    mask = (1 << d) - 1
-
-    #assert 0 <= d and d < SHIFT
-    i = m-1
-    while i >= 0:
-        acc = (carry << SHIFT) | a.udigit(i)
-        carry = acc & mask
-        z.setdigit(i, acc >> d)
-        i -= 1
-
-    return carry
+    e = SHIFT - d
+    mask = (r_uint(1) << d) - 1
+    i = 0
+    while i < m - 1:
+        z.setdigit(i, (a.udigit(i) >> d) | ((a.udigit(i + 1) << e) & MASK))
+        i += 1
+    last = m - 1
+    assert last >= 0
+    z.setdigit(last, a.udigit(last) >> d)
+    return a.udigit(0) & mask
 
 def _x_divrem(v1, w1):
     """ Unsigned bigint division with remainder -- the algorithm """
