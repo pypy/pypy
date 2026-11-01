@@ -140,8 +140,6 @@ class BaseStringFormatter(object):
             prec = self.prec
             if prec < 0:
                 prec = 6
-            if char in 'fF' and x/1e25 > 1e25:
-                char = chr(ord(char) + 1)     # 'f' => 'g'
             flags = 0
             if self.f_alt:
                 flags |= DTSF_ALT
