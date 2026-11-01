@@ -2029,11 +2029,6 @@ class ObjSpace(object):
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
-    def realunicode_w(self, w_obj):
-        from pypy.interpreter.unicodehelper import decode_utf8sp
-        utf8 = self.utf8_w(w_obj)
-        return decode_utf8sp(self, utf8)[0].decode('utf8')
-
     def utf8_0_w(self, w_obj):
         "Like utf8_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring

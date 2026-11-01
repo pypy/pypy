@@ -91,6 +91,20 @@ class TestFSEncode(BaseFSEncodeTest):
         assert space.bytes_w(w_enc) == b'a\xffb'
         assert space.eq_w(space.fsdecode(w_enc), w_st)
 
+    def test_surrogatepass(self):
+        if sys.platform != 'win32':
+            import pytest
+            pytest.skip("win32 only")
+        space = self.space
+        w_st = space.newtext(u'a\udcffb'.encode('utf8'), 3)
+        w_enc = space.fsencode(w_st)
+        assert space.bytes_w(w_enc) == b'a\xed\xb3\xbfb'
+        assert space.eq_w(space.fsdecode(w_enc), w_st)
+        # PEP 529: bytes paths are utf8, undecodable bytes are an error
+        # instead of being smuggled through as surrogates
+        space.raises_w(space.w_UnicodeDecodeError, space.fsdecode,
+                       space.newbytes(b'a\xffb'))
+
     def test_null_byte(self):
         space = self.space
         uni = u'abc\x00def'

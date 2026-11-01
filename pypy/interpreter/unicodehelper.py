@@ -58,22 +58,32 @@ def default_error_encode(
 # ____________________________________________________________
 _WIN32 = sys.platform == 'win32'
 
-# the filesystem encoding is always utf-8
+# the filesystem encoding is always utf-8, with the error handler reported by
+# sys.getfilesystemencodeerrors(): PEP 529 surrogatepass on win32, where bytes
+# paths are always utf-8, surrogateescape elsewhere
+if _WIN32:
+    FS_ERRORS = 'surrogatepass'
+    FS_ALLOW_SURROGATES = True
+else:
+    FS_ERRORS = 'surrogateescape'
+    FS_ALLOW_SURROGATES = False
 
 def fsdecode(space, w_string):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     s = space.bytes_w(w_string)
-    utf8, lgt, _ = str_decode_utf8(space, s, w_string, 'surrogateescape', True,
-                                   state.decode_error_handler)
+    utf8, lgt, _ = str_decode_utf8(space, s, w_string, FS_ERRORS, True,
+                                   state.decode_error_handler,
+                                   allow_surrogates=FS_ALLOW_SURROGATES)
     return space.newtext(utf8, lgt)
 
 def fsencode(space, w_uni):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     utf8 = space.utf8_w(w_uni)
-    bytes = utf8_encode_utf_8(space, utf8, w_uni, 'surrogateescape',
-                              state.encode_error_handler)
+    bytes = utf8_encode_utf_8(space, utf8, w_uni, FS_ERRORS,
+                              state.encode_error_handler,
+                              allow_surrogates=FS_ALLOW_SURROGATES)
     return space.newbytes(bytes)
 
 def encode(space, w_data, encoding=None, errors='strict'):
