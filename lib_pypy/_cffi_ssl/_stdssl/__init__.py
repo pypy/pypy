@@ -1761,10 +1761,10 @@ class _SSLContext(object):
         if sys.platform == 'win32':
             # OpenSSL looks the two variables up with its own getenv(), which
             # need not share a CRT environment with os.environ on windows.
-            # Load them here as well as below, CPython relies on OpenSSL alone.
             if cafile or capath:
                 try:
                     self.load_verify_locations(cafile or None, capath or None)
+                    return
                 except (OSError, SSLError):
                     # SSL_CTX_set_default_verify_paths() ignores unusable
                     # locations, so stay quiet about them here too
