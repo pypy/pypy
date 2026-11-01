@@ -26,8 +26,8 @@ class MallocMismatch(Exception):
         dict2 = {}
         for obj, traceback in dict.values():
             traceback = traceback.splitlines()
-            if len(traceback) > 8:
-                traceback = ['    ...'] + traceback[-6:]
+            if len(traceback) > 12:
+                traceback = ['    ...'] + traceback[-10:]
             traceback = '\n'.join(traceback)
             dict2.setdefault(traceback, [])
             dict2[traceback].append(obj)
