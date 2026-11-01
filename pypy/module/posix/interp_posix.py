@@ -164,32 +164,29 @@ def call_rposix(func, path, *args):
 
 
 class Path(object):
-    _immutable_fields_ = ['as_fd', 'as_bytes', 'as_unicode', 'w_path']
+    # as_bytes is utf8 on win32, where rposix converts it back to wide
+    # characters; is_unicode only records whether the path came in as a str
+    _immutable_fields_ = ['as_fd', 'as_bytes', 'is_unicode', 'w_path']
 
-    def __init__(self, fd, bytes, unicode, w_path):
+    def __init__(self, fd, bytes, is_unicode, w_path):
         self.as_fd = fd
         self.as_bytes = bytes
-        self.as_unicode = unicode
+        self.is_unicode = is_unicode
         self.w_path = w_path
 
     def __repr__(self):
         # For debugging
         return ''.join(['Path(', str(self.as_fd), ', ', str(self.as_bytes),
-                        ', ', str(self.as_unicode), ', [', str(self.w_path),
+                        ', ', str(self.is_unicode), ', [', str(self.w_path),
                         ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
 
 def _path_from_unicode(space, w_value):
-    if _WIN32:
-        path_b = space.bytes0_w(space.fsencode(w_value))
-        path_u = space.realunicode_w(w_value)
-        return Path(-1, path_b, path_u, w_value)
-    else:
-        path_b = space.bytes0_w(space.fsencode(w_value))
-        return Path(-1, path_b, None, w_value)
+    path_b = space.bytes0_w(space.fsencode(w_value))
+    return Path(-1, path_b, _WIN32, w_value)
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
-    return Path(-1, path_b, None, w_value)
+    return Path(-1, path_b, False, w_value)
 
 @specialize.arg(2, 3)
 def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
@@ -205,7 +202,7 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         else:
             allowed_types = "string, bytes or os.PathLike"
     if nullable and space.is_w(w_value, space.w_None):
-        return Path(-1, '.', None, space.w_None)
+        return Path(-1, '.', False, space.w_None)
     if space.isinstance_w(w_value, space.w_unicode):
         return _path_from_unicode(space, w_value)
     elif space.isinstance_w(w_value, space.w_bytes):
@@ -229,7 +226,7 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
             pass
         else:
             fd = unwrap_fd(space, w_value, allowed_types)
-            return Path(fd, None, None, w_value)
+            return Path(fd, None, False, w_value)
 
     # PathLike case
     # inline fspath() for better error messages
@@ -1157,10 +1154,6 @@ entries '.' and '..' even if they are present in the directory."""
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
     else:
-        # The annotator needs result_u and result to be different
-        u = path.as_unicode
-        result_u = []
-        result = []
         try:
             path_b = path.as_bytes
             if path_b is None:
@@ -1172,13 +1165,10 @@ entries '.' and '..' even if they are present in the directory."""
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         len_result = len(result)
         result_w = [None] * len_result
-        if u:
+        if _WIN32:
+            # rposix.listdir went through the wide API and gives us utf8
             for i in range(len_result):
                 result_w[i] = space.newtext(result[i])
-        elif _WIN32:
-            for i in range(len_result):
-                result_w[i] = space.newtext(result[i])
-            return space.newlist(result_w)
         else:
             for i in range(len_result):
                 result_w[i] = space.newfilename(result[i])

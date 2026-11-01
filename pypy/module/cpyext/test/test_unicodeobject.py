@@ -656,9 +656,19 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("make_utf8", "METH_NOARGS",
              """
             return PyUnicode_FromString("\\xf4\\x8a\\xaf\\x8d");
+             """),
+            ("sizeof_wchar", "METH_NOARGS",
+             """
+            return PyLong_FromSsize_t((Py_ssize_t)sizeof(wchar_t));
              """)])
         res = module.aswidecharstring("Caf\xe9")
         assert res == ("Caf\xe9\0", 4)
+
+        # a codepoint outside the BMP needs a surrogate pair where
+        # wchar_t is 2 bytes, so the length is not the number of codepoints
+        s = "Caf\xe9\U0001F4A9"
+        wlen = len(s) + (1 if module.sizeof_wchar() == 2 else 0)
+        assert module.aswidecharstring(s) == (s + "\0", wlen)
 
         assert module.truncate("Caf\xe9") == "Caf\xe9"
         assert module.truncate("abcde") == "abcd"

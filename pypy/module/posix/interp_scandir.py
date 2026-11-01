@@ -23,7 +23,7 @@ def scandir(space, path=None):
     try:
         space._try_buffer_w(path.w_path, space.BUF_FULL_RO)
     except BufferInterfaceNotFound:
-        as_bytes = (path.as_unicode is None)
+        as_bytes = not path.is_unicode
         result_is_bytes = False
     else:
         as_bytes = True

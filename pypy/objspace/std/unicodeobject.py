@@ -4,7 +4,7 @@ import sys
 
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
-    enforceargs, newlist_hint, specialize, we_are_translated)
+    enforceargs, newlist_hint, not_rpython, specialize, we_are_translated)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib.rstring import (
@@ -94,9 +94,11 @@ class W_UnicodeObject(W_Root):
         """representation for debugging purposes"""
         return "%s(%r)" % (self.__class__.__name__, self._utf8)
 
+    @not_rpython
     def unwrap(self, space):
-        # for testing
-        return space.realunicode_w(self)
+        # only used by the test/debug tooling that calls space.unwrap()
+        from pypy.interpreter.unicodehelper import decode_utf8sp
+        return decode_utf8sp(space, space.utf8_w(self))[0].decode('utf8')
 
     def is_w(self, space, w_other):
         if not isinstance(w_other, W_UnicodeObject):

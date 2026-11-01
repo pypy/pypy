@@ -443,10 +443,6 @@ class W_BytesObject(W_AbstractBytesObject):
     def bytes_w(self, space):
         return self._value
 
-    def realunicode_w(self, space):
-        raise oefmt(space.w_TypeError,
-                    "unicode object expected, received bytes instead")
-
     def text_w(self, space):
         return self._value
 

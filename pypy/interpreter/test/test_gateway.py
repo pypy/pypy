@@ -530,9 +530,13 @@ class TestGateway:
             return space.newbytes(filename)
         app_f = gateway.interp2app_temp(f, unwrap_spec=['fsencode'])
         w_app_f = space.wrap(app_f)
+        if sys.platform == 'win32':
+            expected = '\xed\xb2\x80'   # utf-8/surrogatepass, see PEP 529
+        else:
+            expected = '\x80'           # surrogateescape
         assert space.eq_w(
             space.call_function(w_app_f, w(u'\udc80')),
-            space.newbytes('\x80'))
+            space.newbytes(expected))
 
     def test_interp2app_unwrap_spec_typechecks(self):
         from rpython.rlib.rarithmetic import r_longlong

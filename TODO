@@ -2,8 +2,6 @@
   pypyjit_tests.py, and buildbot/bot2/pypybuildbot/builds.py; rewrite
   should_report_failure() in runner.py to detect crashes by checking for a
   valid XML testsuite rather than resultlog F/E/P lines
-* convert the last space.realunicode_w() user, posix.interp_posix:158, to
-  unicode_w, then drop realunicode_w from baseobjspace.py and gateway.py
 * review all uses of W_Unicode.text_w, right now it is exactly W_Unicode.utf8_w.
   It shoud only return valid utf8 (see 0be26dc39a59 which broke translation on
   win32 and failed tests on linux64). Then we can use it in places like

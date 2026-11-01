@@ -469,9 +469,15 @@ class AppTestPosix:
             pass # probably ascii
         else:
             assert posix.access('caf\xe9', posix.R_OK) is False
-        assert posix.access(b'caf\xe9', posix.R_OK) is False
         assert posix.access('caf\udcc0', posix.R_OK) is False
-        assert posix.access(b'caf\xc3', posix.R_OK) is False
+        if sys.platform == 'win32':
+            # bytes paths are decoded with utf-8/surrogatepass (PEP 529), so
+            # these two are not paths at all
+            raises(UnicodeDecodeError, posix.access, b'caf\xe9', posix.R_OK)
+            raises(UnicodeDecodeError, posix.access, b'caf\xc3', posix.R_OK)
+        else:
+            assert posix.access(b'caf\xe9', posix.R_OK) is False
+            assert posix.access(b'caf\xc3', posix.R_OK) is False
 
     def test_access(self):
         pdir = self.pdir + '/file1'
