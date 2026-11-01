@@ -61,6 +61,11 @@
 #  error "_PyTime_t is not a two's complement integer type"
 #endif
 
+#ifdef MS_WINDOWS
+static LONGLONG py_qpc_frequency = 0;
+static int py_win_perf_counter_frequency(LONGLONG *pfrequency, int raise);
+#endif
+
 
 static void
 pytime_time_t_overflow(void)
@@ -890,7 +895,9 @@ py_get_system_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
     FILETIME system_time;
     ULARGE_INTEGER large;
 
-    GetSystemTimeAsFileTime(&system_time);
+    /* GetSystemTimeAsFileTime() only has a resolution of 15.6 ms, use the
+       precise variant like CPython 3.13 */
+    GetSystemTimePreciseAsFileTime(&system_time);
     large.u.LowPart = system_time.dwLowDateTime;
     large.u.HighPart = system_time.dwHighDateTime;
     /* 11,644,473,600,000,000,000: number of nanoseconds between
@@ -899,20 +906,17 @@ py_get_system_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
     _PyTime_t ns = large.QuadPart * 100 - 11644473600000000000;
     *tp = pytime_from_nanoseconds(ns);
     if (info) {
-        DWORD timeAdjustment, timeIncrement;
-        BOOL isTimeAdjustmentDisabled, ok;
-
-        info->implementation = "GetSystemTimeAsFileTime()";
-        info->monotonic = 0;
-        ok = GetSystemTimeAdjustment(&timeAdjustment, &timeIncrement,
-                                     &isTimeAdjustmentDisabled);
-        if (!ok) {
-#ifndef BUILD_TIME_MODULE
-            PyErr_SetFromWindowsErr(0);
-#endif
-            return -1;
+        /* GetSystemTimePreciseAsFileTime() is implemented using
+           QueryPerformanceCounter() internally */
+        if (py_qpc_frequency == 0) {
+            if (py_win_perf_counter_frequency(&py_qpc_frequency, raise_exc) < 0) {
+                return -1;
+            }
         }
-        info->resolution = timeIncrement * 1e-7;
+
+        info->implementation = "GetSystemTimePreciseAsFileTime()";
+        info->monotonic = 0;
+        info->resolution = 1.0 / (double)py_qpc_frequency;
         info->adjustable = 1;
     }
 
@@ -1070,48 +1074,92 @@ py_mach_timebase_info(_PyTime_t *pnumer, _PyTime_t *pdenom, int raise)
 #endif
 
 
+#ifdef MS_WINDOWS
+static int
+py_win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
+{
+    LONGLONG frequency;
+
+    LARGE_INTEGER freq;
+    // Since Windows XP, the function cannot fail.
+    (void)QueryPerformanceFrequency(&freq);
+    frequency = freq.QuadPart;
+
+    // Since Windows XP, frequency cannot be zero.
+    assert(frequency >= 1);
+
+    /* Make also sure that (ticks * SEC_TO_NS) cannot overflow in
+       _PyTime_MulDiv(), with ticks < frequency.
+
+       Known QueryPerformanceFrequency() values:
+
+       * 10,000,000 (10 MHz): 100 ns resolution
+       * 3,579,545 Hz (3.6 MHz): 279 ns resolution
+
+       None of these frequencies can overflow with 64-bit _PyTime_t, but
+       check for integer overflow just in case. */
+    if (frequency > _PyTime_MAX / SEC_TO_NS) {
+#ifndef BUILD_TIME_MODULE
+        if (raise) {
+            PyErr_SetString(PyExc_OverflowError,
+                            "QueryPerformanceFrequency is too large");
+        }
+#endif
+        return -1;
+    }
+
+    *pfrequency = frequency;
+    return 0;
+}
+
+
+static int
+py_get_win_perf_counter(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
+{
+    assert(info == NULL || raise_exc);
+
+    if (py_qpc_frequency == 0) {
+        if (py_win_perf_counter_frequency(&py_qpc_frequency, raise_exc) < 0) {
+            return -1;
+        }
+    }
+
+    if (info) {
+        info->implementation = "QueryPerformanceCounter()";
+        info->resolution = 1.0 / (double)py_qpc_frequency;
+        info->monotonic = 1;
+        info->adjustable = 0;
+    }
+
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    LONGLONG ticksll = now.QuadPart;
+
+    /* Make sure that casting LONGLONG to _PyTime_t cannot overflow,
+       both types are signed */
+    _PyTime_t ticks;
+    static_assert(sizeof(ticksll) <= sizeof(ticks),
+                  "LONGLONG is larger than _PyTime_t");
+    ticks = (_PyTime_t)ticksll;
+
+    _PyTime_t ns = _PyTime_MulDiv(ticks, SEC_TO_NS,
+                                  (_PyTime_t)py_qpc_frequency);
+    *tp = pytime_from_nanoseconds(ns);
+    return 0;
+}
+#endif  // MS_WINDOWS
+
+
 static int
 py_get_monotonic_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
 {
     assert(info == NULL || raise_exc);
 
 #if defined(MS_WINDOWS)
-    ULONGLONG ticks = GetTickCount64();
-    static_assert(sizeof(ticks) <= sizeof(_PyTime_t),
-                  "ULONGLONG is larger than _PyTime_t");
-    _PyTime_t t;
-    if (ticks <= (ULONGLONG)_PyTime_MAX) {
-        t = (_PyTime_t)ticks;
-    }
-    else {
-        // GetTickCount64() maximum is larger than _PyTime_t maximum:
-        // ULONGLONG is unsigned, whereas _PyTime_t is signed.
-        t = _PyTime_MAX;
-    }
-
-    int res = pytime_mul(&t, MS_TO_NS);
-    *tp = t;
-
-    if (raise_exc && res < 0) {
-        pytime_overflow();
+    /* GetTickCount64() only has a resolution of 15.6 ms, use the same
+       QueryPerformanceCounter() as perf_counter(), like CPython 3.13 */
+    if (py_get_win_perf_counter(tp, info, raise_exc) < 0) {
         return -1;
-    }
-
-    if (info) {
-        DWORD timeAdjustment, timeIncrement;
-        BOOL isTimeAdjustmentDisabled, ok;
-        info->implementation = "GetTickCount64()";
-        info->monotonic = 1;
-        ok = GetSystemTimeAdjustment(&timeAdjustment, &timeIncrement,
-                                     &isTimeAdjustmentDisabled);
-        if (!ok) {
-#ifndef BUILD_TIME_MODULE
-            PyErr_SetFromWindowsErr(0);
-#endif
-            return -1;
-        }
-        info->resolution = timeIncrement * 1e-7;
-        info->adjustable = 0;
     }
 
 #elif defined(__APPLE__)
@@ -1215,82 +1263,6 @@ _PyTime_GetMonotonicClockWithInfo(_PyTime_t *tp, _Py_clock_info_t *info)
 {
     return py_get_monotonic_clock(tp, info, 1);
 }
-
-
-#ifdef MS_WINDOWS
-static int
-py_win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
-{
-    LONGLONG frequency;
-
-    LARGE_INTEGER freq;
-    // Since Windows XP, the function cannot fail.
-    (void)QueryPerformanceFrequency(&freq);
-    frequency = freq.QuadPart;
-
-    // Since Windows XP, frequency cannot be zero.
-    assert(frequency >= 1);
-
-    /* Make also sure that (ticks * SEC_TO_NS) cannot overflow in
-       _PyTime_MulDiv(), with ticks < frequency.
-
-       Known QueryPerformanceFrequency() values:
-
-       * 10,000,000 (10 MHz): 100 ns resolution
-       * 3,579,545 Hz (3.6 MHz): 279 ns resolution
-
-       None of these frequencies can overflow with 64-bit _PyTime_t, but
-       check for integer overflow just in case. */
-    if (frequency > _PyTime_MAX / SEC_TO_NS) {
-#ifndef BUILD_TIME_MODULE
-        if (raise) {
-            PyErr_SetString(PyExc_OverflowError,
-                            "QueryPerformanceFrequency is too large");
-        }
-#endif
-        return -1;
-    }
-
-    *pfrequency = frequency;
-    return 0;
-}
-
-
-static int
-py_get_win_perf_counter(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
-{
-    assert(info == NULL || raise_exc);
-
-    static LONGLONG frequency = 0;
-    if (frequency == 0) {
-        if (py_win_perf_counter_frequency(&frequency, raise_exc) < 0) {
-            return -1;
-        }
-    }
-
-    if (info) {
-        info->implementation = "QueryPerformanceCounter()";
-        info->resolution = 1.0 / (double)frequency;
-        info->monotonic = 1;
-        info->adjustable = 0;
-    }
-
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    LONGLONG ticksll = now.QuadPart;
-
-    /* Make sure that casting LONGLONG to _PyTime_t cannot overflow,
-       both types are signed */
-    _PyTime_t ticks;
-    static_assert(sizeof(ticksll) <= sizeof(ticks),
-                  "LONGLONG is larger than _PyTime_t");
-    ticks = (_PyTime_t)ticksll;
-
-    _PyTime_t ns = _PyTime_MulDiv(ticks, SEC_TO_NS, (_PyTime_t)frequency);
-    *tp = pytime_from_nanoseconds(ns);
-    return 0;
-}
-#endif  // MS_WINDOWS
 
 
 int
