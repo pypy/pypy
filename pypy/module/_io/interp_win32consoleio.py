@@ -35,6 +35,14 @@ def err_closed(space):
     return oefmt(space.w_ValueError,
                 "I/O operation on closed file")
 
+def err_windows(space, errcode):
+    message = rwin32.FormatErrorW(errcode)
+    w_errcode = space.newint(errcode)
+    return OperationError(space.w_WindowsError,
+                          space.newtuple([w_errcode,
+                                          space.newtext(*message),
+                                          space.w_None, w_errcode]))
+
 def err_mode(space, state):
     # TODO sort out the state
     return oefmt(space.w_ValueError,
@@ -99,7 +107,7 @@ def read_console_wide(space, handle, maxlen):
                         readlen_b += 2
                 break
     if err:
-        raise OperationError(space.w_WindowsError, space.newint(err))
+        raise err_windows(space, err)
     if readlen_b <=0 or buf.getitem(0) == '\x1a':
         return ''
     else:
@@ -200,6 +208,18 @@ class W_WinConsoleIO(W_RawIOBase):
         if buf:
             lltype.free(buf, flavor='raw')
         
+    def _get_handle(self, space):
+        # Like CPython, fetch the handle for every operation instead of
+        # caching the one we were created with: dup2() on the fd (pytest
+        # does this to capture output) closes the handle behind it, and
+        # WriteConsoleW/ReadConsoleW would then fail with WinError 6
+        if self.fd >= 0:
+            try:
+                return rwin32.get_osfhandle(self.fd)
+            except OSError:
+                raise err_closed(space)
+        return self.handle
+
     def _getbuffer(self, length):
         """ Get up to length wchar from self.buf
         """
@@ -401,7 +421,8 @@ class W_WinConsoleIO(W_RawIOBase):
         return `length` bytes.`
         """
         
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+        handle = self._get_handle(space)
+        if handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
             
         if not self.readable:
@@ -433,7 +454,7 @@ class W_WinConsoleIO(W_RawIOBase):
             builder.append(utf8)
         
         if length > 0:
-            wbuf = read_console_wide(space, self.handle, length)
+            wbuf = read_console_wide(space, handle, length)
             utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
             if 1 or self.mode == 'u':
                 length -= lgt
@@ -448,7 +469,7 @@ class W_WinConsoleIO(W_RawIOBase):
             
     def read_w(self, space, w_size=None):
         size = convert_size(space, w_size)
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+        if self._get_handle(space) == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
         if not self.readable:
             raise err_mode(space,"reading")
@@ -469,13 +490,14 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newbytes(buf)
 
     def readall_w(self, space):
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+        handle = self._get_handle(space)
+        if handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
 
         # Read the wstr 16-bit data from the console as 8-byte bytes
         result = StringBuilder()
         while True:
-            wbuf = read_console_wide(space, self.handle, BUFSIZ)
+            wbuf = read_console_wide(space, handle, BUFSIZ)
             if len(wbuf) == 0:
                 break
             result.append(wbuf)
@@ -489,7 +511,8 @@ class W_WinConsoleIO(W_RawIOBase):
         return space.newtext(utf8, lgt)
 
     def write_w(self, space, w_data):
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+        handle = self._get_handle(space)
+        if handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
         
         if not self.writable:
@@ -513,12 +536,14 @@ class W_WinConsoleIO(W_RawIOBase):
                 # skip BOM, start at 1
                 offset = 1
                 while offset < wlen:
-                    res = rwin32.WriteConsoleW(self.handle,
+                    # issue11395: WriteConsoleW fails for large buffers,
+                    # CPython caps a single call at 32766 bytes
+                    count = min(wlen - offset, 32766 // 2)
+                    res = rwin32.WriteConsoleW(handle,
                             rffi.cast(rwin32.LPVOID, rffi.ptradd(dataptr, offset * 2)),
-                            wlen - offset, n , rffi.cast(rwin32.LPVOID, 0))
+                            count, n , rffi.cast(rwin32.LPVOID, 0))
                     if not res:
-                        err = rwin32.GetLastError_saved()
-                        raise OperationError(space.w_WindowsError, space.newint(err))
+                        raise err_windows(space, rwin32.GetLastError_saved())
                     nwrote = intmask(n[0])
                     offset += nwrote
         return space.newint(len(utf8))
