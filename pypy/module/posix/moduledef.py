@@ -193,6 +193,7 @@ corresponding Unix manual entries for more information on calls."""
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
                 '_getdiskusage': 'interp_posix._getdiskusage',
                 '_getvolumepathname': 'interp_posix._getvolumepathname',
+                '_path_isdevdrive': 'interp_posix._path_isdevdrive',
                 'listdrives': 'interp_posix.listdrives',
                 'listvolumes': 'interp_posix.listvolumes',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',

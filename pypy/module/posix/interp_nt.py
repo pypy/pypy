@@ -49,16 +49,79 @@ pypy_Getppid()
     }
     CloseHandle(snapshot);
     return result;
-}    
+}
+
+#ifndef PERSISTENT_VOLUME_STATE_DEV_VOLUME
+#define PERSISTENT_VOLUME_STATE_DEV_VOLUME 0x00002000
+#endif
+
+/* Layout of FILE_FS_PERSISTENT_VOLUME_INFORMATION, which only the
+   driver headers declare */
+typedef struct {
+    ULONG VolumeFlags;
+    ULONG FlagMask;
+    ULONG Version;
+    ULONG Reserved;
+} pypy_volume_state_t;
+
+DWORD
+pypy_IsDevDrive(LPCWSTR path, int *result)
+    /* Copied from CPython os__path_isdevdrive_impl.  Returns a win32
+       error code, or 0 and sets *result. */
+{
+    wchar_t volume[MAX_PATH];
+    HANDLE hVolume;
+    pypy_volume_state_t volumeState;
+    DWORD err = 0;
+
+    *result = 0;
+    if (!GetVolumePathNameW(path, volume, MAX_PATH)) {
+        /* invalid path of some kind, including a volume mounted in a path
+           longer than MAX_PATH */
+        return GetLastError();
+    }
+    if (GetDriveTypeW(volume) != DRIVE_FIXED) {
+        /* only local dev drives */
+        return 0;
+    }
+    hVolume = CreateFileW(volume, FILE_READ_ATTRIBUTES,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE |
+                          FILE_SHARE_DELETE,
+                          NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS,
+                          NULL);
+    if (hVolume == INVALID_HANDLE_VALUE) {
+        return GetLastError();
+    }
+    memset(&volumeState, 0, sizeof(volumeState));
+    volumeState.Version = 1;
+    volumeState.FlagMask = PERSISTENT_VOLUME_STATE_DEV_VOLUME;
+    if (!DeviceIoControl(hVolume, FSCTL_QUERY_PERSISTENT_VOLUME_STATE,
+                         &volumeState, sizeof(volumeState),
+                         &volumeState, sizeof(volumeState), NULL, NULL)) {
+        err = GetLastError();
+    }
+    CloseHandle(hVolume);
+    if (err == ERROR_INVALID_PARAMETER) {
+        /* not supported on this platform */
+        return 0;
+    }
+    if (err) {
+        return err;
+    }
+    *result = (volumeState.VolumeFlags &
+               PERSISTENT_VOLUME_STATE_DEV_VOLUME) != 0;
+    return 0;
+}
 """
 eci = ExternalCompilationInfo(
-    includes=['windows.h', 'tlhelp32.h'],
+    includes=['windows.h', 'tlhelp32.h', 'winioctl.h'],
     include_dirs=[cdir],
     post_include_bits=[
         "RPY_EXTERN DWORD "
         "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);",
         "RPY_EXTERN DWORD ",
         "pypy_Getppid();",
+        "RPY_EXTERN DWORD pypy_IsDevDrive(LPCWSTR, int *);",
     ],
     separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
@@ -67,6 +130,9 @@ pypy_GetFinalPathNameByHandle = rffi.llexternal(
     rwin32.DWORD, compilation_info=eci)
 pypy_Getppid = rffi.llexternal(
     'pypy_Getppid', [], rwin32.DWORD, compilation_info=eci)
+pypy_IsDevDrive = rffi.llexternal(
+    'pypy_IsDevDrive', [rffi.CWCHARP, rffi.CArrayPtr(rffi.INT)],
+    rwin32.DWORD, compilation_info=eci)
 
 
 # plain NotImplementedError is invalid RPython
@@ -300,6 +366,17 @@ def win32_getvolumepathname(utf8):
                                        rffi.cast(rwin32.DWORD, size)):
                 raise rwin32.lastSavedWindowsError("_getvolumepathname")
             return rffi.wcharp2utf8(buf)
+
+
+def win32_isdevdrive(utf8):
+    """True if 'utf8' lives on a Windows Dev Drive."""
+    ncp = codepoints_in_utf8(utf8)
+    with rffi.scoped_utf82wcharp(utf8, ncp) as path:
+        with lltype.scoped_alloc(rffi.CArray(rffi.INT), 1) as result:
+            err = rffi.cast(lltype.Signed, pypy_IsDevDrive(path, result))
+            if err:
+                raise WindowsError(err, "_path_isdevdrive")
+            return rffi.cast(lltype.Signed, result[0]) != 0
 
 
 def win32_getppid():

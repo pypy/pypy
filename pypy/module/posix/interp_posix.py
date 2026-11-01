@@ -907,15 +907,6 @@ if _WIN32:
             ulen = codepoints_in_utf8(fullpath)
             return space.newtext(fullpath, ulen)
 
-def getcwdb(space):
-    """Return the current working directory."""
-    try:
-        cur = os.getcwd()
-    except OSError as e:
-        raise wrap_oserror(space, e, eintr_retry=False)
-    else:
-        return space.newbytes(cur)
-
 if _WIN32:
     def getcwd(space):
         """Return the current working directory as a string."""
@@ -925,7 +916,22 @@ if _WIN32:
             raise wrap_oserror(space, e, eintr_retry=False)
         else:
             return u2utf8(space, cur)
+
+    def getcwdb(space):
+        """Return the current working directory."""
+        # PEP 529: bytes paths are utf8, not the ANSI codepage that
+        # _getcwd() would return
+        return space.fsencode(getcwd(space))
 else:
+    def getcwdb(space):
+        """Return the current working directory."""
+        try:
+            cur = os.getcwd()
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        else:
+            return space.newbytes(cur)
+
     def getcwd(space):
         """Return the current working directory as a string."""
         return space.fsdecode(getcwdb(space))
@@ -2799,6 +2805,17 @@ if _WIN32:
         if is_bytes:
             return space.fsencode(w_result)
         return w_result
+
+    def _path_isdevdrive(space, w_path):
+        """helper for ntpath.isdevdrive"""
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
+        try:
+            res = nt.win32_isdevdrive(path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        return space.newbool(res)
 
     def _getdiskusage(space, w_path):
         path = space.fsdecode_w(w_path)
