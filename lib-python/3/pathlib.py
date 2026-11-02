@@ -1112,6 +1112,7 @@ class Path(PurePath):
     def walk(self, top_down=True, on_error=None, follow_symlinks=False):
         """Walk the directory tree from this directory, similar to os.walk()."""
         sys.audit("pathlib.Path.walk", self, on_error, follow_symlinks)
+        str(self)   # cache _str now, not from deep inside the loop below
         paths = [self]
 
         while paths:
