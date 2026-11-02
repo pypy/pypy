@@ -1871,7 +1871,7 @@ def descr__new__(space, w_subtype, w_file=None, w_protocol=None, fix_imports=1, 
         W_Pickler.__init__(w_self, space, None, HIGHEST_PROTOCOL, fix_imports, None)
         return w_self
     if space.is_none(w_protocol):
-        protocol = HIGHEST_PROTOCOL
+        protocol = DEFAULT_PROTOCOL
     else:
         protocol = space.int_w(w_protocol)
     if protocol < 0:
@@ -1889,7 +1889,7 @@ def descr__init__(space, w_self, w_file=None, w_protocol=None, fix_imports=1, w_
     if w_file is None or space.is_none(w_file):
         return
     if space.is_none(w_protocol):
-        protocol = HIGHEST_PROTOCOL
+        protocol = DEFAULT_PROTOCOL
     else:
         protocol = space.int_w(w_protocol)
     if protocol < 0:
