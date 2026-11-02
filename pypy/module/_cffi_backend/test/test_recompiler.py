@@ -1,6 +1,8 @@
+import gc
 import os, pytest
 import sys
 
+from rpython.tool import leakfinder
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
@@ -148,6 +150,17 @@ class AppTestRecompiler:
                     del sys.modules[key]
         """)
         _clean_cache(self.space)
+        # ffi.def_extern() hides the W_ExternPython behind a raw pointer,
+        # which untranslated makes it part of a cycle (rgc.py new_handle),
+        # so only a cyclic collection frees the ffi and its ctx
+        fq = self.space.finalizer_queue
+        for _ in range(5):
+            before = len(leakfinder.ALLOCATED)
+            gc.collect()
+            self.space.user_del_action._run_finalizers()
+            after = len(leakfinder.ALLOCATED)
+            if before == after and not (hasattr(fq, '_queue') and fq._queue):
+                break
 
     def test_math_sin(self):
         import math
