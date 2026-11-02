@@ -1522,6 +1522,12 @@ if _WIN32:
         calling_conv='win',
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    GetSystemTimePreciseAsFileTime = external(
+        'GetSystemTimePreciseAsFileTime',
+        [lltype.Ptr(rwin32.FILETIME)],
+        lltype.Void,
+        calling_conv='win')
+
     SetFileTime = external(
         'SetFileTime',
         [rwin32.HANDLE,
@@ -1573,14 +1579,11 @@ def utime(path, times):
         mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         try:
             if times is None:
-                now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
-                try:
-                    GetSystemTime(now)
-                    if (not SystemTimeToFileTime(now, atime) or
-                        not SystemTimeToFileTime(now, mtime)):
-                        raise rwin32.lastSavedWindowsError()
-                finally:
-                    lltype.free(now, flavor='raw')
+                # not GetSystemTime(): SYSTEMTIME only has milliseconds,
+                # which can round down below the mtime the filesystem just
+                # gave the file
+                GetSystemTimePreciseAsFileTime(atime)
+                rffi.structcopy(mtime, atime)
             else:
                 actime, modtime = times
                 time_t_to_FILE_TIME(actime, atime)
