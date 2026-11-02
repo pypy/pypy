@@ -10,6 +10,8 @@ class AppTestOs:
         import os
 
         if sys.platform == 'win32' and not self.runappdirect:
+            # untranslated, os.environ is the host's dict, but the win32
+            # posix.putenv writes the CRT environment directly
             skip("only relevant for translated tests on win32")
 
         key = 'UNLIKELY_SET'

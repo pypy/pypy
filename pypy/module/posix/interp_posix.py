@@ -1075,7 +1075,7 @@ if _WIN32:
                         "characters", rwin32._MAX_ENV)
 
         try:
-            rwin32._wputenv(name, '')
+            rwin32._wunsetenv(name)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
