@@ -659,6 +659,7 @@ class BaseFutureTests:
             fut = self._new_future(loop=self.loop)
             fut.set_result(Evil())
 
+    @support.impl_detail("cpython gc skips locals in frame", pypy=False)
     def test_future_cancelled_result_refcycles(self):
         f = self._new_future(loop=self.loop)
         f.cancel()
@@ -670,6 +671,7 @@ class BaseFutureTests:
         self.assertIsNotNone(exc)
         self.assertListEqual(gc.get_referrers(exc), [])
 
+    @support.impl_detail("cpython gc skips locals in frame", pypy=False)
     def test_future_cancelled_exception_refcycles(self):
         f = self._new_future(loop=self.loop)
         f.cancel()
