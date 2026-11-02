@@ -562,7 +562,9 @@ if not _WIN32:
 
         @enforceargs(int, None, None)
         def posix_fallocate(fd, offset, length):
-            return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+            error = widen(c_posix_fallocate(fd, offset, length))
+            if error != 0:
+                raise OSError(error, 'posix_fallocate failed')
 
     if HAVE_FADVISE:
         class CConfig:

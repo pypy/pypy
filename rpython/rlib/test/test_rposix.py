@@ -845,7 +845,7 @@ def test_posix_fallocate():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0o777)
     try:
-        assert rposix.posix_fallocate(fd, 0, 10) == 0
+        assert rposix.posix_fallocate(fd, 0, 10) is None
     except OSError as inst:
         """ ZFS seems not to support fallocate.
         so skipping solaris-based since it is likely to come with ZFS

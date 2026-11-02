@@ -161,11 +161,10 @@ def unregister(space, w_search_function):
     state = space.fromcache(CodecState)
     try:
         state.codec_search_path.remove(w_search_function)
-        state.codec_search_cache.clear()
-        state.modified()
-        return space.newint(0)
     except ValueError:
-        return space.newint(-1)
+        return
+    state.codec_search_cache.clear()
+    state.modified()
 
 @jit.elidable
 def normalize(encoding):

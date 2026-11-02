@@ -517,11 +517,11 @@ def posix_fallocate(space, fd, offset, length):
     """
     while True:
         try:
-            s = rposix.posix_fallocate(fd, offset, length)
+            rposix.posix_fallocate(fd, offset, length)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-           return space.newint(s)
+            return
 
 @unwrap_spec(fd=c_int, offset=r_longlong, length=r_longlong, advice=int)
 def posix_fadvise(space, fd, offset, length, advice):
@@ -3157,21 +3157,21 @@ def lockf(space, fd, cmd, length):
     """
     while True:
         try:
-            s = rposix.lockf(fd, cmd, length)
+            rposix.lockf(fd, cmd, length)
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-           return space.newint(s)
+            return
 
 def sched_yield(space):
     """ Voluntarily relinquish the CPU"""
     while True:
         try:
-            res = rposix.sched_yield()
+            rposix.sched_yield()
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
         else:
-            return space.newint(res)
+            return
 
 def fspath(space, w_path):
     """

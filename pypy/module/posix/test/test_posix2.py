@@ -1019,20 +1019,22 @@ class AppTestPosix:
             import errno
             fd = os.open(self.path2 + 'test_os_posix_fallocate', os.O_WRONLY | os.O_CREAT)
             try:
-                ret = os.posix_fallocate(fd, 0, 10)
-                if ret == errno.EINVAL and not self.runappdirect:
-                    # Does not work untranslated on a 32-bit chroot/docker
-                    pass
-                else:
-                    assert ret == 0
+                assert os.posix_fallocate(fd, 0, 10) is None
             except OSError as inst:
-                """ ZFS seems not to support fallocate.
-                so skipping solaris-based since it is likely to come with ZFS
+                """ EINVAL on a 32-bit chroot/docker untranslated, and ZFS
+                seems not to support fallocate at all
                 """
-                if inst.errno != errno.EINVAL or not sys.platform.startswith("sunos"):
+                if inst.errno != errno.EINVAL:
                     raise
             finally:
                 os.close(fd)
+
+        def test_os_posix_posix_fallocate_errno(self):
+            os = self.posix
+            import errno
+            with raises(OSError) as exc:
+                os.posix_fallocate(-42, 0, 10)
+            assert exc.value.errno == errno.EBADF
 
 
     def test_largefile(self):
