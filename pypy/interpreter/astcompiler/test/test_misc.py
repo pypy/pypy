@@ -127,12 +127,47 @@ def test_dont_jump_thread_on_lineno_differences():
 
         jump1 = jumpinstr(b, opcode, b2)
         jump1.position_info = (1, -1, -1, -1)
-        jump2 = jumpinstr(b2, ops.RETURN_VALUE, b3)
+        jump2 = jumpinstr(b2, ops.JUMP_FORWARD, b3)
         jump2.position_info = (2, -1, -1, -1)
-        b3.instructions.append(Instruction(ops.NOP))
+        instr3 = Instruction(ops.NOP)
+        instr3.position_info = (3, -1, -1, -1)
+        b3.instructions.append(instr3)
 
         b.jump_thread()
         assert jump1.jump is b2 # can't thread to not lose line numbers
+
+def test_jump_to_return_despite_lineno_differences():
+    # the return is inlined together with its own position, so there are no
+    # line numbers to lose (CPython's inline_small_exit_blocks)
+    for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+        for jump_lineno in (1, -1):   # -1 is a jump emitted without a line
+            b = Block()
+            b2 = Block()
+
+            jump1 = jumpinstr(b, opcode, b2)
+            jump1.position_info = (jump_lineno, -1, -1, -1)
+            ret = Instruction(ops.RETURN_VALUE)
+            ret.position_info = (2, -1, -1, -1)
+            b2.instructions.append(ret)
+
+            b.jump_thread()
+            assert jump1.opcode == ops.RETURN_VALUE
+            assert jump1.jump is None
+            assert jump1.position_info == (2, -1, -1, -1)
+
+def test_dont_inline_return_into_conditional_jump():
+    b = Block()
+    b2 = Block()
+
+    jump1 = jumpinstr(b, ops.POP_JUMP_IF_FALSE, b2)
+    jump1.position_info = (1, -1, -1, -1)
+    ret = Instruction(ops.RETURN_VALUE)
+    ret.position_info = (1, -1, -1, -1)
+    b2.instructions.append(ret)
+
+    b.jump_thread()
+    assert jump1.opcode == ops.POP_JUMP_IF_FALSE
+    assert jump1.jump is b2
 
 def test_uncond_jump_despite_lineno_differences():
     for opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
