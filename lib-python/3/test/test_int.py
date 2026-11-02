@@ -659,6 +659,7 @@ class IntStrDigitLimitsTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             str(i)
 
+    @support.impl_detail("PyPy's int->str is subquadratic, does not perform O(N**2) work", pypy=False)
     def test_denial_of_service_prevented_int_to_str(self):
         """Regression test: ensure we fail before performing O(N**2) work."""
         maxdigits = sys.get_int_max_str_digits()

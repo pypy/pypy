@@ -12,7 +12,8 @@ except ImportError:
 _testcapi = import_helper.import_module("_testcapi")
 type_get_version = _testcapi.type_get_version
 type_assign_specific_version_unsafe = _testcapi.type_assign_specific_version_unsafe
-type_assign_version = _testcapi.type_assign_version
+# PyPy change: no type_assign_version
+# type_assign_version = _testcapi.type_assign_version
 type_modified = _testcapi.type_modified
 
 
@@ -47,32 +48,34 @@ class TypeCacheTests(unittest.TestCase):
         self.assertEqual(len(set(all_version_tags)), 30,
                          msg=f"{all_version_tags} contains non-unique versions")
 
+    @unittest.skipUnless(hasattr(_testcapi, 'type_assign_version'), "")
     def test_type_assign_version(self):
         class C:
             x = 5
 
-        self.assertEqual(type_assign_version(C), 1)
+        self.assertEqual(_testcapi.type_assign_version(C), 1)
         c_ver = type_get_version(C)
 
         C.x = 6
         self.assertEqual(type_get_version(C), 0)
-        self.assertEqual(type_assign_version(C), 1)
+        self.assertEqual(_testcapi.type_assign_version(C), 1)
         self.assertNotEqual(type_get_version(C), 0)
         self.assertNotEqual(type_get_version(C), c_ver)
 
+    @unittest.skipUnless(hasattr(_testcapi, 'type_assign_version'), "")
     def test_type_assign_specific_version(self):
         """meta-test for type_assign_specific_version_unsafe"""
         class C:
             pass
 
-        type_assign_version(C)
+        _testcapi.type_assign_version(C)
         orig_version = type_get_version(C)
         if orig_version == 0:
             self.skipTest("Could not assign a valid type version")
 
         type_modified(C)
         type_assign_specific_version_unsafe(C, orig_version + 5)
-        type_assign_version(C)  # this should do nothing
+        _testcapi.type_assign_version(C)  # this should do nothing
 
         new_version = type_get_version(C)
         self.assertEqual(new_version, orig_version + 5)

@@ -1,7 +1,7 @@
 import os
 from pickle import dump
 import sys
-from test.support import captured_stdout, requires_resource
+from test.support import captured_stdout, requires_resource, is_pypy
 from test.support.os_helper import (TESTFN, rmtree, unlink)
 from test.support.script_helper import assert_python_ok, assert_python_failure
 import textwrap
@@ -12,6 +12,11 @@ import trace
 from trace import Trace
 
 from test.tracedmodules import testmod
+
+
+def expectedFailureIfPyPy(func):
+    return unittest.expectedFailure(func) if is_pypy else func
+
 
 ##
 ## See also test_sys_settrace.py, which contains tests that cover
@@ -181,6 +186,7 @@ class TestLineCounts(unittest.TestCase):
         }
         self.assertEqual(self.tracer.results().counts, expected)
 
+    @expectedFailureIfPyPy  # PyPy does not support PEP 709 inlined comprehensions
     def test_trace_list_comprehension(self):
         self.tracer.runfunc(traced_caller_list_comprehension)
 
