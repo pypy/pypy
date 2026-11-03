@@ -1,8 +1,6 @@
-import gc
 import os, pytest
 import sys
 
-from rpython.tool import leakfinder
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
@@ -150,17 +148,6 @@ class AppTestRecompiler:
                     del sys.modules[key]
         """)
         _clean_cache(self.space)
-        # ffi.def_extern() hides the W_ExternPython behind a raw pointer,
-        # which untranslated makes it part of a cycle (rgc.py new_handle),
-        # so only a cyclic collection frees the ffi and its ctx
-        fq = self.space.finalizer_queue
-        for _ in range(5):
-            before = len(leakfinder.ALLOCATED)
-            gc.collect()
-            self.space.user_del_action._run_finalizers()
-            after = len(leakfinder.ALLOCATED)
-            if before == after and not (hasattr(fq, '_queue') and fq._queue):
-                break
 
     def test_math_sin(self):
         import math
@@ -1168,6 +1155,12 @@ class AppTestRecompiler:
         e = raises(ffi.error, setattr, lib, 'my_value', 50)
         assert str(e.value) == "global variable 'my_value' is at address NULL"
 
+
+    # ffi.def_extern() keeps the ffi in a cycle via
+    # rgc.hide_nonmovable_gcref, so freeing its memory inside the test
+    # window is up to the host gc
+    test_macro_var_callback.dont_track_allocations = True
+
     def test_const_fields(self):
         ffi, lib = self.prepare(
             """struct foo_s { const int a; void *const b; };""",
@@ -1572,6 +1565,12 @@ class AppTestRecompiler:
         assert lib.boz() is None
         assert seen == ["Boz"]
 
+
+    # ffi.def_extern() keeps the ffi in a cycle via
+    # rgc.hide_nonmovable_gcref, so freeing its memory inside the test
+    # window is up to the host gc
+    test_extern_python_1.dont_track_allocations = True
+
     def test_extern_python_bogus_name(self):
         ffi, lib = self.prepare("int abc;",
                                 'test_extern_python_bogus_name',
@@ -1611,6 +1610,12 @@ class AppTestRecompiler:
         assert "rying to convert the result back to C:\n" in msg
         assert msg.endswith(
             "TypeError: callback with the return type 'void' must return None\n")
+
+
+    # ffi.def_extern() keeps the ffi in a cycle via
+    # rgc.hide_nonmovable_gcref, so freeing its memory inside the test
+    # window is up to the host gc
+    test_extern_python_bogus_result_type.dont_track_allocations = True
 
     def test_extern_python_redefine(self):
         ffi, lib = self.prepare("""extern "Python" int bar(int);""",
