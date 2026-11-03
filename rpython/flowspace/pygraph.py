@@ -19,6 +19,7 @@ class PyGraph(FunctionGraph):
         super(PyGraph, self).__init__(self._sanitize_funcname(func), initialblock)
         self.func = func
         self.signature = code.signature
+        self.linetable = code.linetable
         self.defaults = func.__defaults__ or ()
 
     @staticmethod

@@ -22,12 +22,13 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
             return ['<return block>']
     try:
         source = graph.source
+        linetable = graph.linetable
     except AttributeError:
         return ['no source!']
     else:
         graph_lines = source.split("\n")
         if offset is not None:
-            linestart = offset2lineno(graph.func.__code__, offset)
+            linestart = linetable.offset2lineno(offset)
             linerange = (linestart, linestart)
             here = None
         else:
@@ -35,7 +36,8 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
                 return []
 
             def toline(operindex):
-                return offset2lineno(graph.func.__code__, block.operations[operindex].offset)
+                return linetable.offset2lineno(
+                    block.operations[operindex].offset)
             if operindex is None:
                 linerange = (toline(0), toline(-1))
                 if not long:

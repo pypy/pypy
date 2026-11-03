@@ -1,6 +1,8 @@
 """
 Bytecode handling classes and functions for use by the flow space.
 """
+from bisect import bisect_right
+
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
@@ -35,6 +37,35 @@ def cpython_code_signature(code):
 class BytecodeCorruption(Exception):
     pass
 
+
+class LineTable(object):
+    """Maps host bytecode offsets to source line numbers."""
+
+    def __init__(self, starts):
+        """'starts' is a list of (offset, lineno) sorted by offset, where
+        each lineno applies up to the next offset in the list."""
+        assert starts and starts[0][0] == 0
+        self.offsets = [offset for offset, _ in starts]
+        self.linenos = [lineno for _, lineno in starts]
+
+    def offset2lineno(self, offset):
+        return self.linenos[bisect_right(self.offsets, offset) - 1]
+
+
+def lnotab_linetable(firstlineno, lnotab):
+    """The LineTable of a Python 2 code object."""
+    addr = 0
+    line = firstlineno
+    starts = [(0, line)]
+    for i in range(0, len(lnotab), 2):
+        addr += ord(lnotab[i])
+        line += ord(lnotab[i + 1])
+        if starts[-1][0] == addr:
+            starts[-1] = (addr, line)
+        else:
+            starts.append((addr, line))
+    return LineTable(starts)
+
 HASJREL = bytearray([_opnum in opcode.hasjrel for _opnum in range(256)])
 
 class HostCode(object):
@@ -61,6 +92,7 @@ class HostCode(object):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        self.linetable = lnotab_linetable(firstlineno, lnotab)
         self.signature = cpython_code_signature(self)
 
     @classmethod
