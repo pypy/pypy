@@ -362,6 +362,22 @@ def test_subgroup_bytype_single_nested():
     assert repr(eg.subgroup(BaseExceptionGroup)) == "ExceptionGroup('abc', [KeyError(), ValueError(1), ExceptionGroup('def', [ValueError(2), ValueError(3), TypeError(), ZeroDivisionError()]), TypeError()])"
     assert repr(eg.subgroup(ExceptionGroup)) == "ExceptionGroup('abc', [KeyError(), ValueError(1), ExceptionGroup('def', [ValueError(2), ValueError(3), TypeError(), ZeroDivisionError()]), TypeError()])"
 
+def test_subgroup_subclass_is_derived():
+    # subgroup() must rebuild a nested group with derive(), like split() does
+    class MyEG(ExceptionGroup):
+        pass
+    inner = MyEG("inner", [ValueError(1)])
+    eg = ExceptionGroup("outer", [inner, TypeError(2)])
+
+    sub = eg.subgroup(ValueError)
+    match, rest = eg.split(ValueError)
+    assert type(sub.exceptions[0]) is ExceptionGroup
+    assert sub.exceptions[0] is not inner
+    assert type(match.exceptions[0]) is type(sub.exceptions[0])
+    assert type(inner.subgroup(ValueError)) is ExceptionGroup
+    # the condition matching the whole group still returns it unchanged
+    assert inner.subgroup(MyEG) is inner
+
 def test_subgroup_bytype_multi_simple():
     val1 = ValueError(1)
     typ1 = TypeError()
@@ -427,15 +443,13 @@ def test_subgroup_bypredicate_nested():
     assert repr(eg.subgroup(lambda e: isinstance(e, ValueError) and e.args[0] < 3)) \
         == "ExceptionGroup('abc', [ValueError(1), ExceptionGroup('def', [ValueError(2)])])"
 
-def test_subgroup_bytype_is_id_if_all_subexceptions_match_and_split_is_not():
-    # NOTE: This is why split and subgroup are different
+def test_subgroup_bytype_is_not_id_if_all_subexceptions_match():
     typ2 = TypeError()
     eg = ExceptionGroup("def", [typ2])
     eg_subgroup = eg.subgroup(TypeError)
     eg_split = eg.split(TypeError)[0]
     assert repr(eg_subgroup) == repr(eg_split)
-    if sys.implementation.name == 'pypy':
-        assert eg_subgroup is eg
+    assert not eg_subgroup is eg
     assert not eg_split is eg
 
 def test_split_bytype_single_simple():
