@@ -1043,9 +1043,11 @@ class W_Socket(W_Root):
         recv_ptr = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
         try:
             if cmd == _c.SIO_RCVALL:
-                value_size = rffi.sizeof(rffi.INTP)
+                value_size = rffi.sizeof(rffi.INT)
             elif cmd == _c.SIO_KEEPALIVE_VALS:
                 value_size = rffi.sizeof(_c.tcp_keepalive)
+            elif cmd == _c.SIO_LOOPBACK_FAST_PATH:
+                value_size = rffi.sizeof(rffi.UINT)
             else:
                 raise oefmt(space.w_ValueError,
                             "invalid ioctl command %d", cmd)
@@ -1061,6 +1063,9 @@ class W_Socket(W_Root):
                     option_ptr.c_onoff = rffi.cast(rffi.UINT, space.uint_w(w_onoff))
                     option_ptr.c_keepalivetime = rffi.cast(rffi.UINT, space.uint_w(w_time))
                     option_ptr.c_keepaliveinterval = rffi.cast(rffi.UINT, space.uint_w(w_interval))
+                elif cmd == _c.SIO_LOOPBACK_FAST_PATH:
+                    option_ptr = rffi.cast(rffi.UINTP, value_ptr)
+                    option_ptr[0] = rffi.cast(rffi.UINT, space.uint_w(w_option))
 
                 res = _c.WSAIoctl(
                     self.sock.fd, cmd, value_ptr, value_size,
