@@ -303,6 +303,26 @@ class TestFlowObjSpace(Base):
         graph = self.codetest(f)
         assert self.all_operations(graph) == {}
 
+    def test_set_literal(self):
+        def f(x):
+            return {x}
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        assert 'building sets is not RPython' in str(excinfo.value)
+
+    def test_set_and_dict_comprehensions(self):
+        def f(x):
+            return {i for i in x}
+        def g(x):
+            return {i: i for i in x}
+        for func, what in [(f, 'building sets'), (g, 'dict comprehensions')]:
+            [code] = [c for c in func.__code__.co_consts
+                      if isinstance(c, types.CodeType)]
+            comprehension = types.FunctionType(code, func.__globals__)
+            with py.test.raises(FlowingError) as excinfo:
+                build_flow(comprehension)
+            assert excinfo.value.args[0] == '%s is not RPython' % what
+
     def test_flowingerror_lineno(self):
         def f(x):
             y = x + 1

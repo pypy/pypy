@@ -252,6 +252,9 @@ _unsupported_ops = [
     ('DELETE_GLOBAL', 'modifying globals'),
     ('DELETE_NAME', 'modifying globals'),
     ('DELETE_ATTR', 'deleting attributes'),
+    ('BUILD_SET', 'building sets'),
+    ('SET_ADD', 'set comprehensions'),
+    ('MAP_ADD', 'dict comprehensions'),
 ]
 
 def unsupportedoperation(OPCODE, msg):
@@ -1160,21 +1163,6 @@ class FlowContext(object):
 
     def NOP(self, *args):
         pass
-
-    # XXX Unimplemented 2.7 opcodes ----------------
-
-    # Set literals, set comprehensions
-
-    def BUILD_SET(self, oparg):
-        raise NotImplementedError("BUILD_SET")
-
-    def SET_ADD(self, oparg):
-        raise NotImplementedError("SET_ADD")
-
-    # Dict comprehensions
-
-    def MAP_ADD(self, oparg):
-        raise NotImplementedError("MAP_ADD")
 
     # Closures
 
