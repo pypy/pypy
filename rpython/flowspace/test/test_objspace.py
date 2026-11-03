@@ -15,6 +15,8 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 import os
 import operator
 
+DISABLED = False
+
 @contextmanager
 def patching_opcodes(**opcodes):
     meth_names = host_bytecode_spec.method_names
@@ -292,6 +294,23 @@ class TestFlowObjSpace(Base):
 
     def test_const_pow(self):
         x = self.codetest(self.const_pow)
+
+    def test_unsupported_in_dead_code(self):
+        def f(x):
+            if DISABLED:
+                return x ** 2
+            return x
+        graph = self.codetest(f)
+        assert self.all_operations(graph) == {}
+
+    def test_flowingerror_lineno(self):
+        def f(x):
+            y = x + 1
+            return y ** 2
+        with py.test.raises(FlowingError) as excinfo:
+            self.codetest(f)
+        expected = 'line %d' % (f.__code__.co_firstlineno + 2)
+        assert expected in str(excinfo.value)
 
     #__________________________________________________________
     def implicitException(lst):
