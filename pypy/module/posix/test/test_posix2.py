@@ -819,8 +819,15 @@ class AppTestPosix:
             assert os.minor(12345) == self.expected_minor_12345
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
-            with raises((ValueError, OverflowError)):
-                os.major(-1)
+            # NODEV is accepted and returned, like CPython
+            assert os.major(-1) == -1
+            assert os.minor(-1) == -1
+            assert os.makedev(-1, -1) == -1
+            # like CPython, major()/minor() take any dev_t but makedev()
+            # needs each part to fit in an unsigned int
+            for x in -2, 2**64, -2**63-1:
+                with raises((ValueError, OverflowError)):
+                    os.major(x)
             for x in -2, 2**32, 2**64, -2**63-1:
                 with raises((ValueError, OverflowError)):
                     os.makedev(x, 0)

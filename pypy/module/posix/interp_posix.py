@@ -14,6 +14,7 @@ from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import (widen,
     r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
 
+from rpython.rlib.rbigint import rbigint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
@@ -2636,20 +2637,45 @@ def getloadavg(space):
                            space.newfloat(load[1]),
                            space.newfloat(load[2])])
 
-@unwrap_spec(major="c_uint", minor="c_uint")
-def makedev(space, major, minor):
-    result = os.makedev(intmask(major), intmask(minor))
-    return space.newint(result)
+NODEV = -1
 
-@unwrap_spec(device="c_uint")
-def major(space, device):
-    result = os.major(intmask(device))
-    return space.newint(result)
+def _dev_w(space, w_dev):
+    """like CPython's _Py_Dev_Converter(): NODEV passes through, any other
+    negative value is rejected by the unsigned conversion"""
+    if space.is_true(space.eq(w_dev, space.newint(NODEV))):
+        return r_longlong(NODEV)
+    return rffi.cast(lltype.SignedLongLong, space.r_ulonglong_w(w_dev))
 
-@unwrap_spec(device="c_uint")
-def minor(space, device):
-    result = os.minor(intmask(device))
-    return space.newint(result)
+def _dev_check(space, value):
+    """like CPython's major_minor_check()"""
+    if value == NODEV:
+        return
+    if rffi.cast(lltype.SignedLongLong, rffi.cast(rffi.UINT, value)) != value:
+        raise oefmt(space.w_OverflowError,
+                    "Python int too large to convert to C unsigned int")
+
+def _dev_part_w(space, value):
+    """like CPython's major_minor_conv(): (unsigned int)NODEV is -1"""
+    if value == 0xffffffff:
+        return space.newint(NODEV)
+    return space.newint(value)
+
+def makedev(space, w_major, w_minor):
+    major = _dev_w(space, w_major)
+    minor = _dev_w(space, w_minor)
+    _dev_check(space, major)
+    _dev_check(space, minor)
+    result = rposix.makedev(major, minor)
+    if result == NODEV:
+        return space.newint(NODEV)
+    return space.newlong_from_rbigint(rbigint.fromrarith_int(
+        rffi.cast(lltype.UnsignedLongLong, result)))
+
+def major(space, w_device):
+    return _dev_part_w(space, rposix.major(_dev_w(space, w_device)))
+
+def minor(space, w_device):
+    return _dev_part_w(space, rposix.minor(_dev_w(space, w_device)))
 
 @unwrap_spec(increment=c_int)
 def nice(space, increment):

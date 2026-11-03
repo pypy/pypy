@@ -2079,10 +2079,13 @@ def uname():
         lltype.free(l_utsbuf, flavor='raw')
 
 if sys.platform != 'win32':
-    # These are actually macros on some/most systems
-    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
-    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
-    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
+    # These are actually macros on some/most systems.  dev_t is 64 bits,
+    # makedev() puts a major above 0xfff into the high word, so INT would
+    # truncate both the arguments and the result
+    DEV_T = lltype.SignedLongLong
+    c_makedev = external('makedev', [DEV_T, DEV_T], DEV_T, macro=True)
+    c_major = external('major', [DEV_T], rffi.UINT, macro=True)
+    c_minor = external('minor', [DEV_T], rffi.UINT, macro=True)
 
     @replace_os_function('makedev')
     def makedev(maj, min):
@@ -2090,11 +2093,11 @@ if sys.platform != 'win32':
 
     @replace_os_function('major')
     def major(dev):
-        return c_major(dev)
+        return widen(c_major(dev))
 
     @replace_os_function('minor')
     def minor(dev):
-        return c_minor(dev)
+        return widen(c_minor(dev))
 
 #___________________________________________________________________
 
