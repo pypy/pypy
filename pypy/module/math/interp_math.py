@@ -458,13 +458,34 @@ def _log_any(space, w_x, base):
         raise oefmt(space.w_ValueError, "math domain error")
     return result
 
+def _shortcut_base(space, w_base):
+    """Return 2.0 or 10.0 if w_base is exactly that number, else 0.0.  Only
+    exact types, so that no __eq__ or __float__ of the base can run before x
+    is checked, and never a float conversion, which a huge int would fail"""
+    w_type = space.type(w_base)
+    if w_type is space.w_int:
+        if space.eq_w(w_base, space.newint(2)):
+            return 2.0
+        if space.eq_w(w_base, space.newint(10)):
+            return 10.0
+    elif w_type is space.w_float:
+        value = space.float_w(w_base)
+        if value == 2.0 or value == 10.0:
+            return value
+    return 0.0
+
 def log(space, w_x, w_base=None):
     """log(x[, base]) -> the logarithm of x to the given base.
        If the base not specified, returns the natural logarithm (base e) of x.
     """
-    num = _log_any(space, w_x, 0.0)
     if w_base is None:
-        return space.newfloat(num)
+        return space.newfloat(_log_any(space, w_x, 0.0))
+    base = _shortcut_base(space, w_base)
+    if base != 0.0:
+        # log2() and log10() are exact for many integer arguments, where
+        # dividing two logarithms is not
+        return space.newfloat(_log_any(space, w_x, base))
+    num = _log_any(space, w_x, 0.0)
     den = _log_any(space, w_base, 0.0)
     if den == 0.0:
         raise oefmt(space.w_ZeroDivisionError, "float division by zero")
