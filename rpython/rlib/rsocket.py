@@ -1546,15 +1546,15 @@ if _c.WIN32:
             flags = _c.WSA_FLAG_OVERLAPPED
             if not inheritable:
                 flags |= _c.WSA_FLAG_NO_HANDLE_INHERIT
-            result = _c.WSASocket(
+            newfd = _c.WSASocket(
                 _c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                 _c.FROM_PROTOCOL_INFO, info, 0,
                 rffi.cast(rwin32.DWORD, flags))
-            result = rffi.cast(lltype.Signed, result)
+            result = rffi.cast(lltype.Signed, newfd)
             if result == INVALID_SOCKET:
                 raise last_error()
             if not inheritable:
-                sock_set_inheritable(result, False)
+                sock_set_inheritable(newfd, False)
             return result
 else:
     def dup(fd, inheritable=True):
