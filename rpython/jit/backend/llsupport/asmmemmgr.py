@@ -1,4 +1,4 @@
-import sys
+import os, sys
 from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
@@ -33,10 +33,17 @@ class AsmMemoryManager(object):
     # the structures disagree until all of them are done.  A GC there runs
     # finalizers, and CompiledLoopToken.__del__ -> free_loop_and_bridges ->
     # free() reenters us inside that window.  Flag it.
+    # PYPY_JIT_DETECT_REENTRANCY overrides this default at run time.
     DETECT_REENTRANCY = True
     _updating = False
     _update_start = 0
     _update_stop = 0
+
+    def read_env_vars(self):
+        # from setup_once(); __init__() runs at translation time
+        value = os.environ.get('PYPY_JIT_DETECT_REENTRANCY')
+        if value:
+            self.DETECT_REENTRANCY = value != '0'
 
     def _check_not_reentered(self, name, a, b):
         if not self.DETECT_REENTRANCY:
