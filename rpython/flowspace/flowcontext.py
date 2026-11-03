@@ -1,7 +1,6 @@
 """Implements the core parts of flow graph creation.
 """
 from __future__ import print_function
-import sys
 import collections
 import types
 
@@ -741,18 +740,6 @@ class FlowContext(object):
     def JUMP_FORWARD(self, target):
         return target
 
-    def JUMP_IF_FALSE(self, target):
-        # Python <= 2.6 only
-        w_cond = self.peekvalue()
-        if not self.guessbool(op.bool(w_cond).eval(self)):
-            return target
-
-    def JUMP_IF_TRUE(self, target):
-        # Python <= 2.6 only
-        w_cond = self.peekvalue()
-        if self.guessbool(op.bool(w_cond).eval(self)):
-            return target
-
     def POP_JUMP_IF_FALSE(self, target):
         w_value = self.popvalue()
         if not self.guessbool(op.bool(w_value).eval(self)):
@@ -1114,10 +1101,7 @@ class FlowContext(object):
 
     def LIST_APPEND(self, oparg):
         w_value = self.popvalue()
-        if sys.version_info < (2, 7):
-            w_list = self.popvalue()
-        else:
-            w_list = self.peekvalue(oparg - 1)
+        w_list = self.peekvalue(oparg - 1)
         w_append_meth = op.getattr(w_list, const('append')).eval(self)
         op.simple_call(w_append_meth, w_value).eval(self)
 
