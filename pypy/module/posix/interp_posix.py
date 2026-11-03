@@ -2655,8 +2655,9 @@ def _dev_check(space, value):
                     "Python int too large to convert to C unsigned int")
 
 def _dev_part_w(space, value):
-    """like CPython's major_minor_conv(): (unsigned int)NODEV is -1"""
-    if value == 0xffffffff:
+    """like CPython's major_minor_conv(): (unsigned int)NODEV is -1.  Not
+    a 0xffffffff literal, that is a prebuilt long on a 32 bit host"""
+    if widen(rffi.cast(rffi.INT, value)) == -1:
         return space.newint(NODEV)
     return space.newint(value)
 
