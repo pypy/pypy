@@ -2637,7 +2637,6 @@ def getloadavg(space):
                            space.newfloat(load[1]),
                            space.newfloat(load[2])])
 
-<<<<<<< HEAD
 NODEV = -1
 
 def _dev_w(space, w_dev):
@@ -2654,29 +2653,6 @@ def _dev_check(space, value):
     if rffi.cast(lltype.SignedLongLong, rffi.cast(rffi.UINT, value)) != value:
         raise oefmt(space.w_OverflowError,
                     "Python int too large to convert to C unsigned int")
-=======
-def _dev_w(space, w_device):
-    """like CPython's _Py_Dev_Converter(): a device number is an unsigned
-    dev_t, which is 64 bits wide"""
-    w_index = space.index(w_device)
-    if space.is_true(space.lt(w_index, space.newint(0))):
-        raise oefmt(space.w_OverflowError,
-                    "can't convert negative number to unsigned long")
-    return rffi.cast(lltype.SignedLongLong, space.r_ulonglong_w(w_index))
-
-@unwrap_spec(major=c_int, minor=c_int)
-def makedev(space, major, minor):
-    # like CPython, the parts are signed ints here, so makedev(-1, -1)
-    # gives NODEV
-    result = rposix.makedev(major, minor)
-    return space.newint(intmask(result))
-
-def major(space, w_device):
-    return space.newint(rposix.major(_dev_w(space, w_device)))
-
-def minor(space, w_device):
-    return space.newint(rposix.minor(_dev_w(space, w_device)))
->>>>>>> main
 
 def _dev_part_w(space, value):
     """like CPython's major_minor_conv(): (unsigned int)NODEV is -1.  Not
