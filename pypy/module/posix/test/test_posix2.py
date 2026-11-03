@@ -774,8 +774,20 @@ class AppTestPosix:
             assert os.minor(12345) == self.expected_minor_12345
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
-            with raises((ValueError, OverflowError)):
+            # a device number is an unsigned dev_t, 64 bits wide
+            big = os.makedev(2**13, 1)
+            assert big > 2**32
+            assert os.major(big) == 2**13
+            assert os.minor(big) == 1
+            # like CPython, makedev() takes signed ints
+            assert os.makedev(-1, -1) == -1
+            with raises(OverflowError):
                 os.major(-1)
+            with raises(OverflowError):
+                os.minor(-1)
+            for x in 2**64, -2**63-1:
+                with raises(OverflowError):
+                    os.major(x)
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
