@@ -213,13 +213,17 @@ def test_getaddrinfo(space, w_socket):
             return -1
         ''')
     assert space.unwrap(w_l) == True
-    # an int port outside the C long range is not an OverflowError
+    # an int port outside the C long range is not an OverflowError.  Whether
+    # it is an error at all is up to the platform: windows silently accepts
+    # such a huge numeric service, linux raises gaierror
     w_l = space.appexec([w_socket], """(_socket):
             try:
                 _socket.getaddrinfo(None, 2**64, type=_socket.SOCK_STREAM)
             except _socket.gaierror:
                 return 1
-            return 0
+            except OverflowError:
+                return 0
+            return 1
         """)
     assert space.int_w(w_l) == 1
 
