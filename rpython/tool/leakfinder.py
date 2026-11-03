@@ -16,6 +16,9 @@ import traceback
 # See remember_free() for the equality fallback that keeps cpyext working.
 TRACK_ALLOCATIONS = False
 ALLOCATED = {}    # id(obj) -> (obj, traceback)
+# same, for objects still alive when their window closed: freeing one of
+# them inside a later window is not an error; what is never freed is a leak
+OUTLIVED = {}
 
 class MallocMismatch(Exception):
     def __str__(self):
@@ -23,8 +26,8 @@ class MallocMismatch(Exception):
         dict2 = {}
         for obj, traceback in dict.values():
             traceback = traceback.splitlines()
-            if len(traceback) > 8:
-                traceback = ['    ...'] + traceback[-6:]
+            if len(traceback) > 12:
+                traceback = ['    ...'] + traceback[-10:]
             traceback = '\n'.join(traceback)
             dict2.setdefault(traceback, [])
             dict2[traceback].append(obj)
@@ -56,6 +59,7 @@ def stop_tracking_allocations(check, prev=None, do_collection=gc.collect):
         do_collection()
     result = ALLOCATED.copy()
     ALLOCATED.clear()
+    OUTLIVED.update(result)
     if prev is None:
         TRACK_ALLOCATIONS = False
     else:
@@ -72,24 +76,31 @@ def remember_malloc(obj, framedepth=1):
         tb = sio.getvalue()
         ALLOCATED[id(obj)] = (obj, tb)
 
+def _forget(d, obj):
+    # Fast path: id(obj) is stable even when the object's hash later
+    # changes (e.g. when it is turned into a <C object> by ll2ctypes),
+    if id(obj) in d:
+        del d[id(obj)]
+        return True
+    # Slow path: the object may be freed through a different wrapper of
+    # the same allocation than the one that was remembered (e.g. a
+    # render_as_const cast in cpyext).  Fall back to an equality scan.
+    for key, (o, tb) in d.items():
+        try:
+            match = o is obj or o == obj
+        except Exception:
+            # comparing against an already-freed container raises at the
+            # Python level (never a C dereference); treat as no match.
+            match = False
+        if match:
+            del d[key]
+            return True
+    return False
+
 def remember_free(obj):
     if TRACK_ALLOCATIONS:
-        # Fast path: id(obj) is stable even when the object's hash later
-        # changes (e.g. when it is turned into a <C object> by ll2ctypes),
-        if id(obj) in ALLOCATED:
-            del ALLOCATED[id(obj)]
+        if _forget(ALLOCATED, obj) or _forget(OUTLIVED, obj):
             return
-        # Slow path: the object may be freed through a different wrapper of
-        # the same allocation than the one that was remembered (e.g. a
-        # render_as_const cast in cpyext).  Fall back to an equality scan.
-        for key, (o, tb) in ALLOCATED.items():
-            try:
-                match = o is obj or o == obj
-            except Exception:
-                # comparing against an already-freed container raises at the
-                # Python level (never a C dereference); treat as no match.
-                match = False
-            if match:
-                del ALLOCATED[key]
-                return
         raise KeyError(obj)
+    else:
+        OUTLIVED.pop(id(obj), None)
