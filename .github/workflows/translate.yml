@@ -10,11 +10,18 @@ on:
 permissions:
   contents: read
 
+# a new push to a PR supersedes the previous run, so stop it rather than
+# keep burning 7 one-hour jobs; pushes to main / py3.x are never cancelled
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build:
 
     name: build on ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 240
     env:
       PYPY_ARCHIVES_DIR: ${{ github.workspace }}/.deps-archives
     strategy:
