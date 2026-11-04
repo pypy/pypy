@@ -21,7 +21,7 @@ jobs:
 
     name: build on ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 240
+    timeout-minutes: 60
     env:
       PYPY_ARCHIVES_DIR: ${{ github.workspace }}/.deps-archives
     strategy:
