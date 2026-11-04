@@ -1,6 +1,6 @@
 import py
 
-from rpython.rlib import rstack, streamio
+from rpython.rlib import streamio
 from rpython.rlib.streamio import StreamErrors
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -61,17 +61,12 @@ class W_AbstractStream(W_Root):
             raise oefmt(self.space.w_RuntimeError, "stream lock already held")
 
     def unlock(self):
-        # Make sure this does not increase the stack, since it can be called
-        # when unwinding a stack overflow
-        rstack._stack_criticalcode_start()
-        try:
-            me = self.space.getexecutioncontext()   # used as thread ident
-            if self.slockowner is not me:
-                raise oefmt(self.space.w_RuntimeError,
-                            "stream lock is not held")
-            self._release_lock()
-        finally:
-            rstack._stack_criticalcode_stop()
+        me = self.space.getexecutioncontext()   # used as thread ident
+        if self.slockowner is not me:
+            raise oefmt(self.space.w_RuntimeError, "stream lock is not held")
+        self._release_lock()
+    # no stack check here: this runs from the 'finally' of every file
+    # method, including while unwinding a stack overflow
     unlock._dont_insert_stackcheck_ = True
 
     def _cleanup_(self):

@@ -354,7 +354,14 @@ driven by the code at https://foss.heptapod.net/pypy/buildbot. The Linux
 runners on x86_64, i686, and aarch64 use a docker container, which manages
 dependencies. See the Dockerfile_ for more info. The Windows runner uses
 dependencies from the ``win64_14x`` branch of the externals_ repo. The macOS
-runners (x86_64, arm64), use a venv on a M1 machine.
+runners (x86_64, arm64), use a venv on a M1 machine, and take their
+dependencies from the ``macos-x86-64`` and ``macos-arm64`` branches of the
+externals_ repo, which are built by the ``build.sh`` script there.
+
+The runners all run ``get_externals.py`` before translating; it checks out the
+branch of the externals_ repo named by ``externals_branch`` for the platform
+(see ``rpython/translator/platform/``) into ``externals/``, and is a no-op on
+platforms that have no such branch.
 
 .. _Dockerfile: https://foss.heptapod.net/pypy/buildbot/-/tree/branch/default/docker
 .. _externals: https://foss.heptapod.net/pypy/externals

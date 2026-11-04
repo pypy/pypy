@@ -526,6 +526,54 @@ class TestMMap:
         m.close()
 
 
+@pytest.mark.skipif("sys.platform != 'darwin' or __import__('platform').machine() != 'arm64'")
+def test_untranslated_alloc_mprotect_without_map_jit():
+    import ctypes
+    from rpython.rlib.rmmap import (enter_assembler_writing,
+                                    leave_assembler_writing,
+                                    c_pthread_jit_write_protect_np,
+                                    _untranslated_jit_chunks)
+
+    map_size = 16384
+    data = alloc(map_size)
+    addr = rffi.cast(lltype.Signed, data)
+
+    def chunk_registered():
+        for p, sz in _untranslated_jit_chunks:
+            if rffi.cast(lltype.Signed, p) == addr:
+                assert sz == map_size
+                return True
+        return False
+
+    def write_insns(word0, word1):
+        for i, word in enumerate((word0, word1)):
+            for b in range(4):
+                data[i * 4 + b] = chr((word >> (8 * b)) & 0xff)
+
+    def invalidate_and_call():
+        libc = ctypes.CDLL(None)
+        libc.sys_icache_invalidate.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
+        libc.sys_icache_invalidate.restype = None
+        libc.sys_icache_invalidate(addr, 8)
+        return ctypes.CFUNCTYPE(ctypes.c_long)(addr)()
+
+    try:
+        assert chunk_registered()
+        enter_assembler_writing()
+        c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 1))
+        write_insns(0xd2800540, 0xd65f03c0)  # mov x0, #42; ret
+        leave_assembler_writing()
+        assert invalidate_and_call() == 42
+
+        enter_assembler_writing()
+        write_insns(0xd2800560, 0xd65f03c0)  # mov x0, #43; ret
+        leave_assembler_writing()
+        assert invalidate_and_call() == 43
+    finally:
+        free(data, map_size)
+    assert not chunk_registered()
+
+
 @pytest.mark.skipif("sys.platform == 'darwin'", reason="needs entitlement")
 def test_alloc_free():
     map_size = 65536

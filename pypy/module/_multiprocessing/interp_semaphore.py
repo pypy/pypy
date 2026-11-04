@@ -83,8 +83,10 @@ else:
     SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
         HAVE_BROKEN_SEM_GETVALUE = True
+        sem_open_natural_arity = 2
     else:
         HAVE_BROKEN_SEM_GETVALUE = False
+        sem_open_natural_arity = -1
 
     def external(name, args, result, **kwargs):
         return rffi.llexternal(name, args, result,
@@ -92,7 +94,8 @@ else:
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
-                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO)
+                         SEM_T, save_err=rffi.RFFI_SAVE_ERRNO,
+                         natural_arity=sem_open_natural_arity)
     # sem_close is releasegil=False to be able to use it in the __del__
     _sem_close_no_errno = external('sem_close', [SEM_T], rffi.INT,
                                    releasegil=False)
@@ -163,14 +166,14 @@ else:
                 c_tv_sec = rffi.getintfield(deadline[0], 'c_tv_sec')
                 c_tv_nsec = rffi.getintfield(deadline[0], 'c_tv_nsec')
                 if (c_tv_sec < now[0] or
-                    (c_tv_sec == now[0] and c_tv_nsec <= now[1])):
+                    (c_tv_sec == now[0] and c_tv_nsec <= now[1] * 1000)):
                     rposix.set_saved_errno(errno.ETIMEDOUT)
                     return -1
 
 
                 # calculate how much time is left
                 difference = ((c_tv_sec - now[0]) * 1000000 +
-                                    (c_tv_nsec - now[1]))
+                                    (c_tv_nsec / 1000 - now[1]))
 
                 # check delay not too long -- maximum is 20 msecs
                 if delay > 20000:

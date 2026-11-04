@@ -96,6 +96,7 @@ class BaseAssembler(object):
 
     def setup_once(self):
         # the address of the function called by 'new'
+        self.cpu.asmmemmgr.read_env_vars()
         rmmap.enter_assembler_writing()
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()

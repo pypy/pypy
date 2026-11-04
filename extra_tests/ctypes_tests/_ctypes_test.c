@@ -34,6 +34,16 @@ EXPORT(char *)my_strchr(const char *s, int c)
 	return strchr(s, c);
 }
 
+EXPORT(char *)my_strchr_variadic(const char *s, ...)
+{
+	va_list ap;
+	int c;
+	va_start(ap, s);
+	c = va_arg(ap, int);
+	va_end(ap);
+	return strchr(s, c);
+}
+
 
 EXPORT(double) my_sqrt(double a)
 {

@@ -11,7 +11,6 @@ from pypy.module._multiprocessing.interp_semaphore import (
 
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
-@pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
 def test_semlock_release(space):
     # trigger the setup() code in time.moduledef
     space.getbuiltinmodule('time')

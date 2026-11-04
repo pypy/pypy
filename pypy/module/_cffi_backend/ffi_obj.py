@@ -128,6 +128,27 @@ class W_FFIObject(W_Root):
         try:
             x = self.types_dict[string]
         except KeyError:
+            x = self._parse_and_realize(string)
+        #
+        if isinstance(x, W_CType):
+            return x
+        else:
+            assert isinstance(x, realize_c_type.W_RawFuncType)
+            if consider_fn_as_fnptr:
+                return x.unwrap_as_fnptr_in_elidable()
+            else:
+                raise x.unexpected_fn_type(self)
+
+    def _parse_and_realize(self, string):
+        # 'ctxobj.info' is scratch space shared by all threads using this ffi,
+        # and realize_c_type_or_func() can release the GIL, so another thread
+        # would parse into 'info.c_output' before we are done reading it.
+        realize_cache = self.space.fromcache(realize_c_type.RealizeCache)
+        with realize_cache:
+            try:
+                return self.types_dict[string]
+            except KeyError:
+                pass
             info = self.ctxobj.info
             index = parse_c_type.parse_c_type(info, string)
             if index < 0:
@@ -138,15 +159,7 @@ class W_FFIObject(W_Root):
             if isinstance(x, realize_c_type.W_RawFuncType):
                 x.unwrap_as_fnptr(self)      # force it here
             self.types_dict[string] = x
-        #
-        if isinstance(x, W_CType):
             return x
-        else:
-            assert isinstance(x, realize_c_type.W_RawFuncType)
-            if consider_fn_as_fnptr:
-                return x.unwrap_as_fnptr_in_elidable()
-            else:
-                raise x.unexpected_fn_type(self)
 
     def ffi_type(self, w_x, accept):
         space = self.space

@@ -11,6 +11,125 @@ def setup_module(mod):
 
 class BaseTestSearch:
 
+    @py.test.mark.parametrize('pattern,extra', [
+        (r'(?=a).{8}b', 0), (r'a.{8}', 0),
+        (r'[ab].{8}', 0), (r'ab.{7}', 1)])
+    def test_search_stops_before_short_suffix(self, pattern, extra, monkeypatch):
+        code = get_code(pattern)
+        reads = []
+
+        def read_x(ctx, position):
+            reads.append(position)
+            return ord('x')
+
+        for cls in (rsre_core.StrMatchContext, support.MatchContextForTests,
+                    rsre_utf8.Utf8MatchContext):
+            monkeypatch.setattr(cls, 'str', read_x)
+        for start, end in ((0, 16), (2, 14)):
+            del reads[:]
+            assert self.search(code, 'x' * 16, start, end) is None
+            assert reads == [self.P(p) for p in range(start, end - 8 + extra)]
+
+    @py.test.mark.parametrize('pattern', [
+        r'a+b{4096}', r'ab.{4096}', r'a.{4096}', r'[ab].{4096}'])
+    def test_search_too_short_does_not_read(self, pattern, monkeypatch):
+        code = get_code(pattern)
+
+        def unexpected_read(ctx, position):
+            raise AssertionError('search read an impossibly short input')
+
+        for cls in (rsre_core.StrMatchContext, support.MatchContextForTests,
+                    rsre_utf8.Utf8MatchContext):
+            monkeypatch.setattr(cls, 'str', unexpected_read)
+        for size in (16, 64, 256):
+            assert self.search(code, 'a' * size) is None
+
+    @py.test.mark.parametrize('pattern', [
+        r'a+b{2}', r'ab.', r'a..', r'[ab]..', r'a*',
+        r'(?=a)..', r'ab$', r'a$', r'[ab]$', r'$',
+        r'aba(b).', r'(ab)a.', r'(a)b.', r'aba.*b'])
+    def test_search_min_width_bounds(self, pattern):
+        code, reference = get_code_and_re(pattern)
+        for text in ('aabb', 'xxabababx', 'xxab'):
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, text, start, end)
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                self.P(p) for p in expected.span(group))
+
+    @py.test.mark.parametrize('anchor', [
+        r'\A', '^', r'(?m)\A', r'(\A)', r'((\A))', r'()(\A)',
+        r'(^)', r'(?m)(\A)'])
+    def test_anchored_search_does_not_scan(self, anchor, monkeypatch):
+        code = get_code(anchor + r'\s*\Z')
+        sre_match = rsre_core.sre_match
+        attempts = []
+        depth = [0]
+
+        def recording_match(ctx, pattern, ppos, ptr, marks):
+            if depth[0] == 0:
+                attempts.append(ptr)
+            depth[0] += 1
+            try:
+                return sre_match(ctx, pattern, ppos, ptr, marks)
+            finally:
+                depth[0] -= 1
+
+        monkeypatch.setattr(rsre_core, 'sre_match', recording_match)
+        for size in (16, 256, 4096):
+            for start in (0, 1, size):
+                del attempts[:]
+                assert self.search(code, 'x' * size, start) is None
+                assert attempts == [self.P(start)]
+
+    @py.test.mark.parametrize('anchor', [r'\A', '^', r'(?m)\A'])
+    def test_anchored_search(self, anchor):
+        code = get_code(anchor + r'(\s*)\Z')
+        for text in ('', ' ', ' \n\t'):
+            res = self.search(code, text)
+            assert res.span() == (self.P(0), self.P(len(text)))
+            assert res.span(1) == res.span()
+        assert self.search(code, ' ', 1) is None
+        assert self.search(code, '\nx') is None
+        res = self.search(code, ' x', 0, 1)
+        assert res.span() == (self.P(0), self.P(1))
+        assert self.search(code, ' x', 1, 0) is None
+
+    @py.test.mark.parametrize('pattern', [
+        r'(\A(\s*))\Z', r'((^\s*))\Z', r'()(\A)(\s*)\Z'])
+    def test_anchored_search_preserves_leading_marks(self, pattern):
+        code, reference = get_code_and_re(pattern)
+        for text in ('', ' ', ' \n\t', 'x', ' x'):
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, text, start, end)
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                self.P(p) for p in expected.span(group))
+
+    @py.test.mark.parametrize('pattern', [r'(?m)^foo', r'(?m)((^foo))'])
+    def test_multiline_start_search(self, pattern):
+        code = get_code(pattern)
+        for start in (0, 1, 2):
+            res = self.search(code, 'x\nfoo', start)
+            assert res.span() == (self.P(2), self.P(5))
+
+    @py.test.mark.parametrize('pattern', [r'\Afoo|bar', r'((\Afoo|bar))'])
+    def test_partially_anchored_alternative(self, pattern):
+        code = get_code(pattern)
+        for start in (0, 1):
+            res = self.search(code, 'xbar', start)
+            assert res.span() == (self.P(1), self.P(4))
+
     def test_code1(self):
         r_code1 = get_code(r'[abc][def][ghi]')
         res = self.search(r_code1, "fooahedixxx")
@@ -246,6 +365,35 @@ class TestSearchUtf8(BaseTestSearch):
     match = staticmethod(rsre_utf8.utf8match)
     P = staticmethod(lambda n: n)   # NB. only for plain ascii
 
+    @py.test.mark.parametrize('pattern', [
+        u'(?=é).{2}', u'é..', u'[éx]..', u'éé.',
+        u'(é)é.', u'ééé.x', u'éé$', u'.*', u'$'])
+    def test_search_min_width_utf8_bounds(self, pattern):
+        code = get_code(pattern, re.UNICODE)
+        reference = re.compile(pattern, re.UNICODE)
+        for text in (u'xééééx', u'éé', u'xéx'):
+            encoded = text.encode('utf-8')
+            positions = [len(text[:i].encode('utf-8'))
+                         for i in range(len(text) + 1)]
+            for start in range(len(text) + 1):
+                for end in range(start, len(text) + 1):
+                    expected = reference.search(text, start, end)
+                    actual = self.search(code, encoded,
+                                         positions[start], positions[end])
+                    if expected is None:
+                        assert actual is None
+                    else:
+                        for group in range(reference.groups + 1):
+                            assert actual.span(group) == tuple(
+                                positions[p] for p in expected.span(group))
+
+    def test_search_min_width_unicode(self):
+        code = get_code(u'.{2}', re.UNICODE)
+        assert self.search(code, u'\xe9'.encode('utf-8')) is None
+        text = u'\xe9\xe9'.encode('utf-8')
+        assert self.search(code, text).span() == (0, 4)
+        assert self.search(code, text, 2) is None
+
     def test_groupref_unicode_bug(self):
         r = get_code(ur"(üü+)\1+$", re.UNICODE)     # match non-prime numbers of ü
         assert not self.match(r, u"üü".encode("utf-8"))
@@ -258,6 +406,10 @@ class TestSearchUtf8(BaseTestSearch):
         assert     self.match(r, u"üüüüüüüüü".encode("utf-8"))
 
     def test_literal_uni_ignore(self):
+        from rpython.rlib.rsre import rsre_constants
+        if rsre_constants.V37:
+            py.test.skip("the py2 sre_compile in rpy/ does not emit the "
+                         "*_UNI_IGNORE opcodes needed for >=3.7")
         r = get_code(u"(?i)\u0135")
         assert self.match(r, u'\u0134'.encode('utf-8'))
         assert self.match(r, u'\u0134'.lower().encode('utf-8'))

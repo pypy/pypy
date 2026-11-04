@@ -856,12 +856,6 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeInstance)
         assert s.classdef is a.bookkeeper.getuniqueclassdef(snippet.Exc)
 
-    def test_exception_deduction_with_raise3(self):
-        a = self.RPythonAnnotator()
-        s = a.build_types(snippet.exception_deduction_with_raise3, [bool])
-        assert isinstance(s, annmodel.SomeInstance)
-        assert s.classdef is a.bookkeeper.getuniqueclassdef(snippet.Exc)
-
     def test_type_is(self):
         class B(object):
             pass

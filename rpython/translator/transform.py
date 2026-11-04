@@ -221,11 +221,12 @@ def insert_ll_stackcheck(translator):
                 insert_in.add(callee.startblock)
                 block2graph[callee.startblock] = callee
                 continue
-            if block is not caller.startblock:
-                edges.add((caller.startblock, block))
-                block2graph[caller.startblock] = caller
-            edges.add((block, callee.startblock))
-            block2graph[block] = caller
+            # only ever break a cycle at a startblock: a check inserted at
+            # the head of any other block is not covered by that block's
+            # exception links, so it would escape an enclosing try/finally
+            edges.add((caller.startblock, callee.startblock))
+            block2graph[caller.startblock] = caller
+            block2graph[callee.startblock] = callee
 
     edgelist = [Edge(block1, block2) for (block1, block2) in edges]
     edgedict = make_edge_dict(edgelist)

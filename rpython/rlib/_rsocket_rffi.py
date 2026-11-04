@@ -301,7 +301,10 @@ for name in constant_names:
 
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
-    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN'):
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN',
+                 # members of the IPPROTO enum in ws2def.h
+                 'IPPROTO_CBT', 'IPPROTO_ICLFXBM', 'IPPROTO_IGP', 'IPPROTO_L2TP',
+                 'IPPROTO_PGM', 'IPPROTO_RDP', 'IPPROTO_SCTP', 'IPPROTO_ST'):
         setattr(CConfig, name, platform.ConstantInteger(name))
         constant_names.append(name)
 
@@ -368,6 +371,8 @@ CConfig.sockaddr_in = platform.Struct('struct sockaddr_in',
                                         [('sin_family', rffi.INT),
                                          ('sin_port',   rffi.USHORT),
                                          ('sin_addr',   CConfig.in_addr)])
+
+CConfig.SOCKADDR_STORAGE_SIZE = platform.SizeOf('struct sockaddr_storage')
 
 CConfig.sockaddr_in6 = platform.Struct('struct sockaddr_in6',
                                               [('sin6_family', rffi.INT),
@@ -1234,6 +1239,10 @@ for name in constant_names:
     value = getattr(cConfig, name)
     if value is not None:
         constants[name] = value
+if not _MACOSX and 'TCP_KEEPALIVE' in constants:
+    # like CPython, only expose it on macos, where it is the equivalent of
+    # TCP_KEEPIDLE.  windows defines it too, with a different meaning
+    del constants['TCP_KEEPALIVE']
 for name, default in constants_w_defaults:
     value = getattr(cConfig, name)
     if value is not None:
@@ -1290,6 +1299,7 @@ size_t = cConfig.size_t
 ssize_t = cConfig.ssize_t
 socklen_t = cConfig.socklen_t
 sockaddr = cConfig.sockaddr
+SOCKADDR_STORAGE_SIZE = cConfig.SOCKADDR_STORAGE_SIZE
 #sockaddr_size = sizeof(sockaddr)
 sockaddr_in = cConfig.sockaddr_in
 sockaddr_in6 = cConfig.sockaddr_in6

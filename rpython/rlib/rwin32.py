@@ -524,7 +524,8 @@ if WIN32:
     def GetConsoleOutputCP():
         return rffi.cast(lltype.Signed, _GetConsoleOutputCP())
 
-    _wenviron_items, _wgetenv, _wputenv = make_env_impls(win32=True)
+    (_wenviron_items, _wgetenv, _wputenv,
+     _wunsetenv) = make_env_impls(win32=True)
 
 
     _GetStdHandle = winexternal(

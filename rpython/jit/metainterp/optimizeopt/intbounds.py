@@ -2,7 +2,7 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
-    CONST_0)
+    CONST_0, PASS_OP_ON, OptimizationResult)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.info import getptrinfo
@@ -39,6 +39,14 @@ def safe_signed_negation(a):
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
        redundant guards"""
+
+    @objectmodel.specialize.arg(2)
+    def _emit_generated(self, op, opnum):
+        """Emit with a known opcode and a statically selected dispatcher."""
+        if not OptIntBounds.have_postprocess_op(self, opnum):
+            self.last_emitted_operation = op
+            return PASS_OP_ON
+        return self.emit_result(OptimizationResult(self, op))
 
     def propagate_forward(self, op):
         return dispatch_opt(self, op)

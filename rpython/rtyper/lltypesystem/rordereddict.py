@@ -81,6 +81,7 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
                              and DICTKEY._needsgc()),
         'must_clear_value': (isinstance(DICTVALUE, lltype.Ptr)
                              and DICTVALUE._needsgc()),
+        'must_clear_with_dummy': False,
         }
     if getattr(ll_eq_function, 'no_direct_compare', False):
         entrymeths['no_direct_compare'] = True
@@ -96,6 +97,8 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
         entrymeths['mark_deleted'] = ll_mark_deleted_in_key
         # the key is overwritten by 'dummy' when the entry is deleted
         entrymeths['must_clear_key'] = False
+        entrymeths['must_clear_with_dummy'] = (isinstance(DICTKEY, lltype.Ptr)
+                                               and DICTKEY._needsgc())
 
     elif dummyvalueobj:
         # all the state can be encoded in the value
@@ -104,6 +107,8 @@ def get_ll_dict(DICTKEY, DICTVALUE, get_custom_eq_hash=None, DICT=None,
         entrymeths['mark_deleted'] = ll_mark_deleted_in_value
         # value is overwritten by 'dummy' when entry is deleted
         entrymeths['must_clear_value'] = False
+        entrymeths['must_clear_with_dummy'] = (isinstance(DICTVALUE, lltype.Ptr)
+                                               and DICTVALUE._needsgc())
 
     else:
         # we need a flag to know if the entry was ever used
@@ -839,16 +844,12 @@ def ll_dict_remove_deleted_items(d):
         isrc += 1
     assert d.num_live_items == idst
     d.num_ever_used_items = idst
-    if ((ENTRIES.must_clear_key or ENTRIES.must_clear_value) and
-            d.entries == newitems):
+    if ((ENTRIES.must_clear_key or ENTRIES.must_clear_value or
+            ENTRIES.must_clear_with_dummy) and d.entries == newitems):
         # must clear the extra entries: they may contain valid pointers
         # which would create a temporary memory leak
         while idst < isrclimit:
-            entry = newitems[idst]
-            if ENTRIES.must_clear_key:
-                entry.key = lltype.nullptr(ENTRY.key.TO)
-            if ENTRIES.must_clear_value:
-                entry.value = lltype.nullptr(ENTRY.value.TO)
+            _ll_clear_entry(newitems, idst)
             idst += 1
     else:
         d.entries = newitems
@@ -874,17 +875,20 @@ def ll_dict_delitem_if_value_is(d, key, value):
         return
     _ll_dict_del(d, hash, index)
 
-def _ll_dict_del_entry(d, index):
-    d.entries.mark_deleted(index)
-    d.num_live_items -= 1
-    # clear the key and the value if they are GC pointers
-    ENTRIES = lltype.typeOf(d.entries).TO
+def _ll_clear_entry(entries, index):
+    # mark the entry as deleted and drop the GC pointers it contains
+    entries.mark_deleted(index)
+    ENTRIES = lltype.typeOf(entries).TO
     ENTRY = ENTRIES.OF
-    entry = d.entries[index]
+    entry = entries[index]
     if ENTRIES.must_clear_key:
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
+
+def _ll_dict_del_entry(d, index):
+    _ll_clear_entry(d.entries, index)
+    d.num_live_items -= 1
 
 @jit.look_inside_iff(lambda d, h, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, hash, index):
@@ -1684,7 +1688,7 @@ def _ll_dict_move_to_first_shift_items(d, old_index):
     # set the first idst items to be invalid
     i = 0
     while i < idst:
-        d.entries.mark_deleted(i)
+        _ll_clear_entry(d.entries, i)
         i += 1
     d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
                             (idst << FUNC_SHIFT))

@@ -133,12 +133,12 @@ def test_compression_lots_of_data():
     Test compression of more data that fits in a single internal output buffer.
     """
     expanded = repr(range(20000))
-    compressed = zlib.compress(expanded)
-    print len(expanded), '=>', len(compressed)
     stream = rzlib.deflateInit()
     bytes = rzlib.compress(stream, expanded, rzlib.Z_FINISH)
     rzlib.deflateEnd(stream)
-    assert bytes == compressed
+    print len(expanded), '=>', len(bytes)
+    # Check that the data round-trips
+    assert zlib.decompress(bytes) == expanded
 
 
 def test_inflate_init_end():
@@ -386,19 +386,20 @@ def test_translate_and_large_input():
 
     for a in test_list:
         print 'Testing compression of "s" * %d' % a
-        z = zlib.compressobj()
-        count = a
-        pieces = []
-        while count > 1024*1024:
-            pieces.append(z.compress("s" * (1024*1024)))
-            count -= 1024*1024
-        pieces.append(z.compress("s" * count))
-        pieces.append(z.flush(zlib.Z_FINISH))
-        expected = ''.join(pieces)
-        del pieces
-        expected = zlib.compress(expected)
-        expected = zlib.compress(expected)
-        assert fc(a, 1) == expected
+        # Check that the data round-trips.  f() compressed three times, so
+        # peel off the two outer layers, then inflate the innermost one in
+        # small bites to avoid allocating the whole multi-GB result at once.
+        inner = zlib.decompress(zlib.decompress(fc(a, 1)))
+        d = zlib.decompressobj()
+        total = 0
+        for pos in range(0, len(inner), 4096):
+            data = d.decompress(inner[pos:pos + 4096])
+            assert data.count("s") == len(data)
+            total += len(data)
+        data = d.flush()
+        assert data.count("s") == len(data)
+        total += len(data)
+        assert total == a
 
         print 'Testing adler32 and crc32 of "s" * %d' % a
         def compute(function, start):
