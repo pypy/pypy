@@ -271,6 +271,69 @@ class AppTestBuiltinApp:
                 return 42
         assert sum([Foo()], None) == 42
 
+    def test_sum_float_accuracy(self):
+        assert sum([0.1] * 10) == 1.0
+        assert sum(iter([1.0, 1e101, 1.0, -1e101])) == 2.0
+        assert sum([1e101, 1.0, -1e101], 1.0) == 2.0
+        assert sum([1, 1.0, 1e101, 1.0, -1e101]) == 3.0
+
+    def test_sum_float_special_values(self):
+        import math
+        inf = float('inf')
+        assert sum([inf, inf]) == inf
+        assert sum([1e308, 1e308]) == inf
+        assert sum([-1e308, -1e308]) == -inf
+        assert math.isnan(sum([inf, -inf]))
+        assert math.isnan(sum([float('nan'), 1.0]))
+        assert repr(sum([-0.0])) == '0.0'
+        assert repr(sum([-0.0], -0.0)) == '-0.0'
+        assert repr(sum([], -0.0)) == '-0.0'
+
+    def test_sum_float_fallback(self):
+        class Float(float):
+            def __radd__(self, other):
+                seen.append(other)
+                return other + float(self)
+
+        seen = []
+        assert sum([1.0, 1e101, 1.0, -1e101, Float(0)]) == 2.0
+        assert seen == [2.0]  # Flush the correction before calling __radd__.
+        assert sum([0.0, Float(0), 1e16, 1.0, -1e16]) == 0.0
+        # The first addition in the integer path can produce an exact float.
+        assert sum([Float(0), 1e16, 1.0, -1e16]) == 1.0
+        # A float subclass start uses generic addition throughout.
+        assert sum([1e16, 1.0, -1e16], Float(0)) == 0.0
+        assert sum([1.0, 1e101, 1.0, -1e101, 2j]) == 2+2j
+
+    def test_sum_float_integers(self):
+        import sys
+        # Python 3.12 does not compensate small integer additions.
+        assert sum([1e16, 1, -1e16]) == 0.0
+        assert sum([1e16, True, -1e16]) == 0.0
+
+        class Int(int):
+            def __float__(self):
+                raise AssertionError('must not call __float__')
+            def __int__(self):
+                raise AssertionError('must not call __int__')
+
+        assert sum([0.5, Int(2)]) == 2.5
+        # Large integers do not prevent subsequent float specialization.
+        assert sum([sys.maxsize, 1, -sys.maxsize, -1,
+                    1e16, 1.0, -1e16]) == 1.0
+        assert sum([10**100, -10**100, 1e16, 1.0, -1e16]) == 1.0
+        assert sum([10**100, -10**100]) == 0
+        # Nor do they end an already active float specialization.
+        assert sum([0.0, 10**100, -1e100, 1e16, 1.0, -1e16]) == 1.0
+        raises(OverflowError, sum, [1.0, 10**1000])
+
+    def test_sum_float_iterator_error(self):
+        def values():
+            yield 0.1
+            yield 0.1
+            raise ValueError('iterator failed')
+        raises(ValueError, sum, values())
+
     def test_sum_fast_path(self):
         # Fast paths for expected behaviour
         start = []

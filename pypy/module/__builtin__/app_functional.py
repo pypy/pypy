@@ -48,7 +48,65 @@ empty, returns start."""
     if type(start) is tuple:
         return _tuple_sum(sequence, start)
 
+    if type(start) is int:
+        return _int_sum(sequence, start)
+
+    if type(start) is float:
+        return _float_sum(sequence, start)
+
     return _regular_sum(sequence, start)
+
+
+def _int_sum(sequence, start):
+    iterator = iter(sequence)
+    last = start
+    for item in iterator:
+        last = last + item
+        if type(item) is not int and type(item) is not bool:
+            break
+    else:
+        return last
+    if type(last) is float:
+        return _float_sum(iterator, last)
+    return _regular_sum(iterator, last)
+
+
+def _float_sum(sequence, start):
+    from math import isfinite
+
+    iterator = iter(sequence)
+    total = start
+    correction = 0.0
+    for item in iterator:
+        if type(item) is float:
+            # Improved Kahan-Babuška algorithm by Arnold Neumaier
+            # https://www.mat.univie.ac.at/~neum/scan/01.pdf
+            # retain the rounding error separately, and apply it only at the
+            # end
+            t = total + item
+            if abs(total) >= abs(item):
+                correction += (total - t) + item
+            else:
+                correction += (item - t) + total
+            total = t
+        elif isinstance(item, int):
+            # integer additions do not use compensation
+            # bypass overrides on int subclasses, as the CPython logic does
+            value = int.__add__(item, 0)
+            total += float(value)
+        else:
+            break
+    else:
+        # adding zero can lose the sign of -0.0
+        # adding a nonfinite
+        # correction can turn an infinite or overflowed sum into NaN
+        if correction and isfinite(correction):
+            total += correction
+        return total
+
+    if correction and isfinite(correction):
+        total += correction
+    return _regular_sum(iterator, total + item)
 
 
 def _regular_sum(sequence, start):
