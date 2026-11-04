@@ -7,6 +7,7 @@ ask Z3 whether the resulting bound is a sound approximation of the result.
 
 import pytest
 import sys
+import time
 import gc
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck
@@ -111,6 +112,10 @@ class CheckError(Exception):
     pass
 
 
+premise_solver = z3.Solver()
+solver = z3.Solver()
+
+
 def prove_implies(*args, **kwargs):
     last = args[-1]
     prev = args[:-1]
@@ -121,10 +126,20 @@ def teardown_function(function):
     # to counteract
     gc.collect()
 
-def prove(cond, use_timeout=True):
-    solver = z3.Solver()
-    if use_timeout and pytest.config.option.z3timeout:
-        solver.set("timeout", pytest.config.option.z3timeout)
+def prove(cond, use_timeout=True, premise_witness=()):
+    if z3.is_implies(cond):
+        premises = cond.arg(0)
+        premise_solver.reset()
+        # Generated tests can supply contained values to avoid an expensive
+        # search for a witness. The main proof still uses symbolic operands.
+        result = premise_solver.check(z3.substitute(premises, *premise_witness))
+        assert result != z3.unsat, "Proof premises are unsatisfiable: %s" % premises
+        assert result == z3.sat, "Could not establish satisfiable proof premises (%s): %s" % (
+            premise_solver.reason_unknown(), premises)
+    # Reset a separate solver so the main proof does not reuse the premise
+    # query's incremental solving state.
+    solver.reset()
+    solver.set("timeout", pytest.config.option.z3timeout if use_timeout else 0)
     z3res = solver.check(z3.Not(cond))
     if z3res == z3.unsat:
         pass
@@ -136,6 +151,39 @@ def prove(cond, use_timeout=True):
         global model
         model = solver.model()
         raise CheckError(cond, model)
+
+
+@pytest.mark.parametrize('conclusion', [True, False])
+def test_prove_rejects_unsatisfiable_premises(conclusion):
+    x = BitVec('x')
+    with pytest.raises(AssertionError):
+        prove_implies(x < 0, x >= 0, conclusion, use_timeout=False)
+    with pytest.raises(AssertionError):
+        prove(z3.Implies(x < x, conclusion), use_timeout=False)
+
+
+def test_prove_implies_satisfiable_premises():
+    x = BitVec('x')
+    prove_implies(x == 1, x > 0, use_timeout=False)
+    with pytest.raises(CheckError):
+        prove_implies(x == 1, x < 0, use_timeout=False)
+
+
+def test_bound_proof_rejects_unsatisfiable_premises():
+    bound = make_z3_intbounds_instance('bound')
+    with pytest.raises(AssertionError):
+        bound.prove_implies(bound.lower < bound.lower, True)
+
+
+def test_prove_premise_witness():
+    x = BitVec('x')
+    witness = [(x, BitVecVal(1))]
+    prove_implies(x > 0, x >= 1, premise_witness=witness)
+    with pytest.raises(AssertionError):
+        prove_implies(x < 0, True, premise_witness=witness)
+    # A witness establishes applicability, not the conclusion for all values.
+    with pytest.raises(CheckError):
+        prove_implies(x > 0, x == 1, premise_witness=witness)
 
 @given(bounds, bounds)
 def test_add(b1, b2):
@@ -155,15 +203,21 @@ def test_add_bound_cannot_overflow(b1, b2):
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
     prove_implies(formula1, formula2, no_ovf)
 
-@given(bounds, bounds)
-def test_add_bound_no_overflow(b1, b2):
+@given(knownbits_and_bound_with_contained_number,
+       knownbits_and_bound_with_contained_number)
+def test_add_bound_no_overflow(left, right):
+    b1, x = left
+    b2, y = right
+    # Keep a concrete witness that the no-overflow premise is satisfiable.
+    assume(MININT <= x + y <= MAXINT)
     b3 = b1.add_bound_no_overflow(b2)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 + var2)
     m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
-    prove_implies(formula1, formula2, no_ovf, formula3)
+    prove_implies(formula1, formula2, no_ovf, formula3,
+                  premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
 def test_sub(b1, b2):
@@ -183,15 +237,20 @@ def test_sub_bound_cannot_overflow(b1, b2):
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
     prove_implies(formula1, formula2, no_ovf)
 
-@given(bounds, bounds)
-def test_sub_bound_no_overflow(b1, b2):
+@given(knownbits_and_bound_with_contained_number,
+       knownbits_and_bound_with_contained_number)
+def test_sub_bound_no_overflow(left, right):
+    b1, x = left
+    b2, y = right
+    assume(MININT <= x - y <= MAXINT)
     b3 = b1.sub_bound_no_overflow(b2)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 - var2)
     m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
-    prove_implies(formula1, formula2, no_ovf, formula3)
+    prove_implies(formula1, formula2, no_ovf, formula3,
+                  premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
 def test_mul(b1, b2):
@@ -211,15 +270,20 @@ def test_mul_bound_cannot_overflow(b1, b2):
         no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
         prove_implies(formula1, formula2, no_ovf)
 
-@given(bounds, bounds)
-def test_mul_bound_no_overflow(b1, b2):
+@given(knownbits_and_bound_with_contained_number,
+       knownbits_and_bound_with_contained_number)
+def test_mul_bound_no_overflow(left, right):
+    b1, x = left
+    b2, y = right
+    assume(MININT <= x * y <= MAXINT)
     b3 = b1.mul_bound_no_overflow(b2)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 * var2)
     m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-    prove_implies(formula1, formula2, no_ovf, formula3)
+    prove_implies(formula1, formula2, no_ovf, formula3,
+                  premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds)
 def test_neg(b1):
@@ -245,6 +309,7 @@ def test_known(b1, b2):
 
 @given(bounds, bounds)
 def test_mod(b1, b2):
+    assume(not b2.known_eq_const(0))
     b3 = b1.mod_bound(b2)
     print b1, b2, b3
     var1, formula1 = to_z3(b1)
@@ -933,18 +998,13 @@ def test_prove_known_unsigned_lt_logic():
 def test_prove_known_unsigned_lt_from_signed_lt_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+    same_sign = z3.Or(
+        z3.And(b1.lower >= 0, b2.lower >= 0),
+        z3.And(b1.upper < 0, b2.upper < 0))
     b1.prove_implies(
         b2,
-        b1.lower >= 0,
-        b2.lower < b2.lower,
-        z3.ULT(b1.concrete_variable, b2.concrete_variable),
-    )
-    b1 = make_z3_intbounds_instance('self')
-    b2 = make_z3_intbounds_instance('other')
-    b1.prove_implies(
-        b2,
-        b1.lower < 0,
-        b2.lower < b2.lower,
+        same_sign,
+        b1.known_lt(b2),
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
     )
 
