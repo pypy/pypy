@@ -3,7 +3,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.aarch64.locations import RegisterLocation
 from rpython.jit.backend.aarch64 import registers as r
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.tool.udir import udir
 
@@ -13,6 +13,23 @@ clear_cache = rffi.llexternal(
     lltype.Void,
     _nowrapper=True,
     sandboxsafe=True)
+
+
+def encode_fmov_imm8(pattern):
+    # FMOV (scalar, immediate) 8-bit encoding, or -1 if not encodable.
+    x = r_uint(pattern)
+    if x & ((r_uint(1) << 48) - 1) != r_uint(0):
+        return -1
+    bits_61_54 = (x >> 54) & r_uint(0xFF)
+    if bits_61_54 != r_uint(0) and bits_61_54 != r_uint(0xFF):
+        return -1
+    b = intmask(bits_61_54 & r_uint(1))
+    bit62 = intmask((x >> 62) & r_uint(1))
+    if bit62 == b:
+        return -1
+    sign = intmask(x >> 63)
+    frac = intmask((x >> 48) & r_uint(0x3F))
+    return (sign << 7) | (b << 6) | frac
 
 
 class AbstractAarch64Builder(object):
@@ -247,6 +264,13 @@ class AbstractAarch64Builder(object):
     def FMOV_dr(self, rd, rn):
         base = 0b1001111001100111000000
         self.write32((base << 10) | (rn << 5) | rd)
+
+    def MOVI_d_zero(self, rd):
+        self.write32(0x2F00E400 | rd)
+
+    def FMOV_di(self, rd, imm8):
+        assert 0 <= imm8 < 256
+        self.write32(0x1E601000 | (imm8 << 13) | rd)
 
     def FADD_dd(self, rd, rn, rm):
         base = 0b00011110011
