@@ -643,6 +643,19 @@ class Test_rbigint(object):
             result = f1.mul(f1)
             assert result.tolong() == x * x
 
+    def test_mul_lopsided(self):
+        smallsize = KARATSUBA_CUTOFF + 1
+        a = (1 << (smallsize * SHIFT)) - 1
+        for largesize in (2 * smallsize, 2 * smallsize + 1,
+                          4 * smallsize + 3, 16 * smallsize + 1):
+            for b in ((1 << (largesize * SHIFT)) - 1,
+                      (1 << (largesize * SHIFT - 1)) + 1):
+                for sign_a, sign_b in ((1, 1), (-1, 1), (1, -1)):
+                    x = sign_a * a
+                    y = sign_b * b
+                    assert rbigint.fromlong(x).mul(
+                        rbigint.fromlong(y)).tolong() == x * y
+
     def test_int_mul(self):
         for x in gen_signs(long_vals):
             f1 = rbigint.fromlong(x)

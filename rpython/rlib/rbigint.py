@@ -2044,6 +2044,23 @@ def _kmul_split(n, size):
     hi._normalize()
     return hi, lo
 
+def _k_lopsided_mul(a, b):
+    """Multiply a by successive a-sized slices of the much larger b."""
+    asize = a.numdigits()
+    bsize = b.numdigits()
+    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+    offset = 0
+    while offset < bsize:
+        end = min(offset + asize, bsize)
+        chunk = rbigint(b._digits[offset:end], 1)
+        chunk._normalize()
+        product = a.mul(chunk)
+        _v_iadd(ret, offset, ret.numdigits() - offset,
+                product, product.numdigits())
+        offset = end
+    ret._normalize()
+    return ret
+
 def _k_mul(a, b):
     """
     Karatsuba multiplication.  Ignores the input signs, and returns the
@@ -2052,6 +2069,9 @@ def _k_mul(a, b):
     """
     asize = a.numdigits()
     bsize = b.numdigits()
+
+    if a is not b and asize * 2 <= bsize:
+        return _k_lopsided_mul(a, b)
 
     # (ah*X+al)(bh*X+bl) = ah*bh*X*X + (ah*bl + al*bh)*X + al*bl
     # Let k = (ah+al)*(bh+bl) = ah*bl + al*bh  + ah*bh + al*bl
@@ -2069,20 +2089,6 @@ def _k_mul(a, b):
     if a is b:
         ah = bh
         al = bl
-    elif asize <= shift:
-        # a is more than 2x smaller than b. it's important that we still use
-        # .mul to get karatsuba for sub-parts. the computation is just:
-        # a*(bh*X+bl) = a*bh*X + a*bl
-
-        # multiply lower bits, copy into result
-        t1 = a.mul(bl)
-        for i in range(t1.numdigits()):
-            ret._digits[i] = t1._digits[i]
-        t2 = a.mul(bh)
-        i = ret.numdigits() - shift  # digits after shift
-        carry = _v_iadd(ret, shift, i, t2, t2.numdigits())
-        ret._normalize()
-        return ret
     else:
         ah, al = _kmul_split(a, shift)
 
