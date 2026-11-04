@@ -167,6 +167,39 @@ class AppTestMath:
         import math
         assert math.log2(2**1234) == 1234.0
 
+    def test_log_base(self):
+        import math
+        assert math.log(8, 2) == 3.0
+        # base 2 and 10 keep the exact log2()/log10(), unlike CPython, which
+        # divides two natural logarithms and gets 2.9999999999999996 here
+        assert math.log(1000, 10) == 3.0
+        assert math.log(2 ** 29, 2) == 29.0
+        assert math.log(10.0, 10.0) == 1.0
+        # only the exact int and float types take that shortcut
+        class myint(int):
+            pass
+        assert math.log(1000, myint(10)) == 2.9999999999999996
+        # a base too large for a float takes the big-int path
+        assert abs(math.log(10, 10**400) - 0.0025) < 1e-15
+        with raises(ZeroDivisionError) as e:
+            math.log(1, 1)
+        assert str(e.value) == "float division by zero"
+        with raises(ZeroDivisionError) as e:
+            math.log(2, 1)
+        assert str(e.value) == "float division by zero"
+        with raises(ZeroDivisionError) as e:
+            math.log(2.0, 1.0)
+        assert str(e.value) == "float division by zero"
+        with raises(ZeroDivisionError) as e:
+            math.log(10**400, 1)
+        assert str(e.value) == "float division by zero"
+        # x is checked before base, also on the shortcut path
+        raises(ValueError, math.log, -1, object())
+        raises(TypeError, math.log, "x", -1)
+        raises(ValueError, math.log, 0, 1)
+        raises(TypeError, math.log, "x", 2)
+        raises(ValueError, math.log, 0, 10)
+
     def test_acosh(self):
         import math
         self.ftest(math.acosh(1), 0)
