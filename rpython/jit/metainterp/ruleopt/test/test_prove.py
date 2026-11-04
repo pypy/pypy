@@ -30,6 +30,15 @@ def test_z3_prove(name, rule):
         print e.format()
         raise
 
+@pytest.mark.parametrize('suffix', ['lt', 'le', 'gt', 'ge'])
+def test_known_unsigned_comparison(suffix):
+    prove_source('''\
+unsigned_comparison: uint_%s(x, y)
+    check x.known_unsigned_%s(y)
+    => 1
+''' % (suffix, suffix), force=True)
+
+
 def test_sorry():
     s = """\
 eq_different_knownbits: int_eq(x, y)
