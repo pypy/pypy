@@ -279,6 +279,24 @@ class TestRLong(object):
 
                 assert r1.tolong() == r2
 
+    def test_mod_one_digit_bigint_avoids_quotient(self, monkeypatch):
+        def unexpected_divmod(self, other):
+            raise AssertionError("modulo should not compute a quotient")
+
+        monkeypatch.setattr(rbigint, 'divmod', unexpected_divmod)
+        values = [0, 1, 2, 3, (1 << (2 * SHIFT)) + 7]
+        divisors = [1, 2, 3, MASK]
+        for value in values:
+            for divisor in divisors:
+                for sign_a in (-1, 1):
+                    for sign_b in (-1, 1):
+                        a = value * sign_a
+                        b = divisor * sign_b
+                        assert rbigint.fromlong(a).mod(
+                            rbigint.fromlong(b)).tolong() == a % b
+        with pytest.raises(ZeroDivisionError):
+            rbigint.fromlong(123).mod(rbigint.fromlong(0))
+
     def test_int_mod(self):
         for x in gen_signs(long_vals):
             op1 = rbigint.fromlong(x)
@@ -1545,6 +1563,16 @@ class TestTranslatable(object):
             return a.int_mod_int_result(divisor)
         expected = ((long(MASK) << (2 * SHIFT)) + MASK) % 3
         assert interpret(fn, [MASK, 3]) == expected
+
+    def test_mod_one_digit_bigint(self):
+        def fn(x, divisor):
+            a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
+            return a.mod(rbigint.fromint(divisor)).toint()
+
+        for x, divisor in [(MASK, 3), (-MASK, 3),
+                           (MASK, -3), (-MASK, -3), (MASK, MASK)]:
+            expected = ((long(x) << (2 * SHIFT)) + x) % divisor
+            assert interpret(fn, [x, divisor]) == expected
 
     def test_square(self):
         def test():

@@ -954,6 +954,8 @@ class rbigint(object):
         return self.int_floordiv(iother)
 
     def mod(self, other):
+        if other.numdigits() == 1:
+            return self.int_mod(other.digit(0) * other.get_sign())
         div, mod = self.divmod(other)
         return mod
 
