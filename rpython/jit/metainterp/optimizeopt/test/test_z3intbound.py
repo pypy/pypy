@@ -1019,6 +1019,7 @@ def test_prove_known_unsigned_cmp(suffix, comparison):
 @example(IntBound.from_constant(0), IntBound.from_constant(-1))
 @example(IntBound.from_constant(0), IntBound.from_constant(0))
 @example(IntBound(0, 7), IntBound(8, 15))
+@example(IntBound(5, 8), IntBound(9, 12))  # only the signed-bounds shortcut succeeds
 def test_known_unsigned_cmp_matches_implementation(b1, b2):
     z1 = Z3IntBound(*[BitVecVal(getattr(b1, field))
                      for field in ('lower', 'upper', 'tvalue', 'tmask')])
