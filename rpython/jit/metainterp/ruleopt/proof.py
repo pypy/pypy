@@ -197,6 +197,22 @@ def z3_highest_bit(x):
 def z3_min(a, b):
     return z3.If(a <= b, a, b)
 
+
+def known_ne_contract(result, left, right):
+    # Trusted soundness property, not a translation of IntBound.known_ne.
+    # False does not imply that the bounds overlap: the method may be
+    # conservative. Instantiate soundness only for the concrete operands
+    # of this proof; the glue conditions establish their bound membership.
+    assert left.concrete_variable is not None
+    assert right.concrete_variable is not None
+    return z3.Implies(result, left.concrete_variable != right.concrete_variable)
+
+
+METHOD_CONTRACTS = {
+    'known_ne': known_ne_contract,
+}
+
+
 class Prover(parse.Visitor):
     def __init__(self):
         self.solver = z3.Optimize()
@@ -333,9 +349,19 @@ class Prover(parse.Visitor):
             self.visit(arg, arg.typ) for arg in expr.args
         ]
         methargs = [arg[0] for arg in args]
-        return getattr(res, expr.methname)(*methargs), z3_and(
+        if expr.methname in METHOD_CONTRACTS:
+            result = self.call_method_with_contract(expr.methname, res, *methargs)
+        else:
+            result = getattr(res, expr.methname)(*methargs)
+        return result, z3_and(
             resvalid, *[arg[1] for arg in args]
         )
+
+    def call_method_with_contract(self, name, *bounds):
+        # currently contracts describe Boolean methods taking IntBounds.
+        result = z3.FreshBool(name)
+        self.glue_conditions.append(METHOD_CONTRACTS[name](result, *bounds))
+        return result
 
     def visit_FuncCall(self, expr, targettype=int):
         targettypes = [int] * len(expr.args)

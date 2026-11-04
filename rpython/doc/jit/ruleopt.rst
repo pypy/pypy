@@ -260,11 +260,18 @@ required to make very sure they are equivalent).
 
 .. __: https://pypy.org/posts/2024/08/toy-knownbits.html#cases-where-this-style-of-z3-proof-doesnt-work).
 
-If that is too hard as well, it's possible to skip the proof of individual
+Some methods are supported through trusted properties instead of proving their
+implementation. You can use ``check x.known_ne(y)`` without ``SORRY_Z3``: the
+prover assumes that a true result guarantees ``x != y``, and checks the rest of
+your rule using that assumption. A false result does not imply ``x == y``.
+The rule's correctness therefore depends on ``known_ne`` satisfying its promised
+behavior; the rule proof does not verify the method itself.
+
+If neither approach is practical, it's possible to skip the proof of individual
 rules by adding ``SORRY_Z3`` to its body (but we should try not to do that too
 often)::
 
-    eq_different_knownbits: int_eq(x, y)
+    example_unchecked_rule: int_eq(x, y)
         SORRY_Z3
         check x.known_ne(y)
         => 0
