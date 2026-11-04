@@ -339,6 +339,15 @@ class AppTestUnicodeString:
         assert u'\u2028x\u2029'.splitlines() == [u'', u'x']
         assert all(len(l) == len(l.encode('utf8').decode('utf8'))
                    for l in u'\xe9\nx\r\n\u1234'.splitlines(True))
+        # multi-byte characters before and after ASCII line breaks
+        assert u'\xe9\ncaf\xe9\r\nx'.splitlines() == [u'\xe9', u'caf\xe9', u'x']
+        assert (u'\xe9\ncaf\xe9\r\nx'.splitlines(True) ==
+                [u'\xe9\n', u'caf\xe9\r\n', u'x'])
+        assert u'\u1234\u1234\n\u1234'.splitlines() == [u'\u1234\u1234', u'\u1234']
+        assert u'ab\u1234\r'.splitlines(True) == [u'ab\u1234\r']
+        assert u'ab\u1234\x1ccd'.splitlines() == [u'ab\u1234', u'cd']
+        for l in u'\xe9a\nb\u1234c\r\nd\U00010000e\x0bf'.splitlines(True):
+            assert len(l) == len(l.encode('utf8').decode('utf8'))
 
     def test_zfill(self):
         assert u'123'.zfill(2) == u'123'

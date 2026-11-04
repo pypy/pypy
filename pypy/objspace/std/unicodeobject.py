@@ -670,31 +670,20 @@ class W_UnicodeObject(W_Root):
         length = len(value)
         strs_w = []
         pos = 0
-        if self.is_ascii():
-            # fast path: no decoding needed, length == number of bytes
-            while pos < length:
-                sol = pos
-                while pos < length and not _ascii_islinebreak(value[pos]):
-                    pos += 1
-                eol = pos
-                if pos < length:
-                    # read CRLF as one line break
-                    if (value[pos] == '\r' and pos + 1 < length
-                                           and value[pos + 1] == '\n'):
-                        pos += 2
-                    else:
-                        pos += 1
-                    if keepends:
-                        eol = pos
-                assert eol >= 0
-                assert sol >= 0
-                strs_w.append(W_UnicodeObject(value[sol:eol], eol - sol))
-            return space.newlist(strs_w)
         while pos < length:
             sol = pos
             lgt = 0
-            while pos < length and not self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
-                pos = rutf8.next_codepoint_pos(value, pos)
+            while pos < length:
+                ch = value[pos]
+                if ch < '\x80':
+                    # ASCII: no need to decode
+                    if _ascii_islinebreak(ch):
+                        break
+                    pos += 1
+                else:
+                    if self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
+                        break
+                    pos = rutf8.next_codepoint_pos(value, pos)
                 lgt += 1
             eol = pos
             if pos < length:
