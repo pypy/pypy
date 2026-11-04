@@ -552,6 +552,23 @@ class Z3IntBound(IntBound):
     # ____________________________________________________________
     # reimplementations of methods with control flow that Z3 doesn't support
 
+    def _known_same_sign(self, other):
+        return z3.Or(
+            z3.And(self.known_nonnegative(), other.known_nonnegative()),
+            z3.And(self.known_lt_const(0), other.known_lt_const(0)))
+
+    def known_unsigned_lt(self, other):
+        return z3.Or(
+            z3.And(self._known_same_sign(other), self.known_lt(other)),
+            z3.ULT(self.get_maximum_unsigned_by_knownbits(),
+                   other.get_minimum_unsigned_by_knownbits()))
+
+    def known_unsigned_le(self, other):
+        return z3.Or(
+            z3.And(self._known_same_sign(other), self.known_le(other)),
+            z3.ULE(self.get_maximum_unsigned_by_knownbits(),
+                   other.get_minimum_unsigned_by_knownbits()))
+
     def add_bound(self, other):
         lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
         upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
@@ -984,29 +1001,34 @@ def test_prove_or_backwards():
         ),
     )
 
-def test_prove_known_unsigned_lt_logic():
+@pytest.mark.parametrize('suffix, comparison', [
+    ('lt', z3.ULT), ('le', z3.ULE), ('gt', z3.UGT), ('ge', z3.UGE),
+])
+def test_prove_known_unsigned_cmp(suffix, comparison):
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    max_self = b1.get_maximum_unsigned_by_knownbits()
-    min_other = b2.get_minimum_unsigned_by_knownbits()
     b1.prove_implies(
         b2,
-        z3.ULT(max_self, min_other),
-        z3.ULT(b1.concrete_variable, b2.concrete_variable),
+        getattr(b1, 'known_unsigned_' + suffix)(b2),
+        comparison(b1.concrete_variable, b2.concrete_variable),
     )
 
-def test_prove_known_unsigned_lt_from_signed_lt_logic():
-    b1 = make_z3_intbounds_instance('self')
-    b2 = make_z3_intbounds_instance('other')
-    same_sign = z3.Or(
-        z3.And(b1.lower >= 0, b2.lower >= 0),
-        z3.And(b1.upper < 0, b2.upper < 0))
-    b1.prove_implies(
-        b2,
-        same_sign,
-        b1.known_lt(b2),
-        z3.ULT(b1.concrete_variable, b2.concrete_variable),
-    )
+
+@given(bounds, bounds)
+@example(IntBound.from_constant(-1), IntBound.from_constant(0))
+@example(IntBound.from_constant(0), IntBound.from_constant(-1))
+@example(IntBound.from_constant(0), IntBound.from_constant(0))
+@example(IntBound(0, 7), IntBound(8, 15))
+def test_known_unsigned_cmp_matches_implementation(b1, b2):
+    z1 = Z3IntBound(*[BitVecVal(getattr(b1, field))
+                     for field in ('lower', 'upper', 'tvalue', 'tmask')])
+    z2 = Z3IntBound(*[BitVecVal(getattr(b2, field))
+                     for field in ('lower', 'upper', 'tvalue', 'tmask')])
+    for suffix in ('lt', 'le', 'gt', 'ge'):
+        name = 'known_unsigned_' + suffix
+        expected = getattr(b1, name)(b2)
+        result = z3.simplify(getattr(z1, name)(z2))
+        assert result.eq(z3.BoolVal(expected))
 
 
 def test_prove_known_eq_const_logic():
