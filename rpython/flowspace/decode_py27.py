@@ -13,7 +13,6 @@ OPNAMES = dict((num, name) for name, num in OPMAP.items())
 HAVE_ARGUMENT = 90
 EXTENDED_ARG = OPMAP['EXTENDED_ARG']
 HASJREL = set(_host_opcode.hasjrel)
-HASJABS = set(_host_opcode.hasjabs)
 
 
 class Py2Decoder(Decoder):
@@ -53,12 +52,7 @@ class Py2Decoder(Decoder):
     def unknown_opcode(self, name, oparg):
         if name is None:
             return [I.Unsupported("??? is not RPython")]
-        # Temporary: run the opcode with the FlowContext method of the
-        # same name.
-        methodname = name.replace('+', '_')
-        if OPMAP[name] in HASJREL or OPMAP[name] in HASJABS:
-            return [I.HostJumpOpcode(methodname, oparg)]
-        return [I.HostOpcode(methodname, oparg)]
+        return Decoder.unknown_opcode(self, name, oparg)
 
     def linetable(self):
         tab = self.code.co_lnotab

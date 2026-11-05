@@ -46,27 +46,6 @@ class JumpInstr(Instr):
         self.target = target
 
 
-class HostOpcode(Instr):
-    """Temporary: a host opcode run by the FlowContext method of the same
-    name."""
-    def __init__(self, methodname, oparg):
-        self.methodname = methodname
-        self.oparg = oparg
-
-    def eval(self, ctx):
-        return getattr(ctx, self.methodname)(self.oparg)
-
-
-class HostJumpOpcode(JumpInstr):
-    """Temporary: like HostOpcode, for opcodes with a jump target."""
-    def __init__(self, methodname, target):
-        self.methodname = methodname
-        self.target = target
-
-    def eval(self, ctx):
-        return getattr(ctx, self.methodname)(self.target)
-
-
 class Unsupported(Instr):
     def __init__(self, message):
         self.message = message

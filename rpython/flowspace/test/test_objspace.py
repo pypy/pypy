@@ -7,7 +7,7 @@ from rpython.flowspace.model import (
     Constant, mkentrymap, const)
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
-from rpython.flowspace.flowcontext import FlowingError, FlowContext
+from rpython.flowspace.flowcontext import FlowingError
 from rpython.conftest import option
 
 import os
@@ -40,16 +40,6 @@ class Base:
                 result.setdefault(op.opname, 0)
                 result[op.opname] += 1
         return result
-
-def test_all_opcodes_defined():
-    from rpython.flowspace.decode_py27 import OPMAP, Py2Decoder
-    methods = set([name for name in dir(FlowContext) if name.upper() == name])
-    handled_elsewhere = set(['EXTENDED_ARG', 'LOAD_REVDB_VAR'])
-    missing = [name for name in OPMAP
-               if name not in Py2Decoder.opcodes and
-                  name not in handled_elsewhere and
-                  name.replace('+', '_') not in methods]
-    assert not missing
 
 class TestFlowObjSpace(Base):
 

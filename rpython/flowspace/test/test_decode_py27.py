@@ -5,6 +5,7 @@ import pytest
 
 from rpython.flowspace import instr as I
 from rpython.flowspace.decode_py27 import Py2Decoder
+from rpython.flowspace.decode_py27 import OPMAP, EXTENDED_ARG
 from rpython.flowspace.flowcontext import FlowContext
 
 IS_PYPY = "__pypy__" in sys.builtin_module_names
@@ -25,6 +26,19 @@ def make_code(co_code, co_consts=(), co_names=()):
     code.co_consts = co_consts
     code.co_names = co_names
     return code
+
+
+class FakeCode(object):
+    co_consts = [None, None, None]
+    co_names = ['x', 'y', 'z']
+
+
+@pytest.mark.parametrize('name', sorted(OPMAP))
+def test_all_opcodes_decoded(name):
+    if OPMAP[name] == EXTENDED_ARG:
+        return
+    for instr in decode_opcode(name, 2, FakeCode()):
+        assert isinstance(instr, I.Instr)
 
 
 def test_jump_targets_are_positions():
