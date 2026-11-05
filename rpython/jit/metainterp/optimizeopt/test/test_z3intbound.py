@@ -1110,6 +1110,7 @@ def test_prove_tnum_intersect():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     tvalue, tmask, valid = b1._tnum_intersect(b2.tvalue, b2.tmask)
+    # Every common value is retained, and the intersection is valid.
     b1.prove_implies(
         b2.z3_formula(b1.concrete_variable),
         z3.And(
@@ -1117,16 +1118,19 @@ def test_prove_tnum_intersect():
             z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
         )
     )
-    # check that if valid if false, there are no values in the intersection
-    b1.prove_implies(
-        z3.Not(valid),
-        z3.Not(b2.z3_formula(b1.concrete_variable)),
-    )
-    # and also that we only gain information
-    b1.prove_implies(
-        b2.z3_formula(b1.concrete_variable),
+    # conversely, every result value belongs to both input tnums. use a fresh
+    # value without assuming that it already belongs to either input
+    value = BitVec('intersection_value')
+    prove_implies(
+        z3_tvalue_tmask_are_valid(b1.tvalue, b1.tmask),
+        z3_tvalue_tmask_are_valid(b2.tvalue, b2.tmask),
         valid,
-        popcount64(~tmask) >= popcount64(~b1.tmask),
+        z3_tnum_condition(value, tvalue, tmask),
+        z3.And(
+            z3_tnum_condition(value, b1.tvalue, b1.tmask),
+            z3_tnum_condition(value, b2.tvalue, b2.tmask),
+        ),
+        use_timeout=False,
     )
 
 def test_prove_tnum_intersect_idempotent():
