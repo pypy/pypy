@@ -9,7 +9,6 @@ from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
 from rpython.conftest import option
-from rpython.tool.stdlib_opcode import host_bytecode_spec
 
 import os
 import operator
@@ -43,10 +42,13 @@ class Base:
         return result
 
 def test_all_opcodes_defined():
-    opnames = set(host_bytecode_spec.method_names)
+    from rpython.flowspace.decode_py27 import OPMAP, Py2Decoder
     methods = set([name for name in dir(FlowContext) if name.upper() == name])
     handled_elsewhere = set(['EXTENDED_ARG', 'LOAD_REVDB_VAR'])
-    missing = opnames - methods - handled_elsewhere
+    missing = [name for name in OPMAP
+               if name not in Py2Decoder.opcodes and
+                  name not in handled_elsewhere and
+                  name.replace('+', '_') not in methods]
     assert not missing
 
 class TestFlowObjSpace(Base):

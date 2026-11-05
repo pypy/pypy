@@ -1,17 +1,9 @@
 """
-Bytecode handling classes and functions for use by the flow space.
+Code objects, as seen by the flow space.
 """
 from bisect import bisect_right
 
-from rpython.tool.stdlib_opcode import host_bytecode_spec
-from opcode import EXTENDED_ARG, HAVE_ARGUMENT
-import opcode
 from rpython.flowspace.argument import Signature
-
-try:
-    from __pypy__ import _promote
-except ImportError:
-    _promote = lambda x: x
 
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
@@ -52,31 +44,14 @@ class LineTable(object):
         return self.linenos[bisect_right(self.offsets, offset) - 1]
 
 
-def lnotab_linetable(firstlineno, lnotab):
-    """The LineTable of a Python 2 code object."""
-    addr = 0
-    line = firstlineno
-    starts = [(0, line)]
-    for i in range(0, len(lnotab), 2):
-        addr += ord(lnotab[i])
-        line += ord(lnotab[i + 1])
-        if starts[-1][0] == addr:
-            starts[-1] = (addr, line)
-        else:
-            starts.append((addr, line))
-    return LineTable(starts)
-
-HASJREL = bytearray([_opnum in opcode.hasjrel for _opnum in range(256)])
-
-class HostCode(object):
+class FlowCode(object):
     """
-    A wrapper around a native code object of the host interpreter
+    A host code object decoded into a list of instructions (see instr.py)
     """
-    opnames = tuple(host_bytecode_spec.method_names)
 
     def __init__(self, signature, nlocals, varnames, freevars, flags,
-                 filename, name, firstlineno, code, lnotab, consts, names):
-        """Initialize a new code object"""
+                 filename, name, firstlineno, instrs, linetable, consts,
+                 names):
         assert nlocals >= 0
         self.signature = signature
         self.nlocals = nlocals
@@ -86,58 +61,16 @@ class HostCode(object):
         self.filename = filename
         self.name = name
         self.firstlineno = firstlineno
-        self.co_code = code
-        self.linetable = lnotab_linetable(firstlineno, lnotab)
+        self.instrs = instrs
+        self.linetable = linetable
         self.consts = consts
         self.names = names
-
-    @classmethod
-    def _from_code(cls, code):
-        """Initialize the code object from a real (CPython) one.
-        """
-        return cls(cpython_code_signature(code), code.co_nlocals,
-                   list(code.co_varnames), list(code.co_freevars),
-                   code.co_flags, code.co_filename, code.co_name,
-                   code.co_firstlineno, code.co_code, code.co_lnotab,
-                   list(code.co_consts), list(code.co_names))
 
     @property
     def formalargcount(self):
         """Total number of arguments passed into the frame, including *vararg
         and **varkwarg, if they exist."""
         return self.signature.scope_length()
-
-    def read(self, offset):
-        """
-        Decode the instruction starting at position ``offset``.
-
-        Returns (next_offset, opname, oparg).
-        """
-        co_code = self.co_code
-        opnum = ord(co_code[offset])
-        next_offset = offset + 1
-
-        if opnum >= HAVE_ARGUMENT:
-            lo = ord(co_code[next_offset])
-            hi = ord(co_code[next_offset + 1])
-            next_offset += 2
-            oparg = (hi * 256) | lo
-        else:
-            oparg = 0
-
-        while opnum == EXTENDED_ARG:
-            opnum = ord(co_code[next_offset])
-            if opnum < HAVE_ARGUMENT:
-                raise BytecodeCorruption
-            lo = ord(co_code[next_offset + 1])
-            hi = ord(co_code[next_offset + 2])
-            next_offset += 3
-            oparg = (oparg * 65536) | (hi * 256) | lo
-
-        if HASJREL[opnum]:
-            oparg += next_offset
-        opname = self.opnames[_promote(opnum)]
-        return next_offset, opname, oparg
 
     @property
     def is_generator(self):

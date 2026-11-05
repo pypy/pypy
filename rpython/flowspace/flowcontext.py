@@ -411,7 +411,7 @@ class FlowContext(object):
         self.recorder = block.make_recorder()
         try:
             while True:
-                next_pos = self.handle_bytecode(next_pos)
+                next_pos = self.handle_instr(next_pos)
                 self.recorder.final_state = self.getstate(next_pos)
         except StopFlowing:
             pass
@@ -486,14 +486,14 @@ class FlowContext(object):
                     stack_items_w[i] = w_new
                     break
 
-    def handle_bytecode(self, next_offset):
-        self.last_offset = next_offset
-        next_offset, methodname, oparg = self.code.read(next_offset)
+    def handle_instr(self, pos):
+        instr = self.code.instrs[pos]
+        self.last_offset = instr.offset
         try:
-            offset = getattr(self, methodname)(oparg)
-            return offset if offset is not None else next_offset
+            next_pos = instr.eval(self)
         except FlowSignal as signal:
             return self.unroll(signal)
+        return next_pos if next_pos is not None else pos + 1
 
     def unroll(self, signal):
         while self.blockstack:
