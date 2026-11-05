@@ -117,17 +117,28 @@ solver = z3.Solver()
 
 
 def prove_implies(*args, **kwargs):
+    """Prove an implication without a solver timeout; unknown is a failure."""
     if 'conclusion' not in kwargs:
         raise TypeError("prove_implies() requires an explicit conclusion= argument")
     conclusion = kwargs.pop('conclusion')
     return prove(z3.Implies(z3.And(*args), conclusion), **kwargs)
+
+def check_implies(*args, **kwargs):
+    """Model-check a generated case, allowing inconclusive solver timeouts."""
+    if 'conclusion' not in kwargs:
+        raise TypeError("check_implies() requires an explicit conclusion= argument")
+    conclusion = kwargs.pop('conclusion')
+    return _check(z3.Implies(z3.And(*args), conclusion), use_timeout=True, **kwargs)
 
 def teardown_function(function):
     # z3 doesn't add enough memory pressure, just collect after every function
     # to counteract
     gc.collect()
 
-def prove(cond, use_timeout=True, premise_witness=()):
+def prove(cond, premise_witness=()):
+    return _check(cond, use_timeout=False, premise_witness=premise_witness)
+
+def _check(cond, use_timeout, premise_witness=()):
     if z3.is_implies(cond):
         premises = cond.arg(0)
         premise_solver.reset()
@@ -145,8 +156,8 @@ def prove(cond, use_timeout=True, premise_witness=()):
     if z3res == z3.unsat:
         pass
     elif z3res == z3.unknown:
-        print "timeout", cond
-        assert use_timeout
+        assert use_timeout, "Could not prove (%s): %s" % (solver.reason_unknown(), cond)
+        print "inconclusive (%s)" % solver.reason_unknown(), cond
     elif z3res == z3.sat:
         # not possible to prove!
         global model
@@ -154,10 +165,11 @@ def prove(cond, use_timeout=True, premise_witness=()):
         raise CheckError(cond, model)
 
 
-def test_prove_implies_requires_explicit_conclusion():
+@pytest.mark.parametrize('implies', [prove_implies, check_implies])
+def test_implies_requires_explicit_conclusion(implies):
     x = BitVec('x')
     with pytest.raises(TypeError, match='explicit conclusion='):
-        prove_implies(x == 1, x > 0)
+        implies(x == 1, x > 0)
     bound = make_z3_intbounds_instance('bound')
     with pytest.raises(TypeError, match='explicit conclusion='):
         bound.prove_implies(bound.lower <= bound.upper)
@@ -170,19 +182,21 @@ def test_bound_proof_explicit_conclusion():
 
 
 @pytest.mark.parametrize('conclusion', [True, False])
-def test_prove_rejects_unsatisfiable_premises(conclusion):
+@pytest.mark.parametrize('implies', [prove_implies, check_implies])
+def test_prove_rejects_unsatisfiable_premises(conclusion, implies):
     x = BitVec('x')
     with pytest.raises(AssertionError):
-        prove_implies(x < 0, x >= 0, conclusion=conclusion, use_timeout=False)
+        implies(x < 0, x >= 0, conclusion=conclusion)
     with pytest.raises(AssertionError):
-        prove(z3.Implies(x < x, conclusion), use_timeout=False)
+        prove(z3.Implies(x < x, conclusion))
 
 
-def test_prove_implies_satisfiable_premises():
+@pytest.mark.parametrize('implies', [prove_implies, check_implies])
+def test_implies_satisfiable_premises(implies):
     x = BitVec('x')
-    prove_implies(x == 1, conclusion=x > 0, use_timeout=False)
+    implies(x == 1, conclusion=x > 0)
     with pytest.raises(CheckError):
-        prove_implies(x == 1, conclusion=x < 0, use_timeout=False)
+        implies(x == 1, conclusion=x < 0)
 
 
 def test_bound_proof_rejects_unsatisfiable_premises():
@@ -191,15 +205,39 @@ def test_bound_proof_rejects_unsatisfiable_premises():
         bound.prove_implies(bound.lower < bound.lower, conclusion=True)
 
 
-def test_prove_premise_witness():
+@pytest.mark.parametrize('implies', [prove_implies, check_implies])
+def test_premise_witness(implies):
     x = BitVec('x')
     witness = [(x, BitVecVal(1))]
-    prove_implies(x > 0, conclusion=x >= 1, premise_witness=witness)
+    implies(x > 0, conclusion=x >= 1, premise_witness=witness)
     with pytest.raises(AssertionError):
-        prove_implies(x < 0, conclusion=True, premise_witness=witness)
+        implies(x < 0, conclusion=True, premise_witness=witness)
     # A witness establishes applicability, not the conclusion for all values.
     with pytest.raises(CheckError):
-        prove_implies(x > 0, conclusion=x == 1, premise_witness=witness)
+        implies(x > 0, conclusion=x == 1, premise_witness=witness)
+
+
+def test_proof_and_model_check_timeout_policy(monkeypatch):
+    class UnknownSolver(object):
+        def reset(self):
+            pass
+        def set(self, name, value):
+            assert name == 'timeout'
+            self.timeout = value
+        def check(self, condition):
+            return z3.unknown
+        def reason_unknown(self):
+            return 'test unknown result'
+
+    unknown_solver = UnknownSolver()
+    monkeypatch.setitem(globals(), 'solver', unknown_solver)
+    monkeypatch.setattr(pytest.config.option, 'z3timeout', 123)
+    x = BitVec('x')
+    with pytest.raises(AssertionError, match='Could not prove'):
+        prove_implies(x == 1, conclusion=x > 0)
+    assert unknown_solver.timeout == 0
+    check_implies(x == 1, conclusion=x > 0)
+    assert unknown_solver.timeout == 123
 
 @given(bounds, bounds)
 def test_add(b1, b2):
@@ -207,7 +245,7 @@ def test_add(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 + var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_add_bound_cannot_overflow(b1, b2):
@@ -217,7 +255,7 @@ def test_add_bound_cannot_overflow(b1, b2):
     var2, formula2 = to_z3(b2)
     m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
-    prove_implies(formula1, formula2, conclusion=no_ovf)
+    check_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -232,7 +270,7 @@ def test_add_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 + var2)
     m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
-    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
+    check_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
@@ -241,7 +279,7 @@ def test_sub(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 - var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_sub_bound_cannot_overflow(b1, b2):
@@ -251,7 +289,7 @@ def test_sub_bound_cannot_overflow(b1, b2):
     var2, formula2 = to_z3(b2)
     m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
-    prove_implies(formula1, formula2, conclusion=no_ovf)
+    check_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -265,7 +303,7 @@ def test_sub_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 - var2)
     m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
-    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
+    check_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
@@ -274,7 +312,7 @@ def test_mul(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 * var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_mul_bound_cannot_overflow(b1, b2):
@@ -284,7 +322,7 @@ def test_mul_bound_cannot_overflow(b1, b2):
         var2, formula2 = to_z3(b2)
         m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
         no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-        prove_implies(formula1, formula2, conclusion=no_ovf)
+        check_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -298,7 +336,7 @@ def test_mul_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 * var2)
     m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
+    check_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds)
@@ -306,22 +344,22 @@ def test_neg(b1):
     b2 = b1.neg_bound()
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2, -var1)
-    prove_implies(formula1, conclusion=formula2)
+    check_implies(formula1, conclusion=formula2)
 
 @given(bounds, bounds)
 def test_known(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     if b1.known_lt(b2):
-        prove_implies(formula1, formula2, conclusion=var1 < var2)
+        check_implies(formula1, formula2, conclusion=var1 < var2)
     if b1.known_gt(b2):
-        prove_implies(formula1, formula2, conclusion=var1 > var2)
+        check_implies(formula1, formula2, conclusion=var1 > var2)
     if b1.known_le(b2):
-        prove_implies(formula1, formula2, conclusion=var1 <= var2)
+        check_implies(formula1, formula2, conclusion=var1 <= var2)
     if b1.known_ge(b2):
-        prove_implies(formula1, formula2, conclusion=var1 >= var2)
+        check_implies(formula1, formula2, conclusion=var1 >= var2)
     if b1.known_ne(b2):
-        prove_implies(formula1, formula2, conclusion=var1 != var2)
+        check_implies(formula1, formula2, conclusion=var1 != var2)
 
 @given(bounds, bounds)
 def test_mod(b1, b2):
@@ -332,7 +370,7 @@ def test_mod(b1, b2):
     var2, formula2 = to_z3(b2)
     var3, nonzero = z3_pymod_nonzero(var1, var2)
     _, formula3 = to_z3(b3, var3)
-    prove_implies(formula1, formula2, nonzero, conclusion=formula3)
+    check_implies(formula1, formula2, nonzero, conclusion=formula3)
 
 
 # ____________________________________________________________
@@ -344,7 +382,7 @@ def test_and(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 & var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_or(b1, b2):
@@ -352,7 +390,7 @@ def test_or(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 | var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_xor(b1, b2):
@@ -360,14 +398,14 @@ def test_xor(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 ^ var2)
-    prove_implies(formula1, formula2, conclusion=formula3)
+    check_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds)
 def test_invert(b1):
     b2 = b1.invert_bound()
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2, ~var1)
-    prove_implies(formula1, conclusion=formula2)
+    check_implies(formula1, conclusion=formula2)
 
 
 # ____________________________________________________________
@@ -380,7 +418,7 @@ def test_shrink_bounds_to_knownbits(x, y):
     var1, formula1 = to_z3(b)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, conclusion=formula2)
+    check_implies(formula1, conclusion=formula2)
 
 @given(uints, uints)
 def test_shrink_knownbits_to_bounds(x, y):
@@ -388,7 +426,7 @@ def test_shrink_knownbits_to_bounds(x, y):
     var1, formula1 = to_z3(b)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, conclusion=formula2)
+    check_implies(formula1, conclusion=formula2)
 
 @given(ints, ints, uints, uints)
 def test_shrink_mixed(x, y, value, tmask):
@@ -401,7 +439,7 @@ def test_shrink_mixed(x, y, value, tmask):
     assume(solver.check(formula1) == z3.sat)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, conclusion=formula2)
+    check_implies(formula1, conclusion=formula2)
 
 # ____________________________________________________________
 # explicit proofs of some of the helpers
@@ -731,7 +769,6 @@ class Z3IntBound(IntBound):
             prove_implies(
                 *formula_args,
                 conclusion=conclusion,
-                use_timeout=False,
                 **kwargs
             )
         except CheckError as e:
@@ -1153,7 +1190,6 @@ def test_prove_tnum_intersect():
             z3_tnum_condition(value, b1.tvalue, b1.tmask),
             z3_tnum_condition(value, b2.tvalue, b2.tmask),
         ),
-        use_timeout=False,
     )
 
 def test_prove_tnum_intersect_idempotent():
