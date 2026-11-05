@@ -35,6 +35,7 @@ __all__ = [
     "bigmemtest", "bigaddrspacetest", "cpython_only", "get_attribute",
     "requires_IEEE_754", "requires_zlib",
     "has_fork_support", "requires_fork",
+    "HAVE_INLINED_COMPREHENSIONS", "requires_inlined_comprehensions",
     "has_subprocess_support", "requires_subprocess",
     "has_socket_support", "requires_working_socket",
     "anticipate_failure", "load_package_tests", "detect_api_mismatch",
@@ -1264,6 +1265,21 @@ HAVE_DOCSTRINGS = (_check_docstrings.__doc__ is not None and
 
 requires_docstrings = unittest.skipUnless(HAVE_DOCSTRINGS,
                                           "test requires docstrings")
+
+
+# Check whether comprehensions are inlined into the enclosing code object
+# (PEP 709), which pypy does not implement
+
+def _check_inlined_comprehensions():
+    def f():
+        return [sys._getframe().f_code.co_name for _ in (1,)][0]
+    return f() == 'f'
+
+HAVE_INLINED_COMPREHENSIONS = _check_inlined_comprehensions()
+
+requires_inlined_comprehensions = unittest.skipUnless(
+    HAVE_INLINED_COMPREHENSIONS,
+    "test requires PEP 709 inlined comprehensions")
 
 
 #=======================================================================

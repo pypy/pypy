@@ -1508,6 +1508,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
             line=1, end_line=6, column=0, end_column=32, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_list_comprehension(self):
         snippet = textwrap.dedent("""\
             [(x,
@@ -1524,6 +1525,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_async_list_comprehension(self):
         snippet = textwrap.dedent("""\
             async def f():
@@ -1546,6 +1548,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
             line=2, end_line=7, column=4, end_column=36, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_set_comprehension(self):
         snippet = textwrap.dedent("""\
             {(x,
@@ -1562,6 +1565,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_async_set_comprehension(self):
         snippet = textwrap.dedent("""\
             async def f():
@@ -1584,6 +1588,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
             line=2, end_line=7, column=4, end_column=36, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_dict_comprehension(self):
         snippet = textwrap.dedent("""\
             {x:
@@ -1600,6 +1605,7 @@ class TestSourcePositions(unittest.TestCase):
         self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
             line=1, end_line=2, column=1, end_column=7, occurrence=1)
 
+    @support.requires_inlined_comprehensions  #PYPY CHANGE
     def test_multiline_async_dict_comprehension(self):
         snippet = textwrap.dedent("""\
             async def f():
