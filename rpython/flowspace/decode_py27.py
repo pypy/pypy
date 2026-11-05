@@ -221,3 +221,37 @@ decodes('ROT_TWO')(lambda decoder, oparg: [I.Swap(2)])
 decodes('ROT_THREE')(lambda decoder, oparg: [I.Swap(3), I.Swap(2)])
 decodes('ROT_FOUR')(lambda decoder, oparg: [I.Swap(4), I.Swap(3), I.Swap(2)])
 decodes('NOP')(lambda decoder, oparg: [])
+
+# ____________________________________________________________
+# Containers
+
+register_all({
+    'BUILD_TUPLE': I.BuildTuple,
+    'BUILD_LIST': I.BuildList,
+    'LIST_APPEND': I.ListAppend,
+    'UNPACK_SEQUENCE': I.UnpackSequence,
+}, with_oparg)
+
+register_all({
+    'BUILD_MAP': I.BuildMap,
+    'BUILD_LIST_FROM_ARG': I.BuildListFromArg,
+    'STORE_MAP': I.StoreMap,
+    'STORE_SUBSCR': I.StoreSubscr,
+    'DELETE_SUBSCR': I.DeleteSubscr,
+}, no_operand)
+
+@decodes('BUILD_SLICE')
+def decode_build_slice(decoder, oparg):
+    if oparg not in (2, 3):
+        raise BytecodeCorruption("bad BUILD_SLICE %d" % (oparg,))
+    return [I.BuildSlice(oparg == 3)]
+
+def slice_op(cls, n):
+    """Decoder for SLICE+n and the like: bit 0 of n means that there is a
+    start index on the stack, bit 1 a stop index."""
+    return lambda decoder, oparg: [cls(bool(n & 1), bool(n & 2))]
+
+for _n in range(4):
+    decodes('SLICE+%d' % _n)(slice_op(I.GetSlice, _n))
+    decodes('STORE_SLICE+%d' % _n)(slice_op(I.StoreSlice, _n))
+    decodes('DELETE_SLICE+%d' % _n)(slice_op(I.DeleteSlice, _n))

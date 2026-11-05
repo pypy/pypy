@@ -701,13 +701,6 @@ class FlowContext(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-    def BUILD_LIST_FROM_ARG(self, _):
-        # This opcode was added with pypy-1.8.  Here is a simpler
-        # version, enough for annotation.
-        last_val = self.popvalue()
-        self.pushvalue(op.newlist().eval(self))
-        self.pushvalue(last_val)
-
     def call_function(self, oparg, w_star=None, w_starstar=None):
         if w_starstar is not None:
             raise FlowingError("Dict-unpacking is not RPython")
@@ -800,125 +793,6 @@ class FlowContext(object):
             raise Raise(w_exc)
         return [op.getitem(w_iterable, const(i)).eval(self)
                 for i in range(expected_length)]
-
-    def UNPACK_SEQUENCE(self, itemcount):
-        w_iterable = self.popvalue()
-        items = self.unpack_sequence(w_iterable, itemcount)
-        for w_item in reversed(items):
-            self.pushvalue(w_item)
-
-    def slice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_result = op.getslice(w_obj, w_start, w_end).eval(self)
-        self.pushvalue(w_result)
-
-    def SLICE_0(self, oparg):
-        self.slice(w_None, w_None)
-
-    def SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.slice(w_start, w_None)
-
-    def SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.slice(w_None, w_end)
-
-    def SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.slice(w_start, w_end)
-
-    def storeslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setslice(w_obj, w_start, w_end, w_newvalue).eval(self)
-
-    def STORE_SLICE_0(self, oparg):
-        self.storeslice(w_None, w_None)
-
-    def STORE_SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_None)
-
-    def STORE_SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.storeslice(w_None, w_end)
-
-    def STORE_SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.storeslice(w_start, w_end)
-
-    def deleteslice(self, w_start, w_end):
-        w_obj = self.popvalue()
-        op.delslice(w_obj, w_start, w_end).eval(self)
-
-    def DELETE_SLICE_0(self, oparg):
-        self.deleteslice(w_None, w_None)
-
-    def DELETE_SLICE_1(self, oparg):
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_None)
-
-    def DELETE_SLICE_2(self, oparg):
-        w_end = self.popvalue()
-        self.deleteslice(w_None, w_end)
-
-    def DELETE_SLICE_3(self, oparg):
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        self.deleteslice(w_start, w_end)
-
-    def LIST_APPEND(self, oparg):
-        w_value = self.popvalue()
-        w_list = self.peekvalue(oparg - 1)
-        w_append_meth = op.getattr(w_list, const('append')).eval(self)
-        op.simple_call(w_append_meth, w_value).eval(self)
-
-    def STORE_MAP(self, oparg):
-        w_key = self.popvalue()
-        w_value = self.popvalue()
-        w_dict = self.peekvalue()
-        op.setitem(w_dict, w_key, w_value).eval(self)
-
-    def STORE_SUBSCR(self, oparg):
-        "obj[subscr] = newvalue"
-        w_subscr = self.popvalue()
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setitem(w_obj, w_subscr, w_newvalue).eval(self)
-
-    def BUILD_SLICE(self, numargs):
-        if numargs == 3:
-            w_step = self.popvalue()
-        elif numargs == 2:
-            w_step = w_None
-        else:
-            raise BytecodeCorruption
-        w_end = self.popvalue()
-        w_start = self.popvalue()
-        w_slice = op.newslice(w_start, w_end, w_step).eval(self)
-        self.pushvalue(w_slice)
-
-    def DELETE_SUBSCR(self, oparg):
-        "del obj[subscr]"
-        w_subscr = self.popvalue()
-        w_obj = self.popvalue()
-        op.delitem(w_obj, w_subscr).eval(self)
-
-    def BUILD_TUPLE(self, itemcount):
-        items = self.popvalues(itemcount)
-        w_tuple = op.newtuple(*items).eval(self)
-        self.pushvalue(w_tuple)
-
-    def BUILD_LIST(self, itemcount):
-        items = self.popvalues(itemcount)
-        w_list = op.newlist(*items).eval(self)
-        self.pushvalue(w_list)
-
-    def BUILD_MAP(self, itemcount):
-        w_dict = op.newdict().eval(self)
-        self.pushvalue(w_dict)
 
 ### Frame blocks ###
 

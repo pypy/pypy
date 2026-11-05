@@ -11,6 +11,8 @@ from rpython.flowspace.model import Constant, Variable, const
 from rpython.flowspace.operation import op
 from rpython.flowspace.flowcontext import FlowingError
 
+w_None = const(None)
+
 
 class Instr(object):
     offset = -1     # offset of the host instruction this was decoded from
@@ -245,3 +247,126 @@ class Compare(Instr):
         w_2 = ctx.popvalue()
         w_1 = ctx.popvalue()
         ctx.pushvalue(ctx.compare(self.kind, w_1, w_2))
+
+
+# ____________________________________________________________
+# Containers
+
+class BuildTuple(Instr):
+    def __init__(self, count):
+        self.count = count
+
+    def eval(self, ctx):
+        items = ctx.popvalues(self.count)
+        ctx.pushvalue(op.newtuple(*items).eval(ctx))
+
+
+class BuildList(Instr):
+    def __init__(self, count):
+        self.count = count
+
+    def eval(self, ctx):
+        items = ctx.popvalues(self.count)
+        ctx.pushvalue(op.newlist(*items).eval(ctx))
+
+
+class BuildListFromArg(Instr):
+    def eval(self, ctx):
+        last_val = ctx.popvalue()
+        ctx.pushvalue(op.newlist().eval(ctx))
+        ctx.pushvalue(last_val)
+
+
+class BuildMap(Instr):
+    def eval(self, ctx):
+        ctx.pushvalue(op.newdict().eval(ctx))
+
+
+class BuildSlice(Instr):
+    def __init__(self, has_step):
+        self.has_step = has_step
+
+    def eval(self, ctx):
+        w_step = ctx.popvalue() if self.has_step else w_None
+        w_end = ctx.popvalue()
+        w_start = ctx.popvalue()
+        ctx.pushvalue(op.newslice(w_start, w_end, w_step).eval(ctx))
+
+
+class ListAppend(Instr):
+    """Append the top item to the list found 'depth' items below it."""
+    def __init__(self, depth):
+        self.depth = depth
+
+    def eval(self, ctx):
+        w_value = ctx.popvalue()
+        w_list = ctx.peekvalue(self.depth - 1)
+        w_append_meth = op.getattr(w_list, const('append')).eval(ctx)
+        op.simple_call(w_append_meth, w_value).eval(ctx)
+
+
+class StoreMap(Instr):
+    def eval(self, ctx):
+        w_key = ctx.popvalue()
+        w_value = ctx.popvalue()
+        w_dict = ctx.peekvalue()
+        op.setitem(w_dict, w_key, w_value).eval(ctx)
+
+
+class StoreSubscr(Instr):
+    def eval(self, ctx):
+        w_subscr = ctx.popvalue()
+        w_obj = ctx.popvalue()
+        w_newvalue = ctx.popvalue()
+        op.setitem(w_obj, w_subscr, w_newvalue).eval(ctx)
+
+
+class DeleteSubscr(Instr):
+    def eval(self, ctx):
+        w_subscr = ctx.popvalue()
+        w_obj = ctx.popvalue()
+        op.delitem(w_obj, w_subscr).eval(ctx)
+
+
+class _SliceInstr(Instr):
+    def __init__(self, has_start, has_stop):
+        self.has_start = has_start
+        self.has_stop = has_stop
+
+    def pop_bounds(self, ctx):
+        w_end = ctx.popvalue() if self.has_stop else w_None
+        w_start = ctx.popvalue() if self.has_start else w_None
+        return w_start, w_end
+
+
+class GetSlice(_SliceInstr):
+    def eval(self, ctx):
+        w_start, w_end = self.pop_bounds(ctx)
+        w_obj = ctx.popvalue()
+        ctx.pushvalue(op.getslice(w_obj, w_start, w_end).eval(ctx))
+
+
+class StoreSlice(_SliceInstr):
+    def eval(self, ctx):
+        w_start, w_end = self.pop_bounds(ctx)
+        w_obj = ctx.popvalue()
+        w_newvalue = ctx.popvalue()
+        op.setslice(w_obj, w_start, w_end, w_newvalue).eval(ctx)
+
+
+class DeleteSlice(_SliceInstr):
+    def eval(self, ctx):
+        w_start, w_end = self.pop_bounds(ctx)
+        w_obj = ctx.popvalue()
+        op.delslice(w_obj, w_start, w_end).eval(ctx)
+
+
+class UnpackSequence(Instr):
+    def __init__(self, count):
+        self.count = count
+
+    def eval(self, ctx):
+        w_iterable = ctx.popvalue()
+        items = ctx.unpack_sequence(w_iterable, self.count)
+        for w_item in reversed(items):
+            ctx.pushvalue(w_item)
