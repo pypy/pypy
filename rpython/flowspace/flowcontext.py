@@ -522,26 +522,6 @@ class FlowContext(object):
         w_type = op.type(w_value).eval(self)
         return FSException(w_type, w_value)
 
-    def RAISE_VARARGS(self, nbargs):
-        if nbargs == 0:
-            if self.last_exception is not None:
-                w_exc = self.last_exception
-            else:
-                w_exc = const(TypeError(
-                    "raise: no active exception to re-raise"))
-            raise Raise(w_exc)
-
-        if nbargs >= 3:
-            self.popvalue()
-        if nbargs >= 2:
-            w_value = self.popvalue()
-            w_type = self.popvalue()
-            operror = self.exc_from_raise(w_type, w_value)
-        else:
-            w_type = self.popvalue()
-            operror = self.exc_from_raise(w_type, w_None)
-        raise Raise(operror)
-
     def import_name(self, name, glob=None, loc=None, frm=None, level=-1):
         try:
             mod = __import__(name, glob, loc, frm, level)
@@ -557,10 +537,6 @@ class FlowContext(object):
         except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
-
-    def RETURN_VALUE(self, oparg):
-        w_returnvalue = self.popvalue()
-        raise Return(w_returnvalue)
 
     def END_FINALLY(self, oparg):
         # unlike CPython, there are two statically distinct cases: the
@@ -588,66 +564,6 @@ class FlowContext(object):
     def POP_BLOCK(self, oparg):
         block = self.blockstack.pop()
         block.cleanupstack(self)  # the block knows how to clean up the value stack
-
-    def JUMP_ABSOLUTE(self, jumpto):
-        return jumpto
-
-    def YIELD_VALUE(self, _):
-        assert self.code.is_generator
-        w_result = self.popvalue()
-        op.yield_(w_result).eval(self)
-        # XXX yield expressions not supported. This will blow up if the value
-        # isn't popped straightaway.
-        self.pushvalue(None)
-
-    def PRINT_ITEM(self, oparg):
-        w_item = self.popvalue()
-        w_s = op.str(w_item).eval(self)
-        self.appcall(rpython_print_item, w_s)
-
-    def PRINT_NEWLINE(self, oparg):
-        self.appcall(rpython_print_newline)
-
-    def JUMP_FORWARD(self, target):
-        return target
-
-    def POP_JUMP_IF_FALSE(self, target):
-        w_value = self.popvalue()
-        if not self.guessbool(op.bool(w_value).eval(self)):
-            return target
-
-    def POP_JUMP_IF_TRUE(self, target):
-        w_value = self.popvalue()
-        if self.guessbool(op.bool(w_value).eval(self)):
-            return target
-
-    def JUMP_IF_FALSE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if not self.guessbool(op.bool(w_value).eval(self)):
-            return target
-        self.popvalue()
-
-    def JUMP_IF_TRUE_OR_POP(self, target):
-        w_value = self.peekvalue()
-        if self.guessbool(op.bool(w_value).eval(self)):
-            return target
-            return target
-        self.popvalue()
-
-    def JUMP_IF_NOT_DEBUG(self, target):
-        pass
-
-    def GET_ITER(self, oparg):
-        w_iterable = self.popvalue()
-        w_iterator = op.iter(w_iterable).eval(self)
-        self.pushvalue(w_iterator)
-
-    def FOR_ITER(self, target):
-        w_iterator = self.peekvalue()
-        self.blockstack.append(IterBlock(self, target))
-        w_nextitem = op.next(w_iterator).eval(self)
-        self.blockstack.pop()
-        self.pushvalue(w_nextitem)
 
     def SETUP_LOOP(self, target):
         block = LoopBlock(self, target)

@@ -276,3 +276,32 @@ def decode_call_function_var_kw(decoder, oparg):
     return [I.Py2Call(oparg & 0xff, (oparg >> 8) & 0xff, True, True)]
 
 decodes('MAKE_FUNCTION')(with_oparg(I.MakeFunction))
+
+# ____________________________________________________________
+# Control flow
+
+register_all({
+    'JUMP_FORWARD': I.Jump,
+    'JUMP_ABSOLUTE': I.Jump,
+    'FOR_ITER': I.ForIter,
+    'RAISE_VARARGS': I.Py2Raise,
+}, with_oparg)
+
+register_all({
+    'GET_ITER': I.GetIter,
+    'RETURN_VALUE': I.ReturnValue,
+    'YIELD_VALUE': I.YieldValue,
+    'PRINT_ITEM': I.PrintItem,
+    'PRINT_NEWLINE': I.PrintNewline,
+}, no_operand)
+
+def conditional_jump(cls, cond):
+    return lambda decoder, oparg: [cls(cond, oparg)]
+
+decodes('POP_JUMP_IF_FALSE')(conditional_jump(I.PopJumpIf, False))
+decodes('POP_JUMP_IF_TRUE')(conditional_jump(I.PopJumpIf, True))
+decodes('JUMP_IF_FALSE_OR_POP')(conditional_jump(I.JumpIfOrPop, False))
+decodes('JUMP_IF_TRUE_OR_POP')(conditional_jump(I.JumpIfOrPop, True))
+
+# assert statements are always kept
+decodes('JUMP_IF_NOT_DEBUG')(lambda decoder, oparg: [])

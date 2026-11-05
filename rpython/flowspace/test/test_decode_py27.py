@@ -1,3 +1,4 @@
+import sys
 import types
 
 import pytest
@@ -5,6 +6,8 @@ import pytest
 from rpython.flowspace import instr as I
 from rpython.flowspace.decode_py27 import Py2Decoder
 from rpython.flowspace.flowcontext import FlowContext
+
+IS_PYPY = "__pypy__" in sys.builtin_module_names
 
 
 def decode(code):
@@ -66,6 +69,19 @@ def test_dup_topx(count):
     instrs = decode_opcode('DUP_TOPX', count)
     stack = [1, 2, 3, 4]
     assert run_on_stack(instrs, stack) == stack + stack[-count:]
+
+
+@pytest.mark.skipif(not IS_PYPY, reason="PyPy2 bytecode")
+def test_decode_pypy_opcodes():
+    # x.m(), as compiled by PyPy2
+    code = make_code('|\x00\x00'     # LOAD_FAST 0
+                     '\xc9\x00\x00'  # LOOKUP_METHOD 0
+                     '\xca\x00\x00'  # CALL_METHOD 0
+                     '\xcc\x00\x00'  # JUMP_IF_NOT_DEBUG +0
+                     'S',            # RETURN_VALUE
+                     co_names=['m'])
+    assert decode(code) == [I.LoadFast(0), I.LoadAttr('m'),
+                            I.Py2Call(0, 0, False, False), I.ReturnValue()]
 
 
 def test_extended_arg():

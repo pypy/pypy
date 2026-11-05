@@ -9,7 +9,10 @@ instruction, or None to continue with the following one.
 """
 from rpython.flowspace.model import Constant, Variable, const
 from rpython.flowspace.operation import op
-from rpython.flowspace.flowcontext import FlowingError
+from rpython.flowspace.specialcase import (
+    rpython_print_item, rpython_print_newline)
+from rpython.flowspace.flowcontext import (
+    FlowingError, Return, Raise, IterBlock)
 
 w_None = const(None)
 
@@ -408,3 +411,110 @@ class MakeFunction(Instr):
         w_codeobj = ctx.popvalue()
         defaults = ctx.popvalues(self.ndefaults)
         ctx.pushvalue(ctx.newfunction(w_codeobj, defaults))
+
+
+# ____________________________________________________________
+# Control flow
+
+class Jump(JumpInstr):
+    def eval(self, ctx):
+        return self.target
+
+
+class PopJumpIf(JumpInstr):
+    """Pop the top item and jump if its truth value is 'cond'."""
+    def __init__(self, cond, target):
+        self.cond = cond
+        self.target = target
+
+    def eval(self, ctx):
+        w_value = ctx.popvalue()
+        if ctx.guessbool(op.bool(w_value).eval(ctx)) == self.cond:
+            return self.target
+
+
+class JumpIfOrPop(JumpInstr):
+    """Jump, keeping the top item, if its truth value is 'cond'.
+    Otherwise pop it."""
+    def __init__(self, cond, target):
+        self.cond = cond
+        self.target = target
+
+    def eval(self, ctx):
+        w_value = ctx.peekvalue()
+        if ctx.guessbool(op.bool(w_value).eval(ctx)) == self.cond:
+            return self.target
+        ctx.popvalue()
+
+
+class GetIter(Instr):
+    def eval(self, ctx):
+        w_iterable = ctx.popvalue()
+        ctx.pushvalue(op.iter(w_iterable).eval(ctx))
+
+
+class ForIter(JumpInstr):
+    """Push the next item of the iterator on top of the stack. When it
+    is exhausted, pop the iterator and jump to 'target'."""
+    def eval(self, ctx):
+        w_iterator = ctx.peekvalue()
+        ctx.blockstack.append(IterBlock(ctx, self.target))
+        w_nextitem = op.next(w_iterator).eval(ctx)
+        ctx.blockstack.pop()
+        ctx.pushvalue(w_nextitem)
+
+
+class ReturnValue(Instr):
+    def eval(self, ctx):
+        raise Return(ctx.popvalue())
+
+
+class YieldValue(Instr):
+    def eval(self, ctx):
+        assert ctx.code.is_generator
+        w_result = ctx.popvalue()
+        op.yield_(w_result).eval(ctx)
+        # XXX yield expressions not supported. This will blow up if the value
+        # isn't popped straightaway.
+        ctx.pushvalue(None)
+
+
+class Py2Raise(Instr):
+    """Python 2 'raise' with 0 to 3 arguments (type, value, traceback)."""
+    def __init__(self, nargs):
+        self.nargs = nargs
+
+    def eval(self, ctx):
+        nargs = self.nargs
+        if nargs == 0:
+            if ctx.last_exception is not None:
+                w_exc = ctx.last_exception
+            else:
+                w_exc = const(TypeError(
+                    "raise: no active exception to re-raise"))
+            raise Raise(w_exc)
+        if nargs >= 3:
+            ctx.popvalue()
+        if nargs >= 2:
+            w_value = ctx.popvalue()
+            w_type = ctx.popvalue()
+            operror = ctx.exc_from_raise(w_type, w_value)
+        else:
+            w_type = ctx.popvalue()
+            operror = ctx.exc_from_raise(w_type, w_None)
+        raise Raise(operror)
+
+
+# ____________________________________________________________
+# Python 2 print statement
+
+class PrintItem(Instr):
+    def eval(self, ctx):
+        w_item = ctx.popvalue()
+        w_s = op.str(w_item).eval(ctx)
+        ctx.appcall(rpython_print_item, w_s)
+
+
+class PrintNewline(Instr):
+    def eval(self, ctx):
+        ctx.appcall(rpython_print_newline)
