@@ -388,11 +388,7 @@ class Prover(parse.Visitor):
         ]
         func = globals()["z3_" + expr.funcname]
         funcargs = [arg[0] for arg in args]
-        valid = True
-        if expr.funcname == 'highest_bit':
-            value = funcargs[0]
-            valid = z3.And(value > 0, value & (value - 1) == 0)
-        return func(*funcargs), z3_and(valid, *[arg[1] for arg in args])
+        return func(*funcargs), z3_and(*[arg[1] for arg in args])
 
     def check_precondition(self, rule, element, valid, assumptions):
         if valid is True or z3.is_true(z3.simplify(valid)):

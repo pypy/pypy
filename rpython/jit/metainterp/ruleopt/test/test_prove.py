@@ -16,9 +16,45 @@ with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 
 
-def test_higest_bit():
-    for i in range(64):
-        assert highest_bit(r_uint(1) << i) == i
+def test_highest_bit():
+    from rpython.rlib.rarithmetic import highest_bit as runtime_highest_bit
+    values = [0, 14, -1, -14]
+    for i in range(LONG_BIT):
+        power = r_uint(1) << i
+        assert highest_bit(power) == i
+        values.extend([power, power - 1, power | 1, intmask(power)])
+    for value in values:
+        expected = runtime_highest_bit(value)
+        assert intmask(highest_bit(r_uint(value))) == expected
+        result = z3.simplify(z3_highest_bit(z3.BitVecVal(value, LONG_BIT)))
+        assert intmask(result.as_long()) == expected
+
+
+@pytest.mark.parametrize('value,expected', [
+    (0, -1),
+    (-1, LONG_BIT - 1),
+    (-2, LONG_BIT - 1),
+    (-14, LONG_BIT - 1),
+    (-(1 << (LONG_BIT - 1)), LONG_BIT - 1),
+])
+def test_highest_bit_zero_and_negative(value, expected):
+    from rpython.rlib.rarithmetic import highest_bit as runtime_highest_bit
+    assert runtime_highest_bit(value) == expected
+    assert intmask(highest_bit(r_uint(value))) == expected
+    result = z3.simplify(z3_highest_bit(z3.BitVecVal(value, LONG_BIT)))
+    assert intmask(result.as_long()) == expected
+
+
+@pytest.mark.parametrize('value,expected', [(0, -1), (3, 1), (14, 3),
+                                          (-1, LONG_BIT - 1)])
+def test_highest_bit_rule(value, expected):
+    prove_source('''\
+highest_bit_result: int_add(x, C)
+    check C == %s
+    H = highest_bit(C)
+    D = H + %s
+    => int_add(x, D)
+''' % (value, value - expected), force=True)
 
 
 @pytest.mark.parametrize("name,rule", [(rule.name, rule) for rule in parse.parse(ALLRULES).rules if not rule.cantproof])
@@ -84,10 +120,8 @@ missing_precondition: int_add(x, 0)
 
 
 @pytest.mark.parametrize('body', [
-    'check C > 0 and C & (C - 1) == 0\n    H = highest_bit(C)',
-    'check C > 0 and C & (C - 1) == 0 and highest_bit(C) >= 0',
-    'check C == 0 or C == 1\n    check C == 0 or highest_bit(C) == 0',
-    'check C == 0\n    D = C + 1\n    H = highest_bit(D)',
+    'H = highest_bit(C)',
+    'check highest_bit(C) >= 0',
     'check 0 <= C and C < LONG_BIT\n    D = 1 << C',
     'check 0 <= C and C < LONG_BIT and (1 << C) > 0',
 ])
@@ -100,15 +134,6 @@ expression_precondition: int_add(x, C)
 
 
 @pytest.mark.parametrize('body', [
-    'H = highest_bit(C)',
-    'check C > 0\n    H = highest_bit(C)',
-    'check C & (C - 1) == 0\n    H = highest_bit(C)',
-    'check C == 0\n    H = highest_bit(C)',
-    'check C == 3\n    H = highest_bit(C)',
-    'check C < 0\n    H = highest_bit(C)',
-    'H = highest_bit(C)\n    check C > 0 and C & (C - 1) == 0',
-    'check highest_bit(C) >= 0',
-    'check C == 0 or C == 1\n    check highest_bit(C) == 0 or C == 0',
     'D = 1 << C\n    check 0 <= C and C < LONG_BIT',
     'check (1 << C) == 1',
 ])

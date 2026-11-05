@@ -252,11 +252,14 @@ This leads to the following counterexample::
     has counterexample value: 5
 
 Calls and computations must be valid when they are evaluated. For example,
-put ``check x.is_constant()`` before ``C = x.get_constant_int()``, and check
-that a value is a positive power of two before calling ``highest_bit``.
+put ``check x.is_constant()`` before ``C = x.get_constant_int()``.
 A later check cannot justify an earlier call. Short-circuit checks work too:
 ``check x.is_constant() and x.get_constant_int() == 0`` is safe because the
 second condition is evaluated only when the first is true.
+
+``highest_bit(C)`` returns the zero-based index of the highest set bit in
+the machine integer ``C``. It returns ``-1`` for zero and ``LONG_BIT - 1``
+for negative values, using their two's complement representation.
 
 Some ``IntBound`` methods cannot be used in Z3 proofs because they have `too
 complex control flow`__ If that is the case, they can have Z3-equivalent
