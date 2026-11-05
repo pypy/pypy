@@ -344,9 +344,9 @@ class FlowContext(object):
     def dropvaluesuntil(self, finaldepth):
         del self.stack[finaldepth:]
 
-    def getstate(self, next_offset):
+    def getstate(self, next_pos):
         return FrameState(self.locals_w, self.stack[:],
-                self.last_exception, self.blockstack[:], next_offset)
+                self.last_exception, self.blockstack[:], next_pos)
 
     def setstate(self, state):
         """ Reset the context to the given frame state. """
@@ -407,12 +407,12 @@ class FlowContext(object):
 
     def record_block(self, block):
         self.setstate(block.framestate)
-        next_offset = block.framestate.next_offset
+        next_pos = block.framestate.next_pos
         self.recorder = block.make_recorder()
         try:
             while True:
-                next_offset = self.handle_bytecode(next_offset)
-                self.recorder.final_state = self.getstate(next_offset)
+                next_pos = self.handle_bytecode(next_pos)
+                self.recorder.final_state = self.getstate(next_pos)
         except StopFlowing:
             pass
         except FlowingError as exc:
@@ -423,10 +423,10 @@ class FlowContext(object):
         self.recorder = None
 
     def mergeblock(self, currentblock, currentstate):
-        next_offset = currentstate.next_offset
+        next_pos = currentstate.next_pos
         # can 'currentstate' be merged with one of the blocks that
-        # already exist for this bytecode position?
-        candidates = self.joinpoints.setdefault(next_offset, [])
+        # already exist for this position?
+        candidates = self.joinpoints.setdefault(next_pos, [])
         for block in candidates:
             newstate = block.framestate.union(currentstate)
             if newstate is not None:
@@ -1270,7 +1270,7 @@ Break.singleton = Break()
 
 class Continue(FlowSignal):
     """Signals a 'continue' statement.
-    Argument is the bytecode position of the beginning of the loop."""
+    Argument is the position of the beginning of the loop."""
 
     def __init__(self, jump_to):
         self.jump_to = jump_to
