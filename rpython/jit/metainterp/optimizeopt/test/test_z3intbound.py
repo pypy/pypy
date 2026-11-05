@@ -1167,7 +1167,6 @@ def test_prove_shrink_knownbits_by_bounds():
     self = make_z3_intbounds_instance('self')
     tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
     self.prove_implies(
-        z3_tnum_condition(self.concrete_variable, self.tvalue, self.tmask),
         z3.And(valid, z3_tnum_condition(self.concrete_variable, tvalue, tmask)),
     )
 
