@@ -5,7 +5,7 @@ from hashlib import md5
 import z3
 
 from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
-    make_z3_intbounds_instance,
+    make_z3_intbounds_instance, Z3IntBound,
 )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
@@ -17,8 +17,8 @@ from rpython.tool.gcc_cache import try_atomic_write
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
-# Proofs cached before preconditions were checked cannot be reused.
-PROOF_CACHE_VERSION = 'preconditions-v1'
+# Invalidate cached proofs when changing the assumptions used for methods.
+PROOF_CACHE_VERSION = 'urshift-contract-v1'
 
 class ProofProblem(Exception):
     pass
@@ -225,8 +225,16 @@ def known_ne_contract(result, left, right):
     return z3.Implies(result, left.concrete_variable != right.concrete_variable)
 
 
+def urshift_bound_contract(result, left, right):
+    assert left.concrete_variable is not None
+    assert right.concrete_variable is not None
+    value = z3.LShR(left.concrete_variable, right.concrete_variable)
+    return z3.And(result.concrete_variable == value, result.z3_formula())
+
+
 METHOD_CONTRACTS = {
     'known_ne': known_ne_contract,
+    'urshift_bound': urshift_bound_contract,
 }
 
 
@@ -376,8 +384,14 @@ class Prover(parse.Visitor):
         )
 
     def call_method_with_contract(self, name, *bounds):
-        # currently contracts describe Boolean methods taking IntBounds.
-        result = z3.FreshBool(name)
+        resulttype = parse.INTBOUND_METHODTYPES[name][2]
+        if resulttype is bool:
+            result = z3.FreshBool(name)
+        else:
+            assert resulttype is IntBound
+            result = Z3IntBound(*[
+                z3.FreshConst(z3.BitVecSort(LONG_BIT), name + '_' + field)
+                for field in ('lower', 'upper', 'tvalue', 'tmask', 'concrete')])
         self.glue_conditions.append(METHOD_CONTRACTS[name](result, *bounds))
         return result
 

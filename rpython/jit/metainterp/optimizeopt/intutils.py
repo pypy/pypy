@@ -1136,9 +1136,6 @@ class IntBound(AbstractInfo):
             # else: bits are unknown because arguments invalid
         return IntBound(lower, upper, tvalue, tmask)
 
-        # we don't do bounds on unsigned
-        return IntBound.from_knownbits(tvalue, tmask)
-
     @always_inline
     def _tnum_urshift(self, c_other):
         tvalue = self._urshift(self.tvalue, c_other)

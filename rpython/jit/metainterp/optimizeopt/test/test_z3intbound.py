@@ -373,6 +373,22 @@ def test_mod(b1, b2):
     check_implies(formula1, formula2, nonzero, conclusion=formula3)
 
 
+@given(bounds, bounds)
+@example(IntBound(10, 20), IntBound.from_constant(1))
+@example(IntBound(-20, -10), IntBound.from_constant(1))
+@example(IntBound(-10, 20), IntBound.from_constant(0))
+@example(IntBound(-10, 20), IntBound.from_constant(LONG_BIT - 1))
+@example(IntBound(-10, 20), IntBound.from_constant(LONG_BIT))
+@example(IntBound(10, 20), IntBound.from_constant(-1))
+@example(IntBound(10, 20), IntBound(1, 2))
+def test_urshift(b1, b2):
+    b3 = b1.urshift_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    _, formula3 = to_z3(b3, z3.LShR(var1, var2))
+    check_implies(formula1, formula2, conclusion=formula3)
+
+
 # ____________________________________________________________
 # boolean operations
 
@@ -698,14 +714,6 @@ class Z3IntBound(IntBound):
         tmask = z3.If(cond2,
                       tmask, -1)
         return Z3IntBound(min1, max1, tvalue, tmask)
-
-    def urshift_bound(self, other):
-        tvalue_if_const, tmask_if_const = self._tnum_urshift(other.lower)
-        tvalue = z3.If(other.is_constant(), tvalue_if_const, 0)
-        tmask = z3.If(other.is_constant(), tmask_if_const, -1)
-        lower = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.lower >> other.lower, MININT)
-        upper = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.upper >> other.lower, MAXINT)
-        return Z3IntBound.from_knownbits(tvalue, tmask)
 
     def is_constant(self):
         return z3.And(self.lower == self.upper, self.tmask == 0)
@@ -1513,11 +1521,32 @@ def test_prove_urshift_knownbits_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = z3.LShR(b1.concrete_variable, b2.concrete_variable)
-    b3 = b1.urshift_bound(b2)
-    b3.concrete_variable = result
+    c = b2.lower
+    shifted_value, shifted_mask = b1._tnum_urshift(c)
+    large_shift = z3.And(b2.is_constant(), c >= LONG_BIT)
+    valid_shift = z3.And(b2.is_constant(), c >= 0, c < LONG_BIT)
+    tvalue = z3.If(large_shift, 0, z3.If(valid_shift, shifted_value, 0))
+    tmask = z3.If(large_shift, 0, z3.If(valid_shift, shifted_mask, -1))
     b1.prove_implies(
         b2,
-        conclusion=b3,
+        conclusion=z3.And(z3_tvalue_tmask_are_valid(tvalue, tmask),
+                          z3_tnum_condition(result, tvalue, tmask)),
+    )
+
+def test_prove_urshift_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = z3.LShR(b1.concrete_variable, b2.concrete_variable)
+    c = b2.lower
+    use_bounds = z3.And(b2.is_constant(), c >= 0, c < LONG_BIT,
+                        b1.lower >= 0)
+    lower = z3.If(use_bounds, z3.LShR(b1.lower, c), MININT)
+    upper = z3.If(use_bounds, z3.LShR(b1.upper, c), MAXINT)
+    # These are the bounds before construction calls shrink(). Shrinking's
+    # separate proofs establish that it preserves membership.
+    b1.prove_implies(
+        b2,
+        conclusion=z3.And(lower <= result, result <= upper),
     )
 
 def test_prove_lshift_bound_backwards_logic():

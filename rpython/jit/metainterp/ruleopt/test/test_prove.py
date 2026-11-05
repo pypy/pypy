@@ -160,6 +160,60 @@ old_cached_rule: int_add(x, 0)
         prove_source(source)
 
 
+def test_urshift_bound_contract_does_not_execute_method(monkeypatch):
+    def unsupported(*args):
+        raise AssertionError('must use the contract, not the implementation')
+    monkeypatch.setattr(IntBound, 'urshift_bound', unsupported)
+    prove_source('''\
+urshift_contract: uint_rshift(x, n)
+    bound = x.urshift_bound(n)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+''', force=True)
+
+
+def test_urshift_bound_contract_rejects_incorrect_rule():
+    with pytest.raises(CouldNotProve):
+        prove_source('''\
+wrong_urshift: uint_rshift(x, n)
+    bound = x.urshift_bound(n)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    D = C + 1
+    => D
+''', force=True)
+
+
+@pytest.mark.parametrize('lower,upper,tvalue,tmask,expected', [
+    (5, 10, 0, -1, z3.sat), (0, 15, 0, -1, z3.sat),
+    (8, 8, 8, 0, z3.sat), (0, 7, 0, -1, z3.unsat),
+    (0, 15, 1, -2, z3.unsat),  # known odd: cannot contain 16 >>u 1
+])
+def test_urshift_bound_contract_concrete_operands(lower, upper, tvalue, tmask, expected):
+    prover = Prover()
+    left = make_z3_intbounds_instance('left')
+    right = make_z3_intbounds_instance('right')
+    result = prover.call_method_with_contract('urshift_bound', left, right)
+    solver = z3.Solver()
+    solver.add(*prover.glue_conditions)
+    solver.add(left.concrete_variable == 16, right.concrete_variable == 1,
+               result.lower == lower, result.upper == upper,
+               result.tvalue == tvalue, result.tmask == tmask)
+    assert solver.check() == expected
+
+
+def test_urshift_bound_contract_composes():
+    prove_source('''\
+urshift_twice: uint_rshift(uint_rshift(x, n), n)
+    bound = x.urshift_bound(n)
+    result = bound.urshift_bound(n)
+    check result.is_constant()
+    C = result.get_constant_int()
+    => C
+''', force=True)
+
+
 def test_known_ne_contract_does_not_execute_method(monkeypatch):
     def unsupported(*args):
         raise AssertionError('must use the contract, not the implementation')
