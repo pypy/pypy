@@ -262,50 +262,46 @@ _DBCONFIG_OPS = frozenset(
 
 # error codes
 
+_primary_error_names = [
+    "SQLITE_ABORT",
+    "SQLITE_AUTH",
+    "SQLITE_BUSY",
+    "SQLITE_CANTOPEN",
+    "SQLITE_CONSTRAINT",
+    "SQLITE_CORRUPT",
+    "SQLITE_DONE",
+    "SQLITE_EMPTY",
+    "SQLITE_ERROR",
+    "SQLITE_FORMAT",
+    "SQLITE_FULL",
+    "SQLITE_INTERNAL",
+    "SQLITE_INTERRUPT",
+    "SQLITE_IOERR",
+    "SQLITE_LOCKED",
+    "SQLITE_MISMATCH",
+    "SQLITE_MISUSE",
+    "SQLITE_NOLFS",
+    "SQLITE_NOMEM",
+    "SQLITE_NOTADB",
+    "SQLITE_NOTFOUND",
+    "SQLITE_NOTICE",
+    "SQLITE_OK",
+    "SQLITE_PERM",
+    "SQLITE_PROTOCOL",
+    "SQLITE_RANGE",
+    "SQLITE_READONLY",
+    "SQLITE_ROW",
+    "SQLITE_SCHEMA",
+    "SQLITE_TOOBIG",
+    "SQLITE_WARNING",
+]
+
+# the primary result codes above plus their extended variants, since
+# sqlite3_extended_errcode() can return any of them
 _error_names = {
-    globals()[name] : name for name in [
-        "SQLITE_ABORT",
-        "SQLITE_AUTH",
-        "SQLITE_BUSY",
-        "SQLITE_CANTOPEN",
-        "SQLITE_CONSTRAINT",
-        "SQLITE_CONSTRAINT_CHECK",
-        "SQLITE_CONSTRAINT_COMMITHOOK",
-        "SQLITE_CONSTRAINT_FOREIGNKEY",
-        "SQLITE_CONSTRAINT_FUNCTION",
-        "SQLITE_CONSTRAINT_NOTNULL",
-        "SQLITE_CONSTRAINT_PINNED",
-        "SQLITE_CONSTRAINT_PRIMARYKEY",
-        "SQLITE_CONSTRAINT_ROWID",
-        "SQLITE_CONSTRAINT_TRIGGER",
-        "SQLITE_CONSTRAINT_UNIQUE",
-        "SQLITE_CONSTRAINT_VTAB",
-        "SQLITE_CORRUPT",
-        "SQLITE_DONE",
-        "SQLITE_EMPTY",
-        "SQLITE_ERROR",
-        "SQLITE_FORMAT",
-        "SQLITE_FULL",
-        "SQLITE_INTERNAL",
-        "SQLITE_INTERRUPT",
-        "SQLITE_IOERR",
-        "SQLITE_LOCKED",
-        "SQLITE_MISMATCH",
-        "SQLITE_MISUSE",
-        "SQLITE_NOLFS",
-        "SQLITE_NOMEM",
-        "SQLITE_NOTADB",
-        "SQLITE_NOTFOUND",
-        "SQLITE_OK",
-        "SQLITE_PERM",
-        "SQLITE_PROTOCOL",
-        "SQLITE_READONLY",
-        "SQLITE_ROW",
-        "SQLITE_SCHEMA",
-        "SQLITE_TOOBIG",
-        "SQLITE_NOTICE",
-        "SQLITE_WARNING",
-    ]
+    globals()[name] : name for name in exported_sqlite_symbols
+    if name in globals() and (name in _primary_error_names or
+        any(name.startswith(primary + "_") for primary in _primary_error_names))
 }
 
 # pysqlite version information
@@ -448,11 +444,11 @@ class Connection(object):
                 flags |= _lib.SQLITE_OPEN_URI
             rc = _lib.sqlite3_open_v2(database, db_star, flags, _ffi.NULL)
             if rc != _lib.SQLITE_OK:
-                raise self.__exc(OperationalError, "unable to open database file", rc)
+                raise self.__open_failed(db_star, rc)
         else:
             rc = _lib.sqlite3_open(database, db_star)
             if rc != _lib.SQLITE_OK:
-                raise self.__exc(OperationalError, "unable to open database file", rc)
+                raise self.__open_failed(db_star, rc)
         self.__initialized = True
         self._db = db_star[0]
         if timeout is not None:
@@ -606,6 +602,18 @@ class Connection(object):
             exc = DatabaseError
         error_code = _lib.sqlite3_extended_errcode(self._db)
         return self.__exc(exc, error_message, error_code)
+
+    def __open_failed(self, db_star, rc):
+        # sqlite3_open*() hands back a handle even when it fails, and only
+        # that handle knows the extended error code
+        db = db_star[0]
+        if not db:
+            return self.__exc(OperationalError,
+                              "unable to open database file", rc)
+        rc = _lib.sqlite3_extended_errcode(db)
+        message = _ffi.string(_lib.sqlite3_errmsg(db)).decode('utf-8')
+        _lib.sqlite3_close(db)
+        return self.__exc(OperationalError, message, rc)
 
     def __exc(self, cls, error_message, error_code):
         exc = cls(error_message)
