@@ -677,7 +677,8 @@ class Z3IntBound(IntBound):
         _, no_ovf2 = z3_lshift_overflow(self.lower, other.upper)
         _, no_ovf3 = z3_lshift_overflow(self.upper, other.lower)
         _, no_ovf4 = z3_lshift_overflow(self.upper, other.upper)
-        return z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4)
+        return z3.And(other.lower >= 0, other.upper < LONG_BIT,
+                      no_ovf1, no_ovf2, no_ovf3, no_ovf4)
 
     def rshift_bound(self, other):
         result = self.concrete_variable >> other.concrete_variable
@@ -1430,8 +1431,32 @@ def test_prove_lshift_bound_cannot_overflow_logic():
     b1.prove_implies(
         b2,
         res,
-        conclusion=no_ovf
+        conclusion=z3.And(b2.concrete_variable >= 0,
+                          b2.concrete_variable < LONG_BIT, no_ovf)
     )
+
+@given(bounds, bounds)
+@example(IntBound.from_constant(0), IntBound.from_constant(-1))
+@example(IntBound.from_constant(0), IntBound.from_constant(0))
+@example(IntBound.from_constant(0), IntBound.from_constant(LONG_BIT - 1))
+@example(IntBound.from_constant(0), IntBound.from_constant(LONG_BIT))
+@example(IntBound.from_constant(0), IntBound(-1, 0))
+@example(IntBound.from_constant(0), IntBound(LONG_BIT - 1, LONG_BIT))
+@example(IntBound(-8, 7), IntBound(0, 2))
+@example(IntBound(-1, 0), IntBound(0, LONG_BIT - 1))
+@example(IntBound(0, 1), IntBound(0, LONG_BIT - 1))
+@example(IntBound.from_constant(MININT), IntBound.from_constant(0))
+@example(IntBound.from_constant(MININT), IntBound.from_constant(1))
+@example(IntBound.from_constant(MAXINT), IntBound.from_constant(1))
+def test_lshift_bound_cannot_overflow_matches_implementation(b1, b2):
+    z1 = Z3IntBound(*[BitVecVal(getattr(b1, field))
+                     for field in ('lower', 'upper', 'tvalue', 'tmask')])
+    z2 = Z3IntBound(*[BitVecVal(getattr(b2, field))
+                     for field in ('lower', 'upper', 'tvalue', 'tmask')])
+    expected = b1.lshift_bound_cannot_overflow(b2)
+    result = z3.simplify(z1.lshift_bound_cannot_overflow(z2))
+    assert result.eq(z3.BoolVal(expected))
+
 
 def test_prove_rshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
