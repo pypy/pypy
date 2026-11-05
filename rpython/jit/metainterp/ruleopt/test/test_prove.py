@@ -48,6 +48,93 @@ eq_different_knownbits: int_eq(x, y)
     prove_source(s)
 
 
+@pytest.mark.parametrize('body', [
+    'check x.is_constant()\n    C = x.get_constant_int()',
+    'check x.known_eq_const(0)\n    C = x.get_constant_int()',
+    'check x.is_constant() and x.get_constant_int() == 0',
+    'check 1 == 1 or x.get_constant_int() == 0',
+    'bound = x.and_bound(x)\n    check bound.is_constant()\n    C = bound.get_constant_int()',
+])
+def test_get_constant_int_precondition(body):
+    prove_source('''\
+constant_precondition: int_add(x, 0)
+    %s
+    => x
+''' % body, force=True)
+
+
+@pytest.mark.parametrize('body', [
+    'C = x.get_constant_int()',
+    'C = x.get_constant_int()\n    check x.is_constant()',
+    'check x.get_constant_int() == 0',
+    'check x.get_constant_int() == 0 and x.is_constant()',
+    'check x.is_constant() or x.get_constant_int() == 0',
+    'bound = x.and_bound(x)\n    C = bound.get_constant_int()\n    check bound.is_constant()',
+])
+def test_get_constant_int_missing_precondition(body):
+    with pytest.raises(CouldNotProvePrecondition) as exc:
+        prove_source('''\
+missing_precondition: int_add(x, 0)
+    %s
+    => x
+''' % body, force=True)
+    message = exc.value.format()
+    assert "Could not prove precondition in rule 'missing_precondition'" in message
+    assert 'in line ' in message
+
+
+@pytest.mark.parametrize('body', [
+    'check C > 0 and C & (C - 1) == 0\n    H = highest_bit(C)',
+    'check C > 0 and C & (C - 1) == 0 and highest_bit(C) >= 0',
+    'check C == 0 or C == 1\n    check C == 0 or highest_bit(C) == 0',
+    'check C == 0\n    D = C + 1\n    H = highest_bit(D)',
+    'check 0 <= C and C < LONG_BIT\n    D = 1 << C',
+    'check 0 <= C and C < LONG_BIT and (1 << C) > 0',
+])
+def test_expression_preconditions(body):
+    prove_source('''\
+expression_precondition: int_add(x, C)
+    %s
+    => int_add(x, C)
+''' % body, force=True)
+
+
+@pytest.mark.parametrize('body', [
+    'H = highest_bit(C)',
+    'check C > 0\n    H = highest_bit(C)',
+    'check C & (C - 1) == 0\n    H = highest_bit(C)',
+    'check C == 0\n    H = highest_bit(C)',
+    'check C == 3\n    H = highest_bit(C)',
+    'check C < 0\n    H = highest_bit(C)',
+    'H = highest_bit(C)\n    check C > 0 and C & (C - 1) == 0',
+    'check highest_bit(C) >= 0',
+    'check C == 0 or C == 1\n    check highest_bit(C) == 0 or C == 0',
+    'D = 1 << C\n    check 0 <= C and C < LONG_BIT',
+    'check (1 << C) == 1',
+])
+def test_expression_missing_preconditions(body):
+    with pytest.raises(CouldNotProvePrecondition):
+        prove_source('''\
+missing_precondition: int_add(x, C)
+    %s
+    => int_add(x, C)
+''' % body, force=True)
+
+
+def test_precondition_invalidates_old_proof_cache(tmpdir, monkeypatch):
+    from rpython.jit.metainterp.ruleopt import proof
+    source = '''\
+old_cached_rule: int_add(x, 0)
+    C = x.get_constant_int()
+    => x
+'''
+    old_hash = md5('\n'.join(source.splitlines())).hexdigest()
+    tmpdir.join('jit_dsl_rule_' + old_hash).write(source)
+    monkeypatch.setattr(proof, 'CACHE_DIR', str(tmpdir))
+    with pytest.raises(CouldNotProvePrecondition):
+        prove_source(source)
+
+
 def test_known_ne_contract_does_not_execute_method(monkeypatch):
     def unsupported(*args):
         raise AssertionError('must use the contract, not the implementation')

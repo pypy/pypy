@@ -662,7 +662,8 @@ class Z3IntBound(IntBound):
         return z3.If(self.is_constant(), self.lower == value, False)
 
     def get_constant_int(self):
-        return z3.If(self.is_constant(), self.lower, 0xdeadbeef)
+        unknown = z3.FreshConst(z3.BitVecSort(LONG_BIT), 'get_constant_int')
+        return z3.If(self.is_constant(), self.lower, unknown)
     # ____________________________________________________________
 
     def z3_formula(self, variable=None, must_be_minimal=False):

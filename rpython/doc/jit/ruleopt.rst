@@ -251,6 +251,13 @@ This leads to the following counterexample::
     target expression: int_add(a, b) with Z3 formula a + b
     has counterexample value: 5
 
+Calls and computations must be valid when they are evaluated. For example,
+put ``check x.is_constant()`` before ``C = x.get_constant_int()``, and check
+that a value is a positive power of two before calling ``highest_bit``.
+A later check cannot justify an earlier call. Short-circuit checks work too:
+``check x.is_constant() and x.get_constant_int() == 0`` is safe because the
+second condition is evaluated only when the first is true.
+
 Some ``IntBound`` methods cannot be used in Z3 proofs because they have `too
 complex control flow`__ If that is the case, they can have Z3-equivalent
 formulations defined, in the ``test_z3intbound.Z3IntBound`` class (in every

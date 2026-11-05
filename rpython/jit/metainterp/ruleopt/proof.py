@@ -17,8 +17,25 @@ from rpython.tool.gcc_cache import try_atomic_write
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
+# Proofs cached before preconditions were checked cannot be reused.
+PROOF_CACHE_VERSION = 'preconditions-v1'
+
 class ProofProblem(Exception):
     pass
+
+class CouldNotProvePrecondition(ProofProblem):
+    def __init__(self, rule, element, condition):
+        self.rule = rule
+        self.element = element
+        self.condition = condition
+
+    def format(self):
+        lines = ["Could not prove precondition in rule '%s'" % self.rule.name]
+        if self.element.sourcepos:
+            lines.append("in line %s" % self.element.sourcepos.lineno)
+        lines.append("The expression must be safe using only preceding checks and computations.")
+        lines.append(str(self.condition))
+        return '\n'.join(lines)
 
 class CouldNotProve(ProofProblem):
     def __init__(self, rule, cond, model, lhs, rhs, prover):
@@ -290,14 +307,14 @@ class Prover(parse.Visitor):
         left, leftvalid = self.visit(expr.left, bool)
         right, rightvalid = self.visit(expr.right, bool)
         res = z3.If(left, left, right)
-        return res, z3_and(leftvalid, rightvalid)
+        return res, z3_and(leftvalid, z3_implies(z3.Not(left), rightvalid))
 
     def visit_ShortcutAnd(self, expr, targettype=int):
         assert targettype is bool
         left, leftvalid = self.visit(expr.left, bool)
         right, rightvalid = self.visit(expr.right, bool)
         res = z3.If(left, right, left)
-        return res, z3_and(leftvalid, rightvalid)
+        return res, z3_and(leftvalid, z3_implies(left, rightvalid))
 
     def visit_BinOp(self, expr, targettype=int):
         left, leftvalid = self.visit(expr.left, int)
@@ -353,8 +370,9 @@ class Prover(parse.Visitor):
             result = self.call_method_with_contract(expr.methname, res, *methargs)
         else:
             result = getattr(res, expr.methname)(*methargs)
+        valid = res.is_constant() if expr.methname == 'get_constant_int' else True
         return result, z3_and(
-            resvalid, *[arg[1] for arg in args]
+            resvalid, valid, *[arg[1] for arg in args]
         )
 
     def call_method_with_contract(self, name, *bounds):
@@ -370,7 +388,19 @@ class Prover(parse.Visitor):
         ]
         func = globals()["z3_" + expr.funcname]
         funcargs = [arg[0] for arg in args]
-        return func(*funcargs), z3_and(*[arg[1] for arg in args])
+        valid = True
+        if expr.funcname == 'highest_bit':
+            value = funcargs[0]
+            valid = z3.And(value > 0, value & (value - 1) == 0)
+        return func(*funcargs), z3_and(valid, *[arg[1] for arg in args])
+
+    def check_precondition(self, rule, element, valid, assumptions):
+        if valid is True or z3.is_true(z3.simplify(valid)):
+            return
+        condition = z3_implies(
+            z3_and(*(assumptions + self.glue_conditions)), valid)
+        if not self.prove(condition):
+            raise CouldNotProvePrecondition(rule, element, condition)
 
     def must_be_sat(self, rule, lhs, *conditions):
         def _find_index_to_remove():
@@ -409,24 +439,25 @@ class Prover(parse.Visitor):
         print("checking %s" % rule)
         lhs, lhsvalid = self.visit(rule.pattern)
         self.must_be_sat(rule, lhs, lhsvalid)
-        rhs, rhsvalid = self.visit(rule.target)
         implies_left = [lhsvalid]
-        implies_right = [rhsvalid, rhs == lhs]
         for el in rule.elements:
             if isinstance(el, parse.Compute):
                 expr, exprvalid = self.visit(el.expr, int)
+                self.check_precondition(rule, el, exprvalid, implies_left)
                 if el.expr.typ is not IntBound:
                     implies_left.append(self._convert_var(el.name) == expr)
-                    implies_right.append(exprvalid)
                 else:
                     self.name_to_intbound[el.name] = expr
                     self.glue_conditions_added.add(el.name)
                 continue
             if isinstance(el, parse.Check):
-                expr, _ = self.visit(el.expr, bool)
+                expr, exprvalid = self.visit(el.expr, bool)
+                self.check_precondition(rule, el, exprvalid, implies_left)
                 implies_left.append(expr)
                 continue
             assert 0, "unreachable"
+        rhs, rhsvalid = self.visit(rule.target)
+        implies_right = [rhsvalid, rhs == lhs]
         implies_left.extend(self.glue_conditions)
         self.must_be_sat(rule, lhs, lhsvalid, *implies_left)
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
@@ -450,7 +481,7 @@ def prove_source(s, force=False):
             end_lineno = rule.endsourcepos.lineno
             rule_lines = lines[start_lineno:end_lineno]
 
-            h = md5("\n".join(rule_lines))
+            h = md5(PROOF_CACHE_VERSION + '\n' + "\n".join(rule_lines))
             cachename = os.path.join(
                 CACHE_DIR, "jit_dsl_rule_%s" % (h.hexdigest(), ))
             try:
