@@ -1381,6 +1381,7 @@ def test_prove_rshift_knownbits():
         z3_tnum_condition(result, tvalue, tmask),
     )
 
+@z3_with_reduced_bitwidth(32)
 def test_prove_rshift_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
@@ -1395,8 +1396,7 @@ def test_prove_rshift_bound_logic():
     b1.prove_implies(
         b2,
         b2.lower >= 0,
-        min1 <= result,
-        result <= max1,
+        z3.And(min1 <= result, result <= max1),
     )
 
 @z3_with_reduced_bitwidth(32)
