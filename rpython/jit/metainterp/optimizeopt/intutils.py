@@ -590,7 +590,7 @@ class IntBound(AbstractInfo):
         integer is lower than each unsigned integer contained in `other`.
         """
         # if they have the same sign, we can reason with signed comparison
-        # see test_uint_cmp_equivalent_int_cmp_if_same_sign
+        # see test_prove_known_unsigned_cmp
         if self._known_same_sign(other) and self.known_lt(other):
             return True
         other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
