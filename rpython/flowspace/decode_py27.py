@@ -6,6 +6,7 @@ import opcode as _host_opcode
 from rpython.flowspace import instr as I
 from rpython.flowspace.bytecode import BytecodeCorruption, LineTable
 from rpython.flowspace.decoder import Decoder
+from rpython.flowspace.operation import op
 
 OPMAP = _host_opcode.opmap
 OPNAMES = dict((num, name) for name, num in OPMAP.items())
@@ -51,7 +52,7 @@ class Py2Decoder(Decoder):
 
     def unknown_opcode(self, name, oparg):
         if name is None:
-            return [I.HostOpcode('MISSING_OPCODE', oparg)]
+            return [I.Unsupported("??? is not RPython")]
         # Temporary: run the opcode with the FlowContext method of the
         # same name.
         methodname = name.replace('+', '_')
@@ -127,3 +128,84 @@ def decode_load_const(decoder, oparg):
 def decode_store_global(decoder, oparg):
     return [I.Unsupported("Attempting to modify global variable  %r."
                           % (decoder.code.co_names[oparg],))]
+
+# ____________________________________________________________
+# Operators and unsupported opcodes
+
+def unary_op(operation):
+    return lambda decoder, oparg: [I.UnaryOp(operation)]
+
+def binary_op(operation):
+    return lambda decoder, oparg: [I.BinaryOp(operation)]
+
+register_all({
+    'UNARY_POSITIVE': op.pos,
+    'UNARY_NEGATIVE': op.neg,
+    'UNARY_CONVERT': op.repr,
+    'UNARY_INVERT': op.invert,
+}, unary_op)
+
+register_all({
+    'BINARY_MULTIPLY': op.mul,
+    'BINARY_TRUE_DIVIDE': op.truediv,
+    'BINARY_FLOOR_DIVIDE': op.floordiv,
+    'BINARY_DIVIDE': op.div,
+    'BINARY_MODULO': op.mod,
+    'BINARY_ADD': op.add,
+    'BINARY_SUBTRACT': op.sub,
+    'BINARY_SUBSCR': op.getitem,
+    'BINARY_LSHIFT': op.lshift,
+    'BINARY_RSHIFT': op.rshift,
+    'BINARY_AND': op.and_,
+    'BINARY_XOR': op.xor,
+    'BINARY_OR': op.or_,
+    'INPLACE_MULTIPLY': op.inplace_mul,
+    'INPLACE_TRUE_DIVIDE': op.inplace_truediv,
+    'INPLACE_FLOOR_DIVIDE': op.inplace_floordiv,
+    'INPLACE_DIVIDE': op.inplace_div,
+    'INPLACE_MODULO': op.inplace_mod,
+    'INPLACE_ADD': op.inplace_add,
+    'INPLACE_SUBTRACT': op.inplace_sub,
+    'INPLACE_LSHIFT': op.inplace_lshift,
+    'INPLACE_RSHIFT': op.inplace_rshift,
+    'INPLACE_AND': op.inplace_and,
+    'INPLACE_XOR': op.inplace_xor,
+    'INPLACE_OR': op.inplace_or,
+}, binary_op)
+
+decodes('UNARY_NOT')(no_operand(I.UnaryNot))
+
+COMPARE_OPS = ['lt', 'le', 'eq', 'ne', 'gt', 'ge', 'in', 'not_in', 'is',
+               'is_not', 'exc_match']
+
+@decodes('COMPARE_OP')
+def decode_compare_op(decoder, oparg):
+    if not 0 <= oparg < len(COMPARE_OPS):
+        raise BytecodeCorruption("bad COMPARE_OP %d" % (oparg,))
+    return [I.Compare(COMPARE_OPS[oparg])]
+
+def unsupported(what):
+    return lambda decoder, oparg: [
+        I.Unsupported("%s is not RPython" % (what,))]
+
+register_all({
+    'BINARY_POWER': "a ** b",
+    'INPLACE_POWER': 'a **= b',
+    'BUILD_CLASS': 'defining classes inside functions',
+    'EXEC_STMT': 'exec statement',
+    'STOP_CODE': '???',
+    'STORE_NAME': 'modifying globals',
+    'LOAD_LOCALS': 'locals()',
+    'IMPORT_STAR': 'import *',
+    'DELETE_GLOBAL': 'modifying globals',
+    'DELETE_NAME': 'modifying globals',
+    'DELETE_ATTR': 'deleting attributes',
+    'BUILD_SET': 'building sets',
+    'SET_ADD': 'set comprehensions',
+    'MAP_ADD': 'dict comprehensions',
+}, unsupported)
+
+@decodes('PRINT_EXPR', 'PRINT_ITEM_TO', 'PRINT_NEWLINE_TO', 'STORE_DEREF',
+         'LOAD_CLOSURE', 'MAKE_CLOSURE', 'LOAD_REVDB_VAR')
+def decode_unsupported_operation(decoder, oparg):
+    return [I.Unsupported("This operation is not RPython")]

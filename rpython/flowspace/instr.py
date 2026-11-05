@@ -178,3 +178,42 @@ class ImportFrom(Instr):
     def eval(self, ctx):
         w_module = ctx.peekvalue()
         ctx.pushvalue(ctx.import_from(w_module, Constant(self.name)))
+
+
+# ____________________________________________________________
+# Operators
+
+class UnaryOp(Instr):
+    def __init__(self, operation):
+        self.operation = operation
+
+    def eval(self, ctx):
+        w_1 = ctx.popvalue()
+        ctx.pushvalue(self.operation(w_1).eval(ctx))
+
+
+class UnaryNot(Instr):
+    def eval(self, ctx):
+        w_obj = ctx.popvalue()
+        ctx.pushvalue(ctx.not_(w_obj))
+
+
+class BinaryOp(Instr):
+    def __init__(self, operation):
+        self.operation = operation
+
+    def eval(self, ctx):
+        w_2 = ctx.popvalue()
+        w_1 = ctx.popvalue()
+        ctx.pushvalue(self.operation(w_1, w_2).eval(ctx))
+
+
+class Compare(Instr):
+    """'kind' names one of the FlowContext.cmp_* methods"""
+    def __init__(self, kind):
+        self.kind = kind
+
+    def eval(self, ctx):
+        w_2 = ctx.popvalue()
+        w_1 = ctx.popvalue()
+        ctx.pushvalue(ctx.compare(self.kind, w_1, w_2))

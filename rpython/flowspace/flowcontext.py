@@ -186,98 +186,6 @@ class Replayer(Recorder):
 
 # ____________________________________________________________
 
-_unary_ops = [
-    ('UNARY_POSITIVE', op.pos),
-    ('UNARY_NEGATIVE', op.neg),
-    ('UNARY_CONVERT', op.repr),
-    ('UNARY_INVERT', op.invert),
-]
-
-def unaryoperation(OPCODE, operation):
-    def UNARY_OP(self, *ignored):
-        w_1 = self.popvalue()
-        w_result = operation(w_1).eval(self)
-        self.pushvalue(w_result)
-    UNARY_OP.__name__ = OPCODE
-    return UNARY_OP
-
-_binary_ops = [
-    ('BINARY_MULTIPLY', op.mul),
-    ('BINARY_TRUE_DIVIDE', op.truediv),
-    ('BINARY_FLOOR_DIVIDE', op.floordiv),
-    ('BINARY_DIVIDE', op.div),
-    ('BINARY_MODULO', op.mod),
-    ('BINARY_ADD', op.add),
-    ('BINARY_SUBTRACT', op.sub),
-    ('BINARY_SUBSCR', op.getitem),
-    ('BINARY_LSHIFT', op.lshift),
-    ('BINARY_RSHIFT', op.rshift),
-    ('BINARY_AND', op.and_),
-    ('BINARY_XOR', op.xor),
-    ('BINARY_OR', op.or_),
-    ('INPLACE_MULTIPLY', op.inplace_mul),
-    ('INPLACE_TRUE_DIVIDE', op.inplace_truediv),
-    ('INPLACE_FLOOR_DIVIDE', op.inplace_floordiv),
-    ('INPLACE_DIVIDE', op.inplace_div),
-    ('INPLACE_MODULO', op.inplace_mod),
-    ('INPLACE_ADD', op.inplace_add),
-    ('INPLACE_SUBTRACT', op.inplace_sub),
-    ('INPLACE_LSHIFT', op.inplace_lshift),
-    ('INPLACE_RSHIFT', op.inplace_rshift),
-    ('INPLACE_AND', op.inplace_and),
-    ('INPLACE_XOR', op.inplace_xor),
-    ('INPLACE_OR', op.inplace_or),
-]
-
-def binaryoperation(OPCODE, operation):
-    """NOT_RPYTHON"""
-    def BINARY_OP(self, _):
-        w_2 = self.popvalue()
-        w_1 = self.popvalue()
-        w_result = operation(w_1, w_2).eval(self)
-        self.pushvalue(w_result)
-    BINARY_OP.__name__ = OPCODE
-    return BINARY_OP
-
-_unsupported_ops = [
-    ('BINARY_POWER', "a ** b"),
-    ('BUILD_CLASS', 'defining classes inside functions'),
-    ('EXEC_STMT', 'exec statement'),
-    ('STOP_CODE', '???'),
-    ('STORE_NAME', 'modifying globals'),
-    ('INPLACE_POWER', 'a **= b'),
-    ('LOAD_LOCALS', 'locals()'),
-    ('IMPORT_STAR', 'import *'),
-    ('MISSING_OPCODE', '???'),
-    ('DELETE_GLOBAL', 'modifying globals'),
-    ('DELETE_NAME', 'modifying globals'),
-    ('DELETE_ATTR', 'deleting attributes'),
-    ('BUILD_SET', 'building sets'),
-    ('SET_ADD', 'set comprehensions'),
-    ('MAP_ADD', 'dict comprehensions'),
-]
-
-def unsupportedoperation(OPCODE, msg):
-    def UNSUPPORTED(self, *ignored):
-        raise FlowingError("%s is not RPython" % (msg,))
-    UNSUPPORTED.__name__ = OPCODE
-    return UNSUPPORTED
-
-compare_method = [
-    "cmp_lt",   # "<"
-    "cmp_le",   # "<="
-    "cmp_eq",   # "=="
-    "cmp_ne",   # "!="
-    "cmp_gt",   # ">"
-    "cmp_ge",   # ">="
-    "cmp_in",
-    "cmp_not_in",
-    "cmp_is",
-    "cmp_is_not",
-    "cmp_exc_match",
-    ]
-
-
 class FlowContext(object):
     def __init__(self, graph, code):
         self.graph = graph
@@ -508,9 +416,6 @@ class FlowContext(object):
         w_func = const(func)
         return self.do_op(op.simple_call(w_func, *args_w))
 
-    def BAD_OPCODE(self, _):
-        raise FlowingError("This operation is not RPython")
-
     def BREAK_LOOP(self, oparg):
         raise Break
 
@@ -521,9 +426,8 @@ class FlowContext(object):
         w_bool = op.bool(w_obj).eval(self)
         return const(not self.guessbool(w_bool))
 
-    def UNARY_NOT(self, _):
-        w_obj = self.popvalue()
-        self.pushvalue(self.not_(w_obj))
+    def compare(self, kind, w_1, w_2):
+        return getattr(self, 'cmp_' + kind)(w_1, w_2)
 
     def cmp_lt(self, w_1, w_2):
         return op.lt(w_1, w_2).eval(self)
@@ -579,12 +483,6 @@ class FlowContext(object):
 
     def cmp_exc_match(self, w_1, w_2):
         return const(self.exception_match(w_1, w_2))
-
-    def COMPARE_OP(self, testnum):
-        w_2 = self.popvalue()
-        w_1 = self.popvalue()
-        w_result = getattr(self, compare_method[testnum])(w_1, w_2)
-        self.pushvalue(w_result)
 
     def exc_from_raise(self, w_arg1, w_arg2):
         """
@@ -701,10 +599,6 @@ class FlowContext(object):
         # XXX yield expressions not supported. This will blow up if the value
         # isn't popped straightaway.
         self.pushvalue(None)
-
-    PRINT_EXPR = BAD_OPCODE
-    PRINT_ITEM_TO = BAD_OPCODE
-    PRINT_NEWLINE_TO = BAD_OPCODE
 
     def PRINT_ITEM(self, oparg):
         w_item = self.popvalue()
@@ -847,14 +741,6 @@ class FlowContext(object):
             w_value = self.peekvalue(delta)
             self.pushvalue(w_value)
 
-    for OPCODE, op in _unary_ops:
-        locals()[OPCODE] = unaryoperation(OPCODE, op)
-
-    for OPCODE, op in _binary_ops:
-        locals()[OPCODE] = binaryoperation(OPCODE, op)
-
-    for OPCODE, op in _unsupported_ops:
-        locals()[OPCODE] = unsupportedoperation(OPCODE, op)
 
     def BUILD_LIST_FROM_ARG(self, _):
         # This opcode was added with pypy-1.8.  Here is a simpler
@@ -1078,11 +964,6 @@ class FlowContext(object):
     def NOP(self, *args):
         pass
 
-    # Closures
-
-    STORE_DEREF = BAD_OPCODE
-    LOAD_CLOSURE = BAD_OPCODE
-    MAKE_CLOSURE = BAD_OPCODE
 
 ### Frame blocks ###
 
