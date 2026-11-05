@@ -50,8 +50,7 @@ class FlowCode(object):
     """
 
     def __init__(self, signature, nlocals, varnames, freevars, flags,
-                 filename, name, firstlineno, instrs, linetable, consts,
-                 names):
+                 filename, name, firstlineno, instrs, linetable):
         assert nlocals >= 0
         self.signature = signature
         self.nlocals = nlocals
@@ -63,8 +62,6 @@ class FlowCode(object):
         self.firstlineno = firstlineno
         self.instrs = instrs
         self.linetable = linetable
-        self.consts = consts
-        self.names = names
 
     @property
     def formalargcount(self):

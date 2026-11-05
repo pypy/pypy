@@ -45,6 +45,7 @@ def test_extended_arg():
                      co_consts={0x10002: 'abc'})
     instrs = decode(code)
     assert len(instrs) == 2
+    assert instrs[0] == I.LoadConst('abc')
     assert [instr.offset for instr in instrs] == [0, 6]
 
 

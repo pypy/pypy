@@ -81,3 +81,49 @@ def decodes(*names):
             Py2Decoder.opcodes[name] = func
         return func
     return register
+
+
+def no_operand(cls):
+    """Decoder for opcodes whose oparg is ignored."""
+    return lambda decoder, oparg: [cls()]
+
+def with_oparg(cls):
+    """Decoder for opcodes whose oparg is the operand of the instruction."""
+    return lambda decoder, oparg: [cls(oparg)]
+
+def with_name(cls):
+    """Decoder for opcodes whose oparg is an index in co_names."""
+    return lambda decoder, oparg: [cls(decoder.code.co_names[oparg])]
+
+def register_all(table, make_decoder):
+    for name, value in table.items():
+        decodes(name)(make_decoder(value))
+
+# ____________________________________________________________
+# Variables and names
+
+register_all({
+    'LOAD_FAST': I.LoadFast,
+    'STORE_FAST': I.StoreFast,
+    'DELETE_FAST': I.DeleteFast,
+    'LOAD_DEREF': I.LoadDeref,
+}, with_oparg)
+
+register_all({
+    'LOAD_GLOBAL': I.LoadGlobal,
+    'LOAD_NAME': I.LoadGlobal,
+    'LOAD_ATTR': I.LoadAttr,
+    'LOOKUP_METHOD': I.LoadAttr,
+    'STORE_ATTR': I.StoreAttr,
+    'IMPORT_NAME': I.ImportName,
+    'IMPORT_FROM': I.ImportFrom,
+}, with_name)
+
+@decodes('LOAD_CONST')
+def decode_load_const(decoder, oparg):
+    return [I.LoadConst(decoder.code.co_consts[oparg])]
+
+@decodes('STORE_GLOBAL')
+def decode_store_global(decoder, oparg):
+    return [I.Unsupported("Attempting to modify global variable  %r."
+                          % (decoder.code.co_names[oparg],))]

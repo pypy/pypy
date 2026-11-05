@@ -503,18 +503,6 @@ class FlowContext(object):
             block.cleanupstack(self)
         return signal.nomoreblocks(self)
 
-    def getlocalvarname(self, index):
-        return self.code.varnames[index]
-
-    def getconstant_w(self, index):
-        return const(self.code.consts[index])
-
-    def getname_u(self, index):
-        return self.code.names[index]
-
-    def getname_w(self, index):
-        return Constant(self.code.names[index])
-
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
         w_func = const(func)
@@ -663,14 +651,6 @@ class FlowContext(object):
             raise Raise(const(e))
         return const(mod)
 
-    def IMPORT_NAME(self, nameindex):
-        modulename = self.getname_u(nameindex)
-        glob = self.w_globals.value
-        fromlist = self.popvalue().value
-        level = self.popvalue().value
-        w_obj = self.import_name(modulename, glob, None, fromlist, level)
-        self.pushvalue(w_obj)
-
     def import_from(self, w_module, w_name):
         assert isinstance(w_module, Constant)
         assert isinstance(w_name, Constant)
@@ -679,11 +659,6 @@ class FlowContext(object):
         except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
-
-    def IMPORT_FROM(self, nameindex):
-        w_name = self.getname_w(nameindex)
-        w_module = self.peekvalue()
-        self.pushvalue(self.import_from(w_module, w_name))
 
     def RETURN_VALUE(self, oparg):
         w_returnvalue = self.popvalue()
@@ -821,16 +796,6 @@ class FlowContext(object):
         else:
             op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
-    def LOAD_FAST(self, varindex):
-        w_value = self.locals_w[varindex]
-        if w_value is None:
-            raise FlowingError("Local variable referenced before assignment")
-        self.pushvalue(w_value)
-
-    def LOAD_CONST(self, constindex):
-        w_const = self.getconstant_w(constindex)
-        self.pushvalue(w_const)
-
     def find_global(self, w_globals, varname):
         try:
             value = w_globals.value[varname]
@@ -841,41 +806,6 @@ class FlowContext(object):
             except AttributeError:
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
-
-    def LOAD_GLOBAL(self, nameindex):
-        w_result = self.find_global(self.w_globals, self.getname_u(nameindex))
-        self.pushvalue(w_result)
-    LOAD_NAME = LOAD_GLOBAL
-
-    def LOAD_ATTR(self, nameindex):
-        "obj.attributename"
-        w_obj = self.popvalue()
-        w_attributename = self.getname_w(nameindex)
-        w_value = op.getattr(w_obj, w_attributename).eval(self)
-        self.pushvalue(w_value)
-    LOOKUP_METHOD = LOAD_ATTR
-
-    def LOAD_DEREF(self, varindex):
-        cell = self.closure[varindex]
-        try:
-            content = cell.cell_contents
-        except ValueError:
-            name = self.code.freevars[varindex]
-            raise FlowingError("Undefined closure variable '%s'" % name)
-        self.pushvalue(const(content))
-
-    def STORE_FAST(self, varindex):
-        w_newvalue = self.popvalue()
-        assert w_newvalue is not None
-        self.locals_w = self.locals_w[:]
-        self.locals_w[varindex] = w_newvalue
-        if isinstance(w_newvalue, Variable):
-            w_newvalue.rename(self.getlocalvarname(varindex))
-
-    def STORE_GLOBAL(self, nameindex):
-        varname = self.getname_u(nameindex)
-        raise FlowingError(
-            "Attempting to modify global variable  %r." % (varname))
 
     def POP_TOP(self, oparg):
         self.popvalue()
@@ -1017,13 +947,6 @@ class FlowContext(object):
         fn = self.newfunction(w_codeobj, defaults)
         self.pushvalue(fn)
 
-    def STORE_ATTR(self, nameindex):
-        "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
-        w_obj = self.popvalue()
-        w_newvalue = self.popvalue()
-        op.setattr(w_obj, w_attributename, w_newvalue).eval(self)
-
     def unpack_sequence(self, w_iterable, expected_length):
         w_len = op.len(w_iterable).eval(self)
         w_correct = op.eq(w_len, const(expected_length)).eval(self)
@@ -1106,14 +1029,6 @@ class FlowContext(object):
         w_list = self.peekvalue(oparg - 1)
         w_append_meth = op.getattr(w_list, const('append')).eval(self)
         op.simple_call(w_append_meth, w_value).eval(self)
-
-    def DELETE_FAST(self, varindex):
-        if self.locals_w[varindex] is None:
-            varname = self.getlocalvarname(varindex)
-            message = "local variable '%s' referenced before assignment"
-            raise UnboundLocalError(message, varname)
-        self.locals_w = self.locals_w[:]
-        self.locals_w[varindex] = None
 
     def STORE_MAP(self, oparg):
         w_key = self.popvalue()

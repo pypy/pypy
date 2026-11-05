@@ -62,5 +62,4 @@ class Decoder(object):
         return FlowCode(self.signature(), code.co_nlocals,
                         list(code.co_varnames), list(code.co_freevars),
                         code.co_flags, code.co_filename, code.co_name,
-                        code.co_firstlineno, instrs, self.linetable(),
-                        list(code.co_consts), list(code.co_names))
+                        code.co_firstlineno, instrs, self.linetable())
