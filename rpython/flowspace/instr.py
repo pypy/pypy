@@ -370,3 +370,41 @@ class UnpackSequence(Instr):
         items = ctx.unpack_sequence(w_iterable, self.count)
         for w_item in reversed(items):
             ctx.pushvalue(w_item)
+
+
+# ____________________________________________________________
+# Calls and functions
+
+class Py2Call(Instr):
+    """Call with keyword arguments passed as (name, value) pairs on the
+    stack, above the positional arguments."""
+    def __init__(self, nargs, nkeywords, has_star, has_starstar):
+        self.nargs = nargs
+        self.nkeywords = nkeywords
+        self.has_star = has_star
+        self.has_starstar = has_starstar
+
+    def eval(self, ctx):
+        w_starstar = ctx.popvalue() if self.has_starstar else None
+        w_star = ctx.popvalue() if self.has_star else None
+        if w_starstar is not None:
+            raise FlowingError("Dict-unpacking is not RPython")
+        keywords = {}
+        for _ in range(self.nkeywords):
+            w_value = ctx.popvalue()
+            w_key = ctx.popvalue()
+            keywords[w_key.value] = w_value
+        arguments = ctx.popvalues(self.nargs)
+        w_function = ctx.popvalue()
+        ctx.pushvalue(ctx.call_function(w_function, arguments, keywords,
+                                        w_star))
+
+
+class MakeFunction(Instr):
+    def __init__(self, ndefaults):
+        self.ndefaults = ndefaults
+
+    def eval(self, ctx):
+        w_codeobj = ctx.popvalue()
+        defaults = ctx.popvalues(self.ndefaults)
+        ctx.pushvalue(ctx.newfunction(w_codeobj, defaults))

@@ -255,3 +255,24 @@ for _n in range(4):
     decodes('SLICE+%d' % _n)(slice_op(I.GetSlice, _n))
     decodes('STORE_SLICE+%d' % _n)(slice_op(I.StoreSlice, _n))
     decodes('DELETE_SLICE+%d' % _n)(slice_op(I.DeleteSlice, _n))
+
+# ____________________________________________________________
+# Calls and functions
+
+@decodes('CALL_FUNCTION', 'CALL_METHOD')
+def decode_call_function(decoder, oparg):
+    return [I.Py2Call(oparg & 0xff, (oparg >> 8) & 0xff, False, False)]
+
+@decodes('CALL_FUNCTION_VAR')
+def decode_call_function_var(decoder, oparg):
+    return [I.Py2Call(oparg & 0xff, (oparg >> 8) & 0xff, True, False)]
+
+@decodes('CALL_FUNCTION_KW')
+def decode_call_function_kw(decoder, oparg):
+    return [I.Py2Call(oparg & 0xff, (oparg >> 8) & 0xff, False, True)]
+
+@decodes('CALL_FUNCTION_VAR_KW')
+def decode_call_function_var_kw(decoder, oparg):
+    return [I.Py2Call(oparg & 0xff, (oparg >> 8) & 0xff, True, True)]
+
+decodes('MAKE_FUNCTION')(with_oparg(I.MakeFunction))

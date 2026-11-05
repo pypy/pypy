@@ -701,19 +701,7 @@ class FlowContext(object):
                 raise FlowingError("global name '%s' is not defined" % varname)
         return const(value)
 
-    def call_function(self, oparg, w_star=None, w_starstar=None):
-        if w_starstar is not None:
-            raise FlowingError("Dict-unpacking is not RPython")
-        n_arguments = oparg & 0xff
-        n_keywords = (oparg >> 8) & 0xff
-        keywords = {}
-        for _ in range(n_keywords):
-            w_value = self.popvalue()
-            w_key = self.popvalue()
-            key = w_key.value
-            keywords[key] = w_value
-        arguments = self.popvalues(n_arguments)
-        w_function = self.popvalue()
+    def call_function(self, w_function, arguments, keywords, w_star=None):
         try:
             # py3-style print function
             if w_function.value == print:
@@ -727,7 +715,7 @@ class FlowContext(object):
             hlop = op.call_args(w_function, Constant(shape), *args_w)
         else:
             hlop = op.simple_call(w_function, *args.as_list())
-        self.pushvalue(hlop.eval(self))
+        return hlop.eval(self)
 
     def handle_print_function(self, arguments, keywords, w_star):
         if w_star:
@@ -750,24 +738,7 @@ class FlowContext(object):
             self.appcall(rpython_print_end, keywords["end"])
         else:
             self.appcall(rpython_print_newline)
-        self.pushvalue(Constant(None))
-
-    def CALL_FUNCTION(self, oparg):
-        self.call_function(oparg)
-    CALL_METHOD = CALL_FUNCTION
-
-    def CALL_FUNCTION_VAR(self, oparg):
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs)
-
-    def CALL_FUNCTION_KW(self, oparg):
-        w_varkw = self.popvalue()
-        self.call_function(oparg, None, w_varkw)
-
-    def CALL_FUNCTION_VAR_KW(self, oparg):
-        w_varkw = self.popvalue()
-        w_varargs = self.popvalue()
-        self.call_function(oparg, w_varargs, w_varkw)
+        return Constant(None)
 
     def newfunction(self, w_code, defaults_w):
         if not all(isinstance(value, Constant) for value in defaults_w):
@@ -778,12 +749,6 @@ class FlowContext(object):
         defaults = tuple([default.value for default in defaults_w])
         fn = types.FunctionType(code, globals, code.co_name, defaults)
         return Constant(fn)
-
-    def MAKE_FUNCTION(self, numdefaults):
-        w_codeobj = self.popvalue()
-        defaults = self.popvalues(numdefaults)
-        fn = self.newfunction(w_codeobj, defaults)
-        self.pushvalue(fn)
 
     def unpack_sequence(self, w_iterable, expected_length):
         w_len = op.len(w_iterable).eval(self)
