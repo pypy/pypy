@@ -282,12 +282,11 @@ class FlowContext(object):
     def __init__(self, graph, code):
         self.graph = graph
         func = graph.func
-        self.pycode = code
+        self.code = code
         self.w_globals = Constant(func.__globals__)
         self.blockstack = []
 
         self.init_closure(func.__closure__)
-        self.f_lineno = code.co_firstlineno
         self.last_offset = 0
 
         self.init_locals_stack(code)
@@ -299,21 +298,21 @@ class FlowContext(object):
             self.closure = []
         else:
             self.closure = list(closure)
-        assert len(self.closure) == len(self.pycode.co_freevars)
+        assert len(self.closure) == len(self.code.freevars)
 
     def init_locals_stack(self, code):
         """
         Initialize the locals and the stack.
 
-        The locals are ordered according to self.pycode.signature.
+        The locals are ordered according to self.code.signature.
         """
-        self.nlocals = code.co_nlocals
+        self.nlocals = code.nlocals
         # locals_w is immutable in the sense that every write should make a new
         # list first. this means FlowContext.getstate does not have to make a
         # copy of locals_w. This is a good trade-off, because changes to
         # locals_w (in STORE_FAST and DELETE_FAST) are much less common that
         # calls to getstate, which happens after every bytecode
-        self.locals_w = [None] * code.co_nlocals
+        self.locals_w = [None] * code.nlocals
         self.stack = []
 
     @property
@@ -443,7 +442,7 @@ class FlowContext(object):
             return
 
         newblock = SpamBlock(newstate)
-        varnames = self.pycode.co_varnames
+        varnames = self.code.varnames
         for name, w_value in zip(varnames, newstate.locals_w):
             if isinstance(w_value, Variable):
                 w_value.rename(name)
@@ -489,7 +488,7 @@ class FlowContext(object):
 
     def handle_bytecode(self, next_offset):
         self.last_offset = next_offset
-        next_offset, methodname, oparg = self.pycode.read(next_offset)
+        next_offset, methodname, oparg = self.code.read(next_offset)
         try:
             offset = getattr(self, methodname)(oparg)
             return offset if offset is not None else next_offset
@@ -505,16 +504,16 @@ class FlowContext(object):
         return signal.nomoreblocks(self)
 
     def getlocalvarname(self, index):
-        return self.pycode.co_varnames[index]
+        return self.code.varnames[index]
 
     def getconstant_w(self, index):
-        return const(self.pycode.consts[index])
+        return const(self.code.consts[index])
 
     def getname_u(self, index):
-        return self.pycode.names[index]
+        return self.code.names[index]
 
     def getname_w(self, index):
-        return Constant(self.pycode.names[index])
+        return Constant(self.code.names[index])
 
     def appcall(self, func, *args_w):
         """Call an app-level RPython function directly"""
@@ -721,7 +720,7 @@ class FlowContext(object):
         return jumpto
 
     def YIELD_VALUE(self, _):
-        assert self.pycode.is_generator
+        assert self.code.is_generator
         w_result = self.popvalue()
         op.yield_(w_result).eval(self)
         # XXX yield expressions not supported. This will blow up if the value
@@ -861,7 +860,7 @@ class FlowContext(object):
         try:
             content = cell.cell_contents
         except ValueError:
-            name = self.pycode.co_freevars[varindex]
+            name = self.code.freevars[varindex]
             raise FlowingError("Undefined closure variable '%s'" % name)
         self.pushvalue(const(content))
 

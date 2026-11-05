@@ -21,7 +21,7 @@ def make_generator_entry_graph(func):
     code = HostCode._from_code(func.__code__)
     graph = PyGraph(func, code)
     block = graph.startblock
-    for name, w_value in zip(code.co_varnames, block.framestate.mergeable):
+    for name, w_value in zip(code.varnames, block.framestate.mergeable):
         if isinstance(w_value, Variable):
             w_value.rename(name)
     varnames = get_variable_names(graph.startblock.inputargs)

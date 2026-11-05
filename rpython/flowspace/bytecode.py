@@ -74,44 +74,32 @@ class HostCode(object):
     """
     opnames = tuple(host_bytecode_spec.method_names)
 
-    def __init__(self, argcount, nlocals, stacksize, flags,
-                 code, consts, names, varnames, filename,
-                 name, firstlineno, lnotab, freevars):
+    def __init__(self, signature, nlocals, varnames, freevars, flags,
+                 filename, name, firstlineno, code, lnotab, consts, names):
         """Initialize a new code object"""
         assert nlocals >= 0
-        self.co_argcount = argcount
-        self.co_nlocals = nlocals
-        self.co_stacksize = stacksize
-        self.co_flags = flags
+        self.signature = signature
+        self.nlocals = nlocals
+        self.varnames = varnames
+        self.freevars = freevars
+        self.flags = flags
+        self.filename = filename
+        self.name = name
+        self.firstlineno = firstlineno
         self.co_code = code
+        self.linetable = lnotab_linetable(firstlineno, lnotab)
         self.consts = consts
         self.names = names
-        self.co_varnames = varnames
-        self.co_freevars = freevars
-        self.co_filename = filename
-        self.co_name = name
-        self.co_firstlineno = firstlineno
-        self.co_lnotab = lnotab
-        self.linetable = lnotab_linetable(firstlineno, lnotab)
-        self.signature = cpython_code_signature(self)
 
     @classmethod
     def _from_code(cls, code):
         """Initialize the code object from a real (CPython) one.
         """
-        return cls(code.co_argcount,
-                   code.co_nlocals,
-                   code.co_stacksize,
-                   code.co_flags,
-                   code.co_code,
-                   list(code.co_consts),
-                   list(code.co_names),
-                   list(code.co_varnames),
-                   code.co_filename,
-                   code.co_name,
-                   code.co_firstlineno,
-                   code.co_lnotab,
-                   list(code.co_freevars))
+        return cls(cpython_code_signature(code), code.co_nlocals,
+                   list(code.co_varnames), list(code.co_freevars),
+                   code.co_flags, code.co_filename, code.co_name,
+                   code.co_firstlineno, code.co_code, code.co_lnotab,
+                   list(code.co_consts), list(code.co_names))
 
     @property
     def formalargcount(self):
@@ -153,4 +141,4 @@ class HostCode(object):
 
     @property
     def is_generator(self):
-        return bool(self.co_flags & CO_GENERATOR)
+        return bool(self.flags & CO_GENERATOR)
