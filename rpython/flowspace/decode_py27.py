@@ -209,3 +209,15 @@ register_all({
          'LOAD_CLOSURE', 'MAKE_CLOSURE', 'LOAD_REVDB_VAR')
 def decode_unsupported_operation(decoder, oparg):
     return [I.Unsupported("This operation is not RPython")]
+
+# ____________________________________________________________
+# Stack manipulation
+
+decodes('POP_TOP')(no_operand(I.PopTop))
+decodes('DUP_TOP')(lambda decoder, oparg: [I.Copy(1)])
+decodes('DUP_TOPX')(
+    lambda decoder, oparg: [I.Copy(oparg) for _ in range(oparg)])
+decodes('ROT_TWO')(lambda decoder, oparg: [I.Swap(2)])
+decodes('ROT_THREE')(lambda decoder, oparg: [I.Swap(3), I.Swap(2)])
+decodes('ROT_FOUR')(lambda decoder, oparg: [I.Swap(4), I.Swap(3), I.Swap(2)])
+decodes('NOP')(lambda decoder, oparg: [])

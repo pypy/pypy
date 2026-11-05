@@ -70,6 +70,34 @@ class Unsupported(Instr):
 
 
 # ____________________________________________________________
+# Stack manipulation
+
+class PopTop(Instr):
+    def eval(self, ctx):
+        ctx.popvalue()
+
+
+class Copy(Instr):
+    """Push a copy of the n-th item from the top (n=1 is the top)."""
+    def __init__(self, n):
+        self.n = n
+
+    def eval(self, ctx):
+        ctx.pushvalue(ctx.peekvalue(self.n - 1))
+
+
+class Swap(Instr):
+    """Swap the top item with the n-th item from the top."""
+    def __init__(self, n):
+        self.n = n
+
+    def eval(self, ctx):
+        w_top = ctx.peekvalue()
+        ctx.settopvalue(ctx.peekvalue(self.n - 1))
+        ctx.settopvalue(w_top, self.n - 1)
+
+
+# ____________________________________________________________
 # Variables and names
 
 class LoadFast(Instr):

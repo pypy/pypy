@@ -4,6 +4,7 @@ import pytest
 
 from rpython.flowspace import instr as I
 from rpython.flowspace.decode_py27 import Py2Decoder
+from rpython.flowspace.flowcontext import FlowContext
 
 
 def decode(code):
@@ -11,6 +12,8 @@ def decode(code):
     instrs = decoder.decode_instructions()
     return instrs
 
+def decode_opcode(name, oparg, code=None):
+    return Py2Decoder.opcodes[name](Py2Decoder(code), oparg)
 
 def make_code(co_code, co_consts=(), co_names=()):
     class code:
@@ -36,6 +39,33 @@ def test_jump_targets_are_positions():
                    if isinstance(instr, I.JumpInstr)])
     import dis
     assert targets == set(dis.findlabels(f.__code__.co_code))
+
+
+class StackContext(FlowContext):
+    def __init__(self, stack):
+        self.stack = stack
+
+def run_on_stack(instrs, stack):
+    ctx = StackContext(list(stack))
+    for instr in instrs:
+        assert instr.eval(ctx) is None
+    return ctx.stack
+
+@pytest.mark.parametrize('name, expected', [
+    ('DUP_TOP', [1, 2, 3, 4, 4]),
+    ('ROT_TWO', [1, 2, 4, 3]),
+    ('ROT_THREE', [1, 4, 2, 3]),
+    ('ROT_FOUR', [4, 1, 2, 3]),
+])
+def test_stack_manipulation(name, expected):
+    instrs = decode_opcode(name, 0)
+    assert run_on_stack(instrs, [1, 2, 3, 4]) == expected
+
+@pytest.mark.parametrize('count', [1, 2, 3])
+def test_dup_topx(count):
+    instrs = decode_opcode('DUP_TOPX', count)
+    stack = [1, 2, 3, 4]
+    assert run_on_stack(instrs, stack) == stack + stack[-count:]
 
 
 def test_extended_arg():
