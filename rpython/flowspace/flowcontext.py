@@ -416,12 +416,6 @@ class FlowContext(object):
         w_func = const(func)
         return self.do_op(op.simple_call(w_func, *args_w))
 
-    def BREAK_LOOP(self, oparg):
-        raise Break
-
-    def CONTINUE_LOOP(self, startofloop):
-        raise Continue(startofloop)
-
     def not_(self, w_obj):
         w_bool = op.bool(w_obj).eval(self)
         return const(not self.guessbool(w_bool))
@@ -537,74 +531,6 @@ class FlowContext(object):
         except FlowingError:
             exc = ImportError("cannot import name '%s'" % w_name.value)
             raise Raise(const(exc))
-
-    def END_FINALLY(self, oparg):
-        # unlike CPython, there are two statically distinct cases: the
-        # END_FINALLY might be closing an 'except' block or a 'finally'
-        # block.  In the first case, the stack contains three items:
-        #   [exception type we are now handling]
-        #   [exception value we are now handling]
-        #   [Raise]
-        # In the case of a finally: block, the stack contains only one
-        # item (unlike CPython which can have 1, 2 or 3 items):
-        #   [subclass of FlowSignal]
-        w_top = self.popvalue()
-        if w_top == w_None:
-            # finally: block with no unroller active
-            return
-        elif isinstance(w_top, FlowSignal):
-            # case of a finally: block
-            raise w_top
-        else:
-            # case of an except: block.  We popped the exception type
-            self.popvalue()        #     Now we pop the exception value
-            signal = self.popvalue()
-            raise signal
-
-    def POP_BLOCK(self, oparg):
-        block = self.blockstack.pop()
-        block.cleanupstack(self)  # the block knows how to clean up the value stack
-
-    def SETUP_LOOP(self, target):
-        block = LoopBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_EXCEPT(self, target):
-        block = ExceptBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_FINALLY(self, target):
-        block = FinallyBlock(self, target)
-        self.blockstack.append(block)
-
-    def SETUP_WITH(self, target):
-        # A simpler version than the 'real' 2.7 one:
-        # directly call manager.__enter__(), don't use special lookup functions
-        # which don't make sense on the RPython type system.
-        w_manager = self.peekvalue()
-        w_exit = op.getattr(w_manager, const("__exit__")).eval(self)
-        self.settopvalue(w_exit)
-        w_enter = op.getattr(w_manager, const('__enter__')).eval(self)
-        w_result = op.simple_call(w_enter).eval(self)
-        block = WithBlock(self, target)
-        self.blockstack.append(block)
-        self.pushvalue(w_result)
-
-    def WITH_CLEANUP(self, oparg):
-        # Note: RPython context managers receive None in lieu of tracebacks
-        # and cannot suppress the exception.
-        unroller = self.popvalue()
-        w_exitfunc = self.popvalue()
-        self.pushvalue(unroller)
-
-        if isinstance(unroller, Raise):
-            w_exc = unroller.w_exc
-            # The annotator won't allow to merge exception types with None.
-            # Replace it with the exception value...
-            op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
-                           ).eval(self)
-        else:
-            op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(self)
 
     def find_global(self, w_globals, varname):
         try:

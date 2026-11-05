@@ -12,7 +12,8 @@ from rpython.flowspace.operation import op
 from rpython.flowspace.specialcase import (
     rpython_print_item, rpython_print_newline)
 from rpython.flowspace.flowcontext import (
-    FlowingError, Return, Raise, IterBlock)
+    FlowingError, Return, Raise, Break, Continue, FlowSignal,
+    LoopBlock, ExceptBlock, IterBlock, FinallyBlock, WithBlock)
 
 w_None = const(None)
 
@@ -503,6 +504,97 @@ class Py2Raise(Instr):
             w_type = ctx.popvalue()
             operror = ctx.exc_from_raise(w_type, w_None)
         raise Raise(operror)
+
+
+# ____________________________________________________________
+# Python 2 block stack
+
+class SetupLoop(JumpInstr):
+    def eval(self, ctx):
+        ctx.blockstack.append(LoopBlock(ctx, self.target))
+
+
+class SetupExcept(JumpInstr):
+    def eval(self, ctx):
+        ctx.blockstack.append(ExceptBlock(ctx, self.target))
+
+
+class SetupFinally(JumpInstr):
+    def eval(self, ctx):
+        ctx.blockstack.append(FinallyBlock(ctx, self.target))
+
+
+class SetupWith(JumpInstr):
+    def eval(self, ctx):
+        # A simpler version than the 'real' 2.7 one: directly call
+        # manager.__enter__(), don't use special lookup functions which
+        # don't make sense on the RPython type system.
+        w_manager = ctx.peekvalue()
+        w_exit = op.getattr(w_manager, const("__exit__")).eval(ctx)
+        ctx.settopvalue(w_exit)
+        w_enter = op.getattr(w_manager, const('__enter__')).eval(ctx)
+        w_result = op.simple_call(w_enter).eval(ctx)
+        ctx.blockstack.append(WithBlock(ctx, self.target))
+        ctx.pushvalue(w_result)
+
+
+class PopBlock(Instr):
+    def eval(self, ctx):
+        block = ctx.blockstack.pop()
+        block.cleanupstack(ctx)
+
+
+class BreakLoop(Instr):
+    def eval(self, ctx):
+        raise Break
+
+
+class ContinueLoop(JumpInstr):
+    def eval(self, ctx):
+        raise Continue(self.target)
+
+
+class EndFinally(Instr):
+    def eval(self, ctx):
+        # unlike CPython, there are two statically distinct cases: the
+        # END_FINALLY might be closing an 'except' block or a 'finally'
+        # block. In the first case, the stack contains three items:
+        #   [exception type we are now handling]
+        #   [exception value we are now handling]
+        #   [Raise]
+        # In the case of a finally: block, the stack contains only one
+        # item (unlike CPython which can have 1, 2 or 3 items):
+        #   [subclass of FlowSignal]
+        w_top = ctx.popvalue()
+        if w_top == w_None:
+            # finally: block with no unroller active
+            return
+        elif isinstance(w_top, FlowSignal):
+            # case of a finally: block
+            raise w_top
+        else:
+            # case of an except: block. We popped the exception type
+            ctx.popvalue()        #     Now we pop the exception value
+            signal = ctx.popvalue()
+            raise signal
+
+
+class WithCleanup(Instr):
+    def eval(self, ctx):
+        # Note: RPython context managers receive None in lieu of tracebacks
+        # and cannot suppress the exception.
+        unroller = ctx.popvalue()
+        w_exitfunc = ctx.popvalue()
+        ctx.pushvalue(unroller)
+
+        if isinstance(unroller, Raise):
+            w_exc = unroller.w_exc
+            # The annotator won't allow to merge exception types with None.
+            # Replace it with the exception value...
+            op.simple_call(w_exitfunc, w_exc.w_value, w_exc.w_value, w_None
+                           ).eval(ctx)
+        else:
+            op.simple_call(w_exitfunc, w_None, w_None, w_None).eval(ctx)
 
 
 # ____________________________________________________________

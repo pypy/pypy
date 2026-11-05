@@ -42,6 +42,14 @@ def test_jump_targets_are_positions():
                    if isinstance(instr, I.JumpInstr)])
     import dis
     assert targets == set(dis.findlabels(f.__code__.co_code))
+    assert [type(instr) for instr in instrs] == [
+        I.SetupLoop, I.LoadFast, I.PopJumpIf, I.LoadFast, I.LoadAttr,
+        I.StoreFast, I.Jump, I.PopBlock, I.LoadFast, I.ReturnValue]
+    setup, _, popjump, _, loadattr, _, jump, popblock, load, _ = instrs
+    assert setup.target == 8
+    assert popjump == I.PopJumpIf(False, 7)
+    assert loadattr == I.LoadAttr('y')
+    assert jump == I.Jump(1)
 
 
 class StackContext(FlowContext):

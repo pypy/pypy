@@ -284,6 +284,11 @@ register_all({
     'JUMP_FORWARD': I.Jump,
     'JUMP_ABSOLUTE': I.Jump,
     'FOR_ITER': I.ForIter,
+    'SETUP_LOOP': I.SetupLoop,
+    'SETUP_EXCEPT': I.SetupExcept,
+    'SETUP_FINALLY': I.SetupFinally,
+    'SETUP_WITH': I.SetupWith,
+    'CONTINUE_LOOP': I.ContinueLoop,
     'RAISE_VARARGS': I.Py2Raise,
 }, with_oparg)
 
@@ -291,6 +296,10 @@ register_all({
     'GET_ITER': I.GetIter,
     'RETURN_VALUE': I.ReturnValue,
     'YIELD_VALUE': I.YieldValue,
+    'POP_BLOCK': I.PopBlock,
+    'BREAK_LOOP': I.BreakLoop,
+    'END_FINALLY': I.EndFinally,
+    'WITH_CLEANUP': I.WithCleanup,
     'PRINT_ITEM': I.PrintItem,
     'PRINT_NEWLINE': I.PrintNewline,
 }, no_operand)
