@@ -117,9 +117,10 @@ solver = z3.Solver()
 
 
 def prove_implies(*args, **kwargs):
-    last = args[-1]
-    prev = args[:-1]
-    return prove(z3.Implies(z3.And(*prev), last), **kwargs)
+    if 'conclusion' not in kwargs:
+        raise TypeError("prove_implies() requires an explicit conclusion= argument")
+    conclusion = kwargs.pop('conclusion')
+    return prove(z3.Implies(z3.And(*args), conclusion), **kwargs)
 
 def teardown_function(function):
     # z3 doesn't add enough memory pressure, just collect after every function
@@ -153,37 +154,52 @@ def prove(cond, use_timeout=True, premise_witness=()):
         raise CheckError(cond, model)
 
 
+def test_prove_implies_requires_explicit_conclusion():
+    x = BitVec('x')
+    with pytest.raises(TypeError, match='explicit conclusion='):
+        prove_implies(x == 1, x > 0)
+    bound = make_z3_intbounds_instance('bound')
+    with pytest.raises(TypeError, match='explicit conclusion='):
+        bound.prove_implies(bound.lower <= bound.upper)
+
+
+def test_bound_proof_explicit_conclusion():
+    bound = make_z3_intbounds_instance('bound')
+    bound.prove_implies(conclusion=bound)
+    bound.prove_implies(conclusion=bound.lower <= bound.upper)
+
+
 @pytest.mark.parametrize('conclusion', [True, False])
 def test_prove_rejects_unsatisfiable_premises(conclusion):
     x = BitVec('x')
     with pytest.raises(AssertionError):
-        prove_implies(x < 0, x >= 0, conclusion, use_timeout=False)
+        prove_implies(x < 0, x >= 0, conclusion=conclusion, use_timeout=False)
     with pytest.raises(AssertionError):
         prove(z3.Implies(x < x, conclusion), use_timeout=False)
 
 
 def test_prove_implies_satisfiable_premises():
     x = BitVec('x')
-    prove_implies(x == 1, x > 0, use_timeout=False)
+    prove_implies(x == 1, conclusion=x > 0, use_timeout=False)
     with pytest.raises(CheckError):
-        prove_implies(x == 1, x < 0, use_timeout=False)
+        prove_implies(x == 1, conclusion=x < 0, use_timeout=False)
 
 
 def test_bound_proof_rejects_unsatisfiable_premises():
     bound = make_z3_intbounds_instance('bound')
     with pytest.raises(AssertionError):
-        bound.prove_implies(bound.lower < bound.lower, True)
+        bound.prove_implies(bound.lower < bound.lower, conclusion=True)
 
 
 def test_prove_premise_witness():
     x = BitVec('x')
     witness = [(x, BitVecVal(1))]
-    prove_implies(x > 0, x >= 1, premise_witness=witness)
+    prove_implies(x > 0, conclusion=x >= 1, premise_witness=witness)
     with pytest.raises(AssertionError):
-        prove_implies(x < 0, True, premise_witness=witness)
+        prove_implies(x < 0, conclusion=True, premise_witness=witness)
     # A witness establishes applicability, not the conclusion for all values.
     with pytest.raises(CheckError):
-        prove_implies(x > 0, x == 1, premise_witness=witness)
+        prove_implies(x > 0, conclusion=x == 1, premise_witness=witness)
 
 @given(bounds, bounds)
 def test_add(b1, b2):
@@ -191,7 +207,7 @@ def test_add(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 + var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_add_bound_cannot_overflow(b1, b2):
@@ -201,7 +217,7 @@ def test_add_bound_cannot_overflow(b1, b2):
     var2, formula2 = to_z3(b2)
     m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
-    prove_implies(formula1, formula2, no_ovf)
+    prove_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -216,7 +232,7 @@ def test_add_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 + var2)
     m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
-    prove_implies(formula1, formula2, no_ovf, formula3,
+    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
@@ -225,7 +241,7 @@ def test_sub(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 - var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_sub_bound_cannot_overflow(b1, b2):
@@ -235,7 +251,7 @@ def test_sub_bound_cannot_overflow(b1, b2):
     var2, formula2 = to_z3(b2)
     m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
-    prove_implies(formula1, formula2, no_ovf)
+    prove_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -249,7 +265,7 @@ def test_sub_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 - var2)
     m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
-    prove_implies(formula1, formula2, no_ovf, formula3,
+    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds, bounds)
@@ -258,7 +274,7 @@ def test_mul(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 * var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_mul_bound_cannot_overflow(b1, b2):
@@ -268,7 +284,7 @@ def test_mul_bound_cannot_overflow(b1, b2):
         var2, formula2 = to_z3(b2)
         m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
         no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-        prove_implies(formula1, formula2, no_ovf)
+        prove_implies(formula1, formula2, conclusion=no_ovf)
 
 @given(knownbits_and_bound_with_contained_number,
        knownbits_and_bound_with_contained_number)
@@ -282,7 +298,7 @@ def test_mul_bound_no_overflow(left, right):
     var3, formula3 = to_z3(b3, var1 * var2)
     m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-    prove_implies(formula1, formula2, no_ovf, formula3,
+    prove_implies(formula1, formula2, no_ovf, conclusion=formula3,
                   premise_witness=[(var1, BitVecVal(x)), (var2, BitVecVal(y))])
 
 @given(bounds)
@@ -290,22 +306,22 @@ def test_neg(b1):
     b2 = b1.neg_bound()
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2, -var1)
-    prove_implies(formula1, formula2)
+    prove_implies(formula1, conclusion=formula2)
 
 @given(bounds, bounds)
 def test_known(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     if b1.known_lt(b2):
-        prove_implies(formula1, formula2, var1 < var2)
+        prove_implies(formula1, formula2, conclusion=var1 < var2)
     if b1.known_gt(b2):
-        prove_implies(formula1, formula2, var1 > var2)
+        prove_implies(formula1, formula2, conclusion=var1 > var2)
     if b1.known_le(b2):
-        prove_implies(formula1, formula2, var1 <= var2)
+        prove_implies(formula1, formula2, conclusion=var1 <= var2)
     if b1.known_ge(b2):
-        prove_implies(formula1, formula2, var1 >= var2)
+        prove_implies(formula1, formula2, conclusion=var1 >= var2)
     if b1.known_ne(b2):
-        prove_implies(formula1, formula2, var1 != var2)
+        prove_implies(formula1, formula2, conclusion=var1 != var2)
 
 @given(bounds, bounds)
 def test_mod(b1, b2):
@@ -316,7 +332,7 @@ def test_mod(b1, b2):
     var2, formula2 = to_z3(b2)
     var3, nonzero = z3_pymod_nonzero(var1, var2)
     _, formula3 = to_z3(b3, var3)
-    prove_implies(formula1, formula2, nonzero, formula3)
+    prove_implies(formula1, formula2, nonzero, conclusion=formula3)
 
 
 # ____________________________________________________________
@@ -328,7 +344,7 @@ def test_and(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 & var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_or(b1, b2):
@@ -336,7 +352,7 @@ def test_or(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 | var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds, bounds)
 def test_xor(b1, b2):
@@ -344,14 +360,14 @@ def test_xor(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 ^ var2)
-    prove_implies(formula1, formula2, formula3)
+    prove_implies(formula1, formula2, conclusion=formula3)
 
 @given(bounds)
 def test_invert(b1):
     b2 = b1.invert_bound()
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2, ~var1)
-    prove_implies(formula1, formula2)
+    prove_implies(formula1, conclusion=formula2)
 
 
 # ____________________________________________________________
@@ -364,7 +380,7 @@ def test_shrink_bounds_to_knownbits(x, y):
     var1, formula1 = to_z3(b)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, formula2)
+    prove_implies(formula1, conclusion=formula2)
 
 @given(uints, uints)
 def test_shrink_knownbits_to_bounds(x, y):
@@ -372,7 +388,7 @@ def test_shrink_knownbits_to_bounds(x, y):
     var1, formula1 = to_z3(b)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, formula2)
+    prove_implies(formula1, conclusion=formula2)
 
 @given(ints, ints, uints, uints)
 def test_shrink_mixed(x, y, value, tmask):
@@ -385,7 +401,7 @@ def test_shrink_mixed(x, y, value, tmask):
     assume(solver.check(formula1) == z3.sat)
     b.shrink()
     var1, formula2 = to_z3(b, var1)
-    prove_implies(formula1, formula2)
+    prove_implies(formula1, conclusion=formula2)
 
 # ____________________________________________________________
 # explicit proofs of some of the helpers
@@ -405,11 +421,11 @@ def test_prove_lowest_set_bit_only():
     res = lowest_set_bit_only(x)
     prove_implies(
         x != 0,
-        popcount64(res) == 1
+        conclusion=popcount64(res) == 1
     )
     prove_implies(
         x == 0,
-        res == 0,
+        conclusion=res == 0,
     )
     # do it the pedestrian way: if a bit is set, then the bits with lower
     # indexes must be 0
@@ -703,13 +719,20 @@ class Z3IntBound(IntBound):
         u = model.evaluate(self.upper).as_signed_long()
         return IntBound(l, u, v, m, do_shrinking=False)
 
-    def prove_implies(self, *args):
+    def prove_implies(self, *args, **kwargs):
+        if 'conclusion' not in kwargs:
+            raise TypeError("prove_implies() requires an explicit conclusion= argument")
+        conclusion = kwargs.pop('conclusion')
+        if isinstance(conclusion, Z3IntBound):
+            conclusion = conclusion.z3_formula()
         formula_args = [(arg.z3_formula() if isinstance(arg, Z3IntBound) else arg)
                         for arg in (self, ) + args]
         try:
             prove_implies(
                 *formula_args,
-                use_timeout=False
+                conclusion=conclusion,
+                use_timeout=False,
+                **kwargs
             )
         except CheckError as e:
             model = e.args[1]
@@ -733,36 +756,36 @@ def test_prove_invert():
     bound = make_z3_intbounds_instance('self')
     b2 = bound.invert_bound()
     bound.prove_implies(
-        b2.z3_formula(~bound.concrete_variable),
+        conclusion=b2.z3_formula(~bound.concrete_variable),
     )
 
 def test_prove_min_max_unsigned_by_knownbits():
     bound = make_z3_intbounds_instance('self')
     minimum = bound.get_minimum_unsigned_by_knownbits()
     bound.prove_implies(
-        z3.ULE(minimum, bound.concrete_variable),
+        conclusion=z3.ULE(minimum, bound.concrete_variable),
     )
     maximum = bound.get_maximum_unsigned_by_knownbits()
     bound.prove_implies(
-        z3.ULE(bound.concrete_variable, maximum),
+        conclusion=z3.ULE(bound.concrete_variable, maximum),
     )
 
 def test_prove_min_max_signed_by_knownbits():
     bound = make_z3_intbounds_instance('self')
     minimum = bound._get_minimum_signed_by_knownbits()
     bound.prove_implies(
-        minimum <= bound.concrete_variable
+        conclusion=minimum <= bound.concrete_variable
     )
     bound.prove_implies(
-        z3_tnum_condition(minimum, bound.tvalue, bound.tmask),
+        conclusion=z3_tnum_condition(minimum, bound.tvalue, bound.tmask),
     )
 
     maximum = bound._get_maximum_signed_by_knownbits()
     bound.prove_implies(
-        bound.concrete_variable <= maximum,
+        conclusion=bound.concrete_variable <= maximum,
     )
     bound.prove_implies(
-        z3_tnum_condition(maximum, bound.tvalue, bound.tmask),
+        conclusion=z3_tnum_condition(maximum, bound.tvalue, bound.tmask),
     )
 
 def test_prove_or():
@@ -772,7 +795,7 @@ def test_prove_or():
     b3.concrete_variable = b1.concrete_variable | b2.concrete_variable
     b1.prove_implies(
         b2,
-        b3
+        conclusion=b3
     )
 
 def test_prove_or_bounds_implied_by_knownbits():
@@ -789,7 +812,7 @@ def test_prove_or_bounds_implied_by_knownbits():
         b2.z3_formula(must_be_minimal=True),
         b1.lower >= 0,
         b2.lower >= 0,
-        z3.And(b3.upper <= upper, b3.lower >= 0),
+        conclusion=z3.And(b3.upper <= upper, b3.lower >= 0),
     )
 
 def test_prove_xor():
@@ -799,7 +822,7 @@ def test_prove_xor():
     b3.concrete_variable = b1.concrete_variable ^ b2.concrete_variable
     b1.prove_implies(
         b2,
-        b3,
+        conclusion=b3,
     )
 
 def test_prove_xor_bounds_implied_by_knownbits():
@@ -824,7 +847,7 @@ def test_prove_xor_bounds_implied_by_knownbits():
         b2.lower >= 0,
         # check that the maximum implied by the known bits is not worse than
         # the maximum computed by the expression above
-        z3.And(b3.upper <= upper, b3.lower >= 0),
+        conclusion=z3.And(b3.upper <= upper, b3.lower >= 0),
     )
 
 def test_prove_and():
@@ -833,7 +856,7 @@ def test_prove_and():
     tvalue, tmask = b1._tnum_and(b2)
     b1.prove_implies(
         b2,
-        z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
+        conclusion=z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
     )
 
 def test_prove_and_bound_logic():
@@ -844,7 +867,7 @@ def test_prove_and_bound_logic():
     b3.concrete_variable = res
     b1.prove_implies(
         b2,
-        b3
+        conclusion=b3
     )
 
 def test_prove_add_knownbits():
@@ -854,7 +877,7 @@ def test_prove_add_knownbits():
     res_tvalue, res_tmask = b1._tnum_add(b2)
     b1.prove_implies(
         b2,
-        z3_tnum_condition(result, res_tvalue, res_tmask),
+        conclusion=z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
 def test_prove_add_bound_logic():
@@ -865,7 +888,7 @@ def test_prove_add_bound_logic():
     b3.concrete_variable = result
     b1.prove_implies(
         b2,
-        b3
+        conclusion=b3
     )
 
 def test_prove_add_bound_cannot_overflow_logic():
@@ -875,7 +898,7 @@ def test_prove_add_bound_cannot_overflow_logic():
     b1.prove_implies(
         b2,
         b1.add_bound_cannot_overflow(b2),
-        no_ovf_result,
+        conclusion=no_ovf_result,
     )
 
 def test_prove_add_bound_no_overflow():
@@ -887,7 +910,7 @@ def test_prove_add_bound_no_overflow():
     b1.prove_implies(
         b2,
         no_ovf,
-        b3
+        conclusion=b3
     )
 
 def test_prove_mul2_bound_no_overflow():
@@ -897,12 +920,12 @@ def test_prove_mul2_bound_no_overflow():
     b2.concrete_variable = result
     b1.prove_implies(
         no_ovf,
-        b2
+        conclusion=b2
     )
     # check that the result is always even
     b1.prove_implies(
         no_ovf,
-        z3.And(b2.tvalue & 1 == 0, b2.tmask & 1 == 0)
+        conclusion=z3.And(b2.tvalue & 1 == 0, b2.tmask & 1 == 0)
     )
 
 def test_prove_neg_logic():
@@ -910,7 +933,7 @@ def test_prove_neg_logic():
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))
     b2 = b1.neg_bound()
     b2.concrete_variable = -b1.concrete_variable
-    b1.prove_implies(b2)
+    b1.prove_implies(conclusion=b2)
 
 def test_prove_sub_knownbits():
     b1 = make_z3_intbounds_instance('self')
@@ -919,7 +942,7 @@ def test_prove_sub_knownbits():
     res_tvalue, res_tmask = b1._tnum_sub(b2)
     b1.prove_implies(
         b2,
-        z3_tnum_condition(result, res_tvalue, res_tmask),
+        conclusion=z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
 def test_prove_sub_bound_logic():
@@ -929,7 +952,7 @@ def test_prove_sub_bound_logic():
     b3.concrete_variable = b1.concrete_variable - b2.concrete_variable
     b1.prove_implies(
         b2,
-        b3
+        conclusion=b3
     )
 
 def test_prove_sub_bound_cannot_overflow_logic():
@@ -939,7 +962,7 @@ def test_prove_sub_bound_cannot_overflow_logic():
     b1.prove_implies(
         b2,
         b1.sub_bound_cannot_overflow(b2),
-        no_ovf_result,
+        conclusion=no_ovf_result,
     )
 
 def test_prove_sub_bound_no_overflow():
@@ -950,7 +973,7 @@ def test_prove_sub_bound_no_overflow():
     b1.prove_implies(
         b2,
         no_ovf,
-        b3.z3_formula(result)
+        conclusion=b3.z3_formula(result)
     )
 
 def test_prove_and_backwards():
@@ -963,7 +986,7 @@ def test_prove_and_backwards():
     b1.prove_implies(
         b2,
         b3,
-        z3.And(
+        conclusion=z3.And(
             valid,
             z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask)
         ),
@@ -983,7 +1006,7 @@ def test_prove_and_backwards_inconsistent():
         # if we aren't consistent
         z3.Not(valid),
         # then the result must be different than the result of the &
-        b3.concrete_variable != res
+        conclusion=b3.concrete_variable != res
     )
 
 def test_prove_or_backwards():
@@ -996,7 +1019,7 @@ def test_prove_or_backwards():
     b1.prove_implies(
         b2,
         b3,
-        z3.And(
+        conclusion=z3.And(
             valid,
             z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask)
         ),
@@ -1011,7 +1034,7 @@ def test_prove_known_unsigned_cmp(suffix, comparison):
     b1.prove_implies(
         b2,
         getattr(b1, 'known_unsigned_' + suffix)(b2),
-        comparison(b1.concrete_variable, b2.concrete_variable),
+        conclusion=comparison(b1.concrete_variable, b2.concrete_variable),
     )
 
 
@@ -1038,7 +1061,7 @@ def test_prove_known_eq_const_logic():
     x = BitVec('x')
     b1.prove_implies(
         b1.known_eq_const(x),
-        b1.concrete_variable == x
+        conclusion=b1.concrete_variable == x
     )
 
 def test_prove_uint_less_nonnegative_implies_nonnegative():
@@ -1047,17 +1070,17 @@ def test_prove_uint_less_nonnegative_implies_nonnegative():
     prove_implies(
         length >= 0,
         z3.ULT(index, length),
-        z3.And(index >= 0, index < length),
+        conclusion=z3.And(index >= 0, index < length),
     )
     prove_implies(
         length >= 0,
         z3.ULT(index, length),
-        z3.And(index >= 0, index <= length - 1),
+        conclusion=z3.And(index >= 0, index <= length - 1),
     )
     prove_implies(
         length >= 0,
         z3.ULE(index, length),
-        z3.And(index >= 0, index <= length),
+        conclusion=z3.And(index >= 0, index <= length),
     )
 
 def test_prove_uint_greater_negative_implies_negative():
@@ -1066,19 +1089,19 @@ def test_prove_uint_greater_negative_implies_negative():
     prove_implies(
         b < 0,
         z3.UGE(a, b),
-        z3.And(a < 0, a >= b),
+        conclusion=z3.And(a < 0, a >= b),
     )
     prove_implies(
         b < 0,
         z3.UGT(a, b),
-        z3.And(a < 0, a > b),
+        conclusion=z3.And(a < 0, a > b),
     )
     # an example
     prove_implies(
         b <= -3,
         b >= -4,
         z3.UGT(a, b),
-        z3.And(a <= -1, a >= -3),
+        conclusion=z3.And(a <= -1, a >= -3),
     )
 
 
@@ -1088,22 +1111,22 @@ def test_prove_known_cmp():
     b1.prove_implies(
         b2,
         b1.known_lt(b2),
-        b1.concrete_variable < b2.concrete_variable,
+        conclusion=b1.concrete_variable < b2.concrete_variable,
     )
     b1.prove_implies(
         b2,
         b1.known_le(b2),
-        b1.concrete_variable <= b2.concrete_variable,
+        conclusion=b1.concrete_variable <= b2.concrete_variable,
     )
     b1.prove_implies(
         b2,
         b1.known_gt(b2),
-        b1.concrete_variable > b2.concrete_variable,
+        conclusion=b1.concrete_variable > b2.concrete_variable,
     )
     b1.prove_implies(
         b2,
         b1.known_ge(b2),
-        b1.concrete_variable >= b2.concrete_variable,
+        conclusion=b1.concrete_variable >= b2.concrete_variable,
     )
 
 def test_prove_tnum_intersect():
@@ -1113,7 +1136,7 @@ def test_prove_tnum_intersect():
     # Every common value is retained, and the intersection is valid.
     b1.prove_implies(
         b2.z3_formula(b1.concrete_variable),
-        z3.And(
+        conclusion=z3.And(
             valid,
             z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
         )
@@ -1126,7 +1149,7 @@ def test_prove_tnum_intersect():
         z3_tvalue_tmask_are_valid(b2.tvalue, b2.tmask),
         valid,
         z3_tnum_condition(value, tvalue, tmask),
-        z3.And(
+        conclusion=z3.And(
             z3_tnum_condition(value, b1.tvalue, b1.tmask),
             z3_tnum_condition(value, b2.tvalue, b2.tmask),
         ),
@@ -1141,7 +1164,7 @@ def test_prove_tnum_intersect_idempotent():
     tvalue2, tmask2, valid2 = b1._tnum_intersect(tvalue1, tmask1)
     b1.prove_implies(
         b2,
-        z3.And(
+        conclusion=z3.And(
             tvalue1 == tvalue2,
             tmask1 == tmask2,
             valid1,
@@ -1160,14 +1183,14 @@ def test_prove_tnum_implied_by_bounds():
     self.prove_implies(
         val >= self.lower,
         val <= self.upper,
-        z3_tnum_condition(val, bounds_tvalue, bounds_tmask)
+        conclusion=z3_tnum_condition(val, bounds_tvalue, bounds_tmask)
     )
 
 def test_prove_shrink_knownbits_by_bounds():
     self = make_z3_intbounds_instance('self')
     tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
     self.prove_implies(
-        z3.And(valid, z3_tnum_condition(self.concrete_variable, tvalue, tmask)),
+        conclusion=z3.And(valid, z3_tnum_condition(self.concrete_variable, tvalue, tmask)),
     )
 
 # ____________________________________________________________
@@ -1186,7 +1209,7 @@ def test_prove_shrink_bounds_by_knownbits_min_case1():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
         z3.UGT(cl2set, set2cl),
-        new_threshold > threshold,
+        conclusion=new_threshold > threshold,
     )
     # correctness: show that there are no elements x in b1 with
     # threshold <= x < new_threshold
@@ -1194,7 +1217,7 @@ def test_prove_shrink_bounds_by_knownbits_min_case1():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
         z3.UGT(cl2set, set2cl),
-        z3.Not(b1.concrete_variable < new_threshold),
+        conclusion=z3.Not(b1.concrete_variable < new_threshold),
     )
     # precision: new_threshold is an element in the set, ie we
     # couldn't have increased the bound further
@@ -1202,7 +1225,7 @@ def test_prove_shrink_bounds_by_knownbits_min_case1():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
         z3.UGT(cl2set, set2cl),
-        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+        conclusion=z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
 
@@ -1221,7 +1244,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_min_case2():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
         z3.ULE(cl2set, set2cl),
-        new_threshold > threshold
+        conclusion=new_threshold > threshold
     )
 
     # correctness: show that there are no elements x in b1 with
@@ -1230,7 +1253,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_min_case2():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
         z3.ULE(cl2set, set2cl),
-        z3.Not(b1.concrete_variable < new_threshold),
+        conclusion=z3.Not(b1.concrete_variable < new_threshold),
     )
 
     # precision: new_threshold is an element in the set, ie we
@@ -1239,7 +1262,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_min_case2():
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
         z3.ULE(cl2set, set2cl),
-        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+        conclusion=z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
 def test_prove_shrink_bounds_by_knownbits_max_case1():
@@ -1255,7 +1278,7 @@ def test_prove_shrink_bounds_by_knownbits_max_case1():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_min != threshold,
         z3.ULT(cl2set, set2cl),
-        new_threshold < threshold,
+        conclusion=new_threshold < threshold,
     )
     # correctness: show that there are no elements x in b1 with
     # new_threshold <= x < threshold
@@ -1263,7 +1286,7 @@ def test_prove_shrink_bounds_by_knownbits_max_case1():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_min != threshold,
         z3.ULT(cl2set, set2cl),
-        z3.Not(b1.concrete_variable > new_threshold),
+        conclusion=z3.Not(b1.concrete_variable > new_threshold),
     )
     # precision: new_threshold is an element in the set, ie we
     # couldn't have increased the bound further
@@ -1271,7 +1294,7 @@ def test_prove_shrink_bounds_by_knownbits_max_case1():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_min != threshold,
         z3.ULT(cl2set, set2cl),
-        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+        conclusion=z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
 
@@ -1290,7 +1313,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_max_case2():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_max_ne_threshold,
         z3.UGE(cl2set, set2cl),
-        new_threshold < threshold
+        conclusion=new_threshold < threshold
     )
 
     # correctness: show that there are no elements x in b1 with
@@ -1299,7 +1322,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_max_case2():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_max_ne_threshold,
         z3.UGE(cl2set, set2cl),
-        z3.Not(b1.concrete_variable > new_threshold),
+        conclusion=z3.Not(b1.concrete_variable > new_threshold),
     )
 
     # precision: new_threshold is an element in the set, ie we
@@ -1308,7 +1331,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_max_case2():
         b1._get_maximum_signed_by_knownbits() > threshold,
         working_max_ne_threshold,
         z3.UGE(cl2set, set2cl),
-        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+        conclusion=z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
 # ____________________________________________________________
@@ -1349,7 +1372,7 @@ def test_prove_lshift_bound_logic():
     b1.prove_implies(
         b2,
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
-        z3.And(min1 <= result, result <= max1, no_ovf),
+        conclusion=z3.And(min1 <= result, result <= max1, no_ovf),
     )
 
 def test_prove_lshift_knownbits():
@@ -1360,7 +1383,7 @@ def test_prove_lshift_knownbits():
     b1.prove_implies(
         c >= 0,
         c < LONG_BIT,
-        z3_tnum_condition(result, tvalue, tmask)
+        conclusion=z3_tnum_condition(result, tvalue, tmask)
     )
 
 def test_prove_lshift_bound_cannot_overflow_logic():
@@ -1371,7 +1394,7 @@ def test_prove_lshift_bound_cannot_overflow_logic():
     b1.prove_implies(
         b2,
         res,
-        no_ovf
+        conclusion=no_ovf
     )
 
 def test_prove_rshift_knownbits():
@@ -1381,7 +1404,7 @@ def test_prove_rshift_knownbits():
     tvalue, tmask = b1._tnum_rshift(c)
     b1.prove_implies(
         c >= 0,
-        z3_tnum_condition(result, tvalue, tmask),
+        conclusion=z3_tnum_condition(result, tvalue, tmask),
     )
 
 @z3_with_reduced_bitwidth(32)
@@ -1399,7 +1422,7 @@ def test_prove_rshift_bound_logic():
     b1.prove_implies(
         b2,
         b2.lower >= 0,
-        z3.And(min1 <= result, result <= max1),
+        conclusion=z3.And(min1 <= result, result <= max1),
     )
 
 @z3_with_reduced_bitwidth(32)
@@ -1412,7 +1435,7 @@ def test_2_prove_rshift_bound_logic():
         b2,
         b2.lower >= 0,
         b2.upper < LONG_BIT,
-        b3,
+        conclusion=b3,
     )
 
 def test_prove_urshift_knownbits():
@@ -1422,7 +1445,7 @@ def test_prove_urshift_knownbits():
     tvalue, tmask = b1._tnum_urshift(c)
     b1.prove_implies(
         c >= 0,
-        z3_tnum_condition(result, tvalue, tmask),
+        conclusion=z3_tnum_condition(result, tvalue, tmask),
     )
 
 def test_prove_urshift_knownbits_logic():
@@ -1433,7 +1456,7 @@ def test_prove_urshift_knownbits_logic():
     b3.concrete_variable = result
     b1.prove_implies(
         b2,
-        b3,
+        conclusion=b3,
     )
 
 def test_prove_lshift_bound_backwards_logic():
@@ -1450,7 +1473,7 @@ def test_prove_lshift_bound_backwards_logic():
         bresult,
         0 <= c_other,
         c_other <= LONG_BIT,
-        z3.And(
+        conclusion=z3.And(
             valid,
             z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
         ),
@@ -1468,7 +1491,7 @@ def test_prove_rshift_bound_backwards_logic():
         bresult,
         0 <= c_other,
         c_other < LONG_BIT,
-        z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
+        conclusion=z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
     )
 
 
@@ -1486,7 +1509,7 @@ def test_prove_mul_bound_logic():
     b1.prove_implies(
         b2,
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
-        z3.And(min1 <= result, result <= max1, no_ovf),
+        conclusion=z3.And(min1 <= result, result <= max1, no_ovf),
     )
 
 @z3_with_reduced_bitwidth(8)
@@ -1501,7 +1524,7 @@ def test_prove_mul_bound_cannot_overflow_logic():
     b1.prove_implies(
         b2,
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
-        no_ovf_result,
+        conclusion=no_ovf_result,
     )
 
 @z3_with_reduced_bitwidth(12)
@@ -1515,7 +1538,7 @@ def test_prove_square_bound_no_overflow_logic():
     lower = z3.If(same_sign(b1.lower, b1.upper), lower, BitVecVal(0))
     b1.prove_implies(
         no_ovf_result,
-        z3.And(
+        conclusion=z3.And(
             lower <= result,
             result <= upper))
 
@@ -1532,7 +1555,7 @@ def test_prove_mod_bound_logic():
     b1.prove_implies(
         b2,
         nonzero,
-        z3.And(result <= z3_max(b2.upper - 1, 0), z3_min(b2.lower + 1, 0) <= result)
+        conclusion=z3.And(result <= z3_max(b2.upper - 1, 0), z3_min(b2.lower + 1, 0) <= result)
     )
 
 
@@ -1548,19 +1571,19 @@ def test_uint_cmp_equivalent_int_cmp_if_same_sign():
     y = BitVec('y')
     prove_implies(
         (x >= 0) == (y >= 0),
-        z3.ULT(x, y) == (x < y),
+        conclusion=z3.ULT(x, y) == (x < y),
     )
     prove_implies(
         (x >= 0) == (y >= 0),
-        z3.ULE(x, y) == (x <= y),
+        conclusion=z3.ULE(x, y) == (x <= y),
     )
     prove_implies(
         (x >= 0) == (y >= 0),
-        z3.UGT(x, y) == (x > y),
+        conclusion=z3.UGT(x, y) == (x > y),
     )
     prove_implies(
         (x >= 0) == (y >= 0),
-        z3.UGE(x, y) == (x >= y),
+        conclusion=z3.UGE(x, y) == (x >= y),
     )
 
 def test_prove_int_mul_1_lshift_rewrite():
@@ -1569,5 +1592,5 @@ def test_prove_int_mul_1_lshift_rewrite():
     prove_implies(
         0 <= y,
         y < LONG_BIT,
-        x * (1 << y) == x << y
+        conclusion=x * (1 << y) == x << y
     )
