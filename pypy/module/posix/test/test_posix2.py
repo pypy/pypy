@@ -819,10 +819,6 @@ class AppTestPosix:
             assert os.minor(12345) == self.expected_minor_12345
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
-            # NODEV is accepted and returned
-            assert os.major(-1) == -1
-            assert os.minor(-1) == -1
-            assert os.makedev(-1, -1) == -1
             # major()/minor() take any dev_t but makedev()
             # needs each part to fit in an unsigned int
             for x in -2, 2**64, -2**63-1:
@@ -833,6 +829,15 @@ class AppTestPosix:
                     os.makedev(x, 0)
                 with raises((ValueError, OverflowError)):
                     os.makedev(0, x)
+
+        @pytest.mark.skipif(sys.platform != 'linux',
+                            reason="major(NODEV) is not NODEV elsewhere")
+        def test_major_minor_nodev(self):
+            os = self.posix
+            NODEV = -1
+            assert os.major(NODEV) == NODEV
+            assert os.minor(NODEV) == NODEV
+            assert os.makedev(NODEV, NODEV) == NODEV
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
