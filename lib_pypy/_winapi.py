@@ -299,13 +299,85 @@ def _Z(input):
     if input is None:
         return _ffi.NULL
     if isinstance(input, str):
+        # like CPython's Py_UNICODE converter, which uses
+        # PyUnicode_AsWideCharString() with no length
+        if '\0' in input:
+            raise ValueError("embedded null character")
         return input
     raise TypeError("str or None expected, got %r" % (
         type(input).__name__,))
 
+def _getenvironment(env):
+    if not hasattr(env, 'keys'):
+        raise TypeError("environment must be dictionary or None")
+    items = []
+    for key, value in env.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise TypeError("environment can only contain strings")
+        if '\0' in key or '\0' in value:
+            raise ValueError("embedded null character")
+        # a leading '=' is allowed, it defines a hidden variable
+        if not key or '=' in key[1:]:
+            raise ValueError("illegal environment variable name")
+        sortkey = LCMapStringEx(LOCALE_NAME_INVARIANT, LCMAP_UPPERCASE, key)
+        items.append((sortkey, key, value))
+    # windows environments are case insensitive, so keys differing only by
+    # case must be folded into one.  sort() is stable, so an equal run is
+    # still in insertion order and the last one inserted wins
+    items.sort(key=lambda item: item[0])
+    envbuf = ""
+    for i in range(len(items)):
+        sortkey, key, value = items[i]
+        if i + 1 < len(items) and items[i + 1][0] == sortkey:
+            continue
+        envbuf += "%s=%s\0" % (key, value)
+    return envbuf
+
+def _get_attribute_list(startup_info, keepalive):
+    """Build the PROC_THREAD_ATTRIBUTE_LIST, or return NULL if there is none.
+
+    'keepalive' collects the buffers it points to, which must outlive the
+    CreateProcess() call.
+    """
+    attribute_list = getattr(startup_info, 'lpAttributeList', None)
+    if attribute_list is None:
+        return NULL
+    if not hasattr(attribute_list, 'keys'):
+        raise TypeError("lpAttributeList must be a mapping or None")
+    handle_list = attribute_list.get('handle_list')
+    count = 0
+    handles = None
+    if handle_list:
+        # an empty handle_list makes CreateProcess fail, so leave the
+        # attribute unset in that case
+        handles = _ffi.new("HANDLE[]", [_int2handle(h) for h in handle_list])
+        keepalive.append(handles)
+        count = 1
+
+    size = _ffi.new("SIZE_T *")
+    if (_kernel32.InitializeProcThreadAttributeList(NULL, count, 0, size) or
+            _kernel32.GetLastError() != ERROR_INSUFFICIENT_BUFFER):
+        RaiseFromWindowsErr(0)
+    buf = _ffi.new("char[]", size[0])
+    keepalive.append(buf)
+    attrs = _ffi.cast("void *", buf)
+    if not _kernel32.InitializeProcThreadAttributeList(attrs, count, 0, size):
+        RaiseFromWindowsErr(0)
+    if handles is not None:
+        if not _kernel32.UpdateProcThreadAttribute(
+                attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, handles,
+                _ffi.sizeof("HANDLE") * len(handle_list), NULL, NULL):
+            err = _kernel32.GetLastError()
+            _kernel32.DeleteProcThreadAttributeList(attrs)
+            RaiseFromWindowsErr(err)
+    return attrs
+
 def CreateProcess(name, command_line, process_attr, thread_attr,
                   inherit, flags, env, start_dir, startup_info):
-    si = _ffi.new("STARTUPINFO *")
+    keepalive = []
+    si_ex = _ffi.new("STARTUPINFOEX *")
+    si = si_ex.StartupInfo
+    si.cb = _ffi.sizeof("STARTUPINFO")
     if startup_info is not None:
         si.dwFlags = startup_info.dwFlags
         si.wShowWindow = startup_info.wShowWindow
@@ -317,24 +389,30 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
             si.hStdOutput = _int2handle(startup_info.hStdOutput)
         if startup_info.hStdError:
             si.hStdError = _int2handle(startup_info.hStdError)
+        si_ex.lpAttributeList = _get_attribute_list(startup_info, keepalive)
+        if si_ex.lpAttributeList:
+            si.cb = _ffi.sizeof("STARTUPINFOEX")
+            flags |= EXTENDED_STARTUPINFO_PRESENT
 
     pi = _ffi.new("PROCESS_INFORMATION *")
     flags |= CREATE_UNICODE_ENVIRONMENT
 
     if env is not None:
-        envbuf = ""
-        for k, v in env.items():
-            envbuf += "%s=%s\0" % (k, v)
-        envbuf += '\0'
+        envbuf = _getenvironment(env) + '\0'
     else:
         envbuf = _ffi.NULL
 
     res = _kernel32.CreateProcessW(_Z(name), _Z(command_line), _ffi.NULL,
                                    _ffi.NULL, inherit, flags, envbuf,
-                                   _Z(start_dir), si, pi)
-
-    if not res:
-        raise_WinError()
+                                   _Z(start_dir),
+                                   _ffi.cast("LPSTARTUPINFO", si_ex), pi)
+    # read the error before the cleanup below can overwrite it
+    winerror = None if res else _ffi.getwinerror()
+    if si_ex.lpAttributeList:
+        _kernel32.DeleteProcThreadAttributeList(si_ex.lpAttributeList)
+    if winerror is not None:
+        code, message = winerror
+        raise WindowsError(None, message, None, code)
 
     return (_handle2int(pi.hProcess),
             _handle2int(pi.hThread),
@@ -618,6 +696,8 @@ DETACHED_PROCESS        = 0x00000008
 CREATE_NEW_CONSOLE         = 0x010
 CREATE_NEW_PROCESS_GROUP   = 0x200
 CREATE_UNICODE_ENVIRONMENT = 0x400
+EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+PROC_THREAD_ATTRIBUTE_HANDLE_LIST = 0x00020002
 STILL_ACTIVE = 259
 _MAX_PATH = 260
 INFINITE = 0xFFFFFFFF
@@ -635,6 +715,7 @@ LCMAP_SORTHANDLE = 0x20000000
 
 ERROR_SUCCESS           = 0
 ERROR_INVALID_HANDLE    = 6
+ERROR_INSUFFICIENT_BUFFER = 122
 ERROR_NETNAME_DELETED   = 64
 ERROR_BROKEN_PIPE       = 109
 ERROR_SEM_TIMEOUT       = 121
