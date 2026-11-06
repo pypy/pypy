@@ -46,6 +46,10 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
     return rutf8.codepoint_at_pos(utf8, p)
 
 
+def _ascii_islinebreak(ch):
+    # \n \x0b \x0c \r \x1c \x1d \x1e
+    return '\n' <= ch <= '\r' or '\x1c' <= ch <= '\x1e'
+
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_utf8', '_length']
@@ -669,8 +673,17 @@ class W_UnicodeObject(W_Root):
         while pos < length:
             sol = pos
             lgt = 0
-            while pos < length and not self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
-                pos = rutf8.next_codepoint_pos(value, pos)
+            while pos < length:
+                ch = value[pos]
+                if ch < '\x80':
+                    # ASCII: no need to decode
+                    if _ascii_islinebreak(ch):
+                        break
+                    pos += 1
+                else:
+                    if self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
+                        break
+                    pos = rutf8.next_codepoint_pos(value, pos)
                 lgt += 1
             eol = pos
             if pos < length:
