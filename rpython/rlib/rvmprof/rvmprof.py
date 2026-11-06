@@ -41,18 +41,24 @@ class VMProf(object):
     NOTE: the API of this class should be kept in sync with dummy.DummyVMProf
     """
 
-    _immutable_fields_ = ['is_enabled?']
+    _immutable_fields_ = ['is_enabled?', 'stack_only']
 
     use_weaklist = True # False for tests
 
     @not_rpython
-    def __init__(self):
-        "use _get_vmprof()"
+    def __init__(self, stack_only=False):
+        """use _get_vmprof().  With stack_only, only the shadow stack and
+        code registration are set up and enable() refuses to run, which is
+        all faulthandler needs on a platform without the profiler."""
         self._code_classes = set()
         self._gather_all_code_objs = lambda: None
         self._cleanup_()
         self._code_unique_id = 4
-        self.cintf = cintf.setup()
+        self.stack_only = stack_only
+        if stack_only:
+            self.cintf = cintf.setup_stack()
+        else:
+            self.cintf = cintf.setup()
 
     def _cleanup_(self):
         self.is_enabled = False
@@ -136,6 +142,9 @@ class VMProf(object):
         seconds, as a float which must be smaller than 1.0.
         Raises VMProfError if something goes wrong.
         """
+        if self.stack_only:
+            raise VMProfError(
+                "vmprof sampling is not supported on this platform")
         assert fileno >= 0
         if self.is_enabled:
             raise VMProfError("vmprof is already enabled")
@@ -224,10 +233,10 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
         leave_code = cintf.leave_code
 
     def decorate(func):
-        try:
-            _get_vmprof()
-        except cintf.VMProfPlatformUnsupported:
+        if not cintf.STACK_SUPPORTED:
+            # no shadow stack to push onto
             return func
+        _get_vmprof()
 
         @jit.oopspec("rvmprof.jitted(unique_id)")
         def decorated_jitted_function(unique_id, *args):
@@ -275,5 +284,10 @@ def _get_vmprof():
         try:
             _vmprof_instance = VMProf()
         except cintf.VMProfPlatformUnsupported:
-            _vmprof_instance = DummyVMProf()
+            # the profiler is out, but the shadow stack may still work, and
+            # faulthandler needs the code registration that comes with it
+            try:
+                _vmprof_instance = VMProf(stack_only=True)
+            except cintf.VMProfPlatformUnsupported:
+                _vmprof_instance = DummyVMProf()
     return _vmprof_instance
