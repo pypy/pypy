@@ -66,6 +66,11 @@ typedef struct {
     HANDLE hStdError;
 } STARTUPINFO, *LPSTARTUPINFO;
 
+typedef struct {
+    STARTUPINFO StartupInfo;
+    void *lpAttributeList;
+} STARTUPINFOEX, *LPSTARTUPINFOEX;
+
 typedef struct _SECURITY_ATTRIBUTES {
     DWORD nLength;
     LPVOID lpSecurityDescriptor;
@@ -146,6 +151,10 @@ BOOL WINAPI CreateProcessA(char *, char *, void *,
 BOOL WINAPI CreateProcessW(wchar_t *, wchar_t *, void *,
                            void *, BOOL, DWORD, wchar_t *,
                            wchar_t *, LPSTARTUPINFO, LPPROCESS_INFORMATION);
+BOOL WINAPI InitializeProcThreadAttributeList(void *, DWORD, DWORD, SIZE_T *);
+BOOL WINAPI UpdateProcThreadAttribute(void *, DWORD, size_t, PVOID, SIZE_T,
+                                      PVOID, SIZE_T *);
+VOID WINAPI DeleteProcThreadAttributeList(void *);
 DWORD WINAPI WaitForSingleObject(HANDLE, DWORD);
 DWORD WaitForMultipleObjects(DWORD, HANDLE*, BOOL, DWORD);
 BOOL WINAPI GetExitCodeProcess(HANDLE, LPDWORD);
