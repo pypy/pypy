@@ -375,7 +375,8 @@ class PyFrame(W_Root):
         got_exception = True
         w_exitvalue = self.space.w_None
         try:
-            executioncontext.call_trace(self)
+            if executioncontext.wants_call_trace():
+                executioncontext.call_trace(self)
             if should_fire_local_any(self.space, self.getcode(), FRAME_ENTRY_EVENTS):
                 self._monitor_frame_entry(w_arg_or_err)
             #
@@ -399,7 +400,8 @@ class PyFrame(W_Root):
             except Exception as e:      # general fall-back
                 raise self._convert_unexpected_exception(e)
             finally:
-                executioncontext.return_trace(self, w_exitvalue)
+                if executioncontext.wants_return_trace():
+                    executioncontext.return_trace(self, w_exitvalue)
             got_exception = False
         finally:
             executioncontext.leave(self, w_exitvalue, got_exception)

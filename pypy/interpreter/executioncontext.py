@@ -88,7 +88,19 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
+    @objectmodel.always_inline
     def leave(self, frame, w_exitvalue, got_exception):
+        # the common case is no profiling and a frame that never escaped, so
+        # only the pop is inlined into every frame exit
+        if (self.profilefunc is not None or frame.escaped or got_exception
+                or self.space.reverse_debugging):
+            self._leave_slow(frame, w_exitvalue, got_exception)
+        else:
+            frame_vref = self.topframeref
+            self.topframeref = frame.f_backref
+            jit.virtual_ref_finish(frame_vref, frame)
+
+    def _leave_slow(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
                 self._trace(frame, 'leaveframe', w_exitvalue)
@@ -142,16 +154,27 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_exception', w_exc)
 
+    @objectmodel.always_inline
+    def wants_call_trace(self):
+        """True if call_trace() would do anything.  Inlined so that a frame
+        entry only pays two loads and a branch for the common case"""
+        return self.gettrace() is not None or self.profilefunc is not None
+
     def call_trace(self, frame):
         "Trace the call of a function"
-        if self.gettrace() is not None or self.profilefunc is not None:
+        if self.wants_call_trace():
             self._trace(frame, 'call', self.space.w_None)
             if self.profilefunc:
                 frame.getorcreatedebug().is_being_profiled = True
 
+    @objectmodel.always_inline
+    def wants_return_trace(self):
+        "True if return_trace() would do anything.  Inlined, see above"
+        return self.gettrace() is not None
+
     def return_trace(self, frame, w_retval):
         "Trace the return from a function"
-        if self.gettrace() is not None:
+        if self.wants_return_trace():
             self._trace(frame, 'return', w_retval)
 
     @objectmodel.always_inline
