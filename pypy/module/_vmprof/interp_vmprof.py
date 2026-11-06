@@ -1,41 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib import rvmprof, jit
+from rpython.rlib import rvmprof
 from pypy.interpreter.error import oefmt
 
-# ____________________________________________________________
-
-
-_get_code = lambda frame, w_inputvalue, operr: frame.pycode
-_decorator = rvmprof.vmprof_execute_code("pypy", _get_code, W_Root)
-my_execute_frame = _decorator(PyFrame.execute_frame)
-
-# All call sites pass exactly (w_inputvalue, operr), using None for the
-# omitted ones, so this can be bound as PyFrame.execute_frame directly.
-PyFrame.execute_frame = my_execute_frame
-
-
-def _safe(s):
-    if len(s) > 110:
-        s = s[:107] + '...'
-    return s.replace(':', ';')
-
-def _get_full_name(pycode):
-    # careful, must not have extraneous ':' or be longer than 255 chars
-    return "py:%s:%d:%s" % (_safe(pycode.co_name), pycode.co_firstlineno,
-                            _safe(pycode.co_filename))
-
-rvmprof.register_code_object_class(PyCode, _get_full_name)
-
-
-def _init_ready(pycode):
-    rvmprof.register_code(pycode, _get_full_name)
-
-PyCode._init_ready = _init_ready
-
+# the execute_frame wrapper and the PyCode registration are set up in
+# pypy/interpreter/pyframe.py, so that they exist without this module
 
 # ____________________________________________________________
 
