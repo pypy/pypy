@@ -46,6 +46,15 @@ stuff = "nothing"
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
 
+    def test_encoding_crlf(self):
+        # the cookie is on the second line, and the first one is empty
+        info = pyparse.CompileInfo("<test>", "exec")
+        self.parse('\r\n# coding: latin-1\r\nstuff = "nothing"\r\n', info=info)
+        assert info.encoding == "iso-8859-1"
+        info = pyparse.CompileInfo("<test>", "exec")
+        self.parse('# coding: latin-1\r\nstuff = "nothing"\r\n', info=info)
+        assert info.encoding == "iso-8859-1"
+
     def test_with_and_as(self):
         pytest.raises(SyntaxError, self.parse, "with = 23")
         pytest.raises(SyntaxError, self.parse, "as = 2")
