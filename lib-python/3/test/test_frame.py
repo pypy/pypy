@@ -390,6 +390,7 @@ class TestIncompleteFrameAreInvisible(unittest.TestCase):
         with support.catch_unraisable_exception() as catcher:
             # Call from C, so there is a shim frame directly above f:
             weak = operator.call(f)  # BOOM!
+            support.gc_collect()  # PyPy change
             # Cool, we didn't crash. Check that the callback actually happened:
             self.assertIs(catcher.unraisable.exc_type, TypeError)
         self.assertIsNone(weak())
