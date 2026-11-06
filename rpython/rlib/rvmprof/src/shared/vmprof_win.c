@@ -1,5 +1,13 @@
 #include "vmprof_win.h"
 
+#ifdef RPYTHON_VMPROF
+#ifndef RPYTHON_LL2CTYPES
+#  include "common_header.h"
+#  include "structdef.h"
+#  include "src/threadlocal.h"
+#endif
+#endif
+
 #ifndef RPYTHON_VMPROF
   #if PY_VERSION_HEX >= 0x030b00f0 /* >= 3.11 */
   #include "populate_frames.h"
