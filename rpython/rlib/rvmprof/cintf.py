@@ -125,6 +125,17 @@ def _build_eci():
                         **eci_kwds))
     return eci
 
+_cached_eci = []
+
+def get_eci():
+    """Also used by the faulthandler module: faulthandler.c calls
+    vmprof_get_traceback(), so it needs vmprof_common.c linked in even in a
+    build where the _vmprof module is disabled.
+    """
+    if not _cached_eci:
+        _cached_eci.append(_build_eci())
+    return _cached_eci[0]
+
 
 def setup_stack():
     """The shadow stack half of vmprof: what faulthandler needs to walk
@@ -134,7 +145,7 @@ def setup_stack():
     if not STACK_SUPPORTED:
         raise VMProfPlatformUnsupported
 
-    eci = _build_eci()
+    eci = get_eci()
 
     vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
                                   [PVMPROFSTACK, llmemory.Address,
@@ -163,7 +174,7 @@ def setup():
     if not IS_SUPPORTED:
         raise VMProfPlatformUnsupported
 
-    eci = _build_eci()
+    eci = get_eci()
 
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,

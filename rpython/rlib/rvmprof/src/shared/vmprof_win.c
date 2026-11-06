@@ -1,5 +1,5 @@
-#include "vmprof_win.h"
-
+/* before vmprof_win.h: common_header.h brings in WinSock2.h, which has to
+   come before the windows.h that vmprof_win.h includes */
 #ifdef RPYTHON_VMPROF
 #ifndef RPYTHON_LL2CTYPES
 #  include "common_header.h"
@@ -7,6 +7,8 @@
 #  include "src/threadlocal.h"
 #endif
 #endif
+
+#include "vmprof_win.h"
 
 #ifndef RPYTHON_VMPROF
   #if PY_VERSION_HEX >= 0x030b00f0 /* >= 3.11 */
