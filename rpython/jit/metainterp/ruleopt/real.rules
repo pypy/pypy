@@ -273,8 +273,101 @@ ne_same: int_ne(x, x)
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
 
-#lt_self: int_lt(x, x)
-#    => 0
+lt_known_true: int_lt(x, y)
+    check x.known_lt(y)
+    => 1
+
+lt_known_false: int_lt(x, y)
+    check x.known_ge(y)
+    => 0
+
+lt_same: int_lt(x, x)
+    => 0
+
+le_known_true: int_le(x, y)
+    check x.known_le(y)
+    => 1
+
+le_known_false: int_le(x, y)
+    check x.known_gt(y)
+    => 0
+
+le_same: int_le(x, x)
+    => 1
+
+gt_known_true: int_gt(x, y)
+    check x.known_gt(y)
+    => 1
+
+gt_known_false: int_gt(x, y)
+    check x.known_le(y)
+    => 0
+
+gt_same: int_gt(x, x)
+    => 0
+
+ge_known_true: int_ge(x, y)
+    check x.known_ge(y)
+    => 1
+
+ge_known_false: int_ge(x, y)
+    check x.known_lt(y)
+    => 0
+
+ge_same: int_ge(x, x)
+    => 1
+
+ult_known_true: uint_lt(x, y)
+    SORRY_Z3
+    check x.known_unsigned_lt(y)
+    => 1
+
+ult_known_false: uint_lt(x, y)
+    SORRY_Z3
+    check x.known_unsigned_ge(y)
+    => 0
+
+ult_same: uint_lt(x, x)
+    => 0
+
+ule_known_true: uint_le(x, y)
+    SORRY_Z3
+    check x.known_unsigned_le(y)
+    => 1
+
+ule_known_false: uint_le(x, y)
+    SORRY_Z3
+    check x.known_unsigned_gt(y)
+    => 0
+
+ule_same: uint_le(x, x)
+    => 1
+
+ugt_known_true: uint_gt(x, y)
+    SORRY_Z3
+    check x.known_unsigned_gt(y)
+    => 1
+
+ugt_known_false: uint_gt(x, y)
+    SORRY_Z3
+    check x.known_unsigned_le(y)
+    => 0
+
+ugt_same: uint_gt(x, x)
+    => 0
+
+uge_known_true: uint_ge(x, y)
+    SORRY_Z3
+    check x.known_unsigned_ge(y)
+    => 1
+
+uge_known_false: uint_ge(x, y)
+    SORRY_Z3
+    check x.known_unsigned_lt(y)
+    => 0
+
+uge_same: uint_ge(x, x)
+    => 1
 
 
 is_true_bool: int_is_true(x)
