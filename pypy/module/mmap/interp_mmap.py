@@ -351,10 +351,17 @@ if rmmap._POSIX:
 
 elif rmmap._MS_WINDOWS:
 
-    @unwrap_spec(fileno=int, length=int, tagname='text',
-                 access=int, offset=OFF_T)
-    def mmap(space, w_subtype, fileno, length, tagname="",
+    @unwrap_spec(fileno=int, length=int, access=int, offset=OFF_T)
+    def mmap(space, w_subtype, fileno, length, w_tagname=None,
              access=rmmap._ACCESS_DEFAULT, offset=0):
+        if w_tagname is None or space.is_none(w_tagname):
+            tagname = ""
+        elif space.isinstance_w(w_tagname, space.w_unicode):
+            tagname = space.text_w(w_tagname)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "mmap() argument 'tagname' must be str or None, "
+                        "not %T", w_tagname)
         space.audit("mmap.__new__", [
             space.newint(fileno), space.newint(length), 
             space.newint(access), space.newint(offset)])
