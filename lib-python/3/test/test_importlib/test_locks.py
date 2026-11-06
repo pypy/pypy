@@ -141,9 +141,18 @@ class LifetimeTests:
         self.assertIsNone(wr())
 
     def test_all_locks(self):
-        support.gc_collect()
+        # PYPY: module locks left over from earlier tests are only dropped
+        # when the weakref callback in _get_module_lock runs, and on PyPy
+        # that callback fires one collection after the lock itself is
+        # freed.  A chain of such objects therefore needs more than the
+        # three collections support.gc_collect() does, so keep collecting
+        # until the dict stops shrinking.
+        for _ in range(10):
+            support.gc_collect()
+            if not self.bootstrap._module_locks:
+                break
         self.assertEqual(0, len(self.bootstrap._module_locks),
-                         self.bootstrap._module_locks)
+                         dict(self.bootstrap._module_locks))
 
 
 (Frozen_LifetimeTests,
