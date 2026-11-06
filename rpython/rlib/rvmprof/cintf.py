@@ -147,6 +147,15 @@ def setup_stack():
                                            "vmprof_register_virtual_function",
                                            [rffi.CCHARP, rffi.LONG, rffi.INT],
                                            rffi.INT, compilation_info=eci)
+    # _continuation calls rvmprof.start_sampling()/stop_sampling() around a
+    # stacklet switch, and rvmprof.save_stack() does too.  Both only toggle
+    # a flag and read a fileno, which is harmless without a sampler
+    vmprof_stop_sampling = rffi.llexternal("vmprof_stop_sampling", [],
+                                           rffi.INT_real, compilation_info=eci,
+                                           _nowrapper=True)
+    vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
+                                            lltype.Void, compilation_info=eci,
+                                            _nowrapper=True)
     return CInterface(locals())
 
 
