@@ -134,8 +134,6 @@ def _get_console_type(handle):
 
 def _pyio_get_console_type(space, w_path_or_fd):
 
-    # XXX 2021-01-10 Disable WinConsoleIO (again) it is flaky. Some interaction
-    # with pytest in running numpy's tests makes the handle invalid.
     # TODO: refactor the w_path_or_fd handling to be more like interp_posix
     #       and use the path_or_fd() unwrap_spec all through the _io module
     #       Then this will recieve a already-processed Path object
