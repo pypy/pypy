@@ -1863,24 +1863,9 @@ def decode_long(space, data):
             signed=True)
 
 
-@unwrap_spec(fix_imports=int, w_file=WrappedDefault(None))
-def descr__new__(space, w_subtype, w_file=None, w_protocol=None, fix_imports=1, w_buffer_callback=None):
+def descr__new__(space, w_subtype, __args__):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
-    if w_file is None or space.is_none(w_file):
-        # Subclass calling __new__ without args - leave uninitialized
-        W_Pickler.__init__(w_self, space, None, HIGHEST_PROTOCOL, fix_imports, None)
-        return w_self
-    if space.is_none(w_protocol):
-        protocol = DEFAULT_PROTOCOL
-    else:
-        protocol = space.int_w(w_protocol)
-    if protocol < 0:
-        protocol = HIGHEST_PROTOCOL
-    elif not 0 <= protocol <= HIGHEST_PROTOCOL:
-        raise oefmt(space.w_ValueError, "pickle protocol must be <= %d", HIGHEST_PROTOCOL)
-    if not space.is_none(w_buffer_callback) and protocol < 5:
-        raise oefmt(space.w_ValueError, "buffer_callback needs protocol >= 5")
-    W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
+    W_Pickler.__init__(w_self, space, None, HIGHEST_PROTOCOL, 1, None)
     return w_self
 
 @unwrap_spec(fix_imports=int, w_file=WrappedDefault(None))

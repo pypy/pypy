@@ -1114,3 +1114,40 @@ def test_setstate_None_is_called_and_fails():
         pytest.raises((AttributeError, TypeError), loads, pickled)
     finally:
         del sys.modules['_setstatemod']
+
+
+def test_subclass_with_extra_constructor_argument():
+    # Pickler.__new__ must ignore its arguments like CPython's Pickler_new(),
+    # so that a subclass can add constructor arguments of its own.
+    class MyPickler(Pickler):
+        def __init__(self, file, extra):
+            super().__init__(file)
+            self.extra = extra
+
+    class MyUnpickler(Unpickler):
+        def __init__(self, file, extra):
+            super().__init__(file)
+            self.extra = extra
+
+    marker = object()
+    f = io.BytesIO()
+    p = MyPickler(f, marker)
+    assert p.extra is marker
+    p.dump([1, 2, 3])
+    f.seek(0)
+    u = MyUnpickler(f, marker)
+    assert u.extra is marker
+    assert u.load() == [1, 2, 3]
+
+
+def test_subclass_without_calling_init():
+    class MyPickler(Pickler):
+        def __init__(self):
+            pass
+
+    class MyUnpickler(Unpickler):
+        def __init__(self):
+            pass
+
+    pytest.raises(PicklingError, MyPickler().dump, [1, 2, 3])
+    pytest.raises(UnpicklingError, MyUnpickler().load)
