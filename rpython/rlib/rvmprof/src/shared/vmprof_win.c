@@ -321,5 +321,12 @@ void vmp_native_disable(void)
 int get_stack_trace(PY_WIN_THREAD_STATE * current, void** result,
                     int max_depth, intptr_t pc)
 {
+#ifdef RPYTHON_VMPROF
+    if (current == NULL) {
+        return 0;
+    }
+    return vmp_walk_and_record_stack(current, result, max_depth, 1, pc);
+#else
     return 0;
+#endif
 }

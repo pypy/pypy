@@ -19,10 +19,15 @@ from rpython.jit.backend import detect_cpu
 class VMProfPlatformUnsupported(Exception):
     pass
 
-# vmprof works only on x86 for now
+# the sampling profiler works only on x86, aarch64 and riscv64 for now
 IS_SUPPORTED = False
+# the shadow stack and vmprof_get_traceback() need neither signals nor native
+# unwinding, so they are available where the profiler is not.  faulthandler
+# only needs these
+STACK_SUPPORTED = False
 NATIVE_PROFILING_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
+    STACK_SUPPORTED = True
     try:
         proc = detect_cpu.autodetect()
         IS_SUPPORTED = (proc.startswith('x86')
@@ -31,6 +36,8 @@ if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('fre
         NATIVE_PROFILING_SUPPORTED = proc.startswith('x86')
     except detect_cpu.ProcessorAutodetectError:
         print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
+elif sys.platform == 'win32':
+    STACK_SUPPORTED = True
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
@@ -108,10 +115,7 @@ def configure_libbacktrace_linux():
     config = BACKTRACE.join('config.h')
     shutil.copy(str(BACKTRACE.join(specific_config)), str(config))
 
-def setup():
-    if not IS_SUPPORTED:
-        raise VMProfPlatformUnsupported
-
+def _build_eci():
     if sys.platform.startswith('linux'):
         configure_libbacktrace_linux()
 
@@ -119,6 +123,38 @@ def setup():
     eci_kwds['compile_extra'].append('-DRPYTHON_LL2CTYPES')
     platform.verify_eci(ExternalCompilationInfo(
                         **eci_kwds))
+    return eci
+
+
+def setup_stack():
+    """The shadow stack half of vmprof: what faulthandler needs to walk
+    python frames, without the sampling profiler.  Raises
+    VMProfPlatformUnsupported where even that does not build.
+    """
+    if not STACK_SUPPORTED:
+        raise VMProfPlatformUnsupported
+
+    eci = _build_eci()
+
+    vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
+                                  [PVMPROFSTACK, llmemory.Address,
+                                   rffi.VOIDPP, lltype.Signed],
+                                  lltype.Signed, compilation_info=eci,
+                                  _nowrapper=True)
+    # reachable through VMProf.register_code() even though a stack-only
+    # VMProf never enables itself, so it has to link
+    vmprof_register_virtual_function = rffi.llexternal(
+                                           "vmprof_register_virtual_function",
+                                           [rffi.CCHARP, rffi.LONG, rffi.INT],
+                                           rffi.INT, compilation_info=eci)
+    return CInterface(locals())
+
+
+def setup():
+    if not IS_SUPPORTED:
+        raise VMProfPlatformUnsupported
+
+    eci = _build_eci()
 
     vmprof_init = rffi.llexternal("vmprof_init",
                                   [rffi.INT, rffi.DOUBLE, rffi.INT, rffi.INT,
