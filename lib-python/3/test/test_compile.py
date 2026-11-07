@@ -1467,7 +1467,8 @@ class TestSourcePositions(unittest.TestCase):
         #  The "error msg":
         self.assertOpcodeSourcePositionIs(compiled_code, 'LOAD_CONST',
             line=3, end_line=3, column=19, end_column=30, occurrence=4)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'CALL',
+        call = 'CALL_FUNCTION' if sys.implementation.name == 'pypy' else 'CALL'  #PYPY CHANGE
+        self.assertOpcodeSourcePositionIs(compiled_code, call,
             line=1, end_line=3, column=0, end_column=30, occurrence=1)
         self.assertOpcodeSourcePositionIs(compiled_code, 'RAISE_VARARGS',
             line=1, end_line=3, column=8, end_column=16, occurrence=1)
@@ -1486,7 +1487,11 @@ class TestSourcePositions(unittest.TestCase):
         self.assertIsInstance(compiled_code, types.CodeType)
         self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
-        self.assertOpcodeSourcePositionIs(compiled_code, 'JUMP_BACKWARD',
+        if sys.implementation.name == 'pypy':  #PYPY CHANGE
+            jump_opname = 'JUMP_ABSOLUTE'
+        else:
+            jump_opname = 'JUMP_BACKWARD'
+        self.assertOpcodeSourcePositionIs(compiled_code, jump_opname,
             line=1, end_line=2, column=1, end_column=8, occurrence=1)
         self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
             line=4, end_line=4, column=7, end_column=14, occurrence=1)
@@ -1503,8 +1508,11 @@ class TestSourcePositions(unittest.TestCase):
         compiled_code, _ = self.check_positions_against_ast(snippet)
         compiled_code = compiled_code.co_consts[0]
         self.assertIsInstance(compiled_code, types.CodeType)
+        # PyPy awaits __anext__ with YIELD_FROM, not SEND/YIELD_VALUE, so the
+        # element yield is the first YIELD_VALUE
+        occurrence = 1 if sys.implementation.name == 'pypy' else 2  #PYPY CHANGE
         self.assertOpcodeSourcePositionIs(compiled_code, 'YIELD_VALUE',
-            line=1, end_line=2, column=1, end_column=8, occurrence=2)
+            line=1, end_line=2, column=1, end_column=8, occurrence=occurrence)
         self.assertOpcodeSourcePositionIs(compiled_code, 'RETURN_CONST',
             line=1, end_line=6, column=0, end_column=32, occurrence=1)
 
@@ -1858,19 +1866,15 @@ class TestSourcePositions(unittest.TestCase):
     def test_method_call(self):
         source = "(\n lhs  \n   .    \n     rhs      \n       )()"
         code = compile(source, "<test>", "exec")
-        if sys.implementation.name == 'pypy':
-            # PyPy uses LOAD_METHOD/CALL_METHOD and assigns CALL_METHOD the
-            # position of the attribute access, not the full call span.
-            load_opcode = 'LOAD_METHOD'
-            call_opcode, call_end_line, call_end_col = 'CALL_METHOD', 4, 8
+        if sys.implementation.name == 'pypy':  #PYPY CHANGE
+            load_opcode, call_opcode = 'LOAD_METHOD', 'CALL_METHOD'
         else:
-            load_opcode = 'LOAD_ATTR'
-            call_opcode, call_end_line, call_end_col = 'CALL', 5, 10
+            load_opcode, call_opcode = 'LOAD_ATTR', 'CALL'
         self.assertOpcodeSourcePositionIs(
             code, load_opcode, line=4, end_line=4, column=5, end_column=8
         )
         self.assertOpcodeSourcePositionIs(
-            code, call_opcode, line=4, end_line=call_end_line, column=5, end_column=call_end_col
+            code, call_opcode, line=4, end_line=5, column=5, end_column=10
         )
 
     def test_weird_attribute_position_regressions(self):
@@ -1974,7 +1978,11 @@ class TestSourcePositions(unittest.TestCase):
         return_value = [instr for instr in dis.get_instructions(f) if
                         instr.opname == 'RETURN_VALUE']
 
-        self.assertEqual(len(load_none), 3)
+        if sys.implementation.name == 'pypy':  #PYPY CHANGE
+            # PyPy loads None once and duplicates it twice
+            self.assertEqual(len(load_none), 1)
+        else:
+            self.assertEqual(len(load_none), 3)
         self.assertEqual(len(return_value), 1)
         for instr in load_none + return_value:
             start_line, end_line, start_col, end_col = instr.positions
