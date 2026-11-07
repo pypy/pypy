@@ -830,14 +830,18 @@ class AppTestPosix:
                 with raises((ValueError, OverflowError)):
                     os.makedev(0, x)
 
-        @pytest.mark.skipif(sys.platform != 'linux',
-                            reason="major(NODEV) is not NODEV elsewhere")
-        def test_major_minor_nodev(self):
+        # dev_t is 32 bits on macos
+        @pytest.mark.skipif("not sys.platform.startswith('linux')")
+        def test_major_minor_linux(self):
             os = self.posix
             NODEV = -1
             assert os.major(NODEV) == NODEV
             assert os.minor(NODEV) == NODEV
             assert os.makedev(NODEV, NODEV) == NODEV
+            big = os.makedev(2**13, 1)
+            assert big > 2**32
+            assert os.major(big) == 2**13
+            assert os.minor(big) == 1
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
