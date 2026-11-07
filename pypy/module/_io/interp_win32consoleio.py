@@ -140,9 +140,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    disable_winconsoleio = os.environ.get("PYPY_ENABLE_WINCONSOLEIO")
-    
-    if disable_winconsoleio is not None and disable_winconsoleio == "1":
+    if os.environ.get("PYPY_ENABLE_WINCONSOLEIO") == "0":
         return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
