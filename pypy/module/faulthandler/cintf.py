@@ -1,18 +1,30 @@
 import py
+import sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rvmprof import cintf as rvmprof_cintf
 
 
 cwd = py.path.local(__file__).dirpath()
 rvmp = cwd.join('../../..')
 rvmp = rvmp.join('rpython/rlib/rvmprof/src')
 
+compile_extra = ['-DRPYTHON_VMPROF']
+if sys.platform == 'win32':
+    compile_extra.append('-DVMPROF_WINDOWS')
+
 eci = ExternalCompilationInfo(
     includes=[cwd.join('faulthandler.h')],
     include_dirs=[str(cwd), cdir, rvmp],
     separate_module_files=[cwd.join('faulthandler.c')],
-    compile_extra=['-DRPYTHON_VMPROF=1'])
+    compile_extra=compile_extra)
+
+# faulthandler.c calls vmprof_get_traceback(); link the vmprof sources that
+# define it instead of relying on the _vmprof module being enabled, which it
+# is not e.g. under revdb
+if rvmprof_cintf.STACK_SUPPORTED:
+    eci = eci.merge(rvmprof_cintf.get_eci())
 
 eci_later = eci.merge(ExternalCompilationInfo(
     pre_include_bits=['#define PYPY_FAULTHANDLER_LATER\n']))
