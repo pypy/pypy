@@ -1213,11 +1213,14 @@ def setup_bootstrap_path(executable):
         sys.path[:] = stdlib_path
     # from this point on, we are free to use all the unicode stuff we want,
     sys.executable = executable
-    if sys.platform == 'win32':
+    if getattr(sys, '_base_executable', None):
+        # already set from pyvenv.cfg by pypy_find_stdlib
+        pass
+    elif sys.platform == 'win32':
         import os
         # someday PyPy will grow a PEP 397 launcher. Until then ...
         exe = executable.replace('\\', '/').rsplit('/', 1)[-1]
-        sys._base_executable = sys.base_prefix + '\\' + exe
+        sys._base_executable = getattr(sys, 'base_prefix', '') + '\\' + exe
         if not os.path.exists(sys._base_executable):
             # when building from source, like base/pypy/goal/pypy3-c.exe
             # sys.base_prefix will be 'base' and exe will be pypy3-c.exe

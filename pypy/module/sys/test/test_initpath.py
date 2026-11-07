@@ -4,6 +4,7 @@ import os.path
 import sys
 from pypy.module.sys.initpath import (compute_stdlib_path_sourcetree,
     find_executable, find_stdlib, resolvedirof, pypy_init_home, pypy_init_free,
+    parse_pyvenv_cfg, find_base_executable,
     find_pyvenv_cfg)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 from rpython.rtyper.lltypesystem import rffi
@@ -159,3 +160,31 @@ def test_find_stdlib_follow_pyvenv_cfg(tmpdir):
         mydir.join('pyvenv.cfg').write('home = %s\n' % (homedir,))
         _, prefix = find_stdlib(None, "lib", str(pypy))
         assert prefix == otherdir
+
+def test_parse_pyvenv_cfg(tmpdir):
+    subdir = tmpdir.join('parse_cfg').ensure(dir=True)
+    assert parse_pyvenv_cfg(str(subdir)) == ('', '')
+    subdir.join('pyvenv.cfg').write('home = xyx \nbase-executable = abc\n')
+    assert parse_pyvenv_cfg(str(subdir)) == ('xyx', 'abc')
+
+def test_find_base_executable(tmpdir):
+    mydir = tmpdir.join('find_base').ensure(dir=True)
+    otherdir = tmpdir.join('base_install').ensure(dir=True)
+    pypy = mydir.join('bin', 'pypy3').ensure(file=True)
+    assert find_base_executable(str(pypy)) == ''
+    # the venv copy has the same name as the base interpreter
+    base = otherdir.join('pypy3').ensure(file=True)
+    mydir.join('pyvenv.cfg').write('home = %s\n' % (otherdir,))
+    assert find_base_executable(str(pypy)) == str(base)
+    # a venv of a venv: 'home' holds no interpreter of that name
+    mydir.join('pyvenv.cfg').write('home = %s\n' % (tmpdir.join('nothing'),))
+    assert find_base_executable(str(pypy)) == ''
+    # virtualenv names the base interpreter explicitly, used only when
+    # 'home' holds nothing of the same name
+    other = otherdir.join('pypy3-c').ensure(file=True)
+    mydir.join('pyvenv.cfg').write('home = %s\nbase-executable = %s\n'
+                                   % (tmpdir.join('nothing'), other))
+    assert find_base_executable(str(pypy)) == str(other)
+    mydir.join('pyvenv.cfg').write('home = %s\nbase-executable = %s\n'
+                                   % (otherdir, other))
+    assert find_base_executable(str(pypy)) == str(base)
