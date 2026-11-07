@@ -145,8 +145,8 @@ def test_tee_instantiate():
     res = list(c)
     assert res == list('foobar')
 
-def test_tee_function_uses_copy():
-    # issue 5563: change returned values. Fails on CPython3.11
+def test_tee_function_ignores_copy():
+    # issue 5563: none of the results is the input
     class MyIterator(object):
         def __iter__(self):
             return self
@@ -160,7 +160,8 @@ def test_tee_function_uses_copy():
     a, b = tee(my)
     assert a is not my
     assert b is not my
-    assert list(b) == ['d', 'e', 'f']
+    with pytest.raises(NotImplementedError):
+        next(b)
 
 def test_zip_longest_exhausted_twice():
     # list() twice on a zip_longest whose first sub-iterator was
@@ -184,3 +185,26 @@ def test_islice_checks_args_before_iter():
         islice(NoneIter(), -1)
     with pytest.raises(ValueError):
         islice(NoneIter(), 0, 1, 0)
+
+def test_tee_calls_iter_on_iterator():
+    class Iterator:
+        def __iter__(self):
+            return None
+        def __next__(self):
+            raise StopIteration
+    class Iterable:
+        def __iter__(self):
+            return Iterator()
+    with pytest.raises(TypeError):
+        tee(Iterable())
+    with pytest.raises(TypeError):
+        tee(Iterable(), 1)
+    Iterator.__copy__ = lambda self: iter('x')
+    with pytest.raises(TypeError):
+        tee(Iterable())
+
+def test_tee_zero_does_not_call_iter():
+    class NoneIter:
+        def __iter__(self):
+            return None
+    assert tee(NoneIter(), 0) == ()
