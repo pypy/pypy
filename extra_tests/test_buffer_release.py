@@ -236,6 +236,14 @@ def test_pipe_transport_write_bytearray_then_resize():
 # alive either.
 
 
+def _run_selector(coro):
+    # these tests are about the data the socket could not take, which only
+    # the selector transport buffers: the win32 default proactor transport
+    # hands the whole write to an overlapped send instead
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        return runner.run(coro)
+
+
 def _transport_send(write):
     async def main():
         loop = asyncio.get_running_loop()
@@ -305,7 +313,7 @@ def test_transport_buffered_bytearray_then_resize():
 
     gc.disable()
     try:
-        assert asyncio.run(main()) == b"abcde"
+        assert _run_selector(main()) == b"abcde"
         assert view.tobytes() == b"abc"
         for item in data:
             item.clear()
@@ -344,7 +352,7 @@ def test_transport_partial_send_keeps_export():
             transport.close()
             return b"".join(received)
 
-    assert asyncio.run(main()) == b"x" * (4 * 1024 * 1024)
+    assert _run_selector(main()) == b"x" * (4 * 1024 * 1024)
     gc.collect()
     gc.collect()
     data.clear()
@@ -383,7 +391,7 @@ def test_transport_write_memoryview_then_release(writelines):
             transport.close()
             return received
 
-    assert asyncio.run(main()) == len(data)
+    assert _run_selector(main()) == len(data)
 
 
 def test_blob_slice_assignment_bytearray_then_resize():
