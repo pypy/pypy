@@ -689,6 +689,7 @@ class UserDelAction(AsyncAction):
         self.finalizers_lock_count = 0        # see pypy/module/gc
         self.enabled_at_app_level = True      # see pypy/module/gc
         self.pending_with_disabled_del = None
+        self.running_finalizers = 0           # see pypy/module/signal
 
     def perform(self, executioncontext, frame):
         self._run_finalizers()
@@ -697,11 +698,23 @@ class UserDelAction(AsyncAction):
     def _run_finalizers(self):
         # called by perform() when we have to "perform" this action,
         # and also directly at the end of gc.collect).
-        while True:
-            w_obj = self.space.finalizer_queue.next_dead()
-            if w_obj is None:
-                break
-            self._call_finalizer(w_obj)
+        # 'running_finalizers' is a nesting count, because an app-level
+        # __del__ or weakref callback can get us back in here
+        self.running_finalizers += 1
+        try:
+            while True:
+                w_obj = self.space.finalizer_queue.next_dead()
+                if w_obj is None:
+                    break
+                self._call_finalizer(w_obj)
+        finally:
+            self.running_finalizers -= 1
+            if self.running_finalizers == 0:
+                # an asynchronous exception was left pending because it
+                # cannot be raised inside a finalizer, deliver it now
+                ec = self.space.getexecutioncontext()
+                if ec.w_async_exception_type is not None:
+                    self.space.actionflag.rearm_ticker()
 
     def gc_disabled(self, w_obj):
         # If we're running in 'gc.disable()' mode, record w_obj in the
