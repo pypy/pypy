@@ -1364,7 +1364,8 @@ def makedev(space, major, minor):
     # like CPython, the parts are signed ints here, so makedev(-1, -1)
     # gives NODEV
     result = rposix.makedev(major, minor)
-    return space.newint(intmask(result))
+    # not intmask(): a dev_t needs a long on a 32 bit host
+    return space.newint(result)
 
 def major(space, w_device):
     return space.newint(rposix.major(_dev_w(space, w_device)))
