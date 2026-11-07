@@ -98,10 +98,12 @@ def parse_pyvenv_cfg(dirname):
             continue
         key = line[:i].strip()
         value = assert_str0(line[i+1:].strip())
-        if key == 'home':
+        if key == 'home' and not home:
             home = value
-        elif key == 'base-executable':
+        elif key == 'base-executable' and not base_executable:
             base_executable = value
+        if home and base_executable:
+            break
     return home, base_executable
 
 
@@ -127,7 +129,9 @@ def find_base_executable(executable):
     j = executable.rfind('/')
     if j > i:
         i = j
-    candidate = os.path.join(home, executable[i+1:])
+    i += 1
+    assert i >= 0     # rfind() returns -1 at worst
+    candidate = os.path.join(home, executable[i:])
     if os.path.isfile(candidate):
         return assert_str0(candidate)
     if base_executable and os.path.isfile(base_executable):
