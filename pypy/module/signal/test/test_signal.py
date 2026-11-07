@@ -34,6 +34,29 @@ class TestCheckSignals:
         space.getexecutioncontext().checksignals()
         assert space.is_true(w_received)
 
+    def test_async_exception_pending_while_running_finalizers(self):
+        from pypy.interpreter.error import OperationError
+        space = self.space
+        ec = space.getexecutioncontext()
+        action = space.check_signal_action
+        ec.w_async_exception_type = space.w_ValueError
+        try:
+            # inside a finalizer it must stay pending, raising it there
+            # would only get it reported as unraisable and lost
+            space.user_del_action.running_finalizers += 1
+            try:
+                action.perform(ec, None)
+            finally:
+                space.user_del_action.running_finalizers -= 1
+            assert ec.w_async_exception_type is space.w_ValueError
+            # outside of one it is delivered
+            with pytest.raises(OperationError) as excinfo:
+                action.perform(ec, None)
+            assert excinfo.value.match(space, space.w_ValueError)
+            assert ec.w_async_exception_type is None
+        finally:
+            ec.w_async_exception_type = None
+
 
 class AppTestSignal:
     spaceconfig = {
