@@ -12,6 +12,16 @@ def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
     suffixes_w.append(space.newtext(so_ext))
+    if space.config.objspace.usemodules.cpyext:
+        if importing._WIN32:
+            # CPython abi3 wheels ship a plain <name>.pyd, like CPython's own
+            # second suffix: a full-API extension has the same name, and is
+            # rejected by its import table when loaded (see cpyext/win_pe.py)
+            suffixes_w.append(space.newtext(importing.SO))
+        else:
+            # CPython abi3 wheels ship <name>.abi3.so; deliberately not a
+            # bare '.so', so full-API CPython extensions stay unfindable
+            suffixes_w.append(space.newtext('.abi3' + importing.SO))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
