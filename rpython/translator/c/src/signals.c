@@ -154,20 +154,38 @@ static void signal_setflag_handler(int signum)
         int res;
 #endif
         int old_errno = errno;
+        int err, wouldblock, interrupted;
         unsigned char byte = (unsigned char)signum;
         if (wakeup_send_flags & PYPYSIG_WITH_NUL_BYTE)
             byte = 0;
      retry:
-        if (wakeup_send_flags & PYPYSIG_USE_SEND)
+        if (wakeup_send_flags & PYPYSIG_USE_SEND) {
             res = send(wakeup_fd, &byte, 1, 0);
-        else
+            /* send() does not set errno on windows, and its error codes are
+               the WSA* ones, which pypysig_get_wakeup_fd_write_errno() tells
+               apart from an errno by being >= WSABASEERR */
+#ifdef _WIN32
+            err = (res < 0) ? WSAGetLastError() : 0;
+            wouldblock = (err == WSAEWOULDBLOCK);
+            interrupted = (err == WSAEINTR);
+#else
+            err = (res < 0) ? errno : 0;
+            wouldblock = (err == EAGAIN);
+            interrupted = (err == EINTR);
+#endif
+        }
+        else {
             res = write(wakeup_fd, &byte, 1);
+            err = (res < 0) ? errno : 0;
+            wouldblock = (err == EAGAIN);
+            interrupted = (err == EINTR);
+        }
         if (res < 0 && ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
-                        errno != EAGAIN)) {
-            if (errno == EINTR)
+                        !wouldblock)) {
+            if (interrupted)
                 goto retry;
-            /* Store errno for reporting at the next Python checkpoint */
-            pypysig_wakeup_fd_write_errno = errno;
+            /* Store it for reporting at the next Python checkpoint */
+            pypysig_wakeup_fd_write_errno = err;
         }
         errno = old_errno;
     }
