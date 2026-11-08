@@ -667,40 +667,7 @@ class W_UnicodeObject(W_Root):
     @unwrap_spec(keepends=bool)
     def descr_splitlines(self, space, keepends=False):
         value = self._utf8
-        length = len(value)
-        strs_w = []
-        pos = 0
-        while pos < length:
-            sol = pos
-            lgt = 0
-            while pos < length:
-                ch = value[pos]
-                if ch < '\x80':
-                    # ASCII: no need to decode
-                    if _ascii_islinebreak(ch):
-                        break
-                    pos += 1
-                else:
-                    if self._islinebreak(rutf8.codepoint_at_pos(value, pos)):
-                        break
-                    pos = rutf8.next_codepoint_pos(value, pos)
-                lgt += 1
-            eol = pos
-            if pos < length:
-                # read CRLF as one line break
-                if (value[pos] == '\r' and pos + 1 < length
-                                       and value[pos + 1] == '\n'):
-                    pos += 2
-                    line_end_chars = 2
-                else:
-                    pos = rutf8.next_codepoint_pos(value, pos)
-                    line_end_chars = 1
-                if keepends:
-                    eol = pos
-                    lgt += line_end_chars
-            assert eol >= 0
-            assert sol >= 0
-            strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+        strs_w = unicode_splitlines(value, keepends)
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
@@ -1930,6 +1897,43 @@ W_UnicodeObject.typedef = TypeDef(
         interp2app(W_UnicodeObject.descr_formatter_field_name_split),
 )
 W_UnicodeObject.typedef.flag_sequence_bug_compat = True
+
+def unicode_splitlines(value, keepends):
+    length = len(value)
+    strs_w = []
+    pos = 0
+    while pos < length:
+        sol = pos
+        lgt = 0
+        while pos < length:
+            ch = value[pos]
+            if ch < '\x80':
+                # ASCII: no need to look at the following bytes
+                if _ascii_islinebreak(ch):
+                    break
+                pos += 1
+            else:
+                if rutf8.islinebreak(value, pos):
+                    break
+                pos = rutf8.next_codepoint_pos(value, pos)
+            lgt += 1
+        eol = pos
+        if pos < length:
+            # read CRLF as one line break
+            if (value[pos] == '\r' and pos + 1 < length
+                                   and value[pos + 1] == '\n'):
+                pos += 2
+                line_end_chars = 2
+            else:
+                pos = rutf8.next_codepoint_pos(value, pos)
+                line_end_chars = 1
+            if keepends:
+                eol = pos
+                lgt += line_end_chars
+        assert eol >= 0
+        assert sol >= 0
+        strs_w.append(W_UnicodeObject(value[sol:eol], lgt))
+    return strs_w
 
 def _create_list_from_unicode(value):
     # need this helper function to allow the jit to look inside and inline
