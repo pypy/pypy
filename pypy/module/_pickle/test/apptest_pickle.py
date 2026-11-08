@@ -619,19 +619,111 @@ def test_buffers_exhausted_error():
     else:
         assert False, "expected UnpicklingError"
 
+class ReducerOverrideThing(object):
+    pass
+
+
 def test_reducer_override():
     # reducer_override must be called with object as single argument
     import io
     class MyPickler(Pickler):
         def reducer_override(self, obj):
-            if isinstance(obj, int):
-                return str, (str(obj),)
+            if isinstance(obj, ReducerOverrideThing):
+                return str, ('overridden',)
             return NotImplemented
     f = io.BytesIO()
     p = MyPickler(f, 4)
-    p.dump(42)
+    p.dump(ReducerOverrideThing())
     result = loads(f.getvalue())
-    assert result == '42'
+    assert result == 'overridden'
+
+def test_reducer_override_hook():
+    # ported from CPython's pickletester AbstractHookTests.test_pickler_hook
+    import io
+    import math
+
+    class MyPickler(Pickler):
+        def reducer_override(self, obj):
+            obj_name = getattr(obj, "__name__", None)
+            if obj_name == 'f':
+                return int, (5,)
+            if obj_name == 'MyClass':
+                return str, ('some str',)
+            elif obj_name == 'g':
+                # not a string or a 2-6 tuple: the pickler must complain
+                return False
+            elif obj_name == 'h':
+                raise ValueError('The reducer just failed')
+            return NotImplemented
+
+    def f():
+        pass
+
+    def g():
+        pass
+
+    def h():
+        pass
+
+    class MyClass:
+        pass
+
+    for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+        bio = io.BytesIO()
+        p = MyPickler(bio, proto)
+        p.dump([f, MyClass, math.log])
+        new_f, some_str, math_log = loads(bio.getvalue())
+        assert new_f == 5
+        assert some_str == 'some str'
+        # math.log has no override, so NotImplemented must fall back to
+        # pickling by attribute
+        assert math_log is math.log
+
+        with pytest.raises(PicklingError):
+            p.dump(g)
+        with pytest.raises(ValueError):
+            p.dump(h)
+
+def test_reducer_override_not_called_for_builtin_types():
+    # as in CPython's save(), reducer_override is consulted only after the
+    # atom types, the memo and the built-in container types
+    import io
+    seen = []
+    class MyPickler(Pickler):
+        def reducer_override(self, obj):
+            seen.append(type(obj).__name__)
+            return NotImplemented
+    obj = {'a': [1, 2.5, True, None, (3,), {4}, b'x', 'y', bytearray(b'z')]}
+    f = io.BytesIO()
+    MyPickler(f, 4).dump(obj)
+    assert not set(seen) & set(['NoneType', 'bool', 'int', 'float', 'str',
+                                'bytes', 'bytearray', 'dict', 'list', 'tuple',
+                                'set', 'frozenset']), seen
+    assert loads(f.getvalue()) == obj
+
+def test_reducer_override_memo_breaks_cycle():
+    # the object is memoized before its state is saved, so a state that
+    # refers back to it must not be reduced (hence overridden) a second time.
+    # This is the shape cloudpickle uses to pickle a function: asking
+    # reducer_override before looking at the memo recursed until the C stack
+    # ran out.
+    import io
+    from types import SimpleNamespace
+    calls = []
+    class MyPickler(Pickler):
+        def reducer_override(self, obj):
+            if isinstance(obj, ReducerOverrideThing):
+                calls.append(obj)
+                assert len(calls) < 10, "reducer_override called repeatedly"
+                return SimpleNamespace, (), {'me': obj, 'x': 1}
+            return NotImplemented
+    obj = ReducerOverrideThing()
+    f = io.BytesIO()
+    MyPickler(f, 4).dump(obj)
+    assert len(calls) == 1
+    result = loads(f.getvalue())
+    assert result.me is result
+    assert result.x == 1
 
 def test_dispatch_table_on_instance():
     # dispatch_table set on instance must override default pickling
@@ -819,13 +911,13 @@ def test_reducer_override_subclass():
     import io
     class MyPickler(Pickler):
         def reducer_override(self, obj):
-            if obj == 42:
+            if isinstance(obj, ReducerOverrideThing):
                 return int, (99,)
             return NotImplemented
 
     bio = io.BytesIO()
     p = MyPickler(bio, 2)
-    p.dump(42)
+    p.dump(ReducerOverrideThing())
     result = loads(bio.getvalue())
     assert result == 99, "reducer_override was not called"
 

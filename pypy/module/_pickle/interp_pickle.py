@@ -621,62 +621,67 @@ class W_Pickler(W_Root):
 
         w_reduce = space.w_None
         w_rv = space.w_NotImplemented
-        if self.w_reducer_override:
-            w_reduce = self.w_reducer_override
-            w_rv = space.call_function(w_reduce, w_obj)
 
-        if w_rv is space.w_NotImplemented:
-            # Atom types: None, bool, int, float are never memoized
-            if w_type is space.w_None:
-                return save_none(self, w_obj)
-            elif w_type is space.w_bool:
-                return save_bool(self, w_obj)
-            elif w_type is space.w_int:
-                return save_long(self, w_obj)
-            elif w_type is space.w_float:
-                return save_float(self, w_obj)
+        # Atom types: None, bool, int, float are never memoized
+        if space.is_none(w_obj):
+            return save_none(self, w_obj)
+        elif w_type is space.w_bool:
+            return save_bool(self, w_obj)
+        elif w_type is space.w_int:
+            return save_long(self, w_obj)
+        elif w_type is space.w_float:
+            return save_float(self, w_obj)
 
-        if w_rv is space.w_NotImplemented:
-            # Check value-based memo before identity memo: PyPy list strategies
-            # wrap stored values in new W_* objects on each getitem, so identity
-            # checks miss even for repeated references to the same logical value.
-            if w_type is space.w_text:
-                x = self.str_memo.get(space.utf8_w(w_obj), -1)
-                if x >= 0:
-                    self.write_get(x)
-                    return
-            elif w_type is space.w_bytes:
-                x = self.bytes_memo.get(space.bytes_w(w_obj), -1)
-                if x >= 0:
-                    self.write_get(x)
-                    return
-
-            # Check the identity memo
-            x = self.memo.get(w_obj, -1)
+        # Check value-based memo before identity memo: PyPy list strategies
+        # wrap stored values in new W_* objects on each getitem, so identity
+        # checks miss even for repeated references to the same logical value.
+        if w_type is space.w_text:
+            x = self.str_memo.get(space.utf8_w(w_obj), -1)
+            if x >= 0:
+                self.write_get(x)
+                return
+        elif w_type is space.w_bytes:
+            x = self.bytes_memo.get(space.bytes_w(w_obj), -1)
             if x >= 0:
                 self.write_get(x)
                 return
 
-            if w_type is space.w_bytes:
-                return save_bytes(self, w_obj)
-            elif w_type is space.w_text:
-                return save_str(self, w_obj)
+        # Check the identity memo
+        x = self.memo.get(w_obj, -1)
+        if x >= 0:
+            self.write_get(x)
+            return
 
-            # XXX check recursive call
-            if w_type is space.w_dict:
-                return save_dict(self, w_obj)
-            elif w_type is space.w_set:
-                return save_set(self, w_obj)
-            elif w_type is space.w_frozenset and self.proto >= 4:
-                return save_frozenset(self, w_obj)
-            elif w_type is space.w_list:
-                return save_list(self, w_obj)
-            elif w_type is space.w_tuple:
-                return save_tuple(self, w_obj)
-            elif w_type is space.w_bytearray:
-                return save_bytearray(self, w_obj)
-            elif isinstance(w_obj, W_PickleBuffer):
-                return save_picklebuffer(self, w_obj)
+        if w_type is space.w_bytes:
+            return save_bytes(self, w_obj)
+        elif w_type is space.w_text:
+            return save_str(self, w_obj)
+
+        # XXX check recursive call
+        if w_type is space.w_dict:
+            return save_dict(self, w_obj)
+        elif w_type is space.w_set:
+            return save_set(self, w_obj)
+        elif w_type is space.w_frozenset and self.proto >= 4:
+            return save_frozenset(self, w_obj)
+        elif w_type is space.w_list:
+            return save_list(self, w_obj)
+        elif w_type is space.w_tuple:
+            return save_tuple(self, w_obj)
+        elif w_type is space.w_bytearray:
+            return save_bytearray(self, w_obj)
+        elif isinstance(w_obj, W_PickleBuffer):
+            return save_picklebuffer(self, w_obj)
+
+        # reducer_override is consulted here, in the same place as CPython's
+        # save(): after the memo check and the built-in types.  Asking it
+        # first instead would re-reduce an object that is already in the memo,
+        # so a reduce tuple whose state refers back to the object being
+        # reduced (what cloudpickle builds for a function, for instance)
+        # recursed until the C stack ran out.
+        if self.w_reducer_override:
+            w_reduce = self.w_reducer_override
+            w_rv = space.call_function(w_reduce, w_obj)
 
         if w_rv is space.w_NotImplemented:
             # Check private dispatch table if any, or else
@@ -851,7 +856,7 @@ class W_Pickler(W_Root):
                     break
                 jitdriver_appends.jit_merge_point(typ=type(w_item), greenkey=greenkey)
                 w_item = spacenext(space, w_it)
-                if not w_item:
+                if w_item is None:
                     break
             self.write(op.APPENDS)
 
@@ -879,7 +884,7 @@ class W_Pickler(W_Root):
                 save(w_v)
                 write(op.SETITEM)
                 w_item = spacenext(space, w_it)
-                if not w_item:
+                if w_item is None:
                     break
             return
 
@@ -905,7 +910,7 @@ class W_Pickler(W_Root):
                     break
                 jitdriver_setitems.jit_merge_point(typ=type(w_k), greenkey=greenkey)
                 w_item = spacenext(space, w_it)
-                if not w_item:
+                if w_item is None:
                     break
             self.write(op.SETITEMS)
 
