@@ -269,7 +269,7 @@ class AppTestThread(GenericTestThread):
     def test_interrupt_during_weakref_callback(self):
         # an asynchronous exception must not be delivered inside a weakref
         # callback: it would only be reported as unraisable and lost
-        import thread, gc, weakref, __pypy__
+        import _thread as thread, gc, weakref, __pypy__
         in_callback = []
         sent = []
         done = []
