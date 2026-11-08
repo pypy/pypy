@@ -34,6 +34,7 @@ from _winapi import (  # noqa: F401
     ERROR_OPERATION_ABORTED,
     ERROR_SEM_TIMEOUT,
     ERROR_PIPE_BUSY,
+    ERROR_PORT_UNREACHABLE,
     INFINITE,
     INVALID_HANDLE_VALUE,
 )
@@ -233,8 +234,8 @@ class Overlapped(object):
         self.handle = _ffi.NULL
         self.read_buffer = None
         self.write_buffer = None
-        self.address = None
-        self.address_length = None
+        self.from_address = None
+        self.from_address_length = None
         self.error = 0
 
         self.type = OverlappedType.TYPE_NONE
@@ -256,13 +257,11 @@ class Overlapped(object):
         hascompletedio = HasOverlappedIoCompleted(self.overlapped[0])
         if not hascompletedio and self.type != OverlappedType.TYPE_NOT_STARTED:
             # the OVERLAPPED is about to be freed while the kernel may still
-            # write to it: cancel and then always wait for the operation to
-            # end.  Nothing can be reported from here anyway, the GC decides
-            # when this runs and the handle may already be closed
-            _kernel32.CancelIoEx(self.handle, self.overlapped)
+            # write to it so wait for the cancellation to be finished.
+            wait = _kernel32.CancelIoEx(self.handle, self.overlapped)
             transferred = _ffi.new('DWORD[1]', [0])
             if not _kernel32.GetOverlappedResult(self.handle, self.overlapped,
-                                                 transferred, True):
+                                                 transferred, wait != 0):
                 self.error = _kernel32.GetLastError()
         if self.overlapped[0].hEvent != 0:
             _winapi.CloseHandle(self.overlapped[0].hEvent)
@@ -299,10 +298,10 @@ class Overlapped(object):
             return _ffi.unpack(self.read_buffer, transferred[0])
         elif self.type == OverlappedType.TYPE_READ_FROM:
             return (_ffi.unpack(self.read_buffer, transferred[0]),
-                    _unparse_address(self.address, self.address_length[0]))
+                    _unparse_address(self.from_address, self.from_address_length[0]))
         elif self.type == OverlappedType.TYPE_READ_FROM_INTO:
             return (transferred[0],
-                    _unparse_address(self.address, self.address_length[0]))
+                    _unparse_address(self.from_address, self.from_address_length[0]))
         else:
             return transferred[0]
 
@@ -368,9 +367,9 @@ class Overlapped(object):
     def do_WSARecvFrom(self, size, flags):
         # the address and its length are filled in when the operation
         # completes, so they must stay alive on self until then
-        self.address = _ffi.new("struct sockaddr_in6*")
-        self.address_length = _ffi.new("LPINT")
-        self.address_length[0] = _ffi.sizeof("struct sockaddr_in6")
+        self.from_address = _ffi.new("struct sockaddr_in6*")
+        self.from_address_length = _ffi.new("LPINT")
+        self.from_address_length[0] = _ffi.sizeof("struct sockaddr_in6")
         wsabuff = _ffi.new("WSABUF[1]")
         wsabuff[0].len = size
         wsabuff[0].buf = self.read_buffer
@@ -379,7 +378,7 @@ class Overlapped(object):
         pflags[0] = flags
         result = _winsock2.WSARecvFrom(
             self.handle, wsabuff, _int2dword(1), nread, pflags,
-            _ffi.cast("struct sockaddr *", self.address), self.address_length,
+            _ffi.cast("struct sockaddr *", self.from_address), self.from_address_length,
             self.overlapped, _ffi.NULL)
         if result == SOCKET_ERROR:
             self.error = _winsock2.WSAGetLastError()
