@@ -2,7 +2,7 @@
 """
 
 import sys
-from rpython.rlib import jit, rweakref
+from rpython.rlib import jit, rvmprof, rweakref
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
@@ -1165,3 +1165,36 @@ def _get_arg(code, addr):
         if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
             raise ValueError("fix me please!")
     return oparg
+
+
+
+# ____________________________________________________________
+# The vmprof shadow stack is an interpreter feature, not a profiler one:
+# faulthandler walks it to dump python frames on a platform where the
+# sampling profiler does not run.  So the wrapper and the code registration
+# live here rather than in pypy/module/_vmprof, which is not always built.
+
+def _vmprof_get_code(frame, w_arg_or_err):
+    return frame.pycode
+
+def _vmprof_safe(s):
+    if len(s) > 110:
+        s = s[:107] + '...'
+    return s.replace(':', ';')
+
+def vmprof_get_full_name(pycode):
+    # careful, must not have extraneous ':' or be longer than 255 chars
+    return "py:%s:%d:%s" % (_vmprof_safe(pycode.co_name),
+                            pycode.co_firstlineno,
+                            _vmprof_safe(pycode.co_filename))
+
+def _vmprof_init_ready(pycode):
+    rvmprof.register_code(pycode, vmprof_get_full_name)
+
+# All call sites pass exactly w_arg_or_err (None when omitted), so this
+# can be bound as PyFrame.execute_frame directly.
+PyFrame.execute_frame = rvmprof.vmprof_execute_code(
+    "pypy", _vmprof_get_code, W_Root)(PyFrame.execute_frame)
+
+rvmprof.register_code_object_class(pycode.PyCode, vmprof_get_full_name)
+pycode.PyCode._init_ready = _vmprof_init_ready

@@ -36,17 +36,23 @@ class TestMMap:
         interpret(f, [])
 
     def test_file_size(self):
-        def func(no):
-
-            try:
-                mmap.mmap(no, 123)
-            except RValueError:
-                pass
-            else:
-                raise Exception("didn't raise")
+        if sys.platform == "win32":
+            # mapping more than the file holds extends it on Windows, see
+            # CPython's test_mmap.py: "we do not expect a ValueError"
+            def func(no):
+                m = mmap.mmap(no, 123)
+                m.close()
+        else:
+            def func(no):
+                try:
+                    mmap.mmap(no, 123)
+                except RValueError:
+                    pass
+                else:
+                    raise Exception("didn't raise")
 
         f = open(self.tmpname + "a", "w+")
-        
+
         f.write("c")
         f.flush()
 
