@@ -241,6 +241,13 @@ class TestUnicodeObject:
         w_l = w_s.descr_split(self.space) # no crash
         assert self.space.len_w(w_l) == 3
 
+    def test_ascii_islinebreak(self):
+        from pypy.objspace.std.unicodeobject import _ascii_islinebreak
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        for i in range(0x80):
+            ch = chr(i)
+            assert _ascii_islinebreak(ch) == unicodedb.islinebreak(i)
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
