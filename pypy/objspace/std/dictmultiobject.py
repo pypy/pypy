@@ -13,6 +13,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w, GetSetProperty
 from pypy.objspace.std.util import negate, generic_alias_class_getitem
+from pypy.objspace.std.unicodeobject import W_UnicodeDictProbe, utf8_hash_w
 
 
 UNROLL_CUTOFF = 5
@@ -1277,16 +1278,28 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
 
 create_iterator_classes(BytesDictStrategy)
 
-def unicode_eq(w_uni1, w_uni2):
-    return w_uni1.eq_w(w_uni2)
+def unicode_eq(w_stored, w_lookup):
+    # the dict calls this with the stored key first; only the lookup key
+    # can be the probe
+    assert not isinstance(w_stored, W_UnicodeDictProbe)
+    if isinstance(w_lookup, W_UnicodeDictProbe):
+        return w_stored.eq_unwrapped(w_lookup.key)
+    return w_stored.eq_w(w_lookup)
 
 def unicode_hash(w_uni):
+    if isinstance(w_uni, W_UnicodeDictProbe):
+        return utf8_hash_w(w_uni.key)
     return w_uni.hash_w()
 
 class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+    _immutable_fields_ = ['probe']
+
+    def __init__(self, space):
+        DictStrategy.__init__(self, space)
+        self.probe = W_UnicodeDictProbe('', 0)
 
     def wrap(self, unwrapped):
         return unwrapped
@@ -1313,9 +1326,10 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
         self.setitem(w_dict, self.space.newtext(key), w_value)
 
     def getitem_str(self, w_dict, key):
-        # XXX think about how to do better again
         assert key is not None
-        return self.getitem(w_dict, self.space.newtext(key))
+        probe = self.probe
+        probe.key = key
+        return self.unerase(w_dict.dstorage).get(probe, None)
 
     def wrapkey(space, key):
         return key

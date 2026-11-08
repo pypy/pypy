@@ -371,11 +371,11 @@ class TestCellCache(object):
         def getdebug(self):
             return self.debugdata
 
-        def getname_u(self, i):
+        def getname_w(self, i):
             assert i == 0
-            return "a"
+            return FakeUnicode("a")
 
-        def _load_global(self, index):
+        def _load_global(self, w_varname):
             return -17
 
         def get_builtin(self):
@@ -437,7 +437,7 @@ class TestCellCache(object):
         STORE_GLOBAL_cached(frame, 0, None)
         assert d.getitem(w_key) == 7
 
-        frame.getname_u = None # the rest still works due to the cache
+        frame.getname_w = None # the rest still works due to the cache
         frame.w_top_of_stack = 9
         STORE_GLOBAL_cached(frame, 0, None)
         assert d.getitem(w_key) == 9

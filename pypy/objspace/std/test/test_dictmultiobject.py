@@ -128,6 +128,22 @@ class TestW_DictObject(object):
         assert self.space.eq_w(space.call_function(get, w("33")), w(None))
         assert self.space.eq_w(space.call_function(get, w("33"), w(44)), w(44))
 
+    def test_getitem_str_unicode_strategy(self):
+        space = self.space
+        w_d = space.newdict()
+        space.setitem(w_d, space.newtext("abc"), space.newint(1))
+        space.setitem(w_d, space.newtext("caf\xc3\xa9"), space.newint(2))
+        assert isinstance(w_d.get_strategy(), UnicodeDictStrategy)
+        assert space.int_w(w_d.getitem_str("abc")) == 1
+        assert space.int_w(w_d.getitem_str("caf\xc3\xa9")) == 2
+        assert w_d.getitem_str("xyz") is None
+        assert w_d.getitem_str("") is None
+        # the probe is only ever a lookup key
+        assert space.len_w(w_d) == 2
+        assert isinstance(w_d.get_strategy(), UnicodeDictStrategy)
+        space.setitem(w_d, space.newtext("xyz"), space.newint(3))
+        assert space.int_w(w_d.getitem_str("xyz")) == 3
+
     def test_fromkeys_fastpath(self):
         py.test.skip("doesn't make sense here")
         space = self.space
@@ -1456,6 +1472,9 @@ class FakeUnicode(unicode):
     def eq_w(self, other):
         return self == other
 
+    def eq_unwrapped(self, other):
+        return unicode(self) == other.decode('utf-8')
+
     def is_ascii(self):
         return True
 
@@ -1563,6 +1582,12 @@ class FakeSpace:
 
     def setitem_str(self, w_dict, s, w_value):
         return w_dict.setitem_str(s, w_value) # assume it's a multidict
+
+    def finditem(self, w_dict, w_key):
+        return w_dict.getitem(w_key) # assume it's a multidict
+
+    def setitem(self, w_dict, w_key, w_value):
+        return w_dict.setitem(w_key, w_value) # assume it's a multidict
 
     def delitem(self, w_dict, w_s):
         return w_dict.delitem(w_s) # assume it's a multidict

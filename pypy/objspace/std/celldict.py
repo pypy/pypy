@@ -287,8 +287,7 @@ def _LOAD_GLOBAL_cached(self, nameindex, next_instr):
     if jit.we_are_jitted() or (
             self.debugdata is not None and
             self.debugdata.w_globals is not pycode.w_globals):
-        varname = self.getname_u(nameindex)
-        return _load_global_fallback(self, varname)
+        return _load_global_fallback(self, self.getname_w(nameindex))
     cache_wref = pycode._globals_caches[nameindex]
     if cache_wref is not None:
         cache = cache_wref()
@@ -304,32 +303,26 @@ def _LOAD_GLOBAL_cached(self, nameindex, next_instr):
                     w_value = builtincache.getvalue(self.space)
                     if w_value is not None:
                         return w_value
-                    varname = self.getname_u(nameindex)
-                    w_value = self.get_builtin().getdictvalue(
-                            self.space, varname)
-                    if w_value is not None:
-                        return w_value
-                    else:
-                        self._load_global_failed(self.space.newtext(varname))
+                    return self._load_builtin(self.getname_w(nameindex))
     # either no cache or an invalid cache
     w_globals = pycode.w_globals
-    varname = self.getname_u(nameindex)
+    w_varname = self.getname_w(nameindex)
     if isinstance(w_globals, W_ModuleDictObject):
-        cache = w_globals.get_global_cache(varname)
+        cache = w_globals.get_global_cache(self.space.text_w(w_varname))
         if cache is not None:
             assert cache.valid and cache.ref is not None
             pycode._globals_caches[nameindex] = cache.ref
-    return _load_global_fallback(self, varname)
+    return _load_global_fallback(self, w_varname)
 
 @objectmodel.dont_inline
-def _load_global_fallback(self, varname):
-    return self._load_global(varname)
+def _load_global_fallback(self, w_varname):
+    return self._load_global(w_varname)
 
 def STORE_GLOBAL_cached(self, nameindex, next_instr):
     w_newvalue = self.popvalue()
     if jit.we_are_jitted() or self.getdebug() is not None:
-        varname = self.getname_u(nameindex)
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        w_varname = self.getname_w(nameindex)
+        self.space.setitem(self.get_w_globals(), w_varname, w_newvalue)
         return
     pycode = self.pycode
     cache_wref = pycode._globals_caches[nameindex]
@@ -340,14 +333,14 @@ def STORE_GLOBAL_cached(self, nameindex, next_instr):
             if w_value is None:
                 return
 
-    varname = self.getname_u(nameindex)
+    w_varname = self.getname_w(nameindex)
     w_globals = self.pycode.w_globals
-    self.space.setitem_str(w_globals, varname, w_newvalue)
+    self.space.setitem(w_globals, w_varname, w_newvalue)
     if isinstance(w_globals, W_ModuleDictObject):
         # the following can never be true, becaus W_ModuleDictObject can't be
         # user-subclassed, but let's be safe
         assert not w_globals.user_overridden_class
-        cache = w_globals.get_global_cache(varname)
+        cache = w_globals.get_global_cache(self.space.text_w(w_varname))
         if cache is not None:
             assert cache.valid and cache.ref is not None
             pycode._globals_caches[nameindex] = cache.ref

@@ -668,27 +668,13 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_dict = self.popvalue()
         w_varname = self.getname_w(nameindex)
-        varname = space.text_w(w_varname)
 
         # First try the dict
-        w_value = space.finditem_str(w_dict, varname)
-        if w_value is not None:
-            self.pushvalue(w_value)
-            return
-
-        # Then try globals
-        w_value = space.finditem_str(self.get_w_globals(), varname)
-        if w_value is not None:
-            self.pushvalue(w_value)
-            return
-
-        # Then try builtins
-        w_value = self.get_builtin().getdictvalue(space, varname)
-        if w_value is not None:
-            self.pushvalue(w_value)
-            return
-
-        raise oefmt_name_error(space, w_varname, "name %R is not defined")
+        w_value = space.finditem(w_dict, w_varname)
+        if w_value is None:
+            # Then globals, then builtins
+            w_value = self._load_global(w_varname)
+        self.pushvalue(w_value)
 
     def LOAD_FROM_DICT_OR_DEREF(self, varindex, next_instr):
         # Pop a dict from the stack, lookup name in dict, else in cell var
@@ -996,10 +982,10 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
-        varname = self.getname_u(varindex)
+        w_varname = self.getname_w(varindex)
         w_newvalue = self.popvalue()
-        self.space.setitem_str(self.getorcreatedebug().w_locals, varname,
-                               w_newvalue)
+        self.space.setitem(self.getorcreatedebug().w_locals, w_varname,
+                           w_newvalue)
 
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
@@ -1089,24 +1075,27 @@ class __extend__(pyframe.PyFrame):
         from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
         if self.getorcreatedebug().w_locals is not self.get_w_globals():
             w_varname = self.getname_w(nameindex)
-            varname = self.space.text_w(w_varname)
-            w_value = self.space.finditem_str(self.getorcreatedebug().w_locals,
-                                              varname)
+            w_value = self.space.finditem(self.getorcreatedebug().w_locals,
+                                          w_varname)
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
         LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     @always_inline
-    def _load_global(self, varname):
-        w_value = self.space.finditem_str(self.get_w_globals(), varname)
+    def _load_global(self, w_varname):
+        w_value = self.space.finditem(self.get_w_globals(), w_varname)
         if w_value is None:
-            # not in the globals, now look in the built-ins
-            w_value = self.get_builtin().getdictvalue(self.space, varname)
-            if w_value is None:
-                # XXX re-wrapping
-                w_varname = self.space.newtext(varname)
-                self._load_global_failed(w_varname)
+            w_value = self._load_builtin(w_varname)
+        return w_value
+
+    def _load_builtin(self, w_varname):
+        # getdictvalue, not getdict: MixedModule.getdict forces all its
+        # lazy attributes to be built
+        space = self.space
+        w_value = self.get_builtin().getdictvalue(space, space.text_w(w_varname))
+        if w_value is None:
+            self._load_global_failed(w_varname)
         return w_value
 
     @dont_inline

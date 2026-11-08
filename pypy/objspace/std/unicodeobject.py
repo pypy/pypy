@@ -343,9 +343,7 @@ class W_UnicodeObject(W_Root):
 
     def hash_w(self):
         # shortcut for UnicodeDictStrategy
-        x = compute_hash(self._utf8)
-        x -= (x == -1) # convert -1 to -2 without creating a bridge
-        return x
+        return utf8_hash_w(self._utf8)
 
     def descr_hash(self, space):
         return space.newint(self.hash_w())
@@ -2447,3 +2445,16 @@ def _unicode_to_decimal_w(space, w_unistr):
 _repr_function = rutf8.make_utf8_escape_function(
     pass_printable=True, quotes=True, prefix='',
     unicodedb=unicodedb)
+
+
+def utf8_hash_w(utf8):
+    x = compute_hash(utf8)
+    x -= (x == -1) # convert -1 to -2 without creating a bridge
+    return x
+
+
+class W_UnicodeDictProbe(W_UnicodeObject):
+    """Prebuilt lookup key for UnicodeDictStrategy.getitem_str: lets an
+    RPython str be looked up in a dict of W_UnicodeObject keys without
+    allocating. Never stored in a dict."""
+    key = ''

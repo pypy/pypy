@@ -767,6 +767,16 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
+    _DescrOperation_setitem = setitem
+
+    def setitem(self, w_obj, w_key, w_value):
+        # a shortcut for performance
+        if (isinstance(w_obj, W_DictMultiObject) and
+                not w_obj.user_overridden_class):
+            w_obj.setitem(w_key, w_value)
+        else:
+            self._DescrOperation_setitem(w_obj, w_key, w_value)
+
     def setitem_str(self, w_obj, key, w_value):
         """ Same as setitem, but takes string instead of any wrapped object
         """
