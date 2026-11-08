@@ -56,20 +56,35 @@ def find_executable(executable):
     return executable if _exists_and_is_executable(executable) else ''
 
 
-def _readlink_maybe(filename):
-    if not _WIN32:
-        return os.readlink(filename)
-    raise NotImplementedError
+def _resolve_links_win32(filename):
+    """Return 'filename' with symlinks and junctions resolved.  Windows has
+    no readlink(), but GetFinalPathNameByHandle() resolves the whole path in
+    one call.  Returns 'filename' unchanged if it cannot be resolved
+    """
+    from pypy.module.posix.interp_nt import _getfinalpathname, LLNotImplemented
+    try:
+        path, lgt = _getfinalpathname(filename)
+    except (OSError, LLNotImplemented):
+        return filename
+    # drop the \\?\ that GetFinalPathNameByHandle() prepends, like
+    # ntpath.realpath() does
+    if path.startswith('\\\\?\\UNC\\'):
+        return '\\\\' + path[8:]
+    elif path.startswith('\\\\?\\'):
+        return path[4:]
+    return path
 
 
 def resolvedirof(filename):
-    if isinstance(filename, unicode):
-        filename = filename.encode('utf8')
     filename = rpath.rabspath(filename)
+    if _WIN32:
+        # one call resolves the whole path, so there is nothing to recurse on
+        return rpath.rabspath(os.path.join(_resolve_links_win32(filename),
+                                           '..'))
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
         try:
-            link = _readlink_maybe(filename)
+            link = os.readlink(filename)
         except OSError:
             pass
         else:
