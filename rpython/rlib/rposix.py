@@ -922,7 +922,8 @@ def execv(path, args):
     rstring.check_str0(path)
     # This list conversion already takes care of NUL bytes.
     l_args = rffi.ll_liststr2charpp(args)
-    c_execv(path, l_args)
+    with SuppressIPH():
+        c_execv(path, l_args)
     rffi.free_charpp(l_args)
     raise OSError(get_saved_errno(), "execv failed")
 
@@ -937,7 +938,8 @@ def execve(path, args, env):
     # This list conversion already takes care of NUL bytes.
     l_args = rffi.ll_liststr2charpp(args)
     l_env = rffi.ll_liststr2charpp(envstrs)
-    c_execve(path, l_args, l_env)
+    with SuppressIPH():
+        c_execve(path, l_args, l_env)
 
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
@@ -947,7 +949,8 @@ def execve(path, args, env):
 def spawnv(mode, path, args):
     rstring.check_str0(path)
     l_args = rffi.ll_liststr2charpp(args)
-    childpid = c_spawnv(mode, path, l_args)
+    with SuppressIPH():
+        childpid = c_spawnv(mode, path, l_args)
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnv', childpid)
 
@@ -959,7 +962,8 @@ def spawnve(mode, path, args, env):
     rstring.check_str0(path)
     l_args = rffi.ll_liststr2charpp(args)
     l_env = rffi.ll_liststr2charpp(envstrs)
-    childpid = c_spawnve(mode, path, l_args, l_env)
+    with SuppressIPH():
+        childpid = c_spawnve(mode, path, l_args, l_env)
     rffi.free_charpp(l_env)
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnve', childpid)
