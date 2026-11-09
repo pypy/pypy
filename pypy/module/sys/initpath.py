@@ -69,10 +69,10 @@ def _resolve_links_win32(filename):
     # drop the \\?\ that GetFinalPathNameByHandle() prepends, like
     # ntpath.realpath() does
     if path.startswith('\\\\?\\UNC\\'):
-        return '\\\\' + path[8:]
+        path = '\\\\' + path[8:]
     elif path.startswith('\\\\?\\'):
-        return path[4:]
-    return path
+        path = path[4:]
+    return assert_str0(path)
 
 
 def resolvedirof(filename):
