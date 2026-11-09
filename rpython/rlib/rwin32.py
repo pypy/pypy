@@ -572,14 +572,24 @@ if WIN32:
 
     _GetFileType = winexternal('GetFileType', [HANDLE], DWORD)
 
+    def _clear_inheritable(fd, ftype):
+        # SetHandleInformation() can fail on a console handle, which is why
+        # this used to skip every character device.  NUL is one too, and
+        # os.dup() of it has to come back non-inheritable
+        try:
+            set_inheritable(fd, False)
+        except OSError:
+            if ftype != FILE_TYPE_CHAR:
+                raise
+
     def c_dup_noninheritable(fd1):
         from rpython.rlib.rposix import c_dup
 
         ftype = _GetFileType(get_osfhandle(fd1))
         fd2 = c_dup(fd1)     # the inheritable version
-        if fd2 >= 0 and ftype != FILE_TYPE_CHAR:
+        if fd2 >= 0:
             try:
-                set_inheritable(fd2, False)
+                _clear_inheritable(fd2, ftype)
             except:
                 os.close(fd2)
                 raise
@@ -590,9 +600,9 @@ if WIN32:
 
         ftype = _GetFileType(get_osfhandle(fd1))
         res = c_dup2(fd1, fd2)     # the inheritable version
-        if res >= 0 and ftype != FILE_TYPE_CHAR:
+        if res >= 0:
             try:
-                set_inheritable(fd2, False)
+                _clear_inheritable(fd2, ftype)
             except:
                 os.close(fd2)
                 raise

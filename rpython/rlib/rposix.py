@@ -613,7 +613,14 @@ else:
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
     with SuppressIPH():
-        handle_posix_error('ftruncate', c_ftruncate(fd, length))
+        if _WIN32:
+            # _chsize_s() returns the errno instead of -1, so
+            # handle_posix_error() would take EBADF for a success
+            error = widen(c_ftruncate(fd, length))
+            if error != 0:
+                raise OSError(error, 'ftruncate failed')
+        else:
+            handle_posix_error('ftruncate', c_ftruncate(fd, length))
 
 @replace_os_function('fsync')
 def fsync(fd):

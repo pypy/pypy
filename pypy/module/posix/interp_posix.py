@@ -3063,21 +3063,9 @@ def _get_terminal_size(space, w_fd=None):
             fd = space.c_int_w(w_fd)
 
     if _WIN32:
-        if fd == 0:
-            handle_id = rwin32.STD_INPUT_HANDLE
-        elif fd == 1:
-            handle_id = rwin32.STD_OUTPUT_HANDLE
-        elif fd == 2:
-            handle_id = rwin32.STD_ERROR_HANDLE
-        else:
-            raise oefmt(space.w_ValueError, "bad file descriptor")
-
-        handle = rwin32.GetStdHandle(handle_id)
-
-        if handle == rwin32.NULL_HANDLE:
-            raise oefmt(space.w_OSError, "handle cannot be retrieved")
-        elif handle == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastSavedWindowsError()
+        # any fd of a console will do, not just the three standard ones:
+        # CONOUT$ opened by hand is the one test_os checks
+        handle = rwin32.get_osfhandle(fd)
         with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info:
             success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
