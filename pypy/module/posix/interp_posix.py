@@ -2813,6 +2813,19 @@ if _WIN32:
         return space.newlist([space.newtext(d, codepoints_in_utf8(d))
                               for d in drives])
 
+    @unwrap_spec(volume='fsencode')
+    def listmounts(space, volume):
+        """listmounts(volume) -> list of strings
+
+        Return a list containing the mount points for a volume."""
+        space.audit("os.listmounts", [space.newtext(volume)])
+        try:
+            mounts = nt.win32_listmounts(volume)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(m, codepoints_in_utf8(m))
+                              for m in mounts])
+
     def listvolumes(space):
         """listvolumes() -> list of strings
 
