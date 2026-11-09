@@ -472,17 +472,13 @@ class W_DirEntry(W_Root):
             # the directory listing carries no file index, and the cached
             # lstat has st_ino as 0, so look it up for real.  Like CPython,
             # this raises if the entry is gone
-            inode = self.inode
-            if inode is None:
-                try:
-                    st = rposix_stat.lstat(FileEncoder(space,
-                                                       self.fget_path(space)))
-                except OSError as e:
-                    raise wrap_oserror2(space, e, self.fget_path(space),
-                                        eintr_retry=False)
-                inode = st.st_ino
-                self.inode = inode
-            return space.newint(inode)
+            try:
+                st = rposix_stat.lstat(FileEncoder(space,
+                                                   self.fget_path(space)))
+            except OSError as e:
+                raise wrap_oserror2(space, e, self.fget_path(space),
+                                    eintr_retry=False)
+            return space.newint(st.st_ino)
         return space.newint(self.inode)
 
     def descr_reduce_ex(self, space, w_protocol):
