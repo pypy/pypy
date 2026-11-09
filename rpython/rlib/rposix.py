@@ -917,6 +917,37 @@ c_spawnve = external(UNDERSCORE_ON_WIN32 + 'spawnve',
                      rffi.INT,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 
+if _WIN32:
+    # the narrow _spawnv() mangles anything the ANSI codepage cannot
+    # represent, so use the wide entry points like CPython does.  They
+    # return a process handle for P_NOWAIT, which does not fit an int, so
+    # process.h has to be included rather than declaring them implicitly
+    spawn_eci = eci.merge(ExternalCompilationInfo(includes=['process.h']))
+    c_wspawnv = external('_wspawnv',
+                         [rffi.INT, rffi.CWCHARP, rffi.CWCHARPP],
+                         rffi.INTPTR_T, compilation_info=spawn_eci,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_wspawnve = external('_wspawnve',
+                          [rffi.INT, rffi.CWCHARP, rffi.CWCHARPP,
+                           rffi.CWCHARPP],
+                          rffi.INTPTR_T, compilation_info=spawn_eci,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def _liststr2wcharpp(args):
+        """like rffi.ll_liststr2charpp(), for the wide entry points"""
+        array = lltype.malloc(rffi.CWCHARPP.TO, len(args) + 1, flavor='raw')
+        for i in range(len(args)):
+            array[i] = utf8_traits.str2charp(args[i])
+        array[len(args)] = lltype.nullptr(rffi.CWCHARP.TO)
+        return array
+
+    def _free_wcharpp(array):
+        i = 0
+        while array[i]:
+            utf8_traits.free_charp(array[i])
+            i += 1
+        lltype.free(array, flavor='raw')
+
 @replace_os_function('execv')
 def execv(path, args):
     rstring.check_str0(path)
@@ -948,6 +979,14 @@ def execve(path, args, env):
 @replace_os_function('spawnv')
 def spawnv(mode, path, args):
     rstring.check_str0(path)
+    if _WIN32:
+        l_path = utf8_traits.str2charp(path)
+        l_args = _liststr2wcharpp(args)
+        with SuppressIPH():
+            childpid = c_wspawnv(mode, l_path, l_args)
+        _free_wcharpp(l_args)
+        utf8_traits.free_charp(l_path)
+        return handle_posix_error('spawnv', childpid)
     l_args = rffi.ll_liststr2charpp(args)
     with SuppressIPH():
         childpid = c_spawnv(mode, path, l_args)
@@ -960,6 +999,16 @@ def spawnve(mode, path, args, env):
     for item in env.iteritems():
         envstrs.append("%s=%s" % item)
     rstring.check_str0(path)
+    if _WIN32:
+        l_path = utf8_traits.str2charp(path)
+        l_args = _liststr2wcharpp(args)
+        l_env = _liststr2wcharpp(envstrs)
+        with SuppressIPH():
+            childpid = c_wspawnve(mode, l_path, l_args, l_env)
+        _free_wcharpp(l_env)
+        _free_wcharpp(l_args)
+        utf8_traits.free_charp(l_path)
+        return handle_posix_error('spawnve', childpid)
     l_args = rffi.ll_liststr2charpp(args)
     l_env = rffi.ll_liststr2charpp(envstrs)
     with SuppressIPH():
