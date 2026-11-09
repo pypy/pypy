@@ -151,12 +151,17 @@ class W_ScandirIterator(W_Root):
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
+            if _WIN32:
+                # must happen before the next FindNextFile() overwrites it
+                lstat = rposix_scandir.get_stat_result(entry)
+            else:
+                lstat = None
         except:
             self._close()
             raise
         finally:
             self._in_next = False
-        direntry = W_DirEntry(self, name, known_type, inode)
+        direntry = W_DirEntry(self, name, known_type, inode, lstat)
         return direntry
 
     def close_w(self):
@@ -206,12 +211,17 @@ else:
 class W_DirEntry(W_Root):
     w_path = None
 
-    def __init__(self, scandir_iterator, name, known_type, inode):
+    def __init__(self, scandir_iterator, name, known_type, inode, lstat):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
         self.name = name     # always bytes, used only on posix
         self.inode = inode
         self.flags = known_type
+        if _WIN32:
+            # the directory listing is as good as an lstat(), and unlike one
+            # it still answers after the entry has been removed
+            self.d_lstat = lstat
+            self.flags |= FLAG_LSTAT
         #
         if not _WIN32:
             assert known_type == (known_type & 255)
@@ -458,15 +468,22 @@ class W_DirEntry(W_Root):
         return build_stat_result(space, st)
 
     def descr_inode(self, space):
-        inode = self.inode
-        if inode is None:    # _WIN32
-            try:
-                st = self.get_stat_or_lstat(follow_symlinks=False)
-            except OSError as e:
-                raise wrap_oserror2(space, e, self.fget_path(space),
-                                    eintr_retry=False)
-            inode = st.st_ino
-        return space.newint(inode)
+        if _WIN32:
+            # the directory listing carries no file index, and the cached
+            # lstat has st_ino as 0, so look it up for real.  Like CPython,
+            # this raises if the entry is gone
+            inode = self.inode
+            if inode is None:
+                try:
+                    st = rposix_stat.lstat(FileEncoder(space,
+                                                       self.fget_path(space)))
+                except OSError as e:
+                    raise wrap_oserror2(space, e, self.fget_path(space),
+                                        eintr_retry=False)
+                inode = st.st_ino
+                self.inode = inode
+            return space.newint(inode)
+        return space.newint(self.inode)
 
     def descr_reduce_ex(self, space, w_protocol):
         raise oefmt(space.w_TypeError,
