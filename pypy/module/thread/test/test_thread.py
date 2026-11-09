@@ -193,8 +193,6 @@ class AppTestThread(GenericTestThread):
         signal.signal(signal.SIGINT, signal.default_int_handler)
 
         for i in range(100):
-            print
-            print "loop", i
             waiting = []
             thread.start_new_thread(f, ())
             raises(KeyboardInterrupt, busy_wait)
@@ -216,7 +214,6 @@ class AppTestThread(GenericTestThread):
                 thread.interrupt_main() # to crash the test
 
         for i in range(20):
-            print i
             # first wait for the child to start
             childstarted = []
             thread.start_new_thread(f, ())
@@ -233,17 +230,16 @@ class AppTestThread(GenericTestThread):
         import thread, __pypy__
         ident = thread.get_ident()
         for i in range(20):
-            print i
             with raises(ValueError):
                 __pypy__.thread._raise_in_thread(ident, ValueError)
                 self.waitfor(lambda self: False)
 
     def test_interrupt_during_weakref_callback(self):
         # an asynchronous exception must not be delivered inside a weakref
-        # callback: it would only be reported as unraisable and lost.  It
-        # must stay pending until the finalizers are done running, and be
-        # delivered after that.
+        # callback: it would only be reported as unraisable and lost
         import thread, gc, weakref, __pypy__
+        in_callback = []
+        sent = []
         done = []
 
         class X(object):
@@ -251,27 +247,34 @@ class AppTestThread(GenericTestThread):
 
         def callback(wref):
             import time
-            # schedule an asynchronous exception for this very thread, then
-            # keep running bytecodes for a while so that the ticker fires a
-            # few times: it must not interrupt us here.  The calls to
-            # time.time() make sure there is really something to run, also
-            # when the JIT is at work (-A runs).
-            __pypy__.thread._raise_in_thread(thread.get_ident(), ValueError)
-            limit = time.time() + 0.2
+            in_callback.append(thread.get_ident())
+            # wait for the main thread to send the exception, then stay in
+            # here a bit longer so that it gets delivered while the
+            # callback is still running
+            limit = time.time() + 30.0
+            while not sent and time.time() < limit:
+                pass
+            limit = time.time() + 0.5
             while time.time() < limit:
                 pass
-            done.append('callback finished')
 
-        x = X()
-        wref = weakref.ref(x, callback)
-        del x
-        try:
-            gc.collect()
-        except ValueError:
-            done.append('caught')
-        else:
-            done.append('lost')
-        assert done == ['callback finished', 'caught']
+        def f():
+            x = X()
+            wref = weakref.ref(x, callback)
+            del x
+            try:
+                gc.collect()
+            except ValueError:
+                done.append('caught')
+            else:
+                done.append('lost')
+
+        thread.start_new_thread(f, ())
+        self.waitfor(lambda: bool(in_callback))
+        __pypy__.thread._raise_in_thread(in_callback[0], ValueError)
+        sent.append(1)
+        self.waitfor(lambda: bool(done))
+        assert done == ['caught']
 
 
 @pytest.mark.skip("too slow")
