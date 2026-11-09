@@ -41,10 +41,22 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
             sem.release()
         executor.shutdown(wait=True)
 
+    def _wait_for_idle_thread(self, executor):
+        # PyPy change: the worker releases _idle_semaphore only after the
+        # result is already set, so submitting again right away can race it
+        # into starting a second thread.  Wait for the worker to report
+        # itself idle instead
+        for _ in support.sleeping_retry(support.SHORT_TIMEOUT):
+            if executor._idle_semaphore.acquire(timeout=0):
+                executor._idle_semaphore.release()
+                return
+
     def test_idle_thread_reuse(self):
         executor = self.executor_type()
         executor.submit(mul, 21, 2).result()
+        self._wait_for_idle_thread(executor)
         executor.submit(mul, 6, 7).result()
+        self._wait_for_idle_thread(executor)
         executor.submit(mul, 3, 14).result()
         self.assertEqual(len(executor._threads), 1)
         executor.shutdown(wait=True)
