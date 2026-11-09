@@ -2001,6 +2001,9 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         do_utimes(space, rposix.lutimes, path.as_bytes, utime)
+    elif _WIN32 and follow_symlinks:
+        # SetFileTime() stores 100 ns, so do not go through do_utimes()
+        do_utime_ns(space, path, utime)
     elif follow_symlinks:
         do_utimes(space, _dispatch_utime, path, utime)
     else:
@@ -2069,6 +2072,21 @@ def do_utimes(space, func, arg, utime):
     except OSError as e:
         # see comment above: don't use wrap_oserror2()
         raise wrap_oserror(space, e, eintr_retry=False)
+
+def do_utime_ns(space, path, utime):
+    """windows implementation for utime(), which keeps the nanoseconds"""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
+    path_b = path.as_bytes
+    assert path_b is not None
+    try:
+        if now:
+            rposix.utime(path_b, None)
+        else:
+            rposix.utime_ns(path_b, atime_s, atime_ns, mtime_s, mtime_ns)
+    except OSError as e:
+        # see comment above: don't use wrap_oserror2()
+        raise wrap_oserror(space, e, eintr_retry=False)
+
 
 @specialize.argtype(1)
 def _dispatch_utime(path, times):

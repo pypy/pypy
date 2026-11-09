@@ -1591,6 +1591,58 @@ if _WIN32:
         calling_conv='win')
 
 
+def _float_to_s_ns(t):
+    sec = int(t)
+    nsec = int((t - sec) * 1e9)
+    if nsec < 0:        # t was negative, borrow a second
+        sec -= 1
+        nsec += 1000000000
+    return sec, nsec
+
+
+if _WIN32:
+    def _utime_win32(path, set_times, atime_s, atime_ns, mtime_s, mtime_ns):
+        from rpython.rlib.rwin32file import time_t_to_FILE_TIME
+        traits = utf8_traits
+        win32traits = make_win32_traits(traits)
+        path = traits.as_utf80(path)
+        with rffi.scoped_utf82wcharp(path) as buf:
+
+            hFile = win32traits.CreateFile(buf,
+                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                               None, win32traits.OPEN_EXISTING,
+                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
+                               rwin32.NULL_HANDLE)
+        if hFile == rwin32.INVALID_HANDLE_VALUE:
+            raise rwin32.lastSavedWindowsError()
+        ctime = lltype.nullptr(rwin32.FILETIME)
+        atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
+        try:
+            if not set_times:
+                # not GetSystemTime(): SYSTEMTIME only has milliseconds,
+                # which can round down below the mtime the filesystem just
+                # gave the file
+                GetSystemTimePreciseAsFileTime(atime)
+                rffi.structcopy(mtime, atime)
+            else:
+                time_t_to_FILE_TIME(atime_s, atime_ns, atime)
+                time_t_to_FILE_TIME(mtime_s, mtime_ns, mtime)
+            if not SetFileTime(hFile, ctime, atime, mtime):
+                raise rwin32.lastSavedWindowsError()
+        finally:
+            rwin32.CloseHandle(hFile)
+            lltype.free(atime, flavor='raw')
+            lltype.free(mtime, flavor='raw')
+
+    @specialize.argtype(0)
+    def utime_ns(path, atime_s, atime_ns, mtime_s, mtime_ns):
+        """Like utime(), but keeping the 100 ns a FILETIME can store: the
+        (seconds, nanoseconds) pairs must not go through a float
+        """
+        _utime_win32(path, True, atime_s, atime_ns, mtime_s, mtime_ns)
+
+
 @replace_os_function('utime')
 @specialize.argtype(0, 1)
 def utime(path, times):
@@ -1614,39 +1666,13 @@ def utime(path, times):
                 lltype.free(l_utimbuf, flavor='raw')
         handle_posix_error('utime', error)
     else:  # _WIN32 case
-        from rpython.rlib.rwin32file import time_t_to_FILE_TIME
-        traits = utf8_traits
-        win32traits = make_win32_traits(traits)
-        path = traits.as_utf80(path)
-        with rffi.scoped_utf82wcharp(path) as buf:
-
-            hFile = win32traits.CreateFile(buf,
-                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
-                               None, win32traits.OPEN_EXISTING,
-                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
-                               rwin32.NULL_HANDLE)
-        if hFile == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastSavedWindowsError()
-        ctime = lltype.nullptr(rwin32.FILETIME)
-        atime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-        mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
-        try:
-            if times is None:
-                # not GetSystemTime(): SYSTEMTIME only has milliseconds,
-                # which can round down below the mtime the filesystem just
-                # gave the file
-                GetSystemTimePreciseAsFileTime(atime)
-                rffi.structcopy(mtime, atime)
-            else:
-                actime, modtime = times
-                time_t_to_FILE_TIME(actime, atime)
-                time_t_to_FILE_TIME(modtime, mtime)
-            if not SetFileTime(hFile, ctime, atime, mtime):
-                raise rwin32.lastSavedWindowsError()
-        finally:
-            rwin32.CloseHandle(hFile)
-            lltype.free(atime, flavor='raw')
-            lltype.free(mtime, flavor='raw')
+        if times is None:
+            _utime_win32(path, False, 0, 0, 0, 0)
+        else:
+            actime, modtime = times
+            atime_s, atime_ns = _float_to_s_ns(actime)
+            mtime_s, mtime_ns = _float_to_s_ns(modtime)
+            _utime_win32(path, True, atime_s, atime_ns, mtime_s, mtime_ns)
 
 def times_to_timeval2p(times, l_timeval2p):
     actime, modtime = times
