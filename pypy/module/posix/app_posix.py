@@ -168,7 +168,14 @@ def waitstatus_to_exitcode(status):
     if not isinstance(status, int):
         raise TypeError("integer argument expected, got float")
     if sys.platform == "win32":
-        return status >> 8
+        if status < 0:
+            raise OverflowError(
+                "can't convert negative value to unsigned long long")
+        exitcode = status >> 8
+        # ExitProcess() takes an UINT, so anything wider is not an exit code
+        if exitcode > 0xffffffff:
+            raise ValueError("invalid exit code: %d" % (exitcode,))
+        return exitcode
     if posix.WIFEXITED(status):
         exitcode = posix.WEXITSTATUS(status)
         if exitcode < 0: # should not occur in practice

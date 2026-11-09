@@ -11,7 +11,8 @@ from rpython.rlib._os_support import (
     POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
-from rpython.rlib.rarithmetic import intmask, widen, r_uint, INT_MAX
+from rpython.rlib.rarithmetic import (intmask, widen, r_uint, INT_MAX,
+    r_longlong, r_uint32)
 from rpython.rlib.signature import signature
 from rpython.tool.sourcetools import func_renamer
 from rpython.translator.platform import platform
@@ -1096,11 +1097,10 @@ if _WIN32:
                         save_err=rffi.RFFI_SAVE_ERRNO)
     @jit.dont_look_inside
     def c_waitpid(pid, status_p, options):
-        result = c__cwait(status_p, pid, options)
-        # shift the status left a byte so this is more
-        # like the POSIX waitpid
-        status_p[0] = rffi.cast(rffi.INT, widen(status_p[0]) << 8)
-        return result
+        # the status is shifted in waitpid() below, where it can be held in
+        # 64 bits: an exit code is an unsigned 32 bit value, so shifting it
+        # up a byte like POSIX does no longer fits an int
+        return c__cwait(status_p, pid, options)
 elif _CYGWIN:
     c_waitpid = external('cygwin_waitpid',
                          [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
@@ -1121,7 +1121,12 @@ def waitpid(pid, options):
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
-        status = widen(status_p[0])
+        if _WIN32:
+            # _cwait() reports the unsigned exit code; shift it a byte left
+            # so that it looks like a POSIX wait status
+            status = r_longlong(r_uint32(widen(status_p[0]))) << 8
+        else:
+            status = widen(status_p[0])
         return (result, status)
     finally:
         lltype.free(status_p, flavor='raw')
