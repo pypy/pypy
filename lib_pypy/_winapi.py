@@ -475,8 +475,8 @@ def WaitNamedPipe(namedpipe, milliseconds):
     namedpipe = _ffi.new("CHAR[]", namedpipe.encode("ascii", "ignore"))
     res = _kernel32.WaitNamedPipeA(namedpipe, milliseconds)
 
-    if res < 0:
-        raise RaiseFromWindowsErr(0)
+    if not res:
+        RaiseFromWindowsErr(0)
 
 
 def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
@@ -623,15 +623,26 @@ def malloc(size):
 def free(voidptr):
     _kernel32.HeapFree(_kernel32.GetProcessHeap(),0, voidptr)
 
-def CreateFileMapping(*args):
-    handle = _kernel32.CreateFileMappingW(
-        *_with_security_attributes(args, 1))
+def _no_nul(name):
+    # cffi silently truncates at the null, where CPython's argument clinic
+    # rejects it
+    if isinstance(name, str) and '\0' in name:
+        raise ValueError("embedded null character")
+    return name
+
+def CreateFileMapping(file_handle, security_attributes, protect,
+                      max_size_high, max_size_low, name):
+    args = _with_security_attributes(
+        (file_handle, security_attributes, protect, max_size_high,
+         max_size_low, _no_nul(name)), 1)
+    handle = _kernel32.CreateFileMappingW(*args)
     if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
 
-def OpenFileMapping(*args):
-    handle = _kernel32.OpenFileMappingW(*args)
+def OpenFileMapping(desired_access, inherit_handle, name):
+    handle = _kernel32.OpenFileMappingW(desired_access, inherit_handle,
+                                        _no_nul(name))
     if not handle:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)

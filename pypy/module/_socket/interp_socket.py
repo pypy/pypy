@@ -18,6 +18,7 @@ from pypy.interpreter.typedef import (
     make_weakref_descr)
 
 _WIN32 = sys.platform.startswith('win')
+WSABASEERR = 10000
 
 # XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
@@ -1212,7 +1213,16 @@ def converted_error(space, e, eintr_retry=False):
             space.getexecutioncontext().checksignals()
             if eintr_retry:
                 return       # only return None if eintr_retry==True
-        w_exception = space.call_function(w_exception_class, space.newint(e.errno),
+        if _WIN32 and WSABASEERR <= e.errno < WSABASEERR + 1000:
+            # CPython reports socket errors with PyErr_SetExcFromWindowsErr(),
+            # so they carry a winerror on top of the errno
+            w_exception = space.call_function(w_exception_class,
+                                      space.newint(e.errno),
+                                      space.newtext(message, lgt),
+                                      space.w_None, space.newint(e.errno))
+        else:
+            w_exception = space.call_function(w_exception_class,
+                                      space.newint(e.errno),
                                       space.newtext(message, lgt))
     else:
         w_exception = space.call_function(w_exception_class,
