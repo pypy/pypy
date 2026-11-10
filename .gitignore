@@ -30,6 +30,7 @@ pypy/goal/target*-c
 pypy/goal/*.dll
 release/
 !pypy/tool/release/
+/tcl/
 rpython/_cache/
 .cache/
 .hypothesis
