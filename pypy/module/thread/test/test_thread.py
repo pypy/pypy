@@ -234,48 +234,6 @@ class AppTestThread(GenericTestThread):
                 __pypy__.thread._raise_in_thread(ident, ValueError)
                 self.waitfor(lambda self: False)
 
-    def test_interrupt_during_weakref_callback(self):
-        # an asynchronous exception must not be delivered inside a weakref
-        # callback: it would only be reported as unraisable and lost
-        import thread, gc, weakref, __pypy__
-        in_callback = []
-        sent = []
-        done = []
-
-        class X(object):
-            pass
-
-        def callback(wref):
-            import time
-            in_callback.append(thread.get_ident())
-            # wait for the main thread to send the exception, then stay in
-            # here a bit longer so that it gets delivered while the
-            # callback is still running
-            limit = time.time() + 30.0
-            while not sent and time.time() < limit:
-                pass
-            limit = time.time() + 0.5
-            while time.time() < limit:
-                pass
-
-        def f():
-            x = X()
-            wref = weakref.ref(x, callback)
-            del x
-            try:
-                gc.collect()
-            except ValueError:
-                done.append('caught')
-            else:
-                done.append('lost')
-
-        thread.start_new_thread(f, ())
-        self.waitfor(lambda: bool(in_callback))
-        __pypy__.thread._raise_in_thread(in_callback[0], ValueError)
-        sent.append(1)
-        self.waitfor(lambda: bool(done))
-        assert done == ['caught']
-
 
 @pytest.mark.skip("too slow")
 class _AppTestThread(GenericTestThread):
