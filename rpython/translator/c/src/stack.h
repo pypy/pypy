@@ -14,6 +14,12 @@
 #  elif defined(__s390x__)
      /* S390X as well has pretty large stack frames. */
 #    define MAX_STACK_SIZE (11 << 18)    /* 2.8 mb */
+#  elif defined(_WIN64)
+     /* win64 frames are large too: the 768 kb default is only enough for
+      * about 800 recursive python calls, fewer than the default recursion
+      * limit of 1000.  The linker reserves 3 mb, see
+      * rpython/translator/platform/windows.py */
+#    define MAX_STACK_SIZE (1 << 20)    /* 1 mb */
 #  else
 #    define MAX_STACK_SIZE (3 << 18)    /* 768 kb */
 #  endif
