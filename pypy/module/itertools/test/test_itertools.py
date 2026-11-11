@@ -843,6 +843,16 @@ class AppTestItertools(object):
         a, = itertools.tee('abc', 1)
         assert itertools.tee(a, 0) == ()
 
+    def test_tee_reduce_exhausted(self):
+        import itertools
+        a, b = itertools.tee([1, 2])
+        list(a)
+        cls, args, state = a.__reduce__()
+        c = cls(*args)
+        c.__setstate__(state)
+        assert list(c) == []
+        assert list(b) == [1, 2]
+
 
 class AppTestItertools26(object):
     spaceconfig = dict(usemodules=['itertools'])

@@ -484,6 +484,18 @@ class AppTestBuiltinApp:
 
         raises(TypeError, enumerate, range(2), 5.5)
 
+    def test_enumerate_list_reduce(self):
+        e = enumerate([10, 20, 30])
+        next(e)
+        cls, args = e.__reduce__()
+        assert cls is enumerate
+        assert args[1] == 1
+        assert list(cls(*args)) == [(1, 20), (2, 30)]
+        list(e)
+        cls, args = e.__reduce__()
+        assert args[1] == 3
+        assert list(args[0]) == []
+
 
     def test_next(self):
         x = iter(['a', 'b', 'c'])

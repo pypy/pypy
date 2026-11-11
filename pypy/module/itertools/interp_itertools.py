@@ -1013,11 +1013,14 @@ class W_TeeIterable(W_Root):
 
     def reduce_w(self):
         _pickle_deprecation_warning(self.space)
+        w_chained_list = self.w_chained_list
+        if w_chained_list is None:
+            w_chained_list = W_TeeChainedListNode(self.space)
         return self.space.newtuple([self.space.gettypefor(W_TeeIterable),
                                     self.space.newtuple([self.space.newtuple([])]),
                                     self.space.newtuple([
                                         self.w_iterator,
-                                        self.w_chained_list])
+                                        w_chained_list])
                                     ])
     def setstate_w(self, w_state):
         _pickle_deprecation_warning(self.space)

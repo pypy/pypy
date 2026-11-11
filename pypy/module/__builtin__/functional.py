@@ -13,6 +13,8 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_uint, intmask
+from pypy.objspace.std.iterobject import W_FastListIterObject
+from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.util import generic_alias_class_getitem
 
 
@@ -252,8 +254,6 @@ class W_Enumerate(W_Root):
 
     @staticmethod
     def descr___new__(space, w_subtype, w_iterable, w_start=None):
-        from pypy.objspace.std.listobject import W_ListObject
-
         if w_start is None:
             start = 0
         else:
@@ -279,7 +279,6 @@ class W_Enumerate(W_Root):
         return self
 
     def descr_next(self, space):
-        from pypy.objspace.std.listobject import W_ListObject
         w_index = self.w_index
         w_iter_or_list = self.w_iter_or_list
         w_item = None
@@ -312,10 +311,13 @@ class W_Enumerate(W_Root):
 
     def descr___reduce__(self, space):
         w_index = self.w_index
+        w_iter = self.w_iter_or_list
         if w_index is None:
+            if w_iter is None or type(w_iter) is W_ListObject:
+                w_iter = W_FastListIterObject(w_iter, self.index)
             w_index = space.newint(self.index)
         return space.newtuple2(space.type(self),
-                               space.newtuple2(self.w_iter_or_list, w_index))
+                               space.newtuple2(w_iter, w_index))
 
 # exported through _pickle_support
 def _make_enumerate(space, w_iter_or_list, w_index):
