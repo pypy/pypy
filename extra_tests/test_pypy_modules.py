@@ -70,5 +70,6 @@ if sys.platform.startswith('linux'):
 def modname(request):
     return request.param
 
+@pytest.mark.filterwarnings("ignore:'crypt' is deprecated:DeprecationWarning")
 def test_expected_modules(modname):
     importlib.import_module(modname)
