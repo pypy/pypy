@@ -1369,6 +1369,19 @@ class AppTestWithMapDict(object):
         a2.a = 'f'
         assert a1.__dict__ == a2.__dict__
 
+    def test_dict_descriptor_unrelated_slots(self):
+        class A(object):
+            pass
+        class S(object):
+            __slots__ = ('x',)
+        obj = S()
+        descr = A.__dict__['__dict__']
+        with raises(TypeError):
+            descr.__get__(obj)
+        with raises(TypeError):
+            descr.__set__(obj, {})
+        with raises(TypeError):
+            descr.__delete__(obj)
 
 
 class AppTestWithMapDictAndCounters(object):
