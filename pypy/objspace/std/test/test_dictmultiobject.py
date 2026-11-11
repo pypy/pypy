@@ -1336,6 +1336,15 @@ class AppTestDictViews:
             items.insert(0, first)
             assert items == list(reversed(meth(d)))
 
+    def test_pickle_exhausted(self):
+        d = {1: 1}
+        for it in [iter(d), iter(d.values()), iter(d.items()),
+                   reversed(d), reversed(d.values()), reversed(d.items())]:
+            list(it)
+            rebuild, args = it.__reduce__()
+            assert args == ([],)
+            assert list(rebuild(*args)) == []
+
     def test_mapping(self):
         d = {1: 2, 3: 4}
         class A:
