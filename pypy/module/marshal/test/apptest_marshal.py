@@ -296,6 +296,16 @@ def test_stream_reader_writer(tmpdir):
 def test_unmarshal_evil_long():
     raises(ValueError, marshal.loads, b'l\x02\x00\x00\x00\x00\x00\x00\x00')
 
+def test_text_float():
+    assert marshal.loads(b'f\x031.5') == 1.5
+    assert marshal.loads(b'x\x031.5\x02-2') == 1.5-2j
+    with raises(ValueError):
+        marshal.loads(b'f\x031\xed\xa0')
+    with raises(ValueError):
+        marshal.loads(b'f\x02\xff1')
+    with raises(ValueError):
+        marshal.loads(b'x\x031\xed\xa0\x011')
+
 def test_int64():
     assert marshal.loads(b'I\xff\xff\xff\xff\xff\xff\xff\x7f') == 0x7fffffffffffffff
     assert marshal.loads(b'I\xfe\xdc\xba\x98\x76\x54\x32\x10') == 0x1032547698badcfe
