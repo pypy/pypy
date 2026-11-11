@@ -48,7 +48,8 @@ from pypy.module.cpyext.typeobjectdefs import (
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
 from pypy.objspace.std.typeobject import (W_TypeObject, find_best_base,
-    extract_doc, extract_txtsig, _calculate_metaclass)
+    extract_doc, extract_txtsig, _calculate_metaclass, PATMA_SEQUENCE,
+    PATMA_MAPPING)
 
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
@@ -1244,6 +1245,12 @@ def finish_type_2(space, pto, w_obj):
     if not flags & Py_TPFLAGS_HEAPTYPE:
         # like PyType_Ready: all static types are immutable
         pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_IMMUTABLETYPE)
+    # only set when a bit is present, so that subclasses without one of their
+    # own still inherit the base's value in copy_flags_from_bases()
+    if flags & PATMA_SEQUENCE:
+        w_obj.flag_patma_collection = "S"
+    elif flags & PATMA_MAPPING:
+        w_obj.flag_patma_collection = "M"
     base = pto.c_tp_base
     if base:
         inherit_special(space, pto, w_obj, base)

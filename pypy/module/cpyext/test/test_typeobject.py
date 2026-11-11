@@ -4577,6 +4577,106 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             pass
         assert module.is_gc(Sub)
 
+    def test_static_type_collection_flags(self):
+        # mimics what Cython emits for @cython.collection_type("sequence"|
+        # "mapping") on a static type (CYTHON_USE_TYPE_SPECS=0, see
+        # cython/cython#5030): the Py_TPFLAGS_SEQUENCE / Py_TPFLAGS_MAPPING
+        # bit is the only thing that marks the type, and it is set before
+        # PyType_Ready. Like Cython's memoryview classes, both types here
+        # also implement the *other* protocol, so the flag has to win over
+        # the slot-based guess in W_PyCTypeObject.__init__.
+        module = self.import_extension('foo_collection_flags', [], prologue="""
+            static Py_ssize_t collection_length(PyObject *self)
+            {
+                return 0;
+            }
+            static PyObject *collection_subscript(PyObject *self, PyObject *k)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *collection_item(PyObject *self, Py_ssize_t i)
+            {
+                Py_RETURN_NONE;
+            }
+
+            /* a sequence-flagged type that only has mp_subscript */
+            static PyMappingMethods seq_as_mapping = {
+                collection_length,
+                collection_subscript,
+                0,
+            };
+            static PyTypeObject Seq_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_collection_flags.Seq",
+                sizeof(PyObject),
+                0,
+            };
+
+            /* a mapping-flagged type that only has sq_item */
+            static PySequenceMethods map_as_sequence = {
+                collection_length,
+                0,
+                0,
+                collection_item,
+                0,
+            };
+            static PyTypeObject Map_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_collection_flags.Map",
+                sizeof(PyObject),
+                0,
+            };
+            """, more_init="""
+            Seq_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                Py_TPFLAGS_SEQUENCE;
+            Seq_Type.tp_base = &PyBaseObject_Type;
+            Seq_Type.tp_new = PyType_GenericNew;
+            Seq_Type.tp_as_mapping = &seq_as_mapping;
+            if (PyType_Ready(&Seq_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Seq", (PyObject *)&Seq_Type);
+
+            Map_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                Py_TPFLAGS_MAPPING;
+            Map_Type.tp_base = &PyBaseObject_Type;
+            Map_Type.tp_new = PyType_GenericNew;
+            Map_Type.tp_as_sequence = &map_as_sequence;
+            if (PyType_Ready(&Map_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Map", (PyObject *)&Map_Type);
+        """)
+        # match/case is not py2 syntax, and this file is imported by the
+        # host interpreter when running untranslated
+        ns = {}
+        exec("""if 1:
+            def classify(obj):
+                match obj:
+                    case {}:
+                        return "mapping"
+                    case [*_]:
+                        return "sequence"
+                    case _:
+                        return "other"
+        """, ns)
+        classify = ns["classify"]
+
+        Py_TPFLAGS_SEQUENCE = 1 << 5
+        Py_TPFLAGS_MAPPING = 1 << 6
+        assert module.Seq.__flags__ & Py_TPFLAGS_SEQUENCE
+        assert not module.Seq.__flags__ & Py_TPFLAGS_MAPPING
+        assert module.Map.__flags__ & Py_TPFLAGS_MAPPING
+        assert not module.Map.__flags__ & Py_TPFLAGS_SEQUENCE
+
+        assert classify(module.Seq()) == "sequence"
+        assert classify(module.Map()) == "mapping"
+
+        # like Cython's undecorated memoryview subclasses, a plain subclass
+        # inherits the flag
+        class SeqSub(module.Seq):
+            pass
+        class MapSub(module.Map):
+            pass
+        assert classify(SeqSub()) == "sequence"
+        assert classify(MapSub()) == "mapping"
+
     # messes with leak detection, leave at the end of the tests
     def test_nanobind2_tp_traverse(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 89a8585
