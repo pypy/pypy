@@ -1233,6 +1233,23 @@ class AppTestItertools27(object):
         islice = itertools.islice(myiter, 5, 8)
         raises(StopIteration, islice.__next__)
 
+    def test_islice_reentrant_exhausts(self):
+        import itertools
+        class Src:
+            calls = 0
+            def __iter__(self):
+                return self
+            def __next__(self):
+                self.calls += 1
+                if self.calls == 1:
+                    assert next(isl, 'STOP') == 'STOP'
+                    return 'a'
+                raise StopIteration
+        src = Src()
+        isl = itertools.islice(src, 1, 2)
+        assert next(isl, 'STOP') == 'STOP'
+        assert src.calls == 3
+
     def test_combinations_pickle(self):
         from itertools import combinations
         import _pickle as pickle
