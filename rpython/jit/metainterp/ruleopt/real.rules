@@ -316,12 +316,10 @@ ge_same: int_ge(x, x)
     => 1
 
 ult_known_true: uint_lt(x, y)
-    SORRY_Z3
     check x.known_unsigned_lt(y)
     => 1
 
 ult_known_false: uint_lt(x, y)
-    SORRY_Z3
     check x.known_unsigned_ge(y)
     => 0
 
@@ -329,12 +327,10 @@ ult_same: uint_lt(x, x)
     => 0
 
 ule_known_true: uint_le(x, y)
-    SORRY_Z3
     check x.known_unsigned_le(y)
     => 1
 
 ule_known_false: uint_le(x, y)
-    SORRY_Z3
     check x.known_unsigned_gt(y)
     => 0
 
@@ -342,12 +338,10 @@ ule_same: uint_le(x, x)
     => 1
 
 ugt_known_true: uint_gt(x, y)
-    SORRY_Z3
     check x.known_unsigned_gt(y)
     => 1
 
 ugt_known_false: uint_gt(x, y)
-    SORRY_Z3
     check x.known_unsigned_le(y)
     => 0
 
@@ -355,12 +349,10 @@ ugt_same: uint_gt(x, x)
     => 0
 
 uge_known_true: uint_ge(x, y)
-    SORRY_Z3
     check x.known_unsigned_ge(y)
     => 1
 
 uge_known_false: uint_ge(x, y)
-    SORRY_Z3
     check x.known_unsigned_lt(y)
     => 0
 
