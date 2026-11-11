@@ -3639,6 +3639,30 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(base);
                 return res;
              '''),
+            ("float_subtype_refcnt_delta", "METH_NOARGS",
+             '''
+                PyType_Slot slots[] = {{Py_tp_new, sub_new},
+                                       {Py_tp_dealloc, sub_dealloc}, {0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.FloatSub",
+                    sizeof(PyFloatObject), 0, Py_TPFLAGS_DEFAULT, slots};
+                PyObject *t = PyType_FromSpecWithBases(&spec,
+                                                (PyObject *)&PyFloat_Type);
+                if (t == NULL) return NULL;
+                PyTypeObject *tp = (PyTypeObject *)t;
+                Py_ssize_t before = Py_REFCNT(t);
+                int i;
+                for (i = 0; i < 8; i++) {
+                    PyObject *o = tp->tp_alloc(tp, 0);
+                    if (o == NULL) {
+                        Py_DECREF(t);
+                        return NULL;
+                    }
+                    Py_DECREF(o);
+                }
+                Py_ssize_t delta = Py_REFCNT(t) - before;
+                Py_DECREF(t);
+                return PyLong_FromSsize_t(delta);
+             '''),
             ], prologue='''
             static PyMemberDef spec_members[] = {
                 {"x", Py_T_INT, 0, Py_READONLY, NULL}, {NULL}};
@@ -3646,6 +3670,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             meta_new(PyTypeObject *t, PyObject *a, PyObject *k)
             {
                 return PyType_Type.tp_new(t, a, k);
+            }
+            /* what Cython emits for `cdef class X(float)` under
+               CYTHON_USE_TYPE_SPECS: tp_dealloc delegates to the base's and
+               then undoes the heaptype incref of tp_alloc itself */
+            static PyObject *
+            sub_new(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                return PyFloat_Type.tp_new(t, a, k);
+            }
+            static void
+            sub_dealloc(PyObject *o)
+            {
+                PyObject *tp = (PyObject *)Py_TYPE(o);
+                PyFloat_Type.tp_dealloc(o);
+                Py_DECREF(tp);
             }
             ''')
         import warnings
@@ -3694,6 +3733,10 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert log[0].category is DeprecationWarning
             assert "custom tp_new" in str(log[0].message)
         assert type(Sub) is Meta
+
+        # the base dealloc must not also undo tp_alloc's heaptype incref,
+        # or the type's refcount drifts down one per instance
+        assert module.float_subtype_refcnt_delta() == 0
 
     def test_pep697_type_data(self):
         import struct

@@ -861,11 +861,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
         pto.c_tp_dealloc = typedescr.get_dealloc(space)
     else:
-        # for all subtypes, use base's dealloc (requires sorting in attach_all)
-        pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
-        if not pto.c_tp_dealloc:
-            # strange, but happens (ABCMeta)
-            pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+        # like CPython, every subtype gets subtype_dealloc, which looks up
+        # the base's dealloc when it runs and owns the heaptype decref
+        pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
