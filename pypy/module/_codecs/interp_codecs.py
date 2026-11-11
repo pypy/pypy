@@ -255,10 +255,25 @@ def check_exception(space, w_exc):
             raise
         raise oefmt(space.w_TypeError, "wrong exception")
 
-    delta = space.int_w(w_end) - space.int_w(w_start)
-    if delta < 0 or not (space.isinstance_w(w_obj, space.w_bytes) or
-                         space.isinstance_w(w_obj, space.w_unicode)):
+    if not (space.isinstance_w(w_obj, space.w_bytes) or
+            space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError, "wrong exception")
+
+def get_start_end(space, w_exc):
+    # like CPython's PyUnicode*Error_GetStart/GetEnd, which clamp the
+    # values to the size of the object
+    size = space.len_w(space.getattr(w_exc, space.newtext('object')))
+    start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+    end = space.int_w(space.getattr(w_exc, space.newtext('end')))
+    if start >= size:
+        start = size - 1
+    if start < 0:
+        start = 0
+    if end < 1:
+        end = 1
+    if end > size:
+        end = size
+    return start, end
 
 def strict_errors(space, w_exc):
     check_exception(space, w_exc)
@@ -269,16 +284,16 @@ def strict_errors(space, w_exc):
 
 def ignore_errors(space, w_exc):
     check_exception(space, w_exc)
-    w_end = space.getattr(w_exc, space.newtext('end'))
-    return space.newtuple2(space.newutf8('', 0), w_end)
+    _, end = get_start_end(space, w_exc)
+    return space.newtuple2(space.newutf8('', 0), space.newint(end))
 
 REPLACEMENT = u'\ufffd'.encode('utf8')
 
 def replace_errors(space, w_exc):
     check_exception(space, w_exc)
-    w_start = space.getattr(w_exc, space.newtext('start'))
-    w_end = space.getattr(w_exc, space.newtext('end'))
-    size = space.int_w(w_end) - space.int_w(w_start)
+    start, end = get_start_end(space, w_exc)
+    w_end = space.newint(end)
+    size = end - start
     if size < 0:
         size = 0
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
@@ -301,9 +316,8 @@ def xmlcharrefreplace_errors(space, w_exc):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         space.realutf8_w(w_obj) # for errors
         w_obj = space.convert_arg_to_w_unicode(w_obj)
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
-        end = space.int_w(w_end)
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
         builder = StringBuilder()
@@ -330,9 +344,8 @@ def backslashreplace_errors(space, w_exc):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         space.realutf8_w(w_obj) # for errors
         w_obj = space.convert_arg_to_w_unicode(w_obj)
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
-        end = space.int_w(w_end)
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
         builder = StringBuilder()
@@ -345,9 +358,8 @@ def backslashreplace_errors(space, w_exc):
         return space.newtuple([space.newtext(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
-        end = space.int_w(w_end)
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         builder = StringBuilder()
         pos = start
         while pos < end:
@@ -365,9 +377,8 @@ def namereplace_errors(space, w_exc):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         space.realutf8_w(w_obj) # for errors
         w_obj = space.convert_arg_to_w_unicode(w_obj)
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
-        end = space.int_w(w_end)
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
         builder = StringBuilder()
@@ -432,14 +443,13 @@ def surrogatepass_errors(space, w_exc):
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         w_obj = space.convert_arg_to_w_unicode(w_obj)
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
         if code == ENC_UNKNOWN:
             # Not supported, fail with original exception
             raise OperationError(space.type(w_exc), w_exc)
-        end = space.int_w(w_end)
         builder = StringBuilder()
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
@@ -473,7 +483,7 @@ def surrogatepass_errors(space, w_exc):
                 builder.append(chr(ch & 0xff))
         return space.newtuple([space.newbytes(builder.build()), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
+        start, _ = get_start_end(space, w_exc)
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
         encoding = space.text_w(space.getattr(w_exc, space.newtext('encoding')))
         bytelength, code = get_standard_encoding(encoding)
@@ -516,9 +526,8 @@ def surrogateescape_errors(space, w_exc):
     if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
         w_obj = space.getattr(w_exc, space.newtext('object'))
         w_obj = space.convert_arg_to_w_unicode(w_obj)
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        w_end = space.getattr(w_exc, space.newtext('end'))
-        end = space.int_w(w_end)
+        start, end = get_start_end(space, w_exc)
+        w_end = space.newint(end)
         res = ''
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
@@ -534,8 +543,7 @@ def surrogateescape_errors(space, w_exc):
         return space.newtuple([space.newbytes(res), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         consumed = 0
-        start = space.int_w(space.getattr(w_exc, space.newtext('start')))
-        end = space.int_w(space.getattr(w_exc, space.newtext('end')))
+        start, end = get_start_end(space, w_exc)
         obj = space.bytes_w(space.getattr(w_exc, space.newtext('object')))
         replace = u''
         while consumed < 4 and consumed < end - start:
