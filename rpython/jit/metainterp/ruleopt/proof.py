@@ -1,5 +1,6 @@
 import sys
 import os
+import operator
 from hashlib import md5
 
 import z3
@@ -18,7 +19,7 @@ MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
 # Invalidate cached proofs when changing the assumptions used for methods.
-PROOF_CACHE_VERSION = 'urshift-contract-v1'
+PROOF_CACHE_VERSION = 'bound-contracts-v1'
 
 class ProofProblem(Exception):
     pass
@@ -225,16 +226,23 @@ def known_ne_contract(result, left, right):
     return z3.Implies(result, left.concrete_variable != right.concrete_variable)
 
 
-def urshift_bound_contract(result, left, right):
-    assert left.concrete_variable is not None
-    assert right.concrete_variable is not None
-    value = z3.LShR(left.concrete_variable, right.concrete_variable)
-    return z3.And(result.concrete_variable == value, result.z3_formula())
+def bound_contract(operation):
+    def contract(result, left, right):
+        assert left.concrete_variable is not None
+        assert right.concrete_variable is not None
+        value = operation(left.concrete_variable, right.concrete_variable)
+        return z3.And(result.concrete_variable == value, result.z3_formula())
+    return contract
 
 
 METHOD_CONTRACTS = {
     'known_ne': known_ne_contract,
-    'urshift_bound': urshift_bound_contract,
+    'and_bound': bound_contract(operator.and_),
+    'or_bound': bound_contract(operator.or_),
+    'sub_bound': bound_contract(operator.sub),
+    'lshift_bound': bound_contract(operator.lshift),
+    'rshift_bound': bound_contract(operator.rshift),
+    'urshift_bound': bound_contract(z3.LShR),
 }
 
 

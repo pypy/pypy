@@ -9,6 +9,7 @@ import pytest
 import sys
 import time
 import gc
+import operator
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck
 from rpython.jit.metainterp.optimizeopt.intutils import (
@@ -373,19 +374,25 @@ def test_mod(b1, b2):
     check_implies(formula1, formula2, nonzero, conclusion=formula3)
 
 
-@given(bounds, bounds)
-@example(IntBound(10, 20), IntBound.from_constant(1))
-@example(IntBound(-20, -10), IntBound.from_constant(1))
-@example(IntBound(-10, 20), IntBound.from_constant(0))
-@example(IntBound(-10, 20), IntBound.from_constant(LONG_BIT - 1))
-@example(IntBound(-10, 20), IntBound.from_constant(LONG_BIT))
-@example(IntBound(10, 20), IntBound.from_constant(-1))
-@example(IntBound(10, 20), IntBound(1, 2))
-def test_urshift(b1, b2):
-    b3 = b1.urshift_bound(b2)
+@pytest.mark.parametrize('method,operation', [
+    ('lshift_bound', operator.lshift), ('rshift_bound', operator.rshift),
+    ('urshift_bound', z3.LShR),
+])
+@given(b1=bounds, b2=bounds)
+@example(b1=IntBound(10, 20), b2=IntBound.from_constant(1))
+@example(b1=IntBound(-20, -10), b2=IntBound.from_constant(1))
+@example(b1=IntBound(-10, 20), b2=IntBound.from_constant(0))
+@example(b1=IntBound(-10, 20), b2=IntBound.from_constant(LONG_BIT - 1))
+@example(b1=IntBound(-10, 20), b2=IntBound.from_constant(LONG_BIT))
+@example(b1=IntBound(10, 20), b2=IntBound.from_constant(-1))
+@example(b1=IntBound(10, 20), b2=IntBound(1, 2))
+@example(b1=IntBound.from_constant(-2), b2=IntBound.from_constant(LONG_BIT))
+@example(b1=IntBound.from_constant(2), b2=IntBound.from_constant(LONG_BIT))
+def test_shift_bound(method, operation, b1, b2):
+    b3 = getattr(b1, method)(b2)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
-    _, formula3 = to_z3(b3, z3.LShR(var1, var2))
+    _, formula3 = to_z3(b3, operation(var1, var2))
     check_implies(formula1, formula2, conclusion=formula3)
 
 
@@ -649,17 +656,6 @@ class Z3IntBound(IntBound):
         tvalue, tmask = self._tnum_add(other)
         return Z3IntBound(result_lower, result_upper, tvalue, tmask)
 
-    def sub_bound(self, other):
-        result = self.concrete_variable - other.concrete_variable
-        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
-        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
-        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                             lower, MININT)
-        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                             upper, MAXINT)
-        tvalue, tmask = self._tnum_sub(other)
-        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
-
     def add_bound_cannot_overflow(self, other):
         lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
         upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
@@ -670,24 +666,6 @@ class Z3IntBound(IntBound):
         upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
         return z3.And(no_ovf_lower, no_ovf_upper)
 
-    def and_bound(self, other):
-        pos1 = self.known_nonnegative()
-        pos2 = other.known_nonnegative()
-        # the next three if-conditions are proven by test_prove_and_bound_logic
-        lower = z3.If(z3.Or(pos1, pos2), z3.BitVecVal(0, LONG_BIT), MININT)
-        upper = z3.If(
-            pos1,
-            z3.If(
-                pos2,
-                z3_min(self.upper, other.upper),
-                self.upper),
-            z3.If(
-                pos2,
-                other.upper,
-                MAXINT))
-        res_tvalue, res_tmask = self._tnum_and(other)
-        return self.new(lower, upper, res_tvalue, res_tmask)
-
     def lshift_bound_cannot_overflow(self, other):
         _, no_ovf1 = z3_lshift_overflow(self.lower, other.lower)
         _, no_ovf2 = z3_lshift_overflow(self.lower, other.upper)
@@ -695,25 +673,6 @@ class Z3IntBound(IntBound):
         _, no_ovf4 = z3_lshift_overflow(self.upper, other.upper)
         return z3.And(other.lower >= 0, other.upper < LONG_BIT,
                       no_ovf1, no_ovf2, no_ovf3, no_ovf4)
-
-    def rshift_bound(self, other):
-        result = self.concrete_variable >> other.concrete_variable
-        result1 = self.lower >> other.lower
-        result2 = self.lower >> other.upper
-        result3 = self.upper >> other.lower
-        result4 = self.upper >> other.upper
-        min1 = z3_min(result1, result2, result3, result4)
-        max1 = z3_max(result1, result2, result3, result4)
-        cond = z3.And(other.lower >= 0, other.upper < LONG_BIT)
-        min1 = z3.If(cond, min1, MININT)
-        max1 = z3.If(cond, max1, MAXINT)
-        tvalue, tmask = self._tnum_rshift(other.lower)
-        cond2 = z3.And(other.is_constant(), cond)
-        tvalue = z3.If(cond2,
-                       tvalue, 0)
-        tmask = z3.If(cond2,
-                      tmask, -1)
-        return Z3IntBound(min1, max1, tvalue, tmask)
 
     def is_constant(self):
         return z3.And(self.lower == self.upper, self.tmask == 0)
@@ -902,18 +861,29 @@ def test_prove_and():
     tvalue, tmask = b1._tnum_and(b2)
     b1.prove_implies(
         b2,
-        conclusion=z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
+        conclusion=z3.And(
+            z3_tvalue_tmask_are_valid(tvalue, tmask),
+            z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask)),
     )
 
 def test_prove_and_bound_logic():
+    def and_bound(self, other):
+        # Model the result before the runtime constructor calls shrink().
+        pos1 = self.known_nonnegative()
+        pos2 = other.known_nonnegative()
+        lower = z3.If(z3.Or(pos1, pos2), BitVecVal(0), MININT)
+        upper = z3.If(pos1, self.upper, MAXINT)
+        upper = z3.If(pos2, z3_min(upper, other.upper), upper)
+        tvalue, tmask = self._tnum_and(other)
+        return Z3IntBound(lower, upper, tvalue, tmask)
+
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    res = b1.concrete_variable & b2.concrete_variable
-    b3 = b1.and_bound(b2)
-    b3.concrete_variable = res
+    b3 = and_bound(b1, b2)
+    b3.concrete_variable = b1.concrete_variable & b2.concrete_variable
     b1.prove_implies(
         b2,
-        conclusion=b3
+        conclusion=b3,
     )
 
 def test_prove_add_knownbits():
@@ -992,9 +962,19 @@ def test_prove_sub_knownbits():
     )
 
 def test_prove_sub_bound_logic():
+    def sub_bound(self, other):
+        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
+        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
+        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             lower, MININT)
+        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             upper, MAXINT)
+        tvalue, tmask = self._tnum_sub(other)
+        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
+
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    b3 = b1.sub_bound(b2)
+    b3 = sub_bound(b1, b2)
     b3.concrete_variable = b1.concrete_variable - b2.concrete_variable
     b1.prove_implies(
         b2,
@@ -1431,6 +1411,26 @@ def test_prove_lshift_knownbits():
         conclusion=z3_tnum_condition(result, tvalue, tmask)
     )
 
+def test_prove_lshift_knownbits_logic():
+    def lshift_knownbits(self, other):
+        c = other.lower
+        shifted_value, shifted_mask = self._tnum_lshift(c)
+        large_shift = z3.And(other.is_constant(), c >= LONG_BIT)
+        valid_shift = z3.And(other.is_constant(), c >= 0, c < LONG_BIT)
+        tvalue = z3.If(large_shift, 0, z3.If(valid_shift, shifted_value, 0))
+        tmask = z3.If(large_shift, 0, z3.If(valid_shift, shifted_mask, -1))
+        return tvalue, tmask
+
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    tvalue, tmask = lshift_knownbits(b1, b2)
+    result = b1.concrete_variable << b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        conclusion=z3.And(z3_tvalue_tmask_are_valid(tvalue, tmask),
+                          z3_tnum_condition(result, tvalue, tmask)),
+    )
+
 def test_prove_lshift_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
@@ -1478,33 +1478,50 @@ def test_prove_rshift_knownbits():
 
 @z3_with_reduced_bitwidth(32)
 def test_prove_rshift_bound_logic():
+    def rshift_bounds(self, other):
+        result1 = self.lower >> other.lower
+        result2 = self.lower >> other.upper
+        result3 = self.upper >> other.lower
+        result4 = self.upper >> other.upper
+        valid_shift = z3.And(other.lower >= 0, other.upper < LONG_BIT)
+        lower = z3.If(valid_shift, z3_min(result1, result2, result3, result4), MININT)
+        upper = z3.If(valid_shift, z3_max(result1, result2, result3, result4), MAXINT)
+        return lower, upper
+
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    # bounds logic
+    lower, upper = rshift_bounds(b1, b2)
     result = b1.concrete_variable >> b2.concrete_variable
-    result1 = b1.lower >> b2.lower
-    result2 = b1.lower >> b2.upper
-    result3 = b1.upper >> b2.lower
-    result4 = b1.upper >> b2.upper
-    min1 = z3_min(result1, result2, result3, result4)
-    max1 = z3_max(result1, result2, result3, result4)
     b1.prove_implies(
         b2,
-        b2.lower >= 0,
-        conclusion=z3.And(min1 <= result, result <= max1),
+        conclusion=z3.And(lower <= result, result <= upper),
     )
 
-@z3_with_reduced_bitwidth(32)
-def test_2_prove_rshift_bound_logic():
+def test_prove_rshift_knownbits_logic():
+    def rshift_knownbits(self, other):
+        c = other.lower
+        shifted_value, shifted_mask = self._tnum_rshift(c)
+        sign_unknown = msbonly(self.tmask) != 0
+        sign_negative = msbonly(self.tvalue) != 0
+        large_value = z3.If(sign_unknown, BitVecVal(0),
+                            z3.If(sign_negative, BitVecVal(-1), BitVecVal(0)))
+        large_mask = z3.If(sign_unknown, BitVecVal(-1), BitVecVal(0))
+        large_shift = z3.And(other.is_constant(), c >= LONG_BIT)
+        valid_shift = z3.And(other.is_constant(), c >= 0, c < LONG_BIT)
+        tvalue = z3.If(large_shift, large_value,
+                      z3.If(valid_shift, shifted_value, 0))
+        tmask = z3.If(large_shift, large_mask,
+                     z3.If(valid_shift, shifted_mask, -1))
+        return tvalue, tmask
+
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    b3 = b1.rshift_bound(b2)
-    b3.concrete_variable = result = b1.concrete_variable >> b2.concrete_variable
+    tvalue, tmask = rshift_knownbits(b1, b2)
+    result = b1.concrete_variable >> b2.concrete_variable
     b1.prove_implies(
         b2,
-        b2.lower >= 0,
-        b2.upper < LONG_BIT,
-        conclusion=b3,
+        conclusion=z3.And(z3_tvalue_tmask_are_valid(tvalue, tmask),
+                          z3_tnum_condition(result, tvalue, tmask)),
     )
 
 def test_prove_urshift_knownbits():

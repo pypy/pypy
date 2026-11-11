@@ -160,29 +160,75 @@ old_cached_rule: int_add(x, 0)
         prove_source(source)
 
 
-def test_urshift_bound_contract_does_not_execute_method(monkeypatch):
-    def unsupported(*args):
-        raise AssertionError('must use the contract, not the implementation')
-    monkeypatch.setattr(IntBound, 'urshift_bound', unsupported)
+def test_and_bound_contract_rejects_unshrunk_lower():
+    # The old model fixed this lower bound at zero. The runtime shrinks it:
+    # for x == 3, this rule would incorrectly replace 1 with 4.
+    with pytest.raises(CouldNotProve):
+        prove_source('''\
+wrong_and_lower: int_eq(x, x)
+    check x.known_nonnegative()
+    bound = x.and_bound(x)
+    C = bound.lower
+    D = C + 1
+    => D
+''', force=True)
+
+
+def test_and_bound_contract_composes():
     prove_source('''\
-urshift_contract: uint_rshift(x, n)
-    bound = x.urshift_bound(n)
-    check bound.is_constant()
-    C = bound.get_constant_int()
+and_urshift: uint_rshift(int_and(x, y), n)
+    bound = x.and_bound(y)
+    result = bound.urshift_bound(n)
+    check result.is_constant()
+    C = result.get_constant_int()
     => C
 ''', force=True)
 
 
-def test_urshift_bound_contract_rejects_incorrect_rule():
+BOUND_METHODS = [
+    ('and_bound', 'int_and'), ('or_bound', 'int_or'),
+    ('sub_bound', 'int_sub'), ('lshift_bound', 'int_lshift'),
+    ('rshift_bound', 'int_rshift'), ('urshift_bound', 'uint_rshift'),
+]
+
+
+@pytest.mark.parametrize('method,op', BOUND_METHODS)
+def test_bound_contract_does_not_execute_method(monkeypatch, method, op):
+    def unsupported(*args):
+        raise AssertionError('must use the contract, not the implementation')
+    monkeypatch.setattr(IntBound, method, unsupported)
+    prove_source('''\
+bound_contract: %s(x, y)
+    bound = x.%s(y)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+''' % (op, method), force=True)
+
+
+@pytest.mark.parametrize('method,op', BOUND_METHODS)
+def test_bound_contract_rejects_incorrect_rule(method, op):
     with pytest.raises(CouldNotProve):
         prove_source('''\
-wrong_urshift: uint_rshift(x, n)
-    bound = x.urshift_bound(n)
+wrong_bound: %s(x, y)
+    bound = x.%s(y)
     check bound.is_constant()
     C = bound.get_constant_int()
     D = C + 1
     => D
-''', force=True)
+''' % (op, method), force=True)
+
+
+@pytest.mark.parametrize('method,op', BOUND_METHODS)
+def test_bound_contract_composes(method, op):
+    prove_source('''\
+bound_twice: %s(%s(x, y), y)
+    bound = x.%s(y)
+    result = bound.%s(y)
+    check result.is_constant()
+    C = result.get_constant_int()
+    => C
+''' % (op, op, method, method), force=True)
 
 
 @pytest.mark.parametrize('lower,upper,tvalue,tmask,expected', [
@@ -201,17 +247,6 @@ def test_urshift_bound_contract_concrete_operands(lower, upper, tvalue, tmask, e
                result.lower == lower, result.upper == upper,
                result.tvalue == tvalue, result.tmask == tmask)
     assert solver.check() == expected
-
-
-def test_urshift_bound_contract_composes():
-    prove_source('''\
-urshift_twice: uint_rshift(uint_rshift(x, n), n)
-    bound = x.urshift_bound(n)
-    result = bound.urshift_bound(n)
-    check result.is_constant()
-    C = result.get_constant_int()
-    => C
-''', force=True)
 
 
 def test_known_ne_contract_does_not_execute_method(monkeypatch):
