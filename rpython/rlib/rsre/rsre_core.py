@@ -601,6 +601,10 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                 ptr = p.ptr
                 marks = p.marks
                 enum = p.enum.move_to_next_result(ctx, pattern)
+                # zero-width match protection
+                if self.num_pending >= min:
+                    while enum is not None and ptr == ctx.match_end:
+                        enum = enum.move_to_next_result(ctx, pattern)
 
             # matched one more 'item'.  record it and continue
             self.pending = Pending(ptr, marks, enum, self.pending)
