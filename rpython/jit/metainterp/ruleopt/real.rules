@@ -245,7 +245,6 @@ urshift_lshift_x_c_c: uint_rshift(int_lshift(x, C), C)
 
 
 eq_different_knownbits: int_eq(x, y)
-    SORRY_Z3
     check x.known_ne(y)
     => 0
 
@@ -263,7 +262,6 @@ eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
     => 0
 
 ne_different_knownbits: int_ne(x, y)
-    SORRY_Z3
     check x.known_ne(y)
     => 1
 

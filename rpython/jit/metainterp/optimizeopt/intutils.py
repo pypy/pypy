@@ -590,7 +590,7 @@ class IntBound(AbstractInfo):
         integer is lower than each unsigned integer contained in `other`.
         """
         # if they have the same sign, we can reason with signed comparison
-        # see test_uint_cmp_equivalent_int_cmp_if_same_sign
+        # see test_prove_known_unsigned_cmp
         if self._known_same_sign(other) and self.known_lt(other):
             return True
         other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
@@ -1135,9 +1135,6 @@ class IntBound(AbstractInfo):
                     lower = intmask(r_uint(self.lower) >> c_other)
             # else: bits are unknown because arguments invalid
         return IntBound(lower, upper, tvalue, tmask)
-
-        # we don't do bounds on unsigned
-        return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
     def _tnum_urshift(self, c_other):

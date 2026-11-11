@@ -386,10 +386,21 @@ def test_r_ulonglong():
     assert long(y) == 2**r_ulonglong.BITS - 1
 
 def test_highest_bit():
-    py.test.raises(AssertionError, highest_bit, 0)
-    py.test.raises(AssertionError, highest_bit, 14)
-    for i in xrange(31):
-        assert highest_bit(2**i) == i
+    assert highest_bit(0) == -1
+    assert highest_bit(14) == 3
+    for i in xrange(LONG_BIT):
+        power = r_uint(1) << i
+        assert highest_bit(power) == i
+        assert highest_bit(power - 1) == i - 1
+        assert highest_bit(power | 1) == i
+        assert highest_bit(intmask(power)) == i
+    for n in [-1, -14, -sys.maxint - 1]:
+        assert highest_bit(n) == LONG_BIT - 1
+
+def test_highest_bit_rtyped():
+    for n, expected in [(0, -1), (14, 3), (-1, LONG_BIT - 1),
+                        (-sys.maxint - 1, LONG_BIT - 1)]:
+        assert interpret(highest_bit, [n]) == expected
 
 def test_int_between():
     assert int_between(1, 1, 3)
