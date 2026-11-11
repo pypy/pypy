@@ -1358,7 +1358,11 @@ class W_Product(W_Root):
     def descr_setstate(self, space, w_state):
         _pickle_deprecation_warning(space)
         gear_count = len(self.gears)
-        indices_w = space.unpackiterable(w_state)
+        if not space.isinstance_w(w_state, space.w_tuple):
+            raise oefmt(space.w_ValueError, "invalid arguments")
+        indices_w = space.fixedview(w_state)
+        if len(indices_w) != gear_count:
+            raise oefmt(space.w_ValueError, "invalid arguments")
         lst = []
         for i, gear in enumerate(self.gears):
             w_index = indices_w[i]
