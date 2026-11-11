@@ -202,6 +202,14 @@ class BufferedMixin:
         elif self.state == STATE_DETACHED:
             raise oefmt(space.w_ValueError, "raw stream has been detached")
 
+    def _get_raw(self, space):
+        # self.w_raw can be detached by code called from any method
+        w_raw = self.w_raw
+        if w_raw is None:
+            self._check_init(space)
+            raise oefmt(space.w_ValueError, "raw stream has been detached")
+        return w_raw
+
     @try_inline
     def _check_closed(self, space, message=None):
         from pypy.module._io.interp_fileio import W_FileIO
@@ -220,7 +228,7 @@ class BufferedMixin:
             assert isinstance(w_raw, W_FileIO)
             pos = r_longlong(w_raw._raw_tell(space))
         else:
-            w_pos = space.call_method(self.w_raw, "tell")
+            w_pos = space.call_method(self._get_raw(space), "tell")
             pos = space.r_longlong_w(w_pos)
         if pos < 0:
             raise oefmt(space.w_IOError,
@@ -231,31 +239,31 @@ class BufferedMixin:
 
     def closed_get_w(self, space):
         self._check_init(space)
-        return space.getattr(self.w_raw, space.newtext("closed"))
+        return space.getattr(self._get_raw(space), space.newtext("closed"))
 
     def name_get_w(self, space):
         self._check_init(space)
-        return space.getattr(self.w_raw, space.newtext("name"))
+        return space.getattr(self._get_raw(space), space.newtext("name"))
 
     def mode_get_w(self, space):
         self._check_init(space)
-        return space.getattr(self.w_raw, space.newtext("mode"))
+        return space.getattr(self._get_raw(space), space.newtext("mode"))
 
     def readable_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "readable")
+        return space.call_method(self._get_raw(space), "readable")
 
     def writable_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "writable")
+        return space.call_method(self._get_raw(space), "writable")
 
     def seekable_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "seekable")
+        return space.call_method(self._get_raw(space), "seekable")
 
     def isatty_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "isatty")
+        return space.call_method(self._get_raw(space), "isatty")
 
     def repr_w(self, space):
         typename = space.type(self).name
@@ -300,7 +308,7 @@ class BufferedMixin:
         if whence not in (0, 1, 2):
             raise oefmt(space.w_ValueError,
                         "whence must be between 0 and 2, not %d", whence)
-        check_seekable_w(space, self.w_raw)
+        check_seekable_w(space, self._get_raw(space))
         if whence != 2 and self.readable:
             # Check if seeking leaves us inside the current buffer, so as to
             # return quickly if possible. Also, we needn't take the lock in
@@ -336,7 +344,7 @@ class BufferedMixin:
             return space.newint(n)
 
     def _raw_seek(self, space, pos, whence):
-        w_pos = space.call_method(self.w_raw, "seek",
+        w_pos = space.call_method(self._get_raw(space), "seek",
                                   space.newint(pos), space.newint(whence))
         pos = space.r_longlong_w(w_pos)
         if pos < 0:
@@ -346,7 +354,7 @@ class BufferedMixin:
         return pos
 
     def _closed(self, space):
-        return space.is_true(space.getattr(self.w_raw, space.newtext("closed")))
+        return space.is_true(space.getattr(self._get_raw(space), space.newtext("closed")))
 
     def close_w(self, space):
         self._check_init(space)
@@ -362,7 +370,7 @@ class BufferedMixin:
         finally:
             with self.lock:
                 try:
-                    space.call_method(self.w_raw, "close")
+                    space.call_method(self._get_raw(space), "close")
                 except OperationError as e:
                     if flush_operr:
                         e.chain_exceptions(space, flush_operr)
@@ -379,7 +387,7 @@ class BufferedMixin:
 
     def simple_flush_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "flush")
+        return space.call_method(self._get_raw(space), "flush")
 
     def _writer_flush_unlocked(self, space):
         if self.write_end == -1 or self.write_pos == self.write_end:
@@ -411,7 +419,7 @@ class BufferedMixin:
         w_data = space.newbytes(data)
         while True:
             try:
-                w_written = space.call_method(self.w_raw, "write", w_data)
+                w_written = space.call_method(self._get_raw(space), "write", w_data)
             except OperationError as e:
                 if trap_eintr(space, e):
                     continue  # try again
@@ -444,7 +452,7 @@ class BufferedMixin:
 
     def fileno_w(self, space):
         self._check_init(space)
-        return space.call_method(self.w_raw, "fileno")
+        return space.call_method(self._get_raw(space), "fileno")
 
     @unwrap_spec(w_size = WrappedDefault(None))
     def truncate_w(self, space, w_size):
@@ -457,7 +465,7 @@ class BufferedMixin:
             # invalidate cached position
             self.abs_pos = -1
 
-            return space.call_method(self.w_raw, "truncate", w_size)
+            return space.call_method(self._get_raw(space), "truncate", w_size)
 
     # ________________________________________________________________
     # Read methods
@@ -564,7 +572,7 @@ class BufferedMixin:
 
         while True:
             # Read until EOF or until read() would block
-            w_data = space.call_method(self.w_raw, "read")
+            w_data = space.call_method(self._get_raw(space), "read")
             if space.is_w(w_data, space.w_None):
                 if current_size == 0:
                     return w_data
@@ -585,7 +593,7 @@ class BufferedMixin:
 
         length = intmask(length)
         start = intmask(start)
-        w_raw = self.w_raw
+        w_raw = self._get_raw(space)
         target_address = lltype.nullptr(rffi.CCHARP.TO)
         if type(w_raw) is W_FileIO:
             try:
@@ -603,7 +611,7 @@ class BufferedMixin:
             w_view = SimpleView(SubBuffer(buffer, start, length), w_obj=self).wrap(space)
             while True:
                 try:
-                    w_size = space.call_method(self.w_raw, "readinto", w_view)
+                    w_size = space.call_method(w_raw, "readinto", w_view)
                 except OperationError as e:
                     if trap_eintr(space, e):
                         continue  # try again
