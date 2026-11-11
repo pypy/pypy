@@ -1095,7 +1095,7 @@ class Connection(object):
             rc = _lib.sqlite3_backup_finish(bck_handle);
             if rc == _lib.SQLITE_OK:
                 return None
-            error = _lib.sqlite3_errstr(rc).decode("utf-8")
+            error = _ffi.string(_lib.sqlite3_errstr(rc)).decode("utf-8")
             raise OperationalError(error)
 
         @_check_thread_wrap

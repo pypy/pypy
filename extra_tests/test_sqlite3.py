@@ -420,6 +420,17 @@ class TestBackup:
         assert result[0][0] == 3
         assert result[1][0] == 4
 
+    def test_backup_readonly_target(self, con, tmp_path):
+        path = tmp_path / 'ro.db'
+        _sqlite3.connect(str(path)).close()
+        con.execute('CREATE TABLE foo (key INTEGER)')
+        target = _sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)
+        try:
+            with pytest.raises(_sqlite3.OperationalError):
+                con.backup(target)
+        finally:
+            target.close()
+
 def test_reset_already_committed_statements_bug(con):
     con.execute('''CREATE TABLE COMPANY
              (ID INT PRIMARY KEY,
