@@ -325,6 +325,31 @@ class AppTestBytesArray:
         b.append(ord('e'))
         assert b == b'abcde'
 
+    def test_append_insert_index_mutates(self):
+        class Item:
+            def __init__(self, effect):
+                self.effect = effect
+            def __index__(self):
+                self.effect()
+                return ord('Z')
+        b = bytearray(b'abc')
+        b.append(Item(b.clear))
+        assert b == b'Z'
+        b = bytearray(b'abc')
+        b.append(Item(b.pop))
+        assert b == b'abZ'
+        b = bytearray(b'abc')
+        b.append(Item(lambda: b.extend(b'XYZ')))
+        assert b == b'abcXYZZ'
+        b = bytearray(b'abc')
+        b.insert(3, Item(b.pop))
+        assert b == b'abZ'
+        b = bytearray(10000)
+        def shrink():
+            del b[1:]
+        b.append(Item(shrink))
+        assert b == b'\x00Z'
+
     def test_insert(self):
         b = bytearray(b'abc')
         b.insert(0, ord('d'))
