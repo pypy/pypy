@@ -1117,6 +1117,25 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
         if pto.c_tp_vectorcall_offset == 0:
             pto.c_tp_vectorcall_offset = base.c_tp_vectorcall_offset
+        if not pto.c_tp_repr:
+            pto.c_tp_repr = base.c_tp_repr
+        if not pto.c_tp_str:
+            pto.c_tp_str = base.c_tp_str
+        if not pto.c_tp_call:
+            pto.c_tp_call = base.c_tp_call
+        if not pto.c_tp_iter:
+            pto.c_tp_iter = base.c_tp_iter
+        if not pto.c_tp_iternext:
+            pto.c_tp_iternext = base.c_tp_iternext
+        if not pto.c_tp_descr_get:
+            pto.c_tp_descr_get = base.c_tp_descr_get
+        if not pto.c_tp_descr_set:
+            pto.c_tp_descr_set = base.c_tp_descr_set
+        # like CPython, the comparison slots are inherited as a pair, only
+        # when the subtype overrides neither
+        if not pto.c_tp_richcompare and not pto.c_tp_hash:
+            pto.c_tp_richcompare = base.c_tp_richcompare
+            pto.c_tp_hash = base.c_tp_hash
 
         if not pto.c_tp_as_number:
             pto.c_tp_as_number = base.c_tp_as_number

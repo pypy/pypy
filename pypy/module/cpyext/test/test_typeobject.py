@@ -3663,9 +3663,87 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(t);
                 return PyLong_FromSsize_t(delta);
              '''),
+            ("uninherited_slots", "METH_NOARGS",
+             '''
+                /* slot ids that a subtype defining nothing does not get from
+                   its base -- Cython reads tp_iternext this way for a
+                   `for` loop over a cdef class */
+                static const int ids[] = {Py_tp_call, Py_tp_descr_get,
+                    Py_tp_descr_set, Py_tp_hash, Py_tp_iter, Py_tp_iternext,
+                    Py_tp_repr, Py_tp_richcompare, Py_tp_str};
+                PyObject *res = NULL, *bases = NULL, *child = NULL;
+                PyObject *base = PyType_FromSpec(&slotty_spec);
+                size_t i;
+                if (base == NULL) return NULL;
+                bases = PyTuple_Pack(1, base);
+                if (bases == NULL) goto done;
+                child = PyType_FromSpecWithBases(&child_spec, bases);
+                if (child == NULL) goto done;
+                res = PyList_New(0);
+                if (res == NULL) goto done;
+                for (i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
+                    if (PyType_GetSlot((PyTypeObject *)child, ids[i]) == NULL) {
+                        PyObject *n = PyLong_FromLong(ids[i]);
+                        if (n == NULL || PyList_Append(res, n) < 0) {
+                            Py_XDECREF(n);
+                            Py_CLEAR(res);
+                            goto done;
+                        }
+                        Py_DECREF(n);
+                    }
+                }
+              done:
+                Py_XDECREF(child);
+                Py_XDECREF(bases);
+                Py_DECREF(base);
+                return res;
+             '''),
             ], prologue='''
             static PyMemberDef spec_members[] = {
                 {"x", Py_T_INT, 0, Py_READONLY, NULL}, {NULL}};
+            static PyObject *slotty_unary(PyObject *o)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *slotty_call(PyObject *o, PyObject *a, PyObject *k)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *slotty_descr_get(PyObject *o, PyObject *i,
+                                              PyObject *t)
+            {
+                Py_RETURN_NONE;
+            }
+            static int slotty_descr_set(PyObject *o, PyObject *k, PyObject *v)
+            {
+                return 0;
+            }
+            static Py_hash_t slotty_hash(PyObject *o)
+            {
+                return 42;
+            }
+            static PyObject *slotty_richcmp(PyObject *a, PyObject *b, int op)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyType_Slot slotty_slots[] = {
+                {Py_tp_call, slotty_call},
+                {Py_tp_descr_get, slotty_descr_get},
+                {Py_tp_descr_set, slotty_descr_set},
+                {Py_tp_hash, slotty_hash},
+                {Py_tp_iter, slotty_unary},
+                {Py_tp_iternext, slotty_unary},
+                {Py_tp_repr, slotty_unary},
+                {Py_tp_richcompare, slotty_richcmp},
+                {Py_tp_str, slotty_unary},
+                {0, 0}};
+            static PyType_Spec slotty_spec = {
+                "foo_spec_checks.Slotty", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, slotty_slots};
+            static PyType_Slot child_slots[] = {{0, 0}};
+            static PyType_Spec child_spec = {
+                "foo_spec_checks.SlottyChild", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT, child_slots};
             static PyObject *
             meta_new(PyTypeObject *t, PyObject *a, PyObject *k)
             {
@@ -3737,6 +3815,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         # the base dealloc must not also undo tp_alloc's heaptype incref,
         # or the type's refcount drifts down one per instance
         assert module.float_subtype_refcnt_delta() == 0
+
+        # a subtype that defines no slots of its own inherits them all
+        assert module.uninherited_slots() == []
 
     def test_pep697_type_data(self):
         import struct
