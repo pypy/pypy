@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import os, time, sys
 from rpython.tool.udir import udir
@@ -134,7 +136,7 @@ def test_largefile():
         except OSError:
             pass
         else:
-            print "DID NOT RAISE"
+            print("DID NOT RAISE")
             raise AssertionError
         st = os.stat(filename)
         assert st.st_size == r10000000000
@@ -870,7 +872,7 @@ if hasattr(os, 'getloadavg'):
     def test_os_getloadavg():
         def does_stuff():
             a, b, c = os.getloadavg()
-            print a, b, c
+            print(a, b, c)
             return a + b + c
         f = compile(does_stuff, [])
         res = f()
@@ -914,7 +916,7 @@ class TestExtFuncStandalone(StandaloneTests):
         def test_os_nice(self):
             def does_stuff(argv):
                 res =  os.nice(3)
-                print 'os.nice returned', res
+                print('os.nice returned', res)
                 return 0
             t, cbuilder = self.compile(does_stuff)
             data = cbuilder.cmdexec('')

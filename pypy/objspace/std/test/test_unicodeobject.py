@@ -241,6 +241,13 @@ class TestUnicodeObject:
         w_l = w_s.descr_split(self.space) # no crash
         assert self.space.len_w(w_l) == 3
 
+    def test_ascii_islinebreak(self):
+        from pypy.objspace.std.unicodeobject import _ascii_islinebreak
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        for i in range(0x80):
+            ch = chr(i)
+            assert _ascii_islinebreak(ch) == unicodedb.islinebreak(i)
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -315,6 +322,39 @@ class AppTestUnicodeString:
         assert u'\na\nb\n'.splitlines(1) == [u'\n', u'a\n', u'b\n']
         assert ((u'a' + '\xc2\x85'.decode('utf8') + u'b\n').splitlines() ==
                 ['a', 'b'])
+
+    def test_splitlines_ascii_and_mixed(self):
+        for sep in [u'\n', u'\r', u'\x0b', u'\x0c', u'\x1c', u'\x1d',
+                    u'\x1e']:
+            assert (u'a' + sep + u'b').splitlines() == [u'a', u'b']
+            assert (u'a' + sep + u'b').splitlines(True) == [u'a' + sep, u'b']
+            assert (u'a' + sep).splitlines() == [u'a']
+            assert (u'a' + sep).splitlines(True) == [u'a' + sep]
+            assert (sep + sep).splitlines(True) == [sep, sep]
+        assert u'a\r\nb'.splitlines() == [u'a', u'b']
+        assert u'a\r\nb'.splitlines(True) == [u'a\r\n', u'b']
+        assert u'a\r\n'.splitlines(True) == [u'a\r\n']
+        assert u'a\n\rb'.splitlines(True) == [u'a\n', u'\r', u'b']
+        assert u'a\r'.splitlines(True) == [u'a\r']
+        assert u'\r\r\n'.splitlines(True) == [u'\r', u'\r\n']
+        assert u'a b\x1fc'.splitlines() == [u'a b\x1fc']
+        assert u'a b\u0085c\r\nd'.splitlines() == [u'a b', u'c', u'd']
+        assert (u'a b\u0085c\r\nd'.splitlines(True) ==
+                [u'a b\u0085', u'c\r\n', u'd'])
+        assert u'\xe9\nx'.splitlines() == [u'\xe9', u'x']
+        assert u'\xe9\nx'.splitlines(True) == [u'\xe9\n', u'x']
+        assert u'\u2028x\u2029'.splitlines() == [u'', u'x']
+        assert all(len(l) == len(l.encode('utf8').decode('utf8'))
+                   for l in u'\xe9\nx\r\n\u1234'.splitlines(True))
+        # multi-byte characters before and after ASCII line breaks
+        assert u'\xe9\ncaf\xe9\r\nx'.splitlines() == [u'\xe9', u'caf\xe9', u'x']
+        assert (u'\xe9\ncaf\xe9\r\nx'.splitlines(True) ==
+                [u'\xe9\n', u'caf\xe9\r\n', u'x'])
+        assert u'\u1234\u1234\n\u1234'.splitlines() == [u'\u1234\u1234', u'\u1234']
+        assert u'ab\u1234\r'.splitlines(True) == [u'ab\u1234\r']
+        assert u'ab\u1234\x1ccd'.splitlines() == [u'ab\u1234', u'cd']
+        for l in u'\xe9a\nb\u1234c\r\nd\U00010000e\x0bf'.splitlines(True):
+            assert len(l) == len(l.encode('utf8').decode('utf8'))
 
     def test_zfill(self):
         assert u'123'.zfill(2) == u'123'

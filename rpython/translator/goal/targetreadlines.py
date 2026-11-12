@@ -1,4 +1,6 @@
 
+from __future__ import print_function
+
 from rpython.rlib.streamio import open_file_as_stream
 
 def target(*args):
@@ -13,7 +15,7 @@ def main(args):
         if not next_line:
             break
         if search in next_line:
-            print next_line
+            print(next_line)
     return 0
 
 def cpy_main(args):
@@ -24,7 +26,7 @@ def cpy_main(args):
         if not x:
             break
         if s in x:
-            print x
+            print(x)
 
 if __name__ == '__main__':
     import sys

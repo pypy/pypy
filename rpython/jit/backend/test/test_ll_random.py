@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper import rclass
@@ -200,21 +202,21 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         written = {}
         for v, S, fields in self.prebuilt_ptr_consts:
             if S not in written:
-                print >>s, '    %s = lltype.GcStruct(%r,' % (S._name, S._name)
+                print('    %s = lltype.GcStruct(%r,' % (S._name, S._name), file=s)
                 for name in S._names:
                     if name == 'parent':
-                        print >>s, "              ('parent', rclass.OBJECT),"
+                        print("              ('parent', rclass.OBJECT),", file=s)
                     else:
-                        print >>s, '              (%r, lltype.Signed),'%(name,)
-                print >>s, '              )'
+                        print('              (%r, lltype.Signed),'%(name,), file=s)
+                print('              )', file=s)
                 if S._names[0] == 'parent':
-                    print >>s, '    %s_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)' % (S._name,)
+                    print('    %s_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)' % (S._name,), file=s)
                 written[S] = True
-            print >>s, '    p = lltype.malloc(%s)' % (S._name,)
+            print('    p = lltype.malloc(%s)' % (S._name,), file=s)
             if S._names[0] == 'parent':
-                print >>s, '    p.parent.typeptr = %s_vtable' % (S._name,)
+                print('    p.parent.typeptr = %s_vtable' % (S._name,), file=s)
             for name, value in fields.items():
-                print >>s, '    p.%s = %d' % (name, value)
+                print('    p.%s = %d' % (name, value), file=s)
             writevar(v, 'preb', 'lltype.cast_opaque_ptr(llmemory.GCREF, p)')
 
 # ____________________________________________________________

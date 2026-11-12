@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import struct
 import math
@@ -403,7 +405,7 @@ class TestRunningAssembler(object):
     def test_stmg(self):
         self.mc.LGR(r.r2, r.r15)
         self.a.jmpto(r.r14)
-        print hex(run_asm(self.a))
+        print(hex(run_asm(self.a)))
 
     def test_recursion(self):
         with ActivationRecordCtx(self):

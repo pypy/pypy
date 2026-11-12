@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pytest
 
 from copy import copy
@@ -773,8 +775,8 @@ def test_sub_zero_is_zero_random(t1):
 def test_sub_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
-    print b1, n1
-    print b2, n2
+    print(b1, n1)
+    print(b2, n2)
     b3 = b1.sub_bound(b2)
     # the result bound works for unsigned subtraction, regardless of overflow
     assert b3.contains(intmask(r_uint(n1) - r_uint(n2)))
@@ -966,7 +968,8 @@ def test_neg_const_random(t1):
 def test_are_knownbits_implied(t, data):
     b, _ = t
     if b._are_knownbits_implied():
-        n2 = data.draw(strategies.integers(b.lower, b.upper))
+        n2 = data.draw(strategies.builds(
+            int, strategies.integers(b.lower, b.upper)))
         assert b.contains(n2)
 
 
@@ -1251,7 +1254,8 @@ def test_get_minimum_signed_by_knownbits_above_full_range_bug():
 def test_get_maximum_signed_by_knownbits_atmost_random(t1, data):
     b1, n1 = t1
     minimum = b1._get_minimum_signed_by_knownbits()
-    threshold = data.draw(strategies.integers(minimum, MAXINT))
+    threshold = data.draw(strategies.builds(
+        int, strategies.integers(minimum, MAXINT)))
     new = b1._get_maximum_signed_by_knownbits_atmost(threshold)
     assert new <= threshold
 
@@ -1259,7 +1263,8 @@ def test_get_maximum_signed_by_knownbits_atmost_random(t1, data):
 def test_get_minimum_signed_by_knownbits_atleast_random(t1, data):
     b1, n1 = t1
     maximum = b1._get_maximum_signed_by_knownbits_atmost()
-    threshold = data.draw(strategies.integers(MININT, maximum))
+    threshold = data.draw(strategies.builds(
+        int, strategies.integers(MININT, maximum)))
     new = b1._get_minimum_signed_by_knownbits_atleast(threshold)
     assert new >= threshold
 
@@ -1898,7 +1903,7 @@ def test_rshift_signed_random(t1, a, b, c):
     a, n2, c = sorted([a, b, c])
     b2 = IntBound(a, c)
     r = b1.rshift_bound(b2)
-    print b1, b2, r, n1, n2, n1 >> n2
+    print(b1, b2, r, n1, n2, n1 >> n2)
     assert r.contains(n1 >> n2)
 
 @given(knownbits_and_bound_with_contained_number, strategies.integers(-5, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10))

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib.compilerinfo import get_compiler_info
 from rpython.translator.c.test.test_genc import compile
 
@@ -22,5 +24,5 @@ def test_compiled():
         lst.append(chr(c))
         index += 1
     s = ''.join(lst)
-    print s
+    print(s)
     assert s.startswith('MSC ') or s.startswith('GCC ')

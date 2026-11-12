@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import py
 
@@ -22,12 +24,12 @@ def check_crasher(func_name):
     try:
         JIT_EXECUTABLE.sysexec(CRASH_FILE, func_name)
     except py.process.cmdexec.Error as e:
-        print "stderr"
-        print "------"
-        print e.err
-        print "stdout"
-        print "------"
-        print e.out
+        print("stderr")
+        print("------")
+        print(e.err)
+        print("stdout")
+        print("------")
+        print(e.out)
         raise
 
 def test_jit_crashers():

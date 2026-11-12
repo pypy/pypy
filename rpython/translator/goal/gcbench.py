@@ -43,6 +43,8 @@
 #               - No attempt to measure variation with object size
 #               - Results are sensitive to locking cost, but we dont
 #                 check for proper locking
+from __future__ import print_function
+
 import time
 import gc
 
@@ -94,20 +96,20 @@ def print_diagnostics():
 
 def time_construction(depth):
     niters = num_iters(depth)
-    print "Creating %d trees of depth %d" % (niters, depth)
+    print("Creating %d trees of depth %d" % (niters, depth))
     t_start = time.time()
     for i in range(niters):
         temp_tree = Node()
         populate(depth, temp_tree)
         temp_tree = None
     t_finish = time.time()
-    print "\tTop down constrution took %f ms" % ((t_finish-t_start)*1000.)
+    print("\tTop down constrution took %f ms" % ((t_finish-t_start)*1000.))
     t_start = time.time()
     for i in range(niters):
         temp_tree = make_tree(depth)
         temp_tree = None
     t_finish = time.time()
-    print "\tBottom up constrution took %f ms" % ((t_finish-t_start)*1000.)
+    print("\tBottom up constrution took %f ms" % ((t_finish-t_start)*1000.))
 
 DEFAULT_DEPTHS = range(kMinTreeDepth, kMaxTreeDepth+1, 2)
 
@@ -118,30 +120,30 @@ def time_constructions(depths):
 def time_parallel_constructions(depths, nthreads):
     import threading
     threadlist = []
-    print "Starting %d parallel threads..." % (nthreads,)
+    print("Starting %d parallel threads..." % (nthreads,))
     for n in range(nthreads):
         t = threading.Thread(target=time_constructions, args=(depths,))
         t.start()
         threadlist.append(t)
     for t in threadlist:
         t.join()
-    print "All %d threads finished" % (nthreads,)
+    print("All %d threads finished" % (nthreads,))
 
 def main(depths=DEFAULT_DEPTHS, threads=0):
-    print "Garbage Collector Test"
-    print " Stretching memory with a binary tree of depth %d" % kStretchTreeDepth
+    print("Garbage Collector Test")
+    print(" Stretching memory with a binary tree of depth %d" % kStretchTreeDepth)
     print_diagnostics()
     t_start = time.time()
     temp_tree = make_tree(kStretchTreeDepth)
     temp_tree = None
 
     # Create a long lived object
-    print " Creating a long-lived binary tree of depth %d" % kLongLivedTreeDepth
+    print(" Creating a long-lived binary tree of depth %d" % kLongLivedTreeDepth)
     long_lived_tree = Node()
     populate(kLongLivedTreeDepth, long_lived_tree)
 
     # Create long-lived array, filling half of it
-    print " Creating a long-lived array of %d doubles" % kArraySize
+    print(" Creating a long-lived array of %d doubles" % kArraySize)
     array = [0.0] * kArraySize
     i = 1
     while i < kArraySize/2:
@@ -159,15 +161,15 @@ def main(depths=DEFAULT_DEPTHS, threads=0):
 
     t_finish = time.time()
     print_diagnostics()
-    print "Completed in %f ms." % ((t_finish-t_start)*1000.)
+    print("Completed in %f ms." % ((t_finish-t_start)*1000.))
 
 class Failed(Exception):
     pass
 
 
 def argerror():
-    print "Usage:"
-    print "   ", USAGE
+    print("Usage:")
+    print("   ", USAGE)
     return 2
 
 def entry_point(argv):
@@ -179,7 +181,7 @@ def entry_point(argv):
         if arg.startswith('--threads='):
             arg = arg[len('--threads='):]
             if not ENABLE_THREADS:
-                print "threads disabled (they cannot be translated)"
+                print("threads disabled (they cannot be translated)")
                 return 1
             try:
                 threads = int(arg)

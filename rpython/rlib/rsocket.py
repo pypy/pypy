@@ -1543,17 +1543,18 @@ if _c.WIN32:
         with lltype.scoped_alloc(_c.WSAPROTOCOL_INFO, zero=True) as info:
             if _c.WSADuplicateSocket(fd, rwin32.GetCurrentProcessId(), info):
                 raise last_error()
-            if inheritable:
-                flags = rffi.cast(rwin32.DWORD, 0)
-            else:
-                flags = rffi.cast(rwin32.DWORD,
-                                  _c.WSA_FLAG_NO_HANDLE_INHERIT)
-            result = _c.WSASocket(
+            flags = _c.WSA_FLAG_OVERLAPPED
+            if not inheritable:
+                flags |= _c.WSA_FLAG_NO_HANDLE_INHERIT
+            newfd = _c.WSASocket(
                 _c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
-                _c.FROM_PROTOCOL_INFO, info, 0, flags)
-            result = rffi.cast(lltype.Signed, result)
+                _c.FROM_PROTOCOL_INFO, info, 0,
+                rffi.cast(rwin32.DWORD, flags))
+            result = rffi.cast(lltype.Signed, newfd)
             if result == INVALID_SOCKET:
                 raise last_error()
+            if not inheritable:
+                sock_set_inheritable(newfd, False)
             return result
 else:
     def dup(fd, inheritable=True):
@@ -1771,11 +1772,12 @@ def getsockopt_int(fd, level, option):
 @jit.dont_look_inside
 def get_socket_family(fd):
     """Return the family of a file descriptor."""
-    with lltype.scoped_alloc(_c.sockaddr, zero=True) as addr_p, \
+    size = _c.SOCKADDR_STORAGE_SIZE
+    with lltype.scoped_alloc(rffi.CCHARP.TO, size, zero=True) as buf, \
             lltype.scoped_alloc(_c.socklen_t_ptr.TO) as addrlen_p:
-        addrlen_p[0] = rffi.cast(_c.socklen_t, sizeof(_c.sockaddr))
+        addrlen_p[0] = rffi.cast(_c.socklen_t, size)
+        addr_p = rffi.cast(_c.sockaddr_ptr, buf)
         res = _c.socketgetsockname(fd, addr_p, addrlen_p)
-        addrlen = addrlen_p[0]
         result = rffi.cast(lltype.Signed, addr_p.c_sa_family)
         if res < 0:
             raise last_error()

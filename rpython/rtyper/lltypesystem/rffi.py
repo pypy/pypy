@@ -1175,16 +1175,24 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     return w
 utf82wcharp._annenforceargs_ = [str, int, bool]
 
-def utf82wcharp_ex(utf8, unilen, track_allocation=True):
+def utf82wcharp_ex_len(utf8):
+    """The length, in wide chars, of the buffer utf82wcharp_ex() builds:
+    a codepoint outside the BMP takes a surrogate pair"""
     from rpython.rlib import rutf8
-    # slightly different than utf82wcharp for sizeof(wchar_t) == 2 and
-    # maxunicode==0x10ffff. Very similar to utf8_encode_utf_16_helper
-    # but allocates a buffer, and no error handler. Passes surrogates through.
     wlen = 0
     for ch in rutf8.Utf8StringIterator(utf8):
         if ch > 0xffff:
             wlen += 1
         wlen += 1
+    return wlen
+utf82wcharp_ex_len._annenforceargs_ = [str]
+
+def utf82wcharp_ex(utf8, unilen, track_allocation=True):
+    from rpython.rlib import rutf8
+    # slightly different than utf82wcharp for sizeof(wchar_t) == 2 and
+    # maxunicode==0x10ffff. Very similar to utf8_encode_utf_16_helper
+    # but allocates a buffer, and no error handler. Passes surrogates through.
+    wlen = utf82wcharp_ex_len(utf8)
     w = lltype.malloc(CWCHARP.TO, wlen + 3, flavor='raw',
                       track_allocation=track_allocation)
     index = 0

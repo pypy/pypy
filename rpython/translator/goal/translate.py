@@ -5,6 +5,8 @@ Command-line options for translate:
     See below
 """
 
+from __future__ import print_function
+
 import os
 import sys
 import py
@@ -185,18 +187,18 @@ def show_help(translateconfig, opt_parser, targetspec_dic, config):
     if translateconfig.help:
         if targetspec_dic is None:
             opt_parser.print_help()
-            print "\n\nDefault target: %s" % translateconfig.targetspec
-            print "Run '%s --help %s' for target-specific help" % (
-                sys.argv[0], translateconfig.targetspec)
+            print("\n\nDefault target: %s" % translateconfig.targetspec)
+            print("Run '%s --help %s' for target-specific help" % (
+                sys.argv[0], translateconfig.targetspec))
         elif 'print_help' in targetspec_dic:
-            print "\n\nTarget specific help for %s:\n\n" % (
-                translateconfig.targetspec,)
+            print("\n\nTarget specific help for %s:\n\n" % (
+                translateconfig.targetspec,))
             targetspec_dic['print_help'](config)
         else:
-            print "\n\nNo target-specific help available for %s" % (
-                translateconfig.targetspec,)
-        print "\n\nFor detailed descriptions of the command line options see"
-        print "http://pypy.readthedocs.org/en/latest/config/commandline.html"
+            print("\n\nNo target-specific help available for %s" % (
+                translateconfig.targetspec,))
+        print("\n\nFor detailed descriptions of the command line options see")
+        print("http://pypy.readthedocs.org/en/latest/config/commandline.html")
         sys.exit(0)
 
 def log_options(options, header="options in effect"):

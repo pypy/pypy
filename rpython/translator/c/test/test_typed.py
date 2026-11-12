@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 
 import math
 import sys, os
@@ -656,7 +656,7 @@ class TestTypedTestCase(object):
             #       before the fix which was that iterkeys_with_hash()
             #       didn't do the initial rehashing on its own
             for key, h in objectmodel.iterkeys_with_hash(prebuilt_d):
-                print key, h
+                print(key, h)
                 assert h == compute_hash(key)
             return 42
 

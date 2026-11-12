@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.translator.test import rpystone
 from rpython.rlib.objectmodel import current_object_addr_as_int
 
@@ -24,16 +26,16 @@ def make_target_definition(LOOPS):
     def run(c_entry_point):
         res = c_entry_point(LOOPS)
         (benchtime, stones), _ = res
-        print "translated rpystone.pystones time for %d passes = %g" % \
-              (LOOPS, benchtime)
-        print "This machine benchmarks at %g translated rpystone pystones/second" % (stones,)
+        print("translated rpystone.pystones time for %d passes = %g" % \
+              (LOOPS, benchtime))
+        print("This machine benchmarks at %g translated rpystone pystones/second" % (stones,))
         res = c_entry_point(50000)
         _, g_addr = res
-        print "CPython:"
+        print("CPython:")
         benchtime, stones = rpystone.pystones(50000)
-        print "rpystone.pystones time for %d passes = %g" % \
-              (50000, benchtime)
-        print "This machine benchmarks at %g rpystone pystones/second" % (stones,)
+        print("rpystone.pystones time for %d passes = %g" % \
+              (50000, benchtime))
+        print("This machine benchmarks at %g rpystone pystones/second" % (stones,))
 
     return entry_point, target, run
 

@@ -2,6 +2,7 @@ import os
 import sys
 
 from rpython.rlib import rposix, rposix_stat, rstring
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
@@ -1349,20 +1350,28 @@ def getloadavg(space):
                            space.newfloat(load[1]),
                            space.newfloat(load[2])])
 
+def _dev_w(space, w_device):
+    """like CPython's _Py_Dev_Converter(): a device number is an unsigned
+    dev_t, which is 64 bits wide"""
+    w_index = space.index(w_device)
+    if space.is_true(space.lt(w_index, space.newint(0))):
+        raise oefmt(space.w_OverflowError,
+                    "can't convert negative number to unsigned long")
+    return rffi.cast(lltype.SignedLongLong, space.r_ulonglong_w(w_index))
+
 @unwrap_spec(major=c_int, minor=c_int)
 def makedev(space, major, minor):
-    result = os.makedev(major, minor)
+    # like CPython, the parts are signed ints here, so makedev(-1, -1)
+    # gives NODEV
+    result = rposix.makedev(major, minor)
+    # not intmask(): a dev_t needs a long on a 32 bit host
     return space.newint(result)
 
-@unwrap_spec(device="c_uint")
-def major(space, device):
-    result = os.major(intmask(device))
-    return space.newint(result)
+def major(space, w_device):
+    return space.newint(rposix.major(_dev_w(space, w_device)))
 
-@unwrap_spec(device="c_uint")
-def minor(space, device):
-    result = os.minor(intmask(device))
-    return space.newint(result)
+def minor(space, w_device):
+    return space.newint(rposix.minor(_dev_w(space, w_device)))
 
 @unwrap_spec(inc=c_int)
 def nice(space, inc):

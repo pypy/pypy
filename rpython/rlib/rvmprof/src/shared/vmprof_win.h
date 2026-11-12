@@ -28,5 +28,5 @@ int vmprof_disable(void);
 void vmprof_ignore_signals(int ignored);
 int vmp_native_enable(void);
 void vmp_native_disable(void);
-int get_stack_trace(PY_WIN_THREAD_STATE * current, void** result,
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result,
                     int max_depth, intptr_t pc);

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, os
 
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, llarena
@@ -338,12 +340,12 @@ class TestStandalone(test_standalone.StandaloneTests):
             arena_protect(a, 65536, True)
             result = 0
             if testrun == 1:
-                print p.x       # segfault
+                print(p.x)# segfault
             if testrun == 2:
                 p.x = 124       # segfault
             arena_protect(a, 65536, False)
             p.x += 10
-            print p.x
+            print(p.x)
             return 0
         #
         t, cbuilder = self.compile(fn)

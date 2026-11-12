@@ -6,6 +6,8 @@ see as the list of roots (stack and prebuilt objects).
 
 # XXX VERY INCOMPLETE, low coverage
 
+from __future__ import print_function
+
 import py
 
 from hypothesis import strategies, given, assume, example, settings, HealthCheck
@@ -231,8 +233,8 @@ class DirectGCTest(BaseDirectGCTest):
             a = self.malloc(VAR, i)
             assert 'DEAD' not in repr(a)
             self.stackroots.append(a)
-            print 'ADDED TO STACKROOTS:', llmemory.cast_adr_to_int(
-                llmemory.cast_ptr_to_adr(a))
+            print('ADDED TO STACKROOTS:', llmemory.cast_adr_to_int(
+                llmemory.cast_ptr_to_adr(a)))
             assert 'DEAD' not in repr(self.stackroots)
             for j in range(5):
                 assert 'DEAD' not in repr(self.stackroots)
@@ -316,7 +318,7 @@ class DirectGCTest(BaseDirectGCTest):
         self.gc.collect()
         p = self.malloc(S)
         hash = self.gc.identityhash(p)
-        print hash
+        print(hash)
         assert is_valid_int(hash)
         assert hash == self.gc.identityhash(p)
         self.stackroots.append(p)
@@ -329,7 +331,7 @@ class DirectGCTest(BaseDirectGCTest):
         self.stackroots.append(p)
         self.gc.collect()
         hash = self.gc.identityhash(self.stackroots[-1])
-        print hash
+        print(hash)
         assert is_valid_int(hash)
         for i in range(6):
             self.gc.collect()
@@ -341,7 +343,7 @@ class DirectGCTest(BaseDirectGCTest):
         for i in range(6):
             self.gc.collect()
         hash = self.gc.identityhash(self.stackroots[-1])
-        print hash
+        print(hash)
         assert is_valid_int(hash)
         for i in range(2):
             self.gc.collect()
@@ -349,7 +351,7 @@ class DirectGCTest(BaseDirectGCTest):
         self.stackroots.pop()
         # (4) p is a prebuilt object
         hash = self.gc.identityhash(p_const)
-        print hash
+        print(hash)
         assert is_valid_int(hash)
         assert hash == self.gc.identityhash(p_const)
         # (5) p is actually moving (for the markcompact gc only?)
@@ -520,7 +522,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
         for arraylength in (range(4, 17)
                             + [69]      # 3 bytes
                             + [300]):   # 10 bytes
-            print 'array length:', arraylength
+            print('array length:', arraylength)
             nums = {}
             a = self.malloc(VAR, arraylength)
             self.stackroots.append(a)
@@ -1495,7 +1497,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         for action in random_data['actions']:
             kind = action[0]
             actiondata = action[1:-1]
-            print kind, actiondata
+            print(kind, actiondata)
             if kind == "drop": # drop
                 index, = actiondata
                 del self.stackroots[index]

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import pytest
 import sys
@@ -53,21 +55,21 @@ class BaseTestWithUnroll(BaseTest):
         preamble.check_consistency(check_descr=False)
 
         #
-        print
-        print "Preamble:"
+        print()
+        print("Preamble:")
         if preamble.operations:
-            print '\n'.join([str(o) for o in preamble.operations])
+            print('\n'.join([str(o) for o in preamble.operations]))
         else:
-            print 'Failed!'
-        print
-        print "Loop:"
-        print '\n'.join([str(o) for o in loop.operations])
-        print
+            print('Failed!')
+        print()
+        print("Loop:")
+        print('\n'.join([str(o) for o in loop.operations]))
+        print()
         if expected_short or getattr(info, 'short_preamble', None):
-            print "Short Preamble:"
+            print("Short Preamble:")
             short = info.short_preamble
-            print '\n'.join([str(o) for o in short])
-            print
+            print('\n'.join([str(o) for o in short]))
+            print()
 
         assert expected != "crash!", "should have raised an exception"
         loop.check_consistency(check_descr=False)

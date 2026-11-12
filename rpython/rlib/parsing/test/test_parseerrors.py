@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.parsing.parsing import PackratParser, Rule, Nonterminal
 from rpython.rlib.parsing.parsing import Symbol, ParseError
@@ -29,7 +31,7 @@ class TestDictError(object):
     'length': '1',
 }""")
         msg = excinfo.value.nice_error_message("<stdin>")
-        print msg
+        print(msg)
         assert msg == """\
   File <stdin>, line 3
     'type': 'SCRIPT',$#
@@ -49,7 +51,7 @@ LexerError"""
         assert source_pos.lineno == 4
         assert source_pos.columnno == 13
         msg = excinfo.value.nice_error_message("<stdin>", source)
-        print msg
+        print(msg)
         assert msg == """\
   File <stdin>, line 5
     'length':: '1',

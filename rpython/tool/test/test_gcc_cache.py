@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import cStringIO
 import py
@@ -36,9 +38,9 @@ def test_gcc_exec():
     assert build_executable_cache([f], eci2) == "42\n"
     f.write("#error BOOM\n")
     err = py.test.raises(CompilationError, build_executable_cache, [f], eci2)
-    print '<<<'
-    print err
-    print '>>>'
+    print('<<<')
+    print(err)
+    print('>>>')
 
 def test_gcc_ask():
     f = localudir.join("y.c")

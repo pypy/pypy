@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pytest
 from rpython.rlib.runicode import code_to_unichr, MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_11_0_0
@@ -15,7 +17,7 @@ class TestTranslated(BaseRtypingTest):
                 u = unicodedb_5_2_0.lookup("GOTHIC LETTER FAIHU")
                 return u
         res = self.interpret(f, [1])
-        print hex(res)
+        print(hex(res))
         assert res == f(1)
 
     def test_translated_crash(self):

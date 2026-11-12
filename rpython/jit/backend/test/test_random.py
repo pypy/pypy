@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import pytest
 from rpython.rlib.rarithmetic import intmask, LONG_BIT
@@ -165,8 +167,8 @@ class OperationBuilder(object):
                     descrstr = ', TargetToken()'
                 else:
                     descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
-        print >>s, '    %s = ResOperation(rop.%s, [%s]%s); operations.append(%s)' % (
-            names[op], opname[op.getopnum()], ', '.join(args), descrstr, names[op])
+        print('    %s = ResOperation(rop.%s, [%s]%s); operations.append(%s)' % (
+            names[op], opname[op.getopnum()], ', '.join(args), descrstr, names[op]), file=s)
 
     def print_loop(self, output, fail_descr=None, fail_args=None):
         def update_names(ops):
@@ -184,7 +186,7 @@ class OperationBuilder(object):
                         name = 'finishdescr%d' % no
                         clsname = 'BasicFinalDescr'
                     self.descr_counters[descr] = name
-                    print >>s, "    %s = %s()" % (name, clsname)
+                    print("    %s = %s()" % (name, clsname), file=s)
 
         def print_loop_prebuilt(ops):
             for op in ops:
@@ -207,7 +209,7 @@ class OperationBuilder(object):
                 tp_name = 'S' + str(no)
                 descr = _type_descr(TP, tp_name)
                 TYPE_NAMES[TP] = tp_name
-                print >>s, '    %s = %s' % (tp_name, descr)
+                print('    %s = %s' % (tp_name, descr), file=s)
                 return tp_name
 
         def _type_descr(TP, tp_name=None):
@@ -245,12 +247,12 @@ class OperationBuilder(object):
             if tp_name in seen_vtables:
                 return
             seen_vtables[tp_name] = True
-            print >> s, """\
+            print("""\
     %s_vtable = vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
     vtable.subclassrange_min = %s
     vtable.subclassrange_max = %s
     heaptracker.set_testing_vtable_for_gcstruct(%s, vtable, %r)\
-        """ % (tp_name, vtable.subclassrange_min, vtable.subclassrange_max, tp_name, "".join(vtable.name.chars))
+        """ % (tp_name, vtable.subclassrange_min, vtable.subclassrange_max, tp_name, "".join(vtable.name.chars)), file=s)
 
         for op in self.loop.operations:
             descr = op.getdescr()
@@ -283,14 +285,14 @@ class OperationBuilder(object):
                 else:
                     init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
                     if hasattr(TYPE.TO, 'parent'):
-                        print >> s, '    %s = %s' % (name, init)
+                        print('    %s = %s' % (name, init), file=s)
                         tp_name = type_descr(TYPE.TO)
-                        print >> s, '    %s.parent.typeptr = %s_vtable' % (name, tp_name)
+                        print('    %s.parent.typeptr = %s_vtable' % (name, tp_name), file=s)
                         init = name
                 init = 'lltype.cast_opaque_ptr(llmemory.GCREF, %s)' % init
             if v.is_constant() or isinstance(v, (InputArgInt, InputArgFloat, InputArgRef)):
-                print >>s, '    %s = %s(%s)' % (name, v.__class__.__name__,
-                                                init)
+                print('    %s = %s(%s)' % (name, v.__class__.__name__,
+                                                init), file=s)
         #
         for v in self.intvars:
             writevar(v, 'v')
@@ -302,26 +304,26 @@ class OperationBuilder(object):
         print_loop_prebuilt(self.loop.operations)
         #
         if fail_descr is None:
-            print >>s, '    cpu = CPU(None, None)'
-            print >>s, '    cpu.setup_once()'
+            print('    cpu = CPU(None, None)', file=s)
+            print('    cpu.setup_once()', file=s)
         if hasattr(self.loop, 'inputargs'):
-            print >>s, '    inputargs = [%s]' % (
-                ', '.join([names[v] for v in self.loop.inputargs]))
+            print('    inputargs = [%s]' % (
+                ', '.join([names[v] for v in self.loop.inputargs])), file=s)
         else:
-            print >>s, '    inputargs = [%s]' % (
-                ', '.join([names[v] for v in fail_args]))
-        print >>s, '    operations = []'
+            print('    inputargs = [%s]' % (
+                ', '.join([names[v] for v in fail_args])), file=s)
+        print('    operations = []', file=s)
         for op in self.loop.operations:
             self.process_operation(s, op, names)
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():
                 fa = ", ".join([names[v] for v in op.getfailargs()])
-                print >>s, '    operations[%d].setfailargs([%s])' % (i, fa)
+                print('    operations[%d].setfailargs([%s])' % (i, fa), file=s)
         if fail_descr is None:
-            print >>s, '    looptoken = JitCellToken()'
-            print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
+            print('    looptoken = JitCellToken()', file=s)
+            print('    cpu.compile_loop(inputargs, operations, looptoken)', file=s)
         else:
-            print >>s, '    cpu.compile_bridge(%s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr]
+            print('    cpu.compile_bridge(%s, inputargs, operations, looptoken)' % self.descr_counters[fail_descr], file=s)
         if hasattr(self.loop, 'inputargs'):
             vals = []
             for i, v in enumerate(self.loop.inputargs):
@@ -330,19 +332,19 @@ class OperationBuilder(object):
                     vals.append("longlong.getfloatstorage(%r)" % getfloat(v))
                 else:
                     vals.append("%r" % getint(v))
-            print >>s, '    loop_args = [%s]' % ", ".join(vals)
-        print >>s, '    frame = cpu.execute_token(looptoken, *loop_args)'
+            print('    loop_args = [%s]' % ", ".join(vals), file=s)
+        print('    frame = cpu.execute_token(looptoken, *loop_args)', file=s)
         if self.should_fail_by is None:
             fail_args = self.loop.operations[-1].getarglist()
         else:
             fail_args = self.should_fail_by.getfailargs()
         for i, v in enumerate(fail_args):
             if v.type == FLOAT:
-                print >>s, ('    assert longlong.getrealfloat('
-                    'cpu.get_float_value(frame, %d)) == %r' % (i, getfloatstorage(v)))
+                print(('    assert longlong.getrealfloat('
+                    'cpu.get_float_value(frame, %d)) == %r' % (i, getfloatstorage(v))), file=s)
             else:
-                print >>s, ('    assert cpu.get_int_value(frame, %d) == %d'
-                            % (i, getint(v)))
+                print(('    assert cpu.get_int_value(frame, %d) == %d'
+                            % (i, getint(v))), file=s)
         self.names = names
         s.flush()
 
@@ -670,9 +672,9 @@ def Random(r=None):
     import random
     seed = pytest.config.option.randomseed
     if r is None:
-        print
-        print 'Random start seed value is %d.' % (seed,)
-        print
+        print()
+        print('Random start seed value is %d.' % (seed,))
+        print()
         r = random.Random()
         r.seed(seed)
     def get_random_integer():
@@ -1014,14 +1016,14 @@ class RandomLoop(object):
         return True
 
 def dump(loop):
-    print >> sys.stderr, loop
+    print(loop, file=sys.stderr)
     if hasattr(loop, 'inputargs'):
-        print >> sys.stderr, '\t', loop.inputargs
+        print('\t', loop.inputargs, file=sys.stderr)
     for op in loop.operations:
         if op.is_guard():
-            print >> sys.stderr, '\t', op, op.getfailargs()
+            print('\t', op, op.getfailargs(), file=sys.stderr)
         else:
-            print >> sys.stderr, '\t', op
+            print('\t', op, file=sys.stderr)
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
     if pytest.config.option.output:
@@ -1037,12 +1039,12 @@ def check_random_function(cpu, BuilderClass, r, num=None, max=None):
         else:
             break
     if num is not None:
-        print '    # passed (%d/%d).' % (num + 1, max)
+        print('    # passed (%d/%d).' % (num + 1, max))
     else:
-        print '    # passed.'
+        print('    # passed.')
     if pytest.config.option.output:
         output.close()
-    print
+    print()
 
 def test_random_function(BuilderClass=OperationBuilder):
     r = Random()

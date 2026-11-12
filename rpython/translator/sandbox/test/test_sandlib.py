@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import errno, os, StringIO
 from rpython.tool.sourcetools import func_with_new_name
@@ -20,7 +22,7 @@ class MockSandboxedProc(SandboxedProc):
 
     def _make_method(name):
         def do_xxx(self, *input):
-            print "decoded from subprocess: %s%r" % (name, input)
+            print("decoded from subprocess: %s%r" % (name, input))
             expectedmsg, expectedinput, output = self.expected[self.seen]
             assert name == expectedmsg
             assert input == expectedinput
@@ -81,7 +83,7 @@ def test_foobar():
 
 def test_simpleio():
     def entry_point(argv):
-        print "Please enter a number:"
+        print("Please enter a number:")
         buf = ""
         while True:
             t = os.read(0, 1)    # 1 character from stdin
@@ -91,7 +93,7 @@ def test_simpleio():
                 break
             buf += t
         num = int(buf)
-        print "The double is:", num * 2
+        print("The double is:", num * 2)
         return 0
     exe = compile(entry_point)
 
@@ -108,7 +110,7 @@ def test_socketio():
     def entry_point(argv):
         fd = os.open("tcp://python.org:80", os.O_RDONLY, 0o777)
         os.write(fd, 'GET /\n')
-        print os.read(fd, 50)
+        print(os.read(fd, 50))
         return 0
     exe = compile(entry_point)
 
@@ -154,13 +156,13 @@ def test_too_many_opens():
                 open_files.append(fd)
                 txt = os.read(fd, 100)
                 if txt != "Hello, world!\n":
-                    print "Wrong content: %s" % txt
+                    print("Wrong content: %s" % txt)
         except OSError as e:
             # We expect to get EMFILE, for opening too many files.
             if e.errno != errno.EMFILE:
-                print "OSError: %s!" % (e.errno,)
+                print("OSError: %s!" % (e.errno,))
         else:
-            print "We opened 500 fake files! Shouldn't have been able to."
+            print("We opened 500 fake files! Shouldn't have been able to.")
 
         for fd in open_files:
             os.close(fd)
@@ -173,11 +175,11 @@ def test_too_many_opens():
         except OSError as e:
             # We expect to get EMFILE, for opening too many files.
             if e.errno != errno.EMFILE:
-                print "OSError: %s!" % (e.errno,)
+                print("OSError: %s!" % (e.errno,))
         else:
-            print "We opened 500 real files! Shouldn't have been able to."
+            print("We opened 500 real files! Shouldn't have been able to.")
 
-        print "All ok!"
+        print("All ok!")
         return 0
     exe = compile(entry_point)
 
@@ -189,7 +191,7 @@ def test_too_many_opens():
 def test_fstat():
     def compare(a, b, i):
         if a != b:
-            print "stat and fstat differ @%d: %s != %s" % (i, a, b)
+            print("stat and fstat differ @%d: %s != %s" % (i, a, b))
 
     def entry_point(argv):
         try:
@@ -209,8 +211,8 @@ def test_fstat():
             compare(st[8], fs[8], 8)
             compare(st[9], fs[9], 9)
         except OSError as e:
-            print "OSError: %s" % (e.errno,)
-        print "All ok!"
+            print("OSError: %s" % (e.errno,))
+        print("All ok!")
         return 0
     exe = compile(entry_point)
 
@@ -222,24 +224,24 @@ def test_fstat():
 def test_lseek():
     def char_should_be(c, should):
         if c != should:
-            print "Wrong char: '%s' should be '%s'" % (c, should)
+            print("Wrong char: '%s' should be '%s'" % (c, should))
 
     def entry_point(argv):
         fd = os.open('/hi.txt', os.O_RDONLY, 0o777)
         char_should_be(os.read(fd, 1), "H")
         new = os.lseek(fd, 3, os.SEEK_CUR)
         if new != 4:
-            print "Wrong offset, %d should be 4" % new
+            print("Wrong offset, %d should be 4" % new)
         char_should_be(os.read(fd, 1), "o")
         new = os.lseek(fd, -3, os.SEEK_END)
         if new != 11:
-            print "Wrong offset, %d should be 11" % new
+            print("Wrong offset, %d should be 11" % new)
         char_should_be(os.read(fd, 1), "d")
         new = os.lseek(fd, 7, os.SEEK_SET)
         if new != 7:
-            print "Wrong offset, %d should be 7" % new
+            print("Wrong offset, %d should be 7" % new)
         char_should_be(os.read(fd, 1), "w")
-        print "All ok!"
+        print("All ok!")
         return 0
     exe = compile(entry_point)
 
@@ -254,10 +256,10 @@ def test_getuid():
 
     def entry_point(argv):
         import os
-        print "uid is %s" % os.getuid()
-        print "euid is %s" % os.geteuid()
-        print "gid is %s" % os.getgid()
-        print "egid is %s" % os.getegid()
+        print("uid is %s" % os.getuid())
+        print("euid is %s" % os.geteuid())
+        print("gid is %s" % os.getgid())
+        print("egid is %s" % os.getegid())
         return 0
     exe = compile(entry_point)
 

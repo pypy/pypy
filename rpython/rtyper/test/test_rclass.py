@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 import py
@@ -1083,7 +1085,7 @@ class TestRclass(BaseRtypingTest):
         t = TranslationContext()
         t.buildannotator().build_types(f, [])
         e = py.test.raises(TyperError, t.buildrtyper().specialize)
-        print e.value
+        print(e.value)
 
     def test_instance_repr(self):
         from rpython.rlib.objectmodel import current_object_addr_as_int
@@ -1098,7 +1100,7 @@ class TestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         xid, xstr = self.ll_unpack_tuple(res, 2)
         xstr = self.ll_to_string(xstr)
-        print xid, xstr
+        print(xid, xstr)
         assert 'FooBar' in xstr
         from rpython.rlib.rarithmetic import r_uint
         expected = hex(r_uint(xid)).lower().replace('l', '')

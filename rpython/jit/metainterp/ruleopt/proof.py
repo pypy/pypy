@@ -1,11 +1,14 @@
+from __future__ import print_function
+
 import sys
 import os
+import operator
 from hashlib import md5
 
 import z3
 
 from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
-    make_z3_intbounds_instance,
+    make_z3_intbounds_instance, Z3IntBound,
 )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
@@ -17,8 +20,25 @@ from rpython.tool.gcc_cache import try_atomic_write
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
+# Invalidate cached proofs when changing the assumptions used for methods.
+PROOF_CACHE_VERSION = 'bound-contracts-v1'
+
 class ProofProblem(Exception):
     pass
+
+class CouldNotProvePrecondition(ProofProblem):
+    def __init__(self, rule, element, condition):
+        self.rule = rule
+        self.element = element
+        self.condition = condition
+
+    def format(self):
+        lines = ["Could not prove precondition in rule '%s'" % self.rule.name]
+        if self.element.sourcepos:
+            lines.append("in line %s" % self.element.sourcepos.lineno)
+        lines.append("The expression must be safe using only preceding checks and computations.")
+        lines.append(str(self.condition))
+        return '\n'.join(lines)
 
 class CouldNotProve(ProofProblem):
     def __init__(self, rule, cond, model, lhs, rhs, prover):
@@ -197,6 +217,37 @@ def z3_highest_bit(x):
 def z3_min(a, b):
     return z3.If(a <= b, a, b)
 
+
+def known_ne_contract(result, left, right):
+    # Trusted soundness property, not a translation of IntBound.known_ne.
+    # False does not imply that the bounds overlap: the method may be
+    # conservative. Instantiate soundness only for the concrete operands
+    # of this proof; the glue conditions establish their bound membership.
+    assert left.concrete_variable is not None
+    assert right.concrete_variable is not None
+    return z3.Implies(result, left.concrete_variable != right.concrete_variable)
+
+
+def bound_contract(operation):
+    def contract(result, left, right):
+        assert left.concrete_variable is not None
+        assert right.concrete_variable is not None
+        value = operation(left.concrete_variable, right.concrete_variable)
+        return z3.And(result.concrete_variable == value, result.z3_formula())
+    return contract
+
+
+METHOD_CONTRACTS = {
+    'known_ne': known_ne_contract,
+    'and_bound': bound_contract(operator.and_),
+    'or_bound': bound_contract(operator.or_),
+    'sub_bound': bound_contract(operator.sub),
+    'lshift_bound': bound_contract(operator.lshift),
+    'rshift_bound': bound_contract(operator.rshift),
+    'urshift_bound': bound_contract(z3.LShR),
+}
+
+
 class Prover(parse.Visitor):
     def __init__(self):
         self.solver = z3.Optimize()
@@ -274,14 +325,14 @@ class Prover(parse.Visitor):
         left, leftvalid = self.visit(expr.left, bool)
         right, rightvalid = self.visit(expr.right, bool)
         res = z3.If(left, left, right)
-        return res, z3_and(leftvalid, rightvalid)
+        return res, z3_and(leftvalid, z3_implies(z3.Not(left), rightvalid))
 
     def visit_ShortcutAnd(self, expr, targettype=int):
         assert targettype is bool
         left, leftvalid = self.visit(expr.left, bool)
         right, rightvalid = self.visit(expr.right, bool)
         res = z3.If(left, right, left)
-        return res, z3_and(leftvalid, rightvalid)
+        return res, z3_and(leftvalid, z3_implies(left, rightvalid))
 
     def visit_BinOp(self, expr, targettype=int):
         left, leftvalid = self.visit(expr.left, int)
@@ -333,9 +384,26 @@ class Prover(parse.Visitor):
             self.visit(arg, arg.typ) for arg in expr.args
         ]
         methargs = [arg[0] for arg in args]
-        return getattr(res, expr.methname)(*methargs), z3_and(
-            resvalid, *[arg[1] for arg in args]
+        if expr.methname in METHOD_CONTRACTS:
+            result = self.call_method_with_contract(expr.methname, res, *methargs)
+        else:
+            result = getattr(res, expr.methname)(*methargs)
+        valid = res.is_constant() if expr.methname == 'get_constant_int' else True
+        return result, z3_and(
+            resvalid, valid, *[arg[1] for arg in args]
         )
+
+    def call_method_with_contract(self, name, *bounds):
+        resulttype = parse.INTBOUND_METHODTYPES[name][2]
+        if resulttype is bool:
+            result = z3.FreshBool(name)
+        else:
+            assert resulttype is IntBound
+            result = Z3IntBound(*[
+                z3.FreshConst(z3.BitVecSort(LONG_BIT), name + '_' + field)
+                for field in ('lower', 'upper', 'tvalue', 'tmask', 'concrete')])
+        self.glue_conditions.append(METHOD_CONTRACTS[name](result, *bounds))
+        return result
 
     def visit_FuncCall(self, expr, targettype=int):
         targettypes = [int] * len(expr.args)
@@ -345,6 +413,14 @@ class Prover(parse.Visitor):
         func = globals()["z3_" + expr.funcname]
         funcargs = [arg[0] for arg in args]
         return func(*funcargs), z3_and(*[arg[1] for arg in args])
+
+    def check_precondition(self, rule, element, valid, assumptions):
+        if valid is True or z3.is_true(z3.simplify(valid)):
+            return
+        condition = z3_implies(
+            z3_and(*(assumptions + self.glue_conditions)), valid)
+        if not self.prove(condition):
+            raise CouldNotProvePrecondition(rule, element, condition)
 
     def must_be_sat(self, rule, lhs, *conditions):
         def _find_index_to_remove():
@@ -383,24 +459,25 @@ class Prover(parse.Visitor):
         print("checking %s" % rule)
         lhs, lhsvalid = self.visit(rule.pattern)
         self.must_be_sat(rule, lhs, lhsvalid)
-        rhs, rhsvalid = self.visit(rule.target)
         implies_left = [lhsvalid]
-        implies_right = [rhsvalid, rhs == lhs]
         for el in rule.elements:
             if isinstance(el, parse.Compute):
                 expr, exprvalid = self.visit(el.expr, int)
+                self.check_precondition(rule, el, exprvalid, implies_left)
                 if el.expr.typ is not IntBound:
                     implies_left.append(self._convert_var(el.name) == expr)
-                    implies_right.append(exprvalid)
                 else:
                     self.name_to_intbound[el.name] = expr
                     self.glue_conditions_added.add(el.name)
                 continue
             if isinstance(el, parse.Check):
-                expr, _ = self.visit(el.expr, bool)
+                expr, exprvalid = self.visit(el.expr, bool)
+                self.check_precondition(rule, el, exprvalid, implies_left)
                 implies_left.append(expr)
                 continue
             assert 0, "unreachable"
+        rhs, rhsvalid = self.visit(rule.target)
+        implies_right = [rhsvalid, rhs == lhs]
         implies_left.extend(self.glue_conditions)
         self.must_be_sat(rule, lhs, lhsvalid, *implies_left)
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
@@ -416,7 +493,7 @@ def prove_source(s, force=False):
     ast = parse.parse(s)
     for rule in ast.rules:
         if rule.cantproof:
-            print "SKIPPING PROOF!", rule.name
+            print("SKIPPING PROOF!", rule.name)
             continue
         cachename = None
         if not force:
@@ -424,13 +501,13 @@ def prove_source(s, force=False):
             end_lineno = rule.endsourcepos.lineno
             rule_lines = lines[start_lineno:end_lineno]
 
-            h = md5("\n".join(rule_lines))
+            h = md5(PROOF_CACHE_VERSION + '\n' + "\n".join(rule_lines))
             cachename = os.path.join(
                 CACHE_DIR, "jit_dsl_rule_%s" % (h.hexdigest(), ))
             try:
                 with open(cachename, 'rb') as f:
                     f.read() # just needs to exist, really
-                print "reusing previous proof", rule.name
+                print("reusing previous proof", rule.name)
                 continue
             except IOError:
                 pass

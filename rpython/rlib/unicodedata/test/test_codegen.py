@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pytest
 from StringIO import StringIO
 from hypothesis import given, strategies, example
@@ -18,15 +20,15 @@ def test_charlist():
 def test_print_listlike(l):
     f = StringIO()
     c = CodeWriter(f)
-    print >> c, 'from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask'
-    print >> c, '''\
+    print('from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask', file=c)
+    print('''\
 from rpython.rlib.unicodedata.supportcode import (signed_ord, _all_short,
-    _all_ushort, _all_int32, _all_uint32)'''
+    _all_ushort, _all_int32, _all_uint32)''', file=c)
     c.print_listlike("l", l)
     d = {}
     s = f.getvalue()
-    print l
-    print s
+    print(l)
+    print(s)
     exec(s, d)
     func = d['l']
     for i, value in enumerate(l):

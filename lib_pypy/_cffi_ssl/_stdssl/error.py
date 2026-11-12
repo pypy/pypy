@@ -117,7 +117,9 @@ def pyssl_error(obj, ret):
                     # s = obj.get_socket_or_None()
                     if sys.platform == 'win32':
                         if err.ws:
-                            return OSError(err.ws, os.strerror(err.ws))
+                            # CPython raises socket.error here, which on py2 is
+                            # not OSError, and tests do catch socket.error
+                            return socket.error(err.ws, os.strerror(err.ws))
                     if err.c:
                         ffi.errno = err.c 
                     errno = ffi.errno

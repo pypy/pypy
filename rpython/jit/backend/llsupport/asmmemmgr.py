@@ -1,4 +1,4 @@
-import sys
+import os, sys
 from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib import rmmap
@@ -24,19 +24,28 @@ class AsmMemoryManager(object):
         self.free_blocks = {}      # map {start: stop}
         self.free_blocks_end = {}  # map {stop: start}
         self.blocks_by_size = [[] for i in range(self.num_indices)]
+        self._pending_frees = []   # list of (start, stop), see free()
 
     def get_stats(self):
         """Returns stats for rlib.jit.jit_hooks.stats_asmmemmgr_*()."""
         return (self.total_memory_allocated, self.total_mallocs)
 
-    # The three statements at the end of _add_free_block each allocate, and
-    # the structures disagree until all of them are done.  A GC there runs
-    # finalizers, and CompiledLoopToken.__del__ -> free_loop_and_bridges ->
-    # free() reenters us inside that window.  Flag it.
+    # _add_free_block() allocates (dict and list growth) while the three
+    # structures disagree.  A GC there runs finalizers, and
+    # CompiledLoopToken.__del__ -> free_loop_and_bridges -> free() reenters
+    # us inside that window: free() defers itself while _updating is set.
+    # A reentering malloc() is still a bug; PYPY_JIT_DETECT_REENTRANCY=0
+    # turns that fatalerror off.
     DETECT_REENTRANCY = True
     _updating = False
     _update_start = 0
     _update_stop = 0
+
+    def read_env_vars(self):
+        # from setup_once(); __init__() runs at translation time
+        value = os.environ.get('PYPY_JIT_DETECT_REENTRANCY')
+        if value:
+            self.DETECT_REENTRANCY = value != '0'
 
     def _check_not_reentered(self, name, a, b):
         if not self.DETECT_REENTRANCY:
@@ -53,6 +62,7 @@ class AsmMemoryManager(object):
         of minsize and maxsize.
         """
         self._check_not_reentered('malloc', minsize, maxsize)
+        self._run_pending_frees()
         result = self._allocate_block(minsize)
         (start, stop) = result
         if maxsize <= stop - start - self.min_fragment:
@@ -61,21 +71,34 @@ class AsmMemoryManager(object):
             stop = smaller_stop
             result = (start, stop)
         self.total_mallocs += r_uint(stop - start)
+        self._run_pending_frees()
         return result   # pair (start, stop)
 
     def free(self, start, stop):
         """Free a block (start, stop) returned by a previous malloc()."""
-        self._check_not_reentered('free', start, stop)
         if r_uint is not None:
             self.total_mallocs -= r_uint(stop - start)
+        if self._updating:
+            # called from a finalizer run by a GC inside _add_free_block()
+            self._pending_frees.append((start, stop))
+            return
         self._add_free_block(start, stop)
+        self._run_pending_frees()
+
+    def _run_pending_frees(self):
+        # a pending free can itself trigger a GC that defers another one
+        while len(self._pending_frees) > 0:
+            start, stop = self._pending_frees.pop()
+            self._add_free_block(start, stop)
 
     def open_malloc(self, minsize):
         """Allocate at least minsize bytes.  Returns (start, stop)."""
         self._check_not_reentered('open_malloc', minsize, -1)
+        self._run_pending_frees()
         result = self._allocate_block(minsize)
         (start, stop) = result
         self.total_mallocs += r_uint(stop - start)
+        self._run_pending_frees()
         return result
 
     def open_free(self, middle, stop):
@@ -84,6 +107,7 @@ class AsmMemoryManager(object):
         if stop - middle >= self.min_fragment:
             self.total_mallocs -= r_uint(stop - middle)
             self._add_free_block(middle, stop)
+            self._run_pending_frees()
             return True
         else:
             return False    # too small to record
@@ -123,6 +147,10 @@ class AsmMemoryManager(object):
         return i
 
     def _add_free_block(self, start, stop):
+        # a reentering free() is deferred until we are done, see free()
+        self._update_start = start
+        self._update_stop = stop
+        self._updating = True
         # Merge with the block on the left
         if start in self.free_blocks_end:
             left_start = self.free_blocks_end[start]
@@ -135,19 +163,13 @@ class AsmMemoryManager(object):
             self._del_free_block(stop, right_stop)
             stop = right_stop
             assert stop not in self.free_blocks
-        # Add it to the dicts and check reentrancy
-        if self.DETECT_REENTRANCY:
-            self._update_start = start
-            self._update_stop = stop
-            self._updating = True
         assert start not in self.free_blocks
         self.free_blocks[start] = stop
         assert stop not in self.free_blocks_end
         self.free_blocks_end[stop] = start
         i = self._get_index(stop - start)
         self.blocks_by_size[i].append(start)
-        if self.DETECT_REENTRANCY:
-            self._updating = False
+        self._updating = False
         return start
 
     def _del_free_block(self, start, stop):

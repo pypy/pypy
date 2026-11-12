@@ -60,6 +60,8 @@ Environment variables can be used to fine-tune the following parameters:
 
 # XXX try merging old_objects_pointing_to_pinned into
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
+from __future__ import print_function
+
 import sys
 import os
 import time
@@ -1223,11 +1225,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _debug_print_flags(self, addr):
         if self.is_in_nursery(addr):
-            print "in nursery"
+            print("in nursery")
         tid = self.header(addr).tid
         for name, value in flagnames_and_values:
             if tid & value:
-                print name
+                print(name)
 
     def debug_is_old_object(self, addr):
         return (self.is_valid_gc_object(addr)

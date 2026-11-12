@@ -251,6 +251,16 @@ This leads to the following counterexample::
     target expression: int_add(a, b) with Z3 formula a + b
     has counterexample value: 5
 
+Calls and computations must be valid when they are evaluated. For example,
+put ``check x.is_constant()`` before ``C = x.get_constant_int()``.
+A later check cannot justify an earlier call. Short-circuit checks work too:
+``check x.is_constant() and x.get_constant_int() == 0`` is safe because the
+second condition is evaluated only when the first is true.
+
+``highest_bit(C)`` returns the zero-based index of the highest set bit in
+the machine integer ``C``. It returns ``-1`` for zero and ``LONG_BIT - 1``
+for negative values, using their two's complement representation.
+
 Some ``IntBound`` methods cannot be used in Z3 proofs because they have `too
 complex control flow`__ If that is the case, they can have Z3-equivalent
 formulations defined, in the ``test_z3intbound.Z3IntBound`` class (in every
@@ -260,11 +270,18 @@ required to make very sure they are equivalent).
 
 .. __: https://pypy.org/posts/2024/08/toy-knownbits.html#cases-where-this-style-of-z3-proof-doesnt-work).
 
-If that is too hard as well, it's possible to skip the proof of individual
+Some methods are supported through trusted properties instead of proving their
+implementation. You can use ``check x.known_ne(y)`` without ``SORRY_Z3``: the
+prover assumes that a true result guarantees ``x != y``, and checks the rest of
+your rule using that assumption. A false result does not imply ``x == y``.
+The rule's correctness therefore depends on ``known_ne`` satisfying its promised
+behavior; the rule proof does not verify the method itself.
+
+If neither approach is practical, it's possible to skip the proof of individual
 rules by adding ``SORRY_Z3`` to its body (but we should try not to do that too
 often)::
 
-    eq_different_knownbits: int_eq(x, y)
+    example_unchecked_rule: int_eq(x, y)
         SORRY_Z3
         check x.known_ne(y)
         => 0

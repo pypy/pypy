@@ -7,6 +7,7 @@ from rpython.rlib.rweakref import dead_ref
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import _share_methods
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
@@ -823,10 +824,17 @@ class MapdictDictSupport(object):
 # a couple of helpers for the classes above, factored out to reduce
 # the translated code size
 
+def _check_has_dict(space, terminator, self):
+    if not (isinstance(terminator, DictTerminator) or
+            isinstance(terminator, DevolvedDictTerminator)):
+        raise oefmt(space.w_TypeError,
+                    "descriptor '__dict__' doesn't apply to '%T' objects",
+                    self)
+
 @objectmodel.dont_inline
 def _obj_getdict(self, space):
     terminator = self._get_mapdict_map().terminator
-    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
+    _check_has_dict(space, terminator, self)
     w_dict = self._get_mapdict_map().read(self, "dict", SPECIAL)
     if w_dict is not None:
         assert isinstance(w_dict, W_DictMultiObject)
@@ -843,7 +851,7 @@ def _obj_getdict(self, space):
 def _obj_setdict(self, space, w_dict):
     from pypy.interpreter.error import oefmt
     terminator = self._get_mapdict_map().terminator
-    assert isinstance(terminator, DictTerminator) or isinstance(terminator, DevolvedDictTerminator)
+    _check_has_dict(space, terminator, self)
     if not space.isinstance_w(w_dict, space.w_dict):
         raise oefmt(space.w_TypeError, "setting dictionary to a non-dict")
     assert isinstance(w_dict, W_DictMultiObject)

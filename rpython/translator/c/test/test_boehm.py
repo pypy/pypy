@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import weakref
 
 import py
@@ -135,7 +137,7 @@ class TestUsingBoehm(AbstractGCTestClass):
         res1, res2 = eval(res)[:2]
         # if res1 or res2 is still 0, then we haven't tested anything so fail.
         # it might be the test's fault though.
-        print res1, res2
+        print(res1, res2)
         assert 0 < res1 <= 10
         assert 0 < res2 <= 5
 
@@ -417,7 +419,7 @@ class TestUsingBoehm(AbstractGCTestClass):
             rgc.collect()
             rgc.collect()
             if glob.triggered == 0:
-                print "not triggered!"
+                print("not triggered!")
                 return 50
             seen = {}
             while True:
@@ -427,7 +429,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                 assert a.i not in seen
                 seen[a.i] = True
             if len(seen) < 500:
-                print "seen only %d!" % len(seen)
+                print("seen only %d!" % len(seen))
                 return 51
             return 42
 

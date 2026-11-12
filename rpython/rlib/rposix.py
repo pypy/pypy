@@ -562,7 +562,9 @@ if not _WIN32:
 
         @enforceargs(int, None, None)
         def posix_fallocate(fd, offset, length):
-            return handle_posix_error('posix_fallocate', c_posix_fallocate(fd, offset, length))
+            error = widen(c_posix_fallocate(fd, offset, length))
+            if error != 0:
+                raise OSError(error, 'posix_fallocate failed')
 
     if HAVE_FADVISE:
         class CConfig:
@@ -1520,6 +1522,12 @@ if _WIN32:
         calling_conv='win',
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
+    GetSystemTimePreciseAsFileTime = external(
+        'GetSystemTimePreciseAsFileTime',
+        [lltype.Ptr(rwin32.FILETIME)],
+        lltype.Void,
+        calling_conv='win')
+
     SetFileTime = external(
         'SetFileTime',
         [rwin32.HANDLE,
@@ -1571,14 +1579,11 @@ def utime(path, times):
         mtime = lltype.malloc(rwin32.FILETIME, flavor='raw')
         try:
             if times is None:
-                now = lltype.malloc(rwin32.SYSTEMTIME, flavor='raw')
-                try:
-                    GetSystemTime(now)
-                    if (not SystemTimeToFileTime(now, atime) or
-                        not SystemTimeToFileTime(now, mtime)):
-                        raise rwin32.lastSavedWindowsError()
-                finally:
-                    lltype.free(now, flavor='raw')
+                # not GetSystemTime(): SYSTEMTIME only has milliseconds,
+                # which can round down below the mtime the filesystem just
+                # gave the file
+                GetSystemTimePreciseAsFileTime(atime)
+                rffi.structcopy(mtime, atime)
             else:
                 actime, modtime = times
                 time_t_to_FILE_TIME(actime, atime)
@@ -2074,10 +2079,13 @@ def uname():
         lltype.free(l_utsbuf, flavor='raw')
 
 if sys.platform != 'win32':
-    # These are actually macros on some/most systems
-    c_makedev = external('makedev', [rffi.INT, rffi.INT], rffi.INT, macro=True)
-    c_major = external('major', [rffi.INT], rffi.INT, macro=True)
-    c_minor = external('minor', [rffi.INT], rffi.INT, macro=True)
+    # These are actually macros on some/most systems.  dev_t is 64 bits,
+    # makedev() puts a major above 0xfff into the high word, so INT would
+    # truncate both the arguments and the result
+    DEV_T = lltype.SignedLongLong
+    c_makedev = external('makedev', [DEV_T, DEV_T], DEV_T, macro=True)
+    c_major = external('major', [DEV_T], rffi.UINT, macro=True)
+    c_minor = external('minor', [DEV_T], rffi.UINT, macro=True)
 
     @replace_os_function('makedev')
     def makedev(maj, min):
@@ -2085,11 +2093,11 @@ if sys.platform != 'win32':
 
     @replace_os_function('major')
     def major(dev):
-        return c_major(dev)
+        return widen(c_major(dev))
 
     @replace_os_function('minor')
     def minor(dev):
-        return c_minor(dev)
+        return widen(c_minor(dev))
 
 #___________________________________________________________________
 
