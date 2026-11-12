@@ -3639,13 +3639,130 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Py_DECREF(base);
                 return res;
              '''),
+            ("float_subtype_refcnt_delta", "METH_NOARGS",
+             '''
+                PyType_Slot slots[] = {{Py_tp_new, sub_new},
+                                       {Py_tp_dealloc, sub_dealloc}, {0, 0}};
+                PyType_Spec spec = {"foo_spec_checks.FloatSub",
+                    sizeof(PyFloatObject), 0, Py_TPFLAGS_DEFAULT, slots};
+                PyObject *t = PyType_FromSpecWithBases(&spec,
+                                                (PyObject *)&PyFloat_Type);
+                if (t == NULL) return NULL;
+                PyTypeObject *tp = (PyTypeObject *)t;
+                Py_ssize_t before = Py_REFCNT(t);
+                int i;
+                for (i = 0; i < 8; i++) {
+                    PyObject *o = tp->tp_alloc(tp, 0);
+                    if (o == NULL) {
+                        Py_DECREF(t);
+                        return NULL;
+                    }
+                    Py_DECREF(o);
+                }
+                Py_ssize_t delta = Py_REFCNT(t) - before;
+                Py_DECREF(t);
+                return PyLong_FromSsize_t(delta);
+             '''),
+            ("uninherited_slots", "METH_NOARGS",
+             '''
+                /* slot ids that a subtype defining nothing does not get from
+                   its base -- Cython reads tp_iternext this way for a
+                   `for` loop over a cdef class */
+                static const int ids[] = {Py_tp_call, Py_tp_descr_get,
+                    Py_tp_descr_set, Py_tp_hash, Py_tp_iter, Py_tp_iternext,
+                    Py_tp_repr, Py_tp_richcompare, Py_tp_str};
+                PyObject *res = NULL, *bases = NULL, *child = NULL;
+                PyObject *base = PyType_FromSpec(&slotty_spec);
+                size_t i;
+                if (base == NULL) return NULL;
+                bases = PyTuple_Pack(1, base);
+                if (bases == NULL) goto done;
+                child = PyType_FromSpecWithBases(&child_spec, bases);
+                if (child == NULL) goto done;
+                res = PyList_New(0);
+                if (res == NULL) goto done;
+                for (i = 0; i < sizeof(ids) / sizeof(ids[0]); i++) {
+                    if (PyType_GetSlot((PyTypeObject *)child, ids[i]) == NULL) {
+                        PyObject *n = PyLong_FromLong(ids[i]);
+                        if (n == NULL || PyList_Append(res, n) < 0) {
+                            Py_XDECREF(n);
+                            Py_CLEAR(res);
+                            goto done;
+                        }
+                        Py_DECREF(n);
+                    }
+                }
+              done:
+                Py_XDECREF(child);
+                Py_XDECREF(bases);
+                Py_DECREF(base);
+                return res;
+             '''),
             ], prologue='''
             static PyMemberDef spec_members[] = {
                 {"x", Py_T_INT, 0, Py_READONLY, NULL}, {NULL}};
+            static PyObject *slotty_unary(PyObject *o)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *slotty_call(PyObject *o, PyObject *a, PyObject *k)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *slotty_descr_get(PyObject *o, PyObject *i,
+                                              PyObject *t)
+            {
+                Py_RETURN_NONE;
+            }
+            static int slotty_descr_set(PyObject *o, PyObject *k, PyObject *v)
+            {
+                return 0;
+            }
+            static Py_hash_t slotty_hash(PyObject *o)
+            {
+                return 42;
+            }
+            static PyObject *slotty_richcmp(PyObject *a, PyObject *b, int op)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyType_Slot slotty_slots[] = {
+                {Py_tp_call, slotty_call},
+                {Py_tp_descr_get, slotty_descr_get},
+                {Py_tp_descr_set, slotty_descr_set},
+                {Py_tp_hash, slotty_hash},
+                {Py_tp_iter, slotty_unary},
+                {Py_tp_iternext, slotty_unary},
+                {Py_tp_repr, slotty_unary},
+                {Py_tp_richcompare, slotty_richcmp},
+                {Py_tp_str, slotty_unary},
+                {0, 0}};
+            static PyType_Spec slotty_spec = {
+                "foo_spec_checks.Slotty", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, slotty_slots};
+            static PyType_Slot child_slots[] = {{0, 0}};
+            static PyType_Spec child_spec = {
+                "foo_spec_checks.SlottyChild", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT, child_slots};
             static PyObject *
             meta_new(PyTypeObject *t, PyObject *a, PyObject *k)
             {
                 return PyType_Type.tp_new(t, a, k);
+            }
+            /* what Cython emits for `cdef class X(float)` under
+               CYTHON_USE_TYPE_SPECS: tp_dealloc delegates to the base's and
+               then undoes the heaptype incref of tp_alloc itself */
+            static PyObject *
+            sub_new(PyTypeObject *t, PyObject *a, PyObject *k)
+            {
+                return PyFloat_Type.tp_new(t, a, k);
+            }
+            static void
+            sub_dealloc(PyObject *o)
+            {
+                PyObject *tp = (PyObject *)Py_TYPE(o);
+                PyFloat_Type.tp_dealloc(o);
+                Py_DECREF(tp);
             }
             ''')
         import warnings
@@ -3694,6 +3811,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             assert log[0].category is DeprecationWarning
             assert "custom tp_new" in str(log[0].message)
         assert type(Sub) is Meta
+
+        # the base dealloc must not also undo tp_alloc's heaptype incref,
+        # or the type's refcount drifts down one per instance
+        assert module.float_subtype_refcnt_delta() == 0
+
+        # a subtype that defines no slots of its own inherits them all
+        assert module.uninherited_slots() == []
 
     def test_pep697_type_data(self):
         import struct
@@ -4576,6 +4700,106 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class Sub(Repro):
             pass
         assert module.is_gc(Sub)
+
+    def test_static_type_collection_flags(self):
+        # mimics what Cython emits for @cython.collection_type("sequence"|
+        # "mapping") on a static type (CYTHON_USE_TYPE_SPECS=0, see
+        # cython/cython#5030): the Py_TPFLAGS_SEQUENCE / Py_TPFLAGS_MAPPING
+        # bit is the only thing that marks the type, and it is set before
+        # PyType_Ready. Like Cython's memoryview classes, both types here
+        # also implement the *other* protocol, so the flag has to win over
+        # the slot-based guess in W_PyCTypeObject.__init__.
+        module = self.import_extension('foo_collection_flags', [], prologue="""
+            static Py_ssize_t collection_length(PyObject *self)
+            {
+                return 0;
+            }
+            static PyObject *collection_subscript(PyObject *self, PyObject *k)
+            {
+                Py_RETURN_NONE;
+            }
+            static PyObject *collection_item(PyObject *self, Py_ssize_t i)
+            {
+                Py_RETURN_NONE;
+            }
+
+            /* a sequence-flagged type that only has mp_subscript */
+            static PyMappingMethods seq_as_mapping = {
+                collection_length,
+                collection_subscript,
+                0,
+            };
+            static PyTypeObject Seq_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_collection_flags.Seq",
+                sizeof(PyObject),
+                0,
+            };
+
+            /* a mapping-flagged type that only has sq_item */
+            static PySequenceMethods map_as_sequence = {
+                collection_length,
+                0,
+                0,
+                collection_item,
+                0,
+            };
+            static PyTypeObject Map_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo_collection_flags.Map",
+                sizeof(PyObject),
+                0,
+            };
+            """, more_init="""
+            Seq_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                Py_TPFLAGS_SEQUENCE;
+            Seq_Type.tp_base = &PyBaseObject_Type;
+            Seq_Type.tp_new = PyType_GenericNew;
+            Seq_Type.tp_as_mapping = &seq_as_mapping;
+            if (PyType_Ready(&Seq_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Seq", (PyObject *)&Seq_Type);
+
+            Map_Type.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                Py_TPFLAGS_MAPPING;
+            Map_Type.tp_base = &PyBaseObject_Type;
+            Map_Type.tp_new = PyType_GenericNew;
+            Map_Type.tp_as_sequence = &map_as_sequence;
+            if (PyType_Ready(&Map_Type) < 0) INITERROR;
+            PyModule_AddObject(mod, "Map", (PyObject *)&Map_Type);
+        """)
+        # match/case is not py2 syntax, and this file is imported by the
+        # host interpreter when running untranslated
+        ns = {}
+        exec("""if 1:
+            def classify(obj):
+                match obj:
+                    case {}:
+                        return "mapping"
+                    case [*_]:
+                        return "sequence"
+                    case _:
+                        return "other"
+        """, ns)
+        classify = ns["classify"]
+
+        Py_TPFLAGS_SEQUENCE = 1 << 5
+        Py_TPFLAGS_MAPPING = 1 << 6
+        assert module.Seq.__flags__ & Py_TPFLAGS_SEQUENCE
+        assert not module.Seq.__flags__ & Py_TPFLAGS_MAPPING
+        assert module.Map.__flags__ & Py_TPFLAGS_MAPPING
+        assert not module.Map.__flags__ & Py_TPFLAGS_SEQUENCE
+
+        assert classify(module.Seq()) == "sequence"
+        assert classify(module.Map()) == "mapping"
+
+        # like Cython's undecorated memoryview subclasses, a plain subclass
+        # inherits the flag
+        class SeqSub(module.Seq):
+            pass
+        class MapSub(module.Map):
+            pass
+        assert classify(SeqSub()) == "sequence"
+        assert classify(MapSub()) == "mapping"
 
     # messes with leak detection, leave at the end of the tests
     def test_nanobind2_tp_traverse(self):

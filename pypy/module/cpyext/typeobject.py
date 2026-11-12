@@ -48,7 +48,8 @@ from pypy.module.cpyext.typeobjectdefs import (
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
 from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
 from pypy.objspace.std.typeobject import (W_TypeObject, find_best_base,
-    extract_doc, extract_txtsig, _calculate_metaclass)
+    extract_doc, extract_txtsig, _calculate_metaclass, PATMA_SEQUENCE,
+    PATMA_MAPPING)
 
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
@@ -860,11 +861,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
         pto.c_tp_dealloc = typedescr.get_dealloc(space)
     else:
-        # for all subtypes, use base's dealloc (requires sorting in attach_all)
-        pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
-        if not pto.c_tp_dealloc:
-            # strange, but happens (ABCMeta)
-            pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+        # like CPython, every subtype gets subtype_dealloc, which looks up
+        # the base's dealloc when it runs and owns the heaptype decref
+        pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))
@@ -1118,6 +1117,25 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
         if pto.c_tp_vectorcall_offset == 0:
             pto.c_tp_vectorcall_offset = base.c_tp_vectorcall_offset
+        if not pto.c_tp_repr:
+            pto.c_tp_repr = base.c_tp_repr
+        if not pto.c_tp_str:
+            pto.c_tp_str = base.c_tp_str
+        if not pto.c_tp_call:
+            pto.c_tp_call = base.c_tp_call
+        if not pto.c_tp_iter:
+            pto.c_tp_iter = base.c_tp_iter
+        if not pto.c_tp_iternext:
+            pto.c_tp_iternext = base.c_tp_iternext
+        if not pto.c_tp_descr_get:
+            pto.c_tp_descr_get = base.c_tp_descr_get
+        if not pto.c_tp_descr_set:
+            pto.c_tp_descr_set = base.c_tp_descr_set
+        # like CPython, the comparison slots are inherited as a pair, only
+        # when the subtype overrides neither
+        if not pto.c_tp_richcompare and not pto.c_tp_hash:
+            pto.c_tp_richcompare = base.c_tp_richcompare
+            pto.c_tp_hash = base.c_tp_hash
 
         if not pto.c_tp_as_number:
             pto.c_tp_as_number = base.c_tp_as_number
@@ -1244,6 +1262,12 @@ def finish_type_2(space, pto, w_obj):
     if not flags & Py_TPFLAGS_HEAPTYPE:
         # like PyType_Ready: all static types are immutable
         pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_IMMUTABLETYPE)
+    # only set when a bit is present, so that subclasses without one of their
+    # own still inherit the base's value in copy_flags_from_bases()
+    if flags & PATMA_SEQUENCE:
+        w_obj.flag_patma_collection = "S"
+    elif flags & PATMA_MAPPING:
+        w_obj.flag_patma_collection = "M"
     base = pto.c_tp_base
     if base:
         inherit_special(space, pto, w_obj, base)

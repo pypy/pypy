@@ -34,11 +34,20 @@ _Py_subtype_dealloc(PyObject *obj)
         base = base->tp_base;
         assert(base);
     }
+    /* Undo the incref of the type done when the instance was allocated, as
+       CPython's subtype_dealloc does: not if the base is itself a heap type,
+       since then its dealloc already did it. Unlike CPython, this function is
+       also the tp_dealloc of the built-in types, so it can be reached as
+       "the base's tp_dealloc" from an extension's own tp_dealloc -- the
+       extension owns the decref in that case (this is what Cython emits). */
+    int type_needs_decref = (pto->tp_dealloc == &_Py_subtype_dealloc &&
+                             pto->tp_flags & Py_TPFLAGS_HEAPTYPE &&
+                             !(base->tp_flags & Py_TPFLAGS_HEAPTYPE));
     /* XXX call tp_del if necessary */
     base->tp_dealloc(obj);
-    /* XXX cpy decrefs the pto here but we do it in the base-dealloc
-       hopefully this does not clash with the memory model assumed in
-       extension modules */
+    /* obj, and possibly pto, are gone now */
+    if (type_needs_decref)
+        Py_DECREF(pto);
 }
 
 unsigned long

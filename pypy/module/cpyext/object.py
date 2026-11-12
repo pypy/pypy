@@ -4,7 +4,7 @@ from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
-    Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_MANAGED_DICT, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
+    Py_TPFLAGS_MANAGED_DICT, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
     Py_GE, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, as_pyobj, incref, decref,
@@ -77,12 +77,9 @@ def _dealloc(space, obj):
     from rpython.rlib import rawrefcount
     assert (obj.c_ob_refcnt == 0 or
             obj.c_ob_refcnt == rawrefcount.REFCNT_FROM_PYPY)
-    pto = obj.c_ob_type
-    try:
-        _tp_free(space, obj)
-    finally:
-        if widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
-            decref(space, rffi.cast(PyObject, pto))
+    # like CPython's type-specific deallocs, this does not decref the type:
+    # that is _Py_subtype_dealloc's job
+    _tp_free(space, obj)
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):

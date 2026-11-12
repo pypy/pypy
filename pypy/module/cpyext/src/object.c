@@ -133,9 +133,9 @@ _Py_object_dealloc(PyObject *obj)
     PyTypeObject *pto;
     assert(obj->ob_refcnt == 0 || obj->ob_refcnt == _PyPy_REFCNT_FROM_PYPY);
     pto = obj->ob_type;
+    /* like CPython's object_dealloc, this does not decref the type: that is
+       _Py_subtype_dealloc's job */
     pto->tp_free(obj);
-    if (pto->tp_flags & Py_TPFLAGS_HEAPTYPE)
-        Py_DECREF(pto);
 }
 
 void
@@ -181,9 +181,8 @@ static PyObject *
 _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
 {
     PyObject *pyobj;
-    if (type->tp_flags & Py_TPFLAGS_HEAPTYPE)
-        Py_INCREF(type);
-
+    /* the Py_TPFLAGS_HEAPTYPE incref is left to _PyObject_Init, which the
+       only caller runs right after this, like CPython's tp_alloc does */
     const size_t size = _PyObject_VAR_SIZE(type, nitems+1);
     /* note that we need to add one, for the sentinel */
 
