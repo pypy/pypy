@@ -991,6 +991,20 @@ class Test_rbigint(object):
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
 
+    def test_bitwise_unequal_lengths(self):
+        large = (1 << (100 * SHIFT)) | (1 << (17 * SHIFT)) | 7
+        small = (1 << SHIFT) | 3
+        for x, y in ((large, small), (small, large)):
+            for sign_x in (-1, 1):
+                for sign_y in (-1, 1):
+                    a = sign_x * x
+                    b = sign_y * y
+                    ra = rbigint.fromlong(a)
+                    rb = rbigint.fromlong(b)
+                    for mod in "xor and_ or_".split():
+                        assert getattr(ra, mod)(rb).tolong() == getattr(
+                            operator, mod)(a, b)
+
     def test_int_bitwise(self):
         for x in gen_signs(long_vals):
             lx = rbigint.fromlong(x)
