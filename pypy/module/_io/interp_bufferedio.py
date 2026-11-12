@@ -471,8 +471,8 @@ class BufferedMixin:
     # Read methods
 
     def read_w(self, space, w_size=None):
-        self._check_closed(space, "read of closed file")
         size = convert_size(space, w_size)
+        self._check_closed(space, "read of closed file")
 
         if size == -1:
             # read until the end of stream
@@ -718,9 +718,8 @@ class BufferedMixin:
         return None
 
     def readline_w(self, space, w_limit=None):
-        self._check_closed(space, "readline of closed file")
-
         limit = convert_size(space, w_limit)
+        self._check_closed(space, "readline of closed file")
 
         # First, try to find a line in the buffer. This can run
         # unlocked because the calls to the C API are simple enough

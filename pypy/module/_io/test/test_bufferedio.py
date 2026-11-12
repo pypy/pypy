@@ -307,6 +307,20 @@ class AppTestBufferedReader:
         raises(ValueError, buf.isatty)
         repr(buf)  # Should still work
 
+    def test_size_index_closes(self):
+        import _io
+        class ClosingIndex:
+            def __init__(self, f):
+                self.f = f
+            def __index__(self):
+                self.f.close()
+                return 0
+        for cls in [_io.BufferedReader, _io.BufferedRandom]:
+            for name in ["read", "readline"]:
+                f = cls(_io.BytesIO(b"abc\ndef\n"), 8)
+                with raises(ValueError):
+                    getattr(f, name)(ClosingIndex(f))
+
     def test_detach_reentrant(self):
         import _io
         class Raw(_io._RawIOBase):
