@@ -3920,6 +3920,82 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_compare_same_args(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, i0)
+        escape_n(i1)
+        i2 = int_le(i0, i0)
+        escape_n(i2)
+        i3 = int_gt(i0, i0)
+        escape_n(i3)
+        i4 = uint_lt(i0, i0)
+        escape_n(i4)
+        i5 = uint_le(i0, i0)
+        escape_n(i5)
+        i6 = uint_gt(i0, i0)
+        escape_n(i6)
+        i7 = uint_ge(i0, i0)
+        escape_n(i7)
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        escape_n(0)
+        escape_n(1)
+        escape_n(0)
+        escape_n(0)
+        escape_n(1)
+        escape_n(0)
+        escape_n(1)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_uint_compare_known(self):
+        # i0 is in [10, 20], so every unsigned comparison with 5 or 30 is known
+        ops = """
+        [i0]
+        i1 = int_ge(i0, 10)
+        guard_true(i1) []
+        i2 = int_le(i0, 20)
+        guard_true(i2) []
+        i3 = uint_lt(i0, 30)
+        escape_n(i3)
+        i4 = uint_lt(i0, 5)
+        escape_n(i4)
+        i5 = uint_le(i0, 30)
+        escape_n(i5)
+        i6 = uint_le(i0, 5)
+        escape_n(i6)
+        i7 = uint_gt(i0, 5)
+        escape_n(i7)
+        i8 = uint_gt(i0, 30)
+        escape_n(i8)
+        i9 = uint_ge(i0, 5)
+        escape_n(i9)
+        i10 = uint_ge(5, i0)
+        escape_n(i10)
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_ge(i0, 10)
+        guard_true(i1) []
+        i2 = int_le(i0, 20)
+        guard_true(i2) []
+        escape_n(1)
+        escape_n(0)
+        escape_n(1)
+        escape_n(0)
+        escape_n(1)
+        escape_n(0)
+        escape_n(1)
+        escape_n(0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_uint_ge_implies_int_lt(self):
         # this is a common pattern when reading at a fixed index 0 from a
         # resizable list. the uint_ge is checking that 0 is a valid index
