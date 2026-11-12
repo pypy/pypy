@@ -583,15 +583,28 @@ class AppTestObject(AppTestCpythonExtensionBase):
              """),
             ("counters", "METH_NOARGS",
              """
-                return Py_BuildValue("iiii", finalize_count, dealloc_count,
-                                     flag_before, flag_after);
+                return Py_BuildValue("iiiii", finalize_count, dealloc_count,
+                                     flag_before, flag_after,
+                                     inherited_count);
+             """),
+            ("cycle_inherited", "METH_NOARGS",
+             """
+                /* the type sets tp_finalize but no tp_dealloc, so only
+                   subtype_dealloc can finalize its instances */
+                PyTypeObject *tp = (PyTypeObject *)the_inherited_type;
+                PyObject *o = tp->tp_alloc(tp, 0);
+                if (o == NULL) return NULL;
+                Py_DECREF(o);
+                Py_RETURN_NONE;
              """),
             ], prologue="""
             static int finalize_count = 0;
             static int dealloc_count = 0;
             static int flag_before = -1;
             static int flag_after = -1;
+            static int inherited_count = 0;
             static PyObject *the_type = NULL;
+            static PyObject *the_inherited_type = NULL;
 
             static void my_finalize(PyObject *o)
             {
@@ -615,6 +628,11 @@ class AppTestObject(AppTestCpythonExtensionBase):
                 Py_DECREF(tp);
             }
 
+            static void inherited_finalize(PyObject *o)
+            {
+                inherited_count++;
+            }
+
             static PyType_Slot fin_slots[] = {
                 {Py_tp_finalize, my_finalize},
                 {Py_tp_dealloc, my_dealloc},
@@ -623,11 +641,23 @@ class AppTestObject(AppTestCpythonExtensionBase):
             static PyType_Spec fin_spec = {
                 "foo_finalize.Fin", sizeof(PyObject), 0,
                 Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, fin_slots};
+
+            static PyType_Slot inherited_slots[] = {
+                {Py_tp_finalize, inherited_finalize},
+                {Py_tp_traverse, my_traverse},
+                {0, 0}};
+            static PyType_Spec inherited_spec = {
+                "foo_finalize.Inherited", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, inherited_slots};
             """, more_init="""
             the_type = PyType_FromSpec(&fin_spec);
             if (the_type == NULL) INITERROR;
             Py_INCREF(the_type);
             PyModule_AddObject(mod, "Fin", the_type);
+            the_inherited_type = PyType_FromSpec(&inherited_spec);
+            if (the_inherited_type == NULL) INITERROR;
+            Py_INCREF(the_inherited_type);
+            PyModule_AddObject(mod, "Inherited", the_inherited_type);
         """)
         Fin = module.Fin
         obj = Fin()
@@ -636,7 +666,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
             if module.counters()[1]:
                 break
             self.debug_collect()
-        finalized, deallocated, before, after = module.counters()
+        finalized, deallocated, before, after = module.counters()[:4]
         # the finalizer must not run both from PyPy's finalizer and again
         # from tp_dealloc
         assert deallocated == 1
@@ -646,12 +676,23 @@ class AppTestObject(AppTestCpythonExtensionBase):
         # an object PyPy never saw has no __del__ path at all, so tp_dealloc
         # is the only chance to finalize it
         module.cycle_foreign()
-        finalized, deallocated, before, after = module.counters()
+        finalized, deallocated, before, after = module.counters()[:4]
         assert deallocated == 2
         assert finalized == 2
         assert before == 0
         assert after == 1
 
+        # a type with tp_finalize but no tp_dealloc of its own is finalized
+        # by subtype_dealloc, as in CPython
+        module.cycle_inherited()
+        assert module.counters()[4] == 1
+        obj = module.Inherited()
+        del obj
+        for i in range(10):
+            if module.counters()[4] > 1:
+                break
+            self.debug_collect()
+        assert module.counters()[4] == 2
     def test_repr_enter_leave(self):
         module = self.import_extension('foo', [
             ("enter", "METH_O",

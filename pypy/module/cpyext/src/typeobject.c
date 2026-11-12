@@ -18,6 +18,9 @@ _Py_subtype_dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     PyTypeObject *base = pto;
+    if (pto->tp_finalize)
+        /* no check of the result: cpyext never reports a resurrection */
+        PyObject_CallFinalizerFromDealloc(obj);
     /* Only a heap type over a C type with a tp_dealloc of its own is given
        this function, so the dealloc to call is the first one up the chain
        that differs from it, as in CPython's subtype_dealloc. */
