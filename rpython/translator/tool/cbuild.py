@@ -331,6 +331,12 @@ class ExternalCompilationInfo(object):
             '-DRPY_EXTERN=RPY_EXPORTED',)
         for define in defines:
             d['compile_extra'] += ('-D%s' % define,)
+        if (sys.platform == 'darwin' and not d['separate_module_files'] and
+                not d['link_files']):
+            d['separate_module_sources'] = ('/* empty translation unit */',)
+            self = ExternalCompilationInfo(**d).convert_sources_to_files()
+        else:
+            self = ExternalCompilationInfo(**d)
         # On ELF platforms (Linux), prevent symbol interposition: when the host
         # interpreter (e.g. pypy2.7) also exports symbols like pypysig_counter,
         # the shared lib's own references would otherwise resolve to the host's
@@ -339,8 +345,6 @@ class ExternalCompilationInfo(object):
         # under a host interpreter (tests), not during translation.
         if symbolic and sys.platform not in ('win32', 'darwin'):
             d['link_extra'] = d['link_extra'] + ('-Wl,-Bsymbolic',)
-        self = ExternalCompilationInfo(**d)
-
         lib = str(host.compile([], self, outputfilename=outputfilename,
                                standalone=False))
         d = self._copy_attributes()
