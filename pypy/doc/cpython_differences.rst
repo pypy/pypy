@@ -64,7 +64,10 @@ and PyPy3 keeps a view alive until the garbage collector frees it.  So code
 like ``memoryview(buf)[:n].tobytes()`` followed by ``del buf[:n]`` can raise
 ``BufferError`` on PyPy3, while it works on CPython.  Release the view
 explicitly, with ``view.release()`` or ``with memoryview(buf) as view:``,
-before resizing the object.
+before resizing the object.  This releases the slices, casts and copies
+made from the view too: using them afterwards raises ``ValueError``, while
+on CPython they stay usable, and keep the object from being resized, until
+they are released as well.
 
 ---------------------------------
 

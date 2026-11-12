@@ -7,7 +7,6 @@ from __future__ import print_function
 import argparse
 import os
 import shutil
-import sys
 import zipfile
 from subprocess import Popen, PIPE, check_call, check_output
 from rpython.translator.platform import host
@@ -44,8 +43,9 @@ def parse_args():
     p.add_argument('-e', '--externals', default=host.externals,
                    help='directory in which to store dependencies',
                    )
-    p.add_argument('-b', '--branch', default=host.externals_branch,
-                   help='branch to check out',
+    p.add_argument('-b', '--branch', default=None,
+                   help='branch to check out, defaults to the one for this '
+                        'platform (%s)' % host.externals_branch,
                    )
     p.add_argument('-p', '--platform', default=None,
                    help='someday support cross-compilation, ignore for now',
@@ -54,13 +54,20 @@ def parse_args():
 
 
 def main():
-    if sys.platform != "win32":
-        print("only needed on windows")
     args = parse_args()
+    branch = args.branch
+    if branch is None:
+        branch = host.externals_branch
+        if branch == 'main':
+            # Platforms with external dependencies name a branch of their own
+            # (win64_14x, macos-arm64, ...).  'main' is the unused default, so
+            # there is nothing to fetch here, e.g. on linux.
+            print('no externals needed for platform %s' % host.name)
+            return
     checkout_repo(
         dest=args.externals,
         org=args.organization,
-        branch=args.branch,
+        branch=branch,
         verbose=args.verbose,
     )
 

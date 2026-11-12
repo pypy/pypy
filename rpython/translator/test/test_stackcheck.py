@@ -150,3 +150,52 @@ def test_fastpath_inlined():
     calls = all_direct_calls(graphof(t, f))
     assert 'stack_check___' not in calls
     assert SLOWPATH_NAME in calls
+
+
+class Counter:
+    held = 0
+counter = Counter()
+
+def acquire():
+    counter.held += 1
+acquire._dont_inline_ = True
+
+def release():
+    counter.held -= 1
+release._dont_inline_ = True
+
+def ff(n):
+    acquire()
+    try:
+        if n > 0:
+            ff(n - 1)
+    finally:
+        release()
+
+def gg(n):
+    ff(n)
+    return counter.held
+
+def test_no_stackcheck_inside_finally():
+    # a check inserted at the head of a block raises past the block's
+    # exception links, so it must not land between acquire() and release()
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(gg, [int])
+    a.simplify()
+    t.buildrtyper().specialize()
+    backend_optimizations(t)
+    t.checkgraphs()
+    n = insert_ll_stackcheck(t)
+    t.checkgraphs()
+    assert n > 0
+    for p in paths_naive(graphof(t, ff)):
+        calls = direct_calls(p)
+        if 'acquire' not in calls:
+            continue
+        i = calls.index('acquire')
+        if 'release' in calls:
+            j = calls.index('release')
+        else:
+            j = len(calls)
+        assert FASTPATH_SENTINEL not in calls[i:j]

@@ -28,6 +28,12 @@ def get_list_of_files(shared):
         files.remove(shared.join('libbacktrace', 'config.h'))
     except ValueError:
         pass # might not be there
+    # carry local patches: get_stack_trace() walks the shadow stack under
+    # RPYTHON_VMPROF instead of returning 0, and the RPython half of the file
+    # is made to compile at all, so that faulthandler works on win32.  Drop
+    # these once the same changes are released upstream
+    files.remove(shared.join('vmprof_win.c'))
+    files.remove(shared.join('vmprof_win.h'))
     return files
 
 def test_same_file():

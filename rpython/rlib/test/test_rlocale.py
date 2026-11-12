@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import rffi
 class TestLocale(object):
     def setup_class(cls):
         try:
-            cls.oldlocale = setlocale(LC_ALL, "pl_PL.utf8")
+            cls.oldlocale = setlocale(LC_ALL, "pl_PL.UTF-8")
         except LocaleError:
             py.test.skip("polish locale unsupported")
 

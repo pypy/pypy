@@ -288,10 +288,10 @@ def is_signed_integer_type(tp):
 
 def highest_bit(n):
     """
-    Calculates the highest set bit in n.  This function assumes that n is a
-    power of 2 (and thus only has a single set bit).
+    Return the zero-based index of the highest set bit in a machine integer.
+    Interpret negative values as two's complement; return -1 for zero.
     """
-    assert n and (n & (n - 1)) == 0
+    n = r_uint(n)
     i = -1
     while n:
         i += 1

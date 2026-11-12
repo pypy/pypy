@@ -208,6 +208,7 @@ if _POSIX:
     if _DARWIN and _ARM64:
         _, c_pthread_jit_write_protect_np = external('pthread_jit_write_protect_np',
             [rffi.INT], lltype.Void, _nowrapper=True)
+        _, c_mprotect_safe = external('mprotect', [PTR, size_t, rffi.INT], rffi.INT)
 
 elif _MS_WINDOWS:
 
@@ -264,10 +265,18 @@ elif _MS_WINDOWS:
     MapViewOfFile, _ = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD,
                                                      DWORD, SIZE_T], LPCSTR,
                                    save_err=rffi.RFFI_SAVE_LASTERROR) ##!!LPVOID
-    _, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile', [LPCSTR], BOOL)
+    OpenFileMapping, _ = winexternal('OpenFileMappingA',
+                                     [DWORD, BOOL, LPCSTR], HANDLE,
+                                     save_err=rffi.RFFI_SAVE_LASTERROR)
+    UnmapViewOfFile, UnmapViewOfFile_safe = winexternal('UnmapViewOfFile',
+                                   [LPCSTR], BOOL,
+                                   save_err=rffi.RFFI_SAVE_LASTERROR)
     FlushViewOfFile, _ = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
-    SetFilePointer, _ = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
-    SetEndOfFile, _ = winexternal('SetEndOfFile', [HANDLE], BOOL)
+    SetFilePointer, _ = winexternal('SetFilePointer',
+                                    [HANDLE, LONG, PLONG, DWORD], DWORD,
+                                    save_err=rffi.RFFI_SAVE_LASTERROR)
+    SetEndOfFile, _ = winexternal('SetEndOfFile', [HANDLE], BOOL,
+                                  save_err=rffi.RFFI_SAVE_LASTERROR)
     VirtualAlloc, VirtualAlloc_safe = winexternal('VirtualAlloc',
                                [rffi.VOIDP, rffi.SIZE_T, DWORD, DWORD],
                                rffi.VOIDP)
@@ -302,6 +311,29 @@ elif _MS_WINDOWS:
         finally:
             lltype.free(si, flavor="raw")
 
+    def _set_file_size(handle, size):
+        """Truncate 'handle' to 'size', leaving the error saved on failure."""
+        if _64BIT:
+            size_high = size >> 32
+            size_low = size & 0xFFFFFFFF
+        else:
+            size_high = 0
+            size_low = size
+        FILE_BEGIN = 0
+        high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
+        try:
+            high_ref[0] = rffi.cast(LONG, size_high)
+            res = SetFilePointer(handle, rffi.cast(LONG, size_low), high_ref,
+                                 FILE_BEGIN)
+        finally:
+            lltype.free(high_ref, flavor='raw')
+        # a legal position can equal INVALID_SET_FILE_POINTER, so check the
+        # error too
+        if (rffi.cast(lltype.Unsigned, res) == INVALID_SET_FILE_POINTER and
+                rwin32.GetLastError_saved() != 0):
+            return False
+        return bool(SetEndOfFile(handle))
+
     def _get_file_size(handle):
         # XXX use native Windows types like WORD
         high_ref = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
@@ -324,6 +356,9 @@ elif _MS_WINDOWS:
             lltype.free(high_ref, flavor='raw')
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
+    INVALID_SET_FILE_POINTER = 0xFFFFFFFF
+    ERROR_ALREADY_EXISTS = 183
+    ERROR_USER_MAPPED_FILE = 1224
     has_madvise = False
 
 PAGESIZE = _get_page_size()
@@ -600,14 +635,31 @@ class MMap(object):
                                MREMAP_MAYMOVE or 0)
             self.setdata(newdata, newsize)
         elif _MS_WINDOWS:
-            # disconnect the mapping; clear data/handle immediately so that
-            # close() won't double-unmap or double-close on any error below
-            self.unmap()
-            self.setdata(NODATA, 0)
+            old_data = self.data
+            old_size = self.size
+
+            # close the file mapping.  If a mapping of the same name is still
+            # held elsewhere it cannot be resized: keep a handle on it, so
+            # that this mmap stays valid, and report the error
             rwin32.CloseHandle_no_err(self.map_handle)
             self.map_handle = INVALID_HANDLE
+            if self.tagname:
+                handle = OpenFileMapping(FILE_MAP_WRITE, False, self.tagname)
+                if handle:
+                    self.map_handle = handle
+                    raise WindowsError(ERROR_USER_MAPPED_FILE, "mmap")
 
-            # move to the desired EOF position
+            # if this is not the pagefile, unmap the view and resize the file
+            file_resize_error = 0
+            if self.file_handle != INVALID_HANDLE:
+                if not UnmapViewOfFile(self.data):
+                    raise rwin32.lastSavedWindowsError()
+                self.setdata(NODATA, 0)
+                if not _set_file_size(self.file_handle, self.offset + newsize):
+                    # resizing failed, so remap the file at its old size
+                    file_resize_error = rwin32.GetLastError_saved()
+                    newsize = old_size
+
             if _64BIT:
                 newsize_high = (self.offset + newsize) >> 32
                 newsize_low = (self.offset + newsize) & 0xFFFFFFFF
@@ -619,36 +671,44 @@ class MMap(object):
                 offset_high = 0
                 offset_low = self.offset
 
-            FILE_BEGIN = 0
-            high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
-            try:
-                high_ref[0] = rffi.cast(LONG, newsize_high)
-                SetFilePointer(self.file_handle, newsize_low, high_ref,
-                               FILE_BEGIN)
-            finally:
-                lltype.free(high_ref, flavor='raw')
-            # resize the file; fails with ERROR_USER_MAPPED_FILE if another
-            # mapping is still open on the same file (Windows only)
-            if not SetEndOfFile(self.file_handle):
-                raise rwin32.lastSavedWindowsError()
             # create another mapping object and remap the file view
-            res = CreateFileMapping(self.file_handle, NULL, PAGE_READWRITE,
-                                    newsize_high, newsize_low, self.tagname)
-            self.map_handle = res
-
-            if self.map_handle:
+            self.map_handle = CreateFileMapping(self.file_handle, NULL,
+                                                PAGE_READWRITE, newsize_high,
+                                                newsize_low, self.tagname)
+            error = rwin32.GetLastError_saved()
+            if error == ERROR_ALREADY_EXISTS:
+                # someone mapped the same name between the CloseHandle()
+                # above and now, there is nothing useful left to do
+                rwin32.CloseHandle_no_err(self.map_handle)
+                self.map_handle = INVALID_HANDLE
+            elif self.map_handle:
                 data = MapViewOfFile(self.map_handle, FILE_MAP_WRITE,
                                      offset_high, offset_low, newsize)
                 if data:
                     # XXX we should have a real LPVOID which must always be casted
                     charp = rffi.cast(LPCSTR, data)
+                    if self.file_handle == INVALID_HANDLE:
+                        # the pagefile view was not unmapped above, so the old
+                        # contents are still around to be copied over
+                        if old_size < newsize:
+                            copysize = old_size
+                        else:
+                            copysize = newsize
+                        c_memmove(charp, old_data, copysize)
+                        if not UnmapViewOfFile(old_data):
+                            error = rwin32.GetLastError_saved()
                     self.setdata(charp, newsize)
-                    return
-            winerror = rwin32.lastSavedWindowsError()
-            if self.map_handle:
-                rwin32.CloseHandle_no_err(self.map_handle)
-            self.map_handle = INVALID_HANDLE
-            raise winerror
+                else:
+                    error = rwin32.GetLastError_saved()
+                    rwin32.CloseHandle_no_err(self.map_handle)
+                    self.map_handle = INVALID_HANDLE
+            else:
+                self.map_handle = INVALID_HANDLE
+
+            if error:
+                raise WindowsError(error, "mmap")
+            if file_resize_error:
+                raise WindowsError(file_resize_error, "mmap")
 
     def len(self):
         return self.size
@@ -689,17 +749,30 @@ if _DARWIN and _ARM64:
             self.counter = 0
 
     nester = Nester()
+    _untranslated_jit_chunks = []
+
+    def _untranslated_protect_jit_chunks(prot):
+        for addr, map_size in _untranslated_jit_chunks:
+            res = c_mprotect_safe(addr, rffi.cast(size_t, map_size),
+                                  rffi.cast(rffi.INT, prot))
+            assert rffi.cast(lltype.Signed, res) == 0
 
     def enter_assembler_writing():
         if nester.counter == 0:
-            c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 0))
+            if we_are_translated():
+                c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 0))
+            else:
+                _untranslated_protect_jit_chunks(PROT_READ | PROT_WRITE)
         nester.counter += 1
     enter_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
     def leave_assembler_writing():
         nester.counter -= 1
         if nester.counter == 0:
-            c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 1))
+            if we_are_translated():
+                c_pthread_jit_write_protect_np(rffi.cast(rffi.INT, 1))
+            else:
+                _untranslated_protect_jit_chunks(PROT_READ | PROT_EXEC)
     leave_assembler_writing._gctransformer_hint_cannot_collect_ = True
 
 else:
@@ -792,9 +865,16 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        if _DARWIN and _ARM64:
-            flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
+        if _DARWIN and _ARM64:
+            # Host PyPy's JIT and GC switch the same per-thread MAP_JIT state.
+            if we_are_translated():
+                flags |= MAP_JIT
+            else:
+                if nester.counter > 0:
+                    prot = PROT_READ | PROT_WRITE
+                else:
+                    prot = PROT_READ | PROT_EXEC
         if we_are_translated():
             flags = NonConstant(flags)
             prot = NonConstant(prot)
@@ -848,11 +928,23 @@ if _POSIX:
                 raise MemoryError
         else:
             hint.pos += map_size
+        if _DARWIN and _ARM64:
+            if not we_are_translated():
+                _untranslated_jit_chunks.append((res, map_size))
         return res
     alloc._annenforceargs_ = (int,)
 
     if _CYGWIN:
         free = c_free_safe
+    elif _DARWIN and _ARM64:
+        def free(ptr, map_size):
+            if not we_are_translated():
+                addr = rffi.cast(lltype.Signed, ptr)
+                for i, (p, sz) in enumerate(_untranslated_jit_chunks):
+                    if rffi.cast(lltype.Signed, p) == addr:
+                        del _untranslated_jit_chunks[i]
+                        break
+            return c_munmap_safe(ptr, map_size)
     else:
         free = c_munmap_safe
 
@@ -946,8 +1038,6 @@ elif _MS_WINDOWS:
                     map_size = int(size - offset)
                     if map_size != size - offset:
                         raise RValueError("mmap length is too large")
-                elif offset + map_size > size:
-                    raise RValueError("mmap length is greater than file size")
 
         m = MMap(access, offset)
         m.file_handle = INVALID_HANDLE

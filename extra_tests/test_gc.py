@@ -22,8 +22,12 @@ def test_memory_doesnt_jump_during_sweeping():
         "pypy/module/gc/hook.py: the callback allocates, so a GC inside it "
         "re-fires the action and the delivery is discarded). A drop prints "
         "to stderr.")
-    minimum = min(x[1] for x in memory)
-    maximum = max(x[1] for x in memory)
+    # only look at one phase: a sweep that frees l1 legitimately drops the
+    # arena memory by more than half
+    sweeping = [x[1] for x in memory if x[0] == 'SWEEPING']
+    assert sweeping
+    minimum = min(sweeping)
+    maximum = max(sweeping)
     assert minimum != 0
     assert minimum >= maximum // 2
 

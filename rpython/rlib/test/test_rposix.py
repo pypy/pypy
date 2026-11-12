@@ -519,6 +519,23 @@ class TestPosixAscii(BasePosixUnicodeOrAscii):
         finally:
             os.close(dirfd)
 
+    @rposix_requires('openat')
+    def test_openat_mode(self):
+        import stat
+        dirname = str(udir.ensure('test_openat_mode', dir=True))
+        dirfd = os.open(dirname, os.O_RDONLY)
+        old_umask = os.umask(0)
+        try:
+            for mode in [0o600, 0o640, 0o755]:
+                name = 'f%o' % mode
+                fd = rposix.openat(name, os.O_CREAT | os.O_WRONLY, mode, dirfd)
+                os.close(fd)
+                st_mode = os.stat(os.path.join(dirname, name)).st_mode
+                assert stat.S_IMODE(st_mode) == mode
+        finally:
+            os.umask(old_umask)
+            os.close(dirfd)
+
     @rposix_requires('unlinkat')
     def test_unlinkat(self):
         def f(dirfd):
@@ -828,7 +845,7 @@ def test_posix_fallocate():
     fname = str(udir.join('os_test.txt'))
     fd = os.open(fname, os.O_WRONLY | os.O_CREAT, 0o777)
     try:
-        assert rposix.posix_fallocate(fd, 0, 10) == 0
+        assert rposix.posix_fallocate(fd, 0, 10) is None
     except OSError as inst:
         """ ZFS seems not to support fallocate.
         so skipping solaris-based since it is likely to come with ZFS
@@ -837,6 +854,24 @@ def test_posix_fallocate():
             raise
     finally:
         os.close(fd)
+
+@rposix_requires('fcopyfile')
+def test_fcopyfile(tmpdir):
+    src = str(tmpdir / 'src')
+    dst = str(tmpdir / 'dst')
+    with open(src, 'wb') as f:
+        f.write(b'hello fcopyfile')
+    in_fd = os.open(src, os.O_RDONLY)
+    out_fd = os.open(dst, os.O_WRONLY | os.O_CREAT, 0o666)
+    try:
+        rposix.fcopyfile(in_fd, out_fd, rposix.COPYFILE_DATA)
+    finally:
+        os.close(in_fd)
+        os.close(out_fd)
+    with open(dst, 'rb') as f:
+        assert f.read() == b'hello fcopyfile'
+    with pytest.raises(OSError):
+        rposix.fcopyfile(-1, -1, rposix.COPYFILE_DATA)
 
 @rposix_requires('sched_get_priority_max')
 def test_sched_get_priority_max():

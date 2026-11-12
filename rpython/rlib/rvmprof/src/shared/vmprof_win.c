@@ -1,9 +1,25 @@
+/* before vmprof_win.h: common_header.h brings in WinSock2.h, which has to
+   come before the windows.h that vmprof_win.h includes */
+#ifdef RPYTHON_VMPROF
+#ifndef RPYTHON_LL2CTYPES
+#  include "common_header.h"
+#  include "structdef.h"
+#  include "src/threadlocal.h"
+#endif
+#endif
+
 #include "vmprof_win.h"
 
 #ifndef RPYTHON_VMPROF
   #if PY_VERSION_HEX >= 0x030b00f0 /* >= 3.11 */
   #include "populate_frames.h"
   #endif
+#endif
+
+#ifdef _WIN64
+#  define VMPROF_CTX_PC(ctx) ((intptr_t)(ctx).Rip)
+#else
+#  define VMPROF_CTX_PC(ctx) ((intptr_t)(ctx).Eip)
 #endif
 
 volatile int thread_started = 0;
@@ -121,9 +137,10 @@ int vmprof_snapshot_thread(DWORD thread_id, PY_WIN_THREAD_STATE *tstate, prof_st
     if (!GetThreadContext(hThread, &ctx))
         return -1;
     depth = get_stack_trace(tstate->vmprof_tl_stack,
-                     stack->stack, MAX_STACK_DEPTH - STACK_TRAILER_SLOTS, ctx.Eip);
+                     stack->stack, MAX_STACK_DEPTH - STACK_TRAILER_SLOTS,
+                     VMPROF_CTX_PC(ctx));
     stack->depth = depth;
-    stack->stack[depth++] = thread_id;
+    stack->stack[depth++] = (void *)(intptr_t)thread_id;
     sample_time = vmp_sample_time_ns(0);
     memcpy(&stack->stack[depth], &sample_time, sizeof(sample_time));
     stack->count = 1;
@@ -318,8 +335,16 @@ void vmp_native_disable(void)
 {
 }
 
-int get_stack_trace(PY_WIN_THREAD_STATE * current, void** result,
+int get_stack_trace(PY_THREAD_STATE_T * current, void** result,
                     int max_depth, intptr_t pc)
 {
+#ifdef RPYTHON_VMPROF
+    if (current == NULL) {
+        return 0;
+    }
+    return vmp_walk_and_record_stack((PY_STACK_FRAME_T *)current, result,
+                                     max_depth, 1, pc);
+#else
     return 0;
+#endif
 }

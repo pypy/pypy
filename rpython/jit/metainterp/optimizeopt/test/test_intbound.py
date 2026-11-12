@@ -968,7 +968,8 @@ def test_neg_const_random(t1):
 def test_are_knownbits_implied(t, data):
     b, _ = t
     if b._are_knownbits_implied():
-        n2 = data.draw(strategies.integers(b.lower, b.upper))
+        n2 = data.draw(strategies.builds(
+            int, strategies.integers(b.lower, b.upper)))
         assert b.contains(n2)
 
 
@@ -1253,7 +1254,8 @@ def test_get_minimum_signed_by_knownbits_above_full_range_bug():
 def test_get_maximum_signed_by_knownbits_atmost_random(t1, data):
     b1, n1 = t1
     minimum = b1._get_minimum_signed_by_knownbits()
-    threshold = data.draw(strategies.integers(minimum, MAXINT))
+    threshold = data.draw(strategies.builds(
+        int, strategies.integers(minimum, MAXINT)))
     new = b1._get_maximum_signed_by_knownbits_atmost(threshold)
     assert new <= threshold
 
@@ -1261,7 +1263,8 @@ def test_get_maximum_signed_by_knownbits_atmost_random(t1, data):
 def test_get_minimum_signed_by_knownbits_atleast_random(t1, data):
     b1, n1 = t1
     maximum = b1._get_maximum_signed_by_knownbits_atmost()
-    threshold = data.draw(strategies.integers(MININT, maximum))
+    threshold = data.draw(strategies.builds(
+        int, strategies.integers(MININT, maximum)))
     new = b1._get_minimum_signed_by_knownbits_atleast(threshold)
     assert new >= threshold
 

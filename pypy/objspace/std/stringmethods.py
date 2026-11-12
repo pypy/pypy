@@ -603,9 +603,6 @@ class StringMethods(object):
             if keepends:
                 eol = pos
             strs.append(value[sol:eol])
-        if pos < length:
-            # XXX is this code reachable?
-            strs.append(value[pos:length])
         return self._newlist_unwrapped(space, strs)
 
     # This is overridden in unicodeobject, _startswith_tuple is not.

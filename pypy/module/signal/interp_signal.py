@@ -92,7 +92,10 @@ class CheckSignalAction(PeriodicAsyncAction):
 
     def perform(self, executioncontext, frame):
         w_exc = executioncontext.w_async_exception_type
-        if w_exc is not None:
+        # raising inside a finalizer or a weakref callback would only get
+        # the exception reported as unraisable and lost, so leave it
+        # pending; _run_finalizers() re-arms the ticker when it is done
+        if w_exc is not None and not self.space.user_del_action.running_finalizers:
             executioncontext.w_async_exception_type = None
             raise oefmt(w_exc, "asynchronous exception triggered from another thread")
         self._poll_for_signals()

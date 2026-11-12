@@ -117,9 +117,13 @@ def write_string_as_charp(target, string):
 
 # ____________________________________________________________
 
+if sys.platform == 'darwin':
+    sprintf_natural_arity = 2
+else:
+    sprintf_natural_arity = -1
 sprintf_longdouble = rffi.llexternal(
     "sprintf", [rffi.CCHARP, rffi.CCHARP, rffi.LONGDOUBLE], lltype.Void,
-    _nowrapper=True, sandboxsafe=True)
+    _nowrapper=True, sandboxsafe=True, natural_arity=sprintf_natural_arity)
 
 FORMAT_LONGDOUBLE = rffi.str2charp("%LE")
 

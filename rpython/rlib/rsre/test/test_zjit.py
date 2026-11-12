@@ -1,5 +1,5 @@
 import sys
-import py
+import pytest
 from rpython.jit.metainterp.test import support
 from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre import rsre_core
@@ -108,6 +108,22 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_search(r"<\w+>", "eiofweoxdiwhdoh<foobar>ua")
         assert res == 15
 
+    @pytest.mark.parametrize('pattern', [r'\A\s*\Z', r'((\A\s*\Z))'])
+    def test_anchored_search(self, pattern):
+        res = self.meta_interp_search(pattern, "x" * 4096)
+        assert res == -1
+        self.check_trace_count(0)
+
+    def test_search_too_short(self):
+        res = self.meta_interp_search(r'a+b{4096}', 'a' * 256)
+        assert res == -1
+        self.check_trace_count(0)
+
+    def test_search_short_suffix(self):
+        res = self.meta_interp_search(r'(?=a).{4096}', 'x' * 4096)
+        assert res == -1
+        self.check_trace_count(0)
+
     def test_regular_search_upcase(self):
         res = self.meta_interp_search(r"<\w+>", "EIOFWEOXDIWHDOH<FOOBAR>UA")
         assert res == 15
@@ -173,7 +189,7 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 15
         self.check_enter_count(1)
 
-    @py.test.mark.xfail
+    @pytest.mark.xfail
     def test_group_space_but_not_space(self):
         res = self.meta_interp_match(r"<[\S ]+>", "<..a   .. aa>")
         assert res == 13
@@ -185,7 +201,7 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 30
         self.check_resops(call=0)
 
-    @py.test.mark.skipif('sys.maxint <= 2**31 - 1')
+    @pytest.mark.skipif('sys.maxint <= 2**31 - 1')
     def test_match_jit_bug(self):
         pattern = ".a" * 2500
         text = "a" * 6000
