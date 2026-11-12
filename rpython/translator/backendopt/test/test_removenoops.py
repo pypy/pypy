@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.translator.backendopt.removenoops import remove_same_as, \
         remove_unaryops, remove_duplicate_casts
 from rpython.translator.backendopt.inline import simple_inline_function
@@ -139,7 +141,7 @@ def test_remove_duplicate_casts():
     assert changed
     ops = getops(graph)
     assert len(ops['cast_pointer']) < num_cast_pointer
-    print len(ops['cast_pointer']), num_cast_pointer
+    print(len(ops['cast_pointer']), num_cast_pointer)
     graph_getsum = graphof(t, B.getsum.im_func)
     num_cast_pointer = len(getops(graph_getsum)['cast_pointer'])
     changed = remove_duplicate_casts(graph_getsum, t)
@@ -149,5 +151,5 @@ def test_remove_duplicate_casts():
     check_graph(graph, [10, True], 75, t)
     ops = getops(graph_getsum)
     assert len(ops['cast_pointer']) < num_cast_pointer
-    print len(ops['cast_pointer']), num_cast_pointer
+    print(len(ops['cast_pointer']), num_cast_pointer)
     

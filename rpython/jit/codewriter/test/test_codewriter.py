@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 
 from rpython.jit.codewriter import support
@@ -98,9 +100,9 @@ def test_call():
     cw.find_all_graphs(FakePolicy())
     cw.make_jitcodes(verbose=True)
     jitcode = jitdriver_sd.mainjitcode
-    print jitcode.dump()
+    print(jitcode.dump())
     [jitcode2] = cw.assembler.descrs
-    print jitcode2.dump()
+    print(jitcode2.dump())
     assert jitcode is not jitcode2
     assert jitcode.name == 'fff'
     assert jitcode2.name == 'ggg'

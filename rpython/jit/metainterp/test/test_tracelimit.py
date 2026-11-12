@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.jit import JitDriver, set_param, Counters, set_user_param
 from rpython.rlib.jit import unroll_safe, dont_look_inside, promote
@@ -219,10 +221,10 @@ class TraceLimitTests:
                 else:
                     set_user_param(None, 'trace_limit=1000000000')
             except Exception as e:
-                print e
+                print(e)
                 return False
             f(1)
-            print "about to return True"
+            print("about to return True")
             return True
 
         myjitdriver = JitDriver(greens=['i'], reds='auto')

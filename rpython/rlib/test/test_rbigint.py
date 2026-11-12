@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 
 import operator
 import sys, os
@@ -8,8 +8,8 @@ from random import random, randint, sample
 try:
     import pytest
 except ImportError:
-    print 'cwd', os.getcwd()
-    print 'sys.path', sys.path
+    print('cwd', os.getcwd())
+    print('sys.path', sys.path)
     raise
 
 from rpython.rlib import rbigint as lobj
@@ -1569,8 +1569,8 @@ class TestTranslated(StandaloneTests):
         MIN = -sys.maxint-1
 
         def entry_point(argv):
-            print rbigint.fromint(MIN+1)._digits
-            print rbigint.fromint(MIN)._digits
+            print(rbigint.fromint(MIN+1)._digits)
+            print(rbigint.fromint(MIN)._digits)
             return 0
 
         t, cbuilder = self.compile(entry_point)
@@ -2023,7 +2023,7 @@ class TestHypothesis(object):
         assume(bool(b))
         atimesbplusb = rbigint.mul_int_int_bigint_result(a, b).int_add(c)
         div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
-        print a, b, c, atimesbplusb, div, mod
+        print(a, b, c, atimesbplusb, div, mod)
         assert (div, mod) == divmod(atimesbplusb.tolong(), b)
 
     @given(strategies.integers(0, 10**18-1))
@@ -2066,8 +2066,8 @@ def test_hypothesis_small_shift(methname):
                          shell=True, env=env)
     stdout, stderr = p.communicate()
     if p.returncode:
-        print stdout
-        print stderr
+        print(stdout)
+        print(stderr)
     assert not p.returncode
 
 def _get_hacked_rbigint(shift):
@@ -2085,7 +2085,7 @@ def _get_hacked_rbigint(shift):
 
 def run():
     shift = 9
-    print "USING SHIFT", shift, sys.argv[1]
+    print("USING SHIFT", shift, sys.argv[1])
     _hacked_rbigint = _get_hacked_rbigint(shift)
     globals().update(_hacked_rbigint.__dict__) # emulate import *
     assert SHIFT == shift

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import gc
 import weakref
 from rpython.rlib import rawrefcount, objectmodel, rgc
@@ -261,35 +263,35 @@ class TestTranslated(StandaloneTests):
             rawrefcount.init(ll_dealloc_trigger_callback)
             ob, p = make_p()
             if state.seen != []:
-                print "OB COLLECTED REALLY TOO SOON"
+                print("OB COLLECTED REALLY TOO SOON")
                 return 1
             rgc.collect()
             if state.seen != []:
-                print "OB COLLECTED TOO SOON"
+                print("OB COLLECTED TOO SOON")
                 return 1
             objectmodel.keepalive_until_here(p)
             p = None
             rgc.collect()
             if state.seen != [1]:
-                print "OB NOT COLLECTED"
+                print("OB NOT COLLECTED")
                 return 1
             if rawrefcount.next_dead(rawrefcount.PyObject) != ob:
-                print "NEXT_DEAD != OB"
+                print("NEXT_DEAD != OB")
                 return 1
             if ob.c_ob_refcnt != dead_refcnt:
-                print "next_dead().ob_refcnt != REFCNT_AFTER_UNLINK + 1"
+                print("next_dead().ob_refcnt != REFCNT_AFTER_UNLINK + 1")
                 return 1
             if rawrefcount.next_dead(rawrefcount.PyObject) != lltype.nullptr(rawrefcount.PyObjectS):
-                print "NEXT_DEAD second time != NULL"
+                print("NEXT_DEAD second time != NULL")
                 return 1
             if rawrefcount.to_obj(W_Root, ob) is not None:
-                print "to_obj(dead) is not None?"
+                print("to_obj(dead) is not None?")
                 return 1
             rawrefcount.mark_deallocating(w_marker, ob)
             if rawrefcount.to_obj(W_Root, ob) is not w_marker:
-                print "to_obj(marked-dead) is not w_marker"
+                print("to_obj(marked-dead) is not w_marker")
                 return 1
-            print "OK!"
+            print("OK!")
             rawrefcount._ob_free(ob)
             return 0
 

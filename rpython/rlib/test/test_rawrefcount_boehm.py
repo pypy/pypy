@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import itertools, os, subprocess, py
 from hypothesis import given, strategies
 from rpython.tool.udir import udir
@@ -20,12 +22,12 @@ def compile_test(basename):
 def setup_module():
     filename = str(udir.join("test-rawrefcount-boehm-check.c"))
     with open(filename, "w") as f:
-        print >> f, '#include "gc/gc_mark.h"'
-        print >> f, '#include <stdio.h>'
-        print >> f, 'int main(void) {'
-        print >> f, '    printf("%p", &GC_set_start_callback);'
-        print >> f, '    return 0;'
-        print >> f, '}'
+        print('#include "gc/gc_mark.h"', file=f)
+        print('#include <stdio.h>', file=f)
+        print('int main(void) {', file=f)
+        print('    printf("%p", &GC_set_start_callback);', file=f)
+        print('    return 0;', file=f)
+        print('}', file=f)
 
     if compile_test("test-rawrefcount-boehm-check") != 0:
         py.test.skip("Boehm GC not installed or too old version")
@@ -189,10 +191,10 @@ def make_code(draw):
 def test_random(code):
     filename = str(udir.join("test-rawrefcount-boehm.c"))
     with open(filename, "w") as f:
-        print >> f, TEST_CODE
-        print >> f, 'void run_test(void) {'
-        print >> f, code
-        print >> f, '}'
+        print(TEST_CODE, file=f)
+        print('void run_test(void) {', file=f)
+        print(code, file=f)
+        print('}', file=f)
 
     err = compile_test("test-rawrefcount-boehm")
     if err != 0:
@@ -286,21 +288,21 @@ class TestBoehmTranslated(StandaloneTests):
                 ob = rawrefcount.next_dead(rawrefcount.PyObject)
                 if not ob: break
                 if ob.c_ob_refcnt != 1:
-                    print "next_dead().ob_refcnt != 1"
+                    print("next_dead().ob_refcnt != 1")
                     return 1
                 deadlist.append(ob)
             if len(deadlist) == 0:
-                print "no dead object"
+                print("no dead object")
                 return 1
             if len(deadlist) < 30:
-                print "not enough dead objects"
+                print("not enough dead objects")
                 return 1
             for ob in deadlist:
                 if ob not in oblist:
-                    print "unexpected value for dead pointer"
+                    print("unexpected value for dead pointer")
                     return 1
                 oblist.remove(ob)
-            print "OK!"
+            print("OK!")
             rawrefcount._ob_free(ob)
             return 0
 

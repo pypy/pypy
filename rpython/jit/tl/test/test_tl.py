@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import operator
 from rpython.jit.tl.tlopcode import *
@@ -266,4 +268,4 @@ FACTORIAL_SOURCE = '''
 
 if __name__ == '__main__':
     code = compile(FACTORIAL_SOURCE)
-    print ','.join([str(ord(c)) for c in code])
+    print(','.join([str(ord(c)) for c in code]))

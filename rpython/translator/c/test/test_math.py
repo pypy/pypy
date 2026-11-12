@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, math
 from rpython.rtyper.lltypesystem.module.test.math_cases import (MathTests,
                                                                 get_tester)
@@ -39,10 +41,10 @@ def fn(args):
     for i in range(len(testfnlist)):
         testfn = testfnlist[i]
         if not testfn():
-            print "error:", reprlist[i]
+            print("error:", reprlist[i])
             err = True
     if not err:
-        print "all ok"
+        print("all ok")
     return 0
 
 

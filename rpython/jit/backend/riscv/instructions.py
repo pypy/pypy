@@ -36,6 +36,8 @@
 #   F: (opcode, funct3, fm)
 #   AMO2/AMO3: (opcode, funct3, funct5)
 
+from __future__ import print_function
+
 rv_base_i_instructions = [
     ('LUI',       'U', 'R:U20',    (0b0110111,)),
     ('AUIPC',     'U', 'R:U20',    (0b0010111,)),
@@ -212,7 +214,7 @@ def _main():
     mnemonics = set()
     for mnemonic, instr_type, op_spec, fields in all_instructions:
         if mnemonic in mnemonics:
-            print 'error: Found duplicated mnemonic:', mnemonic
+            print('error: Found duplicated mnemonic:', mnemonic)
             has_error = True
         mnemonics.add(mnemonic)
 
@@ -237,7 +239,7 @@ def _main():
     }
     for mnemonic, instr_type, op_spec, fields in all_instructions:
         if len(fields) != _EXPECTED_NUM_FIELDS[instr_type]:
-            print 'error: Mismatched number of fields:', mnemonic
+            print('error: Mismatched number of fields:', mnemonic)
             has_error = True
 
     # Check whether the operand specification matches the instruction type.
@@ -261,8 +263,8 @@ def _main():
     }
     for mnemonic, instr_type, op_spec, fields in all_instructions:
         if op_spec not in _SUPPORTED_OP_SPEC[instr_type]:
-            print 'error: Unsupported operand specification:', mnemonic, \
-                    instr_type, op_spec
+            print('error: Unsupported operand specification:', mnemonic, \
+                    instr_type, op_spec)
             has_error = True
 
     # Check whether there are unused supported operand specifications.
@@ -271,12 +273,12 @@ def _main():
     for instr_type, op_specs in _SUPPORTED_OP_SPEC.iteritems():
         for op_spec in op_specs:
             if (instr_type, op_spec) not in all_instructions_op_specs:
-                print 'error: Found unused supported operand spec:', \
-                        instr_type, op_spec
+                print('error: Found unused supported operand spec:', \
+                        instr_type, op_spec)
                 has_error = True
 
     if not has_error:
-        print 'defined', len(mnemonics), 'instructions successfully'
+        print('defined', len(mnemonics), 'instructions successfully')
 
 if __name__ == '__main__':
     _main()

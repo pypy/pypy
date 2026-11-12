@@ -7,8 +7,10 @@ of input types is empty, it is meant to be a list of strings,
 actually implementing argv of the executable.
 """
 
+from __future__ import print_function
+
 def debug(msg):
-    print "debug:", msg
+    print("debug:", msg)
 
 # __________  Entry point  __________
 

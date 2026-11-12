@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import random, sys
 from rpython.rlib.rope import *
@@ -6,7 +8,7 @@ def make_random_string(operations=10, slicing=True, print_seed=True,
                        unicode=False):
     seed = random.randrange(10000)
     if print_seed:
-        print seed
+        print(seed)
     random.seed(seed)
     st = "abc"
     curr = LiteralStringNode(st)
@@ -62,7 +64,7 @@ def test_dont_rebalance_again():
 
 def test_random_addition_test():
     seed = random.randrange(10000)
-    print seed # 4443
+    print(seed)# 4443
     st = "abc"
     curr = LiteralStringNode(st)
     for i in range(1000):
@@ -147,7 +149,7 @@ def test_getslice_step_unicode():
 
 def test_random_addition_and_slicing():
     seed = random.randrange(10000)
-    print seed
+    print(seed)
     random.seed(seed)
     st = "abc"
     curr = LiteralStringNode(st)
@@ -580,7 +582,7 @@ def test_hash_distribution_small_strings():
         hashes[(h & 0xff0000) >> 16] += 1
     for h in hashes:
         assert h > 180
-    print hashes
+    print(hashes)
 
 def test_hash_distribution_big_strings():
     random.seed(42) # prevent randomly failing test
@@ -610,7 +612,7 @@ def test_hash_distribution_identifiers():
         hashes[(h & 0xff0000) >> 16] += 1
     for h in hashes:
         assert h > 450
-    print hashes
+    print(hashes)
 
 
 def test_hash_part():
@@ -684,7 +686,7 @@ def test_compare_random_unicode():
 
 def test_power():
     for i in range(0, 60, 13):
-        print i
+        print(i)
         for j in range(1, 10000, 7):
             assert intmask(i * (1000003**j)) == masked_mul_by_1000003_pow(i, j)
 

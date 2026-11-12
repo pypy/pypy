@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem import lltype
 from rpython.memory.gctransform.test.test_transform import \
      rtype
@@ -24,9 +26,9 @@ def test_count_vars_big():
     backend_optimizations(t)
     # does not crash
     rel = relevant_gcvars(t)
-    print rel
-    print sum(rel) / float(len(rel)), max(rel), min(rel)
+    print(rel)
+    print(sum(rel) / float(len(rel)), max(rel), min(rel))
 
     rel = relevant_gcvars(t, filter_for_nongcptr)
-    print rel
-    print sum(rel) / float(len(rel)), max(rel), min(rel)
+    print(rel)
+    print(sum(rel) / float(len(rel)), max(rel), min(rel))

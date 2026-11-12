@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, random
 from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import rffi
@@ -472,7 +474,7 @@ class TestLowLevelType(object):
 
         fn = self.getcompiled(f, [int])
         res = fn(1)
-        print res
+        print(res)
         assert eval(res) == (
             # int
             -sys.maxint, undefined,               # add
@@ -509,7 +511,7 @@ class TestLowLevelType(object):
             )
 
         res = fn(5)
-        print res
+        print(res)
         assert eval(res) == (
             # int
             -sys.maxint+4, undefined,             # add

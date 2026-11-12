@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import with_statement, print_function
 import py
 import sys
 from rpython.rtyper.lltypesystem.lltype import typeOf, Void, malloc, free
@@ -251,7 +251,7 @@ def test_list_reverse():
         return l
     res = interpret(f,[])
     assert len(res.ll_items()) == len([3,2,1])
-    print res
+    print(res)
     for i in range(3):
         assert res.ll_items()[i] == 3-i
 

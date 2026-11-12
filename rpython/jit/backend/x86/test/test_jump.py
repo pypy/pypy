@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import random
 from rpython.jit.backend.x86.regloc import *
 from rpython.jit.backend.x86.regalloc import X86FrameManager
@@ -32,9 +34,9 @@ class MockAssembler:
             pass
 
     def got(self, expected):
-        print '------------------------ comparing ---------------------------'
+        print('------------------------ comparing ---------------------------')
         for op1, op2 in zip(self.ops, expected):
-            print '%-38s| %-38s' % (op1, op2)
+            print('%-38s| %-38s' % (op1, op2))
             if op1 == op2:
                 continue
             assert len(op1) == len(op2)
@@ -403,13 +405,13 @@ def test_overflow_bug():
         ]
     class FakeAssembler:
         def regalloc_mov(self, src, dst):
-            print "mov", src, dst
+            print("mov", src, dst)
         def regalloc_push(self, x):
-            print "push", x
+            print("push", x)
         def regalloc_pop(self, x):
-            print "pop", x
+            print("pop", x)
         def regalloc_immedmem2mem(self, x, y):
-            print "?????????????????????????"
+            print("?????????????????????????")
         class mc:
             @staticmethod
             def forget_scratch_register():

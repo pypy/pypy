@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from hypothesis import given, example, assume, settings, HealthCheck, strategies as st
 from rpython.tool.algo.graphlib import *
 
@@ -227,14 +229,14 @@ class TestBadCase:
 
     def test_break_cycles(self):
         result = list(break_cycles(self.edges, self.edges))
-        print len(result)
+        print(len(result))
         assert result
 
     def test_break_cycles_v(self):
         result = list(break_cycles_v(self.edges, self.edges))
         assert len(set(result)) == self.NUM
         assert len(result) == self.NUM
-        print len(result)
+        print(len(result))
         assert result
 
     def test_find_roots(self):
@@ -268,7 +270,7 @@ class TestRandom:
         # mostly a "does not crash" kind of test
         result = list(break_cycles_v(edges, edges))
         # assert is_acyclic(): included in break_cycles_v() itself
-        print len(result), 'vertices removed'
+        print(len(result), 'vertices removed')
 
     @given(edges())
     @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])

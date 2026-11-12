@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.warmspot import get_stats
@@ -225,7 +227,7 @@ class TestLLWarmspot(LLJitMixin):
                 self.check_jitcell_token_count(1)
                 break
             except AssertionError:
-                print "f2: no loop generated for i2==%d" % i2
+                print("f2: no loop generated for i2==%d" % i2)
         else:
             raise     # re-raise the AssertionError: check_loop_count never 1
         #
@@ -240,7 +242,7 @@ class TestLLWarmspot(LLJitMixin):
                 self.check_jitcell_token_count(1)
                 break
             except AssertionError:
-                print "f1: no loop generated for i1==%d" % i1
+                print("f1: no loop generated for i1==%d" % i1)
         else:
             raise     # re-raise the AssertionError: check_loop_count never 1
         #

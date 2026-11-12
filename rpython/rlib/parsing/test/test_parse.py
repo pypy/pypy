@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib.parsing.lexer import Token, SourcePos
 from rpython.rlib.parsing.parsing import *
 
@@ -47,14 +49,14 @@ def test_simple_packrat():
     r3 = Rule("primary", [["(", "additive", ")"], ["decimal"]])
     r4 = Rule("decimal", [[symb] for symb in "0123456789"])
     p = PackratParser([r1, r2, r3, r4], "additive")
-    print p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("2*(3+4)")])
+    print(p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("2*(3+4)")]))
     tree = p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("2*2*2*(7*3+4+5*6)")])
     ast = tree.visit(ToAstVisistor())
     tree = p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("2*(3+4)")])
     r = tree.visit(EvaluateVisitor())
     assert r == 14
     tree = p.parse([Token(c, c, SourcePos(i, 0, i)) for i, c in enumerate("2*(3+5*2*(2+6))")])
-    print tree
+    print(tree)
     r = tree.visit(EvaluateVisitor())
     assert r == 166
 

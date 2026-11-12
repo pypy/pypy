@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib import rarithmetic
@@ -623,7 +625,7 @@ class TestStringToInt:
         for x in TESTS:
             for valid_underscore in [False, True]:
                 for no_implicit_octal in [False, True]:
-                    print x, valid_underscore, no_implicit_octal
+                    print(x, valid_underscore, no_implicit_octal)
                     expected_ok = True
                     if no_implicit_octal and any('1' <= c <= '7' for c in x):
                         expected_ok = False

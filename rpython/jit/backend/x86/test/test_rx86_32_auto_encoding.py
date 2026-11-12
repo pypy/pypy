@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, os, random, struct
 import py
 from rpython.jit.backend.x86 import rx86
@@ -24,9 +26,9 @@ class CodeCheckerMixin(object):
             if (char == self.accept_unnecessary_prefix
                 and self.index == self.instrindex):
                 return    # ignore the extra character '\x40'
-            print self.op
-            print "\x09from rx86.py:", hexdump(self.expected[self.instrindex:self.index] + char)+"..."
-            print "\x09from 'as':   ", hexdump(self.expected[self.instrindex:self.index+15])+"..."
+            print(self.op)
+            print("\x09from rx86.py:", hexdump(self.expected[self.instrindex:self.index] + char)+"...")
+            print("\x09from 'as':   ", hexdump(self.expected[self.instrindex:self.index+15])+"...")
             raise Exception("Differs")
         self.index += 1
 
@@ -367,7 +369,7 @@ class TestRx86_32(object):
 
         if self.should_skip_instruction(instrname, argmodes) or \
            self.should_skip_instruction_bit32(instrname, argmodes):
-            print "Skipping %s" % methname
+            print("Skipping %s" % methname)
             return
 
         # XXX: ugly way to deal with the differences between 32 and 64 bit
@@ -415,7 +417,7 @@ class TestRx86_32(object):
                 realargmodes.append(mode)
             argmodes = realargmodes
 
-        print "Testing %s with argmodes=%r" % (instrname, argmodes)
+        print("Testing %s with argmodes=%r" % (instrname, argmodes))
         self.methname = methname
         self.is_xmm_insn = getattr(getattr(self.X86_CodeBuilder,
                                            methname), 'is_xmm_insn', False)

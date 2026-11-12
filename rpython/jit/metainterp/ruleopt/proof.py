@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import os
 import operator
@@ -491,7 +493,7 @@ def prove_source(s, force=False):
     ast = parse.parse(s)
     for rule in ast.rules:
         if rule.cantproof:
-            print "SKIPPING PROOF!", rule.name
+            print("SKIPPING PROOF!", rule.name)
             continue
         cachename = None
         if not force:
@@ -505,7 +507,7 @@ def prove_source(s, force=False):
             try:
                 with open(cachename, 'rb') as f:
                     f.read() # just needs to exist, really
-                print "reusing previous proof", rule.name
+                print("reusing previous proof", rule.name)
                 continue
             except IOError:
                 pass
