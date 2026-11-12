@@ -494,10 +494,21 @@ class wrap_cmpfunc(W_PyCWrapperObject):
 
 class wrap_del(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
-        from pypy.module.cpyext.api import generic_cpy_call_expect_null
+        from pypy.module.cpyext.pyobject import (as_pyobj, pyobj_get_flags,
+            pyobj_set_flag, PYOBJ_FLAG_FINALIZED)
         self.check_args(__args__, 0)
         func = self.get_func_to_call()
         func_target = rffi.cast(destructor, func)
+        # tp_finalize runs at most once per object: this is PyPy's finalizer
+        # calling __del__, while PyObject_CallFinalizerFromDealloc may reach
+        # the same tp_finalize from the object's tp_dealloc
+        pyobj = as_pyobj(space, w_self)
+        finalized = pyobj_get_flags(pyobj) & PYOBJ_FLAG_FINALIZED
+        if not finalized:
+            pyobj_set_flag(pyobj, PYOBJ_FLAG_FINALIZED)
+        keepalive_until_here(w_self)
+        if finalized:
+            return space.w_None
         generic_cpy_call(space, func_target, w_self)
         return space.w_None
 

@@ -696,6 +696,7 @@ SYMBOLS_C_ABI3 = [
     'PyTuple_New', 'PyVectorcall_Call', 'PyState_FindModule',
     'PyStructSequence_UnnamedField', 'PyOS_InputHook', 'Py_Version',
     'PySlice_AdjustIndices', '_Py_tuple_dealloc', '_Py_subtype_dealloc',
+    'PyObject_GC_IsFinalized',
     '_Py_get_PyOS_InputHook', '_Py_tuple_new', 'PyCapsule_Type',
 ]
 if sys.platform == "win32":
