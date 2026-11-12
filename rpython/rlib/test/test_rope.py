@@ -45,9 +45,9 @@ def test_add():
          LiteralStringNode("d" * 32) + LiteralStringNode("ef" * 32) +
          LiteralStringNode(""))
     assert s.depth() == 3
-    assert s.flatten_string() == "".join([c * 32 for c in "a", "bc", "d", "ef"])
+    assert s.flatten_string() == "".join([c * 32 for c in ("a", "bc", "d", "ef")])
     s = s.rebalance()
-    assert s.flatten_string() == "".join([c * 32 for c in "a", "bc", "d", "ef"])
+    assert s.flatten_string() == "".join([c * 32 for c in ("a", "bc", "d", "ef")])
 
 def test_dont_rebalance_again():
     s = (LiteralStringNode("a" * 32) + LiteralStringNode("b" * 32) +
@@ -79,7 +79,7 @@ def test_random_addition_test():
     assert curr.flatten_string() == st
 
 def test_getitem():
-    result = "".join([c * 32 for c in "a", "bc", "d", "ef"])
+    result = "".join([c * 32 for c in ("a", "bc", "d", "ef")])
     s1 = (LiteralStringNode("a" * 32) + LiteralStringNode("bc" * 32) +
           LiteralStringNode("d" * 32) + LiteralStringNode("ef" * 32) +
           LiteralStringNode(""))
@@ -98,7 +98,7 @@ def test_getitem_unicode():
             assert s.getint(i) == ord(result[i])
 
 def test_getslice():
-    result = "".join([c * 32 for c in "a", "bc", "d", "ef"])
+    result = "".join([c * 32 for c in ("a", "bc", "d", "ef")])
     s1 = (LiteralStringNode("a" * 32) + LiteralStringNode("bc" * 32) +
           LiteralStringNode("d" * 32) + LiteralStringNode("ef" * 32) +
           LiteralStringNode(""))

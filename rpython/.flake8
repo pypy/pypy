@@ -37,9 +37,7 @@ ignore =
     W605  # bad escape sequences - probably best to use r"" for regex strings
     W291, W292, W293, W391  # trailing whitespace
     # The following need fixing for Py3
-    W601  # has_key - TODO: replace with ' in '
     W602  # raise Exc, Exc() - TODO: remove this
-    W604  # backticks - TODO: replace with repr()
     # The following are probably accidental redefns and should be removed
     F402  # redefinition in loop
     F812  # redefinition in comprehension

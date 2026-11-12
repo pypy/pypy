@@ -510,7 +510,7 @@ class DefinedConstantString(CConfigEntry):
         if info["defined"]:
             string = ''
             d = 0
-            while info.has_key('value_%d' % d):
+            while ('value_%d' % d) in info:
                 string += chr(info['value_%d' % d])
                 d += 1
             return string

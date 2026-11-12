@@ -71,5 +71,5 @@ if __name__ == '__main__':
         os.system('echo hello')
     finally:
         fout, ferr = c.done()
-    print('Output:', `fout.read()`)
-    print('Error:', `ferr.read()`)
+    print('Output:', repr(fout.read()))
+    print('Error:', repr(ferr.read()))
