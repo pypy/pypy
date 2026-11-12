@@ -110,7 +110,7 @@ class FlexibleWeakDict(object):
         return key in d
 
     def keys(self):
-        return (list(self._regdict) +
+        return (list(self._regdict.keys()) +
                 list(self._weakdict.keys()) +
                 [hashable.value for hashable in self._iddict])
 
