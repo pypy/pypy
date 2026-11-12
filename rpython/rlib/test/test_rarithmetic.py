@@ -396,12 +396,12 @@ def test_highest_bit():
         assert highest_bit(power - 1) == i - 1
         assert highest_bit(power | 1) == i
         assert highest_bit(intmask(power)) == i
-    for n in [-1, -14, -sys.maxint - 1]:
+    for n in [-1, -14, -sys.maxsize - 1]:
         assert highest_bit(n) == LONG_BIT - 1
 
 def test_highest_bit_rtyped():
     for n, expected in [(0, -1), (14, 3), (-1, LONG_BIT - 1),
-                        (-sys.maxint - 1, LONG_BIT - 1)]:
+                        (-sys.maxsize - 1, LONG_BIT - 1)]:
         assert interpret(highest_bit, [n]) == expected
 
 def test_int_between():
