@@ -52,6 +52,33 @@ def pyobj_get_link(pyobj):
 def pyobj_set_link(pyobj, value):
     _pyobj_link_hdr(pyobj).ob_pypy_link = value
 
+# The rest of the prefix (the padding word in front of the link) holds
+# cpyext's own per-object flags, like the bits CPython keeps in PyGC_Head.
+# Mirrored in src/object.c as _PyPy_FLAGS.
+PYOBJ_FLAGS_OFFSET = PYOBJ_LINK_PREFIX
+PYOBJ_FLAG_FINALIZED = 1
+
+PYOBJ_FLAGS_HDR = lltype.Struct('PyObjFlagsHdr', ('ob_pypy_flags', lltype.Signed))
+PYOBJ_FLAGS_HDR_PTR = lltype.Ptr(PYOBJ_FLAGS_HDR)
+
+def _pyobj_flags_hdr(pyobj):
+    base = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), -PYOBJ_FLAGS_OFFSET)
+    return rffi.cast(PYOBJ_FLAGS_HDR_PTR, base)
+
+def pyobj_has_prefix(pyobj):
+    """Whether pyobj was allocated by us, and so has the hidden prefix."""
+    return pyobj.c_ob_refcnt >= rawrefcount.REFCNT_FROM_PYPY
+
+def pyobj_get_flags(pyobj):
+    if not pyobj_has_prefix(pyobj):
+        return 0
+    return _pyobj_flags_hdr(pyobj).ob_pypy_flags
+
+def pyobj_set_flag(pyobj, flag):
+    if pyobj_has_prefix(pyobj):
+        hdr = _pyobj_flags_hdr(pyobj)
+        hdr.ob_pypy_flags = hdr.ob_pypy_flags | flag
+
 @specialize.argtype(0)
 def pyobj_raw_alloc(size, immortal=False):
     """Raw-allocate a PyObject of 'size' bytes plus the hidden link prefix.
