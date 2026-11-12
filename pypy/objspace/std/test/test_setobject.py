@@ -1186,6 +1186,11 @@ class AppTestAppSetTest:
         items.add(first)
         assert items == set(d)
 
+    def test_pickle_exhausted(self):
+        it = iter({1})
+        list(it)
+        assert it.__reduce__() == (iter, ([],))
+
     def test_reduce_with_slots(self):
         for base in (set, frozenset):
             class S(base):
