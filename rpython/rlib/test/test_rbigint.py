@@ -1566,7 +1566,7 @@ class TestTranslatable(object):
             return a.int_pow(exponent, m).toint(), a.pow(e, m).toint()
         for args in [(-17, 3, -1009), (17, sys.maxint, 1009)]:
             a, e, m = args
-            expected = pow(a, e, m), pow(a, (long(e) << (SHIFT + 3)) + 31, m)
+            expected = pow(a, e, m), pow(a, (e << (SHIFT + 3)) + 31, m)
             result = interpret(fn, list(args))
             assert (result.item0, result.item1) == expected
 
@@ -1574,7 +1574,7 @@ class TestTranslatable(object):
         def fn(x, divisor):
             a = rbigint.fromint(x).lshift(2 * SHIFT).int_add(x)
             return a.int_mod_int_result(divisor)
-        expected = ((long(MASK) << (2 * SHIFT)) + MASK) % 3
+        expected = ((MASK << (2 * SHIFT)) + MASK) % 3
         assert interpret(fn, [MASK, 3]) == expected
 
     def test_mod_one_digit_bigint(self):
@@ -1584,7 +1584,7 @@ class TestTranslatable(object):
 
         for x, divisor in [(MASK, 3), (-MASK, 3),
                            (MASK, -3), (-MASK, -3), (MASK, MASK)]:
-            expected = ((long(x) << (2 * SHIFT)) + x) % divisor
+            expected = ((x << (2 * SHIFT)) + x) % divisor
             assert interpret(fn, [x, divisor]) == expected
 
     def test_square(self):
@@ -2297,7 +2297,7 @@ def _get_byte_limb_rbigint():
     mod.TEST_SMALL_DIGITS = True
     sys.modules[name] = mod
     # This test module uses future division; rbigint.py deliberately doesn't.
-    exec compile(s, path, 'exec', 0, True) in mod.__dict__
+    eval(compile(s, path, 'exec', 0, True), mod.__dict__)
     assert mod.SHIFT == 7
     return mod
 
