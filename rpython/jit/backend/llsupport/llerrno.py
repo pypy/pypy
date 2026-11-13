@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport.symbolic import WORD
 # NOTE: for tests, cpu._debug_tls_errno_container[1] is reserved for
 # thread_ident (see lltls.py)
 
-if sys.byteorder == 'little' or sys.maxint <= 2**32:
+if sys.byteorder == 'little' or sys.maxsize <= 2**32:
     long2int = int2long = lambda x: x
 else:
     def long2int(x): return x >> 32

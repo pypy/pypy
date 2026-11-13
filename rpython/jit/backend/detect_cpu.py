@@ -89,10 +89,10 @@ def detect_model_from_host_platform():
     #
     if result.startswith('x86'):
         from rpython.jit.backend.x86 import detect_feature as feature
-        if sys.maxint == 2**63-1:
+        if sys.maxsize == 2**63-1:
             result = MODEL_X86_64
         else:
-            assert sys.maxint == 2**31-1
+            assert sys.maxsize == 2**31-1
             if feature.detect_sse2():
                 result = MODEL_X86
             else:

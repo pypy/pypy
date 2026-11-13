@@ -190,7 +190,7 @@ class TestStandalone(StandaloneTestsVerified):
 
         import struct
         fmt = "LLL"
-        if sys.platform == 'win32' and sys.maxint > 2**31:
+        if sys.platform == 'win32' and sys.maxsize > 2**31:
             fmt = "QQQ"
         counters = struct.unpack(fmt, counters_data)
 

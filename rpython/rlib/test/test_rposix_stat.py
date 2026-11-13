@@ -46,7 +46,7 @@ class TestPosixStatFunctions:
         fname = udir.join('test_stat_large_number.txt')
         fname.ensure()
         t1 = 5000000000.0
-        if t1 > sys.maxint:
+        if t1 > sys.maxsize:
             py.test.skip("This platform doesn't support setting stat times "
                          "to large values")
         try:

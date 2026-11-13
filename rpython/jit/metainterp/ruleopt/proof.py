@@ -17,8 +17,8 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.config.translationoption import CACHE_DIR
 from rpython.tool.gcc_cache import try_atomic_write
 
-MAXINT = sys.maxint
-MININT = -sys.maxint - 1
+MAXINT = sys.maxsize
+MININT = -sys.maxsize - 1
 
 # Invalidate cached proofs when changing the assumptions used for methods.
 PROOF_CACHE_VERSION = 'bound-contracts-v1'

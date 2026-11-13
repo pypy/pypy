@@ -58,7 +58,7 @@ class SemiSpaceGC(MovingGCBase):
     # translating to a real backend.
     TRANSLATION_PARAMS = {'space_size': 8*1024*1024} # XXX adjust
 
-    def __init__(self, config, space_size=4096, max_space_size=sys.maxint//2+1,
+    def __init__(self, config, space_size=4096, max_space_size=sys.maxsize//2+1,
                  **kwds):
         self.param_space_size = space_size
         self.param_max_space_size = max_space_size
@@ -237,7 +237,7 @@ class SemiSpaceGC(MovingGCBase):
         # an already-allocated heap.
         if size < 1:
             size = 1     # actually, the minimum is 8MB in default translations
-        self.max_space_size = sys.maxint//2+1
+        self.max_space_size = sys.maxsize//2+1
         while self.max_space_size > size:
             self.max_space_size >>= 1
 

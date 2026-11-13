@@ -712,7 +712,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif raw_malloc_usage(itemsize):
             toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
         else:
-            toobig = r_uint(sys.maxint) + 1
+            toobig = r_uint(sys.maxsize) + 1
 
         if r_uint(length) >= r_uint(toobig):
             #
@@ -1039,7 +1039,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     extra_flags |= GCFLAG_CARDS_SET
             #
             # Detect very rare cases of overflows
-            if raw_malloc_usage(totalsize) > (sys.maxint - (WORD-1)
+            if raw_malloc_usage(totalsize) > (sys.maxsize - (WORD-1)
                                               - cardheadersize):
                 raise MemoryError("rare case of overflow")
             #
@@ -2763,7 +2763,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def visit_all_objects(self):
         while self.objects_to_trace.non_empty():
-            self.visit_all_objects_step(sys.maxint)
+            self.visit_all_objects_step(sys.maxsize)
 
     TEST_VISIT_SINGLE_STEP = False    # for tests
 

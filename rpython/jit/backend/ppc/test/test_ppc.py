@@ -321,4 +321,4 @@ def func(arg):
 
 def is_64_bit_arch():
     import sys
-    return sys.maxint == 9223372036854775807
+    return sys.maxsize == 9223372036854775807

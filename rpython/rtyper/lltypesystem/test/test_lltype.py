@@ -547,7 +547,7 @@ class Frozen(object):
         return True
 
 @py.test.mark.parametrize('x', [
-    1, sys.maxint, 1.5, 'a', 'abc', u'abc', None, [],
+    1, sys.maxsize, 1.5, 'a', 'abc', u'abc', None, [],
     lambda: None,
     {1.23: 'abc'},
     (1, 'x', [2, 3.],),

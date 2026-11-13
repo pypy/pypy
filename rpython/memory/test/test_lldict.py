@@ -77,7 +77,7 @@ class TestLLAddressDict:
                 if j % 17 == 13:
                     intval = random.choice(lst)
                 else:
-                    intval = random.randrange(-sys.maxint, sys.maxint) or 1
+                    intval = random.randrange(-sys.maxsize, sys.maxsize) or 1
                 lst.append(intval)
                 examples[intval] = True
 
@@ -103,7 +103,7 @@ class intaddr(object):
     def _cast_to_int(self, symbolic="?"):
         return self.intval
     def __repr__(self):
-        return '<intaddr 0x%x>' % (self.intval & (sys.maxint*2+1),)
+        return '<intaddr 0x%x>' % (self.intval & (sys.maxsize*2+1),)
     def __eq__(self, other):
         return isinstance(other, intaddr) and self.intval == other.intval
     def __ne__(self, other):

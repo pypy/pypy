@@ -1021,7 +1021,7 @@ class TestAnnotateTestCase:
         assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
 
     def test_large_unsigned(self):
-        large_constant = sys.maxint * 2 + 1 # 0xFFFFFFFF on 32-bit platforms
+        large_constant = sys.maxsize * 2 + 1 # 0xFFFFFFFF on 32-bit platforms
         def f():
             return large_constant
         a = self.RPythonAnnotator()
@@ -3195,13 +3195,13 @@ class TestAnnotateTestCase:
         assert isinstance(s, annmodel.SomeBool)
 
     def test_long_as_intermediate_value(self):
-        from sys import maxint
+        from sys import maxsize
         from rpython.rlib.rarithmetic import intmask
         def fun(x):
             if x > 0:
-                v = maxint
+                v = maxsize
             else:
-                v = -maxint
+                v = -maxsize
             return intmask(v * 10)
         P = AnnotatorPolicy()
         a = self.RPythonAnnotator(policy=P)

@@ -502,7 +502,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
             return super(VirtualizedSandboxedProc, self).do_ll_os__ll_os_read(
                 fd, size)
         else:
-            if not (0 <= size <= sys.maxint):
+            if not (0 <= size <= sys.maxsize):
                 raise OSError(errno.EINVAL, "invalid read size")
             # don't try to read more than 256KB at once here
             return f.read(min(size, 256*1024))

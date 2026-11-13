@@ -143,7 +143,7 @@ class CPU386(AbstractX86CPU):
     IS_64_BIT = False
 
     def __init__(self, *args, **kwargs):
-        assert sys.maxint == (2**31 - 1)
+        assert sys.maxsize == (2**31 - 1)
         super(CPU386, self).__init__(*args, **kwargs)
 
 class CPU386_NO_SSE2(CPU386):

@@ -67,7 +67,7 @@ class TestLL2Ctypes(object):
         assert isinstance(res, rffi.r_singlefloat)
         assert float(res) == -3.5
         assert lltype2ctypes(rffi.r_ulong(-1)) == (1 << rffi.r_ulong.BITS) - 1
-        res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
+        res = ctypes2lltype(lltype.Unsigned, sys.maxsize * 2 + 1)
         assert (res, type(res)) == (r_uint(-1), r_uint)
         assert ctypes2lltype(lltype.Bool, 0) is False
         assert ctypes2lltype(lltype.Bool, 1) is True
@@ -1116,11 +1116,11 @@ class TestLL2Ctypes(object):
     def test_cast_adr_to_int(self):
         class someaddr(object):
             def _cast_to_int(self):
-                return sys.maxint/2 * 3
+                return sys.maxsize/2 * 3
 
         res = cast_adr_to_int(someaddr())
         assert is_valid_int(res)
-        assert res == -sys.maxint/2 - 3
+        assert res == -sys.maxsize/2 - 3
 
     def test_cast_gcref_back_and_forth(self):
         NODE = lltype.GcStruct('NODE')

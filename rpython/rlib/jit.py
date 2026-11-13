@@ -414,8 +414,8 @@ def current_trace_length():
     return -1
 
 @oopspec('jit.debug(string, arg1, arg2, arg3, arg4)')
-def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
-                      arg3=-sys.maxint-1, arg4=-sys.maxint-1):
+def jit_debug(string, arg1=-sys.maxsize-1, arg2=-sys.maxsize-1,
+                      arg3=-sys.maxsize-1, arg4=-sys.maxsize-1):
     """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed

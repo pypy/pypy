@@ -1751,7 +1751,7 @@ class MIFrame(object):
                     arg3box.getint(), arg4box.getint())
         args = [stringbox, arg1box, arg2box, arg3box, arg4box]
         i = 4
-        while i > 0 and args[i].getint() == -sys.maxint-1:
+        while i > 0 and args[i].getint() == -sys.maxsize-1:
             i -= 1
         assert i >= 0
         op = self.metainterp.history.record(rop.JIT_DEBUG, args[:i+1], None)

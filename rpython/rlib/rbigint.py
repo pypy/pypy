@@ -981,7 +981,7 @@ class rbigint(object):
             # Fallback to long.
             return self.mod(rbigint.fromint(iother)).toint() # cannot raise
 
-        assert iother != -sys.maxint-1 # covered by int_in_valid_range above
+        assert iother != -sys.maxsize-1 # covered by int_in_valid_range above
         digit = abs(iother)
         if digit == 1:
             return 0
@@ -2900,9 +2900,9 @@ def _bigint_true_divide(a, b):
 
     # Catch obvious cases of underflow and overflow
     diff = a_size - b_size
-    if diff > sys.maxint/SHIFT - 1:
+    if diff > sys.maxsize/SHIFT - 1:
         return _truediv_overflow()           # Extreme overflow
-    elif diff < 1 - sys.maxint/SHIFT:
+    elif diff < 1 - sys.maxsize/SHIFT:
         return _truediv_result(0.0, negate)  # Extreme underflow
     # Next line is now safe from overflowing integers
     diff = (diff * SHIFT + bits_in_digit(a.digit(a_size - 1)) -
@@ -3749,9 +3749,9 @@ def gcd_lehmer(a, b):
 
 
 # if the bigint has more digits than this, it cannot fit into an int
-# Also, if it has less digits than this, then it must be <=sys.maxint in
+# Also, if it has less digits than this, then it must be <=sys.maxsize in
 # absolute value and so it must fit an int.
-MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxsize - 1).numdigits()
 
 
 # _________________________________________________________________

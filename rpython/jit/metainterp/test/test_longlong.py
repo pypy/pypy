@@ -16,7 +16,7 @@ def compare(xll, highres, lores):
 
 class LongLongTests:
     def setup_class(cls):
-        if sys.maxint > 2147483647:
+        if sys.maxsize > 2147483647:
             py.test.skip("only for 32-bit platforms")
 
     def test_long_long_1(self):

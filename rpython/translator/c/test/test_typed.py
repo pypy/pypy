@@ -156,8 +156,8 @@ class TestTypedTestCase(object):
         fn = self.getcompiled(f, [int])
         assert fn(1) == 5
         assert fn(2) == 0
-        assert fn(sys.maxint // 2 + 1) == -1
-        assert fn(sys.maxint) == -1
+        assert fn(sys.maxsize // 2 + 1) == -1
+        assert fn(sys.maxsize) == -1
 
     def test_chr(self):
         def f(x):
@@ -179,7 +179,7 @@ class TestTypedTestCase(object):
         fn = self.getcompiled(f, [int])
         assert fn(65) == 65
         assert fn(-12) == -42
-        assert fn(sys.maxint) == -42
+        assert fn(sys.maxsize) == -42
 
     def test_UNICHR(self):
         from rpython.rlib.runicode import UNICHR
@@ -191,7 +191,7 @@ class TestTypedTestCase(object):
         fn = self.getcompiled(f, [int])
         assert fn(65) == 65
         assert fn(-12) == -42
-        assert fn(sys.maxint) == -42
+        assert fn(sys.maxsize) == -42
 
     def test_list_indexerror(self):
         def f(i):
@@ -461,7 +461,7 @@ class TestTypedTestCase(object):
 
     def test_int_overflow(self):
         fn = self.getcompiled(snippet.add_func, [int])
-        fn(sys.maxint, expected_exception_name='OverflowError')
+        fn(sys.maxsize, expected_exception_name='OverflowError')
 
     def test_int_floordiv_ovf_zer(self):
         fn = self.getcompiled(snippet.div_func, [int])
@@ -473,7 +473,7 @@ class TestTypedTestCase(object):
         for y in range(-5, 5):
             for x in range(-5, 5):
                 assert fn(x, y) == snippet.mul_func(x, y)
-        n = sys.maxint / 4
+        n = sys.maxsize / 4
         assert fn(n, 3) == snippet.mul_func(n, 3)
         assert fn(n, 4) == snippet.mul_func(n, 4)
         fn(n, 5, expected_exception_name='OverflowError')
@@ -497,8 +497,8 @@ class TestTypedTestCase(object):
         for i in range(-3, 3):
             assert fn(i, 0) == -(i)
             assert fn(i, 1) == abs(i - 1)
-        fn(-sys.maxint - 1, 0, expected_exception_name='OverflowError')
-        fn(-sys.maxint, 0, expected_exception_name='OverflowError')
+        fn(-sys.maxsize - 1, 0, expected_exception_name='OverflowError')
+        fn(-sys.maxsize, 0, expected_exception_name='OverflowError')
 
     # floats
     def test_float_operations(self):
@@ -875,23 +875,23 @@ class TestTypedTestCase(object):
         for frac in [0.0, 0.01, 0.99]:
             # strange things happening for float to int on 64 bit:
             # int(float(i)) != i  because of rounding issues
-            x = sys.maxint
-            while int(x + frac) > sys.maxint:
+            x = sys.maxsize
+            while int(x + frac) > sys.maxsize:
                 x -= 1
             assert f(x + frac) == int(x + frac)
 
-            x = sys.maxint
-            while int(x - frac) <= sys.maxint:
+            x = sys.maxsize
+            while int(x - frac) <= sys.maxsize:
                 x += 1
             assert f(x - frac) == -666
 
-            x = -sys.maxint - 1
-            while int(x - frac) < -sys.maxint - 1:
+            x = -sys.maxsize - 1
+            while int(x - frac) < -sys.maxsize - 1:
                 x += 1
             assert f(x - frac) == int(x - frac)
 
-            x = -sys.maxint - 1
-            while int(x + frac) >= -sys.maxint- 1:
+            x = -sys.maxsize - 1
+            while int(x + frac) >= -sys.maxsize- 1:
                 x -= 1
             assert f(x + frac) == -666
 

@@ -122,7 +122,7 @@ class IntegerOrNilStrategy(AbstractStrategy):
     def unwrap(self, value): return value.value
     def default_value(self): return w_nil
     def wrapped_tagged_value(self): return w_nil
-    def unwrapped_tagged_value(self): import sys; return sys.maxint
+    def unwrapped_tagged_value(self): import sys; return sys.maxsize
 
 @rs.strategy(generalize=[], singleton=False)
 class NonSingletonStrategy(GenericStrategy):
@@ -380,7 +380,7 @@ def test_Integer_Generic():
     do_test_transition(IntegerStrategy, W_Object(), GenericStrategy)
 
 def test_TaggingValue_not_storable():
-    tag = IntegerOrNilStrategy(10).unwrapped_tagged_value() # sys.maxint
+    tag = IntegerOrNilStrategy(10).unwrapped_tagged_value() # sys.maxsize
     do_test_transition(IntegerOrNilStrategy, W_Integer(tag), GenericStrategy)
 
 def test_insert_StrategySwitch_IntOrNil():

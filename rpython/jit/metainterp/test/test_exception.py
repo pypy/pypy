@@ -419,7 +419,7 @@ class ExceptionTests:
             except OverflowError:
                 return 42
 
-        res = self.interp_operations(f, [-sys.maxint-1, -1])
+        res = self.interp_operations(f, [-sys.maxsize-1, -1])
         assert res == 42
 
     def test_int_ovf_common(self):
@@ -430,13 +430,13 @@ class ExceptionTests:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
                 try:
-                    n = ovfcheck(n + sys.maxint)
+                    n = ovfcheck(n + sys.maxsize)
                 except OverflowError:
                     n -= 1
                 else:
                     return n - 2000
         res = self.meta_interp(f, [10], repeat=7)
-        assert res == sys.maxint - 2000
+        assert res == sys.maxsize - 2000
 
     def test_int_mod_ovf_zer(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'x', 'y'])
@@ -496,7 +496,7 @@ class ExceptionTests:
                 n += 1
             return m
 
-        res = self.meta_interp(f, [-sys.maxint-1+100, 0],
+        res = self.meta_interp(f, [-sys.maxsize-1+100, 0],
                                enable_opts='')
         assert res == 16
 
@@ -594,7 +594,7 @@ class ExceptionTests:
                 if isinstance(e, OverflowError):
                     return -42
                 raise
-        res = self.interp_operations(f, [sys.maxint])
+        res = self.interp_operations(f, [sys.maxsize])
         assert res == -42
 
     def test_bug_1(self):

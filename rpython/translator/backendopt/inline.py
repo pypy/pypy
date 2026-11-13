@@ -525,7 +525,7 @@ def measure_median_execution_cost(graph):
     try:
         Solution = M.solve(vector)
     except ValueError:
-        return sys.maxint
+        return sys.maxsize
     else:
         res = Solution[blockmap[graph.startblock]]
         return max(res, 0.0)    # may be NaN

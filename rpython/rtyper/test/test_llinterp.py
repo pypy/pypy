@@ -268,19 +268,19 @@ def test_list_pop():
 def test_ovf():
     def f(x):
         try:
-            return ovfcheck(sys.maxint + x)
+            return ovfcheck(sys.maxsize + x)
         except OverflowError:
             return 1
     res = interpret(f, [1])
     assert res == 1
     res = interpret(f, [0])
-    assert res == sys.maxint
+    assert res == sys.maxsize
     def g(x):
         try:
             return ovfcheck(abs(x))
         except OverflowError:
             return 42
-    res = interpret(g, [-sys.maxint - 1])
+    res = interpret(g, [-sys.maxsize - 1])
     assert res == 42
     res = interpret(g, [-15])
     assert res == 15
@@ -288,7 +288,7 @@ def test_ovf():
 def test_floordiv_ovf_zer():
     def f(x):
         try:
-            return ovfcheck((-sys.maxint - 1) // x)
+            return ovfcheck((-sys.maxsize - 1) // x)
         except OverflowError:
             return 1
         except ZeroDivisionError:
@@ -298,12 +298,12 @@ def test_floordiv_ovf_zer():
     res = interpret(f, [-1])
     assert res == 1
     res = interpret(f, [30])
-    assert res == (-sys.maxint - 1) // 30
+    assert res == (-sys.maxsize - 1) // 30
 
 def test_mod_ovf_zer():
     def f(x):
         try:
-            return ovfcheck((-sys.maxint - 1) % x)
+            return ovfcheck((-sys.maxsize - 1) % x)
         except OverflowError:
             return 43
         except ZeroDivisionError:
@@ -316,7 +316,7 @@ def test_mod_ovf_zer():
     if 0:
         assert res == 43
     res = interpret(f, [30])
-    assert res == (-sys.maxint - 1) % 30
+    assert res == (-sys.maxsize - 1) % 30
 
 
 def test_funny_links():
@@ -520,7 +520,7 @@ def test_exceptiontransformed_add_ovf():
     interp = LLInterpreter(t.rtyper)
     res = interp.eval_graph(graph, [1, -64])
     assert res == -63
-    res = interp.eval_graph(graph, [1, sys.maxint])
+    res = interp.eval_graph(graph, [1, sys.maxsize])
     assert res == -42
 
 def test_malloc_checker():

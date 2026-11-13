@@ -57,14 +57,14 @@ def z3_with_reduced_bitwidth(width):
                 return test(*args, **kwargs)
             finally:
                 LONG_BIT = old_value
-                MAXINT = sys.maxint
-                MININT = -sys.maxint - 1
+                MAXINT = sys.maxsize
+                MININT = -sys.maxsize - 1
         newtest.func_name = test.func_name + "_wrapped"
         return newtest
     return dec
 
-MAXINT = sys.maxint
-MININT = -sys.maxint - 1
+MAXINT = sys.maxsize
+MININT = -sys.maxsize - 1
 
 uints = strategies.builds(
     r_uint,

@@ -38,7 +38,7 @@ def ann2strategy(s_value):
         else:
             return text()
     elif isinstance(s_value, SomeInteger):
-        return integers(min_value=~sys.maxint, max_value=sys.maxint)
+        return integers(min_value=~sys.maxsize, max_value=sys.maxsize)
     else:
         raise TypeError("Cannot convert annotation %s to a strategy" % s_value)
 

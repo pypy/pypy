@@ -2,7 +2,7 @@ from rpython.jit.metainterp.history import INT, FLOAT, VECTOR
 import sys
 
 # cannot import from arch.py, currently we have a circular import
-if sys.maxint == (2**31 - 1):
+if sys.maxsize == (2**31 - 1):
     WORD = 4
     FWORD = 8
 else:

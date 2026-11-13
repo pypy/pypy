@@ -207,7 +207,7 @@ def test_free_until_pos_none():
     assert fpr1.free_until_pos(10) == 35
     assert fpr1.free_until_pos(20) == 35
     assert fpr1.free_until_pos(30) == 35
-    assert fpr1.free_until_pos(36) == sys.maxint
+    assert fpr1.free_until_pos(36) == sys.maxsize
 
 def test_free_until_pos():
     b0, b1, b2 = newboxes(0, 0, 0)
@@ -232,8 +232,8 @@ def test_free_until_pos():
     assert fpr1.free_until_pos(30) == 30
 
     # after the fixed use, we are fine anyway
-    assert fpr1.free_until_pos(36) == sys.maxint
-    assert fpr1.free_until_pos(50) == sys.maxint
+    assert fpr1.free_until_pos(36) == sys.maxsize
+    assert fpr1.free_until_pos(50) == sys.maxsize
 
     # asking for a position *after* the definition of the variable in the fixed
     # register means the variable didn't make it into the fixed register, but

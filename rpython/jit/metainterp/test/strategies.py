@@ -4,8 +4,8 @@ from hypothesis import strategies
 from rpython.jit.metainterp.resoperation import InputArgInt, ResOperation, rop
 from rpython.jit.metainterp.history import ConstInt
 
-machine_ints = strategies.integers(min_value=-sys.maxint - 1,
-    max_value=sys.maxint)
+machine_ints = strategies.integers(min_value=-sys.maxsize - 1,
+    max_value=sys.maxsize)
 intboxes = strategies.builds(InputArgInt)
 intconsts = strategies.builds(ConstInt, machine_ints)
 boxes = intboxes | intconsts

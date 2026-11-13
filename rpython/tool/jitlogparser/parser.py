@@ -346,7 +346,7 @@ class Function(object):
 
     def _compute_linerange(self):
         self._lineset = set()
-        minline = sys.maxint
+        minline = sys.maxsize
         maxline = -1
         for chunk in self.chunks:
             if chunk.is_bytecode and chunk.has_valid_code():
@@ -355,7 +355,7 @@ class Function(object):
                 maxline = max(maxline, lineno)
                 if chunk.line_starts_here or len(chunk.operations) > 1:
                     self._lineset.add(lineno)
-        if minline == sys.maxint:
+        if minline == sys.maxsize:
             minline = 0
             maxline = 0
         self._linerange = minline, maxline

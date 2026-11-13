@@ -501,7 +501,7 @@ DICTINDEX_INT = lltype.Ptr(lltype.GcArray(rffi.UINT))
 DICTINDEX_SHORT = lltype.Ptr(lltype.GcArray(rffi.USHORT))
 DICTINDEX_BYTE = lltype.Ptr(lltype.GcArray(rffi.UCHAR))
 
-IS_64BIT = sys.maxint != 2 ** 31 - 1
+IS_64BIT = sys.maxsize != 2 ** 31 - 1
 
 if IS_64BIT:
     FUNC_SHIFT = 3

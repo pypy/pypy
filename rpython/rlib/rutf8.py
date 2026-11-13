@@ -124,7 +124,7 @@ def _nonascii_unichr_as_utf8_append_nosurrogates(builder, code):
 
 #        The following was found by hand to be more optimal than both,
 #        on x86-64...
-_is_64bit = sys.maxint > 2**32
+_is_64bit = sys.maxsize > 2**32
 _constant_ncp = rarithmetic.r_uint64(0xffff0000ffffffff)
 
 @always_inline
@@ -468,7 +468,7 @@ def reencode_utf8_with_surrogates(utf8):
 
 
 @jit.elidable
-def codepoints_in_utf8(value, start=0, end=sys.maxint):
+def codepoints_in_utf8(value, start=0, end=sys.maxsize):
     """Return the number of codepoints in the UTF-8 byte string
     'value[start:end]'.  Assumes 0 <= start <= len(value) and start <= end.
     """

@@ -173,7 +173,7 @@ class RefcountingGCTransformer(GCTransformer):
             p = value._as_ptr()
             if not self.gcheaderbuilder.get_header(p):
                 hdr = self.gcheaderbuilder.new_header(p)
-                hdr.refcount = sys.maxint // 2
+                hdr.refcount = sys.maxsize // 2
 
     def static_deallocation_funcptr_for_type(self, TYPE):
         if TYPE in self.static_deallocator_funcptrs:

@@ -74,7 +74,7 @@ class TestLogger(object):
             except IOError:
                 pass
         binary = file.read()
-        is_32bit = chr(sys.maxint == 2**31-1)
+        is_32bit = chr(sys.maxsize == 2**31-1)
         assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
                          jl.encode_str('loop') + jl.encode_le_addr(0) + \
                          jl.encode_str('jdname') + \

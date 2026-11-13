@@ -1526,7 +1526,7 @@ class TestRlist(BaseRtypingTest):
         assert res == 5
         res = self.interpret(fn, [2])
         assert res == 0
-        self.interpret_raises(MemoryError, fn, [sys.maxint])
+        self.interpret_raises(MemoryError, fn, [sys.maxsize])
 
     def test_type_erase_fixed_size(self):
         class A(object):

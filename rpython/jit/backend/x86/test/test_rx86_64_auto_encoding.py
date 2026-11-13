@@ -3,7 +3,7 @@ import random
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.test import test_rx86_32_auto_encoding
 
-if sys.maxint <= 2**32:
+if sys.maxsize <= 2**32:
     py.test.skip("skipping this test on x86-32", allow_module_level=True)
 
 

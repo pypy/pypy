@@ -1004,7 +1004,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                 except EndOfString:
                     return   # did not match minimum number of times
 
-            max_count = sys.maxint
+            max_count = sys.maxsize
             max = pattern.pat(ppos+2)
             if max != rsre_char.MAXREPEAT:
                 max_count = max - min
@@ -1364,7 +1364,7 @@ def _adjust(start, end, length):
     elif end > length: end = length
     return start, end
 
-def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
+def match(pattern, string, start=0, end=sys.maxsize, fullmatch=False):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
     ctx = StrMatchContext(string, start, end)
@@ -1375,10 +1375,10 @@ def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     else:
         return None
 
-def fullmatch(pattern, string, start=0, end=sys.maxint):
+def fullmatch(pattern, string, start=0, end=sys.maxsize):
     return match(pattern, string, start, end, fullmatch=True)
 
-def search(pattern, string, start=0, end=sys.maxint):
+def search(pattern, string, start=0, end=sys.maxsize):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
     ctx = StrMatchContext(string, start, end)

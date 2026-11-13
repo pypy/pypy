@@ -57,8 +57,8 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-123])
         assert self.ll_to_string(res) == '-123'
 
-        res = self.interpret(dummy, [-sys.maxint-1])
-        assert self.ll_to_string(res) == str(-sys.maxint-1)
+        res = self.interpret(dummy, [-sys.maxsize-1])
+        assert self.ll_to_string(res) == str(-sys.maxsize-1)
 
     def test_hex_of_int(self):
         def dummy(i):
@@ -73,7 +73,7 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-123])
         assert self.ll_to_string(res) == '-0x7b'
 
-        res = self.interpret(dummy, [-sys.maxint-1])
+        res = self.interpret(dummy, [-sys.maxsize-1])
         res = self.ll_to_string(res)
         assert res == '-0x8' + '0' * (len(res)-4)
 
@@ -98,9 +98,9 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-123])
         assert self.ll_to_string(res) == '-0173'
 
-        res = self.interpret(dummy, [-sys.maxint-1])
+        res = self.interpret(dummy, [-sys.maxsize-1])
         res = self.ll_to_string(res)
-        assert res == '-' + oct(sys.maxint+1).replace('L', '').replace('l', '')
+        assert res == '-' + oct(sys.maxsize+1).replace('L', '').replace('l', '')
 
     def test_bin_of_int(self):
         from rpython.rtyper.lltypesystem.ll_str import ll_int2bin
@@ -117,7 +117,7 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(dummy, [-123])
         assert self.ll_to_string(res) == '-0b1111011'
 
-        res = self.interpret(dummy, [-sys.maxint-1])
+        res = self.interpret(dummy, [-sys.maxsize-1])
         res = self.ll_to_string(res)
         assert res == '-0b1' + '0' * (len(res)-4)
 
@@ -146,17 +146,17 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(f, [r_uint(0)])
         assert self.ll_to_string(res) == '0'
 
-        res = self.interpret(f, [r_uint(sys.maxint)])
-        assert self.ll_to_string(res) == str(sys.maxint)
+        res = self.interpret(f, [r_uint(sys.maxsize)])
+        assert self.ll_to_string(res) == str(sys.maxsize)
 
-        res = self.interpret(f, [r_uint(sys.maxint+1)])
-        assert self.ll_to_string(res) == str(sys.maxint+1)
+        res = self.interpret(f, [r_uint(sys.maxsize+1)])
+        assert self.ll_to_string(res) == str(sys.maxsize+1)
 
         res = self.interpret(f, [r_uint(-1)])
-        assert self.ll_to_string(res) == str(2*sys.maxint+1)
+        assert self.ll_to_string(res) == str(2*sys.maxsize+1)
 
     def test_unsigned(self):
-        bigvalue = r_uint(sys.maxint + 17)
+        bigvalue = r_uint(sys.maxsize + 17)
         def dummy(i):
             i = r_uint(i)
             j = bigvalue
@@ -302,7 +302,7 @@ class TestRint(BaseRtypingTest):
         def f(x):
             return r_longlong(r_uint(x))
         res = self.interpret(f, [-42])
-        assert res == (sys.maxint+1) * 2 - 42
+        assert res == (sys.maxsize+1) * 2 - 42
 
     div_mod_iteration_count = 1000
     def test_div_mod(self):
@@ -379,7 +379,7 @@ class TestRint(BaseRtypingTest):
 
             args = [( 5, 2), (-5, 2), ( 5,-2), (-5,-2),
                     ( 6, 2), (-6, 2), ( 6,-2), (-6,-2),
-                    (-sys.maxint, -1), (4, 0)]
+                    (-sys.maxsize, -1), (4, 0)]
 
             funcs = [div_unpro, div_ovf, div_zer, div_ovf_zer,
                      mod_unpro, mod_ovf, mod_zer, mod_ovf_zer]
@@ -414,9 +414,9 @@ class TestRint(BaseRtypingTest):
         assert summary(graph).get('int_add_nonneg_ovf') == 2
         res = self.interpret(f, [-3])
         assert res == 144
-        res = self.interpret(f, [sys.maxint-50])
+        res = self.interpret(f, [sys.maxsize-50])
         assert res == 1
-        res = self.interpret(f, [sys.maxint])
+        res = self.interpret(f, [sys.maxsize])
         assert res == 0
 
     def test_int_py_div_nonnegargs(self):
@@ -451,7 +451,7 @@ class TestRint(BaseRtypingTest):
         res = self.interpret(f, [123456789])
         assert res == 123456789
         res = self.interpret(f, [r_int64(123456789012345678)])
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             # check the way we compute such a hash so far
             assert res == -1506741426 + 9 * 28744523
         else:

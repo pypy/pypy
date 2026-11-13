@@ -402,7 +402,7 @@ class ConstUnaryOperation(UnaryOperation):
 class SignExtOperation(AbstractOperation):
     def produce_into(self, builder, r):
         sizes = [1, 2]
-        if sys.maxint > (1 << 32):
+        if sys.maxsize > (1 << 32):
             sizes.append(4)
         self.put(builder, [r.choice(builder.intvars),
                            ConstInt(r.choice(sizes))])
@@ -514,7 +514,7 @@ class CastFloatToIntOperation(AbstractFloatOperation):
         if not builder.floatvars:
             raise CannotProduceOperation
         box = r.choice(builder.floatvars)
-        if not (-sys.maxint-1 <= getfloat(box) <= sys.maxint):
+        if not (-sys.maxsize-1 <= getfloat(box) <= sys.maxsize):
             raise CannotProduceOperation      # would give an overflow
         self.put(builder, [box])
 
@@ -680,14 +680,14 @@ def Random(r=None):
     def get_random_integer():
         while True:
             result = int(r.expovariate(0.05))
-            if result <= sys.maxint:
+            if result <= sys.maxsize:
                 break
         if r.randrange(0, 5) <= 1:
             result = -result
         if result not in (0, -1) and r.random() < 0.1:
             # occasionally produce a very large integer.  The algo is such
-            # that it's likely we get a special value, e.g. sys.maxint or
-            # -sys.maxint-1.
+            # that it's likely we get a special value, e.g. sys.maxsize or
+            # -sys.maxsize-1.
             while intmask(result << 2) == (result << 2):
                 result = (result << 2) | (result & 0x3)
         return result

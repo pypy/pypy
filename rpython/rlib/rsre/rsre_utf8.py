@@ -78,7 +78,7 @@ def make_utf8_ctx(utf8string, bytestart, byteend):
     ctx.debug_check_pos(byteend)
     return ctx
 
-def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxint):
+def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxsize):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
     from rpython.rlib.rsre.rsre_core import search_context
@@ -89,7 +89,7 @@ def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxint):
     else:
         return None
 
-def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint,
+def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxsize,
               fullmatch=False):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.

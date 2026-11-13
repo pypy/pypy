@@ -463,9 +463,9 @@ def test_expose_value_as_rpython():
         return (x, type(x))
     assert get(5) == (5, int)
     assert get(-82) == (-82, int)
-    assert get(sys.maxint) == (sys.maxint, int)
-    assert get(sys.maxint+1) == (sys.maxint+1, r_uint)
-    if sys.maxint == 2147483647:
+    assert get(sys.maxsize) == (sys.maxsize, int)
+    assert get(sys.maxsize+1) == (sys.maxsize+1, r_uint)
+    if sys.maxsize == 2147483647:
         assert get(9999999999) == (9999999999, r_longlong)
         assert get(-9999999999) == (-9999999999, r_longlong)
         assert get(2**63) == (2**63, r_ulonglong)

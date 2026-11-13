@@ -61,10 +61,10 @@ def test_wrap():
     if longlong.supports_longlong:
         import sys
         from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
-        value = r_longlong(-sys.maxint*17)
+        value = r_longlong(-sys.maxsize*17)
         assert _is(wrap(None, value, 0), InputArgFloat(value))
         assert _is(wrap(None, value, -1), ConstFloat(value))
-        value_unsigned = r_ulonglong(-sys.maxint*17)
+        value_unsigned = r_ulonglong(-sys.maxsize*17)
         assert _is(wrap(None, value_unsigned, 0), InputArgFloat(value))
     sfval = r_singlefloat(42.5)
     ival = longlong.singlefloat2int(sfval)
@@ -75,8 +75,8 @@ def test_specialize_value():
     assert specialize_value(lltype.Char, 0x41) == '\x41'
     if longlong.supports_longlong:
         import sys
-        value = longlong.r_float_storage(sys.maxint*17)
-        assert specialize_value(lltype.SignedLongLong, value) == sys.maxint*17
+        value = longlong.r_float_storage(sys.maxsize*17)
+        assert specialize_value(lltype.SignedLongLong, value) == sys.maxsize*17
     sfval = r_singlefloat(42.5)
     ival = longlong.singlefloat2int(sfval)
     assert specialize_value(rffi.FLOAT, ival) == sfval

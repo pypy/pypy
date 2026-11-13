@@ -474,11 +474,11 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  === a note about overflows ===
 #
 #  The maximal length of RPython lists is bounded by the assumption that
-#  we can never allocate arrays more than sys.maxint bytes in size.
+#  we can never allocate arrays more than sys.maxsize bytes in size.
 #  Our arrays have a length and some GC headers, so a list of characters
-#  could come near sys.maxint in length (but not reach it).  A list of
-#  pointers could only come near sys.maxint/sizeof(void*) elements.  There
-#  is the list of Voids that could reach exactly sys.maxint elements,
+#  could come near sys.maxsize in length (but not reach it).  A list of
+#  pointers could only come near sys.maxsize/sizeof(void*) elements.  There
+#  is the list of Voids that could reach exactly sys.maxsize elements,
 #  but for now let's ignore this case -- the reasoning is that even if
 #  the length of a Void list overflows, nothing bad memory-wise can be
 #  done with it.  So in the sequel we don't bother checking for overflow

@@ -542,7 +542,7 @@ def offset2int(offset):
     if intoffset != offset:
         raise StreamError("seek() from a non-seekable source:"
                           " this would read and discard more"
-                          " than sys.maxint bytes")
+                          " than sys.maxsize bytes")
     return intoffset
 
 class BufferingInputStream(Stream):
