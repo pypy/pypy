@@ -403,6 +403,22 @@ if WIN32:
         finally:
             lltype.free(buf, flavor='raw')
 
+    _GetModuleFileNameW = winexternal('GetModuleFileNameW',
+                                      [HMODULE, rffi.CWCHARP, DWORD],
+                                      DWORD)
+
+    def GetModuleFileNameW(module):
+        """The module's path as utf8, '' on error."""
+        size = MAX_PATH
+        buf = lltype.malloc(rffi.CWCHARP.TO, size, flavor='raw')
+        try:
+            res = _GetModuleFileNameW(module, buf, size)
+            if not res:
+                return ''
+            return rffi.wcharpsize2utf8(buf, res)
+        finally:
+            lltype.free(buf, flavor='raw')
+
     _GetVersionEx = winexternal('GetVersionExA',
                                 [lltype.Ptr(OSVERSIONINFOEX)],
                                 DWORD,

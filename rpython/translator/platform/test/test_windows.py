@@ -74,6 +74,7 @@ class TestMakefile(object):
 
         class Translation():
             icon = None
+            win_mapping_dll = None
             manifest = os.path.join(os.path.dirname(__file__),
                                     'data', 'python.manifest')
 

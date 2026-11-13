@@ -503,6 +503,24 @@ class TranslationDriver(SimpleTaskEngine):
                         libname = str(newsoname.dirpath().join(libname))
                     shutil.copyfile(str(oldlibname), libname)
                     self.log.info("copied: %s to %s" % (oldlibname, libname,))
+                    # the mapping dll goes next to pypy(w).exe, its import
+                    # library next to the renamed one above
+                    mapping = self.config.translation.win_mapping_dll
+                    if mapping:
+                        mapping = py.path.local(mapping).new(ext='dll')
+                        built = soname.dirpath().join(mapping.basename)
+                        if built.exists():
+                            newmapping = py.path.local(built.basename)
+                            shutil_copy(str(built), str(newmapping))
+                            self.log.info("copied: %s to %s" % (built,
+                                                                newmapping,))
+                            implib = built.new(ext='lib')
+                            if implib.exists():
+                                newimplib = py.path.local(
+                                    libname).dirpath().join(implib.basename)
+                                shutil.copyfile(str(implib), str(newimplib))
+                                self.log.info("copied: %s to %s" % (
+                                    implib, newimplib,))
                     # the pdb file goes in the same place as pypy(w).exe
                     pdb = "pdb"
                     if soname.new(ext=pdb).exists():
