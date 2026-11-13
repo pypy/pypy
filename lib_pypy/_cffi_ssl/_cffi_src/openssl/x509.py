@@ -57,7 +57,7 @@ int X509_set_version(X509 *, long);
 EVP_PKEY *X509_get_pubkey(X509 *);
 int X509_set_pubkey(X509 *, EVP_PKEY *);
 
-unsigned char *X509_alias_get0(X509 *, int *);
+const unsigned char *X509_alias_get0(X509 *, int *);
 int X509_sign(X509 *, EVP_PKEY *, const EVP_MD *);
 
 int X509_digest(const X509 *, const EVP_MD *, unsigned char *, unsigned int *);
@@ -73,7 +73,7 @@ int X509_set_issuer_name(X509 *, X509_NAME *);
 int X509_add_ext(X509 *, X509_EXTENSION *, int);
 X509_EXTENSION *X509_EXTENSION_dup(X509_EXTENSION *);
 
-ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *);
+const ASN1_OBJECT *X509_EXTENSION_get_object(X509_EXTENSION *);
 void X509_EXTENSION_free(X509_EXTENSION *);
 
 int i2d_X509(X509 *, unsigned char **);
@@ -91,7 +91,7 @@ int X509_REQ_add_extensions(X509_REQ *, X509_EXTENSIONS *);
 X509_EXTENSIONS *X509_REQ_get_extensions(X509_REQ *);
 
 int X509V3_EXT_print(BIO *, X509_EXTENSION *, unsigned long, int);
-ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *);
+const ASN1_OCTET_STRING *X509_EXTENSION_get_data(X509_EXTENSION *);
 
 X509_REVOKED *X509_REVOKED_new(void);
 void X509_REVOKED_free(X509_REVOKED *);
@@ -157,10 +157,10 @@ int i2d_DSAPrivateKey_bio(BIO *, DSA *);
 
 /* These became const X509 in 1.1.0 */
 int X509_get_ext_count(X509 *);
-X509_EXTENSION *X509_get_ext(X509 *, int);
+const X509_EXTENSION *X509_get_ext(X509 *, int);
 int X509_get_ext_by_NID(X509 *, int, int);
-X509_NAME *X509_get_subject_name(X509 *);
-X509_NAME *X509_get_issuer_name(X509 *);
+const X509_NAME *X509_get_subject_name(X509 *);
+const X509_NAME *X509_get_issuer_name(X509 *);
 
 /* This became const ASN1_OBJECT * in 1.1.0 */
 X509_EXTENSION *X509_EXTENSION_create_by_OBJ(X509_EXTENSION **,
@@ -172,11 +172,11 @@ X509_EXTENSION *X509_EXTENSION_create_by_OBJ(X509_EXTENSION **,
 int X509_EXTENSION_get_critical(X509_EXTENSION *);
 
 /* This became const X509_REVOKED * in 1.1.0 */
-int X509_REVOKED_get_ext_count(X509_REVOKED *);
-X509_EXTENSION *X509_REVOKED_get_ext(X509_REVOKED *, int);
+const int X509_REVOKED_get_ext_count(X509_REVOKED *);
+const X509_EXTENSION *X509_REVOKED_get_ext(X509_REVOKED *, int);
 
 /* This became const X509_CRL * in 1.1.0 */
-X509_EXTENSION *X509_CRL_get_ext(X509_CRL *, int);
+const X509_EXTENSION *X509_CRL_get_ext(X509_CRL *, int);
 int X509_CRL_get_ext_count(X509_CRL *);
 
 int X509_CRL_get0_by_serial(X509_CRL *, X509_REVOKED **, ASN1_INTEGER *);
@@ -198,7 +198,7 @@ ASN1_TIME *X509_get_notBefore(X509 *);
 ASN1_TIME *X509_get_notAfter(X509 *);
 
 long X509_REQ_get_version(X509_REQ *);
-X509_NAME *X509_REQ_get_subject_name(X509_REQ *);
+const X509_NAME *X509_REQ_get_subject_name(X509_REQ *);
 
 Cryptography_STACK_OF_X509 *sk_X509_new_null(void);
 void sk_X509_free(Cryptography_STACK_OF_X509 *);
@@ -225,7 +225,7 @@ int sk_X509_CRL_push(Cryptography_STACK_OF_X509_CRL *, X509_CRL *);
 X509_CRL *sk_X509_CRL_value(Cryptography_STACK_OF_X509_CRL *, int);
 
 long X509_CRL_get_version(X509_CRL *);
-X509_NAME *X509_CRL_get_issuer(X509_CRL *);
+const X509_NAME *X509_CRL_get_issuer(X509_CRL *);
 Cryptography_STACK_OF_X509_REVOKED *X509_CRL_get_REVOKED(X509_CRL *);
 
 /* These aren't macros these arguments are all const X on openssl > 1.0.x */
