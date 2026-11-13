@@ -549,12 +549,6 @@ def PyObject_GC_IsTracked(space, w_obj):
     """
     return 1
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL, abi3=True)
-def PyObject_GC_IsFinalized(space, w_obj):
-    """For now, always return 0
-    """
-    return 0
-
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1, abi3=True)
 def Py_Is(space, w_obj1, w_obj2):
     res = space.is_w(w_obj1, w_obj2)

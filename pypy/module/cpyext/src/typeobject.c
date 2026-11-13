@@ -17,6 +17,9 @@ _Py_subtype_dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     PyTypeObject *base = pto;
+    /* no check of the result: cpyext never reports a resurrection */
+    if (pto->tp_finalize)
+        PyObject_CallFinalizerFromDealloc(obj);
     /* This wrapper is created on a specific type, call it w_A.
        We wish to call the dealloc function from one of the base classes of w_A,
        the first of which is not this function itself.
@@ -36,10 +39,10 @@ _Py_subtype_dealloc(PyObject *obj)
     }
     /* Undo the incref of the type done when the instance was allocated, as
        CPython's subtype_dealloc does: not if the base is itself a heap type,
-       since then its dealloc already did it. Unlike CPython, this function is
-       also the tp_dealloc of the built-in types, so it can be reached as
-       "the base's tp_dealloc" from an extension's own tp_dealloc -- the
-       extension owns the decref in that case (this is what Cython emits). */
+       since then its dealloc already did it. The first check is for an
+       extension that copied this function into its own tp_dealloc from a base
+       and then calls it: the extension owns the decref in that case, which is
+       what Cython emits. */
     int type_needs_decref = (pto->tp_dealloc == &_Py_subtype_dealloc &&
                              pto->tp_flags & Py_TPFLAGS_HEAPTYPE &&
                              !(base->tp_flags & Py_TPFLAGS_HEAPTYPE));
