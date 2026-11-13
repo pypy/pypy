@@ -71,6 +71,7 @@ class IdentityDictPyPy(MutableMapping):
 
     def __nonzero__(self):
         return bool(self._dict)
+    __bool__ = __nonzero__
 
 if idict is None:
     identity_dict = IdentityDictPurePython

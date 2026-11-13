@@ -54,6 +54,7 @@ class BindingsIterItems(object):
             assert loc is not None
             assert self.fm.get_loc_index(loc) == index
             return box, lifetime.current_frame_loc
+    __next__ = next
 
     def __iter__(self):
         return self
@@ -327,6 +328,7 @@ class RegBindingsDict(object):
 
     def __nonzero__(self):
         assert False, '__nonzero__ is not rpython'
+    __bool__ = __nonzero__
 
 class RegBindingsIterItems(object):
     def __init__(self, rm):
@@ -336,6 +338,7 @@ class RegBindingsIterItems(object):
     def next(self):
         index = self.index = RegBindingsIterItems._next(self.index + 1, self.rm)
         return self.rm.reg_bindings_list[index], self.rm.all_regs[index]
+    __next__ = next
 
     @staticmethod
     def _next(index, rm):

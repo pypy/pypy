@@ -269,6 +269,7 @@ class Symbolic(object):
 
     def __nonzero__(self):
         raise TypeError("Symbolics are not comparable! %r" % (self,))
+    __bool__ = __nonzero__
 
 class ComputedIntSymbolic(Symbolic):
 

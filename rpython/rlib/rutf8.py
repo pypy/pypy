@@ -851,6 +851,7 @@ class Utf8StringIterator(object):
             return (ordch1 << 18) + (ordch2 << 12) + (ordch3 << 6) + ordch4 - (
                    (0xF0   << 18) + (0x80   << 12) + (0x80   << 6) + 0x80     )
         assert False, "unreachable"
+    __next__ = next
 
 class Utf8StringPosIterator(object):
     def __init__(self, utf8s):
@@ -862,6 +863,7 @@ class Utf8StringPosIterator(object):
     def next(self):
         pos = self.it.get_pos()
         return (self.it.next(), pos)
+    __next__ = next
 
 
 def decode_latin_1(s):

@@ -15,6 +15,7 @@ class W_Root(object):
         self.intval = intval
     def __nonzero__(self):
         raise Exception("you cannot do that, you must use space.is_true()")
+    __bool__ = __nonzero__
 
 
 class TestRawRefCount:
