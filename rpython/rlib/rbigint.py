@@ -14,13 +14,26 @@ import math, sys
 
 SUPPORT_INT128 = check_support_int128()
 BYTEORDER = sys.byteorder
+# The test loader can select byte/short arithmetic before executing this
+# module.  Normal imports always use the native digit configuration.
+TEST_SMALL_DIGITS = globals().get('TEST_SMALL_DIGITS', False)
+
+# Array indices and sizes must not shrink with the digit arithmetic.
+UINDEX_TYPE = r_uint
 
 # note about digit sizes:
 # In division, the native integer type must be able to hold
 # a sign bit plus two digits plus 1 overflow bit.
 
-#SHIFT = (LONG_BIT // 2) - 1
-if SUPPORT_INT128:
+if TEST_SMALL_DIGITS:
+    SHIFT = 7
+    UDIGIT_TYPE = rffi.r_uchar
+    UDIGIT_MASK = intmask
+    STORE_TYPE = rffi.SIGNEDCHAR
+    UNSIGNED_TYPE = rffi.UCHAR
+    LONG_TYPE = rffi.SHORT
+    ULONG_TYPE = rffi.USHORT
+elif SUPPORT_INT128:
     SHIFT = 63
     UDIGIT_TYPE = r_ulonglong
     if LONG_BIT >= 64:
@@ -49,6 +62,8 @@ else:
 
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
+GCD_CHUNK_BITS = min(8, SHIFT)
+GCD_CHUNK_MASK = ((1 << GCD_CHUNK_BITS) - 1) << (SHIFT - GCD_CHUNK_BITS)
 
 # For BIGINT and INT mix.
 #
@@ -89,12 +104,12 @@ else:
 
 KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
-# For exponentiation, use the binary left-to-right algorithm
-# unless the exponent contains more than FIVEARY_CUTOFF digits.
-# In that case, do 5 bits at a time.  The potential drawback is that
-# a table of 2**5 intermediate results is computed.
-
-FIVEARY_CUTOFF = 8
+# For larger exponents, use a sliding window and precompute the 16 odd
+# powers base**1, base**3, ..., base**31.  The cutoff is in bits, independent
+# of the digit representation.
+EXP_WINDOW_SIZE = 5
+EXP_TABLE_SIZE = 1 << (EXP_WINDOW_SIZE - 1)
+EXP_WINDOW_CUTOFF = 120
 
 @specialize.argtype(0)
 def _mask_digit(x):
@@ -103,12 +118,14 @@ def _mask_digit(x):
 def _widen_digit(x):
     return rffi.cast(LONG_TYPE, x)
 
+@specialize.argtype(0)
 def _unsigned_widen_digit(x):
     return rffi.cast(ULONG_TYPE, x)
 
 @specialize.argtype(0)
 def _store_digit(x):
-    return rffi.cast(STORE_TYPE, x)
+    # Preserve the plain-int digit interface even with byte-sized storage.
+    return UDIGIT_MASK(rffi.cast(STORE_TYPE, x))
 
 def _load_unsigned_digit(x):
     return rffi.cast(UNSIGNED_TYPE, x)
@@ -377,10 +394,14 @@ class rbigint(object):
 
             accum |= c << accumbits
             accumbits += 8
-            if accumbits >= SHIFT:
+            while accumbits >= SHIFT:
                 digits.append(_store_digit(intmask(accum & MASK)))
                 accum >>= SHIFT
                 accumbits -= SHIFT
+                # Native limbs are wider than a byte, so at most one limb
+                # can finish per input byte.  This folds away the backedge.
+                if SHIFT >= 8:
+                    break
 
         if accumbits:
             digits.append(_store_digit(intmask(accum)))
@@ -933,6 +954,8 @@ class rbigint(object):
         return self.int_floordiv(iother)
 
     def mod(self, other):
+        if other.numdigits() == 1:
+            return self.int_mod(other.digit(0) * other.get_sign())
         div, mod = self.divmod(other)
         return mod
 
@@ -1085,10 +1108,6 @@ class rbigint(object):
         othersign = other.get_sign()
         negativeOutput = False  # if x<0 return negative output
 
-        # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == self**i % modulus for i in range(32).
-        # python translation: the table is computed when needed.
-
         if othersign < 0:  # if exponent is negative
             if modulus is not None:
                 raise TypeError(
@@ -1096,7 +1115,7 @@ class rbigint(object):
                     "cannot be negative when 3rd argument specified")
             raise ValueError("bigint pow() too negative")
 
-        size_b = UDIGIT_TYPE(other.numdigits())
+        size_b = UINDEX_TYPE(other.numdigits())
 
         if modulus is not None:
             modulussign = modulus.get_sign()
@@ -1112,12 +1131,17 @@ class rbigint(object):
             if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
+            if othersign == 0:
+                if negativeOutput:
+                    return ONERBIGINT.sub(modulus)
+                return ONERBIGINT
+
             # Reduce base by modulus in some cases:
             # 1. If base < 0.  Forcing the base non-neg makes things easier.
             # 2. If base is obviously larger than the modulus.  The "small
             #    exponent" case later can multiply directly by base repeatedly,
-            #    while the "large exponent" case multiplies directly by base 31
-            #    times.  It can be unboundedly faster to multiply by
+            #    while the sliding-window case precomputes powers of base.
+            #    It can be unboundedly faster to multiply by
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
@@ -1146,71 +1170,58 @@ class rbigint(object):
         # At this point self, other, and modulus are guaranteed non-negative UNLESS
         # modulus is NULL, in which case self may be negative. */
 
-        z = ONERBIGINT
-
-        # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
-        # into helper function result = _help_mult(x, y, c)
-        if size_b <= FIVEARY_CUTOFF:
-            # Left-to-right binary exponentiation (HAC Algorithm 14.79)
-            # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-
-            while size_b > 0:
-                size_b -= 1
-                bi = other.digit(size_b)
-                j = 1 << (SHIFT-1)
-                while j != 0:
+        if size_b == 1 and other.digit(0) <= 3:
+            z = _help_pow_small(self, intmask(other.digit(0)), modulus)
+        elif not _help_pow_use_window(other):
+            # The highest set bit supplies the initial base.  Process only
+            # the bits below it, rather than repeatedly squaring one.
+            size_b -= 1
+            bi = other.digit(size_b)
+            j = (UDIGIT_TYPE(1) << (bits_in_digit(bi) - 1)) >> 1
+            z = self
+            while True:
+                while j:
                     z = _help_mult(z, z, modulus)
                     if bi & j:
                         z = _help_mult(z, self, modulus)
                     j >>= 1
-
-
+                if size_b == 0:
+                    break
+                size_b -= 1
+                bi = other.digit(size_b)
+                j = UDIGIT_TYPE(1) << (SHIFT - 1)
         else:
-            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where modulus != None.
-            # z still holds 1L
-            table = [z] * 32
-            table[0] = z
-            for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], self, modulus)
-
-            # Note that here SHIFT is not a multiple of 5.  The difficulty
-            # is to extract 5 bits at a time from 'other', starting from the
-            # most significant digits, so that at the end of the algorithm
-            # it falls exactly to zero.
-            # m  = max number of bits = i * SHIFT
-            # m+ = m rounded up to the next multiple of 5
-            # j  = (m+) % SHIFT = (m+) - (i * SHIFT)
-            # (computed without doing "i * SHIFT", which might overflow)
-            j = size_b % 5
-            j = _jmapping[j]
-            if not we_are_translated():
-                assert j == (size_b*SHIFT+4)//5*5 - size_b*SHIFT
-            #
-            accum = r_uint(0)
+            # Left-to-right sliding windows.  pending starts at a set bit
+            # and holds at most EXP_WINDOW_SIZE bits, even across limbs.
+            square = _help_mult(self, self, modulus)
+            table = [self] * EXP_TABLE_SIZE
+            for i in range(1, len(table)):
+                table[i] = _help_mult(table[i - 1], square, modulus)
+            z = ONERBIGINT
+            pending = 0
+            blen = 0
+            size_b -= 1
+            bi = other.digit(size_b)
+            j = UDIGIT_TYPE(1) << (bits_in_digit(bi) - 1)
             while True:
-                j -= 5
-                if j >= 0:
-                    index = (accum >> j) & 0x1f
-                else:
-                    # 'accum' does not have enough digit.
-                    # must get the next digit from 'other' in order to complete
-                    if size_b == 0:
-                        break # Done
-
-                    size_b -= 1
-                    assert size_b >= 0
-                    bi = other.udigit(size_b)
-                    index = ((accum << (-j)) | (bi >> (j+SHIFT))) & 0x1f
-                    accum = bi
-                    j += SHIFT
-                #
-                for k in range(5):
-                    z = _help_mult(z, z, modulus)
-                if index:
-                    z = _help_mult(z, table[index], modulus)
-            #
-            assert j == -5
+                while j:
+                    pending = (pending << 1) | int((bi & j) != 0)
+                    if pending:
+                        blen += 1
+                        if blen == EXP_WINDOW_SIZE:
+                            z = _help_pow_window(z, pending, blen, table, modulus)
+                            pending = 0
+                            blen = 0
+                    else:
+                        z = _help_mult(z, z, modulus)
+                    j >>= 1
+                if size_b == 0:
+                    break
+                size_b -= 1
+                bi = other.digit(size_b)
+                j = UDIGIT_TYPE(1) << (SHIFT - 1)
+            if pending:
+                z = _help_pow_window(z, pending, blen, table, modulus)
 
         if negativeOutput and z.get_sign() != 0:
             z = z.sub(modulus)
@@ -1219,10 +1230,6 @@ class rbigint(object):
     @jit.elidable
     def int_pow(self, iother, modulus=None):
         negativeOutput = False  # if x<0 return negative output
-
-        # 5-ary values.  If the exponent is large enough, table is
-        # precomputed so that table[i] == self**i % modulus for i in range(32).
-        # python translation: the table is computed when needed.
 
         if iother < 0:  # if exponent is negative
             if modulus is not None:
@@ -1233,6 +1240,8 @@ class rbigint(object):
 
         selfsign = self.get_sign()
         assert iother >= 0
+        if EXP_WINDOW_CUTOFF < LONG_BIT - 1 and iother >> EXP_WINDOW_CUTOFF:
+            return self.pow(rbigint.fromint(iother), modulus)
         if modulus is not None:
             modulussign = modulus.get_sign()
             if modulussign == 0:
@@ -1247,12 +1256,17 @@ class rbigint(object):
             if modulus.numdigits() == 1 and modulus._digits[0] == ONEDIGIT:
                 return NULLRBIGINT
 
+            if iother == 0:
+                if negativeOutput:
+                    return ONERBIGINT.sub(modulus)
+                return ONERBIGINT
+
             # Reduce base by modulus in some cases:
             # 1. If base < 0.  Forcing the base non-neg makes things easier.
             # 2. If base is obviously larger than the modulus.  The "small
             #    exponent" case later can multiply directly by base repeatedly,
-            #    while the "large exponent" case multiplies directly by base 31
-            #    times.  It can be unboundedly faster to multiply by
+            #    while the sliding-window case precomputes powers of base.
+            #    It can be unboundedly faster to multiply by
             #    base % modulus instead.
             # We could _always_ do this reduction, but mod() isn't cheap,
             # so we only do it when it buys something.
@@ -1279,17 +1293,16 @@ class rbigint(object):
         # At this point self, iother, and modulus are guaranteed non-negative UNLESS
         # modulus is NULL, in which case self may be negative. */
 
-        z = ONERBIGINT
-
-        # Left-to-right binary exponentiation (HAC Algorithm 14.79)
-        # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-        j = 1 << (LONG_BIT-2)
-
-        while j != 0:
-            z = _help_mult(z, z, modulus)
-            if iother & j:
-                z = _help_mult(z, self, modulus)
-            j >>= 1
+        if iother <= 3:
+            z = _help_pow_small(self, iother, modulus)
+        else:
+            z = self
+            j = (1 << (bit_length_int(iother) - 1)) >> 1
+            while j:
+                z = _help_mult(z, z, modulus)
+                if iother & j:
+                    z = _help_mult(z, self, modulus)
+                j >>= 1
 
         if negativeOutput and z.get_sign() != 0:
             z = z.sub(modulus)
@@ -1427,8 +1440,7 @@ class rbigint(object):
             return self
         selfsign = self.get_sign()
         if selfsign == -1 and not dont_invert:
-            a = self.invert().rshift(int_other)
-            return a.invert()
+            return _rshift_negative(self, int_other)
 
         wordshift = int_other / SHIFT
         newsize = self.numdigits() - wordshift
@@ -1639,7 +1651,7 @@ class rbigint(object):
         c = (self.bit_length() - 1) // 2
         a = ONERBIGINT
         d = 0
-        for s in range(bits_in_digit(_store_digit(c)) - 1, -1, -1):
+        for s in range(bits_in_digit(c) - 1, -1, -1):
             # Loop invariant: (a-1)**2 < (self >> 2*(c - d)) < (a+1)**2
             e = d
             d = c >> s
@@ -1656,14 +1668,6 @@ ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
 
 TWO_NULLRBIGINTS = (NULLRBIGINT, NULLRBIGINT)
-
-_jmapping = [(5 * SHIFT) % 5,
-             (4 * SHIFT) % 5,
-             (3 * SHIFT) % 5,
-             (2 * SHIFT) % 5,
-             (1 * SHIFT) % 5]
-
-
 
 #_________________________________________________________________
 
@@ -1682,6 +1686,48 @@ def _help_mult(x, y, c):
         res = res.mod(c)
 
     return res
+
+
+def _help_pow_small(base, exponent, modulus):
+    assert 1 <= exponent <= 3
+    if exponent == 1:
+        if modulus is not None:
+            return base.mod(modulus)
+        return base
+    result = _help_mult(base, base, modulus)
+    if exponent == 3:
+        result = _help_mult(result, base, modulus)
+    return result
+
+
+def _help_pow_use_window(exponent):
+    nbits = exponent.bit_length()
+    if nbits <= EXP_WINDOW_CUTOFF:
+        return False
+    # Binary exponentiation takes nbits + popcount - 2 multiplications.
+    # Windows take EXP_TABLE_SIZE + nbits + nwin, where each window
+    # consumes EXP_WINDOW_SIZE bits (except possibly the final window).
+    # Use that upper bound to ensure the table's setup cost is worthwhile,
+    # including for exponents with widely separated set bits.
+    max_windows = (nbits - 1) // EXP_WINDOW_SIZE + 1
+    return exponent.bit_count() > EXP_TABLE_SIZE + max_windows + 2
+
+
+def _help_pow_window(z, pending, blen, table, modulus):
+    # A window updates z to z**(2**blen) * base**pending.  Write
+    # pending = odd * 2**ntz.  Strip its trailing zeroes to index table,
+    # then perform those zero-bit squarings after the multiplication.
+    assert pending > 0 and blen > 0
+    ntz = 0
+    while pending & 1 == 0:
+        pending >>= 1
+        ntz += 1
+    for i in range(blen - ntz):
+        z = _help_mult(z, z, modulus)
+    z = _help_mult(z, table[pending >> 1], modulus)
+    for i in range(ntz):
+        z = _help_mult(z, z, modulus)
+    return z
 
 @specialize.argtype(0)
 def digits_from_nonneg_long(l):
@@ -1747,7 +1793,7 @@ def _x_add(a, b):
         a, b = b, a
         size_a, size_b = size_b, size_a
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = UDIGIT_TYPE(0)
+    i = UINDEX_TYPE(0)
     carry = UDIGIT_TYPE(0)
     while i < size_b:
         carry += a.udigit(i) + b.udigit(i)
@@ -1768,7 +1814,7 @@ def _x_int_add(a, b):
     size_a = a.numdigits()
 
     z = rbigint([NULLDIGIT] * (size_a + 1), 1)
-    i = UDIGIT_TYPE(1)
+    i = UINDEX_TYPE(1)
     carry = a.udigit(0) + abs(b)
     z.setdigit(0, carry)
     carry >>= SHIFT
@@ -1808,7 +1854,7 @@ def _x_sub(a, b):
 
     z = rbigint([NULLDIGIT] * size_a, sign, size_a)
     borrow = UDIGIT_TYPE(0)
-    i = _load_unsigned_digit(0)
+    i = UINDEX_TYPE(0)
     while i < size_b:
         # The following assumes unsigned arithmetic
         # works modulo 2**N for some N>SHIFT.
@@ -1845,7 +1891,7 @@ def _x_int_sub(a, b):
         return rbigint.fromint(adigit - bdigit)
 
     z = rbigint([NULLDIGIT] * size_a, 1, size_a)
-    i = _load_unsigned_digit(1)
+    i = UINDEX_TYPE(1)
     # The following assumes unsigned arithmetic
     # works modulo 2**N for some N>SHIFT.
     borrow = a.udigit(0) - bdigit
@@ -1887,7 +1933,7 @@ def _x_mul(a, b, digit=0):
         # via exploiting that each entry in the multiplication
         # pyramid appears twice (except for the size_a squares).
         z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-        i = UDIGIT_TYPE(0)
+        i = UINDEX_TYPE(0)
         while i < size_a:
             f = a.uwidedigit(i)
             pz = i << 1
@@ -1931,9 +1977,9 @@ def _x_mul(a, b, digit=0):
     # use the following identity to reduce the number of operations
     # a * b = a_0*b_0 + sum_{i=1}^n(a_0*b_i + a_1*b_{i-1}) + a_1*b_n
     z = rbigint([NULLDIGIT] * (size_a + size_b), 1)
-    i = UDIGIT_TYPE(0)
-    size_a1 = UDIGIT_TYPE(size_a - 1)
-    size_b1 = UDIGIT_TYPE(size_b - 1)
+    i = UINDEX_TYPE(0)
+    size_a1 = UINDEX_TYPE(size_a - 1)
+    size_b1 = UINDEX_TYPE(size_b - 1)
     while i < size_a1:
         f0 = a.uwidedigit(i)
         f1 = a.uwidedigit(i + 1)
@@ -1942,7 +1988,7 @@ def _x_mul(a, b, digit=0):
         z.setdigit(pz, carry)
         pz += 1
         carry >>= SHIFT
-        j = UDIGIT_TYPE(0)
+        j = UINDEX_TYPE(0)
         while j < size_b1:
             # this operation does not overflow using
             # SHIFT = (LONG_BIT // 2) - 1 = B - 1; in fact before it
@@ -2000,6 +2046,23 @@ def _kmul_split(n, size):
     hi._normalize()
     return hi, lo
 
+def _k_lopsided_mul(a, b):
+    """Multiply a by successive a-sized slices of the much larger b."""
+    asize = a.numdigits()
+    bsize = b.numdigits()
+    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+    offset = 0
+    while offset < bsize:
+        end = min(offset + asize, bsize)
+        chunk = rbigint(b._digits[offset:end], 1)
+        chunk._normalize()
+        product = a.mul(chunk)
+        _v_iadd(ret, offset, ret.numdigits() - offset,
+                product, product.numdigits())
+        offset = end
+    ret._normalize()
+    return ret
+
 def _k_mul(a, b):
     """
     Karatsuba multiplication.  Ignores the input signs, and returns the
@@ -2008,6 +2071,9 @@ def _k_mul(a, b):
     """
     asize = a.numdigits()
     bsize = b.numdigits()
+
+    if a is not b and asize * 2 <= bsize:
+        return _k_lopsided_mul(a, b)
 
     # (ah*X+al)(bh*X+bl) = ah*bh*X*X + (ah*bl + al*bh)*X + al*bl
     # Let k = (ah+al)*(bh+bl) = ah*bl + al*bh  + ah*bh + al*bl
@@ -2025,20 +2091,6 @@ def _k_mul(a, b):
     if a is b:
         ah = bh
         al = bl
-    elif asize <= shift:
-        # a is more than 2x smaller than b. it's important that we still use
-        # .mul to get karatsuba for sub-parts. the computation is just:
-        # a*(bh*X+bl) = a*bh*X + a*bl
-
-        # multiply lower bits, copy into result
-        t1 = a.mul(bl)
-        for i in range(t1.numdigits()):
-            ret._digits[i] = t1._digits[i]
-        t2 = a.mul(bh)
-        i = ret.numdigits() - shift  # digits after shift
-        carry = _v_iadd(ret, shift, i, t2, t2.numdigits())
-        ret._normalize()
-        return ret
     else:
         ah, al = _kmul_split(a, shift)
 
@@ -2177,14 +2229,20 @@ def _divrem1(a, n):
 
 def _int_rem_core(a, digit):
     # digit must be positive
-    size = UDIGIT_TYPE(a.numdigits() - 1)
+    size = UINDEX_TYPE(a.numdigits() - 1)
 
     if size > 0:
-        wrem = a.widedigit(size)
+        udivisor = UDIGIT_TYPE(digit)
+        # Reduce the top digit first so the carried remainder fits in one
+        # digit.  All arithmetic here is on nonnegative magnitudes.
+        urem = a.udigit(size) % udivisor
+        wdivisor = _unsigned_widen_digit(udivisor)
         while size > 0:
             size -= 1
-            wrem = ((wrem << SHIFT) | a.digit(size)) % digit
-        rem = _store_digit(wrem)
+            wrem = ((_unsigned_widen_digit(urem) << SHIFT) |
+                    _unsigned_widen_digit(a.udigit(size)))
+            urem = UDIGIT_TYPE(wrem % wdivisor)
+        rem = _store_digit(urem)
     else:
         rem = _store_digit(a.digit(0) % digit)
 
@@ -2200,7 +2258,7 @@ def _v_iadd(x, xofs, m, y, n):
     carry = UDIGIT_TYPE(0)
 
     assert m >= n
-    i = _load_unsigned_digit(xofs)
+    i = UINDEX_TYPE(xofs)
     iend = xofs + n
     while i < iend:
         carry += x.udigit(i) + y.udigit(i-xofs)
@@ -2225,7 +2283,7 @@ def _v_isub(x, xofs, m, y, n):
     borrow = UDIGIT_TYPE(0)
 
     assert m >= n
-    i = _load_unsigned_digit(xofs)
+    i = UINDEX_TYPE(xofs)
     iend = xofs + n
     while i < iend:
         borrow = x.udigit(i) - y.udigit(i-xofs) - borrow
@@ -2277,6 +2335,64 @@ def _v_lshift(z, a, m, d):
     last = m - 1
     assert last >= 0
     return a.udigit(last) >> e
+
+@always_inline
+def _has_discarded_bits(a, shift):
+    """Whether shifting the magnitude of a right by shift loses set bits."""
+    # Equivalent to: not a.abs().eq(a.abs().rshift(shift).lshift(shift))
+    assert shift >= 0
+    wordshift = shift // SHIFT
+    if wordshift >= a.numdigits():
+        return a.get_sign() != 0
+    bitshift = shift % SHIFT
+    if a.udigit(wordshift) & ((UDIGIT_TYPE(1) << bitshift) - 1):
+        return True
+    for i in range(wordshift):
+        if a.digit(i):
+            return True
+    return False
+
+
+def _rshift_negative(a, shift):
+    """Shift a negative integer, rounding its magnitude up if bits are lost."""
+    assert a.get_sign() == -1 and shift > 0
+    wordshift = shift // SHIFT
+    size = a.numdigits() - wordshift
+    if size <= 0:
+        return ONENEGATIVERBIGINT
+    loshift = shift % SHIFT
+    if size == 1 and a.digit(wordshift) >> loshift == 0:
+        return ONENEGATIVERBIGINT
+
+    # For magnitude A = q*2**shift + r, floor(-A/2**shift) is
+    # -(q + (r != 0)).  Examine discarded bits without constructing r.
+    discarded = _has_discarded_bits(a, shift)
+
+    # Rounding can add a limb when shifting by a whole number of limbs:
+    # the retained magnitude might consist entirely of MASK digits.
+    # A partial-limb shift leaves enough headroom in the highest digit.
+    extra = int(loshift == 0 and discarded)
+    z = rbigint([NULLDIGIT] * (size + extra), -1)
+    carry = UDIGIT_TYPE(int(discarded))
+    accum = a.udigit(wordshift) >> loshift
+    hishift = SHIFT - loshift
+    for i in range(size - 1):
+        nextdigit = a.udigit(wordshift + i + 1)
+        # Unsigned shifts may wrap; only the low SHIFT bits are needed.
+        digit = ((nextdigit << hishift) | accum) & MASK
+        digit += carry
+        z.setdigit(i, digit)
+        carry = digit >> SHIFT
+        accum = nextdigit >> loshift
+    digit = accum + carry
+    z.setdigit(UINDEX_TYPE(size - 1), digit)
+    if extra:
+        z.setdigit(size, digit >> SHIFT)
+    else:
+        assert digit >> SHIFT == 0
+    z._normalize()
+    return z
+
 
 def _v_rshift(z, a, m, d):
     """ Shift digit vector a[0:m] d bits right, with 0 <= d < SHIFT. Put
@@ -2706,11 +2822,18 @@ def _AsDouble(n):
     sign = n.get_sign()
     if sign == 0:
         return 0.0
+    if n.numdigits() == 1:
+        # A digit fits in a signed machine integer.  The hardware conversion
+        # rounds it directly to the nearest double.
+        ad = float(n.digit(0))
+        return -ad if sign < 0 else ad
     elif sign < 0:
         n = n.neg()
 
     # Find exponent: 2**(exp - 1) <= n < 2**exp
     exp = n.bit_length()
+    if exp > DBL_MAX_EXP:
+        raise OverflowError("integer too large to convert to float")
 
     # Get top DBL_MANT_DIG + 2 significant bits of n, with a 'sticky'
     # last bit: that is, the least significant bit of the result is 1
@@ -2722,19 +2845,19 @@ def _AsDouble(n):
             assert q == n.tolong() << shift   # no masking actually done
     else:
         shift = -shift
-        n2 = n.rshift(shift)
-        q = _AsULonglong_mask(n2)
+        assert shift > 0
+        q = _AsULonglong_shifted(n, shift)
         if not we_are_translated():
-            assert q == n2.tolong()           # no masking actually done
-        if not n.eq(n2.lshift(shift)):
+            assert q == n.tolong() >> shift  # no masking actually done
+        # Equivalent to: not n.eq(n.rshift(shift).lshift(shift))
+        if _has_discarded_bits(n, shift):
             q |= 1
 
     # Now remove the excess 2 bits, rounding to nearest integer (with
     # ties rounded to even).
     q = (q >> 2) + r_uint((bool(q & 2) and bool(q & 5)))
 
-    if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
-                             q == r_ulonglong(1) << DBL_MANT_DIG):
+    if exp == DBL_MAX_EXP and q == r_ulonglong(1) << DBL_MANT_DIG:
         raise OverflowError("integer too large to convert to float")
 
     ad = math.ldexp(float(q), exp - DBL_MANT_DIG)
@@ -3435,6 +3558,26 @@ def _AsULonglong_ignore_sign(v):
         i -= 1
     return x
 
+@always_inline
+def _AsULonglong_shifted(n, shift):
+    """Convert nonnegative n >> shift to r_ulonglong; the result must fit."""
+    # Equivalent to: _AsULonglong_mask(n.rshift(shift))
+    assert n.get_sign() >= 0 and shift >= 0
+    if not we_are_translated():
+        assert n.bit_length() - shift <= r_ulonglong.BITS
+    wordshift = shift // SHIFT
+    if wordshift >= n.numdigits():
+        return r_ulonglong(0)
+    bitshift = shift % SHIFT
+    q = r_ulonglong(n.udigit(wordshift) >> bitshift)
+    offset = SHIFT - bitshift
+    for i in range(wordshift + 1, n.numdigits()):
+        # Since the result fits, each remaining limb starts below bit 64.
+        q |= r_ulonglong(n.udigit(i)) << offset
+        offset += SHIFT
+    return q
+
+
 def make_unsigned_mask_conversion(T):
     def _As_unsigned_mask(v):
         x = T(0)
@@ -3702,6 +3845,87 @@ def lehmer_xgcd(a, b):
 
     return s_old, t_old, s_new, t_new
 
+
+def _lehmer_widen_coefficient(c):
+    # Widen the magnitude before applying the sign.  In untranslated mode,
+    # rffi.cast to a signed 128-bit type zero-extends negative machine ints.
+    # TODO: Fix ll2ctypes.force_cast's emulated c_int128 construction: it
+    # initializes only the low uint64 word, leaving the high word zero
+    # instead of sign-extending negative inputs.  Then use _widen_digit
+    # directly and remove this workaround.
+    if c < 0:
+        return -_widen_digit(-c)
+    return _widen_digit(c)
+
+
+def _lehmer_update(a, b, s_new, t_new, s_old, t_old):
+    """Return abs(s_new*a + t_new*b), abs(s_old*a + t_old*b).
+
+    Inputs are nonnegative, with a at least as many digits as b.  Each
+    coefficient has absolute value <= MASK.  No input storage is modified.
+    """
+    size_a = a.numdigits()
+    size_b = b.numdigits()
+    assert a.get_sign() >= 0 and b.get_sign() >= 0
+    assert size_a >= size_b
+    assert -MASK <= s_new <= MASK and -MASK <= t_new <= MASK
+    assert -MASK <= s_old <= MASK and -MASK <= t_old <= MASK
+
+    # Write B = 2**SHIFT, M = B-1.  With |carry| <= 2*M, each
+    # accumulator has magnitude <= 2*M*M + 2*M = 2*B*(B-1).
+    # This fits signed double-width arithmetic, whose range includes
+    # [-2*B*B, 2*B*B-1].  Arithmetic right shift restores the carry bound.
+    sn = _lehmer_widen_coefficient(s_new)
+    tn = _lehmer_widen_coefficient(t_new)
+    so = _lehmer_widen_coefficient(s_old)
+    to = _lehmer_widen_coefficient(t_old)
+    carry_new = _widen_digit(0)
+    carry_old = _widen_digit(0)
+    new_a = rbigint([NULLDIGIT] * (size_a + 2), 1)
+    new_b = rbigint([NULLDIGIT] * (size_a + 2), 1)
+    i = 0
+    while i < size_b:
+        adigit = a.widedigit(i)
+        bdigit = b.widedigit(i)
+        carry_new += sn * adigit + tn * bdigit
+        carry_old += so * adigit + to * bdigit
+        new_a.setdigit(i, carry_new)
+        new_b.setdigit(i, carry_old)
+        carry_new >>= SHIFT
+        carry_old >>= SHIFT
+        i += 1
+    while i < size_a:
+        adigit = a.widedigit(i)
+        carry_new += sn * adigit
+        carry_old += so * adigit
+        new_a.setdigit(i, carry_new)
+        new_b.setdigit(i, carry_old)
+        carry_new >>= SHIFT
+        carry_old >>= SHIFT
+        i += 1
+
+    _lehmer_finish(new_a, size_a, carry_new)
+    _lehmer_finish(new_b, size_a, carry_old)
+    return new_a, new_b
+
+
+def _lehmer_finish(result, size, carry):
+    # After the digit loop, S = low_digits + carry * B**size.  A negative
+    # carry means S < 0.  Complement-plus-one gives abs(S)'s low digits;
+    # its high part is -carry-1, plus the carry out of that addition.
+    if carry < 0:
+        carry_bit = UDIGIT_TYPE(1)
+        for i in range(size):
+            digit = (UDIGIT_TYPE(MASK) ^ result.udigit(i)) + carry_bit
+            result.setdigit(i, digit)
+            carry_bit = digit >> SHIFT
+        carry = -carry - 1 + intmask(carry_bit)
+    # |carry| <= 2*MASK, so at most two additional digits are needed.
+    result.setdigit(size, carry)
+    result.setdigit(size + 1, carry >> SHIFT)
+    result._normalize()
+
+
 @jit.elidable
 def gcd_lehmer(a, b):
     if a.lt(b):
@@ -3711,9 +3935,9 @@ def gcd_lehmer(a, b):
         a_ms = a.digit(abs(a.numdigits()-1))
 
         x = 0
-        while a_ms & (0xFF << SHIFT-8) == 0:
-            a_ms <<= 8
-            x += 8
+        while a_ms & GCD_CHUNK_MASK == 0:
+            a_ms <<= GCD_CHUNK_BITS
+            x += GCD_CHUNK_BITS
 
         while a_ms & (1 << SHIFT-1) == 0:
             a_ms <<= 1
@@ -3734,9 +3958,7 @@ def gcd_lehmer(a, b):
 
         s_old, t_old, s_new, t_new = lehmer_xgcd(a_ms, b_ms)
 
-        n_a = a.int_mul(s_new).add(b.int_mul(t_new)).abs()
-        b = a.int_mul(s_old).add(b.int_mul(t_old)).abs()
-        a = n_a
+        a, b = _lehmer_update(a, b, s_new, t_new, s_old, t_old)
 
         if a.lt(b):
             a, b = b, a
