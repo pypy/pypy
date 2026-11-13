@@ -1112,7 +1112,11 @@ class Path(PurePath):
     def walk(self, top_down=True, on_error=None, follow_symlinks=False):
         """Walk the directory tree from this directory, similar to os.walk()."""
         sys.audit("pathlib.Path.walk", self, on_error, follow_symlinks)
-        str(self)   # cache _str now, not from deep inside the loop below
+        # PyPy change: cache the parsed parts and _str now, not from deep
+        # inside the loop below.  _load_parts() first: it is the deepest
+        # call, and this keeps __str__ and the drive property off the top
+        self._load_parts()
+        str(self)
         paths = [self]
 
         while paths:

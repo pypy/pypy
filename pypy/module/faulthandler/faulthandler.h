@@ -40,6 +40,10 @@ RPY_EXTERN void pypy_faulthandler_sigsegv(void);
 RPY_EXTERN int pypy_faulthandler_sigfpe(void);
 RPY_EXTERN void pypy_faulthandler_sigabrt(void);
 RPY_EXTERN double pypy_faulthandler_stackoverflow(double);
+#ifdef _WIN32
+RPY_EXTERN void pypy_faulthandler_raise_exception(unsigned int code,
+                                                 unsigned int flags);
+#endif
 
 
 #endif  /* PYPY_FAULTHANDLER_H */

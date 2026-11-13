@@ -314,6 +314,41 @@ _GetVolumePathNameW = rffi.llexternal(
     save_err=rffi.RFFI_SAVE_LASTERROR)
 
 
+_GetVolumePathNamesForVolumeNameW = rffi.llexternal(
+    'GetVolumePathNamesForVolumeNameW',
+    [rffi.CWCHARP, rffi.CWCHARP, rwin32.DWORD, rwin32.LPDWORD],
+    rwin32.BOOL,
+    compilation_info=eci,
+    save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+def win32_listmounts(utf8):
+    """The mount points of the volume 'utf8', as a list of utf8 strings."""
+    ncp = codepoints_in_utf8(utf8)
+    size = rwin32.MAX_PATH + 1
+    with rffi.scoped_utf82wcharp(utf8, ncp) as volume:
+        with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as cch:
+            while True:
+                with lltype.scoped_alloc(rffi.CWCHARP.TO, size) as buf:
+                    if _GetVolumePathNamesForVolumeNameW(
+                            volume, buf, rffi.cast(rwin32.DWORD, size), cch):
+                        lgt = rffi.cast(lltype.Signed, cch[0])
+                        if lgt <= 1:
+                            return []     # no mount point
+                        # NUL-separated strings; the returned length counts
+                        # the last one's NUL and the final one too
+                        return rffi.wcharpsize2utf8(
+                            buf, lgt - 2).split('\x00')
+                    if rwin32.GetLastError_saved() != ERROR_MORE_DATA:
+                        raise rwin32.lastSavedWindowsError(
+                            "GetVolumePathNamesForVolumeNameW")
+                    needed = rffi.cast(lltype.Signed, cch[0])
+                    if needed <= size:
+                        raise rwin32.lastSavedWindowsError(
+                            "GetVolumePathNamesForVolumeNameW")
+                    size = needed
+
+
 def win32_listdrives():
     """The drives in the system, as a list of utf8 strings."""
     # the number of drives is bounded, so 256 wchars is always enough

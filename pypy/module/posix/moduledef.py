@@ -195,6 +195,7 @@ corresponding Unix manual entries for more information on calls."""
                 '_getvolumepathname': 'interp_posix._getvolumepathname',
                 '_path_isdevdrive': 'interp_posix._path_isdevdrive',
                 'listdrives': 'interp_posix.listdrives',
+                'listmounts': 'interp_posix.listmounts',
                 'listvolumes': 'interp_posix.listvolumes',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
                 'set_handle_inheritable': 'interp_posix.set_handle_inheritable',

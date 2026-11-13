@@ -114,3 +114,8 @@ pypy_faulthandler_sigabrt = direct_llexternal(
 
 pypy_faulthandler_stackoverflow = direct_llexternal(
     'pypy_faulthandler_stackoverflow', [lltype.Float], lltype.Float)
+
+if sys.platform == 'win32':
+    pypy_faulthandler_raise_exception = direct_llexternal(
+        'pypy_faulthandler_raise_exception', [rffi.UINT, rffi.UINT],
+        lltype.Void)

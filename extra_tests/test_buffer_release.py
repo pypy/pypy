@@ -244,6 +244,16 @@ def _run_selector(coro):
         return runner.run(coro)
 
 
+def _small_socketpair():
+    # the write only stays in the transport's buffer if the socket cannot take
+    # all of it: windows otherwise accepts megabytes in a single send()
+    a, b = socket.socketpair()
+    for sock in (a, b):
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 16 * 1024)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 16 * 1024)
+    return a, b
+
+
 def _transport_send(write):
     async def main():
         loop = asyncio.get_running_loop()
@@ -293,7 +303,7 @@ def test_transport_buffered_bytearray_then_resize():
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,
@@ -329,7 +339,7 @@ def test_transport_partial_send_keeps_export():
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,
@@ -367,7 +377,7 @@ def test_transport_write_memoryview_then_release(writelines):
 
     async def main():
         loop = asyncio.get_running_loop()
-        a, b = socket.socketpair()
+        a, b = _small_socketpair()
         b.setblocking(False)
         with b:
             transport, _ = await loop.create_connection(asyncio.Protocol,

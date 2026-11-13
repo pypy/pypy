@@ -424,7 +424,15 @@ def convert_to_regdata(space, w_value, typ):
             if space.is_none(w_value):
                 value = r_uint(0)
             else:
-                value = space.c_uint_w(w_value)
+                # CPython uses PyLong_AsUnsignedLong(), which reports a
+                # negative value as an OverflowError
+                try:
+                    value = space.c_uint_w(w_value)
+                except OperationError as e:
+                    if not e.match(space, space.w_ValueError):
+                        raise
+                    raise oefmt(space.w_OverflowError,
+                                "can't convert negative value to unsigned int")
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
             buf1[0] = rffi.cast(rffi.UINT, value)
@@ -435,7 +443,13 @@ def convert_to_regdata(space, w_value, typ):
             if space.is_none(w_value):
                 value = r_ulonglong(0)
             else:
-                value = space.r_ulonglong_w(w_value)
+                try:
+                    value = space.r_ulonglong_w(w_value)
+                except OperationError as e:
+                    if not e.match(space, space.w_ValueError):
+                        raise
+                    raise oefmt(space.w_OverflowError,
+                                "can't convert negative value to unsigned int")
             buflen = rffi.sizeof(rffi.ULONGLONG)
             buf1 = lltype.malloc(rffi.CArray(rffi.ULONGLONG), 1, flavor='raw')
             buf1[0] = rffi.cast(rffi.ULONGLONG, value)

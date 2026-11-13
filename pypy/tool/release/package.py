@@ -366,6 +366,9 @@ def create_package(basedir, options, _fake=False):
                         raise WindowsError("tcl86t.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 copytree(str(tktcldir), str(pypydir.join('tcl')))
+                # for testing, as with the dlls above: lib_pypy/_tkinter
+                # looks for the script libraries in basedir/tcl
+                copytree(str(tktcldir), str(basedir.join('tcl')))
             except WindowsError:
                 print("Packaging Tk runtime failed. tk86t.dll and tcl86t.dll "
                       "found in %s, expecting to find runtime in %s directory "

@@ -2001,6 +2001,9 @@ dir_fd and follow_symlinks may not be available on your platform.
             raise oefmt(space.w_NotImplementedError,
                         "utime: unsupported value for 'path'")
         do_utimes(space, rposix.lutimes, path.as_bytes, utime)
+    elif _WIN32 and follow_symlinks:
+        # SetFileTime() stores 100 ns, so do not go through do_utimes()
+        do_utime_ns(space, path, utime)
     elif follow_symlinks:
         do_utimes(space, _dispatch_utime, path, utime)
     else:
@@ -2069,6 +2072,21 @@ def do_utimes(space, func, arg, utime):
     except OSError as e:
         # see comment above: don't use wrap_oserror2()
         raise wrap_oserror(space, e, eintr_retry=False)
+
+def do_utime_ns(space, path, utime):
+    """windows implementation for utime(), which keeps the nanoseconds"""
+    now, atime_s, atime_ns, mtime_s, mtime_ns = utime
+    path_b = path.as_bytes
+    assert path_b is not None
+    try:
+        if now:
+            rposix.utime(path_b, None)
+        else:
+            rposix.utime_ns(path_b, atime_s, atime_ns, mtime_s, mtime_ns)
+    except OSError as e:
+        # see comment above: don't use wrap_oserror2()
+        raise wrap_oserror(space, e, eintr_retry=False)
+
 
 @specialize.argtype(1)
 def _dispatch_utime(path, times):
@@ -2795,6 +2813,19 @@ if _WIN32:
         return space.newlist([space.newtext(d, codepoints_in_utf8(d))
                               for d in drives])
 
+    @unwrap_spec(volume='fsencode')
+    def listmounts(space, volume):
+        """listmounts(volume) -> list of strings
+
+        Return a list containing the mount points for a volume."""
+        space.audit("os.listmounts", [space.newtext(volume)])
+        try:
+            mounts = nt.win32_listmounts(volume)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        return space.newlist([space.newtext(m, codepoints_in_utf8(m))
+                              for m in mounts])
+
     def listvolumes(space):
         """listvolumes() -> list of strings
 
@@ -3032,21 +3063,9 @@ def _get_terminal_size(space, w_fd=None):
             fd = space.c_int_w(w_fd)
 
     if _WIN32:
-        if fd == 0:
-            handle_id = rwin32.STD_INPUT_HANDLE
-        elif fd == 1:
-            handle_id = rwin32.STD_OUTPUT_HANDLE
-        elif fd == 2:
-            handle_id = rwin32.STD_ERROR_HANDLE
-        else:
-            raise oefmt(space.w_ValueError, "bad file descriptor")
-
-        handle = rwin32.GetStdHandle(handle_id)
-
-        if handle == rwin32.NULL_HANDLE:
-            raise oefmt(space.w_OSError, "handle cannot be retrieved")
-        elif handle == rwin32.INVALID_HANDLE_VALUE:
-            raise rwin32.lastSavedWindowsError()
+        # any fd of a console will do, not just the three standard ones:
+        # CONOUT$ opened by hand is the one test_os checks
+        handle = rwin32.get_osfhandle(fd)
         with lltype.scoped_alloc(rwin32.CONSOLE_SCREEN_BUFFER_INFO) as buffer_info:
             success = rwin32.GetConsoleScreenBufferInfo(handle, buffer_info)
             if not success:
