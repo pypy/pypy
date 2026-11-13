@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import pytest
 
@@ -228,11 +230,11 @@ class DependencyBaseTest(BaseTest):
     def debug_print_operations(self, loop):
         print('--- loop instr numbered ---')
         for i,op in enumerate(loop.operations):
-            print "[",i,"]",op,
+            print("[", i, "]", op, end=' ')
             if op.is_guard():
-                print op.getfailargs()
+                print(op.getfailargs())
             else:
-                print ""
+                print("")
 
     def assert_memory_ref_adjacent(self, m1, m2):
         assert m1.is_adjacent_to(m2)
