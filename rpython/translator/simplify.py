@@ -555,7 +555,7 @@ def remove_identical_vars_SSA(graph):
     entrymap.pop(graph.exceptblock, None)
     inputs = {}
     for block, links in entrymap.items():
-        phis = zip(block.inputargs, zip(*[link.args for link in links]))
+        phis = list(zip(block.inputargs, zip(*[link.args for link in links])))
         inputs[block] = phis
 
     def simplify_phis(block):
@@ -589,7 +589,7 @@ def remove_identical_vars_SSA(graph):
     for block, links in entrymap.items():
         if inputs[block]:
             new_inputs, new_args = zip(*inputs[block])
-            new_args = map(list, zip(*new_args))
+            new_args = [list(args) for args in zip(*new_args)]
         else:
             new_inputs = []
             new_args = [[] for _ in links]
@@ -983,7 +983,7 @@ class ListComprehensionDetector(object):
                                                     avoid=loopnextblock))
             assert loopheader[0] is newlistblock
             escapes = False
-            for block in loopheader + loopbody.keys():
+            for block in loopheader + list(loopbody):
                 assert self.vlist_alive(block)
                 if self.vlist_escapes(block):
                     escapes = True

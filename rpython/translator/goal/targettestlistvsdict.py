@@ -17,8 +17,8 @@ def debug(msg):
 # __________  Entry point  __________
 
 numbers = range(1000, 5000)
-test_list = map(str, numbers)
-test_dict = dict(map(lambda x: (x, str(x)), numbers))
+test_list = [str(x) for x in numbers]
+test_dict = dict((x, str(x)) for x in numbers)
 
 def entry_point(argv):
     if argv[1] == 'd':

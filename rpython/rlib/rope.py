@@ -238,7 +238,6 @@ class LiteralStringNode(LiteralNode):
             repr(addinfo).replace('"', '').replace("\\", "\\\\")))
 LiteralStringNode.EMPTY = LiteralStringNode("")
 LiteralStringNode.PREBUILT = [LiteralStringNode(chr(i)) for i in range(256)]
-del i
 
 
 class LiteralUnicodeNode(LiteralNode):
