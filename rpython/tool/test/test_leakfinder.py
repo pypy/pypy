@@ -63,8 +63,9 @@ def test_traceback():
     assert 'leakfinder.remember_malloc(x)' in tb
 
 def test_malloc_mismatch():
-    import sys, traceback, cStringIO
-    sio = cStringIO.StringIO()
+    import sys, traceback
+    from rpython.tool.twothree import StringIO
+    sio = StringIO()
     traceback.print_stack(sys._getframe(), limit=10, file=sio)
     tb = sio.getvalue()
     e = leakfinder.MallocMismatch({id(1234): (1234, tb),

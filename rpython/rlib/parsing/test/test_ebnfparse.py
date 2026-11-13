@@ -6,7 +6,6 @@ from rpython.rlib.parsing.parsing import PackratParser, Symbol, ParseError, Rule
 from rpython.rlib.parsing.ebnfparse import parse_ebnf, make_parse_function
 from rpython.rlib.parsing.test.test_parse import EvaluateVisitor
 
-from sets import Set
 
 def test_simple():
     regexs, rules, transformer = parse_ebnf("""

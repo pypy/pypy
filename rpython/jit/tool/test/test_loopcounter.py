@@ -1,4 +1,4 @@
-from cStringIO import StringIO
+from rpython.tool.twothree import StringIO
 from rpython.jit.tool.loopcounter import count_loops_and_bridges
 
 def test_loopcounter():

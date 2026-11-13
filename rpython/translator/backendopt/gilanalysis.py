@@ -33,8 +33,8 @@ def analyze(graphs, translator):
         if func and getattr(func, '_no_release_gil_', False):
             if gilanalyzer.analyze_direct_call(graph):
                 # 'no_release_gil' function can release the gil
-                import cStringIO
-                err = cStringIO.StringIO()
+                from rpython.tool.twothree import StringIO
+                err = StringIO()
                 import sys
                 prev = sys.stdout
                 try:

@@ -1,4 +1,4 @@
-import md5    # for comparison
+from hashlib import md5    # for comparison
 from rpython.rlib import rmd5
 
 
@@ -62,8 +62,8 @@ def test_more():
 
     for input in cases:
         d = rmd5.RMD5(input)
-        assert d.hexdigest() == md5.md5(input).hexdigest()
-        assert d.digest() == md5.md5(input).digest()
+        assert d.hexdigest() == md5(input).hexdigest()
+        assert d.digest() == md5(input).digest()
 
 
 def test_long():
@@ -77,15 +77,15 @@ def test_long():
 
     for input in cases:
         d = rmd5.RMD5(input)
-        assert d.hexdigest() == md5.md5(input).hexdigest()
-        assert d.digest() == md5.md5(input).digest()
+        assert d.hexdigest() == md5(input).hexdigest()
+        assert d.digest() == md5(input).digest()
 
 
 def test_updating_many_times():
     "Test with an increasingly growing message."
 
     d1 = rmd5.RMD5()
-    d2 = md5.md5()
+    d2 = md5()
     for i in range(300):
         d1.update(chr(i & 0xFF))
         d2.update(chr(i & 0xFF))
@@ -121,7 +121,7 @@ def test_copy():
     # Load both with same prefix.    
     prefix1 = 2**10 * 'a'
 
-    m1 = md5.md5()
+    m1 = md5()
     m1.update(prefix1)
 
     m2 = rmd5.RMD5()

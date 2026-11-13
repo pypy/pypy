@@ -167,7 +167,7 @@ class TestJIT(BaseRtypingTest):
             return g(x * 2, x)
 
         import dis
-        from StringIO import StringIO
+        from rpython.tool.twothree import StringIO
         import sys
 
         s = StringIO()

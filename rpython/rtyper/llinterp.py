@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-import cStringIO
+from rpython.tool.twothree import StringIO
 import os
 import sys
 import traceback
@@ -45,7 +45,7 @@ class LLException(Exception):
         etype = self.args[0]
         #evalue = self.args[1]
         if len(self.args) > 2:
-            f = cStringIO.StringIO()
+            f = StringIO()
             original_type, original_value, original_tb = self.args[2]
             traceback.print_exception(original_type, original_value, original_tb,
                                       file=f)

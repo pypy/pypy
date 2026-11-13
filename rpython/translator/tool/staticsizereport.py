@@ -1,5 +1,5 @@
 from __future__ import print_function, division
-import cPickle as pickle
+import pickle
 
 from rpython.tool.ansicolor import red, yellow, green
 from rpython.rtyper.lltypesystem.lltype import typeOf, _ptr, Ptr, ContainerType
@@ -210,7 +210,7 @@ def dump_static_data_info(log, database, targetdir):
     info.by_type = aggregate_values_by_type(database)
     info.unknown_graphs = get_unknown_graphs_names(database)
     infofile = targetdir.join('staticdata.info')
-    f = infofile.open('w')
+    f = infofile.open('wb')
     pickle.dump(info, f)
     f.close()
     log.info('static data information dumped to %s' % infofile)
@@ -241,7 +241,7 @@ def print_report(filename,
                  summary=False,
                  show_unknown_graphs=False,
                  human_readable=False):
-    f = open(filename)
+    f = open(filename, 'rb')
     info = pickle.load(f)
     f.close()
     reports = getattr(info, kind)
