@@ -2,6 +2,7 @@
 from rpython.jit.tl.braininterp import BrainInterpreter
 
 from rpython.tool.twothree import StringIO
+
 def run_code(code, inp):
     inp_s = StringIO(inp)
     out = StringIO()

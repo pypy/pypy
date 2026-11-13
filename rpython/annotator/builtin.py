@@ -193,10 +193,12 @@ from rpython.tool.twothree import builtins
 # iteration would change the dict being iterated over
 for name, value in list(globals().items()):
     if name.startswith('builtin_'):
-        # unicode, unichr and friends are not built-ins on Python 3
-        original = getattr(builtins, name[8:], None)
-        if original is not None:
-            BUILTIN_ANALYZERS[original] = value
+        # unicode and unichr are not built-ins on Python 3
+        if (name[8:] in ('unicode', 'unichr')
+                and not hasattr(builtins, 'unicode')):
+            continue
+        original = getattr(builtins, name[8:])
+        BUILTIN_ANALYZERS[original] = value
 
 
 @analyzer_for(getattr(object.__init__, 'im_func', object.__init__))

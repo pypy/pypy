@@ -82,6 +82,7 @@ class TestCompile(object):
     def test_print(self):
         import sys
         from rpython.tool.twothree import StringIO
+
         code = compile('''
         name:
         RETURN r0

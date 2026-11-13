@@ -31,7 +31,15 @@ except ImportError:
 try:
     import thread
 except ImportError:
-    import _thread as thread
+    try:
+        import _thread as thread
+    except ImportError:
+        import dummy_thread as thread
+
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest as zip_longest
 
 try:
     intern = sys.intern

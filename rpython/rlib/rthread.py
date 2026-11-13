@@ -115,10 +115,7 @@ def get_ident():
     if we_are_translated():
         return tlfield_thread_ident.getraw()
     else:
-        try:
-            from rpython.tool.twothree import thread
-        except ImportError:
-            return 42
+        from rpython.tool.twothree import thread
         return thread.get_ident()
 
 def get_or_make_ident():
