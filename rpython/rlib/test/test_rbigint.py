@@ -991,6 +991,20 @@ class Test_rbigint(object):
                     res2 = getattr(operator, mod)(x, y)
                     assert res1 == res2
 
+    def test_bitwise_unequal_lengths(self):
+        large = (1 << (100 * SHIFT)) | (1 << (17 * SHIFT)) | 7
+        small = (1 << SHIFT) | 3
+        for x, y in ((large, small), (small, large)):
+            for sign_x in (-1, 1):
+                for sign_y in (-1, 1):
+                    a = sign_x * x
+                    b = sign_y * y
+                    ra = rbigint.fromlong(a)
+                    rb = rbigint.fromlong(b)
+                    for mod in "xor and_ or_".split():
+                        assert getattr(ra, mod)(rb).tolong() == getattr(
+                            operator, mod)(a, b)
+
     def test_int_bitwise(self):
         for x in gen_signs(long_vals):
             lx = rbigint.fromlong(x)
@@ -1546,7 +1560,7 @@ class TestTranslatable(object):
         def fn(x, shift):
             a = rbigint.fromint(x).lshift(2 * SHIFT).int_sub(1)
             return a.rshift(shift).eq(a.invert().rshift(shift).invert())
-        for args in [(-MASK, 1), (-1, SHIFT), (0, sys.maxint)]:
+        for args in [(-MASK, 1), (-1, SHIFT), (0, sys.maxsize)]:
             assert interpret(fn, list(args))
 
     def test_lehmer_update(self):
@@ -1564,7 +1578,7 @@ class TestTranslatable(object):
             e = rbigint.fromint(exponent).lshift(SHIFT + 3).int_add(31)
             m = rbigint.fromint(modulus)
             return a.int_pow(exponent, m).toint(), a.pow(e, m).toint()
-        for args in [(-17, 3, -1009), (17, sys.maxint, 1009)]:
+        for args in [(-17, 3, -1009), (17, sys.maxsize, 1009)]:
             a, e, m = args
             expected = pow(a, e, m), pow(a, (e << (SHIFT + 3)) + 31, m)
             result = interpret(fn, list(args))
@@ -1793,7 +1807,7 @@ class TestHypothesis(object):
         m = rbigint.fromlong(modulus)
         expected = pow(base, exponent, modulus)
         assert a.pow(e, m).tolong() == expected
-        if exponent <= sys.maxint:
+        if exponent <= sys.maxsize:
             assert a.int_pow(int(exponent), m).tolong() == expected
 
     @given(longs, longs, longs)
@@ -2401,7 +2415,7 @@ class TestPowAlgorithms(object):
                          sum(1 << (i * 8) for i in range(17))]:
             expected_calls = exponent.bit_length() - 1 + bin(exponent).count('1') - 1
             for int_exponent in [False, True]:
-                if int_exponent and exponent > sys.maxint:
+                if int_exponent and exponent > sys.maxsize:
                     continue
                 del calls[:]
                 if int_exponent:
@@ -2447,7 +2461,7 @@ class TestPowAlgorithms(object):
                 del calls[:]
                 assert a.pow(e, c).tolong() == expected
                 assert len(calls) <= binary_calls
-                if exponent <= sys.maxint:
+                if exponent <= sys.maxsize:
                     del calls[:]
                     assert a.int_pow(int(exponent), c).tolong() == expected
                     assert len(calls) <= binary_calls
@@ -2459,7 +2473,7 @@ class TestDiscardedBits(object):
         magnitudes = {0, 1}
         for bit in range(4 * m.SHIFT + 1):
             magnitudes.update([1 << bit, (1 << bit) - 1, (1 << bit) + 1])
-        shifts = list(range(4 * m.SHIFT + 2)) + [sys.maxint]
+        shifts = list(range(4 * m.SHIFT + 2)) + [sys.maxsize]
         for magnitude in sorted(magnitudes):
             for sign in [-1, 1]:
                 a = m.rbigint.fromlong(sign * magnitude)
@@ -2494,7 +2508,7 @@ class TestNegativeRshift(object):
             shifts = [0, 1, m.SHIFT - 1, m.SHIFT, m.SHIFT + 1,
                       2 * m.SHIFT - 1, 2 * m.SHIFT, 2 * m.SHIFT + 1,
                       magnitude.bit_length() - 1, magnitude.bit_length(),
-                      magnitude.bit_length() + 1, sys.maxint]
+                      magnitude.bit_length() + 1, sys.maxsize]
             for shift in shifts:
                 assert a.rshift(shift).tolong() == -magnitude >> shift
                 assert a.rshift(shift, dont_invert=True).tolong() == -(magnitude >> shift)

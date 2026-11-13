@@ -3417,23 +3417,45 @@ def _bitwise(a, op, b): # '&', '|', '^'
 
     z = rbigint([NULLDIGIT] * size_z, 1, size_z)
     i = 0
-    while i < size_z:
-        if i < size_a:
-            diga = a.digit(i) ^ maska
-        else:
-            diga = maska
-        if i < size_b:
-            digb = b.digit(i) ^ maskb
-        else:
-            digb = maskb
+    common_size = min(size_a, size_b)
+    if common_size > size_z:
+        common_size = size_z
+    # Every iteration reads and writes independent digits.  Keep the
+    # bounds and operation dispatch outside this loop for vectorization.
+    if op == '&':
+        while i < common_size:
+            z.setdigit(i, (a.digit(i) ^ maska) & (b.digit(i) ^ maskb))
+            i += 1
+    elif op == '|':
+        while i < common_size:
+            z.setdigit(i, (a.digit(i) ^ maska) | (b.digit(i) ^ maskb))
+            i += 1
+    else:
+        while i < common_size:
+            z.setdigit(i, (a.digit(i) ^ maska) ^ (b.digit(i) ^ maskb))
+            i += 1
 
+    if i < size_z:
+        if size_a < size_b:
+            longer = b
+            mask_long = maskb
+            mask_short = maska
+        else:
+            longer = a
+            mask_long = maska
+            mask_short = maskb
         if op == '&':
-            z.setdigit(i, diga & digb)
+            while i < size_z:
+                z.setdigit(i, (longer.digit(i) ^ mask_long) & mask_short)
+                i += 1
         elif op == '|':
-            z.setdigit(i, diga | digb)
-        elif op == '^':
-            z.setdigit(i, diga ^ digb)
-        i += 1
+            while i < size_z:
+                z.setdigit(i, (longer.digit(i) ^ mask_long) | mask_short)
+                i += 1
+        else:
+            while i < size_z:
+                z.setdigit(i, (longer.digit(i) ^ mask_long) ^ mask_short)
+                i += 1
 
     z._normalize()
     if negz == 0:
@@ -3500,24 +3522,28 @@ def _int_bitwise(a, op, b): # '&', '|', '^'
         size_z = size_a
 
     z = rbigint([NULLDIGIT] * size_z, 1, size_z)
-    i = 0
-    while i < size_z:
-        if i < size_a:
-            diga = a.digit(i) ^ maska
-        else:
-            diga = maska
-        if i == 0:
-            digb = b ^ maskb
-        else:
-            digb = maskb
+    diga = a.digit(0) ^ maska
+    digb = b ^ maskb
+    if op == '&':
+        z.setdigit(0, diga & digb)
+    elif op == '|':
+        z.setdigit(0, diga | digb)
+    else:
+        z.setdigit(0, diga ^ digb)
 
-        if op == '&':
-            z.setdigit(i, diga & digb)
-        elif op == '|':
-            z.setdigit(i, diga | digb)
-        elif op == '^':
-            z.setdigit(i, diga ^ digb)
-        i += 1
+    i = 1
+    if op == '&':
+        while i < size_z:
+            z.setdigit(i, (a.digit(i) ^ maska) & maskb)
+            i += 1
+    elif op == '|':
+        while i < size_z:
+            z.setdigit(i, (a.digit(i) ^ maska) | maskb)
+            i += 1
+    else:
+        while i < size_z:
+            z.setdigit(i, (a.digit(i) ^ maska) ^ maskb)
+            i += 1
 
     z._normalize()
     if negz == 0:
