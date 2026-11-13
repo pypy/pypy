@@ -260,8 +260,7 @@ class TestRandom:
         for comp in result:
             vertices += comp
         vertices.sort()
-        expected = edges.keys()
-        expected.sort()
+        expected = sorted(edges.keys())
         assert vertices == expected
 
     @given(edges())

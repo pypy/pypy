@@ -341,7 +341,7 @@ class LowLevelDatabase(object):
                     # if 'finish' is a generator, consume the next element
                     # and put the generator again in the queue
                     try:
-                        newdependencies = finish.next()
+                        newdependencies = next(finish)
                         finish_callbacks.insert(0, (None, finish))
                     except StopIteration:
                         newdependencies = None
@@ -383,8 +383,7 @@ class LowLevelDatabase(object):
                     produce(othernode)
                 result.append(node)
                 seen.add(node)
-        nodes = self.structdefnodes.values()
-        nodes.sort(key=lambda x: x.name)
+        nodes = sorted(self.structdefnodes.values(), key=lambda x: x.name)
         for node in nodes:
             produce(node)
         return result

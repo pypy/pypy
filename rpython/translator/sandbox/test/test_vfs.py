@@ -54,8 +54,7 @@ def test_realdir_realfile():
             v_udir = RealDir(str(udir), show_dotfiles = show_dotfiles,
                                         follow_links  = follow_links)
             v_test_vfs = v_udir.join('test_vfs')
-            names = v_test_vfs.keys()
-            names.sort()
+            names = sorted(v_test_vfs.keys())
             assert names == (show_dotfiles * ['.hidden', '.subdir2'] +
                                           ['file1', 'file2', 'subdir1'] +
                              HASLINK * ['symlink1', 'symlink2', 'symlink3'])

@@ -112,7 +112,7 @@ class Bookkeeper(object):
             for call_op in self.annotator.call_sites():
                 self.consider_call_site(call_op)
 
-            for pbc, args_s in self.emulated_pbc_calls.itervalues():
+            for pbc, args_s in self.emulated_pbc_calls.values():
                 args = simple_args(args_s)
                 pbc.consider_call_site(args, s_ImpossibleValue, None)
             self.emulated_pbc_calls = {}
@@ -137,7 +137,7 @@ class Bookkeeper(object):
                 if s_value_or_def in seen:
                     return
                 seen.add(s_value_or_def)
-                for attr in s_value_or_def.attrs.itervalues():
+                for attr in s_value_or_def.attrs.values():
                     s_attr = attr.s_value
                     check_no_flags(s_attr)
             elif isinstance(s_value_or_def, ListItem):
@@ -430,8 +430,7 @@ class Bookkeeper(object):
 
     def getmethoddesc(self, funcdesc, originclassdef, selfclassdef, name,
                       flags={}):
-        flagskey = flags.items()
-        flagskey.sort()
+        flagskey = sorted(flags.items())
         key = funcdesc, originclassdef, selfclassdef, name, tuple(flagskey)
         try:
             return self.methoddescs[key]
@@ -587,7 +586,7 @@ def origin_of_meth(boundmeth):
         dict = cls.__dict__
         if dict.get(candname) is func:
             return cls, candname
-        for name, value in dict.iteritems():
+        for name, value in dict.items():
             if value is func:
                 return cls, name
     raise AnnotatorError("could not match bound-method to attribute name: %r" % (boundmeth,))

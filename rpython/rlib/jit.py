@@ -890,8 +890,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             self.annotate_hooks(**kwds_s)
 
         driver = self.instance.im_self
-        keys = kwds_s.keys()
-        keys.sort()
+        keys = sorted(kwds_s.keys())
         expected = ['s_' + name for name in driver.greens + driver.reds
                                 if '.' not in name]
         expected.sort()

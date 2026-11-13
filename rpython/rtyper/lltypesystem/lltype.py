@@ -91,8 +91,7 @@ def safe_equal(x, y, TLS=TLS):
 class frozendict(dict):
 
     def __hash__(self):
-        items = self.items()
-        items.sort()
+        items = sorted(self.items())
         return hash(tuple(items))
 
 
@@ -147,8 +146,8 @@ class LowLevelType(object):
                 pass
         if hash_level >= 3:
             return 0
-        items = self.__dict__.items()
-        items.sort()
+        # the keys are distinct, so the values are never compared
+        items = sorted(self.__dict__.items())
         TLS.nested_hash_level = hash_level + 1
         try:
             result = hash((self.__class__,) + tuple(items))

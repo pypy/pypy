@@ -83,7 +83,7 @@ class SimpleTaskEngine(object):
 
     def _depending_on(self, goal):
         l = []
-        for task_name, (task, task_deps) in self.tasks.iteritems():
+        for task_name, (task, task_deps) in self.tasks.items():
             if goal in task_deps:
                 l.append(task_name)
         return l

@@ -62,12 +62,12 @@ def iter_first_callsites(graph, calling_what):
     # have changed
     while 1:
         iterator = iter_callsites(graph, calling_what)
-        yield iterator.next()
+        yield next(iterator)
 
 def contains_call(graph, calling_what):
     try:
         iterator = iter_callsites(graph, calling_what)
-        iterator.next()
+        next(iterator)
         return True
     except StopIteration:
         return False

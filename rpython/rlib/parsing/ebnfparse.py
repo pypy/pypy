@@ -385,8 +385,7 @@ class TransformerMaker(Codebuilder):
         for expansion, subchange in zip(rule.expansions, change):
             len_partition.setdefault(len(expansion), []).append(
                 (expansion, subchange))
-        len_partition = len_partition.items()
-        len_partition.sort()
+        len_partition = sorted(len_partition.items())
         last_length = len_partition[-1][0]
         self.emit("length = len(node.children)")
         for length, items in len_partition:
@@ -406,8 +405,7 @@ class TransformerMaker(Codebuilder):
                         expansion = item[0]
                         symbol = expansion[i]
                         symbols.setdefault(symbol, []).append((pos, item))
-                    symbols = symbols.items()
-                    symbols.sort()
+                    symbols = sorted(symbols.items())
                     remove = []
                     for symbol, subitems in symbols:
                         if (len(subitems) == 1 and

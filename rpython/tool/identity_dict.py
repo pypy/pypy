@@ -25,7 +25,7 @@ class IdentityDictPurePython(MutableMapping):
         del self._dict[id(arg)]
 
     def __iter__(self):
-        return self._keys.itervalues()
+        return iter(self._keys.values())
 
     def __len__(self):
         return len(self._keys)
@@ -35,7 +35,7 @@ class IdentityDictPurePython(MutableMapping):
 
     def copy(self):
         d = type(self)()
-        d.update(self.iteritems())
+        d.update(self.items())
         assert len(d) == len(self)
         return d
 
@@ -65,7 +65,7 @@ class IdentityDictPyPy(MutableMapping):
 
     def copy(self):
         d = type(self)()
-        d.update(self.iteritems())
+        d.update(self.items())
         assert len(d) == len(self)
         return d
 

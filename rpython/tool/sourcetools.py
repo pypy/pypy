@@ -225,8 +225,7 @@ def compile_template(source, resultname):
     if locals is caller.f_globals:
         localnames = []
     else:
-        localnames = locals.keys()
-        localnames.sort()
+        localnames = sorted(locals.keys())
     values = [locals[key] for key in localnames]
 
     source = source.putaround(

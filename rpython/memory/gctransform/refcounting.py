@@ -111,7 +111,7 @@ class RefcountingGCTransformer(GCTransformer):
         from rpython.translator.backendopt.malloc import remove_mallocs
         seen = {}
         graphs = []
-        for fptr in self.static_deallocator_funcptrs.itervalues():
+        for fptr in self.static_deallocator_funcptrs.values():
             graph = fptr._obj.graph
             if graph in seen:
                 continue

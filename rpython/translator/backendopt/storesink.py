@@ -24,7 +24,7 @@ def storesink_graph(graph):
     entrymap = mkentrymap(graph)
 
     # all merge blocks are starting points
-    todo = [(block, None, None) for (block, prev_blocks) in entrymap.iteritems()
+    todo = [(block, None, None) for (block, prev_blocks) in entrymap.items()
                 if len(prev_blocks) > 1 or block is graph.startblock]
 
     visited = 0
@@ -66,7 +66,7 @@ def _translate_cache(cache, link):
         else:
             return arg
     new_cache = {}
-    for (var, field), res in cache.iteritems():
+    for (var, field), res in cache.items():
         if var in local_versions or not isinstance(var, Variable):
             new_cache[_translate_arg(var), field] = _translate_arg(res)
     return new_cache

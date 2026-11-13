@@ -133,7 +133,7 @@ class Driver(object):
         """ Emits a colourful character. """
         x = c = 0
         try:
-            x, y, c = self.gen.next()
+            x, y, c = next(self.gen)
             if x == 0:
                 width = get_terminal_width()
                 if width != self.width:
