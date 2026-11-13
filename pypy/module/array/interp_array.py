@@ -215,8 +215,12 @@ class W_ArrayBase(W_BufferExporter):
                     some += size >> 3
                 else:
                     some = 0
-                self.allocated = size + some
-                byte_size = self.allocated * self.itemsize
+                try:
+                    allocated = ovfcheck(size + some)
+                    byte_size = ovfcheck(allocated * self.itemsize)
+                except OverflowError:
+                    raise MemoryError
+                self.allocated = allocated
                 delta_memory_pressure += byte_size
                 if zero:
                     new_buffer = lltype.malloc(

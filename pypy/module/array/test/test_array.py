@@ -671,6 +671,10 @@ class AppTestArray(object):
 
         raises(MemoryError, "a * self.maxint")
         raises(MemoryError, "a *= self.maxint")
+        with raises(MemoryError):
+            self.array('L', [1, 2]) * ((self.maxint + 1) // 4)
+        with raises(MemoryError):
+            self.array('i', [1]) * ((self.maxint + 1) // 2)
 
         raises(TypeError, "a = self.array('i') + 2")
         raises(TypeError, "self.array('i') + self.array('b')")
