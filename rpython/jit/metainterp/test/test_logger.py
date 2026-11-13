@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import re
-from StringIO import StringIO
+from rpython.tool.twothree import StringIO
 from rpython.rlib import debug
 from rpython.jit.tool.oparser import pure_parse
 from rpython.jit.metainterp import logger

@@ -3,7 +3,7 @@ from rpython.translator.platform.posix import GnuMakefile as Makefile
 from rpython.translator.platform import host
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from StringIO import StringIO
+from rpython.tool.twothree import StringIO
 import re, sys, py
 
 def test_simple_makefile():

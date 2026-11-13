@@ -33,7 +33,7 @@ from rpython.rtyper import raddress
 from rpython.translator.platform import platform
 from array import array
 try:
-    from thread import _local as tlsobject
+    from threading import local as tlsobject
 except ImportError:
     class tlsobject(object):
         pass

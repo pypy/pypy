@@ -1,8 +1,7 @@
 from __future__ import print_function
 
-import itertools
-
 import py
+from rpython.tool.twothree import zip_longest
 from rpython.rlib.objectmodel import r_dict, compute_identity_hash, specialize, dont_inline
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.unroll import unrolling_iterable
@@ -148,7 +147,7 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     text_right = text_right or 'expected'
     memo = {}
     print('%s| %s' % ('optimized'.center(width), text_right.center(width)))
-    for op1, op2 in itertools.izip_longest(oplist1, oplist2, fillvalue=''):
+    for op1, op2 in zip_longest(oplist1, oplist2, fillvalue=''):
         if op1:
             txt1 = op1.repr(memo)
         else:
