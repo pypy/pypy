@@ -5,6 +5,7 @@ from rpython.tool.stdlib_opcode import host_bytecode_spec
 from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
+from rpython.tool.twothree import PY2
 
 try:
     from __pypy__ import _promote
@@ -36,6 +37,7 @@ class BytecodeCorruption(Exception):
     pass
 
 HASJREL = bytearray([_opnum in opcode.hasjrel for _opnum in range(256)])
+HASJABS = bytearray([_opnum in opcode.hasjabs for _opnum in range(256)])
 
 class HostCode(object):
     """
@@ -87,12 +89,7 @@ class HostCode(object):
         and **varkwarg, if they exist."""
         return self.signature.scope_length()
 
-    def read(self, offset):
-        """
-        Decode the instruction starting at position ``offset``.
-
-        Returns (next_offset, opname, oparg).
-        """
+    def read_py2(self, offset):
         co_code = self.co_code
         opnum = ord(co_code[offset])
         next_offset = offset + 1
@@ -118,6 +115,35 @@ class HostCode(object):
             oparg += next_offset
         opname = self.opnames[_promote(opnum)]
         return next_offset, opname, oparg
+
+    def read_wordcode(self, offset):
+        co_code = self.co_code
+        opnum = co_code[offset]
+        oparg = co_code[offset + 1]
+        next_offset = offset + 2
+
+        while opnum == EXTENDED_ARG:
+            opnum = co_code[next_offset]
+            oparg = (oparg << 8) | co_code[next_offset + 1]
+            next_offset += 2
+
+        if HASJREL[opnum]:
+            oparg = next_offset + oparg * 2
+        elif HASJABS[opnum]:
+            oparg = oparg * 2
+        opname = self.opnames[_promote(opnum)]
+        return next_offset, opname, oparg
+
+    def read(self, offset):
+        """
+        Decode the instruction starting at position ``offset``.
+
+        Returns (next_offset, opname, oparg).  The oparg of a jump is the
+        offset of its target.
+        """
+        if PY2:
+            return self.read_py2(offset)
+        return self.read_wordcode(offset)
 
     @property
     def is_generator(self):

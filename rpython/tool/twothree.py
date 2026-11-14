@@ -14,6 +14,8 @@ import inspect
 import sys
 import types
 
+PY2 = sys.version_info[0] == 2
+
 try:
     import builtins
 except ImportError:
