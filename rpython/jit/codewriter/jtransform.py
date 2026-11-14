@@ -703,7 +703,7 @@ class Transformer(object):
 
     def zero_contents(self, ops, v, TYPE):
         if isinstance(TYPE, lltype.Struct):
-            for name, FIELD in TYPE._flds.iteritems():
+            for name, FIELD in TYPE._flds.items():
                 if isinstance(FIELD, lltype.Struct):
                     # substruct
                     self.zero_contents(ops, v, FIELD)

@@ -57,7 +57,7 @@ def print_summary(summary):
         print('%5d' % n, key)
 
 def print_diff(diff):
-    ops = [(d, before, after, key) for key, (d, before, after) in diff.iteritems()]
+    ops = [(d, before, after, key) for key, (d, before, after) in diff.items()]
     ops.sort(reverse=True)
     tot_before = 0
     tot_after = 0

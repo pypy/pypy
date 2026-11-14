@@ -348,7 +348,7 @@ def build_tests():
         except KeyError:
             print('No test generator for %s instructions' % name)
             continue
-        for key, value in getattr(instructions, name).iteritems():
+        for key, value in getattr(instructions, name).items():
             for test_case in func(key, value):
                 define_test(cls, key, test_case, name)
 build_tests()

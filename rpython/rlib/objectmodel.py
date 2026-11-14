@@ -149,7 +149,7 @@ def enforceargs(*types_, **kwds):
             if isinstance(arg, list):
                 return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
-                key, value = next(arg.iteritems())
+                key, value = next(iter(arg.items()))
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
             else:
                 return type(arg)
@@ -887,7 +887,7 @@ class r_dict(object):
     iterkeys = __iter__
 
     def itervalues(self):
-        return self._dict.itervalues()
+        return iter(self._dict.values())
 
     def iteritems(self):
         for dk, value in self._dict.items():
@@ -965,7 +965,7 @@ def iterkeys_with_hash(d):
     return d.iterkeys_with_hash()
 
 def _iteritems_with_hash_untranslated(d):
-    for k, v in d.iteritems():
+    for k, v in d.items():
         yield (k, v, _expected_hash(d, k))
 
 @specialize.call_location()

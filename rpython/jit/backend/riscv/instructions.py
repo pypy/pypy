@@ -270,7 +270,7 @@ def _main():
     # Check whether there are unused supported operand specifications.
     all_instructions_op_specs = set(
         (instr_type, op_spec) for _, instr_type, op_spec, _ in all_instructions)
-    for instr_type, op_specs in _SUPPORTED_OP_SPEC.iteritems():
+    for instr_type, op_specs in _SUPPORTED_OP_SPEC.items():
         for op_spec in op_specs:
             if (instr_type, op_spec) not in all_instructions_op_specs:
                 print('error: Found unused supported operand spec:', \

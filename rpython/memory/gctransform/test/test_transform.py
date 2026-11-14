@@ -153,7 +153,7 @@ def rtype_and_transform(func, inputtypes, transformcls, specialize=True, check=T
         t.view()
     t.checkgraphs()
     if check:
-        for graph, is_borrowed in graphs_borrowed.iteritems():
+        for graph, is_borrowed in graphs_borrowed.items():
             for block in graph.iterblocks():
                 checkblock(block, is_borrowed, block is graph.startblock)
     return t, transformer

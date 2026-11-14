@@ -330,7 +330,7 @@ class ParserCompiler(object):
         self.nonterminal_to_rule = {} # dummy
         self.startsymbol = "" # dummy
         self.parsetablefactory = None # dummy"""]
-        for symbol, number in self.symbol_to_number.iteritems():
+        for symbol, number in self.symbol_to_number.items():
             if self.parser.is_nonterminal(symbol):
                 name = "matched_nonterminals%s" % number
             else:
