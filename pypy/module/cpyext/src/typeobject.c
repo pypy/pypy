@@ -5,6 +5,7 @@ PyType_FromSpec(PyType_Spec *spec)
 {
     return PyType_FromSpecWithBases(spec, NULL);
 }
+
 #ifdef CPYEXT_TESTS
 #ifdef __GNUC__
 __attribute__((visibility("default")))
@@ -17,18 +18,9 @@ _Py_subtype_dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     PyTypeObject *base = pto;
-    /* This wrapper is created on a specific type, call it w_A.
-       We wish to call the dealloc function from one of the base classes of w_A,
-       the first of which is not this function itself.
-       w_obj is an instance of w_A or one of its subclasses. So climb up the
-       inheritance chain until base.c_tp_dealloc is exactly this_func, and then
-       continue on up until they differ.
-       */
-    while (base->tp_dealloc != &_Py_subtype_dealloc)
-    {
-        base = base->tp_base;
-        assert(base);
-    }
+    /* Only a heap type over a C type with a tp_dealloc of its own is given
+       this function, so the dealloc to call is the first one up the chain
+       that differs from it, as in CPython's subtype_dealloc. */
     while (base->tp_dealloc == &_Py_subtype_dealloc)
     {
         base = base->tp_base;
@@ -36,10 +28,7 @@ _Py_subtype_dealloc(PyObject *obj)
     }
     /* Undo the incref of the type done when the instance was allocated, as
        CPython's subtype_dealloc does: not if the base is itself a heap type,
-       since then its dealloc already did it. Unlike CPython, this function is
-       also the tp_dealloc of the built-in types, so it can be reached as
-       "the base's tp_dealloc" from an extension's own tp_dealloc -- the
-       extension owns the decref in that case (this is what Cython emits). */
+       since then its dealloc already did it. */
     int type_needs_decref = (pto->tp_dealloc == &_Py_subtype_dealloc &&
                              pto->tp_flags & Py_TPFLAGS_HEAPTYPE &&
                              !(base->tp_flags & Py_TPFLAGS_HEAPTYPE));
