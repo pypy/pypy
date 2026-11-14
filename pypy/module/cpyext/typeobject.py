@@ -857,12 +857,33 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
 
     # dealloc
+    base_dealloc = lltype.nullptr(PyTypeObject.c_tp_dealloc.TO)
+    if pto.c_tp_base:
+        base_dealloc = pto.c_tp_base.c_tp_dealloc
     if space.gettypeobject(w_type.layout.typedef) is w_type:
         # only for the exact type, like 'space.w_tuple' or 'space.w_list'
         pto.c_tp_dealloc = typedescr.get_dealloc(space)
+    elif not widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
+        # a built-in subtype, sharing the layout of a base: like CPython's
+        # inherit_slots for a static type, copy the base's concrete dealloc.
+        # Nothing increfs a static type, so no decref is owed
+        if base_dealloc:
+            pto.c_tp_dealloc = base_dealloc
+        else:
+            pto.c_tp_dealloc = state.C._PyPy_object_dealloc
+    elif (not base_dealloc or
+          base_dealloc == typedescr.get_dealloc(space) or
+          base_dealloc == typedescr.get_subtype_dealloc(space) or
+          base_dealloc == state.C._PyPy_subtype_dealloc):
+        # a heap subtype whose bases down to the layout typedef are all PyPy
+        # types: the dealloc to run is known here, so install it instead of
+        # the search. It owns the heaptype decref, as CPython's
+        # subtype_dealloc does
+        pto.c_tp_dealloc = typedescr.get_subtype_dealloc(space)
     else:
-        # like CPython, every subtype gets subtype_dealloc, which looks up
-        # the base's dealloc when it runs and owns the heaptype decref
+        # a heap subtype over a C type with a tp_dealloc of its own: like
+        # CPython, subtype_dealloc finds that dealloc when it runs and owns
+        # the heaptype decref
         pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:
