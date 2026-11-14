@@ -406,7 +406,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         self.end_block("class")
 
     def emit_regex_code(self):
-        for regex, matcher in self.matchers.iteritems():
+        for regex, matcher in self.matchers.items():
             with  self.block(
                     "def _regex%s(self):" % (abs(hash(regex)), )):
                 c = self.choice_point()
@@ -432,7 +432,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
                 self.emit("self.last_matched_state = -1")
                 self.emit("self.last_matched_index = -1")
                 self.emit("self.state = -1")
-            for regex, matcher in self.matchers.iteritems():
+            for regex, matcher in self.matchers.items():
                 matcher = str(matcher).replace(
                     "def recognize(runner, i)",
                     "def recognize_%s(runner, i)" % (abs(hash(regex)), ))

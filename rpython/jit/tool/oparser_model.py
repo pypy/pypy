@@ -159,7 +159,7 @@ def get_model(use_mock):
 
         def setvalues(self, **kwds):
             boxes = self.getboxes()
-            for name, value in kwds.iteritems():
+            for name, value in kwds.items():
                 getattr(boxes, name).value = value
 
     model.ExtendedTreeLoop = ExtendedTreeLoop

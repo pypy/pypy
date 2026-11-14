@@ -31,7 +31,7 @@ class VirtualizableInfo(object):
         all_fields = accessor.fields
         static_fields = []
         array_fields = []
-        for name, tp in all_fields.iteritems():
+        for name, tp in all_fields.items():
             if tp == IR_IMMUTABLE_ARRAY:
                 array_fields.append(name)
             elif tp == IR_IMMUTABLE:

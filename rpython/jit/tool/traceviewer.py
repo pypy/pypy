@@ -342,7 +342,7 @@ def main(loopfile, use_threshold, view=True):
             counts.threshold = l[-20]
         else:
             counts.threshold = 0
-        for_print = [(v, k) for k, v in counts.iteritems()]
+        for_print = [(v, k) for k, v in counts.items()]
         for_print.sort()
     else:
         counts = {}

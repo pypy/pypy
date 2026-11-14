@@ -557,10 +557,10 @@ class Checker(object):
         return isinstance(arg, Const) or isinstance(arg, ConstPtr)
 
     def fresh_pointer(self, res):
-        for box, var in self.box_to_z3.iteritems():
+        for box, var in self.box_to_z3.items():
             if box.type == "r" and res is not var:
                 self.solver_add(res != var)
-        for const, z3var in self.constptr_to_z3.iteritems():
+        for const, z3var in self.constptr_to_z3.items():
             self.solver_add(res != z3var)
         self.fresh_pointers.append(res)
 

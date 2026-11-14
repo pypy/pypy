@@ -332,7 +332,7 @@ class CopyStructEntry(ExtRegistryEntry):
                                                      lltype.Signed)
         hop.exception_cannot_occur()
         TP = v_source.concretetype.TO.OF
-        for name, TP in TP._flds.iteritems():
+        for name, TP in TP._flds.items():
             c_name = hop.inputconst(lltype.Void, name)
             v_fld = hop.genop('getinteriorfield', [v_source, v_si, c_name],
                               resulttype=TP)
@@ -353,7 +353,7 @@ def _contains_gcptr(TP):
         if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc':
             return True
         return False
-    for TP in TP._flds.itervalues():
+    for TP in TP._flds.values():
         if _contains_gcptr(TP):
             return True
     return False
