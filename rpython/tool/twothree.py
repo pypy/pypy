@@ -89,6 +89,8 @@ except AttributeError:
 # instance of type, so a check for "type or ClassType" is a check for type.
 ClassType = getattr(types, 'ClassType', type)
 
+StandardError = getattr(builtins, 'StandardError', Exception)
+
 try:
     from urllib.request import urlopen
 except ImportError:
@@ -150,7 +152,7 @@ def is_long(x):
     there an int outside the range of a machine word, which Python 2 would
     have made a long, counts as one."""
     if long is not int:
-        return type(x) is long
+        return isinstance(x, long)
     return type(x) is int and not -sys.maxsize - 1 <= x <= sys.maxsize
 
 
@@ -167,14 +169,15 @@ def is_builtin_type(cls):
 def ordering_from_cmp(cls):
     """Class decorator: the rich comparisons from __cmp__, which Python 3
     ignores.  The class keeps its __hash__."""
-    hash_ = cls.__hash__
+    hash_ = getattr(cls, '__hash__', None)
     cls.__eq__ = lambda self, other: self.__cmp__(other) == 0
     cls.__ne__ = lambda self, other: self.__cmp__(other) != 0
     cls.__lt__ = lambda self, other: self.__cmp__(other) < 0
     cls.__le__ = lambda self, other: self.__cmp__(other) <= 0
     cls.__gt__ = lambda self, other: self.__cmp__(other) > 0
     cls.__ge__ = lambda self, other: self.__cmp__(other) >= 0
-    cls.__hash__ = hash_
+    if hash_ is not None:
+        cls.__hash__ = hash_
     return cls
 
 

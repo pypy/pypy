@@ -7,13 +7,14 @@ import sys
 import gc
 import os
 from subprocess import PIPE, Popen
-from rpython.tool.twothree import native_str, unicode
 
 PY2 = (sys.version_info.major == 2)
-if PY2:
-    text = unicode
-else:
-    text = str
+text = type(u'')
+
+def native_str(data):
+    if isinstance(data, str):
+        return data
+    return data.decode('utf-8', 'surrogateescape')
 
 def run_subprocess(executable, args, env=None, cwd=None):
     if isinstance(args, list) and sys.platform != 'win32':

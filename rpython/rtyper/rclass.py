@@ -20,7 +20,7 @@ from rpython.rtyper.llannotation import SomePtr
 from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper.rmodel import (
     Repr, getgcflavor, inputconst, warning, mangle)
-from rpython.tool.twothree import ClassType
+from rpython.tool.twothree import ClassType, StandardError
 
 
 class FieldListAccessor(object):
@@ -1126,7 +1126,7 @@ def attr_reverse_size(args):
     from rpython.rtyper.lltypesystem.rffi import sizeof
     try:
         return (1, -sizeof(T))
-    except Exception:
+    except StandardError:
         return (0, 0)
 
 # ____________________________________________________________
