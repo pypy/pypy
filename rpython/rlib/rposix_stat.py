@@ -937,4 +937,4 @@ if _WIN32:
         attr = widen(filedata.c_dwFileAttributes)
         if attr & traits.FILE_ATTRIBUTE_REPARSE_POINT:
             return filedata.c_dwReserved0
-        return 0
+        return rffi.cast(rwin32.DWORD, 0)
