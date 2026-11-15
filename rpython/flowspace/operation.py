@@ -17,7 +17,7 @@ from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
 from rpython.annotator.argument import ArgumentsForTranslation
 from rpython.flowspace.specialcase import SPECIAL_CASES
-from rpython.tool.twothree import long, unichr
+from rpython.tool.twothree import is_long, long, unichr
 
 
 NOT_REALLY_CONST = {
@@ -140,7 +140,8 @@ class PureOperation(HLOperation):
                 # result.  The result is probably meant to be sent to
                 # an intmask(), but the 'long' constant confuses the
                 # annotator a lot.
-                if self.can_overflow and type(result) is long:
+                if (self.can_overflow and type(result) is long and
+                        is_long(result)):
                     pass
                 # don't constant-fold getslice on lists, either
                 elif self.opname == 'getslice' and type(result) is list:

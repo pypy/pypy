@@ -9,6 +9,7 @@ from rpython.flowspace.flowcontext import (FlowContext, fixeggblocks)
 from rpython.flowspace.generator import (tweak_generator_graph,
         make_generator_entry_graph)
 from rpython.flowspace.pygraph import PyGraph
+from rpython.tool.twothree import PY2
 
 
 def _assert_rpythonic(func):
@@ -22,7 +23,7 @@ def _assert_rpythonic(func):
         raise ValueError("%r is tagged as @not_rpython" % (func,))
     if func.__doc__ and func.__doc__.lstrip().startswith('NOT_RPYTHON'):
         raise ValueError("%r is tagged as NOT_RPYTHON" % (func,))
-    if func.__code__.co_cellvars:
+    if PY2 and func.__code__.co_cellvars:
         raise ValueError(
 """RPython functions cannot create closures
 Possible causes:

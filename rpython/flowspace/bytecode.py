@@ -36,8 +36,147 @@ def cpython_code_signature(code):
 class BytecodeCorruption(Exception):
     pass
 
+LOCAL_OPS = frozenset(opcode.haslocal)
+NAME_OPS = frozenset(opcode.hasname)
+FREE_OPS = frozenset(opcode.hasfree)
+COMPREHENSIONS = ('<listcomp>', '<dictcomp>', '<setcomp>')
+DEREF_AS_LOCAL = {'LOAD_DEREF': 'LOAD_FAST', 'STORE_DEREF': 'STORE_FAST',
+                  'DELETE_DEREF': 'DELETE_FAST'}
+
+
+def read_wordcode(co_code, offset):
+    """Decode one instruction of PyPy 3 bytecode: two bytes, after any
+    EXTENDED_ARG prefixes.  Returns (next_offset, opnum, oparg)."""
+    opnum = co_code[offset]
+    oparg = co_code[offset + 1]
+    next_offset = offset + 2
+    while opnum == EXTENDED_ARG:
+        opnum = co_code[next_offset]
+        oparg = (oparg << 8) | co_code[next_offset + 1]
+        next_offset += 2
+    return next_offset, opnum, oparg
+
+
+class Segment(object):
+    """The bytecode of a function on PyPy 3, or of a comprehension in it.
+
+    PyPy 3 compiles a comprehension to a nested function, called with the
+    iterator, whose free variables are cells of the function around it.
+    RPython has neither closures nor iterators as arguments, so the
+    comprehension is flowed as part of that function instead: its code gets
+    offsets after the function's own, its locals, constants and names are
+    appended to the function's, and the cells become ordinary locals.
+    """
+    return_offset = None
+    call_offset = None
+
+    def __init__(self, hostcode, code, scope, outer):
+        self.co_code = code.co_code
+        self.is_function = code is outer
+        if self.is_function:
+            self.start = self.local_shift = 0
+            self.const_shift = self.name_shift = 0
+        else:
+            self.start = hostcode.virtual_size
+            self.local_shift = hostcode.co_nlocals
+            self.const_shift = len(hostcode.consts)
+            self.name_shift = len(hostcode.names)
+            hostcode.co_nlocals += code.co_nlocals
+            hostcode.co_varnames.extend(code.co_varnames)
+            hostcode.consts.extend(code.co_consts)
+            hostcode.names.extend(code.co_names)
+        self.end = self.start + len(code.co_code)
+        hostcode.virtual_size = self.end
+        self.index = len(hostcode.segments)
+        hostcode.segments.append(self)
+
+        scope = dict(scope)
+        self.derefs = []
+        for name in code.co_cellvars:
+            if name in code.co_varnames:
+                slot = self.local_shift + code.co_varnames.index(name)
+            else:
+                slot = hostcode.co_nlocals
+                hostcode.co_nlocals += 1
+                hostcode.co_varnames.append(name)
+            scope[name] = slot
+            self.derefs.append(slot)
+        for name in code.co_freevars:
+            if name in scope:
+                self.derefs.append(scope[name])
+            else:
+                self.derefs.append(~outer.co_freevars.index(name))
+
+        self.inlined = {}
+        offset = 0
+        while offset < len(code.co_code):
+            next_offset, opnum, oparg = read_wordcode(code.co_code, offset)
+            if opcode.opname[opnum] == 'LOAD_CONST':
+                const = code.co_consts[oparg]
+                if (getattr(const, 'co_name', None) in COMPREHENSIONS and
+                        not const.co_exceptiontable):
+                    self.inlined[next_offset - 2] = Segment(
+                        hostcode, const, scope, outer)
+            offset = next_offset
+
+    def read(self, offset, opnames):
+        position = offset - self.start
+        next_position, opnum, oparg = read_wordcode(self.co_code, position)
+        opname = opnames[_promote(opnum)]
+        if HASJREL[opnum]:
+            oparg = self.start + next_position + oparg * 2
+        elif HASJABS[opnum]:
+            oparg = self.start + oparg * 2
+        elif opnum in LOCAL_OPS:
+            oparg += self.local_shift
+        elif opname == 'LOAD_CONST':
+            if next_position - 2 in self.inlined:
+                opname = 'LOAD_INLINED'
+                oparg = self.inlined[next_position - 2].index
+            else:
+                oparg += self.const_shift
+        elif opnum in NAME_OPS:
+            oparg += self.name_shift
+        elif opnum in FREE_OPS:
+            slot = self.derefs[oparg]
+            if slot < 0:
+                oparg = ~slot
+            elif opname in DEREF_AS_LOCAL:
+                opname = DEREF_AS_LOCAL[opname]
+                oparg = slot
+        elif opname == 'RETURN_VALUE' and not self.is_function:
+            opname = 'RETURN_INLINED'
+        return self.start + next_position, opname, oparg
+
 HASJREL = bytearray([_opnum in opcode.hasjrel for _opnum in range(256)])
 HASJABS = bytearray([_opnum in opcode.hasjabs for _opnum in range(256)])
+
+
+def parse_exception_table(table):
+    """Decode co_exceptiontable into (start, end, target, depth, lasti)
+    tuples, with the offsets in bytes."""
+    table = bytearray(table)
+    entries = []
+    pos = [0]
+
+    def varint():
+        byte = table[pos[0]]
+        pos[0] += 1
+        value = byte & 63
+        while byte & 64:
+            byte = table[pos[0]]
+            pos[0] += 1
+            value = (value << 6) | (byte & 63)
+        return value
+
+    while pos[0] < len(table):
+        start = varint() * 2
+        end = start + varint() * 2
+        target = varint() * 2
+        depth_lasti = varint()
+        entries.append((start, end, target, depth_lasti >> 1,
+                        bool(depth_lasti & 1)))
+    return entries
 
 class HostCode(object):
     """
@@ -47,7 +186,7 @@ class HostCode(object):
 
     def __init__(self, argcount, nlocals, stacksize, flags,
                  code, consts, names, varnames, filename,
-                 name, firstlineno, lnotab, freevars):
+                 name, firstlineno, lnotab, freevars, exceptiontable=()):
         """Initialize a new code object"""
         assert nlocals >= 0
         self.co_argcount = argcount
@@ -63,13 +202,15 @@ class HostCode(object):
         self.co_name = name
         self.co_firstlineno = firstlineno
         self.co_lnotab = lnotab
+        self.exceptiontable = exceptiontable
+        self.segments = []
         self.signature = cpython_code_signature(self)
 
     @classmethod
     def _from_code(cls, code):
         """Initialize the code object from a real (CPython) one.
         """
-        return cls(code.co_argcount,
+        self = cls(code.co_argcount,
                    code.co_nlocals,
                    code.co_stacksize,
                    code.co_flags,
@@ -81,7 +222,29 @@ class HostCode(object):
                    code.co_name,
                    code.co_firstlineno,
                    code.co_lnotab,
-                   list(code.co_freevars))
+                   list(code.co_freevars),
+                   parse_exception_table(
+                       getattr(code, 'co_exceptiontable', b'')))
+        if not PY2:
+            self.virtual_size = 0
+            Segment(self, code, {}, code)
+        return self
+
+    def segment_at(self, offset):
+        for segment in self.segments:
+            if segment.start <= offset < segment.end:
+                return segment
+        return None
+
+    def outer_offset(self, offset):
+        """The offset in the function itself that ``offset`` belongs to:
+        for an instruction of an inlined comprehension, where it is
+        called."""
+        segment = self.segment_at(offset)
+        while segment is not None and segment.call_offset is not None:
+            offset = segment.call_offset
+            segment = self.segment_at(offset)
+        return offset
 
     @property
     def formalargcount(self):
@@ -116,23 +279,29 @@ class HostCode(object):
         opname = self.opnames[_promote(opnum)]
         return next_offset, opname, oparg
 
-    def read_wordcode(self, offset):
-        co_code = self.co_code
-        opnum = co_code[offset]
-        oparg = co_code[offset + 1]
-        next_offset = offset + 2
+    def find_handler(self, offset):
+        """The (target, depth, lasti) of the exception table entry that
+        covers the instruction at ``offset``, or None."""
+        for start, end, target, depth, lasti in self.exceptiontable:
+            if start <= offset < end:
+                return target, depth, lasti
+        return None
 
-        while opnum == EXTENDED_ARG:
-            opnum = co_code[next_offset]
-            oparg = (oparg << 8) | co_code[next_offset + 1]
-            next_offset += 2
-
-        if HASJREL[opnum]:
-            oparg = next_offset + oparg * 2
-        elif HASJABS[opnum]:
-            oparg = oparg * 2
-        opname = self.opnames[_promote(opnum)]
-        return next_offset, opname, oparg
+    def has_handler(self, offset):
+        """Whether an exception raised at ``offset`` reaches an except or
+        finally clause or a with statement.  The handlers that the compiler
+        adds to restore the exception state and re-raise do not count."""
+        while True:
+            handler = self.find_handler(offset)
+            if handler is None:
+                return False
+            offset = handler[0]
+            next_offset, opname, _ = self.read(offset)
+            if opname == 'PUSH_EXC_INFO':
+                return True
+            while opname != 'RERAISE':
+                offset = next_offset
+                next_offset, opname, _ = self.read(offset)
 
     def read(self, offset):
         """
@@ -143,7 +312,7 @@ class HostCode(object):
         """
         if PY2:
             return self.read_py2(offset)
-        return self.read_wordcode(offset)
+        return self.segment_at(offset).read(offset, self.opnames)
 
     @property
     def is_generator(self):
