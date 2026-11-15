@@ -881,10 +881,11 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         # subtype_dealloc does
         pto.c_tp_dealloc = typedescr.get_subtype_dealloc(space)
     else:
-        # a heap subtype over a C type with a tp_dealloc of its own: like
-        # CPython, subtype_dealloc finds that dealloc when it runs and owns
-        # the heaptype decref
-        pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
+        # for all subtypes, use base's dealloc (requires sorting in attach_all)
+        pto.c_tp_dealloc = pto.c_tp_base.c_tp_dealloc
+        if not pto.c_tp_dealloc:
+            # strange, but happens (ABCMeta)
+            pto.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
     if builder.cpyext_type_init is not None:
         builder.cpyext_type_init.append((pto, w_type))

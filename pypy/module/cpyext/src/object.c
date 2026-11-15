@@ -66,6 +66,16 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
 #define _PyPy_REFCNT_FROM_PYPY_LIGHT  ((Py_ssize_t)0x70000000)
 #endif
 
+/* The word before the link is padding (it keeps ob_refcnt 16-byte aligned),
+   and holds cpyext's own per-object flags, like the bits CPython keeps in
+   PyGC_Head.ob_prev.  Only objects allocated through _PyPy_Malloc have the
+   prefix, which is what the REFCNT_FROM_PYPY tag marks; a statically
+   allocated or extension-malloc'd object has neither, so the flags are
+   read as 0 and writing them is skipped. */
+#define _PyPy_FLAGS(op)        (((Py_ssize_t *)(op))[-2])
+#define _PyPy_HAS_PREFIX(op)   ((op)->ob_refcnt >= _PyPy_REFCNT_FROM_PYPY)
+#define _PyPy_FLAG_FINALIZED   1
+
 /* 
  * The actual value of this variable will be the address of
  * pyobject.w_marker_deallocating, and will be set by
@@ -239,17 +249,52 @@ PyObject_InitVar(PyVarObject *op, PyTypeObject *tp, Py_ssize_t size)
     return op;
 }
 
+/* tp_finalize runs at most once per object, as in CPython: the flag is also
+   read and set by cpyext's __del__ wrapper (slotdefs.wrap_del), which is how
+   PyPy's own finalizer reaches tp_finalize for an object it owns. */
+static void
+_PyPy_CallFinalizer(PyObject *self)
+{
+    PyTypeObject *tp = Py_TYPE(self);
+
+    if (tp->tp_finalize == NULL)
+        return;
+    if (!_PyPy_HAS_PREFIX(self)) {
+        /* no prefix to remember it in: the object was never seen by PyPy, so
+           this is the only path that can call its finalizer */
+        tp->tp_finalize(self);
+        return;
+    }
+    if (_PyPy_FLAGS(self) & _PyPy_FLAG_FINALIZED)
+        return;
+    _PyPy_FLAGS(self) |= _PyPy_FLAG_FINALIZED;
+    tp->tp_finalize(self);
+}
+
 int
 PyObject_CallFinalizerFromDealloc(PyObject *self)
 {
-    /* STUB */
-    if (self->ob_type->tp_finalize) {
-        fprintf(stderr, "WARNING: PyObject_CallFinalizerFromDealloc() "
-                        "not implemented (objects of type '%s')\n",
-                        self->ob_type->tp_name);
-        self->ob_type->tp_finalize = NULL;   /* only once */
-    }
+    _PyPy_CallFinalizer(self);
+    /* CPython returns -1 for an object the finalizer resurrected, and its
+       caller then stops deallocating.  PyPy cannot honour that: an owned
+       object's w_obj is already marked dying by _Py_Dealloc, and any attempt
+       to reach the object from PyPy again fatalerrors in from_ref ("Invalid
+       usage of a dying CPython object").  So resurrection is unsupported and
+       deallocation always continues. */
     return 0;
+}
+
+int
+PyObject_GC_IsFinalized(PyObject *op)
+{
+    /* cpyext remembers the flag for every object it allocated, but CPython
+       keeps it in the GC head and so reports 0 for a type without
+       Py_TPFLAGS_HAVE_GC */
+    if (!_PyType_HasFeature(Py_TYPE(op), Py_TPFLAGS_HAVE_GC))
+        return 0;
+    if (!_PyPy_HAS_PREFIX(op))
+        return 0;
+    return (_PyPy_FLAGS(op) & _PyPy_FLAG_FINALIZED) != 0;
 }
 
 void

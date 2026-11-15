@@ -566,6 +566,133 @@ class AppTestObject(AppTestCpythonExtensionBase):
         module.foo(35000)
         assert self.cur_memory_pressure() == 65536 + 80000 + 70000
 
+    def test_tp_finalize_runs_once(self):
+        # Cython's shape for __del__ on a cdef class: tp_dealloc calls
+        # PyObject_CallFinalizerFromDealloc, while on PyPy the same
+        # tp_finalize is also reachable as the type's __del__, which PyPy's
+        # own finalizer calls when the object dies
+        module = self.import_extension('foo_finalize', [
+            ("cycle_foreign", "METH_NOARGS",
+             """
+                /* an instance PyPy never sees: allocated and freed in C */
+                PyTypeObject *tp = (PyTypeObject *)the_type;
+                PyObject *o = tp->tp_alloc(tp, 0);
+                if (o == NULL) return NULL;
+                Py_DECREF(o);
+                Py_RETURN_NONE;
+             """),
+            ("counters", "METH_NOARGS",
+             """
+                return Py_BuildValue("iiiii", finalize_count, dealloc_count,
+                                     flag_before, flag_after,
+                                     inherited_count);
+             """),
+            ("cycle_inherited", "METH_NOARGS",
+             """
+                /* the type sets tp_finalize but no tp_dealloc, so only
+                   subtype_dealloc can finalize its instances */
+                PyTypeObject *tp = (PyTypeObject *)the_inherited_type;
+                PyObject *o = tp->tp_alloc(tp, 0);
+                if (o == NULL) return NULL;
+                Py_DECREF(o);
+                Py_RETURN_NONE;
+             """),
+            ], prologue="""
+            static int finalize_count = 0;
+            static int dealloc_count = 0;
+            static int flag_before = -1;
+            static int flag_after = -1;
+            static int inherited_count = 0;
+            static PyObject *the_type = NULL;
+            static PyObject *the_inherited_type = NULL;
+
+            static void my_finalize(PyObject *o)
+            {
+                finalize_count++;
+            }
+
+            static int my_traverse(PyObject *o, visitproc visit, void *arg)
+            {
+                return 0;
+            }
+
+            static void my_dealloc(PyObject *o)
+            {
+                PyTypeObject *tp = Py_TYPE(o);
+                PyObject_GC_UnTrack(o);
+                dealloc_count++;
+                flag_before = PyObject_GC_IsFinalized(o);
+                PyObject_CallFinalizerFromDealloc(o);
+                flag_after = PyObject_GC_IsFinalized(o);
+                tp->tp_free(o);
+                Py_DECREF(tp);
+            }
+
+            static void inherited_finalize(PyObject *o)
+            {
+                inherited_count++;
+            }
+
+            static PyType_Slot fin_slots[] = {
+                {Py_tp_finalize, my_finalize},
+                {Py_tp_dealloc, my_dealloc},
+                {Py_tp_traverse, my_traverse},
+                {0, 0}};
+            static PyType_Spec fin_spec = {
+                "foo_finalize.Fin", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, fin_slots};
+
+            static PyType_Slot inherited_slots[] = {
+                {Py_tp_finalize, inherited_finalize},
+                {Py_tp_traverse, my_traverse},
+                {0, 0}};
+            static PyType_Spec inherited_spec = {
+                "foo_finalize.Inherited", sizeof(PyObject), 0,
+                Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC, inherited_slots};
+            """, more_init="""
+            the_type = PyType_FromSpec(&fin_spec);
+            if (the_type == NULL) INITERROR;
+            Py_INCREF(the_type);
+            PyModule_AddObject(mod, "Fin", the_type);
+            the_inherited_type = PyType_FromSpec(&inherited_spec);
+            if (the_inherited_type == NULL) INITERROR;
+            Py_INCREF(the_inherited_type);
+            PyModule_AddObject(mod, "Inherited", the_inherited_type);
+        """)
+        Fin = module.Fin
+        obj = Fin()
+        del obj
+        for i in range(10):
+            if module.counters()[1]:
+                break
+            self.debug_collect()
+        finalized, deallocated, before, after = module.counters()[:4]
+        # the finalizer must not run both from PyPy's finalizer and again
+        # from tp_dealloc
+        assert deallocated == 1
+        assert finalized == 1
+        assert after == 1
+
+        # an object PyPy never saw has no __del__ path at all, so tp_dealloc
+        # is the only chance to finalize it
+        module.cycle_foreign()
+        finalized, deallocated, before, after = module.counters()[:4]
+        assert deallocated == 2
+        assert finalized == 2
+        assert before == 0
+        assert after == 1
+
+        # a type with tp_finalize but no tp_dealloc of its own is finalized
+        # by subtype_dealloc, as in CPython
+        module.cycle_inherited()
+        assert module.counters()[4] == 1
+        obj = module.Inherited()
+        del obj
+        for i in range(10):
+            if module.counters()[4] > 1:
+                break
+            self.debug_collect()
+        assert module.counters()[4] == 2
     def test_repr_enter_leave(self):
         module = self.import_extension('foo', [
             ("enter", "METH_O",
