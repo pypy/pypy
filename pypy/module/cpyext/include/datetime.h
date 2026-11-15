@@ -6,6 +6,11 @@ extern "C" {
 
 #include "cpyext_datetime.h"
 
+/* The structs, the PyDateTime_*_GET_* macros and PyDateTime_CAPI itself are
+ * in cpyext_datetime.h, which RPython parses too. What is left here is the
+ * part of CPython's datetime.h that goes through PyDateTimeAPI.
+ */
+
 PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 
 #define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
@@ -48,7 +53,7 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 /* Issue 3627: PEP 495 defines PyDateTime_GET_FOLD but CPython implemented
  * PyDateTime_DATE_GET_FOLD
  */
-#define PyDateTime_DATE_GET_FOLD PyDateTime_GET_FOLD
+#define PyDateTime_GET_FOLD PyDateTime_DATE_GET_FOLD
 
 #ifdef __cplusplus
 }

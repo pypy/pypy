@@ -1,3 +1,152 @@
+/* Taken from CPython's Include/datetime.h,  */
+
+/* Fields are packed into successive bytes, each viewed as unsigned and
+ * big-endian, unless otherwise noted:
+ *
+ * byte offset
+ *  0           year     2 bytes, 1-9999
+ *  2           month    1 byte, 1-12
+ *  3           day      1 byte, 1-31
+ *  4           hour     1 byte, 0-23
+ *  5           minute   1 byte, 0-59
+ *  6           second   1 byte, 0-59
+ *  7           usecond  3 bytes, 0-999999
+ * 10
+ */
+
+/* # of bytes for year, month, and day. */
+#define _PyDateTime_DATE_DATASIZE 4
+
+/* # of bytes for hour, minute, second, and usecond. */
+#define _PyDateTime_TIME_DATASIZE 6
+
+/* # of bytes for year, month, day, hour, minute, second, and usecond. */
+#define _PyDateTime_DATETIME_DATASIZE 10
+
+
+typedef struct
+{
+    PyObject_HEAD
+    Py_hash_t hashcode;         /* -1 when unknown */
+    int days;                   /* -MAX_DELTA_DAYS <= days <= MAX_DELTA_DAYS */
+    int seconds;                /* 0 <= seconds < 24*3600 is invariant */
+    int microseconds;           /* 0 <= microseconds < 1000000 is invariant */
+} PyDateTime_Delta;
+
+typedef struct
+{
+    PyObject_HEAD               /* a pure abstract base class */
+} PyDateTime_TZInfo;
+
+
+/* The datetime and time types have hashcodes, and an optional tzinfo member,
+ * present if and only if hastzinfo is true.
+ */
+#define _PyTZINFO_HEAD          \
+    PyObject_HEAD               \
+    Py_hash_t hashcode;         \
+    unsigned char hastzinfo;    /* boolean flag */
+
+/* No _PyDateTime_BaseTZInfo is allocated; it's just to have something
+ * convenient to cast to, when getting at the hastzinfo member of objects
+ * starting with _PyTZINFO_HEAD.
+ */
+typedef struct
+{
+    _PyTZINFO_HEAD
+} _PyDateTime_BaseTZInfo;
+
+/* All time objects are of PyDateTime_TimeType, but that can be allocated
+ * in two ways, with or without a tzinfo member.  Without is the same as
+ * tzinfo == None, but consumes less memory.  _PyDateTime_BaseTime is an
+ * internal struct used to allocate the right amount of space for the
+ * "without" case.
+ */
+#define _PyDateTime_TIMEHEAD    \
+    _PyTZINFO_HEAD              \
+    unsigned char data[_PyDateTime_TIME_DATASIZE];
+
+typedef struct
+{
+    _PyDateTime_TIMEHEAD
+} _PyDateTime_BaseTime;         /* hastzinfo false */
+
+typedef struct
+{
+    _PyDateTime_TIMEHEAD
+    unsigned char fold;
+    PyObject *tzinfo;
+} PyDateTime_Time;              /* hastzinfo true */
+
+
+/* All datetime objects are of PyDateTime_DateTimeType, but that can be
+ * allocated in two ways too, just like for time objects above.  In addition,
+ * the plain date type is a base class for datetime, so it must also have
+ * a hastzinfo member (although it's unused there).
+ */
+typedef struct
+{
+    _PyTZINFO_HEAD
+    unsigned char data[_PyDateTime_DATE_DATASIZE];
+} PyDateTime_Date;
+
+#define _PyDateTime_DATETIMEHEAD        \
+    _PyTZINFO_HEAD                      \
+    unsigned char data[_PyDateTime_DATETIME_DATASIZE];
+
+typedef struct
+{
+    _PyDateTime_DATETIMEHEAD
+} _PyDateTime_BaseDateTime;     /* hastzinfo false */
+
+typedef struct
+{
+    _PyDateTime_DATETIMEHEAD
+    unsigned char fold;
+    PyObject *tzinfo;
+} PyDateTime_DateTime;          /* hastzinfo true */
+
+
+/* Apply for date and datetime instances. */
+
+// o is a pointer to a time or a datetime object.
+#define _PyDateTime_HAS_TZINFO(o)  (((_PyDateTime_BaseTZInfo *)(o))->hastzinfo)
+
+#define PyDateTime_GET_YEAR(o)     ((((PyDateTime_Date*)(o))->data[0] << 8) | \
+                     ((PyDateTime_Date*)(o))->data[1])
+#define PyDateTime_GET_MONTH(o)    (((PyDateTime_Date*)(o))->data[2])
+#define PyDateTime_GET_DAY(o)      (((PyDateTime_Date*)(o))->data[3])
+
+#define PyDateTime_DATE_GET_HOUR(o)        (((PyDateTime_DateTime*)(o))->data[4])
+#define PyDateTime_DATE_GET_MINUTE(o)      (((PyDateTime_DateTime*)(o))->data[5])
+#define PyDateTime_DATE_GET_SECOND(o)      (((PyDateTime_DateTime*)(o))->data[6])
+#define PyDateTime_DATE_GET_MICROSECOND(o)              \
+    ((((PyDateTime_DateTime*)(o))->data[7] << 16) |       \
+     (((PyDateTime_DateTime*)(o))->data[8] << 8)  |       \
+      ((PyDateTime_DateTime*)(o))->data[9])
+#define PyDateTime_DATE_GET_FOLD(o)        (((PyDateTime_DateTime*)(o))->fold)
+#define PyDateTime_DATE_GET_TZINFO(o)      (_PyDateTime_HAS_TZINFO((o)) ? \
+    ((PyDateTime_DateTime *)(o))->tzinfo : Py_None)
+
+/* Apply for time instances. */
+#define PyDateTime_TIME_GET_HOUR(o)        (((PyDateTime_Time*)(o))->data[0])
+#define PyDateTime_TIME_GET_MINUTE(o)      (((PyDateTime_Time*)(o))->data[1])
+#define PyDateTime_TIME_GET_SECOND(o)      (((PyDateTime_Time*)(o))->data[2])
+#define PyDateTime_TIME_GET_MICROSECOND(o)              \
+    ((((PyDateTime_Time*)(o))->data[3] << 16) |           \
+     (((PyDateTime_Time*)(o))->data[4] << 8)  |           \
+      ((PyDateTime_Time*)(o))->data[5])
+#define PyDateTime_TIME_GET_FOLD(o)        (((PyDateTime_Time*)(o))->fold)
+#define PyDateTime_TIME_GET_TZINFO(o)      (_PyDateTime_HAS_TZINFO(o) ? \
+    ((PyDateTime_Time *)(o))->tzinfo : Py_None)
+
+/* Apply for time delta instances */
+#define PyDateTime_DELTA_GET_DAYS(o)         (((PyDateTime_Delta*)(o))->days)
+#define PyDateTime_DELTA_GET_SECONDS(o)      (((PyDateTime_Delta*)(o))->seconds)
+#define PyDateTime_DELTA_GET_MICROSECONDS(o)            \
+    (((PyDateTime_Delta*)(o))->microseconds)
+
+
 /* Define structure for C API. */
 typedef struct {
     /* type objects */
@@ -16,7 +165,7 @@ typedef struct {
         PyObject*, PyTypeObject*);
     PyObject *(*Time_FromTime)(int, int, int, int, PyObject*, PyTypeObject*);
     PyObject *(*Delta_FromDelta)(int, int, int, int, PyTypeObject*);
-    PyObject *(*TimeZone_FromTimeZone)(PyObject*, PyObject*);
+    PyObject *(*TimeZone_FromTimeZone)(PyObject *offset, PyObject *name);
 
     /* constructors for the DB API */
     PyObject *(*DateTime_FromTimestamp)(PyObject*, PyObject*, PyObject*);
@@ -29,38 +178,4 @@ typedef struct {
 
 } PyDateTime_CAPI;
 
-typedef struct
-{
-    PyObject_HEAD
-    int days;                   /* -MAX_DELTA_DAYS <= days <= MAX_DELTA_DAYS */
-    int seconds;                /* 0 <= seconds < 24*3600 is invariant */
-    int microseconds;           /* 0 <= microseconds < 1000000 is invariant */
-} PyDateTime_Delta;
-
-/* The datetime and time types have an optional tzinfo member,
- * PyNone if hastzinfo is false.
- */
-typedef struct
-{
-    PyObject_HEAD
-    unsigned char hastzinfo;
-    PyObject *tzinfo;
-} PyDateTime_Time;
-
-typedef struct
-{
-    PyObject_HEAD
-    unsigned char hastzinfo;
-    PyObject *tzinfo;
-} PyDateTime_DateTime;
-
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_Date;
-
-
-typedef struct {
-    PyObject_HEAD
-} PyDateTime_TZInfo;
-
+#define PyDateTime_CAPSULE_NAME "datetime.datetime_CAPI"

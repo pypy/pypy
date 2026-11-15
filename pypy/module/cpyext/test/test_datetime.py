@@ -7,7 +7,39 @@ from pypy.module.cpyext.cdatetime import (
     _PyDateTime_Import, _PyDateTime_FromDateAndTime, _PyDate_FromDate,
     _PyTime_FromTime, _PyDelta_FromDelta, _PyTime_FromTimeAndFold,
     _PyDateTime_FromDateAndTimeAndFold)
+from pypy.module.cpyext.pyobject import make_ref, decref
 import datetime
+
+def _get_date(space, w_obj):
+    """year, month, day, as PyDateTime_GET_YEAR and friends read them"""
+    py_obj = make_ref(space, w_obj)
+    try:
+        d = rffi.cast(PyDateTime_Date, py_obj).c_data
+        return ((widen(d[0]) << 8) | widen(d[1]), widen(d[2]), widen(d[3]))
+    finally:
+        decref(space, py_obj)
+
+def _get_time(space, w_obj, i):
+    """hour, minute, second, microsecond; i is 0 for a time, 4 for a datetime"""
+    py_obj = make_ref(space, w_obj)
+    try:
+        if i:
+            d = rffi.cast(PyDateTime_DateTime, py_obj).c_data
+        else:
+            d = rffi.cast(PyDateTime_Time, py_obj).c_data
+        usec = (widen(d[i + 3]) << 16) | (widen(d[i + 4]) << 8) | widen(d[i + 5])
+        return (widen(d[i]), widen(d[i + 1]), widen(d[i + 2]), usec)
+    finally:
+        decref(space, py_obj)
+
+def _get_delta(space, w_obj):
+    py_obj = make_ref(space, w_obj)
+    try:
+        py_delta = rffi.cast(PyDateTime_Delta, py_obj)
+        return (widen(py_delta.c_days), widen(py_delta.c_seconds),
+                widen(py_delta.c_microseconds))
+    finally:
+        decref(space, py_obj)
 
 class TestDatetime(BaseApiTest):
     def test_date(self, space):
@@ -18,9 +50,7 @@ class TestDatetime(BaseApiTest):
         assert PyDate_Check(space, w_date)
         assert PyDate_CheckExact(space, w_date)
 
-        assert PyDateTime_GET_YEAR(space, w_date) == 2010
-        assert PyDateTime_GET_MONTH(space, w_date) == 6
-        assert PyDateTime_GET_DAY(space, w_date) == 3
+        assert _get_date(space, w_date) == (2010, 6, 3)
 
     def test_time(self, space):
         date_api = _PyDateTime_Import(space)
@@ -31,10 +61,7 @@ class TestDatetime(BaseApiTest):
         assert PyTime_Check(space, w_time)
         assert PyTime_CheckExact(space, w_time)
 
-        assert PyDateTime_TIME_GET_HOUR(space, w_time) == 23
-        assert PyDateTime_TIME_GET_MINUTE(space, w_time) == 15
-        assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
-        assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
+        assert _get_time(space, w_time, 0) == (23, 15, 40, 123456)
 
         w_time = _PyTime_FromTimeAndFold(
             space, 23, 15, 40, 123456, space.w_None, 0, date_api.c_TimeType)
@@ -43,10 +70,7 @@ class TestDatetime(BaseApiTest):
         assert PyTime_Check(space, w_time)
         assert PyTime_CheckExact(space, w_time)
 
-        assert PyDateTime_TIME_GET_HOUR(space, w_time) == 23
-        assert PyDateTime_TIME_GET_MINUTE(space, w_time) == 15
-        assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
-        assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
+        assert _get_time(space, w_time, 0) == (23, 15, 40, 123456)
 
 
     def test_datetime(self, space):
@@ -61,13 +85,8 @@ class TestDatetime(BaseApiTest):
         assert PyDate_Check(space, w_date)
         assert not PyDate_CheckExact(space, w_date)
 
-        assert PyDateTime_GET_YEAR(space, w_date) == 2010
-        assert PyDateTime_GET_MONTH(space, w_date) == 6
-        assert PyDateTime_GET_DAY(space, w_date) == 3
-        assert PyDateTime_DATE_GET_HOUR(space, w_date) == 23
-        assert PyDateTime_DATE_GET_MINUTE(space, w_date) == 15
-        assert PyDateTime_DATE_GET_SECOND(space, w_date) == 40
-        assert PyDateTime_DATE_GET_MICROSECOND(space, w_date) == 123456
+        assert _get_date(space, w_date) == (2010, 6, 3)
+        assert _get_time(space, w_date, 4) == (23, 15, 40, 123456)
 
         w_date = _PyDateTime_FromDateAndTimeAndFold(
             space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
@@ -79,13 +98,8 @@ class TestDatetime(BaseApiTest):
         assert PyDate_Check(space, w_date)
         assert not PyDate_CheckExact(space, w_date)
 
-        assert PyDateTime_GET_YEAR(space, w_date) == 2010
-        assert PyDateTime_GET_MONTH(space, w_date) == 6
-        assert PyDateTime_GET_DAY(space, w_date) == 3
-        assert PyDateTime_DATE_GET_HOUR(space, w_date) == 23
-        assert PyDateTime_DATE_GET_MINUTE(space, w_date) == 15
-        assert PyDateTime_DATE_GET_SECOND(space, w_date) == 40
-        assert PyDateTime_DATE_GET_MICROSECOND(space, w_date) == 123456
+        assert _get_date(space, w_date) == (2010, 6, 3)
+        assert _get_time(space, w_date, 4) == (23, 15, 40, 123456)
 
     def test_delta(self, space):
         date_api = _PyDateTime_Import(space)
@@ -101,6 +115,38 @@ class TestDatetime(BaseApiTest):
         assert PyDelta_Check(space, w_delta)
         assert PyDelta_CheckExact(space, w_delta)
 
+        assert _get_delta(space, w_delta) == (10, 20, 30)
+
+    def test_accessor_functions(self, space):
+        # kept exported for extensions built against older PyPy headers;
+        # anything compiled against include/datetime.h uses the macros
+        date_api = _PyDateTime_Import(space)
+        w_date = _PyDate_FromDate(space, 2010, 6, 3, date_api.c_DateType)
+        assert PyDateTime_GET_YEAR(space, w_date) == 2010
+        assert PyDateTime_GET_MONTH(space, w_date) == 6
+        assert PyDateTime_GET_DAY(space, w_date) == 3
+
+        w_datetime = _PyDateTime_FromDateAndTime(
+            space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
+            date_api.c_DateTimeType)
+        assert PyDateTime_DATE_GET_HOUR(space, w_datetime) == 23
+        assert PyDateTime_DATE_GET_MINUTE(space, w_datetime) == 15
+        assert PyDateTime_DATE_GET_SECOND(space, w_datetime) == 40
+        assert PyDateTime_DATE_GET_MICROSECOND(space, w_datetime) == 123456
+        assert PyDateTime_GET_FOLD(space, w_datetime) == 0
+        assert PyDateTime_DATE_GET_TZINFO(space, w_datetime) is space.w_None
+
+        w_time = _PyTime_FromTime(
+            space, 23, 15, 40, 123456, space.w_None, date_api.c_TimeType)
+        assert PyDateTime_TIME_GET_HOUR(space, w_time) == 23
+        assert PyDateTime_TIME_GET_MINUTE(space, w_time) == 15
+        assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
+        assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
+        assert PyDateTime_TIME_GET_FOLD(space, w_time) == 0
+        assert PyDateTime_TIME_GET_TZINFO(space, w_time) is space.w_None
+
+        w_delta = _PyDelta_FromDelta(space, 10, 20, 30, True,
+                                     date_api.c_DeltaType)
         assert PyDateTime_DELTA_GET_DAYS(space, w_delta) == 10
         assert PyDateTime_DELTA_GET_SECONDS(space, w_delta) == 20
         assert PyDateTime_DELTA_GET_MICROSECONDS(space, w_delta) == 30
@@ -370,7 +416,10 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  PyDateTime_DATE_GET_MICROSECOND(obj);
                  PyDateTime_DATE_GET_MICROSECOND(dt);
                 
+#ifdef PYPY_VERSION
+                 // PyPy keeps the name from PEP 495, issue 3627
                  PyDateTime_GET_FOLD(obj);
+#endif
                  PyDateTime_DATE_GET_FOLD(obj);
 
                  return obj;
@@ -435,6 +484,81 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert module.test_time_macros() == datetime.time(6, 6, 6, 6)
         assert module.test_delta_macros() == datetime.timedelta(6, 6, 6)
 
+    def test_get_macros(self):
+        module = self.import_extension('foo', [
+            ("get_date", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return Py_BuildValue("iii", PyDateTime_GET_YEAR(args),
+                                      PyDateTime_GET_MONTH(args),
+                                      PyDateTime_GET_DAY(args));
+             """),
+            ("get_datetime", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return Py_BuildValue("iiiiiiiiO",
+                                      PyDateTime_GET_YEAR(args),
+                                      PyDateTime_GET_MONTH(args),
+                                      PyDateTime_GET_DAY(args),
+                                      PyDateTime_DATE_GET_HOUR(args),
+                                      PyDateTime_DATE_GET_MINUTE(args),
+                                      PyDateTime_DATE_GET_SECOND(args),
+                                      PyDateTime_DATE_GET_MICROSECOND(args),
+                                      PyDateTime_DATE_GET_FOLD(args),
+                                      PyDateTime_DATE_GET_TZINFO(args));
+             """),
+            ("get_time", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return Py_BuildValue("iiiiiO",
+                                      PyDateTime_TIME_GET_HOUR(args),
+                                      PyDateTime_TIME_GET_MINUTE(args),
+                                      PyDateTime_TIME_GET_SECOND(args),
+                                      PyDateTime_TIME_GET_MICROSECOND(args),
+                                      PyDateTime_TIME_GET_FOLD(args),
+                                      PyDateTime_TIME_GET_TZINFO(args));
+             """),
+            ("get_delta", "METH_O",
+             """ PyDateTime_IMPORT;
+                 return Py_BuildValue("iii",
+                                      PyDateTime_DELTA_GET_DAYS(args),
+                                      PyDateTime_DELTA_GET_SECONDS(args),
+                                      PyDateTime_DELTA_GET_MICROSECONDS(args));
+             """),
+        ], prologue='#include "datetime.h"\n')
+        from datetime import date, datetime, time, timedelta, timezone
+
+        utc = timezone.utc
+        assert module.get_date(date(2010, 6, 3)) == (2010, 6, 3)
+        assert module.get_datetime(datetime(2010, 6, 3, 23, 15, 40, 123456)) == (
+            2010, 6, 3, 23, 15, 40, 123456, 0, None)
+        assert module.get_datetime(
+            datetime(2010, 6, 3, 23, 15, 40, 123456, utc, fold=1)) == (
+            2010, 6, 3, 23, 15, 40, 123456, 1, utc)
+        assert module.get_time(time(23, 15, 40, 123456)) == (
+            23, 15, 40, 123456, 0, None)
+        assert module.get_time(time(23, 15, 40, 123456, utc, fold=1)) == (
+            23, 15, 40, 123456, 1, utc)
+        assert module.get_delta(timedelta(10, 20, 30)) == (10, 20, 30)
+
+        # and the same for subclasses
+        class MyDate(date):
+            pass
+
+        class MyDateTime(datetime):
+            pass
+
+        class MyTime(time):
+            pass
+
+        class MyDelta(timedelta):
+            pass
+
+        assert module.get_date(MyDate(2010, 6, 3)) == (2010, 6, 3)
+        assert module.get_datetime(
+            MyDateTime(2010, 6, 3, 23, 15, 40, 123456, utc)) == (
+            2010, 6, 3, 23, 15, 40, 123456, 0, utc)
+        assert module.get_time(MyTime(23, 15, 40, 123456)) == (
+            23, 15, 40, 123456, 0, None)
+        assert module.get_delta(MyDelta(10, 20, 30)) == (10, 20, 30)
+
     def test_tzinfo(self):
         module = self.import_extension('foo', [
             ("time_with_tzinfo", "METH_O",
@@ -465,6 +589,28 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                 return obj;
 
              """),
+            ("getrefcnt", "METH_O",
+             """ return PyLong_FromSsize_t(args->ob_refcnt);
+             """),
+            ("read_tzinfo", "METH_O",
+             """
+                 PyObject * tz;
+                 PyDateTime_IMPORT;
+                 if (PyDateTime_Check(args)) {
+                     PyDateTime_DateTime * o = (PyDateTime_DateTime *)args;
+                     tz = o->hastzinfo ? o->tzinfo : Py_None;
+                 }
+                 else if (PyTime_Check(args)) {
+                     PyDateTime_Time * o = (PyDateTime_Time *)args;
+                     tz = o->hastzinfo ? o->tzinfo : Py_None;
+                 }
+                 else {
+                     PyErr_SetString(PyExc_TypeError, "not a datetime or time");
+                     return NULL;
+                 }
+                 Py_INCREF(tz);
+                 return tz;
+             """),
         ], prologue='#include "datetime.h"\n')
         from datetime import tzinfo, datetime, timedelta, time
 
@@ -485,6 +631,32 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         assert '+01' in str(dt1)
         dt_tz = module.datetime_with_tzinfo(gmt1)
         assert dt_tz == datetime(2000, 6, 6, 6, 6, 6, 6, gmt1)
+
+        # the struct fields must be filled for subtypes too
+        class MyDateTime(datetime):
+            pass
+
+        class MyTime(time):
+            pass
+
+        assert module.read_tzinfo(datetime(2000, 6, 6, tzinfo=gmt1)) is gmt1
+        assert module.read_tzinfo(datetime(2000, 6, 6)) is None
+        assert module.read_tzinfo(time(6, 6, tzinfo=gmt1)) is gmt1
+        assert module.read_tzinfo(time(6, 6)) is None
+        assert module.read_tzinfo(MyDateTime(2000, 6, 6, tzinfo=gmt1)) is gmt1
+        assert module.read_tzinfo(MyDateTime(2000, 6, 6)) is None
+        assert module.read_tzinfo(MyTime(6, 6, tzinfo=gmt1)) is gmt1
+        assert module.read_tzinfo(MyTime(6, 6)) is None
+
+        # and the reference stored there must be released again
+        self.debug_collect()
+        start = module.getrefcnt(gmt1)
+        d = MyDateTime(2000, 6, 6, tzinfo=gmt1)
+        assert module.read_tzinfo(d) is gmt1
+        assert module.getrefcnt(gmt1) == start + 1
+        del d
+        self.debug_collect()
+        assert module.getrefcnt(gmt1) == start
 
     def test_checks(self):
         module = self.import_extension('foo', [
