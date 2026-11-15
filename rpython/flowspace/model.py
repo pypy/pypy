@@ -378,11 +378,13 @@ class Constant(Hashable):
         to_check = self.value
         if hasattr(to_check, 'im_self'):
             to_check = to_check.im_self
+        elif isinstance(to_check, types.MethodType):
+            to_check = to_check.__self__
         if isinstance(to_check, (type, ClassType, types.ModuleType)):
             # classes/types/modules are assumed immutable
             return True
         if (hasattr(to_check, '__class__') and
-                to_check.__class__.__module__ == '__builtin__'):
+                to_check.__class__.__module__ == twothree.builtins.__name__):
             # builtin object
             return True
         # User-created instance

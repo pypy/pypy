@@ -958,7 +958,7 @@ class __extend__(SomeBuiltin):
 
 class __extend__(SomeBuiltinMethod):
     def _can_only_throw(self, *args):
-        analyser_func = getattr(self.analyser, 'im_func', None)
+        analyser_func = getattr(self.analyser, '__func__', self.analyser)
         can_only_throw = getattr(analyser_func, 'can_only_throw', None)
         if can_only_throw is None or isinstance(can_only_throw, list):
             return can_only_throw

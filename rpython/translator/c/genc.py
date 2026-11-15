@@ -626,7 +626,7 @@ class SourceGenerator:
                     del impl
                     if used + cost > split_criteria:
                         # split if criteria met, unless we would produce nothing.
-                        raise StopIteration
+                        return
                     used += cost
                 done[0] = True
             while not done[0]:

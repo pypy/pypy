@@ -155,7 +155,7 @@ class CodemapBuilder(object):
             self.l[pos + 1] = len(self.l)
         # at the end there should be no zeros, except unique_id which can
         # be zero
-        for i in range(len(self.l) / 4):
+        for i in range(len(self.l) // 4):
             item = self.l[i * 4] # unique_id
             item = self.l[i * 4 + 2] # end in asm
             assert item > 0

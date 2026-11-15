@@ -780,7 +780,7 @@ def _adaptive_find(value, base, n, needle, m, mode):
                 i += mlast
             else:
                 hits += j + 1
-                if hits > m / 4 and w - i > 2000:
+                if hits > m // 4 and w - i > 2000:
                     cut, period, gap, is_periodic, table = \
                         _twoway_preprocess(needle, m)
                     if mode != SEARCH_COUNT:

@@ -161,12 +161,12 @@ def debug(drv, use_pdb=True):
 def offset2lineno(c, stopat):
     # even position in lnotab denote byte increments, odd line increments.
     # see dis.findlinestarts in the python std. library for more details
-    tab = c.co_lnotab
+    tab = bytearray(c.co_lnotab)
     line = c.co_firstlineno
     addr = 0
     for i in range(0, len(tab), 2):
-        addr = addr + ord(tab[i])
+        addr = addr + tab[i]
         if addr > stopat:
             break
-        line = line + ord(tab[i+1])
+        line = line + tab[i+1]
     return line
