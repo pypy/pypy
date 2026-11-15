@@ -111,6 +111,43 @@ def test_fix_permissions(tmpdir):
     check(file2, 0644)
     check(pypy,  0755)
 
+def test_codesign_macho_files(tmpdir):
+    if sys.platform != 'darwin':
+        py.test.skip('code signatures are a darwin thing')
+    import shutil, subprocess
+    def verify(path):
+        with open(os.devnull, 'wb') as devnull:
+            return subprocess.call(['codesign', '--verify', '--strict', path],
+                                   stdout=devnull, stderr=devnull) == 0
+    #
+    work = str(tmpdir)
+    # a Mach-O to repair, plus a text file and a symlink to be left alone
+    dylib = os.path.join(work, 'libpypy-c.dylib')
+    shutil.copy(sys.executable, dylib)
+    tmpdir.join('notes.txt').write('not a mach-o\n')
+    os.symlink('libpypy-c.dylib', os.path.join(work, 'link.dylib'))
+    #
+    assert list(package.find_macho_files(work)) == [dylib]
+    # smartstrip() and make_portable() rewrite the binary in place, which
+    # leaves the signature covering content that is no longer there.  Flipping
+    # a byte in the middle of the file has the same effect and does not depend
+    # on what install_name_tool happens to repair on its own.
+    os.chmod(dylib, 0o755)
+    with open(dylib, 'r+b') as fid:
+        middle = os.path.getsize(dylib) // 2
+        fid.seek(middle)
+        flipped = bytearray(fid.read(1))
+        flipped[0] ^= 0xff
+        fid.seek(middle)
+        fid.write(bytes(flipped))
+    assert not verify(dylib)
+    #
+    package.codesign_macho_files(work)
+    assert verify(dylib)
+    # and it is a no-op the second time around
+    package.codesign_macho_files(work)
+    assert verify(dylib)
+
 def test_generate_license():
     py.test.skip('generation of license from platform documentation is disabled')
     from os.path import dirname, abspath, join, exists
