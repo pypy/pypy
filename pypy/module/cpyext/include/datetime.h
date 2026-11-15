@@ -1,3 +1,4 @@
+#ifndef Py_LIMITED_API
 #ifndef DATETIME_H
 #define DATETIME_H
 #ifdef __cplusplus
@@ -59,3 +60,4 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 }
 #endif
 #endif
+#endif /* !Py_LIMITED_API */

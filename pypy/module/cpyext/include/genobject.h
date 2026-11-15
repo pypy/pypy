@@ -4,9 +4,11 @@
 extern "C" {
 #endif
 
+#ifndef Py_LIMITED_API
 #include "cpyext_genobject.h"
 
 PyAPI_FUNC(PyCodeObject *) PyGen_GetCode(PyGenObject *gen);
+#endif /* !Py_LIMITED_API */
 
 #ifdef __cplusplus
 }

@@ -61,8 +61,10 @@ extern "C" {
    Python and represents a single Unicode element in the Unicode type.
    With PEP 393, Py_UNICODE is deprecated and replaced with a
    typedef to wchar_t. */
+#ifndef Py_LIMITED_API
 #define PY_UNICODE_TYPE wchar_t
 /* Py_DEPRECATED(3.3) */ typedef wchar_t Py_UNICODE;
+#endif /* !Py_LIMITED_API */
 
 /* --- Internal Unicode Operations ---------------------------------------- */
 
@@ -72,6 +74,7 @@ PyAPI_DATA(const unsigned char) _Py_ascii_whitespace[];
 #  define USE_UNICODE_WCHAR_CACHE 1
 #endif /* USE_UNICODE_WCHAR_CACHE */
 
+#ifndef Py_LIMITED_API
 /* Since splitting on whitespace is an important use case, and
    whitespace in most situations is solely ASCII whitespace, we
    optimize for the common case by using a quick look-up table
@@ -119,8 +122,10 @@ PyAPI_DATA(const unsigned char) _Py_ascii_whitespace[];
 #define Py_UNICODE_HIGH_SURROGATE(ch) (0xD800 - (0x10000 >> 10) + ((ch) >> 10))
 /* low surrogate = bottom 10 bits added to DC00 */
 #define Py_UNICODE_LOW_SURROGATE(ch) (0xDC00 + ((ch) & 0x3FF))
+#endif /* !Py_LIMITED_API */
 
 
+#ifndef Py_LIMITED_API
 #define _PyASCIIObject_CAST(op) \
     (assert(PyUnicode_Check(op)), \
      _Py_CAST(PyASCIIObject*, (op)))
@@ -351,6 +356,7 @@ static inline int PyUnicode_READY(PyObject* Py_UNUSED(op))
     return 0;
 }
 #define PyUnicode_READY(op) PyUnicode_READY(_PyObject_CAST(op))
+#endif /* !Py_LIMITED_API */
 
 #if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03030000
 /* Get the length of the Unicode object. */

@@ -8,7 +8,9 @@ extern "C" {
 
 #include <stdarg.h>
 
+#ifndef Py_LIMITED_API
 #define PyBytes_GET_SIZE(op) PyBytes_Size(op)
+#endif /* !Py_LIMITED_API */
 
 /*
 Type PyStringObject represents a character string.  An extra zero byte is

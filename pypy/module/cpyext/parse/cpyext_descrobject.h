@@ -9,6 +9,8 @@ typedef struct PyGetSetDef {
     void *closure;
 } PyGetSetDef;
 
+#ifndef Py_LIMITED_API
+
 typedef PyObject *(*wrapperfunc)(PyObject *self, PyObject *args,
                                  void *wrapped);
 
@@ -28,6 +30,8 @@ struct wrapperbase {
 /* Flags for above struct */
 #define PyWrapperFlag_KEYWORDS 1 /* wrapper function takes keyword args */
 
+#endif /* !Py_LIMITED_API */
+
 /* Various kinds of descriptor objects */
 
 /* An array of PyMemberDef structures defines the name, type and offset
@@ -43,6 +47,8 @@ typedef struct PyMemberDef {
     const char *doc;
 } PyMemberDef;
 
+
+#ifndef Py_LIMITED_API
 
 typedef struct {
     PyObject_HEAD
@@ -76,3 +82,5 @@ typedef struct {
     struct wrapperbase *d_base;
     void *d_wrapped; /* This can be any function pointer */
 } PyWrapperDescrObject;
+
+#endif /* !Py_LIMITED_API */

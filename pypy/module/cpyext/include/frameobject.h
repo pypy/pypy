@@ -18,7 +18,9 @@ typedef struct _frame {
    already plays both roles, so the two types are simply aliased here. */
 typedef PyFrameObject _PyInterpreterFrame;
 
+#ifndef Py_LIMITED_API
 #define PyFrame_Check(op) Py_IS_TYPE((op), &PyFrame_Type)
+#endif /* !Py_LIMITED_API */
 
 #ifdef __cplusplus
 }

@@ -17,8 +17,10 @@ extern "C" {
  * While CPython exposes interfaces to this object, pypy does not
  */
 
+#ifndef Py_LIMITED_API
 #define PyByteArray_GET_SIZE(op) PyByteArray_Size((PyObject*)(op))
 #define PyByteArray_AS_STRING(op) PyByteArray_AsString((PyObject*)(op))
+#endif /* !Py_LIMITED_API */
 
 #define PyByteArray_Check(self) PyObject_TypeCheck((self), &PyByteArray_Type)
 #define PyByteArray_CheckExact(self) Py_IS_TYPE((self), &PyByteArray_Type)

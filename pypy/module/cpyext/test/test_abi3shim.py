@@ -57,6 +57,25 @@ class AppTestAbi3Shim(AppTestCpythonExtensionBase):
             ])
         assert module.aiter_check(object()) == 0
 
+    def test_limited_api_module(self):
+        """limitedapi.c is built with Py_LIMITED_API defined; it compiles only
+        if the headers hide no more than CPython's do"""
+        module = self.import_module("limitedapi")
+        assert module.sizes() == 2
+        assert module.strings() == {"b": b"abcd", "u": "hello"}
+        assert module.bytearray_size(bytearray(b"abc")) == 3
+        # the heap type exercises what must stay visible: PyType_Spec,
+        # PyType_Slot, PyMemberDef, PyGetSetDef, PyObject_HEAD
+        p = module.Point(21)
+        assert p.value == 21
+        assert p.frozen == 21
+        assert p.doubled == 42
+        p.value = 10
+        assert p.doubled == 20
+        p.doubled = 8
+        assert p.value == 4
+        raises(AttributeError, setattr, p, "frozen", 1)
+
     def test_macro_maps_to_macro(self):
         module = self.import_extension('foo', [
             ("long_frompid", "METH_NOARGS", """

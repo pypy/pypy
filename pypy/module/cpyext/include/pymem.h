@@ -82,6 +82,7 @@ typedef enum {
     PYMEM_DOMAIN_OBJ
 } PyMemAllocatorDomain;
 
+#ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyTraceMalloc_Track(
     unsigned int domain,
     uintptr_t ptr,
@@ -90,6 +91,7 @@ PyAPI_FUNC(int) PyTraceMalloc_Track(
 PyAPI_FUNC(int) PyTraceMalloc_Untrack(
     unsigned int domain,
     uintptr_t ptr);
+#endif /* !Py_LIMITED_API */
 
 
 #ifdef __cplusplus

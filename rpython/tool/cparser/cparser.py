@@ -30,6 +30,8 @@ _r_ifdef_win64 = re.compile(r"^\s*#\s*ifdef\s+_WIN64\s*\n"
                             r"^\s*#\s*endif\s*$",
                             re.DOTALL | re.MULTILINE)
 
+_r_cond_directive = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b(.*)$")
+
 _r_line_directive = re.compile(r"^[ \t]*#[ \t]*(?:line|\d+)\b.*$", re.MULTILINE)
 _r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
 _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
@@ -187,6 +189,72 @@ def _put_back_line_directives(csource, line_directives):
         return line_directives[int(s[6:])]
     return _r_line_directive.sub(replace, csource)
 
+def _limited_api_test(kind, rest):
+    """True if the directive is taken when Py_LIMITED_API is defined,
+    False if it is taken when it is not, None if it is about something else.
+    """
+    rest = rest.strip()
+    if kind == 'ifdef':
+        if rest == 'Py_LIMITED_API':
+            return True
+    elif kind == 'ifndef':
+        if rest == 'Py_LIMITED_API':
+            return False
+    elif kind == 'if':
+        if rest in ('defined(Py_LIMITED_API)', 'defined Py_LIMITED_API'):
+            return True
+        if rest in ('!defined(Py_LIMITED_API)', '!defined Py_LIMITED_API'):
+            return False
+    return None
+
+def _remove_limited_api_blocks(csource):
+    """Evaluate the '#ifndef Py_LIMITED_API' blocks with the macro undefined.
+
+    cpyext is always compiled without Py_LIMITED_API, so the headers in
+    pypy/module/cpyext/parse can carry CPython's own guards and we keep the
+    non-limited branch.  Other conditionals are left for pycparser to trip
+    over, as before.  Dropped lines become blank ones to keep the numbering.
+    """
+    out = []
+    stack = []    # one [active, nested] per open Py_LIMITED_API block
+    for line in csource.split('\n'):
+        visible = not stack or stack[-1][0]
+        match = _r_cond_directive.match(line)
+        if match is None:
+            out.append(line if visible else '')
+            continue
+        kind = match.group(1)
+        rest = match.group(2)
+        if kind in ('if', 'ifdef', 'ifndef'):
+            want = _limited_api_test(kind, rest)
+            if want is None:
+                if stack:
+                    stack[-1][1] += 1
+                out.append(line if visible else '')
+            else:
+                stack.append([visible and not want, 0])
+                out.append('')
+        elif kind == 'endif':
+            if stack and stack[-1][1] == 0:
+                stack.pop()
+                out.append('')
+            else:
+                if stack:
+                    stack[-1][1] -= 1
+                out.append(line if visible else '')
+        elif stack and stack[-1][1] == 0:
+            if kind == 'elif':
+                raise CDefError("#elif on a Py_LIMITED_API block is not "
+                                "supported: %r" % (line,))
+            outer = len(stack) < 2 or stack[-2][0]
+            stack[-1][0] = outer and not stack[-1][0]
+            out.append('')
+        else:
+            out.append(line if visible else '')
+    if stack:
+        raise CDefError("unterminated #ifndef Py_LIMITED_API")
+    return '\n'.join(out)
+
 def _preprocess(csource, macros):
     # First, remove the lines of the form '#line N "filename"' because
     # the "filename" part could confuse the rest
@@ -196,6 +264,8 @@ def _preprocess(csource, macros):
     def replace_keeping_newlines(m):
         return ' ' + m.group().count('\n') * '\n'
     csource = _r_comment.sub(replace_keeping_newlines, csource)
+    # Drop the Py_LIMITED_API branches before collecting the macros
+    csource = _remove_limited_api_blocks(csource)
     # Remove the "#define FOO x" lines
     for match in _r_define.finditer(csource):
         macroname, macrovalue = match.groups()

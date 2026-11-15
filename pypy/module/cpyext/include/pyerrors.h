@@ -14,8 +14,14 @@ extern "C" {
 #define PyExceptionInstance_Check(x)                                    \
     (PyObject_IsSubclass((PyObject *)Py_TYPE(x), PyExc_BaseException))
 
+#ifdef Py_LIMITED_API
+#define PyExceptionInstance_Class(x) ((PyObject *)Py_TYPE(x))
+#endif
+
+#ifndef Py_LIMITED_API
 #define PyExc_EnvironmentError PyExc_OSError
 #define PyExc_IOError PyExc_OSError
+#endif /* !Py_LIMITED_API */
 
 #ifdef MS_WINDOWS
 #define PyExc_WindowsError PyExc_OSError

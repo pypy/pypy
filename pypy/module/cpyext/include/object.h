@@ -792,8 +792,10 @@ times.
     /* Flags for getting buffers */
 #define PyBUF_SIMPLE 0
 #define PyBUF_WRITABLE 0x0001
+#ifndef Py_LIMITED_API
 /*  we used to include an E, backwards compatible alias  */
 #define PyBUF_WRITEABLE PyBUF_WRITABLE
+#endif /* !Py_LIMITED_API */
 #define PyBUF_FORMAT 0x0004
 #define PyBUF_ND 0x0008
 #define PyBUF_STRIDES (0x0010 | PyBUF_ND)
@@ -817,15 +819,20 @@ times.
 
 #define PyBUF_READ  0x100
 #define PyBUF_WRITE 0x200
+#ifndef Py_LIMITED_API
 #define PyBUF_SHADOW 0x400
+#endif /* !Py_LIMITED_API */
 /* end Py3k buffer interface */
 
 PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
+#ifndef Py_LIMITED_API
 PyAPI_FUNC(PyObject *) PyType_GetModuleByDef(PyTypeObject *, PyModuleDef *);
 PyAPI_FUNC(PyObject *) PyType_GetDict(PyTypeObject *);
 PyAPI_FUNC(void *) PyObject_GetItemData(PyObject *);
+#endif /* !Py_LIMITED_API */
 
+#ifndef Py_LIMITED_API
 /* Safely decref `op` and set `op` to `op2`.
  *
  * As in case of Py_CLEAR "the obvious" code can be deadly:
@@ -853,10 +860,12 @@ PyAPI_FUNC(void *) PyObject_GetItemData(PyObject *);
         memcpy(_py_tmp_op_ptr, &_py_tmp_new_op, sizeof(PyObject*)); \
         Py_DECREF(_py_tmp_old_op); \
     } while (0)
+#endif /* !Py_LIMITED_API */
 
 /* Generic type check */
 PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 
+#ifndef Py_LIMITED_API
 #define Py_XSETREF(op, op2) \
     do { \
         PyObject **_py_tmp_op_ptr = _Py_CAST(PyObject**, &(op)); \
@@ -865,7 +874,9 @@ PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
         memcpy(_py_tmp_op_ptr, &_py_tmp_new_op, sizeof(PyObject*)); \
         Py_XDECREF(_py_tmp_old_op); \
     } while (0)
+#endif /* !Py_LIMITED_API */
 
+#ifndef Py_LIMITED_API
 #define Py_TRASHCAN_BEGIN(op, cond) do {
 #define Py_TRASHCAN_END   ; } while(0);
 
@@ -874,6 +885,7 @@ Py_DEPRECATED(3.11) typedef int UsingDeprecatedTrashcanMacro;
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
 /* note: the ";" at the start of Py_TRASHCAN_SAFE_END is needed
    if the code has a label in front of the macro call */
+#endif /* !Py_LIMITED_API */
 
 /* Copied from CPython ----------------------------- */
 PyAPI_FUNC(int) PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
@@ -905,7 +917,9 @@ PyAPI_FUNC(int) PyBuffer_FromContiguous(Py_buffer *view, void *buf,
 */
 
 
+#ifndef Py_LIMITED_API
 PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
+#endif /* !Py_LIMITED_API */
 
 /*
  * On CPython with Py_REF_DEBUG these use _PyRefTotal, _Py_NegativeRefcount,

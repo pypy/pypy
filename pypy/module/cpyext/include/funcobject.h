@@ -12,10 +12,12 @@ typedef struct {
     PyObject *func_name;	/* The __name__ attribute, a string object */
 } PyFunctionObject;
 
+#ifndef Py_LIMITED_API
 #define PyFunction_GET_CODE(obj) PyFunction_GetCode((PyObject*)(obj))
 
 #define PyMethod_GET_FUNCTION(obj) PyMethod_Function((PyObject*)(obj))
 #define PyMethod_GET_SELF(obj) PyMethod_Self((PyObject*)(obj))
+#endif /* !Py_LIMITED_API */
 
 #ifdef __cplusplus
 }

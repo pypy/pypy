@@ -15,7 +15,9 @@ typedef struct {
 #define PyDict_Check(op) \
 		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_DICT_SUBCLASS)
 #define PyDict_CheckExact(op) (Py_TYPE(op) == &PyDict_Type)
+#ifndef Py_LIMITED_API
 #define PyDict_GET_SIZE(op)  PyObject_Length(op)
+#endif /* !Py_LIMITED_API */
 
 
 /* abi3/limited-API shims */

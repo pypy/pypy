@@ -6,6 +6,7 @@
 extern "C" {
 #endif
 
+#ifndef Py_LIMITED_API
 /* taken from Python-3.2.3/Include/pydebug.h */
 /* Note: they are always 0 for now, except Py_DebugFlag which is always 1 */
 PyAPI_DATA(int) Py_DebugFlag;
@@ -46,14 +47,17 @@ typedef struct {
 #define PyCF_SOURCE_IS_UTF8  0x0100
 #define PyCF_DONT_IMPLY_DEDENT 0x0200
 #define PyCF_ONLY_AST 0x0400
+#endif /* !Py_LIMITED_API */
 
 PyAPI_FUNC(PyObject *) Py_CompileString(const char *, const char *, int);
 
+#ifndef Py_LIMITED_API
 #define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
 
 PyAPI_FUNC(int) PyRun_SimpleStringFlags(const char *, PyCompilerFlags *);
 PyAPI_FUNC(int) PyRun_SimpleString(const char *);
 #define PyRun_SimpleString(s) PyRun_SimpleStringFlags((s), NULL)
+#endif /* !Py_LIMITED_API */
 
 /* Stuff with no proper home (yet) */
 PyAPI_DATA(int) (*PyOS_InputHook)(void);
