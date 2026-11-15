@@ -817,9 +817,11 @@ def _gettmarg(space, w_tup, allowNone=True):
         return pbuf
 
     tup_w = space.fixedview(w_tup)
-    if len(tup_w) < 9:
+    if len(tup_w) != 9:
+        # like CPython: a struct_time keeps tm_zone and tm_gmtoff out of the
+        # sequence, so 9 items is all that any argument may have
         raise oefmt(space.w_TypeError,
-                    "argument must be sequence of at least length 9, not %d",
+                    "argument must be sequence of length 9, not %d",
                     len(tup_w))
 
     y = space.c_int_w(tup_w[0])

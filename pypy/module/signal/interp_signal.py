@@ -358,21 +358,18 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
     send_flags = 0
     if fd != -1:
         if WIN32:
-            from rpython.rlib import _rsocket_rffi as _c
-            # it could be a socket handle or a file fd: probe it with a
-            # zero-length send() like CPython does.  getsockopt(SO_TYPE)
-            # is not enough, it can succeed on a handle that send() rejects
-            with lltype.scoped_alloc(rffi.CCHARP.TO, 1) as dummy:
-                res = _c.send(rffi.cast(_c.socketfd_type, fd), dummy,
-                              rffi.cast(_c.size_t, 0), rffi.cast(rffi.INT, 0))
-            if rffi.cast(lltype.Signed, res) >= 0:
-                send_flags |= PYPYSIG_USE_SEND
-            else:
-                err = _c.geterrno()
-                if err != WSAENOTSOCK:
+            from rpython.rlib._rsocket_rffi import SOL_SOCKET, SO_ERROR
+            from rpython.rlib.rsocket import getsockopt_int, CSocketError
+            # it could be a socket handle or a file fd: probe it with
+            # getsockopt(SO_ERROR), like CPython does.  A send() probe
+            # instead rejects a socket that is not connected yet
+            try:
+                getsockopt_int(fd, SOL_SOCKET, SO_ERROR)
+            except CSocketError as e:
+                if e.errno != WSAENOTSOCK:
                     raise OperationError(space.w_OSError, space.newtuple([
-                        space.newint(err),
-                        space.newtext(_c.socket_strerror_str(err))]))
+                        space.newint(e.errno),
+                        space.newtext(e.get_msg())]))
                 # not a socket, so it has to be a valid file descriptor
                 try:
                     os.fstat(fd)
@@ -380,6 +377,8 @@ def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
                     if e.errno == errno.EBADF:
                         raise oefmt(space.w_ValueError, "invalid fd")
                     raise wrap_oserror(space, e, eintr_retry=False)
+            else:
+                send_flags |= PYPYSIG_USE_SEND
         else:
             try:
                 os.fstat(fd)
