@@ -13,7 +13,7 @@ from unittest import TestCase, mock
 from test import support
 from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
                                INVALID_UNDERSCORE_LITERALS)
-from test.support import os_helper, impl_detail, check_impl_detail
+from test.support import os_helper, impl_detail
 from test.support.script_helper import run_test_script, make_script, run_python_until_end
 
 # Converts a source string into a list of textual representation
@@ -605,10 +605,7 @@ f'''__{
     FSTRING_MIDDLE '__'          (6, 1) (6, 3)
     FSTRING_END "'''"         (6, 3) (6, 6)
     """)
-        # PyPy: the regex-based tokenizer can't handle a multi-line
-        # single-quoted f-string whose {expr} spans lines (PEP 701)
-        if check_impl_detail(cpython=True):
-            self.check_tokenize("""\
+        self.check_tokenize("""\
 f'__{
     x:d
 }__'""", """\
