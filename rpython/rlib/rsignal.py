@@ -115,7 +115,8 @@ pypysig_getaddr_occurred_fullstruct = external('pypysig_getaddr_occurred', [],
                                               elidable_function=True)
 pypysig_check_and_reset = external('pypysig_check_and_reset', [],
                                    lltype.Bool, _nowrapper=True)
-c_raise = external('raise', [rffi.INT], rffi.INT)
+c_raise = external('raise', [rffi.INT], rffi.INT,
+                   save_err=rffi.RFFI_SAVE_ERRNO)
 
 if sys.platform != 'win32':
     c_alarm = external('alarm', [rffi.INT], rffi.INT)
