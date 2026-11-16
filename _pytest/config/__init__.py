@@ -11,7 +11,13 @@ import shlex
 import sys
 import types
 import warnings
-from distutils.version import LooseVersion
+try:
+    from distutils.version import LooseVersion
+except ImportError:
+    # python >= 3.12
+    import re as _re
+    def LooseVersion(s):
+        return tuple(int(x) for x in _re.findall(r"\d+", s))
 
 import py
 import six
@@ -771,9 +777,13 @@ class Config(object):
         modules or packages in the distribution package for
         all pytest plugins.
         """
-        import pkg_resources
-
         self.pluginmanager.rewrite_hook = hook
+
+        try:
+            import pkg_resources
+        except ImportError:
+            # the vendored copy does not import on python >= 3.12
+            return
 
         if os.environ.get("PYTEST_DISABLE_PLUGIN_AUTOLOAD"):
             # We don't autoload from setuptools entry points, no need to continue.
