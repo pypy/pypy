@@ -12,10 +12,10 @@ translation toolchain has to keep working during bootstrapping.
 
 import sys
 
-try:
-    import builtins
-except ImportError:
+if sys.version_info[0] == 2:
     import __builtin__ as builtins
+else:
+    import builtins
 
 try:
     intern = sys.intern
