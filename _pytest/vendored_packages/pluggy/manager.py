@@ -259,11 +259,15 @@ class PluginManager(object):
         :rtype: int
         :return: return the number of loaded plugins by this call.
         """
-        from pkg_resources import (
-            iter_entry_points,
-            DistributionNotFound,
-            VersionConflict,
-        )
+        try:
+            from pkg_resources import (
+                iter_entry_points,
+                DistributionNotFound,
+                VersionConflict,
+            )
+        except ImportError:
+            # the vendored copy does not import on python >= 3.12
+            return 0
 
         count = 0
         for ep in iter_entry_points(group, name=name):
