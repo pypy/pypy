@@ -40,69 +40,32 @@ def wrap_uid(space, uid):
         return space.newint(uid)     # an unsigned number
 wrap_gid = wrap_uid
 
-class FileEncoder(object):
-    is_unicode = True
-
-    def __init__(self, space, w_obj):
-        self.space = space
-        self.w_obj = w_obj
-
-    def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
-
-    def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
-        if '\x00' in ret:
-            raise oefmt(self.space.w_TypeError, "embedded null character")
-        return ret
-
-class FileDecoder(object):
-    is_unicode = False
-
-    def __init__(self, space, w_obj):
-        self.space = space
-        self.w_obj = w_obj
-
-    def as_bytes(self):
-        return self.space.fsencode_w(self.w_obj)
-
-    def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
-        if '\x00' in ret:
-            raise oefmt(self.space.w_TypeError, "embedded null character")
-        return ret
+def _path_w(space, w_path):
+    # Resolve the path here, like py3's Path.as_bytes: utf8 on win32, where
+    # rposix widens it back to wide characters.  Keeping rposix on plain
+    # strings is what stops its path functions from having to be specialized
+    # on a wrapper object as well.
+    if space.isinstance_w(w_path, space.w_unicode):
+        if _WIN32:
+            # as CPython does: no codec, so a lone surrogate reaches the
+            # wide API instead of raising
+            res = space.utf8_w(w_path)
+            if '\x00' in res:
+                raise oefmt(space.w_TypeError, "embedded null character")
+            return res
+        return space.fsencode_w(w_path)
+    return space.bytes0_w(w_path)
 
 @specialize.memo()
 def dispatch_filename(func, tag=0):
-    @specialize.argtype(1)
     def dispatch(space, w_fname, *args):
-        if space.isinstance_w(w_fname, space.w_unicode):
-            fname = FileEncoder(space, w_fname)
-            return func(fname, *args)
-        else:
-            fname = space.bytes0_w(w_fname)
-            return func(fname, *args)
+        return func(_path_w(space, w_fname), *args)
     return dispatch
 
 @specialize.memo()
 def dispatch_filename_2(func):
     def dispatch(space, w_fname1, w_fname2, *args):
-        if space.isinstance_w(w_fname1, space.w_unicode):
-            fname1 = FileEncoder(space, w_fname1)
-            if space.isinstance_w(w_fname2, space.w_unicode):
-                fname2 = FileEncoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-            else:
-                fname2 = FileDecoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-        else:
-            fname1 = FileDecoder(space, w_fname1)
-            if space.isinstance_w(w_fname2, space.w_unicode):
-                fname2 = FileEncoder(space, w_fname2)
-                return func(fname1, fname2, *args)
-            else:
-                fname2 = FileDecoder(space, w_fname2)
-                return func(fname1, fname2, *args)
+        return func(_path_w(space, w_fname1), _path_w(space, w_fname2), *args)
     return dispatch
 
 def u2utf8(space, u_str):
@@ -598,29 +561,20 @@ The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
     try:
         if space.isinstance_w(w_dirname, space.w_unicode):
-            dirname = FileEncoder(space, w_dirname)
-            result = rposix.listdir(dirname)
-            # NOTE: 'result' can be either a list of str or a list of
-            # unicodes, depending on the platform
+            result = rposix.listdir(_path_w(space, w_dirname))
             w_fs_encoding = getfilesystemencoding(space)
             len_result = len(result)
             result_w = [None] * len_result
             for i in range(len_result):
-                res = result[i]
-                if isinstance(res, str):
-                    w_bytes = space.newtext(res)
-                    try:
-                        w_res = space.call_method(w_bytes,
-                                                  "decode", w_fs_encoding)
-                    except OperationError as e:
-                        # fall back to the original byte string
-                        if e.async(space):
-                            raise
-                        w_res = w_bytes
-                elif isinstance(res, unicode):
-                    w_res = u2utf8(space, res)
-                else:
-                    assert False
+                w_bytes = space.newtext(result[i])
+                try:
+                    w_res = space.call_method(w_bytes,
+                                              "decode", w_fs_encoding)
+                except OperationError as e:
+                    # fall back to the original byte string
+                    if e.async(space):
+                        raise
+                    w_res = w_bytes
                 result_w[i] = w_res
             return space.newlist(result_w)
         else:
