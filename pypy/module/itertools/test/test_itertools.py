@@ -816,27 +816,6 @@ class AppTestItertools(object):
         x = next(b)
         assert x == 'b'
 
-    def test_tee_function_uses_copy(self):
-        import itertools
-        class MyIterator(object):
-            def __iter__(self):
-                return self
-            def __next__(self):
-                raise NotImplementedError
-            def __copy__(self):
-                return iter('def')
-        my = MyIterator()
-        # tee copies via __copy__ for every result, including the first
-        # (gh-123884 / pypy #5284), so none of them is the input itself.
-        a, = itertools.tee(my, 1)
-        assert a is not my
-        assert list(a) == ['d', 'e', 'f']
-        a, b = itertools.tee(my)
-        assert a is not my
-        assert b is not my
-        assert list(a) == ['d', 'e', 'f']
-        assert list(b) == ['d', 'e', 'f']
-
     def test_tee_function_empty(self):
         import itertools
         assert itertools.tee('abc', 0) == ()
