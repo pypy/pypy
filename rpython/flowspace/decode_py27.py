@@ -66,7 +66,7 @@ class Py2Decoder(Decoder):
                 starts[-1] = (addr, line)
             else:
                 starts.append((addr, line))
-        return LineTable(starts)
+        return LineTable(self.code.co_firstlineno, starts)
 
 
 def decodes(*names):

@@ -135,6 +135,6 @@ def test_linetable():
     assert len(codes) > 50
     for code in codes:
         table = Py2Decoder(code).linetable()
-        for offset in range(len(code.co_code)):
+        for offset in range(-1, len(code.co_code)):
             assert (table.offset2lineno(offset) ==
                     offset2lineno(code, offset))

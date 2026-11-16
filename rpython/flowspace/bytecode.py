@@ -33,14 +33,20 @@ class BytecodeCorruption(Exception):
 class LineTable(object):
     """Maps host bytecode offsets to source line numbers."""
 
-    def __init__(self, starts):
+    def __init__(self, firstlineno, starts):
         """'starts' is a list of (offset, lineno) sorted by offset, where
         each lineno applies up to the next offset in the list."""
         assert starts and starts[0][0] == 0
+        self.firstlineno = firstlineno
         self.offsets = [offset for offset, _ in starts]
         self.linenos = [lineno for _, lineno in starts]
 
     def offset2lineno(self, offset):
+        """The line of the instruction at 'offset', or the first line of
+        the code object for a negative offset, which operations that were
+        not recorded from a host instruction have."""
+        if offset < 0:
+            return self.firstlineno
         return self.linenos[bisect_right(self.offsets, offset) - 1]
 
 
