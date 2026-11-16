@@ -496,7 +496,7 @@ def compute_bitstrings(all_descrs):
                     descrs[key].update(getattr(ei, '_readonly_descrs_' + key))
                     descrs[key].update(getattr(ei, '_write_descrs_' + key))
         else:
-            descr.ei_index = sys.maxint
+            descr.ei_index = sys.maxsize
     log("  %d effectinfos:" % (len(effectinfos),))
     for key in sorted(descrs):
         log("    %d descrs for %s" % (len(descrs[key]), key))
@@ -526,7 +526,7 @@ def compute_bitstrings(all_descrs):
 
         mapping = {}
         for (descr, eisetr, eisetw) in all_sets:
-            assert descr.ei_index == sys.maxint    # not modified yet
+            assert descr.ei_index == sys.maxsize    # not modified yet
             descr.ei_index = mapping.setdefault((eisetr, eisetw), len(mapping))
 
         for ei in effectinfos:
@@ -534,8 +534,8 @@ def compute_bitstrings(all_descrs):
                            for descr in getattr(ei, '_readonly_descrs_' + key)]
             bitstrw = [descr.ei_index
                            for descr in getattr(ei, '_write_descrs_' + key)]
-            assert sys.maxint not in bitstrr
-            assert sys.maxint not in bitstrw
+            assert sys.maxsize not in bitstrr
+            assert sys.maxsize not in bitstrw
             bitstrr = bitstring.make_bitstring(bitstrr)
             bitstrw = bitstring.make_bitstring(bitstrw)
             setattr(ei, 'bitstring_readonly_descrs_' + key, bitstrr)

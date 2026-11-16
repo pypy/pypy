@@ -53,6 +53,9 @@ class BadUtf8(Exception):
 CHECK_ALL_STRINGS = False
 # CHECK_ALL_STRINGS: after translation.  Set to False to avoid overhead!
 
+def _ascii_islinebreak(ch):
+    # \n \x0b \x0c \r \x1c \x1d \x1e
+    return '\n' <= ch <= '\r' or '\x1c' <= ch <= '\x1e'
 
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
@@ -1637,8 +1640,17 @@ def unicode_splitlines(value, keepends):
     while pos < length:
         sol = pos
         lgt = 0
-        while pos < length and not rutf8.islinebreak(value, pos):
-            pos = rutf8.next_codepoint_pos(value, pos)
+        while pos < length:
+            ch = value[pos]
+            if ch < '\x80':
+                # ASCII: no need to look at the following bytes
+                if _ascii_islinebreak(ch):
+                    break
+                pos += 1
+            else:
+                if rutf8.islinebreak(value, pos):
+                    break
+                pos = rutf8.next_codepoint_pos(value, pos)
             lgt += 1
         eol = pos
         if pos < length:

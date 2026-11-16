@@ -806,7 +806,7 @@ class TestRffiInternals:
             lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
         }
-        if sys.platform == 'win32' and sys.maxint > 2**32:
+        if sys.platform == 'win32' and sys.maxsize > 2**32:
             cache[lltype.Signed] = ctypes.c_longlong
             cache[lltype.Unsigned] = ctypes.c_ulonglong
         cache2 = {

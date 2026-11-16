@@ -12,7 +12,7 @@ from rpython.rlib import rarithmetic, longlong2float
 from rpython.rlib.objectmodel import compute_hash
 
 
-if sys.maxint > 2147483647:
+if sys.maxsize > 2147483647:
     # ---------- 64-bit platform ----------
     # the type FloatStorage is just a float
 

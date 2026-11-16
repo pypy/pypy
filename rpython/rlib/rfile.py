@@ -238,7 +238,7 @@ def create_stdio():
 
 
 def write_int(f, l):
-    if sys.maxint == 2147483647:
+    if sys.maxsize == 2147483647:
         f.write(chr(l & 0xff) +
                 chr((l >> 8) & 0xff) +
                 chr((l >> 16) & 0xff) +

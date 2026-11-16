@@ -395,7 +395,7 @@ class TestSearchUtf8(BaseTestSearch):
         assert self.search(code, text, 2) is None
 
     def test_groupref_unicode_bug(self):
-        r = get_code(ur"(üü+)\1+$", re.UNICODE)     # match non-prime numbers of ü
+        r = get_code(u"(üü+)\\1+$", re.UNICODE)     # match non-prime numbers of ü
         assert not self.match(r, u"üü".encode("utf-8"))
         assert not self.match(r, u"üüü".encode("utf-8"))
         assert     self.match(r, u"üüüü".encode("utf-8"))

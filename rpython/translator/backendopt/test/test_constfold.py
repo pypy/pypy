@@ -388,7 +388,7 @@ def test_int_ovf():
             y = 5
         else:
             x = 2
-            y = sys.maxint
+            y = sys.maxsize
         x += 2
         try:
             return rarithmetic.ovfcheck(x + y)
@@ -417,7 +417,7 @@ def test_int_ovf_bug():
     graph, t = get_graph(fn, [int, int])
     result = replace_we_are_jitted(graph)
     assert result
-    check_graph(graph, [0, sys.maxint-1], -12, t)
+    check_graph(graph, [0, sys.maxsize-1], -12, t)
     assert len(mkentrymap(graph)[graph.returnblock]) == 3
 
     def fn(a, b):
@@ -437,7 +437,7 @@ def test_int_ovf_bug():
     graph, t = get_graph(fn, [int, int])
     result = replace_we_are_jitted(graph)
     assert result
-    check_graph(graph, [0, sys.maxint-1], fn(0, sys.maxint-1), t)
+    check_graph(graph, [0, sys.maxsize-1], fn(0, sys.maxsize-1), t)
     entrymap = mkentrymap(graph)
     assert len(entrymap[entrymap[graph.returnblock][0].prevblock]) == 3
 

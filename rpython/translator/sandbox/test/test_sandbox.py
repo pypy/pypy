@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys, os, time
 import struct
@@ -313,7 +315,7 @@ def test_unsafe_mmap():
 
 def test_environ_items():
     def entry_point(argv):
-        print os.environ.items()
+        print(os.environ.items())
         return 0
 
     exe = compile(entry_point)
@@ -340,14 +342,13 @@ class TestPrintedResults:
         import math
         def entry_point(argv):
             a = float(argv[1])
-            print int(math.floor(a - 0.2)),
-            print int(math.ceil(a)),
-            print int(100.0 * math.sin(a)),
+            print(int(math.floor(a - 0.2)), end=' ')
+            print(int(math.ceil(a)), end=' ')
+            print(int(100.0 * math.sin(a)), end=' ')
             mantissa, exponent = math.frexp(a)
-            print int(100.0 * mantissa), exponent,
+            print(int(100.0 * mantissa), exponent, end=' ')
             fracpart, intpart = math.modf(a)
-            print int(100.0 * fracpart), int(intpart),
-            print
+            print(int(100.0 * fracpart), int(intpart))
             return 0
         self.run(entry_point, ["3.011"], "2 4 13 75 2 1 3\n")
 
@@ -356,18 +357,18 @@ class TestPrintedResults:
         def entry_point(argv):
             a = float(argv[1])
             x = math.log(a)
-            print int(x * 100.0)
+            print(int(x * 100.0))
             try:
                 math.log(-a)
             except ValueError:
-                print 'as expected, got a ValueError'
+                print('as expected, got a ValueError')
             else:
-                print 'did not get a ValueError!'
+                print('did not get a ValueError!')
             return 0
         self.run(entry_point, ["3.011"], "110\nas expected, got a ValueError\n")
 
     def test_os_path_safe(self):
         def entry_point(argv):
-            print os.path.join('tmp', argv[1])
+            print(os.path.join('tmp', argv[1]))
             return 0
         self.run(entry_point, ["spam"], os.path.join("tmp", "spam")+'\n')

@@ -62,12 +62,12 @@ def iter_first_callsites(graph, calling_what):
     # have changed
     while 1:
         iterator = iter_callsites(graph, calling_what)
-        yield iterator.next()
+        yield next(iterator)
 
 def contains_call(graph, calling_what):
     try:
         iterator = iter_callsites(graph, calling_what)
-        iterator.next()
+        next(iterator)
         return True
     except StopIteration:
         return False
@@ -525,7 +525,7 @@ def measure_median_execution_cost(graph):
     try:
         Solution = M.solve(vector)
     except ValueError:
-        return sys.maxint
+        return sys.maxsize
     else:
         res = Solution[blockmap[graph.startblock]]
         return max(res, 0.0)    # may be NaN

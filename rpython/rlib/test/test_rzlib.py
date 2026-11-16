@@ -3,6 +3,8 @@
 Tests for the rzlib module.
 """
 
+from __future__ import print_function
+
 import py, sys
 from rpython.rlib import rzlib
 from rpython.rlib.rarithmetic import r_uint
@@ -136,7 +138,7 @@ def test_compression_lots_of_data():
     stream = rzlib.deflateInit()
     bytes = rzlib.compress(stream, expanded, rzlib.Z_FINISH)
     rzlib.deflateEnd(stream)
-    print len(expanded), '=>', len(bytes)
+    print(len(expanded), '=>', len(bytes))
     # Check that the data round-trips
     assert zlib.decompress(bytes) == expanded
 
@@ -171,7 +173,7 @@ def test_decompression_lots_of_data():
     """
     expanded = repr(range(20000))
     compressed = zlib.compress(expanded)
-    print len(compressed), '=>', len(expanded)
+    print(len(compressed), '=>', len(expanded))
     stream = rzlib.inflateInit()
     bytes, finished, unused = rzlib.decompress(stream, compressed,
                                                rzlib.Z_FINISH)
@@ -188,7 +190,7 @@ def test_decompression_truncated_input():
     """
     expanded = repr(range(20000))
     compressed = zlib.compress(expanded)
-    print len(compressed), '=>', len(expanded)
+    print(len(compressed), '=>', len(expanded))
     stream = rzlib.inflateInit()
     data, finished1, unused1 = rzlib.decompress(stream, compressed[:1000])
     assert expanded.startswith(data)
@@ -379,13 +381,13 @@ def test_translate_and_large_input():
 
     test_list = [1, 2, 3, 5, 8, 87, 876, 8765, 87654, 876543, 8765432,
                  127329129]       # up to ~128MB
-    if sys.maxint > 2**32:
+    if sys.maxsize > 2**32:
         test_list.append(4305704715)    # 4.01GB
         # XXX should we have a way to say "I don't have enough RAM,
         # don't run this"?
 
     for a in test_list:
-        print 'Testing compression of "s" * %d' % a
+        print('Testing compression of "s" * %d' % a)
         # Check that the data round-trips.  f() compressed three times, so
         # peel off the two outer layers, then inflate the innermost one in
         # small bites to avoid allocating the whole multi-GB result at once.
@@ -401,7 +403,7 @@ def test_translate_and_large_input():
         total += len(data)
         assert total == a
 
-        print 'Testing adler32 and crc32 of "s" * %d' % a
+        print('Testing adler32 and crc32 of "s" * %d' % a)
         def compute(function, start):
             count = a
             while count > 0:

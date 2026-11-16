@@ -60,6 +60,8 @@ Environment variables can be used to fine-tune the following parameters:
 
 # XXX try merging old_objects_pointing_to_pinned into
 # XXX old_objects_pointing_to_young (IRC 2014-10-22, fijal and gregor_w)
+from __future__ import print_function
+
 import sys
 import os
 import time
@@ -710,7 +712,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif raw_malloc_usage(itemsize):
             toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
         else:
-            toobig = r_uint(sys.maxint) + 1
+            toobig = r_uint(sys.maxsize) + 1
 
         if r_uint(length) >= r_uint(toobig):
             #
@@ -1037,7 +1039,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     extra_flags |= GCFLAG_CARDS_SET
             #
             # Detect very rare cases of overflows
-            if raw_malloc_usage(totalsize) > (sys.maxint - (WORD-1)
+            if raw_malloc_usage(totalsize) > (sys.maxsize - (WORD-1)
                                               - cardheadersize):
                 raise MemoryError("rare case of overflow")
             #
@@ -1223,11 +1225,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def _debug_print_flags(self, addr):
         if self.is_in_nursery(addr):
-            print "in nursery"
+            print("in nursery")
         tid = self.header(addr).tid
         for name, value in flagnames_and_values:
             if tid & value:
-                print name
+                print(name)
 
     def debug_is_old_object(self, addr):
         return (self.is_valid_gc_object(addr)
@@ -2761,7 +2763,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
 
     def visit_all_objects(self):
         while self.objects_to_trace.non_empty():
-            self.visit_all_objects_step(sys.maxint)
+            self.visit_all_objects_step(sys.maxsize)
 
     TEST_VISIT_SINGLE_STEP = False    # for tests
 

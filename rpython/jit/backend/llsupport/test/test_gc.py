@@ -209,7 +209,7 @@ def test_custom_tracer():
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
     frame.jf_gcmap = lltype.malloc(jitframe.GCMAP, 4, flavor='raw')
-    if sys.maxint == 2**31 - 1:
+    if sys.maxsize == 2**31 - 1:
         max = r_uint(2 ** 31)
     else:
         max = r_uint(2 ** 63)
@@ -241,7 +241,7 @@ def test_custom_tracer():
     assert all_addrs[7] == indexof(3)
     assert all_addrs[8] == indexof(5)
     assert all_addrs[9] == indexof(7)
-    if sys.maxint == 2**31 - 1:
+    if sys.maxsize == 2**31 - 1:
         assert all_addrs[10] == indexof(31)
         assert all_addrs[11] == indexof(65)
         assert all_addrs[12] == indexof(68)

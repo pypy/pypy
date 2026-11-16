@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.tool import leakfinder
 
@@ -54,7 +56,7 @@ def test_traceback():
     res = leakfinder.stop_tracking_allocations(check=False)
     assert res.keys() == [id(x)]
     obj, tb = res[id(x)]
-    print tb
+    print(tb)
     assert obj is x
     assert isinstance(tb, str)
     assert 'test_traceback' in tb
@@ -67,7 +69,7 @@ def test_malloc_mismatch():
     tb = sio.getvalue()
     e = leakfinder.MallocMismatch({id(1234): (1234, tb),
                                    id(2345): (2345, tb)})
-    print str(e)
+    print(str(e))
     # grouped entries for 1234 and 2345
     assert '1234:\n2345:\n' in str(e) or '2345:\n1234:\n' in str(e)
     assert tb[-80:] in str(e)

@@ -157,7 +157,7 @@ class CTypeSpace(object):
                 if hdr not in all_headers:
                     all_headers.append(hdr)
         if sys.platform == 'win32':
-            if sys.maxint > 2**32:
+            if sys.maxsize > 2**32:
                 compile_extra = ['-Dssize_t=__int64']
             else:
                 compile_extra = ['-Dssize_t=long']
@@ -169,7 +169,7 @@ class CTypeSpace(object):
             include_dirs=self.include_dirs)
 
     def configure_types(self):
-        for name, (obj, quals) in self.ctx._declarations.iteritems():
+        for name, (obj, quals) in self.ctx._declarations.items():
             if obj in self.ctx._included_declarations:
                 continue
             if name in self._handled:

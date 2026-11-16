@@ -205,6 +205,13 @@ class TestUnicodeObject:
         w_l = w_s.descr_split(self.space) # no crash
         assert self.space.len_w(w_l) == 3
 
+    def test_ascii_islinebreak(self):
+        from pypy.objspace.std.unicodeobject import _ascii_islinebreak
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        for i in range(0x80):
+            ch = chr(i)
+            assert _ascii_islinebreak(ch) == unicodedb.islinebreak(i)
+
 
 class TestDecodeEmptyDevMode:
     def setup_method(self, method):
@@ -294,5 +301,36 @@ class AppTestUnicodeString:
         assert not '\U000E0020'.isprintable()
         assert u'\ud800'.capitalize() == u'\ud800'
         assert u'xx\ud800'.capitalize() == u'Xx\ud800'
+
+    def test_splitlines_ascii_and_mixed(self):
+        for sep in ['\n', '\r', '\x0b', '\x0c', '\x1c', '\x1d', '\x1e']:
+            assert ('a' + sep + 'b').splitlines() == ['a', 'b']
+            assert ('a' + sep + 'b').splitlines(True) == ['a' + sep, 'b']
+            assert ('a' + sep).splitlines() == ['a']
+            assert ('a' + sep).splitlines(True) == ['a' + sep]
+            assert (sep + sep).splitlines(True) == [sep, sep]
+        assert 'a\r\nb'.splitlines() == ['a', 'b']
+        assert 'a\r\nb'.splitlines(True) == ['a\r\n', 'b']
+        assert 'a\r\n'.splitlines(True) == ['a\r\n']
+        assert 'a\n\rb'.splitlines(True) == ['a\n', '\r', 'b']
+        assert 'a\r'.splitlines(True) == ['a\r']
+        assert '\r\r\n'.splitlines(True) == ['\r', '\r\n']
+        assert 'a b\x1fc'.splitlines() == ['a b\x1fc']
+        assert 'a b\u0085c\r\nd'.splitlines() == ['a b', 'c', 'd']
+        assert 'a b\u0085c\r\nd'.splitlines(True) == ['a b\u0085', 'c\r\n', 'd']
+        assert '\xe9\nx'.splitlines() == ['\xe9', 'x']
+        assert '\xe9\nx'.splitlines(True) == ['\xe9\n', 'x']
+        assert ' x '.splitlines() == ['', 'x']
+        assert all(len(l) == len(l.encode('utf8').decode('utf8'))
+                   for l in '\xe9\nx\r\nሴ'.splitlines(True))
+        # multi-byte characters before and after ASCII line breaks
+        assert '\xe9\ncaf\xe9\r\nx'.splitlines() == ['\xe9', 'caf\xe9', 'x']
+        assert ('\xe9\ncaf\xe9\r\nx'.splitlines(True) ==
+                ['\xe9\n', 'caf\xe9\r\n', 'x'])
+        assert 'ሴሴ\nሴ'.splitlines() == ['ሴሴ', 'ሴ']
+        assert 'abሴ\r'.splitlines(True) == ['abሴ\r']
+        assert 'abሴ\x1ccd'.splitlines() == ['abሴ', 'cd']
+        for l in '\xe9a\nbሴc\r\nd\U00010000e\x0bf'.splitlines(True):
+            assert len(l) == len(l.encode('utf8').decode('utf8'))
 
 

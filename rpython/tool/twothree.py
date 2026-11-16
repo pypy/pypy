@@ -12,6 +12,16 @@ translation toolchain has to keep working during bootstrapping.
 
 import sys
 
+try:
+    import builtins
+except ImportError:
+    import __builtin__ as builtins
+
+try:
+    intern = sys.intern
+except AttributeError:
+    intern = builtins.intern
+
 if sys.version_info[0] == 2:
     # 'raise tp, value, tb' is a syntax error on Python 3 and there is no way
     # to write the three-argument form so that both parsers accept it, so it

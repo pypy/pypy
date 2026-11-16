@@ -377,13 +377,13 @@ def compress(stream, data, flush=Z_NO_FLUSH):
     """
     # Warning, reentrant calls to the zlib with a given stream can cause it
     # to crash.  The caller of rpython.rlib.rzlib should use locks if needed.
-    data, _, avail_in = _operate(stream, data, flush, sys.maxint, _deflate,
+    data, _, avail_in = _operate(stream, data, flush, sys.maxsize, _deflate,
                                  "while compressing")
     assert not avail_in, "not all input consumed by deflate"
     return data
 
 
-def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxint,
+def decompress(stream, data, flush=Z_SYNC_FLUSH, max_length=sys.maxsize,
                zdict=None):
     """
     Feed more data into an inflate stream.  Returns a tuple (string,

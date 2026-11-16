@@ -832,7 +832,7 @@ def make_storage(b1, b2, b3):
     return storage, t
 
 def test_virtual_adder_int_constants():
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**16), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxsize), ConstInt(2**16), ConstInt(-65)]
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
     memo = ResumeDataLoopMemo(metainterp_sd)
@@ -843,14 +843,14 @@ def test_virtual_adder_int_constants():
     reader = ResumeDataDirectReader(MyMetaInterp(cpu), storage, "deadframe")
     reader.consume_vref_and_vable(None, None, None)
     reader.resumecodereader.jump(2) # framestack
-    _next_section(reader, sys.maxint, 1, sys.maxint, 2**16)
+    _next_section(reader, sys.maxsize, 1, sys.maxsize, 2**16)
     reader.resumecodereader.jump(2) # framestack
     _next_section(reader, 2, 3)
     reader.resumecodereader.jump(2) # framestack
-    _next_section(reader, sys.maxint, 2**16, -65)
+    _next_section(reader, sys.maxsize, 2**16, -65)
 
 def test_virtual_adder_memo_const_sharing():
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**23), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxsize), ConstInt(2**23), ConstInt(-65)]
     storage, t = make_storage(b1s, b2s, b3s)
     metainterp_sd = FakeMetaInterpStaticData()
     memo = ResumeDataLoopMemo(metainterp_sd)
@@ -860,7 +860,7 @@ def test_virtual_adder_memo_const_sharing():
     assert len(memo.consts) == 2
     assert storage.rd_consts is memo.consts
 
-    b1s, b2s, b3s = [ConstInt(sys.maxint), ConstInt(2**24), ConstInt(-65)]
+    b1s, b2s, b3s = [ConstInt(sys.maxsize), ConstInt(2**24), ConstInt(-65)]
     storage2, t = make_storage(b1s, b2s, b3s)
     i = t.get_iter()
     modifier2 = ResumeDataVirtualAdder(FakeOptimizer(i), storage2, storage2,
@@ -1250,7 +1250,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].fieldnum) == 1062
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
-    if sys.maxint >= 2147483648:
+    if sys.maxsize >= 2147483648:
         with py.test.raises(TagOverflow):
             modifier._add_pending_fields(
                 [ResOperation(rop.SETARRAYITEM_GC,

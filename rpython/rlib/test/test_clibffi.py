@@ -2,6 +2,8 @@
 """ Tests of libffi wrapper
 """
 
+from __future__ import print_function
+
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator import cdir
 from rpython.rlib.clibffi import *
@@ -467,8 +469,8 @@ class TestWin32Handles(BaseFfiTest):
     
     def test_get_libc_handle(self):
         handle = get_libc_handle()
-        print get_libc_name()
-        print dir(handle)
+        print(get_libc_name())
+        print(dir(handle))
         addr = rffi.cast(rffi.INT, handle)
         assert addr != 0
         assert addr % 0x1000 == 0

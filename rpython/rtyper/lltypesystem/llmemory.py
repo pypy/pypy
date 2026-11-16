@@ -489,6 +489,7 @@ class fakeaddress(object):
 
     def __nonzero__(self):
         return self.ptr is not None
+    __bool__ = __nonzero__
 
     #def __hash__(self):
     #    raise TypeError("don't put addresses in a prebuilt dictionary")
@@ -618,6 +619,7 @@ class AddressAsInt(Symbolic):
         return self.adr != cast_int_to_adr(other)
     def __nonzero__(self):
         return bool(self.adr)
+    __bool__ = __nonzero__
     def __add__(self, ofs):
         if (isinstance(ofs, int) and
                 getattr(self.adr.ptr._TYPE.TO, 'OF', None) == lltype.Char):

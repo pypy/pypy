@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib import jit
 from rpython.jit.metainterp.test.support import LLJitMixin
 
@@ -157,7 +159,7 @@ class ImmutableFieldsTests:
             return [f1, f2][m]
         @jit.dont_look_inside
         def do_stuff_with(n):
-            print n
+            print(n)
         def main(m):
             f = some(m)
             n = f.n
@@ -180,7 +182,7 @@ class ImmutableFieldsTests:
             return [f1, f2][m]
         @jit.dont_look_inside
         def do_stuff_with(n):
-            print n
+            print(n)
         def main(m):
             f = some(m)
             n = f.lst[0]

@@ -92,7 +92,7 @@ def ll_meta_interp(function, args, backendopt=False,
 def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=2**14, inline=False,
                     loop_longevity=0, retrace_limit=5, function_threshold=4,
-                    disable_unrolling=sys.maxint,
+                    disable_unrolling=sys.maxsize,
                     enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15,
                     max_unroll_recursion=7, vec=0, vec_all=0, vec_cost=0,
                     **kwds):

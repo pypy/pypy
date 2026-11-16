@@ -19,7 +19,7 @@ def f(n):
 
 
 def test_direct():
-    assert f(sys.maxint) == 1
+    assert f(sys.maxsize) == 1
 
 class RecurseGetAttr(object):
 
@@ -40,11 +40,11 @@ def test_raises_AttributeError():
 @pytest.mark.skipif(IS_PYPY, reason="can fail to overflow on PyPy")
 def test_llinterp():
     from rpython.rtyper.test.test_llinterp import interpret
-    res = interpret(f, [sys.maxint])
+    res = interpret(f, [sys.maxsize])
     assert res == 1
 
 def test_c_translation():
     from rpython.translator.c.test.test_genc import compile
     fn = compile(f, [int])
-    res = fn(sys.maxint)
+    res = fn(sys.maxsize)
     assert res == 1

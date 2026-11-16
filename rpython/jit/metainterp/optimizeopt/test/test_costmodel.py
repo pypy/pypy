@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 
 from rpython.jit.metainterp.optimizeopt.util import equaloplists
@@ -33,10 +35,10 @@ def prepost_savings(orig_func):
         before_savings = self.proxy.savings
         r = f(*args)
         after_savings = self.proxy.savings
-        print " CM %s (%d -> %d, diff: %d) " % (orig_func.__name__,
+        print(" CM %s (%d -> %d, diff: %d) " % (orig_func.__name__,
               before_savings, after_savings,
-              (after_savings - before_savings),)
-        print " args: ", args
+              (after_savings - before_savings),))
+        print(" args: ", args)
         return r
     return func
 
@@ -91,9 +93,9 @@ class TestCostModel(SchedulerBaseTest):
         opt.extend_packset()
         opt.combine_packset()
         for pack in opt.packset.packs:
-            print "pack: \n   ",
-            print '\n    '.join([str(op.getoperation()) for op in pack.operations])
-            print
+            print("pack: \n   ", end=' ')
+            print('\n    '.join([str(op.getoperation()) for op in pack.operations]))
+            print()
         costmodel = FakeCostModel(GenericCostModel(self.cpu, 0))
         costmodel.reset_savings()
         state = VecScheduleState(graph, opt.packset, self.cpu, costmodel)

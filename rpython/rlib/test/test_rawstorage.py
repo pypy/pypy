@@ -69,7 +69,7 @@ class TestCBackend(object):
             return res != i
 
         fc = compile(f, [int])
-        x = fc(-sys.maxint // 3)
+        x = fc(-sys.maxsize // 3)
         assert x == 0
 
     def test_backend_float_unaligned(self, monkeypatch):

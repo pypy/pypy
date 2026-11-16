@@ -112,7 +112,7 @@ class RPythonTyper(object):
 
     def lltype_to_classdef_mapping(self):
         result = {}
-        for (classdef, _), repr in self.instance_reprs.iteritems():
+        for (classdef, _), repr in self.instance_reprs.items():
             result[repr.lowleveltype] = classdef
         return result
 

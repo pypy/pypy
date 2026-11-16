@@ -1,5 +1,7 @@
 # minimal test: just checks that (parts of) rsre can be translated
 
+from __future__ import print_function
+
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.rsre_re import compile
@@ -43,15 +45,15 @@ def test_translates():
             s = "aaaaaa"
         else:
             s = "caaaaa"
-        print rsre_re.match("(a|b)aa", s)
-        print rsre_re.match("a{4}", s)
-        print rsre_re.search("(a|b)aa", s)
-        print rsre_re.search("a{4}", s)
-        for x in rsre_re.findall("(a|b)a", s):  print x
-        for x in rsre_re.findall("a{2}", s):    print x
-        for x in rsre_re.finditer("(a|b)a", s): print x
-        for x in rsre_re.finditer("a{2}", s):   print x
-        for x in rsre_re.split("(a|b)a", s):    print x
-        for x in rsre_re.split("a{2}", s):      print x
+        print(rsre_re.match("(a|b)aa", s))
+        print(rsre_re.match("a{4}", s))
+        print(rsre_re.search("(a|b)aa", s))
+        print(rsre_re.search("a{4}", s))
+        for x in rsre_re.findall("(a|b)a", s):  print(x)
+        for x in rsre_re.findall("a{2}", s):    print(x)
+        for x in rsre_re.finditer("(a|b)a", s): print(x)
+        for x in rsre_re.finditer("a{2}", s):   print(x)
+        for x in rsre_re.split("(a|b)a", s):    print(x)
+        for x in rsre_re.split("a{2}", s):      print(x)
         return 0
     interpret(f, [3])  # assert does not crash

@@ -234,12 +234,12 @@ def break_cycles(vertices, edges):
                 for edge in cycle:
                     edge2cycles.setdefault(edge, []).append(cycle)
             edge_weights = {}
-            for edge, cycle in edge2cycles.iteritems():
+            for edge, cycle in edge2cycles.items():
                 edge_weights[edge] = len(cycle)
             while allcycles:
                 max_weight = 0
                 max_edge = None
-                for edge, weight in edge_weights.iteritems():
+                for edge, weight in edge_weights.items():
                     if weight > max_weight:
                         max_edge = edge
                         max_weight = weight
@@ -261,7 +261,7 @@ def break_cycles(vertices, edges):
 
 def compute_predecessors(vertices, edgedict):
     result = {}
-    for node, edges in edgedict.iteritems():
+    for node, edges in edgedict.items():
         for edge in edges:
             result.setdefault(edge.target, set()).add(edge.source)
     return result
@@ -278,7 +278,7 @@ def remove_leaves_incoming(vertices, edgedict, incoming, leaves=None):
     removing many leaves from the same graph, many times. when the optional
     argument leaves is given, start removing things from those nodes. """
     if leaves is None:
-        leaves = {source for source, edges in edgedict.iteritems()
+        leaves = {source for source, edges in edgedict.items()
                     if len(edges) == 0}
         for leave in leaves:
             del edgedict[leave]

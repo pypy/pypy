@@ -156,10 +156,10 @@ def _should_widen_type(tp):
     return r_class.BITS < LONG_BIT or (
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 
-# the replacement for sys.maxint
+# the replacement for sys.maxsize
 maxint = int(LONG_TEST - 1)
-# for now, it should be equal to sys.maxint on all supported platforms
-assert maxint == sys.maxint
+# for now, it should be equal to sys.maxsize on all supported platforms
+assert maxint == sys.maxsize
 
 @specialize.argtype(0)
 def is_valid_int(r):
@@ -187,7 +187,7 @@ def ovfcheck(r):
 # These are the minimum and maximum float value that can
 # successfully be casted to an int.
 
-# The following values are not quite +/-sys.maxint.
+# The following values are not quite +/-sys.maxsize.
 # Note the "<= x <" here, as opposed to "< x <" above.
 # This is justified by test_typed in translator/c/test.
 def ovfcheck_float_to_longlong(x):
@@ -197,7 +197,7 @@ def ovfcheck_float_to_longlong(x):
         return r_longlong(x)
     raise OverflowError
 
-if sys.maxint == 2147483647:
+if sys.maxsize == 2147483647:
     def ovfcheck_float_to_int(x):
         if math.isnan(x):
             raise OverflowError
@@ -250,7 +250,7 @@ def most_neg_value_of_same_type(x):
 def most_neg_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
-        return -sys.maxint-1
+        return -sys.maxsize-1
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
     if r_class.SIGNED:
@@ -267,7 +267,7 @@ def most_pos_value_of_same_type(x):
 def most_pos_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
     if tp is lltype.Signed:
-        return sys.maxint
+        return sys.maxsize
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
     if r_class.SIGNED:
@@ -288,10 +288,10 @@ def is_signed_integer_type(tp):
 
 def highest_bit(n):
     """
-    Calculates the highest set bit in n.  This function assumes that n is a
-    power of 2 (and thus only has a single set bit).
+    Return the zero-based index of the highest set bit in a machine integer.
+    Interpret negative values as two's complement; return -1 for zero.
     """
-    assert n and (n & (n - 1)) == 0
+    n = r_uint(n)
     i = -1
     while n:
         i += 1
@@ -655,6 +655,7 @@ class r_singlefloat(object):
 
     def __nonzero__(self):
         raise TypeError("not supported on r_singlefloat instances")
+    __bool__ = __nonzero__
 
     def __cmp__(self, other):
         raise TypeError("not supported on r_singlefloat instances")
@@ -685,6 +686,7 @@ class r_longfloat(object):
 
     def __nonzero__(self):
         raise TypeError("not supported on r_longfloat instances")
+    __bool__ = __nonzero__
 
     def __cmp__(self, other):
         raise TypeError("not supported on r_longfloat instances")
@@ -814,7 +816,7 @@ def byteswap(arg):
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
 
-if sys.maxint == 2147483647:
+if sys.maxsize == 2147483647:
     def ovfcheck_int32_add(x, y):
         return ovfcheck(x + y)
     def ovfcheck_int32_sub(x, y):
@@ -921,7 +923,7 @@ def _uint_mul_high(a, b):
 # String parsing support
 # ---------------------------
 
-OVF_DIGITS = len(str(sys.maxint))
+OVF_DIGITS = len(str(sys.maxsize))
 
 def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False,
                   max_str_digits=0, disallow_whitespace_after_sign=False):

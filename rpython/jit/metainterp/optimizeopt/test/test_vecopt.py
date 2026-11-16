@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys
 import pytest
@@ -18,7 +20,7 @@ from rpython.jit.backend.detect_cpu import getcpuclass
 
 CPU = getcpuclass()
 
-if sys.maxint == 2**31-1:
+if sys.maxsize == 2**31-1:
     pytest.skip("32bit platforms are not supported", allow_module_level=True)
 
 class FakeJitDriverStaticData(object):
@@ -111,14 +113,14 @@ class VecTestHelper(DependencyBaseTest):
             raise NotAVectorizeableLoop()
         if unroll_factor == -1:
             unroll_factor = opt.get_unroll_count(ARCH_VEC_REG_SIZE)
-            print ""
-            print "unroll factor: ", unroll_factor, opt.smallest_type_bytes
+            print("")
+            print("unroll factor: ", unroll_factor, opt.smallest_type_bytes)
         self.show_dot_graph(DependencyGraph(loop), "original_" + self.test_name)
         graph = opt.analyse_index_calculations(loop)
         if graph is not None:
             cycle = graph.cycles()
             if cycle is not None:
-                print "CYCLE found %s" % cycle
+                print("CYCLE found %s" % cycle)
             self.show_dot_graph(graph, "early_exit_" + self.test_name)
             assert cycle is None
             state = SchedulerState(self.cpu, graph)

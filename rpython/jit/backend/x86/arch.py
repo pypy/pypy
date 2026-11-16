@@ -3,7 +3,7 @@
 # return address and some scratch space for arguments.
 
 import sys
-if sys.maxint == (2**31 - 1):
+if sys.maxsize == (2**31 - 1):
     WORD = 4
     IS_X86_32 = True
     IS_X86_64 = False
@@ -11,7 +11,7 @@ else:
     WORD = 8
     IS_X86_32 = False
     IS_X86_64 = True
-WIN64 = sys.platform == "win32" and sys.maxint > 2**32
+WIN64 = sys.platform == "win32" and sys.maxsize > 2**32
 
 #
 #        +--------------------+    <== aligned to 16 bytes

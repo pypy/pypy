@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.parsing.lexer import *
 from rpython.rlib.parsing.regex import *
@@ -62,8 +64,8 @@ class TestDirectLexer(object):
         names = ["IF", "ELSE", "WHILE", "COLON", "WHITE"]
         l = self.get_lexer(rexs, names, ["WHITE"])
         info = py.test.raises(deterministic.LexerError, l.tokenize, "if if if: a else while")
-        print dir(info)
-        print info.__class__
+        print(dir(info))
+        print(info.__class__)
         exc = info.value
         assert exc.input[exc.source_pos.i] == "a"
 
@@ -75,10 +77,10 @@ class TestDirectLexer(object):
         l = self.get_lexer(rexs, names, ["WHITE"])
         s = "if if if: else while"
         tokens = list(l.get_runner(s, eof=True))
-        print tokens
+        print(tokens)
         assert tokens[-1] == Token("EOF", "EOF", SourcePos(len(s), 0, len(s)))
         tokens = l.tokenize(s, eof=True)
-        print tokens
+        print(tokens)
         assert tokens[-1] == Token("EOF", "EOF", SourcePos(len(s), 0, len(s)))
 
     def test_position(self):

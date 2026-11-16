@@ -130,7 +130,7 @@ def test_string_replace():
     check_replace('123x123', '123', '', res='x')
 
 def test_string_replace_overflow():
-    if sys.maxint > 2**31-1:
+    if sys.maxsize > 2**31-1:
         py.test.skip("Wrong platform")
     s = "a" * (2**16)
     with py.test.raises(OverflowError):
@@ -162,7 +162,7 @@ def test_unicode_replace():
     assert replace(u'123x123', u'123', u'') == u'x'
 
 def test_unicode_replace_overflow():
-    if sys.maxint > 2**31-1:
+    if sys.maxsize > 2**31-1:
         py.test.skip("Wrong platform")
     s = u"a" * (2**16)
     with py.test.raises(OverflowError):

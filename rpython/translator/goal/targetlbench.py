@@ -1,4 +1,6 @@
 
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr, raw_memclear,\
      raw_memcopy, sizeof, itemoffsetof
@@ -24,7 +26,7 @@ def entry_point(argv):
     b = lltype.malloc(TP, size, zero=False)
     for i in range(size):
         a[i] = i
-    print longername(a, b, size)
+    print(longername(a, b, size))
     return 0
 
 # _____ Define and setup target ___

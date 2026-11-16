@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib.objectmodel import free_non_gc_object
 from rpython.memory.support import get_address_stack
 from rpython.memory.support import get_address_deque
@@ -48,13 +50,13 @@ class TestAddressStack(object):
                  for i in range(3000)]
         ll = AddressStack()
         for i in range(3000):
-            print i
+            print(i)
             ll.append(addrs[i])
         for i in range(3000)[::-1]:
             a = ll.pop()
             assert a == addrs[i]
         for i in range(3000):
-            print i
+            print(i)
             ll.append(addrs[i])
         for i in range(3000)[::-1]:
             a = ll.pop()

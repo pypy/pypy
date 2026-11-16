@@ -1,5 +1,7 @@
 """ explicit integration tests for register allocation in the x86 backend """
 
+from __future__ import print_function
+
 import pytest
 
 from rpython.jit.backend.llsupport.test import test_regalloc_integration
@@ -70,7 +72,7 @@ class BaseTestCheckRegistersExplicitly(test_regalloc_integration.BaseTestRegallo
 
     def teardown_method(self, meth):
         for l in self.log:
-            print l
+            print(l)
 
     def filter_log_moves(self):
         return [entry for entry in self.log if entry.name == "mov"]

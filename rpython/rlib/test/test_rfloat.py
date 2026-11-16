@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, pytest, math
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
@@ -269,7 +271,7 @@ def test_string_to_float():
                 parts = [random.choice(lst) for lst in valid_parts]
                 parts[j] = invalid
                 s = ''.join(parts)
-                print repr(s)
+                print(repr(s))
                 if s.strip(): # empty s raises OperationError directly
                     pytest.raises(ParseStringError, string_to_float, s)
     pytest.raises(ParseStringError, string_to_float, "")

@@ -269,6 +269,7 @@ class Symbolic(object):
 
     def __nonzero__(self):
         raise TypeError("Symbolics are not comparable! %r" % (self,))
+    __bool__ = __nonzero__
 
 class ComputedIntSymbolic(Symbolic):
 
@@ -766,7 +767,7 @@ class UnboxedValue(object):
     def __init__(self, value):
         # this funtion is annotated but not included in the translated program
         int_as_pointer = value * 2 + 1   # XXX for now
-        if -sys.maxint-1 <= int_as_pointer <= sys.maxint:
+        if -sys.maxsize-1 <= int_as_pointer <= sys.maxsize:
             if isinstance(self.__class__.__slots__, str):
                 setattr(self, self.__class__.__slots__, value)
             else:

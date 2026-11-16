@@ -23,6 +23,8 @@
 #     Python implementation
 #   * print a doc about how to start the Translator
 
+from __future__ import print_function
+
 import sys
 import math
 import time
@@ -142,17 +144,17 @@ class NN:
     def test(self, patterns):
         for p in patterns:
             if PRINT_IT:
-                print p[0], '->', self.update(p[0])
+                print(p[0], '->', self.update(p[0]))
 
     def weights(self):
         if PRINT_IT:
-            print 'Input weights:'
+            print('Input weights:')
             for i in range(self.ni):
-                print self.wi[i]
-            print
-            print 'Output weights:'
+                print(self.wi[i])
+            print()
+            print('Output weights:')
             for j in range(self.nh):
-                print self.wo[j]
+                print(self.wo[j])
 
     def train(self, patterns, iterations=2000, N=0.5, M=0.1):
         # N: learning rate
@@ -165,7 +167,7 @@ class NN:
                 self.update(inputs)
                 error = error + self.backPropagate(targets, N, M)
             if PRINT_IT and i % 100 == 0:
-                print 'error', error
+                print('error', error)
 
 
 def demo():
@@ -196,7 +198,7 @@ def entry_point(argv):
     for i in range(N):
         demo()
     t1 = time.time() - T
-    print "%d iterations, %s milliseconds per iteration" % (N, 1000.0*t1/N)
+    print("%d iterations, %s milliseconds per iteration" % (N, 1000.0*t1/N))
     return 0
 
 # _____ Define and setup target ___
@@ -208,4 +210,4 @@ if __name__ == '__main__':
     if len(sys.argv) == 1:
         sys.argv.append('1')
     entry_point(sys.argv)
-    print __doc__
+    print(__doc__)

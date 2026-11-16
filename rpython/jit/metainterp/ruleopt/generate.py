@@ -38,8 +38,8 @@ from rpython.jit.metainterp.optimizeopt.util import (
 from rpython.jit.metainterp.resoperation import rop
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_mul_high, highest_bit
-MAXINT = sys.maxint
-MININT = -sys.maxint - 1
+MAXINT = sys.maxsize
+MININT = -sys.maxsize - 1
 
 """)
         f.write(result)

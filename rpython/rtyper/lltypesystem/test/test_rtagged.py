@@ -69,9 +69,9 @@ def test_overflowerror():
     assert res.item0 == 'C'
     assert res.item1 == -117
 
-    res = interpret(fn2, [sys.maxint], taggedpointers=True)
+    res = interpret(fn2, [sys.maxsize], taggedpointers=True)
     assert res.item0 == 'B'
-    assert res.item1 == sys.maxint
+    assert res.item1 == sys.maxsize
 
 def test_prebuilt():
     c = C(111)
@@ -108,7 +108,7 @@ def test_prebuilt():
 def test_C_or_None():
     def g(x):
         if x is None:
-            return sys.maxint
+            return sys.maxsize
         else:
             return x.smallint
     def fn(n):
@@ -119,7 +119,7 @@ def test_C_or_None():
         return g(x)
 
     res = interpret(fn, [-1], taggedpointers=True)
-    assert res == sys.maxint
+    assert res == sys.maxsize
     res = interpret(fn, [56], taggedpointers=True)
     assert res == 56
 

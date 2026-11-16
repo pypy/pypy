@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 import py
@@ -1083,7 +1085,7 @@ class TestRclass(BaseRtypingTest):
         t = TranslationContext()
         t.buildannotator().build_types(f, [])
         e = py.test.raises(TyperError, t.buildrtyper().specialize)
-        print e.value
+        print(e.value)
 
     def test_instance_repr(self):
         from rpython.rlib.objectmodel import current_object_addr_as_int
@@ -1098,7 +1100,7 @@ class TestRclass(BaseRtypingTest):
         res = self.interpret(f, [])
         xid, xstr = self.ll_unpack_tuple(res, 2)
         xstr = self.ll_to_string(xstr)
-        print xid, xstr
+        print(xid, xstr)
         assert 'FooBar' in xstr
         from rpython.rlib.rarithmetic import r_uint
         expected = hex(r_uint(xid)).lower().replace('l', '')
@@ -1164,7 +1166,7 @@ class TestRclass(BaseRtypingTest):
         r = names.index('inst_as_reference')
         assert v == 1      # void fields are first
         assert sorted([c, b]) == [7, 8]
-        if sys.maxint == 2147483647:
+        if sys.maxsize == 2147483647:
             assert sorted([u, i, r]) == [4, 5, 6]        # 32-bit types
             assert sorted([d, l]) == [2, 3]              # 64-bit types
         else:
@@ -1185,6 +1187,7 @@ class TestRclass(BaseRtypingTest):
                     raise StopIteration
                 self.counter += 1
                 return self.counter - 1
+            __next__ = next
 
         def f():
             i = Iterable()
@@ -1208,6 +1211,7 @@ class TestRclass(BaseRtypingTest):
                     raise StopIteration
                 self.counter += self.step
                 return self.counter - 1
+            __next__ = next
 
         class Iterable(BaseIterable):
             step = 1
@@ -1236,6 +1240,7 @@ class TestRclass(BaseRtypingTest):
 
             def next(self):
                 raise TyperError
+            __next__ = next
 
         def f():
             i = Iterable()

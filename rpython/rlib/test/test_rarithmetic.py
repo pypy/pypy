@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rlib import rarithmetic
@@ -7,7 +9,7 @@ from hypothesis import given, strategies, assume
 import sys
 import py
 
-maxint_mask = (sys.maxint*2 + 1)
+maxint_mask = (sys.maxsize*2 + 1)
 machbits = 0
 i = 1
 l = 1
@@ -147,11 +149,11 @@ class Test_r_uint:
 
     def test_from_float(self):
         assert r_uint(2.3) == 2
-        assert r_uint(sys.maxint * 1.234) == long(sys.maxint * 1.234)
+        assert r_uint(sys.maxsize * 1.234) == long(sys.maxsize * 1.234)
 
     def test_to_float(self):
         assert float(r_uint(2)) == 2.0
-        val = long(sys.maxint * 1.234)
+        val = long(sys.maxsize * 1.234)
         assert float(r_uint(val)) == float(val)
 
 def test_mixed_types():
@@ -177,16 +179,16 @@ def test_limits():
 
 def test_intmask():
     assert intmask(1) == 1
-    assert intmask(sys.maxint) == sys.maxint
-    minint = -sys.maxint-1
+    assert intmask(sys.maxsize) == sys.maxsize
+    minint = -sys.maxsize-1
     assert intmask(minint) == minint
-    assert intmask(2*sys.maxint+1) == -1
-    assert intmask(sys.maxint*2) == -2
-    assert intmask(sys.maxint*2+2) == 0
-    assert intmask(2*(sys.maxint*1+1)) == 0
+    assert intmask(2*sys.maxsize+1) == -1
+    assert intmask(sys.maxsize*2) == -2
+    assert intmask(sys.maxsize*2+2) == 0
+    assert intmask(2*(sys.maxsize*1+1)) == 0
     assert intmask(1 << (machbits-1)) == 1 << (machbits-1)
-    assert intmask(sys.maxint+1) == minint
-    assert intmask(minint-1) == sys.maxint
+    assert intmask(sys.maxsize+1) == minint
+    assert intmask(minint-1) == sys.maxsize
     assert intmask(r_uint(-1)) == -1
     assert intmask(r_ulonglong(-1)) == -1
 
@@ -204,15 +206,15 @@ def test_intmask_small():
         assert (type(x), x) == (int, 5)
 
 def test_bug_creating_r_int():
-    minint = -sys.maxint-1
+    minint = -sys.maxsize-1
     assert r_int(r_int(minint)) == minint
 
 def test_ovfcheck():
     one = 1
-    x = sys.maxint
-    minusx = -sys.maxint
-    n = -sys.maxint-1
-    y = sys.maxint-1
+    x = sys.maxsize
+    minusx = -sys.maxsize
+    n = -sys.maxsize-1
+    y = sys.maxsize-1
     # sanity
     py.test.raises(AssertionError, ovfcheck, r_uint(0))
 
@@ -277,23 +279,23 @@ def test_ovfcheck_float_to_int():
 
     # strange things happening for float to int on 64 bit:
     # int(float(i)) != i  because of rounding issues
-    x = sys.maxint
-    while int(float(x)) > sys.maxint:
+    x = sys.maxsize
+    while int(float(x)) > sys.maxsize:
         x -= 1
     assert ovfcheck_float_to_int(float(x)) == int(float(x))
 
-    x = sys.maxint + 1
-    while int(float(x)) <= sys.maxint:
+    x = sys.maxsize + 1
+    while int(float(x)) <= sys.maxsize:
         x += 1
     py.test.raises(OverflowError, ovfcheck_float_to_int, x)
 
-    x = -sys.maxint-1
-    while int(float(x)) < -sys.maxint-1:
+    x = -sys.maxsize-1
+    while int(float(x)) < -sys.maxsize-1:
         x += 1
     assert ovfcheck_float_to_int(float(x)) == int(float(x))
 
-    x = -sys.maxint-1
-    while int(float(x)) >= -sys.maxint-1:
+    x = -sys.maxsize-1
+    while int(float(x)) >= -sys.maxsize-1:
         x -= 1
     py.test.raises(OverflowError, ovfcheck_float_to_int, x)
 
@@ -355,15 +357,15 @@ def test_compute_restype_incompatible():
         py.test.raises(AssertionError, compute_restype, t2, t1)
 
 def test_most_neg_value_of():
-    assert most_neg_value_of_same_type(123) == -sys.maxint-1
+    assert most_neg_value_of_same_type(123) == -sys.maxsize-1
     assert most_neg_value_of_same_type(r_uint(123)) == 0
     llmin = -(2**(r_longlong.BITS-1))
     assert most_neg_value_of_same_type(r_longlong(123)) == llmin
     assert most_neg_value_of_same_type(r_ulonglong(123)) == 0
 
 def test_most_pos_value_of():
-    assert most_pos_value_of_same_type(123) == sys.maxint
-    assert most_pos_value_of_same_type(r_uint(123)) == 2 * sys.maxint + 1
+    assert most_pos_value_of_same_type(123) == sys.maxsize
+    assert most_pos_value_of_same_type(r_uint(123)) == 2 * sys.maxsize + 1
     llmax_sign = (2**(r_longlong.BITS-1))-1
     llmax_unsign = (2**r_longlong.BITS)-1
     assert most_pos_value_of_same_type(r_longlong(123)) == llmax_sign
@@ -386,10 +388,21 @@ def test_r_ulonglong():
     assert long(y) == 2**r_ulonglong.BITS - 1
 
 def test_highest_bit():
-    py.test.raises(AssertionError, highest_bit, 0)
-    py.test.raises(AssertionError, highest_bit, 14)
-    for i in xrange(31):
-        assert highest_bit(2**i) == i
+    assert highest_bit(0) == -1
+    assert highest_bit(14) == 3
+    for i in xrange(LONG_BIT):
+        power = r_uint(1) << i
+        assert highest_bit(power) == i
+        assert highest_bit(power - 1) == i - 1
+        assert highest_bit(power | 1) == i
+        assert highest_bit(intmask(power)) == i
+    for n in [-1, -14, -sys.maxsize - 1]:
+        assert highest_bit(n) == LONG_BIT - 1
+
+def test_highest_bit_rtyped():
+    for n, expected in [(0, -1), (14, 3), (-1, LONG_BIT - 1),
+                        (-sys.maxsize - 1, LONG_BIT - 1)]:
+        assert interpret(highest_bit, [n]) == expected
 
 def test_int_between():
     assert int_between(1, 1, 3)
@@ -404,16 +417,16 @@ def test_int_force_ge_zero():
     assert int_force_ge_zero(0) == 0
     assert int_force_ge_zero(-42) == 0
 
-@given(strategies.integers(min_value=0, max_value=sys.maxint),
-       strategies.integers(min_value=1, max_value=sys.maxint))
+@given(strategies.integers(min_value=0, max_value=sys.maxsize),
+       strategies.integers(min_value=1, max_value=sys.maxsize))
 def test_int_c_div_mod(x, y):
     assert int_c_div(~x, y) == -(abs(~x) // y)
     assert int_c_div( x,-y) == -(x // y)
 
-@given(strategies.integers(min_value=0, max_value=sys.maxint),
-       strategies.integers(min_value=1, max_value=sys.maxint))
+@given(strategies.integers(min_value=0, max_value=sys.maxsize),
+       strategies.integers(min_value=1, max_value=sys.maxsize))
 def test_int_c_div_mod_2(x, y):
-    assume((x, y) != (sys.maxint, 1))  # This case would overflow
+    assume((x, y) != (sys.maxsize, 1))  # This case would overflow
     assert int_c_div(~x,-y) == +(abs(~x) // y)
     for x1 in [x, ~x]:
         for y1 in [y, -y]:
@@ -530,11 +543,11 @@ class TestStringToInt:
     def test_string_to_int_overflow(self):
         import sys
         py.test.raises(ParseStringOverflowError, string_to_int,
-               str(sys.maxint*17))
+               str(sys.maxsize*17))
 
     def test_string_to_int_not_overflow(self):
         import sys
-        for x in [-sys.maxint-1, sys.maxint]:
+        for x in [-sys.maxsize-1, sys.maxsize]:
             y = string_to_int(str(x))
             assert y == x
 
@@ -612,7 +625,7 @@ class TestStringToInt:
         for x in TESTS:
             for valid_underscore in [False, True]:
                 for no_implicit_octal in [False, True]:
-                    print x, valid_underscore, no_implicit_octal
+                    print(x, valid_underscore, no_implicit_octal)
                     expected_ok = True
                     if no_implicit_octal and any('1' <= c <= '7' for c in x):
                         expected_ok = False
@@ -764,9 +777,9 @@ def test_ovfcheck_int32():
     assert ovfcheck_int32_mul(-2**16, 2**15) == -2**31
     py.test.raises(OverflowError, ovfcheck_int32_mul, -2**16, -2**15)
 
-@given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
-       strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
-       strategies.integers(min_value=1, max_value=sys.maxint))
+@given(strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize),
+       strategies.integers(min_value=-sys.maxsize-1, max_value=sys.maxsize),
+       strategies.integers(min_value=1, max_value=sys.maxsize))
 def test_mulmod(a, b, c):
     assert mulmod(a, b, c) == (a * b) % c
     #

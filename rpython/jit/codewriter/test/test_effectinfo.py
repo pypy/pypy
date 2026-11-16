@@ -173,7 +173,7 @@ def test_compute_bitstrings():
 
     assert f1descr.ei_index in (0, 1)
     assert f2descr.ei_index == 1 - f1descr.ei_index
-    assert f3descr.ei_index == sys.maxint
+    assert f3descr.ei_index == sys.maxsize
     assert a1descr.ei_index == 0
     assert a2descr.ei_index == 0
 

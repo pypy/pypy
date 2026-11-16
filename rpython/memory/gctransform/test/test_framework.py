@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator.model import SomeInteger
 from rpython.flowspace.model import Constant, SpaceOperation, mkentrymap
@@ -203,9 +205,9 @@ def write_barrier_check(spaceop, needs_write_barrier=True):
     hop = GcHighLevelOp(transformer, spaceop, 0, llops)
     hop.dispatch()
     found = False
-    print spaceop, '======>'
+    print(spaceop, '======>')
     for op in llops:
-        print '\t', op
+        print('\t', op)
         if op.opname == 'direct_call':
             found = True
     assert found == needs_write_barrier

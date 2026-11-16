@@ -6,7 +6,6 @@ import sys
 import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
-from rpython.tool import leakfinder
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -253,9 +252,8 @@ def _pop_freelist_or_malloc():
     if s:
         vmprof_tl_freelist.setraw(s.c_next)
         return s
-    s = lltype.malloc(VMPROFSTACK, flavor='raw')
-    if not we_are_translated() and id(s._obj0) in leakfinder.ALLOCATED:
-        leakfinder.remember_free(s._obj0)
+    # immortal per-thread pool nodes
+    s = lltype.malloc(VMPROFSTACK, flavor='raw', track_allocation=False)
     return s
 
 @jit.dont_look_inside

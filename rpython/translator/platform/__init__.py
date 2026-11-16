@@ -48,6 +48,14 @@ class Platform(object):
 
     extra_libs = ()
 
+    # Flags that make the C compiler *reject* a reference to an API which the
+    # headers say was introduced after the deployment target we build for.
+    # Used only when probing for the presence of a function
+    # (rffi_platform.Has), never for the real build.  Empty on platforms where
+    # "it compiles and links" already implies "it is callable at run time";
+    # see darwin.py for a platform where it does not.
+    availability_error_flags = ()
+
     def __init__(self, cc):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")
@@ -125,8 +133,8 @@ class Platform(object):
         bits = [self.__class__.__name__, 'cc=%r' % self.cc]
         for varname in self.relevant_environ:
             bits.append('%s=%r' % (varname, os.environ.get(varname)))
-        # adding sys.maxint to disambiguate windows
-        bits.append('%s=%r' % ('sys.maxint', sys.maxint))
+        # adding sys.maxsize to disambiguate windows
+        bits.append('%s=%r' % ('sys.maxsize', sys.maxsize))
         return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
@@ -290,7 +298,7 @@ elif sys.platform == 'darwin':
 
     if  platform.machine() == 'Power Macintosh':
         host_factory = Darwin_PowerPC
-    elif sys.maxint <= 2147483647:
+    elif sys.maxsize <= 2147483647:
         host_factory = Darwin_i386
     elif platform.machine() == 'x86_64':
         host_factory = Darwin_x86_64

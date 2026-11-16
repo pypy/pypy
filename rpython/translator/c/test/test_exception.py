@@ -109,11 +109,11 @@ def test_memoryerror():
         return result + tag.a
     f1 = getcompiled(testfn, [int])
     assert f1(10) == 42
-    assert f1(sys.maxint) == 1000
+    assert f1(sys.maxsize) == 1000
     for i in range(20):
-        assert f1(int((sys.maxint+1) // 2 - i)) == 1000
-    assert f1(sys.maxint // 2 - 16384) == 1000
-    assert f1(sys.maxint // 2 + 16384) == 1000
+        assert f1(int((sys.maxsize+1) // 2 - i)) == 1000
+    assert f1(sys.maxsize // 2 - 16384) == 1000
+    assert f1(sys.maxsize // 2 + 16384) == 1000
 
 def test_assert():
     def testfn(n):
@@ -206,7 +206,7 @@ def test_ovf_propagation():
     def f():
         div(4, 2)
         try:
-            return div(-sys.maxint-1, -1)
+            return div(-sys.maxsize-1, -1)
         except OverflowError:
             return 0
     assert f() == 0

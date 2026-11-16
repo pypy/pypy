@@ -14,7 +14,7 @@ from rpython.translator.goal.translate import main
 
 # no implicit targets
 if len(sys.argv) == 1:
-    print __doc__
+    print(__doc__)
     sys.exit(1)
 
 main()

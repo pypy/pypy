@@ -20,7 +20,7 @@ def checkgraphs(self, blocks):
 
 def fully_annotated_blocks(self):
     """Ignore blocked blocks."""
-    for block, is_annotated in self.annotated.iteritems():
+    for block, is_annotated in self.annotated.items():
         if is_annotated:
             yield block
 

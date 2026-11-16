@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import ctypes
 import math
 import re
@@ -99,7 +101,7 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
                         a = ''.join([chr(int(x)) for x in l])
                 args += (a,)
         res = fn(*args)
-        print "THE RESULT IS:", llrepr_out(res), ";"
+        print("THE RESULT IS:", llrepr_out(res), ";")
         return 0
 
     t = Translation(entry_point, None, gc=gcpolicy, backend="c",
@@ -127,9 +129,9 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
     def output(stdout):
         for line in stdout.splitlines(False):
             if len(repr(line)) == len(line) + 2:   # no escaped char
-                print line
+                print(line)
             else:
-                print 'REPR:', repr(line)
+                print('REPR:', repr(line))
 
     def f(*args, **kwds):
         expected_extra_mallocs = kwds.pop('expected_extra_mallocs', 0)
@@ -146,11 +148,11 @@ def compile(fn, argtypes, view=False, gcpolicy="none", backendopt=True,
         #
         if expected_exception_name is not None:
             stdout, stderr = stdout
-            print '--- stdout ---'
+            print('--- stdout ---')
             output(stdout)
-            print '--- stderr ---'
+            print('--- stderr ---')
             output(stderr)
-            print '--------------'
+            print('--------------')
             stderr, prevline, lastline, empty = stderr.rsplit('\n', 3)
             assert empty == ''
             expected = 'Fatal RPython error: ' + expected_exception_name
@@ -487,7 +489,7 @@ def test_keepalive():
 def test_print():
     def f():
         for i in range(10):
-            print "xxx"
+            print("xxx")
 
     fn = compile(f, [])
     fn()

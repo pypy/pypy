@@ -46,6 +46,7 @@ class ListOfKind(object):
         return iter(self.content)
     def __nonzero__(self):
         return bool(self.content)
+    __bool__ = __nonzero__
     def __eq__(self, other):
         return (isinstance(other, ListOfKind) and
                 self.kind == other.kind and self.content == other.content)

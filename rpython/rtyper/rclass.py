@@ -33,7 +33,7 @@ class FieldListAccessor(object):
 
     def all_immutable_fields(self):
         result = set()
-        for key, value in self.fields.iteritems():
+        for key, value in self.fields.items():
             if value in (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY):
                 result.add(key)
         return result
@@ -49,6 +49,7 @@ class ImmutableRanking(object):
 
     def __nonzero__(self):
         return self.is_immutable
+    __bool__ = __nonzero__
 
     def __repr__(self):
         return '<%s>' % self.name
@@ -343,7 +344,7 @@ class ClassRepr(Repr):
             vtable.subclassrange_max = self.classdef.maxid
         else:  # for the root class
             vtable.subclassrange_min = 0
-            vtable.subclassrange_max = sys.maxint
+            vtable.subclassrange_max = sys.maxsize
         rinstance = getinstancerepr(self.rtyper, self.classdef)
         rinstance.setup()
         if rinstance.gcflavor == 'gc':
@@ -500,8 +501,7 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             # instance attributes
-            attrs = self.classdef.attrs.items()
-            attrs.sort()
+            attrs = sorted(self.classdef.attrs.items())
             myllfields = []
             nonneg_ints = set()
             for name, attrdef in attrs:
@@ -753,8 +753,7 @@ class InstanceRepr(Repr):
                 inputconst(lltype.Signed, 0), llops)
         # initialize instance attributes from their defaults from the class
         if self.classdef is not None:
-            flds = self.allinstancefields.keys()
-            flds.sort()
+            flds = sorted(self.allinstancefields.keys())
             for fldname in flds:
                 if fldname == '__class__':
                     continue

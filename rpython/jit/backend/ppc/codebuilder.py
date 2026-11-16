@@ -1413,7 +1413,7 @@ class BranchUpdater(PPCAssembler):
         self.assemble()
         self.copy_to_raw_memory(addr)
         
-    def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
+    def assemble(self, dump='PYPY_DEBUG' in os.environ):
         insns = self.assemble0(dump)
         for i in insns:
             self.emit(i)

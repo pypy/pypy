@@ -1142,7 +1142,7 @@ class LLHelpers(AbstractLLHelpers):
         for i, thing in enumerate(things):
             if isinstance(thing, tuple):
                 code = thing[0]
-                vitem, r_arg = argsiter.next()
+                vitem, r_arg = next(argsiter)
                 if not hasattr(r_arg, 'll_str'):
                     raise TyperError("ll_str unsupported for: %r" % r_arg)
                 if code == 's':

@@ -99,7 +99,7 @@ class AbstractDescr(AbstractValue):
         return -1
 
     def get_ei_index(self):
-        return sys.maxint
+        return sys.maxsize
 
     def repr_of_descr(self):
         return '%r' % (self,)

@@ -139,10 +139,10 @@ def test_int_abs():
     assert _ll_1_int_abs(0) == 0
     assert _ll_1_int_abs(1) == 1
     assert _ll_1_int_abs(10) == 10
-    assert _ll_1_int_abs(sys.maxint) == sys.maxint
+    assert _ll_1_int_abs(sys.maxsize) == sys.maxsize
     assert _ll_1_int_abs(-1) == 1
     assert _ll_1_int_abs(-10) == 10
-    assert _ll_1_int_abs(-sys.maxint) == sys.maxint
+    assert _ll_1_int_abs(-sys.maxsize) == sys.maxsize
 
 def test_list_getitem_calls_ll_getitem(monkeypatch):
     # rlist.ll_getitem() is ll_getitem(func, basegetitem, l, index), so the

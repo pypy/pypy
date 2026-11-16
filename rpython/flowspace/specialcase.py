@@ -52,7 +52,8 @@ def sc_getattr(ctx, w_obj, w_index, w_default=None):
 
 redirect_function(open,       'rpython.rlib.rfile.create_file')
 redirect_function(os.fdopen,  'rpython.rlib.rfile.create_fdopen_rfile')
-redirect_function(os.tmpfile, 'rpython.rlib.rfile.create_temp_rfile')
+if hasattr(os, 'tmpfile'):     # gone in Python 3
+    redirect_function(os.tmpfile, 'rpython.rlib.rfile.create_temp_rfile')
 
 # on top of PyPy only: 'os.remove != os.unlink'
 # (on CPython they are '==', but not identical either)

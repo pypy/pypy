@@ -18,6 +18,7 @@ class NonConstant(object):
 
     def __nonzero__(self):
         return bool(self.__dict__['constant'])
+    __bool__ = __nonzero__
 
     def __eq__(self, other):
         return self.__dict__['constant'] == other

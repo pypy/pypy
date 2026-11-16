@@ -4,7 +4,7 @@ import sys
 from rpython.jit.backend.ppc import register as r
 
 import sys
-if sys.maxint == (2**31 - 1):
+if sys.maxsize == (2**31 - 1):
     assert False, "the ppc backend only supports PPC-64 for now"
     WORD = 4
     #DWORD = 2 * WORD

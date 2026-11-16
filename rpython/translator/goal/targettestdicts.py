@@ -7,6 +7,8 @@ of input types is empty, it is meant to be a list of strings,
 actually implementing argv of the executable.
 """
 
+from __future__ import print_function
+
 import os, sys
 
 def debug(msg): 
@@ -19,9 +21,9 @@ reverse_dict = dict((y, x) for (x, y) in test_dict.items())
 
 def entry_point(argv):
     if argv[1] == 'd':
-        print test_dict[int(argv[2])]
+        print(test_dict[int(argv[2])])
     else:
-        print reverse_dict[argv[2]]
+        print(reverse_dict[argv[2]])
     return 0
 
 # _____ Define and setup target ___

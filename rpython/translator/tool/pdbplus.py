@@ -161,7 +161,7 @@ the candidate desc; the result list is assigned to var or _."""
 
         descs = []
         try:
-            for c in self.translator.annotator.bookkeeper.descs.itervalues():
+            for c in self.translator.annotator.bookkeeper.descs.values():
                 if isinstance(c, kind_cls) and flt(c):
                     descs.append(c)
         except self.GiveUp:
@@ -251,7 +251,7 @@ find a stack frame that has a certain variable (the default is "graph")
             return
         for cdef in clsdefs:
             try:
-                attrs = [a for a in cdef.attrs.itervalues() if flt(a)]
+                attrs = [a for a in cdef.attrs.values() if flt(a)]
             except self.GiveUp:
                 return
             if attrs:
@@ -376,7 +376,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
     def _allgraphs(self, func):
         graphs = {}
         funcdesc = self.translator.annotator.bookkeeper.getdesc(func)
-        for graph in funcdesc._cache.itervalues():
+        for graph in funcdesc._cache.values():
             graphs[graph] = True
         for graph in self.translator.graphs:
             if getattr(graph, 'func', None) is func:

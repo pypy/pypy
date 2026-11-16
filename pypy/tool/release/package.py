@@ -125,6 +125,68 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
+# Mach-O and universal-binary magic numbers, in both byte orders
+MACHO_MAGIC = (b'\xfe\xed\xfa\xce', b'\xce\xfa\xed\xfe',   # 32 bit
+               b'\xfe\xed\xfa\xcf', b'\xcf\xfa\xed\xfe',   # 64 bit
+               b'\xca\xfe\xba\xbe', b'\xbe\xba\xfe\xca')   # universal
+
+
+def find_macho_files(dirname):
+    """Yield the path of every Mach-O file under 'dirname'."""
+    for dirpath, dirnames, filenames in os.walk(dirname):
+        for fname in filenames:
+            path = os.path.join(dirpath, fname)
+            if os.path.islink(path):
+                continue
+            try:
+                with open(path, 'rb') as fid:
+                    magic = fid.read(4)
+            except IOError:
+                continue
+            if magic in MACHO_MAGIC:
+                yield path
+
+
+def codesign_macho_files(dirname):
+    """Re-sign the Mach-O files under 'dirname' whose signature is invalid.
+
+    smartstrip() and make_portable()'s install_name_tool calls rewrite the
+    binaries in place, which invalidates the ad-hoc signature that the linker
+    put there.  On arm64 macOS that is fatal and completely silent: AMFI
+    SIGKILLs any process which maps a file whose signature does not verify, so
+    for instance 'import _tkinter' used to die with no output at all and exit
+    code 137.  Signing them ad-hoc again ('-s -') makes them loadable.
+    """
+    def verify(path):
+        return subprocess.call(['codesign', '--verify', '--strict', path],
+                               stdout=devnull, stderr=devnull) == 0
+
+    devnull = open(os.devnull, 'wb')
+    try:
+        invalid = [path for path in find_macho_files(dirname)
+                        if not verify(path)]
+        if not invalid:
+            return
+        print('* Re-signing %d Mach-O file(s) with an invalid signature' %
+              (len(invalid),))
+        failed = []
+        for path in invalid:
+            print('Re-signing %s' % (path,))
+            os.chmod(path, 0o755)
+            if subprocess.call(['codesign', '-f', '-s', '-', path]) != 0:
+                failed.append(path)
+            elif not verify(path):
+                # a signature that does not verify is as bad as none at all
+                failed.append(path)
+        if failed:
+            raise RuntimeError(
+                'Could not produce a valid code signature for %s. Packaging '
+                'them would ship a binary that AMFI kills on import.'
+                % (', '.join(failed),))
+    finally:
+        devnull.close()
+
+
 def get_python_ver(pypy_c, quiet=False):
     kwds = {'universal_newlines': True}
     if quiet:
@@ -464,6 +526,11 @@ def create_package(basedir, options, _fake=False):
                         fid.write("tk8.6\n")
                         fid.write("tcl8.6\n")
                 os.chdir(str(builddir))
+
+            # smartstrip() and make_portable() modified the binaries in
+            # place, so any ad-hoc signature they had is now stale
+            if ARCH == 'darwin':
+                codesign_macho_files(str(pypydir))
         if USE_ZIPFILE_MODULE:
             import zipfile
             archive = str(builddir.join(name + '.zip'))

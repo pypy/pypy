@@ -341,7 +341,7 @@ elif _MS_WINDOWS:
             low = GetFileSize(handle, high_ref)
             low = rffi.cast(lltype.Signed, low)
             # XXX should be propagate the real type, allowing
-            # for 2*sys.maxint?
+            # for 2*sys.maxsize?
             high = high_ref[0]
             high = rffi.cast(lltype.Signed, high)
             # low might just happen to have the value INVALID_FILE_SIZE
@@ -546,7 +546,7 @@ class MMap(object):
         if _MS_WINDOWS:
             if self.file_handle != INVALID_HANDLE:
                 low, high = _get_file_size(self.file_handle)
-                if not high and low <= sys.maxint:
+                if not high and low <= sys.maxsize:
                     return low
                 # not so sure if the signed/unsigned strictness is a good idea:
                 high = rffi.cast(lltype.Unsigned, high)
@@ -1021,7 +1021,7 @@ elif _MS_WINDOWS:
             except OSError:
                 pass     # ignore non-seeking files and errors and trust map_size
             else:
-                if not high and low <= sys.maxint:
+                if not high and low <= sys.maxsize:
                     size = low
                 else:
                     # not so sure if the signed/unsigned strictness is a good idea:
