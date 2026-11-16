@@ -11,30 +11,41 @@ class CFFIWrapper(object):
         self.NULL = ffi.NULL
         self.cast = ffi.cast
         self.lib = ffi.dlopen("Shell32.dll")
-        self.SW_SHOWNORMAL = 1
         self.getwinerror = ffi.getwinerror
 
 _cffi_wrapper = None
 
 
-def startfile(filepath, operation=None):
+def _as_bytes(w, arg):
+    if arg is None:
+        return w.NULL
+    if isinstance(arg, str):
+        return arg.encode("ascii")
+    return arg
+
+
+def _as_str(w, arg):
+    if arg is None:
+        return w.NULL
+    if isinstance(arg, bytes):
+        return arg.decode("ascii")
+    return arg
+
+
+def startfile(filepath, operation=None, arguments=None, cwd=None, show_cmd=1):
     global _cffi_wrapper
     if _cffi_wrapper is None:
         _cffi_wrapper = CFFIWrapper()
     w = _cffi_wrapper
     #
-    if operation is None:
-        operation = w.NULL
     if isinstance(filepath, bytes):
-        if isinstance(operation, str):
-            operation = operation.encode("ascii")
-        rc = w.lib.ShellExecuteA(w.NULL, operation, filepath,
-                                 w.NULL, w.NULL, w.SW_SHOWNORMAL)
+        rc = w.lib.ShellExecuteA(w.NULL, _as_bytes(w, operation), filepath,
+                                 _as_bytes(w, arguments),
+                                 _as_bytes(w, cwd), show_cmd)
     elif isinstance(filepath, str):
-        if isinstance(operation, bytes):
-            operation = operation.decode("ascii")
-        rc = w.lib.ShellExecuteW(w.NULL, operation, filepath,
-                                 w.NULL, w.NULL, w.SW_SHOWNORMAL)
+        rc = w.lib.ShellExecuteW(w.NULL, _as_str(w, operation), filepath,
+                                 _as_str(w, arguments),
+                                 _as_str(w, cwd), show_cmd)
     else:
         raise TypeError("argument 1 must be str or bytes")
     rc = int(w.cast("uintptr_t", rc))
