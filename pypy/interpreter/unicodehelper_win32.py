@@ -53,6 +53,31 @@ if rwin32.WIN32:
             if used_default_p:
                 lltype.free(used_default_p, flavor='raw')
 
+    def _unibuf_to_utf8(dataptr, insize):
+        """Encode the widechar buffer dataptr to utf8.
+
+        The buffer is utf16, so a surrogate pair becomes the one codepoint
+        it encodes, like PyUnicode_FromWideChar() does.
+        """
+        flags = 0
+        used_default_p = lltype.nullptr(rwin32.BOOLP.TO)
+        # first get the size of the result; this crashes if insize == 0
+        if insize < 1:
+            return ''
+        outsize = rwin32.WideCharToMultiByte(rwin32.CP_UTF8, flags, dataptr,
+                                             insize, None, 0, None,
+                                             used_default_p)
+        if outsize == 0:
+            raise rwin32.lastSavedWindowsError()
+        with rffi.scoped_alloc_buffer(outsize) as buf:
+            if rwin32.WideCharToMultiByte(rwin32.CP_UTF8, flags, dataptr,
+                                          insize, buf.raw, outsize, None,
+                                          used_default_p) == 0:
+                raise rwin32.lastSavedWindowsError()
+            result = buf.str(outsize)
+            assert result is not None
+            return result
+
     def is_dbcs_lead_byte(c):
         # XXX don't know how to test this
         return False
