@@ -1026,7 +1026,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def difference(self, w_set, w_other):
         storage = self._difference_base(w_set, w_other)
-        w_newset = w_set.from_storage_and_strategy(storage, w_set.strategy)
+        w_newset = w_set.from_storage_and_strategy(storage, self)
         return w_newset
 
     def _difference_update_unwrapped(self, w_set, w_other):
@@ -1052,8 +1052,12 @@ class AbstractUnwrappedSetStrategy(object):
     def difference_update(self, w_set, w_other):
         if self.length(w_set) < w_other.strategy.length(w_other):
             # small_set -= big_set: compute the difference as a new set
+            old_storage = w_set.sstorage
             storage = self._difference_base(w_set, w_other)
-            w_set.sstorage = storage
+            if w_set.strategy is self and w_set.sstorage is old_storage:
+                w_set.sstorage = storage
+            else:
+                self._difference_update_wrapped(w_set, w_other)
         else:
             # big_set -= small_set: be more subtle
             if self is w_other.strategy:

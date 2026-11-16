@@ -1241,3 +1241,99 @@ class AppTestAppSetTest:
         assert hash(frozenset()) == 133146708735736
         h = hash(frozenset([1, 2, 9]))
         assert h == (-5390384031640186368)
+
+    def test_difference_update_eq_mutates_set_minimal(self):
+        class Evil(object):
+            def __hash__(self):
+                return 1
+            def __eq__(self, other):
+                r.clear()
+                r.add(1000)
+                return False
+
+        r = set([Evil(), "x"])
+        other = set([Evil(), "a", "b"])
+        r.difference_update(other)
+        assert list(r) == [1000]
+
+    def test_difference_update_eq_mutates_set_crash(self):
+        class Marker(object):
+            def __eq__(self, other):
+                return self is other
+            def __hash__(self):
+                return 2
+
+        done = []
+
+        class Evil(object):
+            def __hash__(self):
+                return 256
+            def __eq__(self, other):
+                if not done:
+                    done.append(True)
+                    r.clear()
+                    r.add(1000)
+                return False
+
+        r = set([Evil(), "x"])
+        other = set([Evil(), "a", "b"])
+        r.difference_update(other, frozenset([Marker()]))
+        assert list(r) == [1000]
+
+    def test_difference_update_eq_replaces_contents_same_strategy(self):
+        class Marker(object):
+            def __eq__(self, other):
+                return self is other
+            def __hash__(self):
+                return 2
+
+        marker = Marker()
+
+        class Evil(object):
+            def __hash__(self):
+                return 1
+            def __eq__(self, other):
+                r.clear()
+                r.add(marker)
+                return False
+
+        r = set([Evil(), "x"])
+        other = set([Evil(), "a", "b"])
+        r.difference_update(other)
+        assert list(r) == [marker]
+
+    def test_difference_operator_eq_mutates_set(self):
+        class Evil(object):
+            def __hash__(self):
+                return 1
+            def __eq__(self, other):
+                r.clear()
+                r.add(1000)
+                return False
+
+        r = set([Evil(), "x"])
+        other = set([Evil(), "a", "b"])
+        result = r - other
+        for item in result:
+            assert isinstance(item, (Evil, str))
+        assert list(r) == [1000]
+
+    def test_difference_update_small_minus_big(self):
+        r = set([1, 2, 3])
+        r.difference_update(set([2, 3, 4, 5, 6]))
+        assert r == set([1])
+        r.add(7)
+        r.add("a")
+        assert r == set([1, 7, "a"])
+
+        s = set(["a", "b"])
+        s.difference_update(set(["b", "c", "d"]))
+        assert s == set(["a"])
+        s.add("e")
+        assert s == set(["a", "e"])
+
+        m = set([1, "a", 2.5])
+        m.difference_update(set([1, "x", "y", "z"]))
+        assert m == set(["a", 2.5])
+        m.add(3)
+        assert m == set(["a", 2.5, 3])
