@@ -194,7 +194,7 @@ def _get_datetimeAPI(space):
         _PyDateTime_Import(space)
     return state.datetimeAPI[0]
 
-@specialize.argtype(1)
+@specialize.ll()
 def _set_date_fields(space, data, w_obj):
     year = space.int_w(space.getattr(w_obj, space.newtext('year')))
     data[0] = rffi.cast(rffi.UCHAR, year >> 8)
@@ -204,7 +204,7 @@ def _set_date_fields(space, data, w_obj):
     day = space.int_w(space.getattr(w_obj, space.newtext('day')))
     data[3] = rffi.cast(rffi.UCHAR, day)
 
-@specialize.argtype(1)
+@specialize.ll()
 def _set_time_fields(space, data, i, w_obj):
     hour = space.int_w(space.getattr(w_obj, space.newtext('hour')))
     data[i] = rffi.cast(rffi.UCHAR, hour)
@@ -217,7 +217,7 @@ def _set_time_fields(space, data, i, w_obj):
     data[i + 4] = rffi.cast(rffi.UCHAR, (usec >> 8) & 0xff)
     data[i + 5] = rffi.cast(rffi.UCHAR, usec & 0xff)
 
-@specialize.argtype(1)
+@specialize.ll()
 def _set_tzinfo_and_fold(space, py_datetime, w_obj):
     w_tzinfo = space.getattr(w_obj, space.newtext('tzinfo'))
     if space.is_none(w_tzinfo):
