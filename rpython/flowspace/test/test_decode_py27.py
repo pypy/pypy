@@ -1,3 +1,4 @@
+import dis
 import sys
 import types
 
@@ -117,9 +118,16 @@ def test_extended_arg():
     assert [instr.offset for instr in instrs] == [0, 6]
 
 
+def host_lineno(code, offset):
+    line = code.co_firstlineno
+    for start, lineno in dis.findlinestarts(code):
+        if start > offset:
+            break
+        line = lineno
+    return line
+
 def test_linetable():
     from rpython.flowspace import flowcontext, instr
-    from rpython.tool.error import offset2lineno
     source = ('def f(x):\n    y = x\n    if x:\n%s        return 1\n'
               '%s    return y\n')
     namespace = {}
@@ -136,5 +144,4 @@ def test_linetable():
     for code in codes:
         table = Py2Decoder(code).linetable()
         for offset in range(-1, len(code.co_code)):
-            assert (table.offset2lineno(offset) ==
-                    offset2lineno(code, offset))
+            assert table.offset2lineno(offset) == host_lineno(code, offset)
