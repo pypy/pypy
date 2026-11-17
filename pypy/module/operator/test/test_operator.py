@@ -400,6 +400,17 @@ class AppTestOperator:
         assert str(exc.value) == "'int' object can't be concatenated"
         assert iconcat([1], frozenset([2])) == [1, 2]
 
+        class L(list):
+            pass
+        assert iconcat(L([1]), frozenset([2])) == [1, 2]
+
+        class Seq:
+            def __getitem__(self, i):
+                return 1
+            def __add__(self, other):
+                return 'added'
+        raises(TypeError, iconcat, Seq(), 1)
+
     def test_attrgetter_pickle(self):
         # attrgetter stores a bound method in __dict__; __reduce__ must
         # serialize only the attribute strings to avoid pickling it.

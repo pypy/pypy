@@ -201,9 +201,20 @@ def imatmul(space, w_a, w_b):
     'imatmul(a, b) -- Same as a @= b.'
     return space.inplace_matmul(w_a, w_b)
 
+def _has_builtin_concat(space, w_obj):
+    w_type = space.type(w_obj)
+    for name in ['__iadd__', '__add__']:
+        w_where, w_descr = space.lookup_in_type_where(w_type, name)
+        if w_descr is not None:
+            return not w_where.is_heaptype()
+    return False
+
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'
-    if space.lookup(w_obj1, '__getitem__') is None:
+    # a builtin sequence decides by itself what it can be extended with
+    if (space.lookup(w_obj1, '__getitem__') is None or
+        (not _has_builtin_concat(space, w_obj1) and
+         space.lookup(w_obj2, '__getitem__') is None)):
         raise oefmt(space.w_TypeError, "'%T' object can't be concatenated",  w_obj1)
 
     return space.inplace_add(w_obj1, w_obj2)
