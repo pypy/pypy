@@ -29,6 +29,16 @@ class AppTestItertools(object):
         it = itertools.count(12.1, 1.0)
         assert repr(it) == 'count(12.1, 1.0)'
 
+    def test_count_int_subclass_start(self):
+        import itertools
+
+        it = itertools.count(True)
+        assert repr(it) == 'count(1)'
+        assert type(next(it)) is int
+        it = itertools.count(True, 2)
+        assert repr(it) == 'count(True, 2)'
+        assert next(it) is True
+
     def test_count_invalid(self):
         import itertools
 

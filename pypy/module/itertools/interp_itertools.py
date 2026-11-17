@@ -82,6 +82,12 @@ def W_Count___new__(space, w_subtype, w_start, w_step):
     check_number(space, w_step)
     r = space.allocate_instance(W_Count, w_subtype)
     r.__init__(space, w_start, w_step)
+    if r.single_argument() and space.isinstance_w(w_start, space.w_int):
+        try:
+            r.w_c = space.newint(space.int_w(w_start))
+        except OperationError as e:
+            if not e.match(space, space.w_OverflowError):
+                raise
     return r
 
 W_Count.typedef = TypeDef(
