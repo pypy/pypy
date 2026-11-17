@@ -203,8 +203,7 @@ def imatmul(space, w_a, w_b):
 
 def iconcat(space, w_obj1, w_obj2):
     'iconcat(a, b) -- Same as a += b, for a and b sequences.'
-    if (space.lookup(w_obj1, '__getitem__') is None or
-        space.lookup(w_obj2, '__getitem__') is None):
+    if space.lookup(w_obj1, '__getitem__') is None:
         raise oefmt(space.w_TypeError, "'%T' object can't be concatenated",  w_obj1)
 
     return space.inplace_add(w_obj1, w_obj2)

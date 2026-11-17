@@ -398,6 +398,7 @@ class AppTestOperator:
             iconcat(1, 0.5)
         print(exc.value)
         assert str(exc.value) == "'int' object can't be concatenated"
+        assert iconcat([1], frozenset([2])) == [1, 2]
 
     def test_attrgetter_pickle(self):
         # attrgetter stores a bound method in __dict__; __reduce__ must
